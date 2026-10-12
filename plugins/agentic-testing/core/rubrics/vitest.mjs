@@ -1,5 +1,5 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, envSignal, hasFeatureLabel, stepsSignal } from './shared.mjs'
+import { acSignals, envSignal, escapeRegExp, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
@@ -8,7 +8,7 @@ const weights = {
   steps: [15, 'steps to reproduce (Bug) or a user story (Story)'],
   expected_defined: [15, 'clear expected behaviour (Expected vs Actual, or AC present)'],
   context: [10, 'a Context / Summary section'],
-  title_prefix: [5, 'title prefix (a configured one, e.g. [FE|BE|FS])'],
+  title_prefix: [5, 'title prefix (a configured one)'],
   feature_label: [5, 'a feature label from the configured features'],
   environment: [5, 'environment / workspace context'],
 }
@@ -24,7 +24,10 @@ function deriveSignals(v, config, ticket) {
   const hasActual = hasHeading(v, description, v.actualHeading) || v.actualPhrase.test(description)
   const expected_defined = ac_present || (hasExpected && hasActual)
   const context = hasHeading(v, description, v.contextHeadingBE) || v.contextPhrase.test(description)
-  const title_prefix = new RegExp('^\\s*\\[(?:' + config.titlePrefixes.join('|') + ')\\]', 'i').test(summary)
+  const prefixes = config.titlePrefixes ?? []
+  // An empty list never matches (an empty alternation would accept a bare "[]").
+  const title_prefix = prefixes.length > 0 &&
+    new RegExp('^\\s*\\[(?:' + prefixes.map(escapeRegExp).join('|') + ')\\]', 'i').test(summary)
   const feature_label = hasFeatureLabel(config, ticket.labels)
   const environment = envSignal(v, hasHeading, description)
   const anyStructure =
@@ -36,7 +39,7 @@ function deriveSignals(v, config, ticket) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [] } = brief
+  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [], omitted = new Set() } = brief
   const band = legacy ? 'legacy / unstructured' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'
@@ -44,7 +47,7 @@ function formatReport(brief) {
       : `refuse, below ${threshold}%. Do not generate. Add the missing items on the ticket, then re-run.${legacy ? ' Legacy ticket, no template structure.' : ''}`
   return [
     `${key}: test-readiness ${score}% · ${band} (threshold ${threshold}%)`,
-    feature ? `Feature label: ${feature}` : 'Feature label: none',
+    ...(omitted.has('feature_label') ? [] : [feature ? `Feature label: ${feature}` : 'Feature label: none']),
     `Expected chunks in ticket text: ${derivable} assertable · model harvested ${scenarios.length} scenario(s) (not scored)`,
     missing.length
       ? `Missing (each lowers the score):\n${missing.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
@@ -62,6 +65,12 @@ export default {
     countDerivableFromText(v, [ticket.summary, ticket.text?.description, ticket.text?.acField].filter(Boolean).join('\n')),
   feature: (config, ticket) => (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
   briefExtras: () => ({}),
+  omitted: config => {
+    const keys = omittedKeys(config)
+    if (!(config.titlePrefixes ?? []).length) keys.add('title_prefix')
+    return keys
+  },
+  labels: config => ({ title_prefix: `title prefix (a configured one, e.g. [${(config.titlePrefixes ?? []).join('|')}])` }),
   legacyFlag: threshold => `legacy / unstructured: no template structure. Refused until the ticket meets the ${threshold}% bar.`,
   formatReport,
 }

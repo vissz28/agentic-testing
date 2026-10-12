@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validateConfig } from '../core/config.mjs'
 import { buildBrief, decideGate, formatReport, THRESHOLD } from '../core/score.mjs'
+import { formatRefuseComment } from '../core/jira.mjs'
+import { fillMenu } from '../core/fill.mjs'
 
 const cfg = adapter => validateConfig({
   version: 1, adapter,
@@ -63,3 +65,39 @@ test('legacy flag and report text are per rubric; rubric is not in the JSON', ()
   assert.match(formatReport(fe), /^D-1 — test-readiness 0% · legacy/)
   assert.match(formatReport(be), /^D-1: test-readiness 0% · legacy/)
 })
+
+// Spec §10 amendment: an empty titlePrefixes or features list can never be met, so its signal is
+// left out of what the author reads (missing list, report, refuse comment, fill menu).
+const own = (adapter, patch) => validateConfig({ ...cfg(adapter), ...patch }).config
+const thin = { key: 'DEMO-1', issuetype: 'Bug', labels: ['Orders'], summary: '[] s', text: { description: 'x' } }
+
+test('titlePrefixes with regex characters are matched literally', () => {
+  const c = own('vitest', { titlePrefixes: ['C++', 'A.B'] })
+  assert.equal(buildBrief(c, { ...thin, summary: '[C++] fix' }).signals.title_prefix, true)
+  assert.equal(buildBrief(c, { ...thin, summary: '[AxB] fix' }).signals.title_prefix, false)
+})
+test('the vitest title prefix label is built from config', () => {
+  const b = buildBrief(own('vitest', { titlePrefixes: ['UI', 'API'] }), thin)
+  assert.equal(b.missing.find(m => m.key === 'title_prefix').label, 'title prefix (a configured one, e.g. [UI|API])')
+  assert.doesNotMatch(formatReport(b), /FE\|BE\|FS/)
+})
+test('empty titlePrefixes: never matches and is left out of report, comment and fill menu', () => {
+  const c = own('vitest', { titlePrefixes: [] })
+  const b = buildBrief(c, thin)
+  assert.equal(b.signals.title_prefix, false)
+  assert.ok(!b.missing.some(m => m.key === 'title_prefix'))
+  assert.doesNotMatch(formatReport(b), /title prefix/i)
+  assert.doesNotMatch(formatRefuseComment(c, b), /title prefix/i)
+  assert.ok(!fillMenu(c, b).items.some(i => i.key === 'title_prefix'))
+})
+for (const adapter of ['playwright', 'vitest']) {
+  test(`empty features: feature_label is left out of report, comment and fill menu (${adapter})`, () => {
+    const c = own(adapter, { features: [] })
+    const b = buildBrief(c, thin)
+    assert.equal(b.signals.feature_label, false)
+    assert.ok(!b.missing.some(m => m.key === 'feature_label'))
+    assert.doesNotMatch(formatReport(b), /feature label/i)
+    assert.doesNotMatch(formatRefuseComment(c, b), /feature label/i)
+    assert.ok(!fillMenu(c, b).items.some(i => i.key === 'feature_label'))
+  })
+}

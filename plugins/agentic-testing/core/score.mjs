@@ -41,6 +41,8 @@ export function buildBrief(config, ticket) {
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)
   const feature = rubric.feature(config, ticket)
+  const omitted = rubric.omitted?.(config) ?? new Set()
+  const labels = rubric.labels?.(config) ?? {}
   const flags = [...(ticket.flags || [])]
   if (legacy) flags.unshift(rubric.legacyFlag(THRESHOLD))
   const brief = {
@@ -56,12 +58,15 @@ export function buildBrief(config, ticket) {
     ...rubric.briefExtras(config, ticket, feature),
     scenarios: ticket.scenarios ?? [],
     derivable,
-    missing: missing.map(m => ({ key: m.key, label: labelOverride(config, ticket.issuetype, m.key) ?? m.label, weight: m.weight })),
+    missing: missing
+      .filter(m => !omitted.has(m.key))
+      .map(m => ({ key: m.key, label: labelOverride(config, ticket.issuetype, m.key) ?? labels[m.key] ?? m.label, weight: m.weight })),
     flags,
     signals,
   }
   // Non-enumerable: the JSON brief keeps exactly today's field set.
   Object.defineProperty(brief, 'rubric', { value: rubric.id, enumerable: false })
+  Object.defineProperty(brief, 'omitted', { value: omitted, enumerable: false })
   return brief
 }
 

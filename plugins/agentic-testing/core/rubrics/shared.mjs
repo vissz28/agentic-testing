@@ -19,6 +19,15 @@ export function acSignals(v, description, acField) {
   return { ac_present, ac_testable }
 }
 
+/** A regular-expression source that matches `text` literally. */
+export const escapeRegExp = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * The keys this config can never credit: no features means no feature label to add. They score 0
+ * and are left out of the missing list, so nobody is asked for them.
+ */
+export const omittedKeys = config => new Set((config.features ?? []).length ? [] : ['feature_label'])
+
 export const hasFeatureLabel = (config, labels) =>
   (labels || []).some(l => config.features.some(f => f.label === l))
 
