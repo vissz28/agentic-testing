@@ -92,12 +92,15 @@ by typing a number:
 1. **Jira**: the site (for example `https://example.atlassian.net`) and the project keys (`ABC`),
    picked from the projects you can see.
 2. **Acceptance-criteria field**: the Jira field that holds the criteria, if your project has one
-   (found by its name, "Acceptance Criteria"); otherwise none.
+   (found by its name, "Acceptance Criteria" or "Criteri di accettazione"); if there is no single
+   match, you pick it from a numbered list or choose none.
 3. **Other projects to track** (optional).
-4. **Feature labels**: picked from the labels on your project's last 100 tickets, with counts. For
+4. **Feature labels**: picked from the labels on up to 100 recent tickets, with counts. In a project
+   shared by many teams, first narrow the search to a word in the title or one component, or type
+   your labels (each is checked to exist). For
    Playwright also the screen route of each one (`/orders`) and the text used to find its Confluence
    QA plan.
-5. **Title prefixes** (Vitest only): counted from recent ticket titles (`[API] …`), or none.
+5. **Title prefixes** (Vitest only): counted from the same tickets' titles (`[API] …`), or none.
 6. **Languages**: English, plus Italian if your tickets use Italian section names.
 7. **Redaction**: customer-id redaction is on by default; add extra patterns if you need them.
 8. **Templates**: if the repo has no Bug/Story issue templates, it offers the plugin's standard ones.
