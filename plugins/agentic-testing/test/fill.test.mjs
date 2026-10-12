@@ -119,7 +119,7 @@ test('playwright: bug menu lists every gap once, AC first, no QA plan', () => {
   assert.equal(menu.items[0].gain, 55, 'AC gain counts the testable and expected it also credits')
   assert.deepEqual(menu.items.map(i => i.n), [1, 2, 3, 4, 5])
   assert.ok(menu.items.every(i => i.n && i.title && i.question && i.example && Number.isInteger(i.gain)))
-  assert.deepEqual(Object.keys(menu), ['key', 'issuetype', 'score', 'threshold', 'signals', 'items'])
+  assert.deepEqual(Object.keys(menu), ['key', 'rubric', 'issuetype', 'score', 'threshold', 'signals', 'items'])
   assert.ok(menu.items[1].question.includes('Orders, Invoices'), 'the feature question lists the configured features')
   assert.ok(formatFillMenu(menu).includes('0 of the 70 points'))
 })
@@ -175,6 +175,23 @@ test('vitest: context and title prefix', () => {
   const own = validateConfig({ ...BE, titlePrefixes: ['UI', 'API'] }).config
   assert.equal(applyAnswer(own, beBare, 'title_prefix', 'api').input.summary, '[API] order filter wrong', 'prefixes come from config')
   assert.ok(!applyAnswer(own, beBare, 'title_prefix', 'BE').ok)
+})
+test('title_prefix rejection text is overridable from config messages', () => {
+  const custom = 'Type BE (backend), FE (frontend) or FS (both).'
+  const c = validateConfig({ ...BE, messages: { title_prefix: { reject: custom } } }).config
+  assert.equal(applyAnswer(c, beBare, 'title_prefix', 'backend team').reason, custom)
+  assert.equal(applyAnswer(BE, beBare, 'title_prefix', 'backend team').reason, 'Type FE, BE or FS.')
+})
+test('the menu names its rubric; projectPick uses it, and falls back to signals without it', () => {
+  const m = fillMenu(BE, brief(BE, beBare))
+  assert.equal(m.rubric, 'vitest')
+  assert.equal(fillMenu(FE, brief(FE, feBare)).rubric, 'playwright')
+  const n = m.items.find(i => i.key === 'environment').n
+  assert.equal(projectPick(m, [n]).score, 5)
+  const { rubric, ...bare } = JSON.parse(JSON.stringify(m))
+  assert.equal(projectPick(bare, [n]).score, 5)
+  // a wrong signal shape cannot mislead it when the id is present
+  assert.equal(projectPick({ ...m, signals: { ...m.signals } }, [n]).score, 5)
 })
 test('playwright has no context or title prefix to fill; vitest has no QA plan', () => {
   assert.ok(!applyAnswer(FE, feBare, 'context', 'Order filter matches substrings').ok)

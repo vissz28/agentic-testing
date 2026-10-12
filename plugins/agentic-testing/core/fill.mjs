@@ -56,7 +56,7 @@ export function fillMenu(config, brief) {
     })
     .sort((a, b) => b.gain - a.gain || order.indexOf(a.key) - order.indexOf(b.key))
     .map((item, i) => ({ n: i + 1, ...item }))
-  return { key: brief.key, issuetype: brief.issuetype, score: brief.score, threshold: brief.threshold, signals: brief.signals, items }
+  return { key: brief.key, rubric: rubric.id, issuetype: brief.issuetype, score: brief.score, threshold: brief.threshold, signals: brief.signals, items }
 }
 
 /** The rubric a menu was built for, read from its signal keys so a menu that went through JSON still works. */
@@ -73,7 +73,8 @@ export function projectPick(menu, nums) {
     if (!picked.includes(item)) picked.push(item)
   }
   if (!picked.length) return { error: 'Type at least one number from the list.' }
-  const score = scoreTicket(rubricOfSignals(menu.signals), credit(menu.signals, picked.map(i => i.key))).score
+  const rubric = menu.rubric === 'vitest' ? vitest : menu.rubric === 'playwright' ? playwright : rubricOfSignals(menu.signals)
+  const score = scoreTicket(rubric, credit(menu.signals, picked.map(i => i.key))).score
   return {
     picked: picked.map(({ n, key, title, question, example }) => ({ n, key, title, question, example })),
     score,
@@ -162,7 +163,10 @@ export function applyAnswer(config, ticket, key, answer) {
     case 'title_prefix': {
       const typed = text.match(/^\[?\s*([^\]]*?)\s*\]?$/)?.[1] ?? ''
       const prefix = prefixes.find(p => p.toLowerCase() === typed.toLowerCase())
-      if (!prefix) return reject(`Type ${prefixes.length > 1 ? `${prefixes.slice(0, -1).join(', ')} or ${prefixes.at(-1)}` : prefixes[0] ?? 'a prefix'}.`)
+      if (!prefix) {
+        const custom = messagesFor(config, kind).title_prefix.reject
+        return reject(typeof custom === 'string' && custom ? custom : `Type ${prefixes.length > 1 ? `${prefixes.slice(0, -1).join(', ')} or ${prefixes.at(-1)}` : prefixes[0] ?? 'a prefix'}.`)
+      }
       entry.prefix = prefix
       next.summary = `[${prefix}] ${String(next.summary ?? '').replace(/^\s*\[[^\]]*\]\s*/, '')}`
       break
