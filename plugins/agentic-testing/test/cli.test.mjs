@@ -137,3 +137,11 @@ test('-- ends flag parsing, so an answer may start with --', () => {
   assert.equal(r.status, 0, r.stderr)
   assert.match(readFileSync(join(d, 't.json'), 'utf8'), /Env: --staging/)
 })
+test('jira-update uses the configured fill marker', () => {
+  const d = proj()
+  const c = JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'))
+  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify({ ...c, messages: { jiraFillMark: '_Added by QA._' } }))
+  assert.equal(run(d, 'add', '--in', '@t.json', 'environment', 'staging').status, 0)
+  const line = run(d, 'jira-update', '--in', '@t.json').stdout.split('\n').find(l => l.startsWith('JIRA_UPDATE_JSON:'))
+  assert.match(JSON.parse(line.slice('JIRA_UPDATE_JSON:'.length)).append, /^_Added by QA\._\n\n## Environment/)
+})

@@ -106,7 +106,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       return r.ok ? 0 : 1
     }
     case 'jira-update': {
-      const u = jiraUpdate(ticket)
+      const u = jiraUpdate(config, ticket)
       out(formatJiraUpdate(u))
       out(`JIRA_UPDATE_JSON:${JSON.stringify(u)}`)
       return 0

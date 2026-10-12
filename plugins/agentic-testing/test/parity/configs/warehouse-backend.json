@@ -136,6 +136,7 @@
       "bug": "The full Bug template is in the warehouse-backend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.",
       "story": "The full Story template is in the warehouse-backend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue."
     },
-    "refuseFallback": "Please add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then."
+    "refuseFallback": "Please add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then.",
+    "jiraFillMark": "_Added during the /spec readiness check._"
   }
 }

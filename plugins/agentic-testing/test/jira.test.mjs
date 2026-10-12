@@ -36,10 +36,15 @@ test('browse URL from config', () => {
 })
 test('jira update sends only filled sections', () => {
   const t = { ...bare, filled: [{ key: 'ac_present', section: '## Acceptance criteria\n- x' }, { key: 'feature_label', label: 'Orders' }] }
-  const u = jiraUpdate(t)
-  assert.equal(u.append, '_Added during the /spec readiness check._\n\n## Acceptance criteria\n- x')
+  const u = jiraUpdate(cfg(), t)
+  assert.equal(u.append, '_Added during the agentic-testing readiness check._\n\n## Acceptance criteria\n- x')
   assert.deepEqual(u.labelsAdd, ['Orders'])
   assert.match(formatJiraUpdate(u), /Nothing already on the ticket is changed\./)
+})
+test('the Jira fill marker comes from messages.jiraFillMark (spec §10 #9)', () => {
+  const t = { ...bare, filled: [{ key: 'steps', section: '## Steps to reproduce\n1. a' }] }
+  assert.equal(jiraUpdate(cfg({ messages: { jiraFillMark: '_Added by QA._' } }), t).append, '_Added by QA._\n\n## Steps to reproduce\n1. a')
+  assert.equal(jiraUpdate(cfg(), { ...bare, filled: [] }).append, null)
 })
 test('the template line leaves no blank line behind when empty', () => {
   const c = cfg()

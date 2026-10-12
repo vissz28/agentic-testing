@@ -83,6 +83,8 @@ export function validateConfig(input) {
     }
   }
   if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
+  else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
+    e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,

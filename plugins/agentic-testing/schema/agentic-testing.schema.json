@@ -63,6 +63,23 @@
       "default": { "customerId": "\\bU\\d{5,}\\b" },
       "additionalProperties": { "type": "string", "description": "A regular expression source." }
     },
-    "messages": { "type": "object", "default": {} }
+    "messages": {
+      "type": "object",
+      "default": {},
+      "description": "Texts a ticket author reads. Per rubric key (ac_present, steps, ...) any of title, missing, add, question, example, label, reject; story overrides again for Story tickets. Built-in defaults first, then messages.<key> field by field, then messages.story.<key>.",
+      "properties": {
+        "jiraFillMark": {
+          "type": "string",
+          "minLength": 1,
+          "default": "_Added during the agentic-testing readiness check._",
+          "description": "The line put above the sections a guided fill-in appends to the Jira description."
+        },
+        "refuseFallback": { "type": "string" },
+        "templateLine": {
+          "type": "object",
+          "properties": { "bug": { "type": "string" }, "story": { "type": "string" } }
+        }
+      }
+    }
   }
 }

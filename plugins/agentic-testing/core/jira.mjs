@@ -12,7 +12,13 @@ export const REFUSE_COMMENT_FOOTER = 'Thanks, we can continue as soon as these a
 /** Same footer as posted before 2026-09-23. Still matched, or a re-run would duplicate. */
 export const OLD_FOOTER = 'Thanks — we can continue as soon as these are on the ticket.'
 
-export const JIRA_FILL_MARK = '_Added during the /spec readiness check._'
+/** The line above the sections a fill-in adds to Jira, unless config.messages.jiraFillMark says otherwise. */
+export const JIRA_FILL_MARK = '_Added during the agentic-testing readiness check._'
+
+export function jiraFillMark(config) {
+  const custom = config?.messages?.jiraFillMark
+  return typeof custom === 'string' ? custom : JIRA_FILL_MARK
+}
 
 /** Sections the Story template does not have. Never ask a Story author for them. */
 const NOT_ON_STORY = new Set(['environment', 'expected_defined'])
@@ -74,11 +80,11 @@ export function formatRefuseComment(config, brief) {
  * to add, and a title prefix. Built from the `filled` record only, so the sanitized (redacted) text
  * on disk never goes back.
  */
-export function jiraUpdate(input) {
+export function jiraUpdate(config, input) {
   const filled = input.filled ?? []
   const sections = filled.filter(f => f.section).map(f => f.section)
   return {
-    append: sections.length ? [JIRA_FILL_MARK, ...sections].join('\n\n') : null,
+    append: sections.length ? [jiraFillMark(config), ...sections].join('\n\n') : null,
     labelsAdd: [...new Set(filled.filter(f => f.label).map(f => f.label))],
     titlePrefix: filled.findLast(f => f.prefix)?.prefix ?? null,
     replacedVague: filled.some(f => f.replacedVague),
