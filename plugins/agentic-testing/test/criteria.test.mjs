@@ -34,6 +34,12 @@ test('CRLF text reads the same as LF', () => {
     C.extractNaturalAC(v, `## Acceptance criteria\r\n- ${L}\r\n`),
     C.extractNaturalAC(v, `## Acceptance criteria\n- ${L}\n`))
 })
+test('stripVagueCriteria keeps the original line ends (it rewrites the stored ticket)', () => {
+  const crlf = '## Acceptance criteria\r\n- The list works correctly\r\n- The total is 150\r\n## Notes\r\nThe old page works correctly'
+  assert.equal(C.stripVagueCriteria(v, crlf), '## Acceptance criteria\r\n- The total is 150\r\n## Notes\r\nThe old page works correctly')
+  assert.equal(C.stripVagueCriteria(v, 'Given a\r\nThen it works correctly\r\nThen 5 rows'), 'Given a\r\nThen 5 rows')
+  assert.equal(C.stripVagueCriteria(v, 'Then 5 rows\r\n'), 'Then 5 rows\r\n', 'nothing vague: unchanged byte for byte')
+})
 test('gherkin needs a Then and two steps', () => {
   assert.equal(C.hasGherkin(v, 'Given a\nWhen b\nThen c'), true)
   assert.equal(C.hasGherkin(v, 'Scenario: x'), false)

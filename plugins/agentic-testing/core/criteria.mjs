@@ -83,17 +83,19 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
  * section is left alone.
  */
 export function stripVagueCriteria(v, text, { headingless = false } = {}) {
-  text = normalise(text)
-  if (!text) return text
+  if (text == null || text === '') return ''
   let inSection = headingless
   const kept = []
-  for (const line of text.split('\n')) {
+  // The result is written back into the ticket, so each kept line keeps its own line end: read a
+  // line without its CR, keep it with it.
+  for (const raw of String(text).split('\n')) {
+    const line = raw.replace(/\r$/, '')
     if (v.acHeading.test(line)) inSection = true
     else if (inSection && !headingless && line.trim() && v.sectionEnd.test(line)) inSection = false
     const content = line.replace(v.listItem, '').trim()
     const isStep = v.thenStep.test(content) || v.continuation.test(content)
     if (hasVaguePhrase(v, line) && (inSection || isStep)) continue
-    kept.push(line)
+    kept.push(raw)
   }
   return kept.join('\n')
 }
