@@ -18,15 +18,15 @@ export function adfToText(node) {
   return ''
 }
 
-/** Replace e-mails, UUIDs and every pattern in config.redact. A pattern named customerId keeps the legacy text U######. */
+/** Replace every pattern in config.redact, then e-mails and UUIDs. A pattern named customerId keeps the legacy text U######. */
 export function redact(config, text) {
   if (text == null) return ''
   let s = typeof text === 'string' ? text : adfToText(text)
-  s = s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'user@example.test')
-  s = s.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, WS)
   for (const [name, src] of Object.entries(config?.redact ?? {})) {
     s = s.replace(new RegExp(src, 'g'), name === 'customerId' ? 'U######' : `[redacted:${name}]`)
   }
+  s = s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'user@example.test')
+  s = s.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, WS)
   return s
 }
 

@@ -60,7 +60,7 @@
     "ticketsDir": { "type": "string", "default": ".claude/agentic-testing/tickets" },
     "redact": {
       "type": "object",
-      "default": { "customerId": "U\\d{5,}" },
+      "default": { "customerId": "\\bU\\d{5,}\\b" },
       "additionalProperties": { "type": "string", "description": "A regular expression source." }
     },
     "messages": { "type": "object", "default": {} }

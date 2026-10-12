@@ -18,7 +18,7 @@ test('a minimal valid config passes and gets defaults', () => {
   assert.equal(r.ok, true)
   assert.deepEqual(r.config.titlePrefixes, ['FE', 'BE', 'FS'])
   assert.equal(r.config.ticketsDir, '.claude/agentic-testing/tickets')
-  assert.deepEqual(r.config.redact, { customerId: 'U\\d{5,}' })
+  assert.deepEqual(r.config.redact, { customerId: '\\bU\\d{5,}\\b' })
   assert.deepEqual(r.config.jira.trackingProjects, [])
 })
 

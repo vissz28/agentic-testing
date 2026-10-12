@@ -29,3 +29,9 @@ test('merge request found on any host', () => {
   const t = sanitizeTicket(cfg(), { remoteLinks: [{ url: 'https://other.example/a/merge_requests/9' }] })
   assert.equal(t.gitlab.iid, 9)
 })
+test('default customer id is whole-word', () => {
+  assert.equal(redact(cfg(), 'ABC' + id + ' and ' + id), 'ABC' + id + ' and U######')
+})
+test('team patterns run before e-mail and uuid replacement', () => {
+  assert.equal(redact(cfg({ x: 'example' }), 'a@example.com'), 'user@example.test')
+})

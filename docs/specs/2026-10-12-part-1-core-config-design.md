@@ -75,7 +75,7 @@ documentation; the check itself is `core/config.mjs`, without dependencies.
 | `titlePrefixes` | list of strings | no | `["FE","BE","FS"]` | `[FE\|BE\|FS]` in the backend rubric |
 | `ticketTemplates.bug` / `.story` | repo-relative paths | no | `null` (refuse comment then names no template) | `.gitlab/issue_templates/{Bug,Story}.md` |
 | `ticketsDir` | repo-relative path | no | `.claude/agentic-testing/tickets` | `e2e/tickets/` (FE), `.claude/audit/tickets/` (BE) |
-| `redact` | object of name → regex string | no | `{ "customerId": "U\\d{5,}" }` | `U######` pattern in the backend sanitizer |
+| `redact` | object of name → regex string | no | `{ "customerId": "\\bU\\d{5,}\\b" }` | `U######` pattern in the backend sanitizer |
 | `messages` | object: per rubric key `{title, missing, add, question, example}`, a `story` object with the same per-key overrides, and `templateLine` (`{bug, story}`) | no | neutral built-in texts | warehouse wording in the refuse comment, the fill-in and the template line |
 
 Unknown fields are an error (so a typo is caught, not ignored). Every error names the field and says

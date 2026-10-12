@@ -11,7 +11,7 @@ const LANGS = new Set(['en', 'it'])
 export const DEFAULTS = Object.freeze({
   titlePrefixes: ['FE', 'BE', 'FS'],
   ticketsDir: '.claude/agentic-testing/tickets',
-  redact: { customerId: 'U\\d{5,}' },
+  redact: { customerId: '\\bU\\d{5,}\\b' },
   messages: {},
   ticketTemplates: { bug: null, story: null },
 })
