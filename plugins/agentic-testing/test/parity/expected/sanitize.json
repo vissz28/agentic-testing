@@ -287,7 +287,7 @@
         ],
         "scenarios": [
           {
-            "then": "shows <secret:6>"
+            "then": "shows U######"
           }
         ],
         "flags": [

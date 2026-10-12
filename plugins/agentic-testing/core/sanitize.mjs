@@ -40,10 +40,23 @@ export function findMergeRequest(input = {}) {
   return { url, iid: Number(m[1]) }
 }
 
+/** Redact every string leaf of a harvested value; other values keep their shape. */
+function redactLeaves(config, value) {
+  if (typeof value === 'string') return redact(config, value)
+  if (Array.isArray(value)) return value.map(v => redactLeaves(config, v))
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redactLeaves(config, v)]))
+  return value
+}
+
+/** Free text the model harvested next to the ticket body. */
+const HARVESTED = ['scenarios', 'qaPlan', 'flags']
+
 export function sanitizeTicket(config, input = {}) {
   const text = input.text ?? {}
+  const harvested = Object.fromEntries(HARVESTED.filter(k => k in input).map(k => [k, redactLeaves(config, input[k])]))
   return {
     ...input,
+    ...harvested,
     summary: redact(config, input.summary ?? ''),
     text: {
       description: redact(config, text.description ?? ''),

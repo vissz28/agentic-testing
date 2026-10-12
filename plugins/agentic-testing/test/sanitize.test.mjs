@@ -35,3 +35,17 @@ test('default customer id is whole-word', () => {
 test('team patterns run before e-mail and uuid replacement', () => {
   assert.equal(redact(cfg({ x: 'example' }), 'a@b.com'), 'user@example.test')
 })
+test('harvested free text is redacted: every string in scenarios, qaPlan and flags (spec §10 #8)', () => {
+  const mail = 'mario' + '@' + 'acme.example'
+  const t = sanitizeTicket(cfg(), {
+    key: 'DEMO-1',
+    scenarios: [{ then: `shows ${id}`, steps: [`log in as ${mail}`], n: 3 }, `Then ${id} sees 80`],
+    qaPlan: { url: 'https://e.atlassian.net/wiki/x', title: `plan for ${id}`, scenarios: [{ expected: `mail ${mail}` }] },
+    flags: [`customer ${id}`],
+  })
+  assert.deepEqual(t.scenarios, [{ then: 'shows U######', steps: ['log in as user@example.test'], n: 3 }, 'Then U###### sees 80'])
+  assert.deepEqual(t.qaPlan, { url: 'https://e.atlassian.net/wiki/x', title: 'plan for U######', scenarios: [{ expected: 'mail user@example.test' }] })
+  assert.deepEqual(t.flags, ['customer U######'])
+  assert.equal('qaPlan' in sanitizeTicket(cfg(), { key: 'DEMO-1' }), false, 'absent fields stay absent')
+  assert.equal(sanitizeTicket(cfg(), { key: 'DEMO-1', qaPlan: null }).qaPlan, null)
+})

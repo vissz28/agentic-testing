@@ -8,6 +8,8 @@
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
 // Sanitize: today's backend sanitizer and `cli.mjs sanitize` under the backend config write the
 // same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
+// One hand edit, spec §10 #8 (harvested free text is redacted): in expected/sanitize.json the
+// untouched-fields scenario `then` reads "shows U######" where today's script kept the id.
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
