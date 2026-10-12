@@ -94,8 +94,8 @@ config does not have is never asked for.
 list, so setup always keeps the customer-id pattern in it unless you turn it off.
 
 **GitLab.** The plugin setting `gitlab_mcp_url` defaults to TeamSystem's GitLab
-(`https://biosphere.teamsystem.com/api/v4/mcp`). Teams on another GitLab change it with
-`/plugin configure`.
+(`https://biosphere.teamsystem.com/api/v4/mcp`). Teams on another GitLab enter their own URL when Claude Code asks for the plugin's settings
+at enable time, or change it later from the `/plugin` menu.
 
 ---
 
@@ -491,7 +491,7 @@ How configuration will work:
   redaction) in one committed file, `.claude/agentic-testing.json`, written and checked by the setup
   command, never edited by hand.
 - **Personal settings and secrets** (Figma key, GitLab URL) through Claude Code's own plugin settings
-  (`/plugin configure`); secrets are stored in the system keychain, never in a repo.
+  (asked when the plugin is enabled, editable from the `/plugin` menu); secrets are stored in the system keychain, never in a repo.
 
 Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 [part 1 plan](docs/plans/2026-10-12-part-1-core-config.md).

@@ -107,7 +107,7 @@ Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as pr
    Type your answer, or "skip".
    ```
 
-   Then `cli.mjs add <key> "<their answer, verbatim>"`. Show its line. `Accepted.`: next item. `Not accepted:`: show it and ask again; after 2 rejections on one item, move on. `skip`: move on. Plain acceptance criteria need at least 150 characters, or Gherkin steps; the script says so when an answer is too short. Only `add` writes `ticket.json`, and only when the answer counts. Never edit it yourself and never send answers to Jira on this path.
+   Then `cli.mjs add --in @<ticket.json> <key> -- "<their answer, verbatim>"` (the `--` keeps an answer that starts with `--` from being read as a flag). Show its line. `Accepted.`: next item. `Not accepted:`: show it and ask again; after 2 rejections on one item, move on. `skip`: move on. Plain acceptance criteria need at least 150 characters, or Gherkin steps; the script says so when an answer is too short. Only `add` writes `ticket.json`, and only when the answer counts. Never edit it yourself and never send answers to Jira on this path.
 
 After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass`: show this card (skip it if nothing was accepted; `--ci` never shows it):
 
