@@ -1,0 +1,305 @@
+{
+  "source": {
+    "ref": "origin/agt-34-remove-audit-logs",
+    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f",
+    "script": "sanitize-ticket.mjs"
+  },
+  "results": [
+    {
+      "name": "plain-all-fields",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-100",
+        "issuetype": "Bug",
+        "status": "TO DO",
+        "labels": [
+          "Giacenza_Prodotti",
+          "<secret:5>"
+        ],
+        "summary": "[U######] stock wrong for user@example.test",
+        "text": {
+          "description": "Customer U###### (workspace 00000000-0000-4000-8000-000000000001) wrote from user@example.test.\nAlso U###### and U######.",
+          "acField": "Then U###### sees 80; mail user@example.test; ws 00000000-0000-4000-8000-000000000001"
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "glued-and-short-ids",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-101",
+        "summary": "code <secret:2> and <secret:3>",
+        "text": {
+          "description": "glued <secret:2>, right <secret:3>, short U1234, alone U######.",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "uuid-versions",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-102",
+        "summary": "uuids",
+        "text": {
+          "description": "v4 00000000-0000-4000-8000-000000000001\nv1 00000000-0000-4000-8000-000000000001\nnot a version aaaaaaaa-1b2c-0d3e-cf9a-0b1c2d3e4f5a",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "adf-paragraphs-lists-breaks-marks",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-103",
+        "summary": "adf",
+        "text": {
+          "description": "What happens?Customer \nU######\n sees 150\n\ninstead of 80.mail user@example.test 3f2c1e4a-1b2c-4d3e-9f9a-0b1c2d3e4f5aopenfilter 22See https://gitlab.example/group/repo/-/merge_requests/42).",
+          "acField": "Then the KPI shows \n80\n."
+        },
+        "gitlab": {
+          "url": "https://gitlab.example/group/repo/-/merge_requests/42",
+          "iid": 42
+        }
+      }
+    },
+    {
+      "name": "adf-empty-doc",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-104",
+        "summary": "",
+        "text": {
+          "description": "",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "adf-summary-and-odd-values",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-105",
+        "summary": "U###### cost",
+        "text": {
+          "description": "12345",
+          "acField": "true"
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "missing-text",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-106",
+        "labels": [],
+        "summary": "only U######",
+        "text": {
+          "description": "",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "null-fields",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-107",
+        "summary": "",
+        "text": {
+          "description": "",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "no-key",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "summary": "no key user@example.test",
+        "text": {
+          "description": "body",
+          "acField": ""
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "name": "mr-gitlab-style",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-108",
+        "summary": "s",
+        "text": {
+          "description": "See https://biosphere.example.com/oneplatform/islands/microsme/repo-be/-/merge_requests/61.",
+          "acField": ""
+        },
+        "gitlab": {
+          "url": "https://biosphere.example.com/oneplatform/islands/microsme/repo-be/-/merge_requests/61",
+          "iid": 61
+        }
+      }
+    },
+    {
+      "name": "mr-without-dash",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-109",
+        "summary": "s",
+        "text": {
+          "description": "MR: http://git.internal.example/team/repo/merge_requests/7, merged.",
+          "acField": ""
+        },
+        "gitlab": {
+          "url": "http://git.internal.example/team/repo/merge_requests/7",
+          "iid": 7
+        }
+      }
+    },
+    {
+      "name": "mr-trailing-punctuation",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-110",
+        "summary": "s",
+        "text": {
+          "description": "(https://gitlab.com/a/b/-/merge_requests/3);]",
+          "acField": ""
+        },
+        "gitlab": {
+          "url": "https://gitlab.com/a/b/-/merge_requests/3",
+          "iid": 3
+        }
+      }
+    },
+    {
+      "name": "mr-remote-link-only",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-111",
+        "remoteLinks": [
+          {
+            "url": "https://gitlab.example/group/repo/-/merge_requests/9"
+          }
+        ],
+        "text": {
+          "description": "no link in the body",
+          "acField": ""
+        },
+        "summary": "",
+        "gitlab": {
+          "url": "https://gitlab.example/group/repo/-/merge_requests/9",
+          "iid": 9
+        }
+      }
+    },
+    {
+      "name": "mr-first-of-several",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-112",
+        "summary": "see https://one.example/x/-/merge_requests/11",
+        "comments": [
+          {
+            "body": "by <secret:0>: https://two.example/y/merge_requests/22"
+          }
+        ],
+        "text": {
+          "description": "and https://three.example/z/-/merge_requests/33",
+          "acField": ""
+        },
+        "gitlab": {
+          "url": "https://one.example/x/-/merge_requests/11",
+          "iid": 11
+        }
+      }
+    },
+    {
+      "name": "mr-in-comment-and-adf",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-113",
+        "comments": [
+          {
+            "author": "<secret:1>",
+            "body": {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "fix in https://gitlab.example/g/r/-/merge_requests/1234"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "text": {
+          "description": "nothing here",
+          "acField": ""
+        },
+        "summary": "",
+        "gitlab": {
+          "url": "https://gitlab.example/g/r/-/merge_requests/1234",
+          "iid": 1234
+        }
+      }
+    },
+    {
+      "name": "untouched-fields",
+      "stdout": "",
+      "exit": 0,
+      "out": {
+        "key": "FIC-114",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-114",
+        "issuetype": "Story",
+        "status": "DONE",
+        "labels": [
+          "CS-Tech-bug",
+          "warehouse"
+        ],
+        "scenarios": [
+          {
+            "then": "shows <secret:6>"
+          }
+        ],
+        "flags": [
+          "x"
+        ],
+        "gitlab": null,
+        "summary": "plain",
+        "text": {
+          "description": "plain",
+          "acField": "plain"
+        }
+      }
+    }
+  ]
+}

@@ -6,12 +6,15 @@
 //   #2  a bare `warehouse` label no longer counts (its own fixture, asserted to differ)
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
+// Sanitize: today's backend sanitizer and `cli.mjs sanitize` under the backend config write the
+// same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { mask, sanitizeInputs } from './parity/sanitize-inputs.mjs'
 
 const CLI = new URL('../core/cli.mjs', import.meta.url).pathname
 const DIR = new URL('./parity/', import.meta.url).pathname
@@ -159,4 +162,29 @@ test('spec §10 #6: the frontend JIRA_UPDATE_JSON has no titlePrefix today', () 
 
 test('every fixture has captured output for each op', () => {
   for (const fx of FIXTURES) assert.equal(fx.expected.results.length, fx.ops.length, fx.name)
+})
+
+describe('sanitize parity with today\'s backend sanitizer', { concurrency: 8 }, () => {
+  const expected = read(join(DIR, 'expected/sanitize.json')).results
+  const inputs = sanitizeInputs()
+  test('expected/sanitize.json was captured from these inputs', () => {
+    assert.deepEqual(expected.map(r => r.name), inputs.map(i => i.name))
+  })
+  for (const { name, raw } of inputs) {
+    test(`sanitize: ${name}`, async () => {
+      const want = expected.find(r => r.name === name)
+      const dir = mkdtempSync(join(tmpdir(), 'parity-sanitize-'))
+      try {
+        mkdirSync(join(dir, '.claude'))
+        writeFileSync(join(dir, '.claude/agentic-testing.json'), JSON.stringify(CONFIGS.be))
+        writeFileSync(join(dir, 'raw.json'), JSON.stringify(raw))
+        const got = await run(dir, ['sanitize', '--in', '@raw.json', '--out', 'ticket.json'])
+        assert.equal(got.exit, want.exit)
+        assert.equal(mask(got.stdout), want.stdout)
+        assert.deepEqual(JSON.parse(mask(readFileSync(join(dir, 'ticket.json'), 'utf8'))), want.out)
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+  }
 })
