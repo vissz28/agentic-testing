@@ -87,3 +87,11 @@ test('missing --in and unknown command exit 2', () => {
   assert.equal(run(d, 'score').status, 2)
   assert.equal(run(d, 'nope', '--in', '@t.json').status, 2)
 })
+test('add rejection: no Example line for a key the rubric does not score', () => {
+  const d = proj()
+  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  const r = run(d, 'add', '--in', '@t.json', 'context', 'Order filter matches substrings')
+  assert.equal(r.status, 1)
+  assert.equal(r.stdout.split('\n')[0], 'Not accepted: There is no criterion called context that can be typed in.')
+  assert.doesNotMatch(r.stdout, /^Example: /m)
+})

@@ -102,6 +102,13 @@ export function formatPick(pick) {
     : `With ${nums} the ticket reaches ${pick.score} points (the bar is ${pick.threshold}): ${pick.short} points short. Pick more numbers, or type them again.`
 }
 
+/** The example shown after a rejected answer: only for a key the rubric lets the author type in. */
+export function exampleFor(config, ticket, key) {
+  const rubric = rubricFor(config)
+  if (key === 'qa_plan_found' || !Object.hasOwn(rubric.weights, key)) return undefined
+  return messagesFor(config, templateFor(ticket.issuetype))[key]?.example
+}
+
 /**
  * Write one answer into the ticket, but only if the rubric then credits it. A rejected answer
  * returns the untouched input and the reason, so nothing half-written reaches the file.

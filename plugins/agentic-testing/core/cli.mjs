@@ -6,8 +6,7 @@ import { loadConfig, projectRoot } from './config.mjs'
 import { buildBrief, formatReport } from './score.mjs'
 import { formatRefuseComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
 import { sanitizeTicket } from './sanitize.mjs'
-import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer } from './fill.mjs'
-import { messagesFor, templateFor } from './messages.mjs'
+import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from './fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -93,7 +92,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
         const b = r.brief
         out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       } else {
-        const example = messagesFor(config, templateFor(ticket.issuetype))[key]?.example
+        const example = exampleFor(config, ticket, key)
         out(`Not accepted: ${r.reason}${example ? `\nExample: ${example.replace(/\n/g, ' / ')}` : ''}`)
       }
       const after = r.brief ?? buildBrief(config, ticket)

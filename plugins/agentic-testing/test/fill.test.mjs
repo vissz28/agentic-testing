@@ -5,7 +5,7 @@ import { buildBrief } from '../core/score.mjs'
 import { messagesFor } from '../core/messages.mjs'
 import { buildVocabulary } from '../core/languages/index.mjs'
 import { stripVagueCriteria } from '../core/criteria.mjs'
-import { applyAnswer, fillMenu, formatFillMenu, formatPick, projectPick } from '../core/fill.mjs'
+import { applyAnswer, exampleFor, fillMenu, formatFillMenu, formatPick, projectPick } from '../core/fill.mjs'
 
 const cfg = adapter => validateConfig({
   version: 1, adapter,
@@ -207,4 +207,12 @@ test('rejection wording follows each rubric', () => {
   assert.equal(applyAnswer(BE, beBare, 'expected_defined', 'a').reason, 'Write both, separated by |: what should happen | what happens now.')
   assert.equal(applyAnswer(FE, feBare, 'nope', 'x').reason, 'There is no criterion called nope that can be typed in.')
   assert.equal(applyAnswer(BE, beBare, 'nope', 'x').reason, 'There is no criterion called nope.')
+})
+test('exampleFor: only a key the rubric lets the author type in has an example', () => {
+  assert.equal(exampleFor(FE, feBare, 'environment'), messagesFor(FE, 'bug').environment.example)
+  assert.equal(exampleFor(BE, { ...beBare, issuetype: 'Story' }, 'context'), messagesFor(BE, 'story').context.example)
+  assert.equal(exampleFor(FE, feBare, 'context'), undefined, 'playwright does not score context')
+  assert.equal(exampleFor(FE, feBare, 'title_prefix'), undefined, 'playwright does not score a title prefix')
+  assert.equal(exampleFor(FE, feBare, 'qa_plan_found'), undefined, 'a QA plan cannot be typed in')
+  assert.equal(exampleFor(BE, beBare, 'nope'), undefined)
 })
