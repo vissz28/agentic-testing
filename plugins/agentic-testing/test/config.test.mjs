@@ -74,3 +74,30 @@ test('projectRoot prefers CLAUDE_PROJECT_DIR, else cwd', () => {
   assert.equal(projectRoot({}, '/c'), '/c')
   assert.equal(configPath('/p'), '/p/.claude/agentic-testing.json')
 })
+
+bad({ jira: 'x' }, 'jira')
+bad({ jira: 5 }, 'jira')
+bad({ jira: { ...good.jira, trackingProjects: 'ABC' } }, 'jira.trackingProjects')
+bad({ jira: { ...good.jira, trackingProjects: { a: 1 } } }, 'jira.trackingProjects')
+bad({ titlePrefixes: 'FE' }, 'titlePrefixes')
+bad({ titlePrefixes: ['FE', ''] }, 'titlePrefixes[1]')
+bad({ ticketsDir: '' }, 'ticketsDir')
+bad({ ticketsDir: 5 }, 'ticketsDir')
+bad({ ticketTemplates: 'x' }, 'ticketTemplates')
+bad({ ticketTemplates: { bug: 5 } }, 'ticketTemplates.bug')
+bad({ ticketTemplates: { story: {} } }, 'ticketTemplates.story')
+bad({ ticketTemplates: { epic: 'x' } }, 'ticketTemplates.epic')
+bad({ redact: 'x' }, 'redact')
+bad({ redact: { x: 5 } }, 'redact.x')
+bad({ messages: 'x' }, 'messages')
+bad({ messages: [] }, 'messages')
+bad({ features: [{ label: 'A', route: 5 }] }, 'features[0].route')
+
+test('a non-string route is not reported as missing a slash', () => {
+  const r = validateConfig({ ...good, features: [{ label: 'A', route: 5 }] })
+  assert.doesNotMatch(r.errors.join(' '), /start with/)
+})
+
+test('validateConfig never throws on non-object input', () => {
+  for (const v of ['x', null, undefined, 5, []]) assert.equal(validateConfig(v).ok, false)
+})

@@ -25,13 +25,20 @@ export function validateConfig(input) {
   for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /agentic-testing:setup)`)
   if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /agentic-testing:setup`)
   if (!['playwright', 'vitest'].includes(c.adapter)) e.push(`adapter: must be "playwright" or "vitest" (found ${JSON.stringify(c.adapter)})`)
-  const j = c.jira ?? {}
-  if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
-  if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
-  else j.projects.forEach((p, i) => { if (!KEY.test(p)) e.push(`jira.projects[${i}] "${p}" must be upper-case letters and digits, like "ABC"`) })
-  if (!('acceptanceCriteriaField' in j) || !(j.acceptanceCriteriaField === null || /^customfield_\d+$/.test(j.acceptanceCriteriaField)))
-    e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
-  ;(j.trackingProjects ?? []).forEach((p, i) => { if (!KEY.test(p)) e.push(`jira.trackingProjects[${i}] "${p}" must be upper-case letters and digits`) })
+  const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
+  const j = isObj(c.jira) ? c.jira : {}
+  if (!isObj(c.jira)) e.push('jira: must be an object with site, projects and acceptanceCriteriaField')
+  else {
+    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
+    if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
+    else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits, like "ABC"`) })
+    if (!('acceptanceCriteriaField' in j) || !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
+      e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
+    if (j.trackingProjects !== undefined) {
+      if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
+      else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits`) })
+    }
+  }
   if (!Array.isArray(c.languages) || c.languages.length === 0) e.push('languages: must list at least one of "en", "it"')
   else c.languages.forEach((l, i) => { if (!LANGS.has(l)) e.push(`languages[${i}] "${l}" is not supported (supported: en, it)`) })
   if (!Array.isArray(c.features)) e.push('features: must be a list (it may be empty)')
@@ -41,12 +48,32 @@ export function validateConfig(input) {
       if (!f || typeof f.label !== 'string' || !f.label.trim()) e.push(`features[${i}].label: must be a non-empty text`)
       else if (seen.has(f.label)) e.push(`features[${i}].label "${f.label}" appears twice`)
       else seen.add(f.label)
-      if (f?.route != null && !/^\//.test(f.route)) e.push(`features[${i}].route "${f.route}" must start with "/"`)
+      if (f?.route != null) {
+        if (typeof f.route !== 'string') e.push(`features[${i}].route: must be text starting with "/"`)
+        else if (!f.route.startsWith('/')) e.push(`features[${i}].route "${f.route}" must start with "/"`)
+      }
     })
   }
-  for (const [name, src] of Object.entries(c.redact ?? {})) {
-    try { new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`) }
+  if (c.titlePrefixes !== undefined) {
+    if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
+    else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
+  if (c.ticketsDir !== undefined && (typeof c.ticketsDir !== 'string' || !c.ticketsDir.trim())) e.push('ticketsDir: must be a non-empty text')
+  if (c.ticketTemplates !== undefined) {
+    if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
+    else for (const [k, v] of Object.entries(c.ticketTemplates)) {
+      if (k !== 'bug' && k !== 'story') e.push(`ticketTemplates.${k}: unknown field (only "bug" and "story")`)
+      else if (v !== null && typeof v !== 'string') e.push(`ticketTemplates.${k}: must be text or null`)
+    }
+  }
+  if (c.redact !== undefined) {
+    if (!isObj(c.redact)) e.push('redact: must be an object of name to regular expression')
+    else for (const [name, src] of Object.entries(c.redact)) {
+      if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
+      try { new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`) }
+    }
+  }
+  if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,
