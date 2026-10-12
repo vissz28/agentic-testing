@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "agentic-testing team config (.claude/agentic-testing.json)",
+  "description": "Documentation of the rules enforced by core/config.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "adapter", "jira", "languages", "features"],
+  "properties": {
+    "version": { "const": 1 },
+    "adapter": { "enum": ["playwright", "vitest"] },
+    "jira": {
+      "type": "object",
+      "required": ["site", "projects", "acceptanceCriteriaField"],
+      "properties": {
+        "site": { "type": "string", "pattern": "^https://" },
+        "projects": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]+$" }
+        },
+        "acceptanceCriteriaField": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^customfield_\\d+$" }]
+        },
+        "trackingProjects": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]+$" }
+        }
+      }
+    },
+    "languages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["en", "it"] }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "route": { "type": "string", "pattern": "^/" },
+          "qaPlanSearch": { "type": "string" }
+        }
+      }
+    },
+    "titlePrefixes": {
+      "type": "array",
+      "default": ["FE", "BE", "FS"],
+      "items": { "type": "string" }
+    },
+    "ticketTemplates": {
+      "type": "object",
+      "properties": {
+        "bug": { "type": ["string", "null"], "default": null },
+        "story": { "type": ["string", "null"], "default": null }
+      }
+    },
+    "ticketsDir": { "type": "string", "default": ".claude/agentic-testing/tickets" },
+    "redact": {
+      "type": "object",
+      "default": { "customerId": "U\\d{5,}" },
+      "additionalProperties": { "type": "string", "description": "A regular expression source." }
+    },
+    "messages": { "type": "object", "default": {} }
+  }
+}

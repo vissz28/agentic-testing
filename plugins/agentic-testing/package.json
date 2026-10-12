@@ -1,0 +1,6 @@
+{
+  "name": "agentic-testing-core",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test test/" }
+}
