@@ -47,7 +47,7 @@
     },
     "titlePrefixes": {
       "type": "array",
-      "default": ["FE", "BE", "FS"],
+      "default": [],
       "description": "Title prefixes the vitest rubric credits, written without brackets and matched literally. May be [] when the team uses none: the title-prefix signal then scores 0 and is never asked for.",
       "items": { "type": "string", "minLength": 1 }
     },

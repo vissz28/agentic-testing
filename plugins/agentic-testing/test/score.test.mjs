@@ -10,6 +10,7 @@ const cfg = adapter => validateConfig({
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
   features: [{ label: 'Orders', route: '/orders' }],
+  titlePrefixes: ['FE', 'BE', 'FS'],
 }).config
 
 test('the bar is 70 and fixed', () => {

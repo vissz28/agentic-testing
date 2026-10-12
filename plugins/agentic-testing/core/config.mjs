@@ -9,7 +9,7 @@ const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', '
 const LANGS = new Set(['en', 'it'])
 
 export const DEFAULTS = Object.freeze({
-  titlePrefixes: ['FE', 'BE', 'FS'],
+  titlePrefixes: [],
   ticketsDir: '.claude/agentic-testing/tickets',
   redact: { customerId: '\\bU\\d{5,}\\b' },
   messages: {},
