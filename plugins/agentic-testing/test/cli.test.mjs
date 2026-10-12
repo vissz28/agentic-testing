@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -103,4 +103,37 @@ test('add rejection: no Example line for a key the rubric does not score', () =>
   assert.equal(r.status, 1)
   assert.equal(r.stdout.split('\n')[0], 'Not accepted: There is no criterion called context that can be typed in.')
   assert.doesNotMatch(r.stdout, /^Example: /m)
+})
+test('sanitize with --out equal to --in keeps the sanitized file', () => {
+  const d = proj()
+  for (const out of ['t.json', './t.json', join(d, 't.json')]) {
+    assert.equal(run(d, 'sanitize', '--in', '@t.json', '--out', out).status, 0, out)
+    assert.equal(existsSync(join(d, 't.json')), true, out)
+    assert.equal(JSON.parse(readFileSync(join(d, 't.json'), 'utf8')).key, 'DEMO-1', out)
+  }
+})
+const oneLine = r => {
+  assert.equal(r.stderr.trim().split('\n').length, 1, r.stderr)
+  assert.doesNotMatch(r.stderr, /^\s+at /m)
+}
+test('sanitize into a missing folder: one line, exit 2, input kept', () => {
+  const d = proj()
+  const r = run(d, 'sanitize', '--in', '@t.json', '--out', 'no/such/dir/clean.json')
+  assert.equal(r.status, 2)
+  oneLine(r)
+  assert.equal(existsSync(join(d, 't.json')), true)
+})
+test('add on a read-only ticket file: one line, exit 2', () => {
+  const d = proj()
+  chmodSync(join(d, 't.json'), 0o444)
+  const r = run(d, 'add', '--in', '@t.json', 'environment', 'staging')
+  chmodSync(join(d, 't.json'), 0o644)
+  assert.equal(r.status, 2)
+  oneLine(r)
+})
+test('-- ends flag parsing, so an answer may start with --', () => {
+  const d = proj()
+  const r = run(d, 'add', '--in', '@t.json', '--', 'environment', '--staging')
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(readFileSync(join(d, 't.json'), 'utf8'), /Env: --staging/)
 })

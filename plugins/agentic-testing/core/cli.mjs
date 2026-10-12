@@ -18,6 +18,8 @@ function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i]
+    // `--` ends the flags: everything after it is positional, so an answer may start with "--".
+    if (t === '--') { a._.push(...argv.slice(i + 1)); break }
     if (t === '--in' || t === '--out') a[t.slice(2)] = argv[++i]
     else if (t.startsWith('--')) {
       if (!KNOWN_FLAGS.has(t)) throw new Error(`unknown arg: ${t}`)
@@ -54,8 +56,12 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { err('sanitize needs --out <path>'); return 2 }
-      writeFileSync(resolve(root, a.out), `${JSON.stringify(sanitizeTicket(config, ticket))}\n`)
-      if (inPath) unlinkSync(inPath)
+      const outPath = resolve(root, a.out)
+      try {
+        writeFileSync(outPath, `${JSON.stringify(sanitizeTicket(config, ticket))}\n`)
+        // The raw input goes once the clean copy is on disk, unless the two are the same file.
+        if (inPath && inPath !== outPath) unlinkSync(inPath)
+      } catch (e) { err(`sanitize: cannot write ${a.out} (${e.code ?? e.message})`); return 2 }
       return 0
     }
     case 'score': {
@@ -88,7 +94,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       const [key, answer] = a._
       const r = applyAnswer(config, ticket, key, answer)
       if (r.ok) {
-        writeFileSync(inPath, JSON.stringify(r.input))
+        try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { err(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
         const b = r.brief
         out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       } else {
