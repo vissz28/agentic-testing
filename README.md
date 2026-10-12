@@ -11,6 +11,9 @@ criteria, runs them, and hands back a short result card in plain words.
 | **`warehouse-frontend`** | `warehouse-frontend` | a Playwright spec that drives the real app, plus an XRay test case (CSV + styled Excel) |
 | **`warehouse-backend`** | `warehouse-backend` | Vitest specs against a real Postgres (unit, integration, range) |
 
+> **Status.** The two plugins above are built for the warehouse repos today. The work to make this
+> a common solution any team can configure is under way: see [Roadmap](#roadmap).
+
 > **The rule everything is built on:** the model drafts and writes the tests, but it **never grades
 > them**. Every score and every pass/fail comes from a deterministic script. A green result is not
 > the model's opinion of its own work.
@@ -32,7 +35,8 @@ criteria, runs them, and hands back a short result card in plain words.
 11. [Maintaining the plugins](#maintaining-the-plugins)
 12. [Troubleshooting](#troubleshooting)
 13. [Known limits](#known-limits)
-14. [History](#history)
+14. [Roadmap](#roadmap)
+15. [History](#history)
 
 ---
 
@@ -395,11 +399,45 @@ agentic-testing/
 
 ## Known limits
 
-- **The harness lives in the repos, not in the plugin.** Portable, self-contained packaging (any
-  project, config-driven labels and routes) is planned as AGT-28.
+- **Warehouse only, for now.** The Jira project (`FIC`), feature labels, screen routes and stack
+  details are built in, and the harness scripts live in each warehouse repo rather than in the
+  plugin. Making it reusable is the [Roadmap](#roadmap) below (AGT-28).
 - **The backend has no write-time hook.** Its guard checks the run's git diff afterwards.
 - **Run logging is unchanged and local.** The audit `.jsonl` logs were cleared (AGT-34); the scripts
   still write them, and changing that flow is a separate task.
+
+---
+
+## Roadmap
+
+The next version is one plugin, **`agentic-testing`**, that any TeamSystem team can use with a
+React + Playwright frontend or a Node/TypeScript + Vitest backend, with no warehouse value left in
+the code. It is built in five parts, each with its own reviewed spec and plan:
+
+| # | Part | What it brings | Status |
+|---|---|---|---|
+| 1 | Core + config | `/agentic-testing:setup` writes the team config inside Claude Code; the readiness gate, guided fill-in and Jira push work for any Jira project | spec and plan approved |
+| 2 | Shared checks | honesty, assertion and mutation checks, boundary guard and flaky check, configured instead of hard-coded | planned |
+| 3 | Playwright adapter | frontend test writing and the pipeline for any app | planned |
+| 4 | Vitest adapter | backend test writing, layers and Stryker for any service | planned |
+| 5 | Sample project + rollout | a reference project, an onboarding page, warehouse switched to the new plugin | planned |
+
+What stays the same for every team: the **70-point bar**, the rubric per stack, the
+**150-character** rule for plain-language criteria, the vague-word rules, and the rule that the
+model never grades its own tests.
+
+How configuration will work:
+
+- **Team settings** (Jira project, acceptance-criteria field, feature labels and routes, languages,
+  redaction) in one committed file, `.claude/agentic-testing.json`, written and checked by the setup
+  command, never edited by hand.
+- **Personal settings and secrets** (Figma key, GitLab URL) through Claude Code's own plugin settings
+  (`/plugin configure`); secrets are stored in the system keychain, never in a repo.
+
+Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
+[part 1 plan](docs/plans/2026-10-12-part-1-core-config.md).
+
+The `warehouse-frontend` and `warehouse-backend` plugins keep working unchanged until part 5.
 
 ---
 
@@ -411,5 +449,6 @@ agentic-testing/
 | AGT-31 / AGT-32 | Guided fill-in on refuse, push to Jira, `[RISK / NOT RECOMMENDED]` flag |
 | AGT-33 | Frontend bar raised from 60 to 70 to match the backend |
 | AGT-34 | Accumulated audit logs removed |
+| AGT-28 | Reusable solution for any team: in progress, see [Roadmap](#roadmap) |
 
 Step-by-step guide for QA: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
