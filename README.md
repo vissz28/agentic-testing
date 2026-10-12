@@ -10,9 +10,11 @@ criteria, runs them, and hands back a short result card in plain words.
 |---|---|---|
 | **`warehouse-frontend`** | `warehouse-frontend` | a Playwright spec that drives the real app, plus an XRay test case (CSV + styled Excel) |
 | **`warehouse-backend`** | `warehouse-backend` | Vitest specs against a real Postgres (unit, integration, range) |
+| **`agentic-testing`** | any repo with Playwright or Vitest | part 1 today: setup and the readiness gate, guided fill-in, Jira comment and push (no tests written yet) |
 
-> **Status.** The two plugins above are built for the warehouse repos today. The work to make this
-> a common solution any team can configure is under way: see [Roadmap](#roadmap).
+> **Status.** The two warehouse plugins are built for the warehouse repos. `agentic-testing` is the
+> reusable plugin any team can configure; part 1 is ready, see
+> [The reusable plugin](#the-reusable-plugin-agentic-testing) and the [Roadmap](#roadmap).
 
 > **The rule everything is built on:** the model drafts and writes the tests, but it **never grades
 > them**. Every score and every pass/fail comes from a deterministic script. A green result is not
@@ -22,21 +24,78 @@ criteria, runs them, and hands back a short result card in plain words.
 
 ## Contents
 
-1. [How it works](#how-it-works)
-2. [Requirements](#requirements)
-3. [Install](#install)
-4. [Quick start](#quick-start)
-5. [The readiness gate](#the-readiness-gate)
-6. [When a ticket is refused](#when-a-ticket-is-refused)
-7. [The checks after writing](#the-checks-after-writing)
-8. [Commands](#commands)
-9. [Where the output goes](#where-the-output-goes)
-10. [Safety](#safety)
-11. [Maintaining the plugins](#maintaining-the-plugins)
-12. [Troubleshooting](#troubleshooting)
-13. [Known limits](#known-limits)
-14. [Roadmap](#roadmap)
-15. [History](#history)
+1. [The reusable plugin: agentic-testing](#the-reusable-plugin-agentic-testing)
+2. [How it works](#how-it-works)
+3. [Requirements](#requirements)
+4. [Install](#install)
+5. [Quick start](#quick-start)
+6. [The readiness gate](#the-readiness-gate)
+7. [When a ticket is refused](#when-a-ticket-is-refused)
+8. [The checks after writing](#the-checks-after-writing)
+9. [Commands](#commands)
+10. [Where the output goes](#where-the-output-goes)
+11. [Safety](#safety)
+12. [Maintaining the plugins](#maintaining-the-plugins)
+13. [Troubleshooting](#troubleshooting)
+14. [Known limits](#known-limits)
+15. [Roadmap](#roadmap)
+16. [History](#history)
+
+---
+
+## The reusable plugin: agentic-testing
+
+The same readiness gate, for any Jira project and any repo with Playwright or Vitest. Nothing about
+your team is built in: it lives in one config file that a setup command writes for you.
+
+**Install**, inside Claude Code in your repo:
+
+```
+/plugin marketplace add vissz28/agentic-testing
+/plugin install agentic-testing@agentic-testing
+/agentic-testing:setup
+```
+
+Then check a ticket:
+
+```
+/agentic-testing:ticket-eval ABC-123
+```
+
+**What setup asks.** It detects the stack from `package.json` (Playwright or Vitest; if both, it
+asks which), then asks one thing per card and you answer by number:
+
+1. the Jira site (for example `https://example.atlassian.net`) and the project keys (`ABC`);
+2. the Jira field that holds the acceptance criteria, if your project has one;
+3. other projects to track (optional);
+4. which labels are feature labels, picked from the labels on your recent tickets; for Playwright
+   also the screen route of each one and the text used to find its Confluence QA plan;
+5. for Vitest, the title prefixes your team uses (for example `[API]`), counted from recent ticket
+   titles, or none;
+6. the languages of your tickets (English, plus Italian if your tickets use it);
+7. extra redaction patterns (optional);
+8. whether to add the plugin's standard Bug and Story templates, if your repo has none.
+
+It shows the whole config before writing it, writes only after you type `1`, adds the ticket-copy
+folder to `.gitignore`, and proves the setup on one recent ticket.
+
+**The config file** is `.claude/agentic-testing.json` in the project root. Commit it. Change it by
+running `/agentic-testing:setup` again, not by hand. Every `ticket-eval` run checks it first and names
+any field that is wrong. Ticket copies go to `.claude/agentic-testing/tickets/` (`ticketsDir`).
+
+**The gate** is the same for every team: a ticket needs **70 points out of 100** to pass, and the
+bar cannot be changed. Acceptance criteria count when they are Gherkin (Given / When / Then, any
+length) or **at least 150 characters** of plain criteria under an Acceptance criteria heading or in
+the criteria field. HTML comments are never read as criteria. A feature label or title prefix your
+config does not have is never asked for.
+
+**Redaction.** Before scoring, the ticket copy on disk is redacted: e-mails, UUIDs and customer ids
+(`U` followed by 5 or more digits) by default. Extra patterns you add in setup replace that default
+list, so setup always keeps the customer-id pattern in it unless you turn it off.
+
+**GitLab.** The plugin setting `gitlab_mcp_url` defaults to TeamSystem's GitLab
+(`https://biosphere.teamsystem.com/api/v4/mcp`). Teams on another GitLab change it with
+`/plugin configure`.
 
 ---
 
@@ -416,7 +475,7 @@ the code. It is built in five parts, each with its own reviewed spec and plan:
 
 | # | Part | What it brings | Status |
 |---|---|---|---|
-| 1 | Core + config | `/agentic-testing:setup` writes the team config inside Claude Code; the readiness gate, guided fill-in and Jira push work for any Jira project | spec and plan approved |
+| 1 | Core + config | `/agentic-testing:setup` writes the team config inside Claude Code; the readiness gate, guided fill-in and Jira push work for any Jira project | built (v0.2.0) |
 | 2 | Shared checks | honesty, assertion and mutation checks, boundary guard and flaky check, configured instead of hard-coded | planned |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any app | planned |
 | 4 | Vitest adapter | backend test writing, layers and Stryker for any service | planned |

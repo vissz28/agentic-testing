@@ -6,6 +6,6 @@
   "author": { "name": "Elvis Zefaj" },
   "userConfig": {
     "figma_api_key": { "type": "string", "title": "Figma API key", "description": "Personal Figma token for the design side-by-side. Optional.", "sensitive": true },
-    "gitlab_mcp_url": { "type": "string", "title": "GitLab MCP URL", "description": "Your GitLab instance's MCP endpoint.", "default": "https://biosphere.teamsystem.com/api/v4/mcp" }
+    "gitlab_mcp_url": { "type": "string", "title": "GitLab MCP URL", "description": "Your GitLab instance's MCP endpoint. The default is TeamSystem's GitLab; teams on another GitLab must change it.", "default": "https://biosphere.teamsystem.com/api/v4/mcp" }
   }
 }

@@ -48,7 +48,8 @@
     "titlePrefixes": {
       "type": "array",
       "default": ["FE", "BE", "FS"],
-      "items": { "type": "string" }
+      "description": "Title prefixes the vitest rubric credits, written without brackets and matched literally. May be [] when the team uses none: the title-prefix signal then scores 0 and is never asked for.",
+      "items": { "type": "string", "minLength": 1 }
     },
     "ticketTemplates": {
       "type": "object",
@@ -57,11 +58,17 @@
         "story": { "type": ["string", "null"], "default": null }
       }
     },
-    "ticketsDir": { "type": "string", "default": ".claude/agentic-testing/tickets" },
+    "ticketsDir": {
+      "type": "string",
+      "default": ".claude/agentic-testing/tickets",
+      "pattern": "^[^\\r\\n]+$",
+      "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\" and a trailing \"/\" is dropped, so the .gitignore line is <dir>/*/raw.json."
+    },
     "redact": {
       "type": "object",
       "default": { "customerId": "\\bU\\d{5,}\\b" },
-      "additionalProperties": { "type": "string", "description": "A regular expression source." }
+      "description": "Name to regular expression. A redact object replaces the default, it does not add to it: keep \"customerId\" in it to keep customer-id redaction. customerId matches become U######, others [redacted:<name>]. E-mails and UUIDs are always redacted.",
+      "additionalProperties": { "type": "string", "description": "A regular expression source. It must not match empty text." }
     },
     "messages": {
       "type": "object",

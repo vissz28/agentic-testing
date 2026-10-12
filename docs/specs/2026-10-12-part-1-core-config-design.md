@@ -72,11 +72,11 @@ documentation; the check itself is `core/config.mjs`, without dependencies.
 | `jira.trackingProjects` | list of keys | no | `[]` | the `AGT\|FIC` allowed in `.skip(... TICKET-1 ...)` (used from part 2) |
 | `languages` | list of `"en"` \| `"it"`, ≥1 | yes | — | built-in EN+IT keyword lists |
 | `features` | list of `{label, route?, qaPlanSearch?}`, labels unique | yes (may be empty) | `route` must start with `/` | the 8 warehouse labels in 6+ files |
-| `titlePrefixes` | list of strings | no | `["FE","BE","FS"]` | `[FE\|BE\|FS]` in the backend rubric |
+| `titlePrefixes` | list of strings, matched literally; may be `[]` (no title-prefix signal) | no | `["FE","BE","FS"]` | `[FE\|BE\|FS]` in the backend rubric |
 | `ticketTemplates.bug` / `.story` | repo-relative paths | no | `null` (refuse comment then names no template) | `.gitlab/issue_templates/{Bug,Story}.md` |
-| `ticketsDir` | repo-relative path | no | `.claude/agentic-testing/tickets` | `e2e/tickets/` (FE), `.claude/audit/tickets/` (BE) |
-| `redact` | object of name → regex string | no | `{ "customerId": "\\bU\\d{5,}\\b" }` | `U######` pattern in the backend sanitizer |
-| `messages` | object: per rubric key `{title, missing, add, question, example}`, a `story` object with the same per-key overrides, and `templateLine` (`{bug, story}`) | no | neutral built-in texts | warehouse wording in the refuse comment, the fill-in and the template line |
+| `ticketsDir` | repo-relative path, one line; `\` becomes `/` and a trailing `/` is dropped | no | `.claude/agentic-testing/tickets` | `e2e/tickets/` (FE), `.claude/audit/tickets/` (BE) |
+| `redact` | object of name → regex string; replaces the default, so keep `customerId`; no pattern may match empty text | no | `{ "customerId": "\\bU\\d{5,}\\b" }` | `U######` pattern in the backend sanitizer |
+| `messages` | object: per rubric key `{title, missing, add, question, example}`, a `story` object with the same per-key overrides, `templateLine` (`{bug, story}`), `refuseFallback` and `jiraFillMark` | no | neutral built-in texts | warehouse wording in the refuse comment, the fill-in and the template line |
 
 Unknown fields are an error (so a typo is caught, not ignored). Every error names the field and says
 what is expected, for example `jira.projects[0] "fic" must be upper-case letters and digits, like "FIC"`.
@@ -118,7 +118,7 @@ All under `plugins/agentic-testing/core/`. Node built-ins only, no npm dependenc
 | `criteria.mjs` | read criteria (Gherkin + plain), strip vague criteria, count derivable results | languages |
 | `rubrics/playwright.mjs`, `rubrics/vitest.mjs` | per stack: the weights, the signal detectors (the backend also accepts question forms for expected/actual and counts derivable results from the ticket text; the frontend uses headings and counts from scenarios) and the extra brief fields (frontend: feature route, QA plan) | languages, criteria |
 | `score.mjs` | pick the rubric by `adapter`, score, gate at 70, build the brief | config, rubrics |
-| `sanitize.mjs` | redact emails, UUIDs and the configured patterns in summary, description and criteria field | config |
+| `sanitize.mjs` | redact emails, UUIDs and the configured patterns in summary, description, criteria field and the harvested `scenarios`, `qaPlan` and `flags` | config |
 | `fill.mjs` | fill menu, pick, add (accepted only if the rubric then credits it), `filled` record | score, criteria |
 | `jira.mjs` | refuse comment text; fill-in push payload (append, labels, title prefix); browse URL | config, score |
 | `cli.mjs` | the one entry point | all |
@@ -216,6 +216,20 @@ In the plugin repo, with Node's built-in runner (`node --test`), no dependencies
    read keys from the fill menu, so nothing breaks; the JSON key name changes.
 6. The frontend `JIRA_UPDATE_JSON` line also carries `titlePrefix` (always `null` there), as the
    backend's does.
+7. Gherkin and `Then` lines inside HTML comments (`<!-- … -->`) are ignored by every Gherkin and
+   `Then` detector (`hasGherkin`, `hasThen`, the vague-`Then` check, the expected-result count), as
+   plain-language criteria already were. A template's commented example can no longer pass the
+   gate. No warehouse fixture changes.
+8. The free text the model harvests next to the ticket body (`scenarios`, `qaPlan`, `flags`) is
+   redacted too, every string in it, not only the summary, description and criteria field. Parity:
+   in `expected/sanitize.json` the `untouched-fields` scenario reads `shows U######` (hand-edited).
+9. The line put above a fill-in pushed to Jira comes from `messages.jiraFillMark`, default
+   `_Added during the agentic-testing readiness check._`. Warehouse's two configs carry today's text
+   (`_Added during the /spec readiness check._`), so warehouse output is unchanged.
+
+Also, for configs other than warehouse's: an empty `titlePrefixes` or `features` list can never be
+met. That signal scores 0 and is left out of the missing list, the report, the refuse comment and
+the fill menu, so nobody is asked for it. Warehouse sets both lists, so its output is unchanged.
 
 ## 11. Out of scope for part 1
 
