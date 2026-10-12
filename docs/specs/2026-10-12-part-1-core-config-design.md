@@ -76,7 +76,7 @@ documentation; the check itself is `core/config.mjs`, without dependencies.
 | `ticketTemplates.bug` / `.story` | repo-relative paths | no | `null` (refuse comment then names no template) | `.gitlab/issue_templates/{Bug,Story}.md` |
 | `ticketsDir` | repo-relative path | no | `.claude/agentic-testing/tickets` | `e2e/tickets/` (FE), `.claude/audit/tickets/` (BE) |
 | `redact` | object of name → regex string | no | `{ "customerId": "U\\d{5,}" }` | `U######` pattern in the backend sanitizer |
-| `examples` | object of rubric key → example text | no | neutral built-in examples | warehouse example text in refuse comment and fill-in |
+| `messages` | object: per rubric key `{title, missing, add, question, example}`, a `story` object with the same per-key overrides, and `templateLine` (`{bug, story}`) | no | neutral built-in texts | warehouse wording in the refuse comment, the fill-in and the template line |
 
 Unknown fields are an error (so a typo is caught, not ignored). Every error names the field and says
 what is expected, for example `jira.projects[0] "fic" must be upper-case letters and digits, like "FIC"`.
@@ -116,7 +116,8 @@ All under `plugins/agentic-testing/core/`. Node built-ins only, no npm dependenc
 | `config.mjs` | find, load and validate `.claude/agentic-testing.json`; the only module that knows where config lives | — |
 | `languages/en.mjs`, `languages/it.mjs` | keyword packs: Gherkin steps, continuations, setup steps, criteria headings, section names, vague phrases, steps / user-story / expected / actual / environment / context patterns, question forms | — |
 | `criteria.mjs` | read criteria (Gherkin + plain), strip vague criteria, count derivable results | languages |
-| `score.mjs` | signals → rubric → score → gate (70) | config, languages, criteria |
+| `rubrics/playwright.mjs`, `rubrics/vitest.mjs` | per stack: the weights, the signal detectors (the backend also accepts question forms for expected/actual and counts derivable results from the ticket text; the frontend uses headings and counts from scenarios) and the extra brief fields (frontend: feature route, QA plan) | languages, criteria |
+| `score.mjs` | pick the rubric by `adapter`, score, gate at 70, build the brief | config, rubrics |
 | `sanitize.mjs` | redact emails, UUIDs and the configured patterns in summary, description and criteria field | config |
 | `fill.mjs` | fill menu, pick, add (accepted only if the rubric then credits it), `filled` record | score, criteria |
 | `jira.mjs` | refuse comment text; fill-in push payload (append, labels, title prefix); browse URL | config, score |
@@ -209,8 +210,10 @@ In the plugin repo, with Node's built-in runner (`node --test`), no dependencies
    already say not to use it).
 3. The frontend gate now sanitizes tickets too, as the backend does; the frontend `harvest.json`
    (raw, unredacted) is replaced by `ticket.json` (redacted).
-4. Refuse-comment and fill-in example texts come from `examples` in config; warehouse's config
-   carries today's texts, so warehouse output is unchanged.
+4. Refuse-comment, fill-in and template-line texts come from `messages` in config; warehouse's
+   config carries today's texts, so warehouse output is unchanged.
+5. The backend rubric key `warehouse_label` is named `feature_label`, as in the frontend. The skills
+   read keys from the fill menu, so nothing breaks; the JSON key name changes.
 
 ## 11. Out of scope for part 1
 
