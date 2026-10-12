@@ -48,6 +48,7 @@ export function validateConfig(input) {
       if (!f || typeof f.label !== 'string' || !f.label.trim()) e.push(`features[${i}].label: must be a non-empty text`)
       else if (seen.has(f.label)) e.push(`features[${i}].label "${f.label}" appears twice`)
       else seen.add(f.label)
+      if (f?.qaPlanSearch !== undefined && (typeof f.qaPlanSearch !== 'string' || !f.qaPlanSearch.trim())) e.push(`features[${i}].qaPlanSearch: must be a non-empty text (the words to search for the QA plan)`)
       if (f?.route != null) {
         if (typeof f.route !== 'string') e.push(`features[${i}].route: must be text starting with "/"`)
         else if (!f.route.startsWith('/')) e.push(`features[${i}].route "${f.route}" must start with "/"`)

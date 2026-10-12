@@ -92,6 +92,8 @@ bad({ redact: { x: 5 } }, 'redact.x')
 bad({ messages: 'x' }, 'messages')
 bad({ messages: [] }, 'messages')
 bad({ features: [{ label: 'A', route: 5 }] }, 'features[0].route')
+bad({ features: [{ label: 'A', qaPlanSearch: 5 }] }, 'features[0].qaPlanSearch')
+bad({ features: [{ label: 'A', qaPlanSearch: '  ' }] }, 'features[0].qaPlanSearch')
 
 test('a non-string route is not reported as missing a slash', () => {
   const r = validateConfig({ ...good, features: [{ label: 'A', route: 5 }] })
