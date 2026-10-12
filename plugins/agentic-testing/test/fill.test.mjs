@@ -226,9 +226,32 @@ for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare
     assert.ok(r.ok && r.brief.signals.ac_present && r.brief.signals.ac_testable, r.reason)
   })
   test(`${name}: a short plain sentence starting with When goes through the 150-character check`, () => {
-    const r = applyAnswer(c, bare, 'ac_present', 'When the quantity is too high the Save button is disabled')
-    assert.ok(!r.ok && /57 characters/.test(r.reason) && r.input === bare, r.reason)
-    const it = applyAnswer(c, bare, 'ac_present', 'Quando la quantità è troppo alta il pulsante Salva è disattivato')
+    const r = applyAnswer(c, bare, 'ac_present', 'When the quantity is too high, the Save button is disabled')
+    assert.ok(!r.ok && /58 characters/.test(r.reason) && r.input === bare, r.reason)
+    const it = applyAnswer(c, bare, 'ac_present', 'Quando la quantità è troppo alta, il pulsante Salva è disattivato')
     assert.ok(!it.ok && /characters/.test(it.reason), it.reason)
+  })
+}
+
+// Round 3, ruling R37: half-written Gherkin is refused; the trial sentence still passes.
+const TRIAL_AC = 'When a user enters a quantity above the maximum allowed in the order drawer, the field shows the error "Quantity too high" and the Save button stays disabled. The orders page keeps working and no order is created.'
+const FILLER_GW = 'Given an order list that holds forty orders from three different customers in the current month\nGiven the user is signed in as a sales manager with read access\nWhen the user opens the orders page from the menu'
+const FILLER_W = '- When the user opens the orders page from the main menu\n- When the user filters the list by the customer name\n- When the user sorts the orders by their creation date'
+const TRIAL_IT = 'Quando un utente inserisce una quantità oltre il massimo consentito nel pannello ordine, il campo mostra l\'errore "Quantità troppo alta" e il pulsante Salva resta disattivato. La pagina ordini continua a funzionare.'
+for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare]]) {
+  test(`${name}: R37 refuses bare Given / When steps with no Then, credits a When sentence with a result`, () => {
+    for (const filler of [FILLER_GW, FILLER_W, 'Quando l\'utente apre la pagina ordini dal menu principale\nQuando l\'utente filtra la lista per nome del cliente\nQuando l\'utente ordina gli ordini per data di creazione']) {
+      const r = applyAnswer(c, bare, 'ac_present', filler)
+      assert.ok(!r.ok && /Too short/.test(r.reason) && r.input === bare, r.reason)
+    }
+    for (const ok of [TRIAL_AC, TRIAL_IT]) {
+      const r = applyAnswer(c, bare, 'ac_present', ok)
+      assert.ok(r.ok && r.brief.signals.ac_present && r.brief.signals.ac_testable, r.reason)
+    }
+  })
+  test(`${name}: a bulleted Given / When / Then answer is written as plain Gherkin and credited`, () => {
+    const r = applyAnswer(c, bare, 'ac_present', '- Given an order that is shipped\n- When I open its menu\n* Then Delete is disabled')
+    assert.ok(r.ok && r.brief.signals.ac_present, r.reason)
+    assert.ok(r.input.text.description.endsWith('## Acceptance criteria\nGiven an order that is shipped\nWhen I open its menu\nThen Delete is disabled'), r.input.text.description)
   })
 }

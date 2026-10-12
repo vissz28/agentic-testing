@@ -108,10 +108,10 @@ test('a plain sentence starting with Quando counts (it, AC field, bullet and no 
     assert.equal(acSignals(vIt, `## Criteri di accettazione\n${body}`, '').ac_present, true, body.slice(0, 10))
   }
 })
-test('Given and When sentences without a Then are prose in the AC field (en)', () => {
+test('R37: of a Given and a When without a Then, only the sentence with a result is prose (en)', () => {
   assert.deepEqual(C.extractNaturalAC(v, `- ${WHEN_EN}`, { headingless: true }), C.extractNaturalAC(v, `- ${IF_EN}`, { headingless: true }).map((s, i) => i ? s : s.replace(/^If/, 'When')))
   assert.deepEqual(C.extractNaturalAC(v, 'Given an empty cart\nWhen the user opens it, the page says "Empty".', { headingless: true }),
-    ['Given an empty cart', 'When the user opens it, the page says "Empty".'])
+    ['When the user opens it, the page says "Empty".'])
 })
 test('a real Given/When/Then scenario is still read as Gherkin, bulleted or not', () => {
   const scenario = 'Scenario: s\nGiven a list of 8 orders\nWhen I filter by customer\nThen the grid shows exactly 5 rows\nAnd the counter reads 5'
@@ -130,4 +130,56 @@ test('vague words still fail a plain When sentence', async () => {
   const { acSignals } = await import('../core/rubrics/shared.mjs')
   const vagueWhen = `## Acceptance criteria\n- When a user enters a quantity above the maximum allowed in the order drawer, the page works correctly and the Save button stays disabled for every order in the list.`
   assert.deepEqual(acSignals(v, vagueWhen, ''), { ac_present: true, ac_testable: false })
+})
+
+// Round 3. Gherkin with a data table or a doc string, and no Scenario header, is still Gherkin:
+// these outputs are pinned to what the scorer gave before spec §10 #10 (commit a0a8955).
+const TABLE = 'Given the following orders exist in the list\n| id | qty |\n| 1 | 5 |\nWhen I filter by quantity 5\nThen the grid shows exactly 5 rows'
+const TABLE_COMMA = TABLE.replace('exist in the list', 'exist, two of them shipped')
+const DOC = 'Given an order with this note\n"""\nShip before noon\n"""\nWhen I open the order\nThen the note reads "Ship before noon"'
+const DOC_TICKS = DOC.replaceAll('"""', '```')
+const DOC_COMMA = DOC.replace('this note', 'this note, written by the customer')
+const TABLE_VAGUE = TABLE.replace('in the list', 'as expected')
+const signalsOf = async (desc, acField) => (await import('../core/rubrics/shared.mjs')).acSignals(v, desc, acField)
+for (const [name, g, items] of [
+  ['a data table', TABLE, ['| id | qty |', '| 1 | 5 |', 'the grid shows exactly 5 rows']],
+  ['a data table after a Given with a comma', TABLE_COMMA, ['| id | qty |', '| 1 | 5 |', 'the grid shows exactly 5 rows']],
+  ['a """ doc string', DOC, ['"""', 'Ship before noon', '"""', 'the note reads "Ship before noon"']],
+  ['a ``` doc string', DOC_TICKS, ['```', 'Ship before noon', '```', 'the note reads "Ship before noon"']],
+  ['a doc string after a Given with a comma', DOC_COMMA, ['"""', 'Ship before noon', '"""', 'the note reads "Ship before noon"']],
+]) {
+  test(`Gherkin with ${name} reads as before §10 #10, in the description and in the AC field`, async () => {
+    const desc = `## Acceptance criteria\n${g}`
+    assert.deepEqual(C.extractNaturalAC(v, desc), items)
+    assert.deepEqual(C.extractNaturalAC(v, g, { headingless: true }), items)
+    assert.equal(C.countDerivableFromText(v, desc), 2)
+    assert.deepEqual(await signalsOf(desc, ''), { ac_present: true, ac_testable: true })
+    assert.deepEqual(await signalsOf('', g), { ac_present: true, ac_testable: true })
+  })
+}
+test('a vague Given above a data table does not make the criteria vague (as before §10 #10)', async () => {
+  assert.deepEqual(await signalsOf(`## Acceptance criteria\n${TABLE_VAGUE}`, ''), { ac_present: true, ac_testable: true })
+  assert.deepEqual(await signalsOf('', TABLE_VAGUE), { ac_present: true, ac_testable: true })
+  assert.equal(C.countDerivableFromText(v, `## Acceptance criteria\n${TABLE_VAGUE}`), 2)
+})
+
+// Ruling R37: a stray Given / When / And line is plain criteria only when it states a result:
+// after the keyword, a comma followed by more text. Bare steps without a Then earn nothing.
+const FILLER_GIVEN_WHEN = '- Given an order list that holds forty orders from three different customers in the current month\n- Given the user is signed in as a sales manager with read access\n- When the user opens the orders page from the menu'
+const FILLER_WHEN = '- When the user opens the orders page from the main menu\n- When the user filters the list by the customer name\n- When the user sorts the orders by their creation date'
+test('R37: bare Given / When steps without a Then are setup and earn nothing', async () => {
+  for (const filler of [FILLER_GIVEN_WHEN, FILLER_WHEN]) {
+    assert.deepEqual(C.extractNaturalAC(v, `## Acceptance criteria\n${filler}`), [])
+    assert.deepEqual(await signalsOf(`## Acceptance criteria\n${filler}`, ''), { ac_present: false, ac_testable: false })
+    assert.deepEqual(await signalsOf('', filler), { ac_present: false, ac_testable: false })
+  }
+})
+test('R37: a lone "When it loads" / "Quando la pagina si carica" adds nothing to derivable', () => {
+  assert.equal(C.countDerivableFromText(v, '## Acceptance criteria\nWhen it loads'), 0)
+  assert.equal(C.countDerivableFromText(v, '## Criteri di accettazione\nQuando la pagina si carica'), 0)
+})
+test('R37: a step-word sentence with a comma and a result is prose (en and it)', () => {
+  assert.deepEqual(C.extractNaturalAC(v, 'When the list loads, the counter reads 5.', { headingless: true }), ['When the list loads, the counter reads 5.'])
+  assert.deepEqual(C.extractNaturalAC(v, 'Quando la lista si carica, il contatore mostra 5.', { headingless: true }), ['Quando la lista si carica, il contatore mostra 5.'])
+  assert.deepEqual(C.extractNaturalAC(v, 'When the list loads,', { headingless: true }), [])
 })

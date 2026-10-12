@@ -141,7 +141,11 @@ export function applyAnswer(config, ticket, key, answer) {
       if (vague(text)) return reject(why.vague(vague(text)))
       // Gherkin carries its own structure; plain sentences must say enough to test against. Real
       // Gherkin is the scorer's rule: a lone "When ..." sentence is plain criteria, not Gherkin.
-      const isGherkin = hasGherkin(v, text)
+      // Gherkin typed as "- Given ..." bullets is written without them, so the scorer reads it.
+      const unbulleted = lines.map(l => l.replace(/^[-*]\s+/, ''))
+      const bulletedGherkin = !hasGherkin(v, text) && hasGherkin(v, unbulleted.join('\n'))
+      if (bulletedGherkin) lines.splice(0, lines.length, ...unbulleted)
+      const isGherkin = bulletedGherkin || hasGherkin(v, text)
       const length = naturalLength(extractNaturalAC(v, text, { headingless: true }))
       if (!isGherkin && length < MIN_NATURAL_AC) return reject(why.short(length))
       if (key === 'ac_testable') {

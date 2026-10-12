@@ -227,19 +227,19 @@ In the plugin repo, with Node's built-in runner (`node --test`), no dependencies
 9. The line put above a fill-in pushed to Jira comes from `messages.jiraFillMark`, default
    `_Added during the agentic-testing readiness check._`. Warehouse's two configs carry today's text
    (`_Added during the /spec readiness check._`), so warehouse output is unchanged.
-10. Plain criteria that start with a Gherkin keyword count as plain criteria. A line under the
-   criteria heading, in the criteria field or in a mixed section that starts with a step word
-   (Given / When / And / But, Dato / Quando / E / Ma) is read as a plain-language sentence, and
-   counts towards the 150 characters, unless it belongs to real Gherkin: a block of consecutive
-   step lines that is opened by a Scenario-style header or passes `hasGherkin` (a line-anchored
-   step pair including a Then; bullets are ignored, so a bulleted scenario stays Gherkin). The
-   fill-in uses the same rule (`hasGherkin` on the answer) to exempt Gherkin from the 150-character
-   check, so a lone "When …" sentence must be 150 characters long and is then credited. Vague-word
-   rules are unchanged. Parity: in the two backend `*-mixed-vague-then` fixtures, once the vague
-   `Then` has been replaced by the specific answer (op 14, `score`), the `Given` / `When` lines left
-   behind are no longer real Gherkin and are read as sentences: the assertable count goes from 3 to
-   5 (`be--be-…`) and 3 to 4 (`be--fe-…`), in the text line and in `derivable`. Score, gate and
-   signals are unchanged (hand-edited in `expected/`).
+10. Plain sentences that start with When / Given and state a result ("When X, Y …") count as plain
+   criteria (ruling R37). A Given / When / And line (Dato / Quando / E) under the criteria heading,
+   in the criteria field or in a mixed section is read as a plain-language sentence, and counts
+   towards the 150 characters, when it is not part of real Gherkin and, after the step word, holds
+   a comma followed by more text. Real Gherkin is a block of consecutive step lines opened by a
+   Scenario-style header or passing `hasGherkin` (a line-anchored step pair including a Then;
+   bullets are ignored); data-table rows and doc strings belong to the step block they follow.
+   Bare steps without a Then ("When the user opens the page") are setup and earn nothing, as
+   before. The fill-in exempts only real Gherkin (`hasGherkin` on the answer) from the
+   150-character check, so a "When X, Y" answer must be 150 characters long and is then credited;
+   Gherkin typed as `- Given …` bullets is written without the bullets. Vague-word rules are
+   unchanged. Parity: no warehouse fixture changes. Known limit: bulleted Gherkin already in a
+   ticket is scored as before (its Then lines count, the bullets keep it from `hasGherkin`).
 
 Also, for configs other than warehouse's: an empty `titlePrefixes` or `features` list can never be
 met. That signal scores 0 and is left out of the missing list, the report, the refuse comment and

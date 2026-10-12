@@ -10,10 +10,6 @@
 // same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
 // One hand edit, spec §10 #8 (harvested free text is redacted): in expected/sanitize.json the
 // untouched-fields scenario `then` reads "shows U######" where today's script kept the id.
-// One more, spec §10 #10 (plain criteria that start with a Gherkin keyword count as plain
-// criteria): in expected/be--be-mixed-vague-then.json and be--fe-mixed-vague-then.json, op 14
-// (`score`) counts 5 and 4 assertable chunks (was 3), because the Given / When lines left once the
-// vague Then is replaced are no longer real Gherkin.
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
