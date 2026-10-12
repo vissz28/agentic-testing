@@ -1,0 +1,14 @@
+name: test
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd plugins/agentic-testing && npm test
+      - run: for f in $(git ls-files '*.json'); do node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" || exit 1; done
+      - name: no project values in core
+        run: "! grep -rn -E 'FIC|teamsystem\\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' plugins/agentic-testing/core"

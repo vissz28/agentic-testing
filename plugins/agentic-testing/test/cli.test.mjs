@@ -46,6 +46,15 @@ test('add rewrites the file only when accepted', () => {
 test('config check', () => {
   assert.equal(run(proj(), 'config', 'check').stdout.trim(), 'ok')
 })
+test('config check: a lowercase jira.projects key exits 2 naming jira.projects[0]', () => {
+  const d = proj()
+  const c = JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'))
+  c.jira.projects = ['fic']
+  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify(c))
+  const r = run(d, 'config', 'check')
+  assert.equal(r.status, 2)
+  assert.match(r.stdout + r.stderr, /jira\.projects\[0\]/)
+})
 test('--no-audit is accepted and ignored; unknown flags exit 2', () => {
   const d = proj()
   assert.equal(run(d, 'score', '--in', '@t.json', '--no-audit').status, 1)
