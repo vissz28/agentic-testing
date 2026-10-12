@@ -16,9 +16,9 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
 ## Steps
 
-1. **Parse and check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /agentic-testing:ticket-eval <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/agentic-testing:setup`). Read `.claude/agentic-testing.json` for `jira.site`, `jira.projects`, `jira.acceptanceCriteriaField` and `ticketsDir` (default `.claude/agentic-testing/tickets`). Never hard-code any of these.
+1. **Parse and check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /agentic-testing:ticket-eval <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/agentic-testing:setup`). Read `.claude/agentic-testing.json` for `jira.site`, `jira.projects`, `jira.acceptanceCriteriaField` and `ticketsDir` (default `.claude/agentic-testing/tickets`; write it with `/` separators and no trailing `/`, as the script does). Never hard-code any of these.
 
-2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector with `cloudId` set to the hostname of `jira.site` (no `https://`), and fields `summary,issuetype,status,labels,description,<jira.acceptanceCriteriaField>,issuelinks` (leave the criteria field out when it is `null`; use the id from the config). Harvest:
+2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector with `cloudId` set to the hostname of `jira.site` (no `https://`), fields `summary,issuetype,status,labels,description,<jira.acceptanceCriteriaField>,issuelinks` (leave the criteria field out when it is `null`; use the id from the config), and `responseContentFormat` `markdown` so headings and paragraphs keep their line breaks. Harvest:
    - `summary`, `issuetype`, `status`, `labels`; `browse` = `<jira.site>/browse/<KEY>`.
    - The raw description and the raw criteria field text. Do not judge them: the script reads them itself. Extract each `Scenario:` into `scenarios: [{ "name", "gherkin" }]`. Do not pad the list; write only what the ticket supports.
    - `figma`: a `figma.com/(file|design)/…` URL in the description, labels or `issuelinks`, else `null`. Note the URL only.
