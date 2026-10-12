@@ -33,5 +33,5 @@ test('default customer id is whole-word', () => {
   assert.equal(redact(cfg(), 'ABC' + id + ' and ' + id), 'ABC' + id + ' and U######')
 })
 test('team patterns run before e-mail and uuid replacement', () => {
-  assert.equal(redact(cfg({ x: 'example' }), 'a@example.com'), 'user@example.test')
+  assert.equal(redact(cfg({ x: 'example' }), 'a@b.com'), 'user@example.test')
 })
