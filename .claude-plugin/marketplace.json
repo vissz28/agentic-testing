@@ -1,0 +1,21 @@
+{
+  "name": "agentic-testing",
+  "owner": {
+    "name": "Elvis Zefaj"
+  },
+  "metadata": {
+    "description": "Ticket-to-test harness for the warehouse frontend and backend: readiness gate, guided fill-in, generated tests graded by deterministic checks."
+  },
+  "plugins": [
+    {
+      "name": "warehouse-frontend",
+      "source": "./plugins/warehouse-frontend",
+      "description": "Playwright tests + XRay case from a FIC Jira ticket, for warehouse-frontend."
+    },
+    {
+      "name": "warehouse-backend",
+      "source": "./plugins/warehouse-backend",
+      "description": "Live-database Vitest tests from a FIC Jira ticket, for warehouse-backend."
+    }
+  ]
+}
