@@ -55,3 +55,16 @@ for (const adapter of ['playwright', 'vitest']) {
     })
   }
 }
+
+// Spec §10 #7: a team that types the commented Gherkin example without the dashes (as the hint
+// says to) and leaves the rest unfilled must still be refused.
+for (const adapter of ['playwright', 'vitest']) {
+  test(`the story template with the commented example undashed is refused on ${adapter}`, () => {
+    const story = read('story').replace(/<!--[\s\S]*?-->/, c => c.replace(/^- /gm, ''))
+    assert.match(story, /^Then the grid shows exactly 5 rows$/m, 'the example is undashed')
+    const b = buildBrief(cfg(adapter), ticket('Story', story))
+    assert.ok(b.score < 70, `scored ${b.score}`)
+    assert.equal(b.gate, 'refuse')
+    assert.equal(signal(b, 'ac_present'), false)
+  })
+}

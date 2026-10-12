@@ -1,4 +1,5 @@
 import { extractNaturalAC, hasGherkin, hasNaturalAC, hasThen, hasVaguePhrase } from '../criteria.mjs'
+import { stripComments } from '../text.mjs'
 
 /**
  * The acceptance-criteria signals, identical for both stacks. Vagueness is judged only on the
@@ -10,7 +11,7 @@ export function acSignals(v, description, acField) {
   const naturalItems = [...extractNaturalAC(v, acField, { headingless: true }), ...extractNaturalAC(v, description)]
   const natural = hasNaturalAC(naturalItems)
   const ac_present = gherkin || natural
-  const thenLines = (acText.match(v.thenAndLines) || []).join('\n')
+  const thenLines = (stripComments(acText).match(v.thenAndLines) || []).join('\n')
   const ac_testable =
     ac_present &&
     (hasThen(v, acText) || natural) &&

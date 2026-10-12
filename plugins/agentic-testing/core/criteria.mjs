@@ -1,4 +1,4 @@
-import { normalise } from './text.mjs'
+import { normalise, stripComments } from './text.mjs'
 
 // Every function takes the vocabulary `v` first, so the language is never global.
 // v.gherkinStepAll / v.thenAndLines / v.expectedQuestion / v.expectedSection / v.insteadOf carry
@@ -9,7 +9,7 @@ export const MIN_NATURAL_AC = 150
 
 /** Literal Gherkin: line-anchored step words with a Then present and at least two steps. */
 export function hasGherkin(v, text) {
-  text = normalise(text)
+  text = stripComments(normalise(text))
   if (!text) return false
   const steps = (text.match(v.gherkinStepAll) || []).length
   const hasThenLine = v.thenLine.test(text)
@@ -17,7 +17,7 @@ export function hasGherkin(v, text) {
 }
 
 export function hasThen(v, text) {
-  text = normalise(text)
+  text = stripComments(normalise(text))
   return !!text && v.thenLine.test(text)
 }
 
@@ -47,8 +47,7 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
   const items = []
   let inSection = headingless
   let step = null // 'setup' | 'then' while inside a Gherkin block
-  // HTML comments are authoring hints in the issue templates, never criteria.
-  const visible = text.replace(/<!--[\s\S]*?-->/g, '')
+  const visible = stripComments(text)
   for (const line of visible.split('\n')) {
     if (v.acHeading.test(line)) {
       inSection = true
@@ -138,7 +137,7 @@ export function countDerivable(v, scenarios = []) {
 
 /** Then lines, Expected sections, "expected behaviour?" answers, "instead of N", natural AC. */
 export function extractExpectedChunks(v, text) {
-  text = normalise(text)
+  text = stripComments(normalise(text))
   if (!text) return []
   const chunks = []
   for (const m of text.matchAll(new RegExp(v.thenLineCapture.source, 'gim'))) chunks.push(m[1].trim())

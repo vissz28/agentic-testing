@@ -74,3 +74,12 @@ test('extractExpectedChunks reads every form, shared regexes keep no state', () 
   assert.deepEqual(C.extractExpectedChunks(v, ''), [])
 })
 test('constants', () => { assert.equal(C.MIN_NATURAL_AC, 150); assert.equal(C.naturalLength(['ab', 'cd']), 5) })
+test('Gherkin and Then inside an HTML comment are not criteria (spec §10 #7)', () => {
+  const hidden = '## Acceptance criteria\n<!-- example:\nScenario: s\nGiven a list of 8 orders\nWhen I filter by customer Rossi\nThen the grid shows exactly 5 rows -->'
+  assert.equal(C.hasGherkin(v, hidden), false)
+  assert.equal(C.hasThen(v, hidden), false)
+  assert.equal(C.countDerivableFromText(v, hidden), 0)
+  const shown = hidden.replace('<!-- example:', '').replace(' -->', '')
+  assert.equal(C.hasGherkin(v, shown), true)
+  assert.equal(C.hasThen(v, shown), true)
+})
