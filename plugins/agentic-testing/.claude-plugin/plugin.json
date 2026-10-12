@@ -1,0 +1,11 @@
+{
+  "name": "agentic-testing",
+  "displayName": "Agentic testing",
+  "version": "0.2.0",
+  "description": "From a Jira ticket to graded tests, for any project. Part 1: setup and the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push.",
+  "author": { "name": "Elvis Zefaj" },
+  "userConfig": {
+    "figma_api_key": { "type": "string", "title": "Figma API key", "description": "Personal Figma token for the design side-by-side. Optional.", "sensitive": true },
+    "gitlab_mcp_url": { "type": "string", "title": "GitLab MCP URL", "description": "Your GitLab instance's MCP endpoint.", "default": "https://biosphere.teamsystem.com/api/v4/mcp" }
+  }
+}

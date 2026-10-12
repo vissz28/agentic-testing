@@ -4,9 +4,14 @@
     "name": "Elvis Zefaj"
   },
   "metadata": {
-    "description": "Ticket-to-test harness for the warehouse frontend and backend: readiness gate, guided fill-in, generated tests graded by deterministic checks."
+    "description": "Ticket-to-test harness: the warehouse frontend and backend plugins (readiness gate, guided fill-in, generated tests graded by deterministic checks), and now also agentic-testing, the reusable plugin for any project."
   },
   "plugins": [
+    {
+      "name": "agentic-testing",
+      "source": "./plugins/agentic-testing",
+      "description": "Reusable ticket-to-test harness for any project: setup, readiness gate, guided fill-in, Jira comment and push (Playwright or Vitest)."
+    },
     {
       "name": "warehouse-frontend",
       "source": "./plugins/warehouse-frontend",
