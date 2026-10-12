@@ -16,4 +16,7 @@ export default {
   contextHeadingBE: ['context', 'summary'],
   expectedPhrase: ['\\bexpected\\s+(?:behavio(?:u)?r|result|outcome|value)\\b'],
   actualPhrase: ['\\bwhat\\s+happens\\b', '\\bcurrent\\s+behavio(?:u)?r\\b'],
+  expectedQuestion: ['what is the expected behavio(?:u)?r\\??'],
+  expectedSection: ['expected'],
+  insteadOf: ['instead of'],
 }

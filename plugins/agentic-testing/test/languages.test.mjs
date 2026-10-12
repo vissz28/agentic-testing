@@ -151,3 +151,31 @@ same('listOrStep', /^(?:[-*•]\s|\d+[.)]\s|(?:scenario|given|when|then|and|but|
   ['- a', true], ['1. b', true], ['Scenario: c', true], ['Allora d', true], ['Ma e', true], ['E f', true],
   ['plain text', false], ['  - indented', false], ['Android', false],
 ])
+
+// Backend expected-chunk regexes (global: compare via fresh copies / matchAll).
+test('equivalence: expectedQuestion', () => {
+  const src = /(?:what is the expected behavio(?:u)?r\??|qual è il comportamento atteso\??)\s*[:*]?\s*(.*)$/gim
+  for (const s of ['What is the expected behavior? **Total 5**', 'Qual è il comportamento atteso: zero', 'x\nwhat is the expected behaviour?\nnext', 'nothing here']) {
+    assert.deepEqual([...s.matchAll(v.expectedQuestion)].map(m => m[1]), [...s.matchAll(src)].map(m => m[1]), JSON.stringify(s))
+  }
+  assert.equal(v.expectedQuestion.flags, 'gim')
+})
+test('equivalence: expectedSection', () => {
+  const src = /^(?:#{1,6}\s*|\*\*\s*)(?:expected|risultato atteso)\b[^\n]*$/gim
+  for (const s of ['## Expected\nx', '**Risultato atteso**\nx', 'Expected\nx', '## Expectedly', '  ## Expected', '### expected result']) {
+    assert.deepEqual([...s.matchAll(v.expectedSection)].map(m => m[0]), [...s.matchAll(src)].map(m => m[0]), JSON.stringify(s))
+  }
+  assert.equal(v.expectedSection.flags, 'gim')
+})
+test('equivalence: insteadOf', () => {
+  const src = /(?:instead of|invece di)\s+([+\u2212-]?\d+(?:[.,]\d+)?)/gi
+  for (const s of ['shows 5 instead of 0', 'invece di -3,5 e INSTEAD OF +2', 'instead of nothing', 'instead of \u22121']) {
+    assert.deepEqual([...s.matchAll(v.insteadOf)].map(m => m[1]), [...s.matchAll(src)].map(m => m[1]), JSON.stringify(s))
+  }
+  assert.equal(v.insteadOf.flags, 'gi')
+})
+test('english only drops Italian backend phrases', () => {
+  const en = buildVocabulary(['en'])
+  assert.equal([...'invece di 5'.matchAll(en.insteadOf)].length, 0)
+  assert.equal([...'## Risultato atteso'.matchAll(en.expectedSection)].length, 0)
+})
