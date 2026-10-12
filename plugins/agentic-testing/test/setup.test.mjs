@@ -125,3 +125,25 @@ test('CLI --write prints each error on its own line, exits 2, writes nothing', (
   assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
   assert.equal(cli(d, '--write', '@missing.json').status, 2)
 })
+test('re-running the same proposal is idempotent and keeps ticketTemplates', () => {
+  const d = repo({})
+  const run = () => { assert.equal(write(d, cfg, { templates: { bug: '#', story: '#' } }).ok, true); return readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8') }
+  const first = run()
+  assert.equal(run(), first)
+  assert.ok(JSON.parse(first).ticketTemplates)
+})
+test('write never throws: a dangling symlink at a template path is an error, nothing partial written', async () => {
+  const { symlinkSync } = await import('node:fs')
+  const d = repo({}); mkdirSync(join(d, '.gitlab/issue_templates'), { recursive: true })
+  symlinkSync(join(d, 'missing-target'), join(d, '.gitlab/issue_templates/Bug.md'))
+  const proposal = { config: cfg, templates: { bug: '#', story: '#' } }
+  const r = write(d, proposal.config, { templates: proposal.templates })
+  assert.equal(r.ok, false)
+  assert.match(r.errors[0], /Bug\.md/)
+  assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
+  writeFileSync(join(d, 'p.json'), JSON.stringify(proposal))
+  const c = cli(d, '--write', '@p.json')
+  assert.equal(c.status, 2)
+  assert.match(c.stdout, /Bug\.md/)
+  assert.equal(c.stderr, '')
+})

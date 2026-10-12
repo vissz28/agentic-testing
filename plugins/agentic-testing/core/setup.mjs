@@ -71,21 +71,29 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
     toWrite.push([p, templates[kind]])
   }
   const out = { ...config }
-  if (toWrite.length && out.ticketTemplates === undefined) out.ticketTemplates = { bug: paths.bug, story: paths.story }
+  if (out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
 
-  for (const [p, body] of toWrite) {
-    const full = join(root, p)
-    mkdirSync(dirname(full), { recursive: true })
-    writeFileSync(full, body.endsWith('\n') ? body : `${body}\n`, { flag: 'wx' })
-  }
-  mkdirSync(join(root, dirname(CONFIG_REL)), { recursive: true })
-  writeFileSync(configPath(root), `${JSON.stringify(out, null, 2)}\n`)
+  let step = ''
+  try {
+    for (const [p, body] of toWrite) {
+      const full = join(root, p)
+      step = p
+      mkdirSync(dirname(full), { recursive: true })
+      writeFileSync(full, body.endsWith('\n') ? body : `${body}\n`, { flag: 'wx' })
+    }
+    step = CONFIG_REL
+    mkdirSync(join(root, dirname(CONFIG_REL)), { recursive: true })
+    writeFileSync(configPath(root), `${JSON.stringify(out, null, 2)}\n`)
 
-  const line = gitignoreLine ?? rawLine(config.ticketsDir)
-  const gi = join(root, '.gitignore')
-  if (!hasLine(gi, line)) {
-    const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
-    writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
+    const line = gitignoreLine ?? rawLine(config.ticketsDir)
+    const gi = join(root, '.gitignore')
+    step = '.gitignore'
+    if (!hasLine(gi, line)) {
+      const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
+      writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
+    }
+  } catch (err) {
+    return { ok: false, errors: [`${step}: ${err.message}`] }
   }
   return { ok: true }
 }
