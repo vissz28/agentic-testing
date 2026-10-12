@@ -2,7 +2,7 @@
 // A menu of the gaps with their real gains, a projection of a pick, and an answer writer that
 // keeps an answer only if the rubric then credits it.
 import { buildVocabulary } from './languages/index.mjs'
-import { extractNaturalAC, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
+import { extractNaturalAC, hasGherkin, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
 import { buildBrief, rubricFor, scoreTicket } from './score.mjs'
 import playwright from './rubrics/playwright.mjs'
@@ -139,8 +139,9 @@ export function applyAnswer(config, ticket, key, answer) {
     case 'ac_present':
     case 'ac_testable': {
       if (vague(text)) return reject(why.vague(vague(text)))
-      // Gherkin carries its own structure; plain sentences must say enough to test against.
-      const isGherkin = lines.some(l => v.gherkinStep.test(l) || /^scenario\b/i.test(l))
+      // Gherkin carries its own structure; plain sentences must say enough to test against. Real
+      // Gherkin is the scorer's rule: a lone "When ..." sentence is plain criteria, not Gherkin.
+      const isGherkin = hasGherkin(v, text)
       const length = naturalLength(extractNaturalAC(v, text, { headingless: true }))
       if (!isGherkin && length < MIN_NATURAL_AC) return reject(why.short(length))
       if (key === 'ac_testable') {

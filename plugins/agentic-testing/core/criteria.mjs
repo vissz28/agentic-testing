@@ -45,20 +45,10 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
   text = normalise(text)
   if (!text) return []
   const items = []
-  let inSection = headingless
+  const rows = sectionRows(v, stripComments(text), headingless)
+  const gherkinRuns = realGherkinRuns(v, rows)
   let step = null // 'setup' | 'then' while inside a Gherkin block
-  const visible = stripComments(text)
-  for (const line of visible.split('\n')) {
-    if (v.acHeading.test(line)) {
-      inSection = true
-      continue
-    }
-    if (!inSection || !line.trim()) continue
-    if (!headingless && v.sectionEnd.test(line)) {
-      inSection = false
-      continue
-    }
-    const content = line.replace(v.listItem, '').replace(/\*+/g, '').trim()
+  for (const { content, run } of rows) {
     const then = content.match(v.thenStep)
     const cont = step && content.match(v.continuation)
     if (then || (cont && step === 'then')) {
@@ -66,7 +56,10 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
       if ((then ?? cont)[1].trim()) items.push((then ?? cont)[1].trim())
       continue
     }
-    if (cont || v.setupStep.test(content)) {
+    // A Given / When / And line outside real Gherkin is a plain sentence that happens to start
+    // with a step word ("When a user enters ..."): it is read as prose below.
+    const plainStepWord = !gherkinRuns.has(run) && (v.gherkinStep.test(content) || v.continuation.test(content))
+    if ((cont || v.setupStep.test(content)) && !plainStepWord) {
       step = 'setup'
       continue
     }
@@ -74,6 +67,48 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
     for (const sentence of content.split(/(?<=[.!?])\s+/)) if (sentence.trim()) items.push(sentence.trim())
   }
   return items
+}
+
+/**
+ * The non-blank lines inside the criteria section, bullets and bold stripped. Each carries a run
+ * number: a run is a block of consecutive step-like lines (step words, continuations, Scenario
+ * and the other headers), broken by a prose line, by a header line, and by the section's edges.
+ */
+function sectionRows(v, visible, headingless) {
+  const rows = []
+  let inSection = headingless
+  let run = 0
+  for (const line of visible.split('\n')) {
+    if (v.acHeading.test(line)) {
+      inSection = true
+      run++
+      continue
+    }
+    if (!inSection || !line.trim()) continue
+    if (!headingless && v.sectionEnd.test(line)) {
+      inSection = false
+      run++
+      continue
+    }
+    const content = line.replace(v.listItem, '').replace(/\*+/g, '').trim()
+    const stepLike = v.thenStep.test(content) || v.setupStep.test(content) || v.continuation.test(content)
+    const header = stepLike && !v.gherkinStep.test(content) && !v.continuation.test(content)
+    if (!stepLike || header) run++
+    rows.push({ content, run, header })
+    if (!stepLike) run++
+  }
+  return rows
+}
+
+/** The runs that are real Gherkin: a Scenario-style header, or the hasGherkin rule on the run. */
+function realGherkinRuns(v, rows) {
+  const runs = new Map()
+  for (const r of rows) runs.set(r.run, [...(runs.get(r.run) ?? []), r])
+  const real = new Set()
+  for (const [run, list] of runs) {
+    if (list[0].header || hasGherkin(v, list.map(r => r.content).join('\n'))) real.add(run)
+  }
+  return real
 }
 
 /**

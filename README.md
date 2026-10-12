@@ -200,6 +200,7 @@ tooltip "Shipped orders cannot be cancelled" and no cancel request is sent.
 | A vague result: "works correctly", "as expected", "is fine", "funziona correttamente", "come previsto", "come atteso" | keeps the 30, loses the 15 |
 | Anything inside HTML comments (`<!-- … -->`), Gherkin included | ignored: template hints never count |
 | A mixed section | each Gherkin `Then` (with its `And` lines) and each sentence is one criterion; all must be specific |
+| A plain sentence that starts with "When", "Given", "Quando", … but has no `Then` with it | plain language: needs the 150 characters, then counts |
 
 The plugin's standard Story template is refused when left unfilled, so a ticket cannot pass on the
 template's own text.

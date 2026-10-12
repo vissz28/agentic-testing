@@ -217,3 +217,18 @@ test('exampleFor: only a key the rubric lets the author type in has an example',
   assert.equal(exampleFor(FE, feBare, 'qa_plan_found'), undefined, 'a QA plan cannot be typed in')
   assert.equal(exampleFor(BE, beBare, 'nope'), undefined)
 })
+
+// spec §10 #10: a plain sentence that starts with a Gherkin keyword is plain criteria, not Gherkin.
+const WHEN_AC = 'When a user enters a quantity above the maximum allowed in the order drawer, the field shows the error "Quantity too high" and the Save button stays disabled. The orders page keeps working and no order is created.'
+for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare]]) {
+  test(`${name}: a long plain sentence starting with When is credited`, () => {
+    const r = applyAnswer(c, bare, 'ac_present', WHEN_AC)
+    assert.ok(r.ok && r.brief.signals.ac_present && r.brief.signals.ac_testable, r.reason)
+  })
+  test(`${name}: a short plain sentence starting with When goes through the 150-character check`, () => {
+    const r = applyAnswer(c, bare, 'ac_present', 'When the quantity is too high the Save button is disabled')
+    assert.ok(!r.ok && /57 characters/.test(r.reason) && r.input === bare, r.reason)
+    const it = applyAnswer(c, bare, 'ac_present', 'Quando la quantità è troppo alta il pulsante Salva è disattivato')
+    assert.ok(!it.ok && /characters/.test(it.reason), it.reason)
+  })
+}

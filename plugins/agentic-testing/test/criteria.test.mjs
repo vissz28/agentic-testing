@@ -83,3 +83,51 @@ test('Gherkin and Then inside an HTML comment are not criteria (spec §10 #7)', 
   assert.equal(C.hasGherkin(v, shown), true)
   assert.equal(C.hasThen(v, shown), true)
 })
+
+// spec §10 #10: plain criteria that start with a Gherkin keyword count as plain criteria.
+const WHEN_EN = 'When a user enters a quantity above the maximum allowed in the order drawer, the field shows the error "Quantity too high" and the Save button stays disabled. The orders page keeps working and no order is created.'
+const WHEN_IT = 'Quando un utente inserisce una quantità oltre il massimo consentito nel pannello ordine, il campo mostra l\'errore "Quantità troppo alta" e il pulsante Salva resta disattivato. La pagina ordini continua a funzionare e nessun ordine viene creato.'
+const IF_EN = WHEN_EN.replace(/^When/, 'If')
+
+test('a plain sentence starting with When counts like one starting with If (en, description, bullet and no bullet)', async () => {
+  const { acSignals } = await import('../core/rubrics/shared.mjs')
+  for (const body of [`- ${WHEN_EN}`, WHEN_EN]) {
+    const desc = `## Acceptance criteria\n${body}`
+    assert.ok(C.naturalLength(C.extractNaturalAC(v, desc)) >= C.MIN_NATURAL_AC, body.slice(0, 10))
+    assert.equal(acSignals(v, desc, '').ac_present, true, body.slice(0, 10))
+    assert.deepEqual(acSignals(v, desc, ''), acSignals(v, `## Acceptance criteria\n${body.replace('When', 'If')}`, ''))
+  }
+  assert.equal(acSignals(v, `## Acceptance criteria\n${IF_EN}`, '').ac_present, true)
+})
+test('a plain sentence starting with Quando counts (it, AC field, bullet and no bullet)', async () => {
+  const { acSignals } = await import('../core/rubrics/shared.mjs')
+  const vIt = buildVocabulary(['it'])
+  for (const body of [`- ${WHEN_IT}`, WHEN_IT]) {
+    assert.ok(C.naturalLength(C.extractNaturalAC(vIt, body, { headingless: true })) >= C.MIN_NATURAL_AC, body.slice(0, 10))
+    assert.equal(acSignals(vIt, '', body).ac_present, true, body.slice(0, 10))
+    assert.equal(acSignals(vIt, `## Criteri di accettazione\n${body}`, '').ac_present, true, body.slice(0, 10))
+  }
+})
+test('Given and When sentences without a Then are prose in the AC field (en)', () => {
+  assert.deepEqual(C.extractNaturalAC(v, `- ${WHEN_EN}`, { headingless: true }), C.extractNaturalAC(v, `- ${IF_EN}`, { headingless: true }).map((s, i) => i ? s : s.replace(/^If/, 'When')))
+  assert.deepEqual(C.extractNaturalAC(v, 'Given an empty cart\nWhen the user opens it, the page says "Empty".', { headingless: true }),
+    ['Given an empty cart', 'When the user opens it, the page says "Empty".'])
+})
+test('a real Given/When/Then scenario is still read as Gherkin, bulleted or not', () => {
+  const scenario = 'Scenario: s\nGiven a list of 8 orders\nWhen I filter by customer\nThen the grid shows exactly 5 rows\nAnd the counter reads 5'
+  assert.deepEqual(C.extractNaturalAC(v, `## Acceptance criteria\n${scenario}`), ['the grid shows exactly 5 rows', 'the counter reads 5'])
+  assert.deepEqual(C.extractNaturalAC(v, scenario.split('\n').map(l => `- ${l}`).join('\n'), { headingless: true }), ['the grid shows exactly 5 rows', 'the counter reads 5'])
+  assert.deepEqual(C.extractNaturalAC(v, 'Dato un elenco\nQuando filtro\nAllora vedo 5 righe', { headingless: true }), ['vedo 5 righe'])
+})
+test('mixed section: a plain When sentence and a separate real scenario', () => {
+  const desc = `## Acceptance criteria\n- ${WHEN_EN}\n\nScenario: s\nGiven a list of 8 orders\nWhen I filter by customer\nThen the grid shows exactly 5 rows`
+  const items = C.extractNaturalAC(v, desc)
+  assert.equal(items[0], WHEN_EN.split(/(?<=[.!?])\s+/)[0])
+  assert.ok(!items.includes('Given a list of 8 orders') && !items.includes('When I filter by customer'))
+  assert.equal(items.at(-1), 'the grid shows exactly 5 rows')
+})
+test('vague words still fail a plain When sentence', async () => {
+  const { acSignals } = await import('../core/rubrics/shared.mjs')
+  const vagueWhen = `## Acceptance criteria\n- When a user enters a quantity above the maximum allowed in the order drawer, the page works correctly and the Save button stays disabled for every order in the list.`
+  assert.deepEqual(acSignals(v, vagueWhen, ''), { ac_present: true, ac_testable: false })
+})
