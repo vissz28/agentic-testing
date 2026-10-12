@@ -16,6 +16,7 @@ export default {
   contextHeadingBE: ['contesto', 'sommario'],
   expectedPhrase: ['\\bcomportamento\\s+atteso\\b', '\\brisultato\\s+atteso\\b'],
   actualPhrase: ['\\bcosa\\s+succede\\b'],
+  contextPhrase: ['\\bcosa\\s+succede\\b'],
   expectedQuestion: ['qual è il comportamento atteso\\??'],
   expectedSection: ['risultato atteso'],
   insteadOf: ['invece di'],

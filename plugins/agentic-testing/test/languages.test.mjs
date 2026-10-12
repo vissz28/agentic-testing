@@ -147,6 +147,9 @@ same('actualPhrase', /\bwhat\s+happens\b|\bcosa\s+succede\b|\bcurrent\s+behavio(
   ['What happens?', true], ['Cosa succede?', true], ['current behaviour', true], ['current behavior', true],
   ['whatever happens', false], ['actual result', false],
 ])
+same('contextPhrase', /\bwhat\s+happens\b|\bcosa\s+succede\b/i, v.contextPhrase, [
+  ['What happens?', true], ['Cosa succede?', true], ['whatever happens', false], ['current behaviour', false],
+])
 same('listOrStep', /^(?:[-*•]\s|\d+[.)]\s|(?:scenario|given|when|then|and|but|dato|quando|allora|e|ma)\b)/i, v.listOrStep, [
   ['- a', true], ['1. b', true], ['Scenario: c', true], ['Allora d', true], ['Ma e', true], ['E f', true],
   ['plain text', false], ['  - indented', false], ['Android', false],

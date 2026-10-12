@@ -31,6 +31,7 @@ export function buildVocabulary(langs) {
     contextHeadingBE: m('contextHeadingBE'),
     expectedPhrase: new RegExp(m('expectedPhrase'), 'i'),
     actualPhrase: new RegExp(m('actualPhrase'), 'i'),
+    contextPhrase: new RegExp(m('contextPhrase'), 'i'),
     expectedQuestion: new RegExp(`(?:${m('expectedQuestion')})\\s*[:*]?\\s*(.*)$`, 'gim'),
     expectedSection: new RegExp(`^(?:#{1,6}\\s*|\\*\\*\\s*)(?:${m('expectedSection')})\\b[^\\n]*$`, 'gim'),
     insteadOf: new RegExp(`(?:${m('insteadOf')})\\s+([+\\u2212-]?\\d+(?:[.,]\\d+)?)`, 'gi'),
