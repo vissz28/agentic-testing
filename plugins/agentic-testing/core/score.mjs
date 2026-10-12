@@ -1,4 +1,5 @@
 import { buildVocabulary } from './languages/index.mjs'
+import { labelOverride } from './messages.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
@@ -55,7 +56,7 @@ export function buildBrief(config, ticket) {
     ...rubric.briefExtras(config, ticket, feature),
     scenarios: ticket.scenarios ?? [],
     derivable,
-    missing: missing.map(m => ({ key: m.key, label: m.label, weight: m.weight })),
+    missing: missing.map(m => ({ key: m.key, label: labelOverride(config, ticket.issuetype, m.key) ?? m.label, weight: m.weight })),
     flags,
     signals,
   }
