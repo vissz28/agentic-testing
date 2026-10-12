@@ -97,9 +97,9 @@ by typing a number:
 3. **Other projects to track** (optional).
 4. **Feature labels**: picked from the labels on up to 100 recent tickets, with counts. In a project
    shared by many teams, first narrow the search to a word in the title or one component, or type
-   your labels (each is checked to exist). For
-   Playwright also the screen route of each one (`/orders`) and the text used to find its Confluence
-   QA plan.
+   your labels (each is checked to exist). For Playwright also the screen route of each one
+   (`/orders`), the text used to find its Confluence QA plan (the label with `_` and `-` as spaces),
+   and the Confluence space(s) to search, picked from the spaces that search finds, or all spaces.
 5. **Title prefixes** (Vitest only): counted from the same tickets' titles (`[API] …`), or none.
 6. **Languages**: English, plus Italian if your tickets use Italian section names.
 7. **Redaction**: customer-id redaction is on by default; add extra patterns if you need them.
@@ -162,7 +162,7 @@ keywords. The model never supplies the number.
 | Acceptance criteria | 30 | 30 |
 | Criteria that are specific (no "works correctly") | 15 | 15 |
 | A feature label from your config | 15 | 5 |
-| A Confluence QA plan found (linked, or by the feature's search text) | 15 | — |
+| A Confluence QA plan found (linked, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 15 | — |
 | Steps to reproduce (bug) or a user story (story) | 10 | 15 |
 | Expected and actual result | 10 | 15 |
 | A context / summary section | — | 10 |
@@ -314,6 +314,7 @@ any field that is wrong. A JSON schema ships with the plugin (`schema/agentic-te
 | `languages` | `en`, `it`, or both | required |
 | `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | required |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
+| `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `ticketsDir` | where local ticket copies go, inside the project | `.claude/agentic-testing/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |

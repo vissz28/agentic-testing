@@ -36,3 +36,14 @@ test('step 3: the label search can be narrowed before counting', () => {
 test('Jira tools are named by operation, never by an mcp__ tool name', () => {
   assert.doesNotMatch(doc, /mcp__/)
 })
+test('step 3 (playwright): qaPlanSearch from the label, and the Confluence spaces offered', () => {
+  const s = step(3)
+  assert.match(s, /`_` and `-` replaced by spaces/)
+  assert.match(s, /searchConfluenceUsingCql/)
+  assert.match(s, /distinct spaces/)
+  assert.match(s, /key and name/)
+  assert.ok(s.includes('<n>. All spaces'))
+  assert.match(s, /`confluenceSpaces`/)
+  assert.match(step(6), /confluenceSpaces/)
+  assert.match(step(6), /qaPlanSearch/)
+})

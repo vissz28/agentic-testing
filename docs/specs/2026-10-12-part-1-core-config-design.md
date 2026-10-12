@@ -73,6 +73,7 @@ documentation; the check itself is `core/config.mjs`, without dependencies.
 | `languages` | list of `"en"` \| `"it"`, ≥1 | yes | — | built-in EN+IT keyword lists |
 | `features` | list of `{label, route?, qaPlanSearch?}`, labels unique | yes (may be empty) | `route` must start with `/` | the 8 warehouse labels in 6+ files |
 | `titlePrefixes` | list of strings, matched literally; may be `[]` (no title-prefix signal) | no | `[]` (none; warehouse sets `["FE","BE","FS"]` in its config) | `[FE\|BE\|FS]` in the backend rubric |
+| `confluenceSpaces` | list of Confluence space keys, each `^[A-Za-z0-9_~-]+$` | no | absent = the QA-plan search looks in all spaces; set, the CQL adds `space in ("<K1>",…)` (warehouse's configs do not set it, so warehouse behaviour is unchanged) | the unscoped `text ~ "<label>"` QA-plan search |
 | `ticketTemplates.bug` / `.story` | repo-relative paths | no | `null` (refuse comment then names no template) | `.gitlab/issue_templates/{Bug,Story}.md` |
 | `ticketsDir` | repo-relative path, one line; `\` becomes `/` and a trailing `/` is dropped | no | `.claude/agentic-testing/tickets` | `e2e/tickets/` (FE), `.claude/audit/tickets/` (BE) |
 | `redact` | object of name → regex string; replaces the default, so keep `customerId`; no pattern may match empty text | no | `{ "customerId": "\\bU\\d{5,}\\b" }` | `U######` pattern in the backend sanitizer |
