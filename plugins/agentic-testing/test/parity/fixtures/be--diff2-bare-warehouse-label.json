@@ -1,0 +1,23 @@
+{
+  "repo": "be",
+  "difference": 2,
+  "ticket": {
+    "key": "FIC-37",
+    "summary": "[BE] fix filter",
+    "labels": [
+      "warehouse"
+    ],
+    "text": {
+      "description": "## Context\nthe list is wrong\n## Environment\nEnv: staging\n## Steps to reproduce\n1. open\n2. type 22\n## Expected\nonly 22\n## Actual\n220 too\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ]
+  ]
+}

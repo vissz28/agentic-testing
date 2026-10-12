@@ -1,0 +1,87 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-19",
+    "issuetype": "Bug",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "qaPlan": {
+      "url": "https://x",
+      "title": "Plan",
+      "scenarios": []
+    },
+    "figma": "https://figma.example/f",
+    "mr": "https://git.example/mr/1",
+    "flags": [
+      "a flag"
+    ],
+    "text": {
+      "description": "## Environment\nEnv: staging\n## Steps to reproduce\n1. open\n2. type 22\n## Expected\nonly 22\n## Actual\n220 too\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "add",
+      "title_prefix",
+      "backend team"
+    ],
+    [
+      "add",
+      "title_prefix",
+      "be"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

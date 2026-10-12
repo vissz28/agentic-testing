@@ -1,0 +1,76 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [],
+    "text": {
+      "description": "## Acceptance criteria\nGiven a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse with stock"
+    ],
+    [
+      "add",
+      "ac_present",
+      "Given a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

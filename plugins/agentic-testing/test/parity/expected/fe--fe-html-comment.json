@@ -1,0 +1,209 @@
+{
+  "fixture": "fe--fe-html-comment.json",
+  "repo": "fe",
+  "source": {
+    "ref": "origin/agentic-testing-fe",
+    "commit": "2ee3a1283bd99fca456034af8def946574e7b483"
+  },
+  "results": [
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-17 — test-readiness 0% · legacy / unstructured (threshold 70%)\nFeature: none\nQA plan: not found\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description (30)\n  - testable AC — each Then or AC item an observable assertion, not \"works correctly\" (15)\n  - feature label (one of the 8 — routes the test to a screen) (15)\n  - a Confluence QA plan for the feature (15)\n  - steps to reproduce (Bug) or a user story (Story) (10)\n  - clear expected behavior (or Expected vs Actual for a bug) (10)\n  - environment / workspace context (5)\nFlags:\n  - legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\nGate: refuse — below 70%. Do not generate. Add the missing items on the ticket, then re-run. Legacy ticket, no template structure.\nTICKET_EVAL_JSON:{\"key\":\"FIC-17\",\"browse\":null,\"issuetype\":\"Bug\",\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"scenarios\":[],\"derivable\":0,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":30},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":15},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"expected_defined\",\"label\":\"clear expected behavior (or Expected vs Actual for a bug)\",\"weight\":10},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false}}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "score",
+        "--json"
+      ],
+      "stdout": "{\"key\":\"FIC-17\",\"browse\":null,\"issuetype\":\"Bug\",\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"scenarios\":[],\"derivable\":0,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":30},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":15},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"expected_defined\",\"label\":\"clear expected behavior (or Expected vs Actual for a bug)\",\"weight\":10},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false}}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\n### 1. Acceptance criteria\nWe could not find acceptance criteria.\n\nYou can copy this and adjust it to your case. Either format works. A short list under an \"Acceptance criteria\" heading, one result per line:\n\n## Acceptance criteria\n- The message \"Nessun movimento trovato\" is shown\n\nOr Given / When / Then, each at the start of its line:\n\nGiven the movement list has no rows for this filter\nWhen I filter by document 22\nThen the message is \"Nessun movimento trovato\"\n\nItalian works too: \"Criteri di accettazione\", or Dato / Quando / Allora.\n\n### 2. Feature label\nThe ticket has no warehouse feature label, so we cannot tell which screen to open.\n\nPlease add one of these existing labels (do not create a new one):\nGiacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze,\narrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\n\n### 3. Steps to reproduce\nThere is no Steps to reproduce section (or user story).\n\nA short numbered list is enough. You can adapt this:\n\n## Steps to reproduce\n1. Open the movement list\n2. Filter by document 22\n3. Look at the rows that come back\n\n### 4. Expected and actual result\nExpected and Actual are not both filled in.\n\nPlease add both sections, for example:\n\n## Expected\nOnly document 22 is listed\n\n## Actual\nDocument 220 is listed as well\n\n### 5. Environment\nThere is no Environment section with Env: …\n\nPlease add which environment you used (prod, staging or local):\n\n## Environment\nEnv: staging\n\nThe full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 0 of the 70 points it needs.\nWhat is missing:\n  1. Acceptance criteria         +55\n  2. Feature label               +15\n  3. Steps to reproduce          +10\n  4. Expected and actual result  +10\n  5. Environment                 +5\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":0,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"gain\":55,\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"},{\"n\":2,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":15,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":3,\"key\":\"steps\",\"title\":\"Steps to reproduce\",\"gain\":10,\"question\":\"How do you reproduce it? One step per line.\",\"example\":\"Open the products stock\\nFilter by a code that does not exist\\nLook at the empty grid\"},{\"n\":4,\"key\":\"expected_defined\",\"title\":\"Expected and actual result\",\"gain\":10,\"question\":\"What should you see, and what do you see now? Write: expected | actual\",\"example\":\"The message \\\"Nessun dato\\\" is shown | The grid is blank\"},{\"n\":5,\"key\":\"environment\",\"title\":\"Environment\",\"gain\":5,\"question\":\"Which environment did you use (prod, staging or local)?\",\"example\":\"staging\"}]}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "1 2"
+      ],
+      "stdout": "With 1 and 2 the ticket reaches 70 points (the bar is 70): enough.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"},{\"n\":2,\"key\":\"feature_label\",\"title\":\"Feature label\",\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"}],\"score\":70,\"threshold\":70,\"enough\":true,\"short\":0}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "1"
+      ],
+      "stdout": "With 1 the ticket reaches 55 points (the bar is 70): 15 points short. Pick more numbers, or type them again.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"}],\"score\":55,\"threshold\":70,\"enough\":false,\"short\":15}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "pick",
+        "9"
+      ],
+      "stdout": "There is no number 9 on the list.\nFILL_JSON:{\"error\":\"There is no number 9 on the list.\"}\n",
+      "exit": 2
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "Nothing was added, so there is nothing to put on the Jira ticket.\nJIRA_UPDATE_JSON:{\"append\":null,\"labelsAdd\":[],\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "expected_defined",
+        "only document 22"
+      ],
+      "stdout": "Not accepted: Write both, separated by |: what you should see | what you see now.\nExample: The message \"Nessun dato\" is shown | The grid is blank\nFILL_JSON:{\"ok\":false,\"reason\":\"Write both, separated by |: what you should see | what you see now.\",\"score\":0,\"gate\":\"refuse\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-17",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [],
+        "text": {
+          "description": "## Acceptance criteria\n<!--\n  \"Then it works correctly\" fails the gate.\n-->\nThe grid shows 5 rows."
+        }
+      }
+    },
+    {
+      "op": [
+        "add",
+        "expected_defined",
+        "only document 22 | documents 220 and 122 too"
+      ],
+      "stdout": "Accepted. The ticket now has 10 points (the bar is 70): 60 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":10,\"gate\":\"refuse\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-17",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [],
+        "text": {
+          "description": "## Acceptance criteria\n<!--\n  \"Then it works correctly\" fails the gate.\n-->\nThe grid shows 5 rows.\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "qa_plan_found",
+        "x"
+      ],
+      "stdout": "Not accepted: There is no criterion called qa_plan_found that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called qa_plan_found that can be typed in.\",\"score\":10,\"gate\":\"refuse\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-17",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [],
+        "text": {
+          "description": "## Acceptance criteria\n<!--\n  \"Then it works correctly\" fails the gate.\n-->\nThe grid shows 5 rows.\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "nope",
+        "x"
+      ],
+      "stdout": "Not accepted: There is no criterion called nope that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called nope that can be typed in.\",\"score\":10,\"gate\":\"refuse\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-17",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [],
+        "text": {
+          "description": "## Acceptance criteria\n<!--\n  \"Then it works correctly\" fails the gate.\n-->\nThe grid shows 5 rows.\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "environment",
+        "staging"
+      ],
+      "stdout": "Accepted. The ticket now has 15 points (the bar is 70): 55 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":15,\"gate\":\"refuse\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-17",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [],
+        "text": {
+          "description": "## Acceptance criteria\n<!--\n  \"Then it works correctly\" fails the gate.\n-->\nThe grid shows 5 rows.\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Expected\n  only document 22\n\n  ## Actual\n  documents 220 and 122 too\n\n  ## Environment\n  Env: staging\n\nNothing already on the ticket is changed.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Expected\\nonly document 22\\n\\n## Actual\\ndocuments 220 and 122 too\\n\\n## Environment\\nEnv: staging\",\"labelsAdd\":[],\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-17 — test-readiness 15% · too thin (threshold 70%)\nFeature: none\nQA plan: not found\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description (30)\n  - testable AC — each Then or AC item an observable assertion, not \"works correctly\" (15)\n  - feature label (one of the 8 — routes the test to a screen) (15)\n  - a Confluence QA plan for the feature (15)\n  - steps to reproduce (Bug) or a user story (Story) (10)\nFlags: none\nGate: refuse — below 70%. Do not generate. Add the missing items on the ticket, then re-run.\nTICKET_EVAL_JSON:{\"key\":\"FIC-17\",\"browse\":null,\"issuetype\":\"Bug\",\"status\":null,\"score\":15,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":false,\"feature\":null,\"route\":null,\"scenarios\":[],\"derivable\":0,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":30},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":15},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10}],\"flags\":[],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":true,\"environment\":true,\"qa_plan_found\":false}}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 15 of the 70 points it needs.\nWhat is missing:\n  1. Acceptance criteria  +45\n  2. Feature label        +15\n  3. Steps to reproduce   +10\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":15,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"gain\":45,\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"},{\"n\":2,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":15,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":3,\"key\":\"steps\",\"title\":\"Steps to reproduce\",\"gain\":10,\"question\":\"How do you reproduce it? One step per line.\",\"example\":\"Open the products stock\\nFilter by a code that does not exist\\nLook at the empty grid\"}]}\n",
+      "exit": 0
+    }
+  ]
+}

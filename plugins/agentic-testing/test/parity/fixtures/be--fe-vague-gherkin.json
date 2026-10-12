@@ -1,0 +1,78 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-4",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "Scenario: x\n  When I open\n  Then it works correctly and as expected"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

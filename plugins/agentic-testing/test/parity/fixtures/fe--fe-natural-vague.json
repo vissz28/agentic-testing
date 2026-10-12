@@ -1,0 +1,76 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-8",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [],
+    "text": {
+      "description": "## Acceptance criteria\n- The movement list works correctly when filtering by document number, for every document type and every warehouse, archived ones and the new ones included"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "it works correctly | the grid is blank"
+    ],
+    [
+      "add",
+      "feature_label",
+      "Spinta_warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

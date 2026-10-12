@@ -1,0 +1,73 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-29",
+    "text": {
+      "description": "## Acceptance criteria\nGiven a product\nWhen I save cost 0\nThen the last cost is 0"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

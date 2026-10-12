@@ -1,0 +1,76 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-14",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [],
+    "text": {
+      "description": "## Acceptance criteria\nThe grid shows 5 rows.\nGiven rows\nWhen I filter\nThen it works correctly"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

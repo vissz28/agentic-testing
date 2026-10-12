@@ -1,0 +1,79 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-0",
+    "summary": "the list is wrong",
+    "text": {
+      "description": "The movement list filter is wrong."
+    },
+    "scenarios": [
+      {
+        "then": "the report is generated in Italian, not English"
+      }
+    ]
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "it works correctly | the grid is blank"
+    ],
+    [
+      "add",
+      "feature_label",
+      "Spinta_warehouse"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

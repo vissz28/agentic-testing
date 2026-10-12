@@ -1,0 +1,77 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-7",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [],
+    "text": {
+      "description": "see attached",
+      "acField": "- The grid shows exactly 5 rows after the filter by code 22\n- The counter above the grid reads 5 results and the rows for code 220 are not shown at all in the grid"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-36",
+    "issuetype": "Story",
+    "summary": "filtro per periodo",
+    "labels": [],
+    "text": {
+      "description": "## Storia utente\nCome magazziniere voglio filtrare per periodo per trovare il mese scorso.\n## Criteri di accettazione\n- La lista mostra solo i movimenti del periodo scelto e il contatore sopra la lista riporta il numero esatto dei movimenti trovati, senza quelli del mese prima"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

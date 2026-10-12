@@ -1,0 +1,78 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-33",
+    "issuetype": "Bug",
+    "summary": "[BE] crlf ticket",
+    "labels": [
+      "Report_Magazzino"
+    ],
+    "text": {
+      "description": "## Summary\r\nThe vague criterion below uses Windows line ends.\r\n## Steps to reproduce\r\n1. open\r\n2. filter 22\r\n## Acceptance criteria\r\n- The report works correctly for every filter the user picks, archived documents included, and for every warehouse of the workspace, every single day\r\nThen it works correctly\r\n## Notes\r\nnothing else"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

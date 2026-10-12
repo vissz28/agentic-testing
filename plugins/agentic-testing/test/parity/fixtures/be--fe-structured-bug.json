@@ -1,0 +1,76 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-1",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "## Environment\nEnv: staging\n## Steps to reproduce\n1. open\n2. type 22\n## Expected\nonly 22\n## Actual\n220 too\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

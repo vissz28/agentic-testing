@@ -1,0 +1,76 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-36",
+    "issuetype": "Story",
+    "summary": "filtro per periodo",
+    "labels": [],
+    "text": {
+      "description": "## Storia utente\nCome magazziniere voglio filtrare per periodo per trovare il mese scorso.\n## Criteri di accettazione\n- La lista mostra solo i movimenti del periodo scelto e il contatore sopra la lista riporta il numero esatto dei movimenti trovati, senza quelli del mese prima"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "it works correctly | the grid is blank"
+    ],
+    [
+      "add",
+      "feature_label",
+      "Spinta_warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

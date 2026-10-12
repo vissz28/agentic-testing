@@ -1,0 +1,73 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-26",
+    "text": {
+      "description": "## Acceptance criteria\n- The stock list works correctly after the import, for every product and every warehouse that the workspace has, including archived ones and the ones created today"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse with stock"
+    ],
+    [
+      "add",
+      "ac_present",
+      "Given a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

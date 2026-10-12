@@ -1,0 +1,73 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "summary": "kpi shows wrong cost",
+    "text": {
+      "description": "**What happens?** the KPI shows 150. **What is the expected behavior?** it should show 80 (unit_cost)."
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "environment",
+      "  "
+    ],
+    [
+      "add",
+      "environment",
+      "Env: staging"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

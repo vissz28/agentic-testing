@@ -1,0 +1,79 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-13962",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13962",
+    "issuetype": "Bug",
+    "status": "TEST OK",
+    "summary": "Emettendo una fattura con DDT il magazzino viene movimentato più volte",
+    "labels": [],
+    "text": {
+      "description": "Ho creato la fattura 258048641 con l'articolo hi1 e quantità 5.\n\nNella lista movimenti vedo correttamente la riga relativa alla movimentazione di questo documento con quantità 5 e causale \"vendita prodotti\" con riferimento alla fattura. Nella pagina delle giacenze invece vedo che la giacenza e la disponibilità sono entrambe a -15, come se fossero state movimentate 3 volte.\n\nAtteso (Then): un singolo movimento in uscita di quantità 5 deve ridurre la giacenza (stockOnHand) e la disponibilità di 5, quindi la giacenza deve essere -5, non -15. La lista movimenti mostra una sola riga di -5, quindi anche la giacenza aggregata deve valere -5.\n\nEsempio dai commenti QA: duplicando una fattura con DDT interno la lista movimenti mostra 2 righe da -5 (totale atteso -10), ma la gestione giacenze mostra giacenza e disponibilità a -20 (conteggiate due volte). Atteso: -10.",
+      "acField": "Given un articolo con una singola movimentazione in uscita di quantità 5 da una fattura con DDT\nWhen si calcola la giacenza e la disponibilità\nThen the stockOnHand (giacenza) must be -5 and the stockAvailability (disponibilità) must be -5, the movement is counted exactly once and never re-moved (stockOnHand -5 invece di -15)."
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

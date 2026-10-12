@@ -1,0 +1,74 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-2",
+    "labels": [],
+    "text": {
+      "description": "The filters in the movement list section have incorrect behavior; if in the document filter I search for document 22, it should not also return another document that contains 22."
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse with stock"
+    ],
+    [
+      "add",
+      "ac_present",
+      "Given a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

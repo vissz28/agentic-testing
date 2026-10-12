@@ -1,0 +1,87 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-19",
+    "issuetype": "Bug",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "qaPlan": {
+      "url": "https://x",
+      "title": "Plan",
+      "scenarios": []
+    },
+    "figma": "https://figma.example/f",
+    "mr": "https://git.example/mr/1",
+    "flags": [
+      "a flag"
+    ],
+    "text": {
+      "description": "## Environment\nEnv: staging\n## Steps to reproduce\n1. open\n2. type 22\n## Expected\nonly 22\n## Actual\n220 too\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "feature_label",
+      "warehouse"
+    ],
+    [
+      "add",
+      "feature_label",
+      "giacenza_prodotti"
+    ],
+    [
+      "add",
+      "context",
+      "bad"
+    ],
+    [
+      "add",
+      "context",
+      "Document filter matches substrings"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

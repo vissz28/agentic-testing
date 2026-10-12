@@ -1,0 +1,76 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-1",
+    "summary": "movement filter wrong",
+    "issuetype": "Bug",
+    "text": {
+      "description": "## Acceptance criteria\n- The movement list works correctly when filtering by document number, for every document type and every warehouse in the workspace, archived ones included"
+    },
+    "labels": []
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_present",
+      "it works correctly"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent."
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

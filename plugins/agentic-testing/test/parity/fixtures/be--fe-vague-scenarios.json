@@ -1,0 +1,85 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-11947",
+    "issuetype": "Bug from QA/Test",
+    "labels": [
+      "Lista_Movimenti_Magazzino"
+    ],
+    "text": {
+      "description": "The no-results message in the movements filters is shown in English."
+    },
+    "scenarios": [
+      {
+        "then": "it works correctly"
+      },
+      {
+        "then": "as expected"
+      }
+    ]
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

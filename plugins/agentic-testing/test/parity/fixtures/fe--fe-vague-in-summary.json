@@ -1,0 +1,78 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-5",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "## Summary\nEverything works correctly today.\n## Acceptance criteria\nScenario: x\n  When I open\n  Then the grid shows 5 rows"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

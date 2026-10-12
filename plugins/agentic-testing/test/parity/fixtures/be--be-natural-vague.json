@@ -1,0 +1,73 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-26",
+    "text": {
+      "description": "## Acceptance criteria\n- The stock list works correctly after the import, for every product and every warehouse that the workspace has, including archived ones and the ones created today"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

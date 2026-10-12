@@ -1,0 +1,80 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-20",
+    "issuetype": "Story",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "qaPlan": {
+      "url": "https://x"
+    },
+    "text": {
+      "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

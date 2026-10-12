@@ -1,0 +1,75 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-1",
+    "issuetype": "Bug",
+    "labels": [],
+    "text": {
+      "description": "## Acceptance criteria\n- The grid works correctly after filtering by code, for every product and every warehouse in the workspace, archived ones and the new ones included too, every day"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "it works correctly | the grid is blank"
+    ],
+    [
+      "add",
+      "feature_label",
+      "Spinta_warehouse"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

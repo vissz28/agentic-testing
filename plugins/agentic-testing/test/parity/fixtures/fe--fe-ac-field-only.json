@@ -1,0 +1,79 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-3",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "see attached",
+      "acField": "Scenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_present",
+      "it works correctly"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent."
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

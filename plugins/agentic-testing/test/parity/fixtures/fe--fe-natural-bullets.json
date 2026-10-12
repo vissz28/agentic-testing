@@ -1,0 +1,78 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-6",
+    "issuetype": "Bug",
+    "summary": "selftest ticket",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "## Acceptance criteria\n- The grid shows \"Nessun movimento trovato\" when the filter matches nothing\n* The Delete button is disabled for a warehouse that still has stock, and hovering it shows a tooltip\n\n## Notes\n- not an AC item at all"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "environment",
+      "  "
+    ],
+    [
+      "add",
+      "environment",
+      "Env: staging"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "it is fine now"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "Given a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}

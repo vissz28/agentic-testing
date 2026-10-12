@@ -1,0 +1,229 @@
+{
+  "fixture": "fe--fe-story-only-bug-sections.json",
+  "repo": "fe",
+  "source": {
+    "ref": "origin/agentic-testing-fe",
+    "commit": "2ee3a1283bd99fca456034af8def946574e7b483"
+  },
+  "results": [
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-20 — test-readiness 95% · ready (threshold 70%)\nFeature: Giacenza_Prodotti → /products-stock\nQA plan: found — https://x · 0 scenarios\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - environment / workspace context (5)\nFlags: none\nGate: pass — ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-20\",\"browse\":null,\"issuetype\":\"Story\",\"status\":null,\"score\":95,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Giacenza_Prodotti\",\"route\":\"/products-stock\",\"scenarios\":[],\"derivable\":0,\"qaPlan\":{\"url\":\"https://x\"},\"figma\":null,\"mr\":null,\"missing\":[{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":true,\"steps\":true,\"expected_defined\":true,\"environment\":false,\"qa_plan_found\":true}}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "score",
+        "--json"
+      ],
+      "stdout": "{\"key\":\"FIC-20\",\"browse\":null,\"issuetype\":\"Story\",\"status\":null,\"score\":95,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Giacenza_Prodotti\",\"route\":\"/products-stock\",\"scenarios\":[],\"derivable\":0,\"qaPlan\":{\"url\":\"https://x\"},\"figma\":null,\"mr\":null,\"missing\":[{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":true,\"steps\":true,\"expected_defined\":true,\"environment\":false,\"qa_plan_found\":true}}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\nPlease add Steps to reproduce, Expected, Actual, and Given / When / Then.\n\nThe full Story template is in the warehouse-frontend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 95 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":95,\"threshold\":70,\"items\":[]}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "1 2"
+      ],
+      "stdout": "There is no number 1 on the list.\nFILL_JSON:{\"error\":\"There is no number 1 on the list.\"}\n",
+      "exit": 2
+    },
+    {
+      "op": [
+        "pick",
+        "1"
+      ],
+      "stdout": "There is no number 1 on the list.\nFILL_JSON:{\"error\":\"There is no number 1 on the list.\"}\n",
+      "exit": 2
+    },
+    {
+      "op": [
+        "pick",
+        "9"
+      ],
+      "stdout": "There is no number 9 on the list.\nFILL_JSON:{\"error\":\"There is no number 9 on the list.\"}\n",
+      "exit": 2
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "Nothing was added, so there is nothing to put on the Jira ticket.\nJIRA_UPDATE_JSON:{\"append\":null,\"labelsAdd\":[],\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "expected_defined",
+        "only document 22"
+      ],
+      "stdout": "Not accepted: Write both, separated by |: what you should see | what you see now.\nExample: The message \"Nessun dato\" is shown | The grid is blank\nFILL_JSON:{\"ok\":false,\"reason\":\"Write both, separated by |: what you should see | what you see now.\",\"score\":95,\"gate\":\"pass\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-20",
+        "issuetype": "Story",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "qaPlan": {
+          "url": "https://x"
+        },
+        "text": {
+          "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown"
+        }
+      }
+    },
+    {
+      "op": [
+        "add",
+        "expected_defined",
+        "only document 22 | documents 220 and 122 too"
+      ],
+      "stdout": "Accepted. The ticket now has 95 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":95,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-20",
+        "issuetype": "Story",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "qaPlan": {
+          "url": "https://x"
+        },
+        "text": {
+          "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "qa_plan_found",
+        "x"
+      ],
+      "stdout": "Not accepted: There is no criterion called qa_plan_found that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called qa_plan_found that can be typed in.\",\"score\":95,\"gate\":\"pass\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-20",
+        "issuetype": "Story",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "qaPlan": {
+          "url": "https://x"
+        },
+        "text": {
+          "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "nope",
+        "x"
+      ],
+      "stdout": "Not accepted: There is no criterion called nope that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called nope that can be typed in.\",\"score\":95,\"gate\":\"pass\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-20",
+        "issuetype": "Story",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "qaPlan": {
+          "url": "https://x"
+        },
+        "text": {
+          "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "environment",
+        "staging"
+      ],
+      "stdout": "Accepted. The ticket now has 100 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":100,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-20",
+        "issuetype": "Story",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "qaPlan": {
+          "url": "https://x"
+        },
+        "text": {
+          "description": "## User story\nAs a user I want X so that Y\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging"
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Expected\n  only document 22\n\n  ## Actual\n  documents 220 and 122 too\n\n  ## Environment\n  Env: staging\n\nNothing already on the ticket is changed.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Expected\\nonly document 22\\n\\n## Actual\\ndocuments 220 and 122 too\\n\\n## Environment\\nEnv: staging\",\"labelsAdd\":[],\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-20 — test-readiness 100% · ready (threshold 70%)\nFeature: Giacenza_Prodotti → /products-stock\nQA plan: found — https://x · 0 scenarios\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing: nothing — full marks.\nFlags: none\nGate: pass — ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-20\",\"browse\":null,\"issuetype\":\"Story\",\"status\":null,\"score\":100,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Giacenza_Prodotti\",\"route\":\"/products-stock\",\"scenarios\":[],\"derivable\":0,\"qaPlan\":{\"url\":\"https://x\"},\"figma\":null,\"mr\":null,\"missing\":[],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":true,\"steps\":true,\"expected_defined\":true,\"environment\":true,\"qa_plan_found\":true}}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 100 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":100,\"threshold\":70,\"items\":[]}\n",
+      "exit": 0
+    }
+  ]
+}

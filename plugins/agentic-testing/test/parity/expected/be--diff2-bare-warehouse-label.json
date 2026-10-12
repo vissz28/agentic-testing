@@ -1,0 +1,25 @@
+{
+  "fixture": "be--diff2-bare-warehouse-label.json",
+  "repo": "be",
+  "source": {
+    "ref": "origin/agt-34-remove-audit-logs",
+    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f"
+  },
+  "results": [
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-37: test-readiness 100% · ready (threshold 70%)\nFeature label: none\nExpected chunks in ticket text: 1 assertable · model harvested 0 scenario(s) (not scored)\nMissing: nothing, full marks.\nFlags: none\nGate: pass, ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":100,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":null,\"scenarios\":[],\"derivable\":1,\"missing\":[],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true}}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "score",
+        "--json"
+      ],
+      "stdout": "{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":100,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":null,\"scenarios\":[],\"derivable\":1,\"missing\":[],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true}}\n",
+      "exit": 0
+    }
+  ]
+}

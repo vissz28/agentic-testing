@@ -1,0 +1,78 @@
+{
+  "repo": "be",
+  "ticket": {
+    "key": "FIC-35",
+    "issuetype": "Bug",
+    "summary": "[BE] filtro documenti",
+    "labels": [
+      "Lista_Movimenti_Magazzino"
+    ],
+    "text": {
+      "description": "## Contesto\nIl filtro documenti restituisce anche il 220.\n## Ambiente\nEnv: staging\n## Passi per riprodurre\n1. apri la lista\n2. filtra per 22\n## Risultato atteso\nsolo 22\n## Risultato effettivo\nanche 220\n## Criteri di accettazione\nScenario: il filtro è esatto\n  Dato righe 22, 220\n  Quando filtro per 22\n  Allora viene mostrato solo 22"
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ]
+  ]
+}
