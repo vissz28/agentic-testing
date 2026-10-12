@@ -2,13 +2,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { CONFIG_REL, DEFAULTS, configPath, projectRoot, validateConfig } from './config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from './config.mjs'
 
 const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
   story: ['.gitlab/issue_templates/Story.md', '.github/ISSUE_TEMPLATE/story.md'],
 }
-const rawLine = ticketsDir => `${ticketsDir ?? DEFAULTS.ticketsDir}/*/raw.json`
+const rawLine = ticketsDir => `${normaliseTicketsDir(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 

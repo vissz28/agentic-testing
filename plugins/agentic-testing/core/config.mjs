@@ -16,6 +16,9 @@ export const DEFAULTS = Object.freeze({
   ticketTemplates: { bug: null, story: null },
 })
 
+/** ticketsDir as every caller uses it: "/" separators, no trailing "/". */
+export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/\/+$/, '')
+
 export const projectRoot = (env = process.env, cwd = process.cwd()) => env.CLAUDE_PROJECT_DIR || cwd
 export const configPath = root => join(root, CONFIG_REL)
 
@@ -59,7 +62,10 @@ export function validateConfig(input) {
     if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
-  if (c.ticketsDir !== undefined && (typeof c.ticketsDir !== 'string' || !c.ticketsDir.trim())) e.push('ticketsDir: must be a non-empty text')
+  if (c.ticketsDir !== undefined) {
+    if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
+    else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
+  }
   if (c.ticketTemplates !== undefined) {
     if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
     else for (const [k, v] of Object.entries(c.ticketTemplates)) {
@@ -71,7 +77,9 @@ export function validateConfig(input) {
     if (!isObj(c.redact)) e.push('redact: must be an object of name to regular expression')
     else for (const [name, src] of Object.entries(c.redact)) {
       if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
-      try { new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`) }
+      let re
+      try { re = new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`); continue }
+      if (re.test('')) e.push(`redact.${name}: must not match empty text (it would insert the mask between every character)`)
     }
   }
   if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
@@ -82,7 +90,7 @@ export function validateConfig(input) {
       ...c,
       jira: { trackingProjects: [], ...j },
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
-      ticketsDir: c.ticketsDir ?? DEFAULTS.ticketsDir,
+      ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
       redact: c.redact ?? DEFAULTS.redact,
       messages: c.messages ?? DEFAULTS.messages,
       ticketTemplates: { ...DEFAULTS.ticketTemplates, ...(c.ticketTemplates ?? {}) },

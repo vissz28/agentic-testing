@@ -70,6 +70,19 @@ test('gitignore: newline added before the line, content kept; custom ticketsDir 
   write(e, cfg, {})
   assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n`)
 })
+test('gitignore: a trailing slash or backslashes in ticketsDir still give <dir>/*/raw.json', () => {
+  for (const ticketsDir of ['tix/', 'tix\\']) {
+    const d = repo({})
+    assert.equal(write(d, { ...cfg, ticketsDir }, {}).ok, true)
+    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n', ticketsDir)
+    assert.equal(detect(d).gitignore, true, ticketsDir)
+  }
+})
+test('a newline in ticketsDir is refused before .gitignore is touched', () => {
+  const d = repo({})
+  assert.equal(write(d, { ...cfg, ticketsDir: 'tix\n!secret' }, {}).ok, false)
+  assert.equal(existsSync(join(d, '.gitignore')), false)
+})
 test('templates are written when absent and wired into ticketTemplates', () => {
   const d = repo({})
   assert.equal(write(d, cfg, { templates: { bug: '# Bug', story: '# Story' } }).ok, true)

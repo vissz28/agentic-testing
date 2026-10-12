@@ -83,6 +83,11 @@ bad({ titlePrefixes: 'FE' }, 'titlePrefixes')
 bad({ titlePrefixes: ['FE', ''] }, 'titlePrefixes[1]')
 bad({ ticketsDir: '' }, 'ticketsDir')
 bad({ ticketsDir: 5 }, 'ticketsDir')
+bad({ ticketsDir: 'tix\n*.env' }, 'ticketsDir')
+bad({ ticketsDir: 'tix\r' }, 'ticketsDir')
+bad({ ticketsDir: '///' }, 'ticketsDir')
+bad({ redact: { blank: 'x*' } }, 'redact.blank')
+bad({ redact: { blank: '^' } }, 'redact.blank')
 bad({ ticketTemplates: 'x' }, 'ticketTemplates')
 bad({ ticketTemplates: { bug: 5 } }, 'ticketTemplates.bug')
 bad({ ticketTemplates: { story: {} } }, 'ticketTemplates.story')
@@ -102,4 +107,13 @@ test('a non-string route is not reported as missing a slash', () => {
 
 test('validateConfig never throws on non-object input', () => {
   for (const v of ['x', null, undefined, 5, []]) assert.equal(validateConfig(v).ok, false)
+})
+
+test('a redact pattern that matches empty text gets one clear error', () => {
+  const r = validateConfig({ ...good, redact: { customerId: '\\bU\\d{5,}\\b', blank: 'a?' } })
+  assert.deepEqual(r.errors, ['redact.blank: must not match empty text (it would insert the mask between every character)'])
+})
+test('ticketsDir: backslashes become "/" and trailing slashes go', () => {
+  assert.equal(validateConfig({ ...good, ticketsDir: 'tix\\sub\\' }).config.ticketsDir, 'tix/sub')
+  assert.equal(validateConfig({ ...good, ticketsDir: 'tix//' }).config.ticketsDir, 'tix')
 })
