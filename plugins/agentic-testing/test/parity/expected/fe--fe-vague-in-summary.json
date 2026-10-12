@@ -214,6 +214,55 @@
       ],
       "stdout": "This ticket has 75 of the 70 points it needs.\nWhat is missing:\n  1. Steps to reproduce  +10\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":75,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"steps\",\"title\":\"Steps to reproduce\",\"gain\":10,\"question\":\"How do you reproduce it? One step per line.\",\"example\":\"Open the products stock\\nFilter by a code that does not exist\\nLook at the empty grid\"}]}\n",
       "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 75 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":75,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-5",
+        "issuetype": "Bug",
+        "summary": "selftest ticket",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "text": {
+          "description": "## Summary\nEverything works correctly today.\n## Acceptance criteria\nScenario: x\n  When I open\n  Then the grid shows 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+        },
+        "filled": [
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Expected\n  only document 22\n\n  ## Actual\n  documents 220 and 122 too\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Expected\\nonly document 22\\n\\n## Actual\\ndocuments 220 and 122 too\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[],\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\n### 1. Steps to reproduce\nThere is no Steps to reproduce section (or user story).\n\nA short numbered list is enough. You can adapt this:\n\n## Steps to reproduce\n1. Open the movement list\n2. Filter by document 22\n3. Look at the rows that come back\n\nThe full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
     }
   ]
 }

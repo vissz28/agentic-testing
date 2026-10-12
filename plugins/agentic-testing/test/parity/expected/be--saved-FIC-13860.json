@@ -271,6 +271,69 @@
       ],
       "stdout": "This ticket has 100 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":100,\"threshold\":70,\"items\":[]}\n",
       "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 100 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":100,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-13860",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13860",
+        "summary": "[BE] KPI \"last unit cost\" drops a zero-cost movement — kpi.repository",
+        "issuetype": "Test",
+        "status": "DONE",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "text": {
+          "description": "## Summary\n\nWhen an incoming movement has unit cost 0, the KPI last unit cost is not set to 0. It keeps the previous value. The same happens for last unit price when an outgoing movement has price 0.\n\n## Environment\n\nEnv: local\n\n## Steps to reproduce\n\n1. A product has a prior KPI row with last_cost = 50.\n2. Ingest an incoming movement for that product with unit cost = 0.\n3. Read the product's KPI last unit cost.\n\n## Expected\n\nThe KPI last unit cost is 0.\n\n## Actual\n\nThe KPI last unit cost is 50. The 0 is ignored.\n\n## Acceptance criteria\n\nGiven a product with last cost = 50  \nWhen I save a movement with cost = 0  \nThen the last cost is 0\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.",
+          "acField": "Given a product with last cost = 50\nWhen I save a movement with cost = 0\nThen the last cost is 0"
+        },
+        "remoteLinks": [
+          {
+            "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-backend/-/commit/d4f0cc407c8a91118dc1779a04337b00ae17ddb1"
+          }
+        ],
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          },
+          {
+            "key": "title_prefix",
+            "prefix": "BE"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nTitle gets the prefix [BE]\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[],\"titlePrefix\":\"BE\",\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\nPlease add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then.\n\nThe full Story template is in the warehouse-backend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
     }
   ]
 }

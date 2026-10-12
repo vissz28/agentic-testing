@@ -221,6 +221,59 @@
       ],
       "stdout": "This ticket has 100 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":100,\"threshold\":70,\"items\":[]}\n",
       "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 100 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":100,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-21",
+        "summary": "[BE] fix filter",
+        "labels": [
+          "Giacenza_Prodotti"
+        ],
+        "text": {
+          "description": "## Context\nthe list is wrong\n## Environment\nEnv: staging\n## Steps to reproduce\n1. open\n2. type 22\n## Expected\nonly 22\n## Actual\n220 too\n## Acceptance criteria\nScenario: filter is exact\n  Given rows 22, 220\n  When I filter by 22\n  Then only 22 is shown\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+        },
+        "filled": [
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+          },
+          {
+            "key": "expected_defined",
+            "section": "## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Acceptance criteria\n  Given a filter on code 22\n  When I apply it\n  Then the grid shows exactly 5 rows\n\n  ## Expected\n  only document 22\n\n  ## Actual\n  documents 220 and 122 too\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Acceptance criteria\\nGiven a filter on code 22\\nWhen I apply it\\nThen the grid shows exactly 5 rows\\n\\n## Expected\\nonly document 22\\n\\n## Actual\\ndocuments 220 and 122 too\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[],\"titlePrefix\":null,\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\nPlease add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then.\n\nThe full Story template is in the warehouse-backend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
     }
   ]
 }

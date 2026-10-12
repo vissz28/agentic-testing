@@ -192,6 +192,53 @@
       ],
       "stdout": "This ticket has 60 of the 70 points it needs.\nWhat is missing:\n  1. Feature label  +15\n  2. User story     +10\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":60,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":15,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":2,\"key\":\"steps\",\"title\":\"User story\",\"gain\":10,\"question\":\"Who wants what, and why? One line.\",\"example\":\"As a warehouse user, I want to filter the movement list by period so that I find last month quickly.\"}]}\n",
       "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 60 points (the bar is 70): 10 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":60,\"gate\":\"refuse\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-1",
+        "summary": "movement filter wrong",
+        "issuetype": "Story",
+        "text": {
+          "description": "The movement filter is wrong.\n\n## Acceptance criteria\nGiven a warehouse with stock\nWhen I open its menu\nThen Delete is disabled\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+        },
+        "labels": [],
+        "filled": [
+          {
+            "key": "ac_present",
+            "section": "## Acceptance criteria\nGiven a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Acceptance criteria\n  Given a warehouse with stock\n  When I open its menu\n  Then Delete is disabled\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Acceptance criteria\\nGiven a warehouse with stock\\nWhen I open its menu\\nThen Delete is disabled\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[],\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\n### 1. Feature label\nThe ticket has no warehouse feature label, so we cannot tell which screen to open.\n\nPlease add one of these existing labels (do not create a new one):\nGiacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze,\narrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\n\n### 2. User story\nThere is no User story line.\n\nOne line is enough. You can adapt this:\n\n## User story\nAs a warehouse user, I want to filter the movement list by period so that I can find last month quickly.\n\nThe full Story template is in the warehouse-frontend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 1
     }
   ]
 }

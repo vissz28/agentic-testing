@@ -262,6 +262,67 @@
       ],
       "stdout": "This ticket has 100 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":100,\"threshold\":70,\"items\":[]}\n",
       "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 100 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":100,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-11947",
+        "issuetype": "Bug from QA/Test",
+        "labels": [
+          "Lista_Movimenti_Magazzino"
+        ],
+        "text": {
+          "description": "The no-results message in the movements filters is shown in English.\n\n## Acceptance criteria\n- The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent.\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+        },
+        "scenarios": [],
+        "qaPlan": {
+          "url": "https://x",
+          "scenarios": [
+            {
+              "then": "the grid shows exactly 5 rows"
+            }
+          ]
+        },
+        "filled": [
+          {
+            "key": "ac_present",
+            "section": "## Acceptance criteria\n- The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent."
+          },
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Acceptance criteria\n  - The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent.\n\n  ## Steps to reproduce\n  1. Open the list\n  2. Filter by 22\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Acceptance criteria\\n- The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\\n\\n## Steps to reproduce\\n1. Open the list\\n2. Filter by 22\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[],\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\nPlease add Steps to reproduce, Expected, Actual, and Given / When / Then.\n\nThe full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
     }
   ]
 }

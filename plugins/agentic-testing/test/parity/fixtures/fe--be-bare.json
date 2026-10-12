@@ -71,6 +71,17 @@
     ],
     [
       "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
     ]
   ]
 }
