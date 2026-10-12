@@ -21,7 +21,7 @@ branch that has them (`agentic-testing-fe` / `agentic-testing-be`, or a branch m
 Inside Claude Code, in the warehouse repo you work on:
 
 ```
-/plugin marketplace add <github-user>/agentic-testing
+/plugin marketplace add vissz28/agentic-testing
 /plugin install warehouse-frontend@agentic-testing
 ```
 
@@ -31,7 +31,7 @@ already be able to clone it: a GitHub login in the macOS keychain, `gh auth logi
 From a shell, the same thing:
 
 ```bash
-claude plugin marketplace add <github-user>/agentic-testing
+claude plugin marketplace add vissz28/agentic-testing
 claude plugin install warehouse-frontend@agentic-testing --scope project
 ```
 
@@ -40,7 +40,7 @@ To have it offered to everyone who opens a repo, add this to that repo's `.claud
 ```json
 {
   "extraKnownMarketplaces": {
-    "agentic-testing": { "source": { "source": "github", "repo": "<github-user>/agentic-testing" } }
+    "agentic-testing": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
   "enabledPlugins": { "warehouse-frontend@agentic-testing": true }
 }
