@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { validateConfig, loadConfig, projectRoot, configPath } from '../core/config.mjs'
@@ -118,4 +118,32 @@ test('a redact pattern that matches empty text gets one clear error', () => {
 test('ticketsDir: backslashes become "/" and trailing slashes go', () => {
   assert.equal(validateConfig({ ...good, ticketsDir: 'tix\\sub\\' }).config.ticketsDir, 'tix/sub')
   assert.equal(validateConfig({ ...good, ticketsDir: 'tix//' }).config.ticketsDir, 'tix')
+})
+
+// confluenceSpaces: optional list of Confluence space keys the QA-plan search is limited to.
+bad({ confluenceSpaces: 'ABC' }, 'confluenceSpaces')
+bad({ confluenceSpaces: ['ABC', ''] }, 'confluenceSpaces[1]')
+bad({ confluenceSpaces: ['ABC', 'A B'] }, 'confluenceSpaces[1]')
+bad({ confluenceSpaces: ['A"B'] }, 'confluenceSpaces[0]')
+bad({ confluenceSpaces: [5] }, 'confluenceSpaces[0]')
+
+test('confluenceSpaces: absent by default (search all spaces); valid keys pass as written', () => {
+  const none = validateConfig(good)
+  assert.equal(none.ok, true)
+  assert.equal('confluenceSpaces' in none.config, false)
+  const some = validateConfig({ ...good, confluenceSpaces: ['ABC', 'team_2', '~user-1'] })
+  assert.equal(some.ok, true)
+  assert.deepEqual(some.config.confluenceSpaces, ['ABC', 'team_2', '~user-1'])
+})
+test('confluenceSpaces: one clear error naming the index', () => {
+  const r = validateConfig({ ...good, confluenceSpaces: ['ABC', 'A B'] })
+  assert.deepEqual(r.errors, ['confluenceSpaces[1] "A B" must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"'])
+})
+test('the schema documents confluenceSpaces with the validator\'s pattern', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/agentic-testing.schema.json', import.meta.url), 'utf8'))
+  const p = schema.properties.confluenceSpaces
+  assert.equal(p.type, 'array')
+  assert.equal(p.items.pattern, '^[A-Za-z0-9_~-]+$')
+  assert.match(p.description, /all spaces/)
+  assert.ok(!schema.required.includes('confluenceSpaces'))
 })

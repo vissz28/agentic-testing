@@ -51,6 +51,11 @@
       "description": "Title prefixes the vitest rubric credits, written without brackets and matched literally. May be [] when the team uses none: the title-prefix signal then scores 0 and is never asked for.",
       "items": { "type": "string", "minLength": 1 }
     },
+    "confluenceSpaces": {
+      "type": "array",
+      "description": "Confluence space keys the QA-plan search is limited to (Playwright), for example [\"ABC\"]. Left out, the search looks in all spaces.",
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9_~-]+$" }
+    },
     "ticketTemplates": {
       "type": "object",
       "properties": {

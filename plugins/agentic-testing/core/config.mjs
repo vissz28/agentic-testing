@@ -5,8 +5,9 @@ import { join } from 'node:path'
 export const CONFIG_REL = '.claude/agentic-testing.json'
 const SETUP = 'Run /agentic-testing:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'ticketTemplates', 'ticketsDir', 'redact', 'messages'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages'])
 const LANGS = new Set(['en', 'it'])
+const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 
 export const DEFAULTS = Object.freeze({
   titlePrefixes: [],
@@ -61,6 +62,13 @@ export function validateConfig(input) {
   if (c.titlePrefixes !== undefined) {
     if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
+  }
+  // Absent means the QA-plan search looks in every Confluence space.
+  if (c.confluenceSpaces !== undefined) {
+    if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')
+    else c.confluenceSpaces.forEach((k, i) => {
+      if (typeof k !== 'string' || !SPACE_KEY.test(k)) e.push(`confluenceSpaces[${i}] ${JSON.stringify(k)} must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"`)
+    })
   }
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
