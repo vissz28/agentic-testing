@@ -231,7 +231,8 @@ In the plugin repo, with Node's built-in runner (`node --test`), no dependencies
    criteria (ruling R37). A Given / When / And line (Dato / Quando / E) under the criteria heading,
    in the criteria field or in a mixed section is read as a plain-language sentence, and counts
    towards the 150 characters, when it is not part of real Gherkin and, after the step word, holds
-   a comma followed by more text. Real Gherkin is a block of consecutive step lines opened by a
+   a comma and a space followed by more text (a comma inside a number such as "2,5" or "1,000"
+   does not count). A bare And after such a sentence is still a step and needs its own result. Real Gherkin is a block of consecutive step lines opened by a
    Scenario-style header or passing `hasGherkin` (a line-anchored step pair including a Then;
    bullets are ignored); data-table rows and doc strings belong to the step block they follow.
    Bare steps without a Then ("When the user opens the page") are setup and earn nothing, as

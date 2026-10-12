@@ -2,7 +2,7 @@
 // A menu of the gaps with their real gains, a projection of a pick, and an answer writer that
 // keeps an answer only if the rubric then credits it.
 import { buildVocabulary } from './languages/index.mjs'
-import { extractNaturalAC, hasGherkin, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
+import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
 import { buildBrief, rubricFor, scoreTicket } from './score.mjs'
 import playwright from './rubrics/playwright.mjs'
@@ -18,12 +18,14 @@ const REASONS = {
     vague: w => `"${w}" is not something a test can see. Name the label, the count or the exact text.`,
     short: n => `Too short: ${n} characters. Plain-language criteria need at least ${MIN_NATURAL_AC} (two or three sentences on what the user should see), or write them as Given / When / Then.`,
     pair: 'Write both, separated by |: what you should see | what you see now.',
+    noThen: 'These Given / When steps have no Then line. Add a Then saying what the user should see, or write it as a sentence: When X, Y.',
   },
   vitest: {
     unknownKey: k => `There is no criterion called ${k}.`,
     vague: w => `"${w}" is not a result a test can check. Name the number or the exact text.`,
     short: n => `Too short: ${n} characters. Plain-language criteria need at least ${MIN_NATURAL_AC} (two or three sentences on what should happen), or write them as Given / When / Then.`,
     pair: 'Write both, separated by |: what should happen | what happens now.',
+    noThen: 'These Given / When steps have no Then line. Add a Then saying what should happen, or write it as a sentence: When X, Y.',
   },
 }
 
@@ -147,6 +149,8 @@ export function applyAnswer(config, ticket, key, answer) {
       if (bulletedGherkin) lines.splice(0, lines.length, ...unbulleted)
       const isGherkin = bulletedGherkin || hasGherkin(v, text)
       const length = naturalLength(extractNaturalAC(v, text, { headingless: true }))
+      const stepsOnly = !isGherkin && !hasThen(v, text) && unbulleted.some(l => v.gherkinStep.test(l))
+      if (stepsOnly && length === 0) return reject(why.noThen)
       if (!isGherkin && length < MIN_NATURAL_AC) return reject(why.short(length))
       if (key === 'ac_testable') {
         entry.replacedVague = true

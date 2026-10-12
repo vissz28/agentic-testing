@@ -147,3 +147,5 @@ test('the schema documents confluenceSpaces with the validator\'s pattern', () =
   assert.match(p.description, /all spaces/)
   assert.ok(!schema.required.includes('confluenceSpaces'))
 })
+// An empty list would build "space in ()", which Confluence rejects; leave the field out for all spaces.
+bad({ confluenceSpaces: [] }, 'confluenceSpaces')

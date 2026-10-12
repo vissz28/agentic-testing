@@ -183,3 +183,19 @@ test('R37: a step-word sentence with a comma and a result is prose (en and it)',
   assert.deepEqual(C.extractNaturalAC(v, 'Quando la lista si carica, il contatore mostra 5.', { headingless: true }), ['Quando la lista si carica, il contatore mostra 5.'])
   assert.deepEqual(C.extractNaturalAC(v, 'When the list loads,', { headingless: true }), [])
 })
+
+// Review of R37: an And line after a "When X, Y" sentence is a bare step unless it states a result
+// itself, and a comma inside a number ("2,5 kg", "1,000") is not a result (Ruling R38).
+test('R37: bare And / E lines after a result sentence stay setup', async () => {
+  const and = 'When it loads, ok\nAnd the user opens the orders page from the main menu\nAnd the user filters the list by the customer name\nAnd the user sorts the orders by their creation date'
+  assert.deepEqual(C.extractNaturalAC(v, and, { headingless: true }), ['When it loads, ok'])
+  assert.deepEqual(await signalsOf('', and), { ac_present: false, ac_testable: false })
+  const e = 'Quando la pagina si carica, ok\nE l\'utente apre la pagina ordini dal menu principale\nE l\'utente filtra la lista per nome del cliente'
+  assert.deepEqual(C.extractNaturalAC(v, e, { headingless: true }), ['Quando la pagina si carica, ok'])
+})
+test('R38: a comma inside a number is not a result', async () => {
+  const dec = 'Quando l\'utente inserisce 2,5 kg nel campo quantità della riga ordine\nQuando l\'utente inserisce 1,000 pezzi nel campo quantità della seconda riga\nQuando l\'utente salva la bozza'
+  assert.deepEqual(C.extractNaturalAC(v, dec, { headingless: true }), [])
+  assert.deepEqual(await signalsOf('', dec), { ac_present: false, ac_testable: false })
+  assert.deepEqual(C.extractNaturalAC(v, 'When the user enters 2,5 kg, the total reads 2,5 kg.', { headingless: true }), ['When the user enters 2,5 kg, the total reads 2,5 kg.'])
+})

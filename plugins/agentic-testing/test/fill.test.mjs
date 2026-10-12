@@ -242,7 +242,7 @@ for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare
   test(`${name}: R37 refuses bare Given / When steps with no Then, credits a When sentence with a result`, () => {
     for (const filler of [FILLER_GW, FILLER_W, 'Quando l\'utente apre la pagina ordini dal menu principale\nQuando l\'utente filtra la lista per nome del cliente\nQuando l\'utente ordina gli ordini per data di creazione']) {
       const r = applyAnswer(c, bare, 'ac_present', filler)
-      assert.ok(!r.ok && /Too short/.test(r.reason) && r.input === bare, r.reason)
+      assert.ok(!r.ok && /no Then line/.test(r.reason) && r.input === bare, r.reason)
     }
     for (const ok of [TRIAL_AC, TRIAL_IT]) {
       const r = applyAnswer(c, bare, 'ac_present', ok)
@@ -253,5 +253,13 @@ for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare
     const r = applyAnswer(c, bare, 'ac_present', '- Given an order that is shipped\n- When I open its menu\n* Then Delete is disabled')
     assert.ok(r.ok && r.brief.signals.ac_present, r.reason)
     assert.ok(r.input.text.description.endsWith('## Acceptance criteria\nGiven an order that is shipped\nWhen I open its menu\nThen Delete is disabled'), r.input.text.description)
+  })
+}
+
+// Steps with no Then get a message that names the missing Then, not "Too short: 0 characters".
+for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare]]) {
+  test(`${name}: Given / When steps without a Then are told the Then is missing`, () => {
+    const r = applyAnswer(c, bare, 'ac_present', 'Given a list of orders\nWhen I filter by customer')
+    assert.ok(!r.ok && /Then/.test(r.reason) && !/0 characters/.test(r.reason) && r.input === bare, r.reason)
   })
 }

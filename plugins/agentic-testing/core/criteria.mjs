@@ -63,7 +63,8 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
       step = 'setup'
       continue
     }
-    step = null
+    // After a result sentence, a bare And is still a step: it must state its own result.
+    step = plainStepWord ? 'setup' : null
     for (const sentence of content.split(/(?<=[.!?])\s+/)) if (sentence.trim()) items.push(sentence.trim())
   }
   return items
@@ -71,11 +72,12 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
 
 /**
  * A Given / When / And line that reads as a sentence with a result: after the step word, a comma
- * followed by more text ("When X, Y", "Quando X, Y").
+ * and a space followed by more text ("When X, Y", "Quando X, Y"). A comma inside a number
+ * ("2,5", "1,000") is not a result.
  */
 function statesResult(v, content) {
   const rest = v.gherkinStep.test(content) ? content.replace(v.gherkinStep, '') : content.match(v.continuation)?.[1]
-  return rest != null && /,\s*\S/.test(rest)
+  return rest != null && /,\s+\S/.test(rest)
 }
 
 const TABLE_ROW = /^\s*\|/

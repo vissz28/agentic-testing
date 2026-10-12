@@ -53,7 +53,8 @@
     },
     "confluenceSpaces": {
       "type": "array",
-      "description": "Confluence space keys the QA-plan search is limited to (Playwright), for example [\"ABC\"]. Left out, the search looks in all spaces.",
+      "minItems": 1,
+      "description": "Confluence space keys the QA-plan search is limited to (Playwright), for example [\"ABC\"]. Left out, the search looks in all spaces; an empty list is not allowed.",
       "items": { "type": "string", "pattern": "^[A-Za-z0-9_~-]+$" }
     },
     "ticketTemplates": {

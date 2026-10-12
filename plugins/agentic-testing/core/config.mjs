@@ -66,6 +66,7 @@ export function validateConfig(input) {
   // Absent means the QA-plan search looks in every Confluence space.
   if (c.confluenceSpaces !== undefined) {
     if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')
+    else if (!c.confluenceSpaces.length) e.push('confluenceSpaces: must name at least one space; leave it out to search all spaces')
     else c.confluenceSpaces.forEach((k, i) => {
       if (typeof k !== 'string' || !SPACE_KEY.test(k)) e.push(`confluenceSpaces[${i}] ${JSON.stringify(k)} must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"`)
     })
