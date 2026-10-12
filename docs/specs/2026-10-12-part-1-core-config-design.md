@@ -214,6 +214,8 @@ In the plugin repo, with Node's built-in runner (`node --test`), no dependencies
    config carries today's texts, so warehouse output is unchanged.
 5. The backend rubric key `warehouse_label` is named `feature_label`, as in the frontend. The skills
    read keys from the fill menu, so nothing breaks; the JSON key name changes.
+6. The frontend `JIRA_UPDATE_JSON` line also carries `titlePrefix` (always `null` there), as the
+   backend's does.
 
 ## 11. Out of scope for part 1
 
