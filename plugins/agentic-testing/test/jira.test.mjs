@@ -88,3 +88,10 @@ test('config label overrides the rubric label in missing and the report', () => 
   const bs = buildBrief(c, { ...bare, issuetype: 'Story' })
   assert.equal(bs.missing.find(m => m.key === 'steps').label, 'S')
 })
+test('the fallback body comes from messages.refuseFallback', () => {
+  const brief = { issuetype: 'Bug', missing: [] }
+  const out = formatRefuseComment(cfg({ messages: { refuseFallback: 'X' } }), brief)
+  assert.match(out, /\n\nX\n\n/)
+  assert.doesNotMatch(out, /Please add Steps to reproduce/)
+  assert.match(formatRefuseComment(cfg(), brief), /Please add Steps to reproduce, Expected, Actual, and Given \/ When \/ Then\./)
+})

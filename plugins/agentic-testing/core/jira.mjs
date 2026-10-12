@@ -1,5 +1,5 @@
 // The comment posted on a refused ticket, and what is pushed to Jira after a guided fill-in.
-import { messagesFor, templateFor } from './messages.mjs'
+import { messagesFor, refuseFallback, templateFor } from './messages.mjs'
 
 export { templateFor }
 
@@ -62,7 +62,7 @@ export function formatRefuseComment(config, brief) {
     '',
     'Here is what to add:',
     '',
-    body || 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.',
+    body || refuseFallback(config),
     '',
     ...(line ? [line, ''] : []),
     REFUSE_COMMENT_FOOTER,

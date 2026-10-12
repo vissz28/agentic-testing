@@ -189,3 +189,9 @@ export function labelOverride(config, issuetype, key) {
   const fromKey = isObj(cfg[key]) ? cfg[key].label : undefined
   return typeof fromStory === 'string' ? fromStory : typeof fromKey === 'string' ? fromKey : undefined
 }
+
+/** The body used when no block is shown: config.messages.refuseFallback, else the neutral default. */
+export function refuseFallback(config) {
+  const custom = isObj(config.messages) ? config.messages.refuseFallback : undefined
+  return typeof custom === 'string' ? custom : 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.'
+}
