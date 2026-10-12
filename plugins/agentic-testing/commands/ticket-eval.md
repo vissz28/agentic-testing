@@ -7,7 +7,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
 ## Rules
 
-- **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one connected in claude.ai). If none is connected, stop once: `Connect the Atlassian connector (type /mcp), then run this command again.` No searching of transcripts or caches.
+- **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one connected in claude.ai). If none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.` If the user pastes the ticket text, use it in place of step 2's read. No searching of transcripts or caches.
 - **Token discipline.** Read only the fields listed in step 2; never all fields, never a comment dump. Read comments only when the description has no criteria.
 - **Never say the score to the user**, except in the guided fill-in lines, shown exactly as the script prints them.
 - Every script call is `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`).
@@ -18,12 +18,13 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
 1. **Parse and check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /agentic-testing:ticket-eval <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/agentic-testing:setup`). Read `.claude/agentic-testing.json` for `jira.site`, `jira.projects`, `jira.acceptanceCriteriaField` and `ticketsDir` (default `.claude/agentic-testing/tickets`). Never hard-code any of these.
 
-2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector for the site in `jira.site`, with fields `summary,issuetype,status,labels,description,<jira.acceptanceCriteriaField>,issuelinks` (leave the criteria field out when it is `null`; use the id from the config). Harvest:
+2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector with `cloudId` set to the hostname of `jira.site` (no `https://`), and fields fields `summary,issuetype,status,labels,description,<jira.acceptanceCriteriaField>,issuelinks` (leave the criteria field out when it is `null`; use the id from the config). Harvest:
    - `summary`, `issuetype`, `status`, `labels`; `browse` = `<jira.site>/browse/<KEY>`.
    - The raw description and the raw criteria field text. Do not judge them: the script reads them itself. Extract each `Scenario:` into `scenarios: [{ "name", "gherkin" }]`. Do not pad the list; write only what the ticket supports.
    - `figma`: a `figma.com/(file|design)/…` URL in the description, labels or `issuelinks`, else `null`. Note the URL only.
    - Flags: only things a script cannot see (an undefined term, a missing precondition, a `When` with no `Then`). Informational; they do not change the score.
-   - If the config has `adapter: playwright` and a linked Confluence QA plan exists (in `issuelinks` or the description), read that one page and set `qaPlan = { "title", "url", "scenarios": [{ "name", "gherkin" }] }`; otherwise `qaPlan = null`. At most one page read; no searching a whole space.
+   - `mr`: a merge request URL or `!<iid>` in the summary or description gives `<project>!<iid>`; else `null`. (`sanitize` also finds an MR URL in the ticket and stores it as `gitlab`.) Do not read any diff here.
+   - **QA plan** (only when the config has `adapter: playwright`; otherwise `qaPlan = null`). The feature is the config feature whose `label` is on the ticket. First use a Confluence page already linked in `issuelinks` or the description. If there is none and that feature has a `qaPlanSearch`, run ONE `searchConfluenceUsingCql` on the Atlassian connector: `text ~ "<qaPlanSearch>" AND type = page`. No `qaPlanSearch` configured, or no feature label: no search. Read at most one page (the best match). If it holds Gherkin or step scenarios, set `qaPlan = { "title", "url", "scenarios": [{ "name", "gherkin" }] }`. The score only credits a QA plan that has a `url`. Nothing sensible found: `qaPlan = null` and add the flag `no Confluence QA plan found for <feature>`. A missing QA plan lowers the score but never stops the run. No space crawl, no descendant walk.
 
 3. **Save and sanitize.** Write this JSON to `<ticketsDir>/<KEY>/raw.json` (create the folder):
 
@@ -33,7 +34,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
      "summary": "<summary>", "labels": ["<label>"],
      "text": { "description": "<raw description>", "acField": "<raw criteria field, or empty>" },
      "scenarios": [{ "name": "…", "gherkin": "Given … When … Then …" }],
-     "qaPlan": null, "figma": null, "flags": []
+     "qaPlan": null, "figma": null, "mr": null, "flags": []
    }
    ```
 
@@ -48,7 +49,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    2. Stop
    ```
 
-   `--ci` takes 2. On 1, go on; on 2, stop.
+   `--ci` takes 2. Show this card once. On 1, go on and ignore the `PROJECT_MISMATCH:` line for the rest of the run; on 2, stop.
 
 5. **Score.** `cli.mjs score --in @<ticketsDir>/<KEY>/ticket.json` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report. Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `cli.mjs refuse-comment` instead, print its text, and stop (printing never posts).
    - **pass:** say the ticket is ready and stop. (Other commands that build on this gate continue from here.)
@@ -64,11 +65,11 @@ This ticket needs a bit more information. We cannot start yet.
 3. 🔴 **[RISK / NOT RECOMMENDED]** Continue anyway (developers only). The user story is not complete.
 ```
 
-Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 1 (post the comment, exit 1) and never takes 3.
+Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 1: it skips the send-preview, posts the comment, and exits 1. It never takes 3.
 
 - **1:** do not post yet. Run `cli.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
 - **2:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
-- **3:** developer override. Post nothing. Say plainly that the ticket is incomplete and the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, then stop; callers that build on this command decide what to do with that.
+- **3:** developer override. Post nothing. Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete and the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, then stop; callers that build on this command decide what to do with that.
 
 ## Send-preview (after refuse option 1)
 
@@ -85,7 +86,7 @@ Comment preview (not posted yet):
 4. Cancel
 ```
 
-- **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the comment text verbatim. If an existing comment already holds the line `Thanks, we can continue as soon as these are on the ticket.`, update it instead of adding a second one. If no add-comment tool is available, do not improvise: show the text and say `Copy this onto the ticket.` On success: `The comment has been posted. Work has not started.` On failure: `Could not comment on Jira.` Then stop.
+- **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the comment text verbatim. If an existing comment contains `Thanks, we can continue as soon as these are on the ticket.`, the older `Thanks — we can continue as soon as these are on the ticket.`, or `<!-- /spec refuse -->` (the same rule as `isRefuseComment` in the plugin's `core/jira.mjs`), update that comment instead of adding a second one. Do not rewrite the body. If no add-comment tool is available, do not improvise: show the text and say `Copy this onto the ticket.` On success: `The comment has been posted. Work has not started.` On failure: `Could not comment on Jira.` Then stop.
 - **2:** the guided fill-in.
 - **3:** re-read the ticket, re-run steps 2 to 5 and `refuse-comment`; never write the comment by hand. Now `pass`: say so and stop. Still `refuse`: show the preview again. Cap 2, then add one sentence: `The comment has been generated twice. Please post it, add the missing information, or cancel.`
 - **4:** `The comment was not posted.` Stop.
