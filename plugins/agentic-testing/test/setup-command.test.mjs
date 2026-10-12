@@ -47,3 +47,23 @@ test('step 3 (playwright): qaPlanSearch from the label, and the Confluence space
   assert.match(step(6), /confluenceSpaces/)
   assert.match(step(6), /qaPlanSearch/)
 })
+test('step 3: every typed value is escaped for JQL; the title word keeps letters, digits and spaces', () => {
+  const s = step(3)
+  assert.match(s, /escape `\\` as `\\\\` and `"` as `\\"`/)
+  assert.match(s, /title word, a component name, a label/)
+  assert.match(s, /letters, digits and spaces only/)
+  assert.doesNotMatch(s, /drop any `"` from it/)
+})
+test('step 3: the component card ends with a way to type a component name', () => {
+  assert.ok(step(3).includes('`<n>. Type a component name`'))
+})
+test('step 3 (playwright): each feature\'s QA-plan search is tried once, and a title mismatch offers the hits', () => {
+  const s = step(3)
+  assert.match(s, /ONE `searchConfluenceUsingCql` per feature/)
+  assert.match(s, /scoped to the picked spaces/)
+  assert.match(s, /no hit's title contains all the words/)
+  assert.match(s, /up to 5 hit titles/)
+  assert.ok(s.includes('`<n>. Type other search words`'))
+  assert.ok(s.includes('`<n>. No QA plan for this feature`'))
+  assert.match(s, /search words taken from that title/)
+})

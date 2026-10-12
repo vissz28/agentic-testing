@@ -100,6 +100,8 @@ by typing a number:
    your labels (each is checked to exist). For Playwright also the screen route of each one
    (`/orders`), the text used to find its Confluence QA plan (the label with `_` and `-` as spaces),
    and the Confluence space(s) to search, picked from the spaces that search finds, or all spaces.
+   Each feature's search is tried once; if no page title matches its words, you pick one of the
+   titles found, type other words, or choose no QA plan for it.
 5. **Title prefixes** (Vitest only): counted from the same tickets' titles (`[API] …`), or none.
 6. **Languages**: English, plus Italian if your tickets use Italian section names.
 7. **Redaction**: customer-id redaction is on by default; add extra patterns if you need them.
