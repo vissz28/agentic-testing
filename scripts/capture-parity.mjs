@@ -35,6 +35,20 @@ const CHECK_FILES = {
 }
 const CUT = /^(?:const (?:args|rawArgs) = process\.argv|if \(process\.argv|main\(\);?\s*$)/m
 const DIFFS_PER_REPO = 15
+// Synthetic negatives: still run through the OLD scripts, so the failure paths are compared too.
+const SYNTHETIC = {
+  fe: {
+    'hollow.spec.ts': "import { test, expect } from '@playwright/test'\ntest('ok', async () => { await expect(x).toBeVisible() })\ntest('hollow', async () => { await page.goto('/') })\n",
+    'fixme.spec.ts': "import { test } from '@playwright/test'\ntest.fixme('later one', async () => {})\ntest.fixme('later two', async () => {})\n",
+    'capture.spec.ts': "import { test, expect } from '@playwright/test'\ntest('FIC-1 — design-conformance capture', async () => { await page.screenshot() })\ntest('honest', async () => { await expect(x).toBeVisible() })\n",
+  },
+  be: {
+    'hollow.spec.ts': "it('ok', () => { expect(1).toBe(1) })\nit('hollow', () => { run() })\n",
+    'todo.spec.ts': "it.todo('later')\nit.todo('later two')\n",
+    'outside.spec.ts': "describe('FIC-1 — anchor', () => { it('in', () => { expect(1).toBe(1) }) })\nit('outside', () => {})\n",
+  },
+}
+const SYNTHETIC_PATHS = ['src/a.ts', 'src', 'src-tauri/x.rs', 'e2e/src/h.ts', '.env', '.env.example', '.env.local', '.gitlab-ci.yml', 'prisma/schema.prisma', 'dapr/c.yaml', 'dist/x.js', 'node_modules/a/b.js', 'src/x.spec.ts', 'test/x.spec.ts']
 const KEY_GROUP = /^describe(?:\.(?:skip|only))?\s*\(\s*['"`]((?:FIC|AGT)-\d+)/gm
 
 function show(repo, ref, path) {
@@ -47,6 +61,7 @@ async function loadOld(tmp, name, repo, ref, path) {
   mkdirSync(dirname(full), { recursive: true })
   writeFileSync(full, src)
   const m = CUT.exec(src)
+  if (!m && basename(path) !== 'boundary-guard.mjs' && path.startsWith('.claude/harness/')) throw new Error(`no CLI entry point found in ${path}`)
   const cut = join(tmp, name, basename(path))
   writeFileSync(cut, m ? src.slice(0, m.index) : src)
   return { full, mod: await import(pathToFileURL(cut).href) }
@@ -69,9 +84,7 @@ async function captureChecks() {
 
       // specs: suite-honesty (whole old CLI) and mutation plans
       const specs = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '--name-only', ref], { encoding: 'utf8' }).split('\n').filter(files.spec)
-      for (const p of specs) {
-        const src = mask(show(repo, ref, p))
-        const fixture = `${name}/specs/${p.replace(/\//g, '__')}.txt`
+      const captureSpec = (fixture, src, synthetic) => {
         mkdirSync(dirname(join(out, fixture)), { recursive: true })
         writeFileSync(join(out, fixture), src)
         const work = join(tmp, name, 'work.spec.ts')
@@ -84,7 +97,19 @@ async function captureChecks() {
           const blocks = old['mutate-generated.mjs'].mod.findTestBlocks(src)
           const passed = blocks.filter(b => !b.mod).map(b => b.title)
           const plans = name === 'be' ? [false, true].map(thorough => ({ thorough, mutants: old['mutate-generated.mjs'].mod.planMutants(src, passed, key, thorough) })) : key ? [] : [{ thorough: false, mutants: old['mutate-generated.mjs'].mod.planMutants(src, passed) }]
-          for (const pl of plans) expected.mutation.push({ repo: name, fixture, key, passed, ...pl })
+          for (const pl of plans) if (!synthetic || pl.mutants.length) expected.mutation.push({ repo: name, fixture, key, passed, ...pl })
+        }
+      }
+      for (const p of specs) captureSpec(`${name}/specs/${p.replace(/\//g, '__')}.txt`, mask(show(repo, ref, p)), false)
+      for (const [file, src] of Object.entries(SYNTHETIC[name])) captureSpec(`${name}/synthetic/${file}.txt`, mask(src), true)
+
+      // synthetic boundary paths through the old guard
+      for (const p of SYNTHETIC_PATHS) {
+        if (name === 'fe') {
+          const v = old.guard.mod.violation(p)
+          expected.boundary.push({ repo: name, variant: 'default', path: p, forbidden: Boolean(v), why: v?.why ?? null })
+        } else {
+          for (const variant of ['default', 'mocked']) expected.boundary.push({ repo: name, variant, path: p, forbidden: old.guard.mod.isForbidden(p, { allowSrcSpecs: variant === 'mocked' }), why: null })
         }
       }
 

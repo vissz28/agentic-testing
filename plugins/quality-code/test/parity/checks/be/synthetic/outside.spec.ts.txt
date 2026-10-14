@@ -1,0 +1,2 @@
+describe('FIC-1 — anchor', () => { it('in', () => { expect(1).toBe(1) }) })
+it('outside', () => {})

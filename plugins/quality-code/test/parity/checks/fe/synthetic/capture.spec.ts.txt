@@ -1,0 +1,3 @@
+import { test, expect } from '@playwright/test'
+test('FIC-1 — design-conformance capture', async () => { await page.screenshot() })
+test('honest', async () => { await expect(x).toBeVisible() })

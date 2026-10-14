@@ -1063,6 +1063,32 @@
       "hollow": []
     },
     {
+      "repo": "fe",
+      "fixture": "fe/synthetic/hollow.spec.ts.txt",
+      "key": null,
+      "exit": 1,
+      "percent": 50,
+      "hollow": [
+        "hollow"
+      ]
+    },
+    {
+      "repo": "fe",
+      "fixture": "fe/synthetic/fixme.spec.ts.txt",
+      "key": null,
+      "exit": 1,
+      "percent": 0,
+      "hollow": []
+    },
+    {
+      "repo": "fe",
+      "fixture": "fe/synthetic/capture.spec.ts.txt",
+      "key": null,
+      "exit": 0,
+      "percent": 100,
+      "hollow": []
+    },
+    {
       "repo": "be",
       "fixture": "be/specs/test__integration__common__repositories__kpi.repository.spec.ts.txt",
       "key": null,
@@ -1293,9 +1319,145 @@
       "exit": 0,
       "percent": 100,
       "hollow": []
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/hollow.spec.ts.txt",
+      "key": null,
+      "exit": 1,
+      "percent": 50,
+      "hollow": [
+        "hollow"
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/todo.spec.ts.txt",
+      "key": null,
+      "exit": 1,
+      "percent": 0,
+      "hollow": []
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": null,
+      "exit": 1,
+      "percent": 50,
+      "hollow": [
+        "outside"
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": "FIC-1",
+      "exit": 1,
+      "percent": 50,
+      "hollow": [
+        "outside"
+      ]
     }
   ],
   "boundary": [
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "src/a.ts",
+      "forbidden": true,
+      "why": "src/ is application code. This harness generates tests, it never changes the code under test — a generator that can edit the app can make a red test green the wrong way (Quality Program §6)."
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "src",
+      "forbidden": true,
+      "why": "src/ is application code. This harness generates tests, it never changes the code under test — a generator that can edit the app can make a red test green the wrong way (Quality Program §6)."
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "src-tauri/x.rs",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "e2e/src/h.ts",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": ".env",
+      "forbidden": true,
+      "why": ".env points at shared remote systems; the root CLAUDE.md warns that pointing local dev back at *-test.teamsystem.cloud writes to an environment other people use. Edit .env.example if you need to document a variable."
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": ".env.example",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": ".env.local",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": ".gitlab-ci.yml",
+      "forbidden": true,
+      "why": "the shared team pipeline. A change here lands on every merge request. Propose it in the e2e README instead and let a human wire it."
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "prisma/schema.prisma",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "dapr/c.yaml",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "dist/x.js",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "node_modules/a/b.js",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "src/x.spec.ts",
+      "forbidden": true,
+      "why": "src/ is application code. This harness generates tests, it never changes the code under test — a generator that can edit the app can make a red test green the wrong way (Quality Program §6)."
+    },
+    {
+      "repo": "fe",
+      "variant": "default",
+      "path": "test/x.spec.ts",
+      "forbidden": false,
+      "why": null
+    },
     {
       "repo": "fe",
       "variant": "default",
@@ -1937,6 +2099,202 @@
       "repo": "fe",
       "variant": "default",
       "path": "e2e/xray/warehouse-testcases.csv",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "src/a.ts",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "src/a.ts",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "src",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "src",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "src-tauri/x.rs",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "src-tauri/x.rs",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "e2e/src/h.ts",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "e2e/src/h.ts",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": ".env",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": ".env",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": ".env.example",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": ".env.example",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": ".env.local",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": ".env.local",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": ".gitlab-ci.yml",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": ".gitlab-ci.yml",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "prisma/schema.prisma",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "prisma/schema.prisma",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "dapr/c.yaml",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "dapr/c.yaml",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "dist/x.js",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "dist/x.js",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "node_modules/a/b.js",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "node_modules/a/b.js",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "src/x.spec.ts",
+      "forbidden": true,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "src/x.spec.ts",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "default",
+      "path": "test/x.spec.ts",
+      "forbidden": false,
+      "why": null
+    },
+    {
+      "repo": "be",
+      "variant": "mocked",
+      "path": "test/x.spec.ts",
       "forbidden": false,
       "why": null
     },
@@ -4281,6 +4639,46 @@
           "kind": "flip-visible→count-999",
           "replacement": "await expect(page.getByText(EN.success)).toHaveCount(999, { timeout: 2000 })\n  ",
           "snippet": "flip-visible→count-999: await expect(page.getByText(EN.success)).toBeVisible({ timeo"
+        }
+      ]
+    },
+    {
+      "repo": "fe",
+      "fixture": "fe/synthetic/hollow.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "ok",
+        "hollow"
+      ],
+      "thorough": false,
+      "mutants": [
+        {
+          "title": "ok",
+          "start": 73,
+          "end": 103,
+          "kind": "flip-visible→count-999",
+          "replacement": "await expect(x).toHaveCount(999, { timeout: 2000 }) ",
+          "snippet": "flip-visible→count-999: await expect(x).toBeVisible() "
+        }
+      ]
+    },
+    {
+      "repo": "fe",
+      "fixture": "fe/synthetic/capture.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "FIC-1 — design-conformance capture",
+        "honest"
+      ],
+      "thorough": false,
+      "mutants": [
+        {
+          "title": "honest",
+          "start": 161,
+          "end": 191,
+          "kind": "flip-visible→count-999",
+          "replacement": "await expect(x).toHaveCount(999, { timeout: 2000 }) ",
+          "snippet": "flip-visible→count-999: await expect(x).toBeVisible() "
         }
       ]
     },
@@ -7923,6 +8321,150 @@
           "kind": "invert-matcher",
           "replacement": "expect(rows).not.toEqual([]);",
           "snippet": "invert-matcher: expect(rows).toEqual([]);"
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/hollow.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "ok",
+        "hollow"
+      ],
+      "thorough": false,
+      "mutants": [
+        {
+          "title": "ok",
+          "start": 17,
+          "end": 35,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/hollow.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "ok",
+        "hollow"
+      ],
+      "thorough": true,
+      "mutants": [
+        {
+          "title": "ok",
+          "start": 17,
+          "end": 35,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        },
+        {
+          "title": "ok",
+          "start": 17,
+          "end": 35,
+          "kind": "num→n+1",
+          "replacement": "expect(1).toBe(2) ",
+          "snippet": "num→n+1: expect(1).toBe(1) "
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "in",
+        "outside"
+      ],
+      "thorough": false,
+      "mutants": [
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": null,
+      "passed": [
+        "in",
+        "outside"
+      ],
+      "thorough": true,
+      "mutants": [
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        },
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "num→n+1",
+          "replacement": "expect(1).toBe(2) ",
+          "snippet": "num→n+1: expect(1).toBe(1) "
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": "FIC-1",
+      "passed": [
+        "in",
+        "outside"
+      ],
+      "thorough": false,
+      "mutants": [
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        }
+      ]
+    },
+    {
+      "repo": "be",
+      "fixture": "be/synthetic/outside.spec.ts.txt",
+      "key": "FIC-1",
+      "passed": [
+        "in",
+        "outside"
+      ],
+      "thorough": true,
+      "mutants": [
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "invert-matcher",
+          "replacement": "expect(1).not.toBe(1) ",
+          "snippet": "invert-matcher: expect(1).toBe(1) "
+        },
+        {
+          "title": "in",
+          "start": 52,
+          "end": 70,
+          "kind": "num→n+1",
+          "replacement": "expect(1).toBe(2) ",
+          "snippet": "num→n+1: expect(1).toBe(1) "
         }
       ]
     }
