@@ -1,6 +1,6 @@
 // Boundary: a test-writing run writes tests, never the code under test. Path rules from the
 // config; a hook that only acts while a run is active; a diff mode that is the check that counts.
-import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { changedPaths } from './git.mjs'
 import { result } from './result.mjs'
@@ -9,7 +9,7 @@ export const ALWAYS = ['dist/', 'node_modules/', '.git/', '.claude/quality-code.
 export const DEFAULT_WHY = 'application code: a test run writes tests, it never changes the code under test.'
 export const RUN_MARKER = '.claude/quality-code/run.active'
 export const BOUNDARY_LOG = '.claude/quality-code/boundary.jsonl'
-export const STALE_MS = 6 * 3600 * 1000
+export const STALE_MS = 12 * 3600 * 1000
 const CI_FILES = ['.gitlab-ci.yml', '.github/workflows/']
 
 const globRe = pattern => new RegExp(`^${pattern
@@ -44,8 +44,28 @@ export function violation(relPath, rules) {
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
 
+/**
+ * The run marker as written by `run start`: { marker, startedMs, stale }, or null when there is none.
+ * Age comes from the marker's startedAt; a marker that is not JSON or has no valid startedAt falls
+ * back to the file's mtime.
+ */
+export function readRunMarker(root, now = Date.now()) {
+  const p = join(root, RUN_MARKER)
+  let st
+  try { st = statSync(p) } catch { return null }
+  let marker = null
+  try {
+    const m = JSON.parse(readFileSync(p, 'utf8'))
+    if (m && typeof m === 'object' && !Array.isArray(m)) marker = m
+  } catch {}
+  const t = typeof marker?.startedAt === 'string' ? Date.parse(marker.startedAt) : NaN
+  const startedMs = Number.isFinite(t) ? t : st.mtimeMs
+  return { marker, startedMs, stale: now - startedMs >= STALE_MS }
+}
+
 export function runActive(root, now = Date.now()) {
-  try { return now - statSync(join(root, RUN_MARKER)).mtimeMs < STALE_MS } catch { return false }
+  const m = readRunMarker(root, now)
+  return Boolean(m && !m.stale)
 }
 
 export function hookDecision(payload, { root, config, now = Date.now() }) {

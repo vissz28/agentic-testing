@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { ALWAYS, DEFAULT_WHY, RUN_MARKER, defaultForbidden, hookDecision, matches, rulesFor, run, runActive, violation } from '../../core/checks/boundary.mjs'
+import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation } from '../../core/checks/boundary.mjs'
 import { ENV } from './git-env.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -47,9 +47,36 @@ test('hook: allows without a run, denies a forbidden write during a run, ignores
   assert.equal(runActive(d), true)
   assert.deepEqual(hookDecision(write('src/a.ts'), { root: d, config: cfg() }), { decision: 'deny', path: 'src/a.ts', why: DEFAULT_WHY })
   assert.deepEqual(hookDecision(write('test/a.spec.ts'), { root: d, config: cfg() }), { decision: 'allow' })
-  const old = new Date(Date.now() - 7 * 3600 * 1000)
+  const old = new Date(Date.now() - 13 * 3600 * 1000)
   utimesSync(join(d, RUN_MARKER), old, old)
   assert.deepEqual(hookDecision(write('src/a.ts'), { root: d, config: cfg() }), { decision: 'allow' })
+})
+test('stale rule: 12 hours from startedAt; mtime only when the marker has no usable startedAt', () => {
+  const d = dir()
+  const now = Date.now()
+  const write = { tool_name: 'Write', tool_input: { file_path: join(d, 'src/a.ts') } }
+  assert.equal(STALE_MS, 12 * 3600 * 1000)
+  assert.equal(readRunMarker(d), null)
+  put(d, RUN_MARKER, JSON.stringify({ key: 'ABC-1', startedAt: new Date(now - 11 * 3600 * 1000).toISOString(), base: null }))
+  assert.equal(runActive(d, now), true)
+  assert.equal(hookDecision(write, { root: d, config: cfg(), now }).decision, 'deny')
+  // a fresh mtime does not rescue an old startedAt
+  put(d, RUN_MARKER, JSON.stringify({ key: 'ABC-1', startedAt: new Date(now - 12 * 3600 * 1000).toISOString(), base: null }))
+  assert.equal(runActive(d, now), false)
+  assert.equal(readRunMarker(d, now).stale, true)
+  assert.equal(readRunMarker(d, now).marker.key, 'ABC-1')
+  assert.equal(hookDecision(write, { root: d, config: cfg(), now }).decision, 'allow')
+  // and a recent startedAt wins over an old mtime
+  put(d, RUN_MARKER, JSON.stringify({ key: 'ABC-1', startedAt: new Date(now - 3600 * 1000).toISOString() }))
+  const old = new Date(now - 20 * 3600 * 1000)
+  utimesSync(join(d, RUN_MARKER), old, old)
+  assert.equal(runActive(d, now), true)
+  for (const body of ['not json', '[]', '{"key":"ABC-1"}', '{"startedAt":"yesterday"}', 'null']) {
+    put(d, RUN_MARKER, body)
+    assert.equal(runActive(d, now), true, body)
+    utimesSync(join(d, RUN_MARKER), old, old)
+    assert.equal(runActive(d, now), false, body)
+  }
 })
 test('hook: notebook writes, no file path, no config (review focus 2 and 3)', () => {
   const d = dir()

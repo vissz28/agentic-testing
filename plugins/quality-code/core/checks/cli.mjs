@@ -11,6 +11,7 @@ import * as flaky from './flaky.mjs'
 import * as honesty from './honesty.mjs'
 import { isProjectKey, projectKeys } from './keys.mjs'
 import * as mutation from './mutation.mjs'
+import * as runMarker from './run.mjs'
 import { EXIT } from './result.mjs'
 import * as suite from './suite-honesty.mjs'
 
@@ -23,7 +24,7 @@ const CHECKS = {
 CHECKS.mutation = { run: mutation.run, specs: 'one' }
 CHECKS.flaky = { run: flaky.run, specs: 'many' }
 const NEEDS_RUNNER = new Set(['flaky', 'mutation'])
-const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | expected --ticket @file --key KEY <spec...> | boundary --hook'
+const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | expected --ticket @file --key KEY <spec...> | boundary --hook | run start --key KEY | run stop | run status [--json] (run: exit 0 ok, 1 a run is already active, 2 usage; status exits 0 also with no active run)'
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 
 /** For parts 3–4: run one check with a ready context. */
@@ -65,6 +66,35 @@ async function hook(root, stdin) {
   return 0
 }
 
+/** run start --key KEY | run stop | run status [--json] */
+function runCmd(root, rest, err) {
+  const [sub, ...more] = rest
+  let a
+  try { a = parse(more) } catch (e) { return err(e.message) }
+  if (a.specs.length) return err(`unexpected argument ${a.specs[0]}. ${USAGE}`)
+  if (sub === 'start') {
+    if (!a.key) return err(`run start needs --key KEY. ${USAGE}`)
+    const cfg = loadConfig(root)
+    if (!cfg.ok) return err(cfg.errors.join('\n'))
+    if (!isProjectKey(cfg.config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(cfg.config).join(', ')}`)
+    const r = runMarker.startRun(root, a.key)
+    if (!r.ok) { process.stderr.write(`${r.error}\n`); return 1 }
+    process.stdout.write(`run started for ${r.marker.key}${r.replacedStale ? ' (a stale marker was replaced)' : ''}\n`)
+    return 0
+  }
+  if (sub === 'stop') {
+    const r = runMarker.stopRun(root)
+    process.stdout.write(r.removed ? 'run stopped\n' : 'no active run\n')
+    return 0
+  }
+  if (sub === 'status') {
+    const s = runMarker.runStatus(root)
+    process.stdout.write(`${a.flags.has('--json') ? JSON.stringify(s) : runMarker.statusLine(s)}\n`)
+    return 0
+  }
+  return err(USAGE)
+}
+
 const readStdin = () => new Promise(done => {
   let s = ''
   process.stdin.setEncoding('utf8')
@@ -80,6 +110,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (name === 'boundary' && rest.includes('--hook')) {
     try { return await hook(root, stdin ?? await readStdin()) } catch { return 0 }
   }
+  if (name === 'run') return runCmd(root, rest, err)
   if (!name || (!CHECKS[name] && !NEEDS_RUNNER.has(name))) return err(USAGE)
   let a
   try { a = parse(rest) } catch (e) { return err(e.message) }
