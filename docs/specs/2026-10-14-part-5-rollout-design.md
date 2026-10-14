@@ -51,6 +51,8 @@ added:
 
 ## 5. Switching a repo
 
+Step-by-step draft: [`docs/rollout/onboarding-quality.md`](../rollout/onboarding-quality.md).
+
 The merge request:
 
 - adds `.claude/quality-code.json` (from `docs/rollout/`) and the `.gitignore` lines setup writes;

@@ -668,7 +668,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config (no database, Prisma or Docker), the expected-values check, optional Stryker; proved end to end on [`examples/sample-service`](examples/sample-service) with a real Vitest and Stryker | ✅ **available** (4a checking in 0.5.0, 4b writing in 0.6.0) |
 | 3 | Playwright adapter | the pipeline for any Playwright app (3a), then writing Playwright tests from a ticket (3b) | ✅ **available** (3a checking in 0.7.0, 3b writing in 0.8.0) |
-| 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
+| 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 🚧 in progress: [onboarding page](docs/ONBOARDING.md) and warehouse configs done; the switch runbook is a [draft](docs/rollout/onboarding-quality.md) |
 
 Parts are numbered by design order; the backend adapter (4) is built before the frontend one (3).
 
