@@ -12,6 +12,7 @@ Set up this repo for the agentic-testing plugin. You propose and ask; the script
 
 **Steps**
 
+0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. Go on to step 1 only when its card lets you continue.
 1. **Detect.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `templates`, `existing`, `gitignore`, and `existingError` when the old file is broken).
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest).`
    - `adapter` is `both`: ask which one to use, as a numbered card (`1. playwright`, `2. vitest`), and wait.
