@@ -19,17 +19,9 @@ test('figma-token: the pinned Framelink server with the secret key', () => {
   assert.deepEqual(f.args, ['-y', 'figma-developer-mcp@0.13.2', '--stdio'])
   assert.deepEqual(f.env, { FIGMA_API_KEY: '${user_config.figma_api_key}' })
 })
-test('gitlab: browser sign-in (public OAuth app, PKCE) and token, both read-only, same pinned package', () => {
-  const pkg = ['-y', '@zereight/mcp-gitlab@2.2.5']
-  assert.deepEqual(mcp.gitlab.args, pkg)
-  assert.deepEqual(mcp['gitlab-token'].args, pkg)
-  assert.deepEqual(mcp.gitlab.env, {
-    GITLAB_API_URL: '${user_config.gitlab_api_url}',
-    GITLAB_USE_OAUTH: 'true',
-    GITLAB_OAUTH_CLIENT_ID: '${user_config.gitlab_oauth_client_id}',
-    GITLAB_OAUTH_REDIRECT_URI: 'http://127.0.0.1:8888/callback',
-    GITLAB_PERMISSION_MODE: 'readonly',
-  })
+test('gitlab: browser sign-in through GitLab\'s own MCP server, like Jira; token through the pinned read-only package', () => {
+  assert.deepEqual(mcp.gitlab, { type: 'http', url: '${user_config.gitlab_api_url}/mcp' })
+  assert.deepEqual(mcp['gitlab-token'].args, ['-y', '@zereight/mcp-gitlab@2.2.5'])
   assert.deepEqual(mcp['gitlab-token'].env, {
     GITLAB_API_URL: '${user_config.gitlab_api_url}',
     GITLAB_PERSONAL_ACCESS_TOKEN: '${user_config.gitlab_token}',
@@ -40,17 +32,18 @@ test('no connector runs an unpinned package', () => {
   for (const [name, s] of Object.entries(mcp)) for (const a of s.args ?? []) assert.doesNotMatch(a, /@latest$|^[a-z@][^@]*[^@\d]$/, `${name}: ${a}`)
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
-  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_oauth_client_id', 'gitlab_token'])
+  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username'])
   assert.equal(settings.figma_api_key.sensitive, true)
   assert.equal(settings.gitlab_token.sensitive, true)
   assert.notEqual(settings.gitlab_api_url.sensitive, true)
-  assert.notEqual(settings.gitlab_oauth_client_id.sensitive, true)
+  assert.notEqual(settings.gitlab_username.sensitive, true)
   assert.equal(settings.gitlab_api_url.default, 'https://biosphere.teamsystem.com/api/v4')
   const used = JSON.stringify(mcp).match(/\$\{user_config\.(\w+)\}/g).map(s => s.slice(14, -1))
   for (const u of used) assert.ok(settings[u], u)
 })
 test('setting descriptions say which way each one is for', () => {
   assert.match(settings.gitlab_token.description, /read_api/)
-  assert.match(settings.gitlab_oauth_client_id.description, /Application ID/)
+  assert.match(settings.gitlab_username.description, /confirms/)
+  assert.match(settings.gitlab_api_url.description, /no \/ at the end/)
   assert.match(settings.figma_api_key.description, /optional/i)
 })

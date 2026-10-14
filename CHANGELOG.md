@@ -7,6 +7,30 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.9.0] - 2026-10-15
+
+### Changed
+
+- **GitLab browser sign-in works like Jira:** `/mcp`, choose `gitlab`, sign in. The `gitlab`
+  connector is now GitLab's own MCP server at `<gitlab_api_url>/mcp`, which registers itself when
+  you sign in: no application to create, no ID to set. Your GitLab admin must have its MCP server
+  switched on (GitLab 19.5 or later, any tier); until then, use the token way.
+- The connectors card shows who is signed in to GitLab (`<username> on <host>`) and warns when the
+  account is not the `gitlab_username` you set.
+
+### Added
+
+- `gitlab_username` in the plugin settings, for both GitLab ways.
+
+### Removed
+
+- `gitlab_oauth_client_id`: browser sign-in no longer needs a GitLab application.
+
+### Upgrade
+
+After `/plugin update`, set `gitlab_username` from the `/plugin` menu (quality-code, configure), then
+`/mcp`. If you signed in with the old `gitlab` connector, sign in again: it is a new connector.
+
 ## [0.8.1] - 2026-10-15
 
 ### Fixed

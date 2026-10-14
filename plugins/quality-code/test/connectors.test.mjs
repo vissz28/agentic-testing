@@ -33,9 +33,8 @@ test('no token is ever asked for or shown; fixes go through the plugin settings'
 test('GitLab and Figma: browser sign-in or token, either one is enough', () => {
   for (const c of ['`gitlab`', '`gitlab-token`', '`figma`', '`figma-token`']) assert.ok(doc.includes(c), c)
   assert.match(doc, /either connector answers/)
-  assert.match(doc, /`gitlab_oauth_client_id`/)
   assert.match(doc, /read_api/)
-  assert.match(doc, /http:\/\/127\.0\.0\.1:8888\/callback/)
+  assert.doesNotMatch(doc, /gitlab_oauth_client_id|8888\/callback/)
   assert.match(doc, /`gitlab_api_url`/)
   assert.match(doc, /unused one stays disconnected/)
   assert.doesNotMatch(doc, /gitlab_mcp_url/)
@@ -50,4 +49,21 @@ test('setup step 0 reads the connectors check before the project card', () => {
   const s = step(setup, 0)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/connectors.md'))
   assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n1. **This project.**'))
+})
+test('GitLab browser sign-in is like Jira: /mcp, choose gitlab, sign in; an instance without the server says so', () => {
+  assert.ok(doc.includes('type /mcp, choose `gitlab` and sign in in the browser'))
+  assert.match(doc, /no application to create/)
+  assert.match(doc, /\/api\/v4\/mcp/)
+  assert.match(doc, /ask a GitLab admin/)
+})
+test('the GitLab username is confirmed against who is signed in, and shown on the card', () => {
+  assert.match(doc, /`gitlab_username`/)
+  assert.ok(doc.includes('✅ GitLab             <username> on <host>'))
+  assert.match(doc, /belongs to <actual>, not <gitlab_username>/)
+})
+test('every command that checks connectors hands over the GitLab username from the settings', () => {
+  for (const c of ['setup', 'start', 'seed', 'write']) {
+    const t = readFileSync(new URL(`../commands/${c}.md`, import.meta.url), 'utf8')
+    assert.ok(t.includes('`${user_config.gitlab_username}`'), c)
+  }
 })

@@ -587,7 +587,7 @@ enough; the other stays disconnected.
 | Service | Used for | Browser sign-in | Token |
 |---|---|---|---|
 | Jira (`atlassian-rovo`) | tickets, the refuse comment, the fill-in push, Confluence QA plans | `/mcp`, choose `atlassian-rovo`, sign in. An Atlassian connection you already have in claude.ai works too | — |
-| GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | set `gitlab_oauth_client_id`, then `/mcp`, choose `gitlab`, sign in | set `gitlab_token`, then `/mcp`, reconnect `gitlab-token` |
+| GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | like Jira: `/mcp`, choose `gitlab`, sign in. Nothing to create or set: it is GitLab's own MCP server at `<gitlab_api_url>/mcp` (your GitLab admin must have it switched on, GitLab 19.5 or later) | set `gitlab_token` and `gitlab_username`, then `/mcp`, reconnect `gitlab-token` |
 | Figma (`figma`, `figma-token`) | design comparison (later parts) | `/mcp`, choose `figma`, sign in | set `figma_api_key`, then `/mcp`, reconnect `figma-token` |
 
 `/quality-code:setup`, `/quality-code:start` and `/quality-code:write` check the connectors first
@@ -600,12 +600,12 @@ in the chat.
 
 | Setting | For | Notes |
 |---|---|---|
-| `gitlab_api_url` | both GitLab ways | your GitLab's API address, ending in `/api/v4`. Default: TeamSystem's GitLab (`https://biosphere.teamsystem.com/api/v4`) |
-| `gitlab_oauth_client_id` | GitLab browser sign-in | the Application ID of a **public** GitLab application (not confidential) with redirect URI `http://127.0.0.1:8888/callback` and the `read_api` scope, created under GitLab *Settings > Applications*. One person can create it and share the ID with the team |
+| `gitlab_api_url` | both GitLab ways | your GitLab's API address, ending in `/api/v4`, no `/` at the end. Default: TeamSystem's GitLab (`https://biosphere.teamsystem.com/api/v4`) |
 | `gitlab_token` (secret) | GitLab token | a personal access token with only the `read_api` scope |
+| `gitlab_username` | both GitLab ways | your GitLab username, without `@`. The connectors check confirms the signed-in account is yours and shows it on the card |
 | `figma_api_key` (secret) | Figma token | a Figma personal access token |
 
-Both GitLab connectors run in read-only mode: the plugin can never change anything in GitLab.
+The plugin only ever calls GitLab's read operations. The token connector also runs in read-only mode, and its token has only the `read_api` scope.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality code",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "From a Jira ticket to graded tests, for any project. A short setup (connectors, the project, the Jira project), a daily start from your feature branch, the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push, and a check that runs and grades Vitest spec files.",
   "author": {
     "name": "Elvis Zefaj"
@@ -10,19 +10,19 @@
     "gitlab_api_url": {
       "type": "string",
       "title": "GitLab API URL",
-      "description": "Your GitLab's API address, ending in /api/v4. Used by both GitLab connectors. The default is TeamSystem's GitLab.",
+      "description": "Your GitLab's API address, ending in /api/v4 (no / at the end). Browser sign-in uses GitLab's own MCP server at this address + /mcp; the token way uses it too. The default is TeamSystem's GitLab.",
       "default": "https://biosphere.teamsystem.com/api/v4"
-    },
-    "gitlab_oauth_client_id": {
-      "type": "string",
-      "title": "GitLab Application ID (browser sign-in)",
-      "description": "For signing in to GitLab in the browser: the Application ID of a public (non-confidential) GitLab application with redirect URI http://127.0.0.1:8888/callback and the read_api scope. One person can create it under GitLab Settings > Applications and share the ID. Leave empty to use a token instead."
     },
     "gitlab_token": {
       "type": "string",
       "title": "GitLab token",
-      "description": "Instead of browser sign-in: a GitLab personal access token with only the read_api scope. Optional.",
+      "description": "Instead of browser sign-in: a GitLab personal access token with only the read_api scope. Optional. Set gitlab_username too, so the check can confirm the token is yours.",
       "sensitive": true
+    },
+    "gitlab_username": {
+      "type": "string",
+      "title": "GitLab username",
+      "description": "Your GitLab username, without @. Optional. The connectors check confirms the signed-in account (browser or token) is yours and shows it on the card."
     },
     "figma_api_key": {
       "type": "string",
