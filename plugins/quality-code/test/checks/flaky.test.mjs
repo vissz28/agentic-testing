@@ -52,3 +52,29 @@ test('the runner gets the spec files, the test name and the timeout', async () =
   await run({ specs: ['a.spec.ts'], testName: 'a', runs: 1, timeoutMs: 1000 }, { runTests: g.runTests })
   assert.deepEqual(g.calls[0], { files: ['a.spec.ts'], testName: 'a', timeoutMs: 1000 })
 })
+test('green verdict requires all runs executed; partial execution is not_run', async () => {
+  const partial = runner(i => i === 0 ? { ran: true, tests: [t('a', 'passed')] } : { ran: false, tests: [], error: 'x' })
+  const r = await run({ specs: ['a'], runs: 3 }, { runTests: partial.runTests })
+  assert.equal(r.status, 'not_run')
+  assert.match(r.summary, /only 1 of 3 runs executed/)
+})
+test('runs must be a whole number >= 1', async () => {
+  const runner0 = runner(() => ({ ran: true, tests: [t('a', 'passed')] }))
+  try {
+    await run({ specs: ['a'], runs: 0 }, { runTests: runner0.runTests })
+    assert.fail('should throw')
+  } catch (e) {
+    assert.match(e.message, /runs must be a whole number/)
+  }
+  const runnerAbc = runner(() => ({ ran: true, tests: [t('a', 'passed')] }))
+  try {
+    await run({ specs: ['a'], runs: 'abc' }, { runTests: runnerAbc.runTests })
+    assert.fail('should throw')
+  } catch (e) {
+    assert.match(e.message, /runs must be a whole number/)
+  }
+  const runnerStr = runner(() => ({ ran: true, tests: [t('a', 'passed')] }))
+  const r = await run({ specs: ['a'], runs: '2' }, { runTests: runnerStr.runTests })
+  assert.equal(r.status, 'pass')
+  assert.equal(runnerStr.calls.length, 2)
+})
