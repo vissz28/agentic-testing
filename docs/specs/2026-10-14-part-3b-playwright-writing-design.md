@@ -227,3 +227,13 @@ Design-conformance captures and reading Figma; XRay CSV rows; the runner returni
 ## 14. Rulings during the build
 
 Recorded here while building; where one differs from an earlier section, this one wins.
+
+| Point | Ruling |
+|---|---|
+| Pipeline | Confirmed unchanged: `test/checks/playwright-writing-shape.test.mjs` runs a spec in the guide's shape (tagged describe, `@anchor` and `@finding` tests, `Extra:` title, `test.fixme`, `test.beforeEach`) through honesty, suite honesty, the expected surface, the mutation plan and the runner's `-g` pattern. A tag list split over lines fails honesty, as the guide warns. |
+| Reading `testDir` | Comments are dropped first (block comments, and `//` at the start of a line or after a space, so a URL's `://` stays). Every `testDir:` left must be a quoted literal and all must give one folder; one-line configs count. A per-project `testDir` with another value, a computed value or a template with `${…}` gives the default `e2e/`. |
+| Always-off folders | `e2eFolder` also refuses a folder inside `node_modules/`, `dist/` or `.git/` (the boundary's always-on rules), with its own line. Config validation checks only the forbidden rules, as for `vitest.layers`. |
+| Shared folder rule | The `vitest.layers[].folder` rule moved into one helper used by `playwright.folder` too; the Vitest messages are unchanged. |
+| `start` card | With option 3 for both adapters, the Playwright-only card variants of part 3 are gone; the one remaining variant is the card without option 2. |
+| Project-value greps | "specific" contains "fic": the guide's tests grep keys case-sensitively (`AGT|FIC`), as CI does, and project words without case. |
+| Plan card numbering | With no extra probe the card is `1. Write these tests / 2. Stop`. |
