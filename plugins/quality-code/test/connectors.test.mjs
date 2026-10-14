@@ -26,9 +26,19 @@ test('the card has the three states and the two choices', () => {
 })
 test('no token is ever asked for or shown; fixes go through the plugin settings', () => {
   assert.match(doc, /Never ask for a token, key or password in the chat/)
-  assert.match(doc, /`gitlab_mcp_url`/)
+  assert.match(doc, /`gitlab_token`/)
   assert.match(doc, /`figma_api_key`/)
   assert.match(doc, /Do not paste it here/)
+})
+test('GitLab and Figma: browser sign-in or token, either one is enough', () => {
+  for (const c of ['`gitlab`', '`gitlab-token`', '`figma`', '`figma-token`']) assert.ok(doc.includes(c), c)
+  assert.match(doc, /either connector answers/)
+  assert.match(doc, /`gitlab_oauth_client_id`/)
+  assert.match(doc, /read_api/)
+  assert.match(doc, /http:\/\/127\.0\.0\.1:8888\/callback/)
+  assert.match(doc, /`gitlab_api_url`/)
+  assert.match(doc, /unused one stays disconnected/)
+  assert.doesNotMatch(doc, /gitlab_mcp_url/)
 })
 test('connector status is not written to the config', () => {
   assert.match(doc, /Nothing here is written to `\.claude\/quality-code\.json`/)

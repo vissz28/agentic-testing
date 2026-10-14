@@ -1,7 +1,27 @@
 {
   "mcpServers": {
     "atlassian-rovo": { "type": "http", "url": "https://mcp.atlassian.com/v1/mcp" },
-    "figma": { "command": "npx", "args": ["-y", "figma-developer-mcp", "--stdio"], "env": { "FIGMA_API_KEY": "${user_config.figma_api_key}" } },
-    "gitlab": { "type": "http", "url": "${user_config.gitlab_mcp_url}" }
+    "figma": { "type": "http", "url": "https://mcp.figma.com/mcp" },
+    "figma-token": { "command": "npx", "args": ["-y", "figma-developer-mcp@0.13.2", "--stdio"], "env": { "FIGMA_API_KEY": "${user_config.figma_api_key}" } },
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab@2.2.5"],
+      "env": {
+        "GITLAB_API_URL": "${user_config.gitlab_api_url}",
+        "GITLAB_USE_OAUTH": "true",
+        "GITLAB_OAUTH_CLIENT_ID": "${user_config.gitlab_oauth_client_id}",
+        "GITLAB_OAUTH_REDIRECT_URI": "http://127.0.0.1:8888/callback",
+        "GITLAB_PERMISSION_MODE": "readonly"
+      }
+    },
+    "gitlab-token": {
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab@2.2.5"],
+      "env": {
+        "GITLAB_API_URL": "${user_config.gitlab_api_url}",
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${user_config.gitlab_token}",
+        "GITLAB_PERMISSION_MODE": "readonly"
+      }
+    }
   }
 }

@@ -7,13 +7,35 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
-## [Unreleased]
+## [0.3.1] - 2026-10-14
+
+### Added
+
+- GitLab and Figma can each be reached in two ways: **sign in in the browser** (connectors `gitlab`
+  and `figma`) or **a token** (`gitlab-token` with a `read_api` personal access token,
+  `figma-token` with a Figma access token). One way is enough. The connectors card in `setup` and
+  `start` checks both and shows the steps for each.
+- Figma browser sign-in uses Figma's own connector (`https://mcp.figma.com/mcp`).
+
+### Changed
+
+- GitLab now runs through a pinned, read-only connector (`@zereight/mcp-gitlab` 2.2.5) against your
+  GitLab's normal API. The old `gitlab_mcp_url` setting is gone: TeamSystem's GitLab has no MCP
+  endpoint, so it never connected. New settings: `gitlab_api_url` (default TeamSystem's GitLab),
+  `gitlab_oauth_client_id` (browser sign-in) and `gitlab_token` (secret).
+- The Figma token connector is pinned (`figma-developer-mcp` 0.13.2).
 
 ### Removed
 
 - The marketplace no longer carries the `warehouse-frontend` and `warehouse-backend` plugins:
   `quality-code` is the one plugin for every team. Teams that used them install `quality-code`
   instead.
+
+### Upgrade
+
+- After `/plugin update`, set either `gitlab_oauth_client_id` or `gitlab_token` from the `/plugin`
+  menu (quality-code, configure) if you want GitLab, then `/mcp`. For Figma, sign in with `/mcp`, or
+  keep using your `figma_api_key` (now the `figma-token` connector).
 
 ## [0.3.0] - 2026-10-14
 

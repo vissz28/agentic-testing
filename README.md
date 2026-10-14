@@ -412,20 +412,31 @@ line breaks, `..` or an absolute path.
 
 ## Connectors and personal settings
 
-The plugin brings three connectors:
+The plugin brings the connectors it needs. Jira is required; GitLab and Figma are optional, and
+each can be reached in one of two ways: **sign in in the browser** or **use a token**. One way is
+enough; the other stays disconnected.
 
-| Connector | Used for | Setup |
+| Service | Used for | Browser sign-in | Token |
+|---|---|---|---|
+| Jira (`atlassian-rovo`) | tickets, the refuse comment, the fill-in push, Confluence QA plans | `/mcp`, choose `atlassian-rovo`, sign in. An Atlassian connection you already have in claude.ai works too | — |
+| GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | set `gitlab_oauth_client_id`, then `/mcp`, choose `gitlab`, sign in | set `gitlab_token`, then `/mcp`, reconnect `gitlab-token` |
+| Figma (`figma`, `figma-token`) | design comparison (later parts) | `/mcp`, choose `figma`, sign in | set `figma_api_key`, then `/mcp`, reconnect `figma-token` |
+
+`/quality-code:setup` and `/quality-code:start` check the connectors first and show, for each one
+that is missing, exactly these steps.
+
+**Personal settings.** Asked when the plugin is enabled, changed later from the `/plugin` menu
+(quality-code, configure). Secrets are kept in the system keychain, never in a repo and never typed
+in the chat.
+
+| Setting | For | Notes |
 |---|---|---|
-| `atlassian-rovo` | reading tickets, the refuse comment, the fill-in push, Confluence QA plans | sign in to Atlassian when prompted (`/mcp`). An Atlassian connection you already have in claude.ai works too |
-| `figma` | design comparison (later parts) | optional personal Figma token |
-| `gitlab` | merge requests (later parts) | the GitLab MCP URL |
+| `gitlab_api_url` | both GitLab ways | your GitLab's API address, ending in `/api/v4`. Default: TeamSystem's GitLab (`https://biosphere.teamsystem.com/api/v4`) |
+| `gitlab_oauth_client_id` | GitLab browser sign-in | the Application ID of a **public** GitLab application (not confidential) with redirect URI `http://127.0.0.1:8888/callback` and the `read_api` scope, created under GitLab *Settings > Applications*. One person can create it and share the ID with the team |
+| `gitlab_token` (secret) | GitLab token | a personal access token with only the `read_api` scope |
+| `figma_api_key` (secret) | Figma token | a Figma personal access token |
 
-Personal settings and secrets are asked when the plugin is enabled and can be changed later from the
-`/plugin` menu. Secrets are kept in the system keychain, never in a repo.
-
-- `figma_api_key`: optional.
-- `gitlab_mcp_url`: defaults to TeamSystem's GitLab (`https://biosphere.teamsystem.com/api/v4/mcp`).
-  Teams on another GitLab enter their own URL.
+Both GitLab connectors run in read-only mode: the plugin can never change anything in GitLab.
 
 ---
 
@@ -455,6 +466,7 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 | "This ticket is from project X, not one of …" | Pick `1` to check it anyway, or add the project with setup. |
 | `marketplace add` fails | Make sure `git clone https://github.com/vissz28/agentic-testing` works on its own. |
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
+| `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
 
 ---
 
@@ -512,7 +524,7 @@ quality-code/
 ├─ plugins/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
-│     ├─ .mcp.json                     Atlassian, Figma, GitLab connectors
+│     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
 │     ├─ commands/                     setup.md, start.md, ticket-eval.md
 │     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │     │                                rubrics, score, sanitize, fill, jira, cli, setup,

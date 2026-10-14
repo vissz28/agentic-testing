@@ -1,11 +1,34 @@
 {
   "name": "quality-code",
   "displayName": "Quality code",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "From a Jira ticket to graded tests, for any project. Setup, a daily start from your feature branch (connectors, branch changes, ticket from the branch name), the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push.",
-  "author": { "name": "Elvis Zefaj" },
+  "author": {
+    "name": "Elvis Zefaj"
+  },
   "userConfig": {
-    "figma_api_key": { "type": "string", "title": "Figma API key", "description": "Personal Figma token for the design side-by-side. Optional.", "sensitive": true },
-    "gitlab_mcp_url": { "type": "string", "title": "GitLab MCP URL", "description": "Your GitLab instance's MCP endpoint. The default is TeamSystem's GitLab; teams on another GitLab must change it.", "default": "https://biosphere.teamsystem.com/api/v4/mcp" }
+    "gitlab_api_url": {
+      "type": "string",
+      "title": "GitLab API URL",
+      "description": "Your GitLab's API address, ending in /api/v4. Used by both GitLab connectors. The default is TeamSystem's GitLab.",
+      "default": "https://biosphere.teamsystem.com/api/v4"
+    },
+    "gitlab_oauth_client_id": {
+      "type": "string",
+      "title": "GitLab Application ID (browser sign-in)",
+      "description": "For signing in to GitLab in the browser: the Application ID of a public (non-confidential) GitLab application with redirect URI http://127.0.0.1:8888/callback and the read_api scope. One person can create it under GitLab Settings > Applications and share the ID. Leave empty to use a token instead."
+    },
+    "gitlab_token": {
+      "type": "string",
+      "title": "GitLab token",
+      "description": "Instead of browser sign-in: a GitLab personal access token with only the read_api scope. Optional.",
+      "sensitive": true
+    },
+    "figma_api_key": {
+      "type": "string",
+      "title": "Figma API key",
+      "description": "Optional, instead of signing in to Figma in the browser: a personal Figma access token.",
+      "sensitive": true
+    }
   }
 }

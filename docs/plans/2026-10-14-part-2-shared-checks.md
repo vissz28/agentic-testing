@@ -2303,7 +2303,7 @@ that the Vitest and Playwright adapters bring.
 
 - [ ] **Step 4: CHANGELOG and version**
 
-In `CHANGELOG.md`, rename `## [Unreleased]` to `## [0.4.0] - <today's date>` and add above its `### Removed`:
+In `CHANGELOG.md`, add a new section `## [0.4.0] - <today's date>` above `## [0.3.1]`, containing:
 
 ```markdown
 ### Added
