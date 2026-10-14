@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf } from '../core/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf } from '../core/config.mjs'
 
 const good = {
   version: 1,
@@ -379,4 +379,55 @@ test('the schema documents the playwright block with the validator\'s path patte
   const name = new RegExp(p.properties.projects.items.pattern)
   for (const ok of ['chromium', 'Mobile Safari']) assert.ok(name.test(ok), ok)
   for (const bad of ['-x', 'a\nb', '', '  ']) assert.ok(!name.test(bad), JSON.stringify(bad))
+})
+
+test('seed block: absent gives the defaults; a valid block for each adapter', () => {
+  assert.deepEqual(seedOf(validateConfig(vgood).config), { builders: [], dataset: null, stubsFrom: null })
+  assert.deepEqual(seedOf(null), { builders: [], dataset: null, stubsFrom: null })
+  const v = validateConfig({ ...vgood, seed: { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md' } })
+  assert.equal(v.ok, true, v.errors?.join(' | '))
+  assert.deepEqual(seedOf(v.config), { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md', stubsFrom: null })
+  const p = validateConfig({ ...good, seed: { stubsFrom: 'e2e/tests/', dataset: 'docs/testing/dataset.md' } })
+  assert.equal(p.ok, true, p.errors?.join(' | '))
+  assert.equal(seedOf(p.config).stubsFrom, 'e2e/tests/')
+  assert.equal(validateConfig({ ...good, seed: {} }).ok, true)
+})
+test('seed block: builders only with vitest, stubsFrom only with playwright', () => {
+  assert.deepEqual(validateConfig({ ...good, seed: { builders: ['test/seed.ts'] } }).errors,
+    ['seed.builders: only allowed with "adapter": "vitest" (Playwright seeds with route stubs, see seed.stubsFrom)'])
+  assert.deepEqual(validateConfig({ ...vgood, seed: { stubsFrom: 'e2e/' } }).errors,
+    ['seed.stubsFrom: only allowed with "adapter": "playwright" (Vitest seeds with builder calls, see seed.builders)'])
+})
+test('seed block: each wrong part is named', () => {
+  for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset" and "stubsFrom"'], JSON.stringify(v))
+  const list = 'seed.builders: must be a list of 1 to 10 files that hold the seed builders'
+  const eleven = Array.from({ length: 11 }, (_, i) => `t/s${i}.ts`)
+  for (const b of [[], 'test/seed.ts', {}, eleven]) assert.deepEqual(validateConfig({ ...vgood, seed: { builders: b } }).errors, [list], JSON.stringify(b))
+  const r = validateConfig({ ...vgood, seed: { builders: ['a.ts', 'a.ts', '../x.ts', '/abs.ts', 'test/helpers/', 3], dataset: 'docs/data.json', extra: 1 } })
+  assert.deepEqual(r.errors, [
+    'seed.extra: unknown field (only "builders", "dataset" and "stubsFrom")',
+    'seed.builders[1] "a.ts" appears twice',
+    'seed.builders[2] "../x.ts" must be a relative path inside the project (no "..", not absolute, one line)',
+    'seed.builders[3] "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
+    'seed.builders[4] "test/helpers/" must be a file, not a folder',
+    'seed.builders[5] 3 must be a relative path inside the project (no "..", not absolute, one line)',
+    'seed.dataset "docs/data.json" must be a relative path to a .md file inside the project',
+  ])
+  for (const d of ['../d.md', '/d.md', 'a\nb.md', '']) assert.ok(validateConfig({ ...vgood, seed: { dataset: d } }).errors[0].startsWith('seed.dataset '), JSON.stringify(d))
+  assert.deepEqual(validateConfig({ ...good, seed: { stubsFrom: 'e2e/tests' } }).errors, ['seed.stubsFrom "e2e/tests" must be a folder ending with "/"'])
+  assert.deepEqual(validateConfig({ ...good, seed: { stubsFrom: '../e2e/' } }).errors, ['seed.stubsFrom "../e2e/" must be a relative path inside the project (no "..", not absolute, one line)'])
+})
+test('the schema documents the seed block with the validator\'s path pattern', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const s = schema.properties.seed
+  assert.equal(s.type, 'object')
+  assert.equal(s.additionalProperties, false)
+  assert.equal(s.required, undefined)
+  assert.deepEqual(Object.keys(s.properties).sort(), ['builders', 'dataset', 'stubsFrom'])
+  const path = schema.properties.vitest.properties.tsconfig.pattern
+  assert.equal(s.properties.builders.items.pattern, path)
+  assert.equal(s.properties.dataset.pattern, path)
+  assert.equal(s.properties.stubsFrom.pattern, path)
+  assert.equal(s.properties.builders.minItems, 1)
+  assert.equal(s.properties.builders.maxItems, 10)
 })

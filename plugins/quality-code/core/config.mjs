@@ -6,7 +6,7 @@ import { matches } from './checks/boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed'])
 const LANGS = new Set(['en', 'it'])
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 const PATH_RULE = 'must be a relative path inside the project (no "..", not absolute, one line)'
@@ -201,6 +201,32 @@ export function validateConfig(input) {
       }
     }
   }
+  if (c.seed !== undefined) {
+    if (!isObj(c.seed)) e.push('seed: must be an object with optional "builders", "dataset" and "stubsFrom"')
+    else {
+      const s = c.seed
+      for (const k of Object.keys(s)) if (!['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only "builders", "dataset" and "stubsFrom")`)
+      if (s.builders !== undefined) {
+        if (c.adapter !== 'vitest') e.push('seed.builders: only allowed with "adapter": "vitest" (Playwright seeds with route stubs, see seed.stubsFrom)')
+        else if (!Array.isArray(s.builders) || s.builders.length < 1 || s.builders.length > 10) e.push('seed.builders: must be a list of 1 to 10 files that hold the seed builders')
+        else {
+          const seen = new Set()
+          s.builders.forEach((b, i) => {
+            if (!pathOk(b)) e.push(`seed.builders[${i}] ${JSON.stringify(b)} ${PATH_RULE}`)
+            else if (b.endsWith('/') || b.endsWith('\\')) e.push(`seed.builders[${i}] "${b}" must be a file, not a folder`)
+            else if (seen.has(b)) e.push(`seed.builders[${i}] "${b}" appears twice`)
+            else seen.add(b)
+          })
+        }
+      }
+      if (s.dataset !== undefined && !(pathOk(s.dataset) && /\.md$/i.test(s.dataset))) e.push(`seed.dataset ${JSON.stringify(s.dataset)} must be a relative path to a .md file inside the project`)
+      if (s.stubsFrom !== undefined) {
+        if (c.adapter !== 'playwright') e.push('seed.stubsFrom: only allowed with "adapter": "playwright" (Vitest seeds with builder calls, see seed.builders)')
+        else if (!pathOk(s.stubsFrom)) e.push(`seed.stubsFrom ${JSON.stringify(s.stubsFrom)} ${PATH_RULE}`)
+        else if (!s.stubsFrom.endsWith('/')) e.push(`seed.stubsFrom "${s.stubsFrom}" must be a folder ending with "/"`)
+      }
+    }
+  }
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,
@@ -229,6 +255,12 @@ export const adapterOptions = config => {
 
 /** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, 300 for Vitest. */
 export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : 300)
+
+/** The seed block with its defaults: no builder files, no dataset, no stub folder. */
+export const seedOf = config => {
+  const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
+  return { builders: s.builders ?? [], dataset: s.dataset ?? null, stubsFrom: s.stubsFrom ?? null }
+}
 
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD

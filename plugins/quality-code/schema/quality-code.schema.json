@@ -114,6 +114,16 @@
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one Playwright process may take." }
       }
     },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional. What /quality-code:seed reads to write a ticket's test data. Every field is optional.",
+      "properties": {
+        "builders": { "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$" }, "description": "Only with adapter vitest. The files that hold the project's own seed builders (for example test/helpers/seed.ts). /quality-code:seed calls only functions these files export. Left out, it looks for candidates and asks." },
+        "dataset": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "A .md file that documents the project's known, idempotent test dataset (rows, ids, values). /quality-code:seed prefers its values and ids over new ones." },
+        "stubsFrom": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Only with adapter playwright. The folder, ending in /, whose specs hold the existing route stubs (page.route ... fulfill). Response shapes are copied from them, never guessed. Left out, every spec of the project is searched." }
+      }
+    },
     "redact": {
       "type": "object",
       "default": { "customerId": "\\bU\\d{5,}\\b" },
