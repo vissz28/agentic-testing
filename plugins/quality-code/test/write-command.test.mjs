@@ -9,7 +9,8 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\]\n---/)
+  assert.match(doc, /^description: Write Vitest or Playwright tests/m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card', () => {
   const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Target.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Check.**', '\n7. **Card.**'].map(s => doc.indexOf(s))
@@ -26,7 +27,7 @@ test('the rules: scripts grade, never edit application code, never weaken or del
 test('step 1: config check, Vitest only, layers from vitest.layers with the unit default, connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes('cli.mjs" config check'))
-  assert.ok(s.includes('Writing Playwright tests is not available yet: this command writes Vitest tests only. To check the Playwright tests you already have, run /quality-code:check.'))
+  assert.doesNotMatch(doc, /not available yet/)
   assert.doesNotMatch(doc, /part 3/)
   assert.match(s, /`vitest`/)
   assert.ok(s.includes('`vitest.layers`'))
@@ -46,7 +47,7 @@ test('step 2: the gate is ticket-eval steps 1–5 by reference; a refused ticket
 })
 test('step 3: the target card, even for one candidate; --target skips it', () => {
   const s = step(3)
-  assert.ok(s.includes('Which code does this ticket change?\n   1. <path>\n   2. <path>\n   3. Another file\n   4. Stop'))
+  assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
   assert.match(s, /One clear candidate still gets the card/)
   assert.ok(s.includes('--target PATH'))
   assert.ok(s.includes('core/branch.mjs" --detect'))
@@ -56,7 +57,7 @@ test('step 4: reads the generic guide and each layer guide, then the plan card',
   const s = step(4)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md'))
   assert.match(s, /`guide` of each layer/)
-  assert.ok(s.includes('1. Write these tests\n   2. Change the layers\n   3. Stop'))
+  assert.ok(s.includes('1. Write these tests\n     2. Change the layers\n     3. Stop'))
 })
 test('step 5: run start before any file, the active-run card, the file naming and the describe block', () => {
   const s = step(5)
@@ -123,4 +124,134 @@ test('the guide: deterministic time and random, no .only, it.todo for unknown be
 })
 test('the guide carries no project values', () => {
   assert.doesNotMatch(guide, /AGT|FIC|warehouse|teamsystem/i)
+})
+
+// Playwright: the same seven steps, each with its Playwright part.
+const pw = n => { const s = step(n); return s.slice(s.indexOf('**Playwright:**')) }
+const pguide = readFileSync(new URL('../core/guides/playwright-writing.md', import.meta.url), 'utf8')
+
+test('both adapters: the doc names Vitest and Playwright parts, and both kinds of test folder', () => {
+  for (const n of [1, 3, 4, 5]) {
+    assert.ok(step(n).includes('**Vitest:**'), `step ${n} vitest`)
+    assert.ok(step(n).includes('**Playwright:**'), `step ${n} playwright`)
+  }
+  assert.match(doc, /only in the layer folders \(Vitest\) or the e2e folder \(Playwright\)/)
+  assert.ok(doc.includes('`E2E_FOLDER_JSON:`'))
+})
+test('playwright step 1: the flags of the other adapter stop; the e2e folder comes from the script', () => {
+  const s = step(1)
+  assert.ok(s.includes('`--route and --no-extras are for Playwright projects. Use --layer NAME or --target PATH here.`'))
+  assert.ok(pw(1).includes('`--layer and --target are for Vitest projects. Use --route PATH to name the screen.`'))
+  assert.ok(pw(1).includes('node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config e2e-folder'))
+  assert.match(pw(1), /exits with 2, show its lines and stop/)
+  assert.ok(pw(1).includes('`playwright.guide`'))
+  assert.ok(s.indexOf('config e2e-folder') < s.indexOf('core/connectors.md'))
+})
+test('playwright step 2: route and feature from the score; QA-plan scenarios merged, the ticket wins', () => {
+  const s = pw(2)
+  assert.ok(s.includes('`TICKET_EVAL_JSON:`'))
+  assert.match(s, /`route` and the `feature`/)
+  assert.ok(s.includes('`qaPlan.scenarios`'))
+  assert.match(s, /the ticket's wins/)
+})
+test('playwright step 3: --route, else the derived route with no card, else the screen card', () => {
+  const s = pw(3)
+  assert.ok(s.includes('--route PATH'))
+  assert.ok(s.includes('`--route must be a path in the app starting with /, like /orders`'))
+  assert.match(s, /the configured feature whose label is on the ticket\) is used, with no card/)
+  assert.ok(s.includes('Which screen does this ticket test?\n     1. <route>   (<feature label>)\n     2. <route>   (<feature label>)\n     3. Another screen\n     4. Stop'))
+  assert.ok(s.includes('`Which screen? Type its path in the app, for example /orders.`'))
+  assert.match(s, /entry of `features` that has a `route`/)
+})
+test('playwright step 4: the plugin guide, the team guide, two existing specs, the extras and the plan card', () => {
+  const s = pw(4)
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/guides/playwright-writing.md'))
+  assert.ok(s.indexOf('playwright-writing.md') < s.indexOf('`playwright.guide`'))
+  assert.match(s, /at most two specs already in the e2e folder/)
+  assert.match(s, /never show them in the chat/)
+  assert.match(s, /at most 3 extra probes/)
+  assert.ok(s.includes('`--no-extras`'))
+  assert.ok(s.includes('Tests for <KEY>, on <route>\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n     1. Write these tests\n     2. Leave out the extras\n     3. Stop'))
+  assert.match(s, /With no extra probe, leave out the `Extra \(not in the ticket\)` lines and option 2, and number the rest in order/)
+})
+test('playwright step 5: run start first (shared), the file name, the describe and test tags, web-first values, fixme', () => {
+  const s = step(5)
+  assert.ok(s.indexOf('run start') < s.indexOf('**Vitest:**'))
+  const p = pw(5)
+  assert.ok(p.includes('`<folder><screen>.<key lowercased>.spec.ts`'))
+  assert.ok(p.includes('`e2e/orders-new.abc-123.spec.ts` for `/orders/new`'))
+  assert.match(p, /`home` for `\/`/)
+  assert.match(p, /`\.spec\.js` when the project has no `tsconfig\.json`/)
+  assert.ok(p.includes("`test.describe('<KEY> <summary>', { tag: '@<KEY>' }, () => { … })`"))
+  assert.match(p, /at the start of a line/)
+  assert.ok(p.includes("`{ tag: ['@anchor', '@<KEY>'] }`"))
+  assert.ok(p.includes("`{ tag: ['@finding', '@<KEY>'] }`"))
+  assert.ok(p.includes('`Extra: <what it probes>`'))
+  assert.match(p, /Keep each tag list on its `test\(` line/)
+  assert.match(p, /real expected values from the ticket/)
+  assert.ok(p.includes('`await expect(<locator>).toHaveText(…)`'))
+  assert.match(p, /`test\.fixme`/)
+  assert.ok(p.includes("`await page.goto('<route>')`"))
+  assert.match(p, /No design capture and no screenshot test/)
+})
+test('playwright step 6: the app line, the pipeline with the spec, key and ticket, never --target', () => {
+  const s = step(6)
+  const p = s.slice(s.indexOf('**Playwright:**'), s.indexOf('Quote every spec path'))
+  assert.ok(p.includes('The tests open the app: your Playwright config starts it (its webServer), or it must already be running.'))
+  const cmd = p.slice(p.indexOf('`node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs"')).split('`')[1]
+  assert.equal(cmd, "node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json")
+  assert.match(p, /with no `--target`/)
+  assert.match(s, /a tag list was split over lines/)
+})
+test('playwright step 7: the extra line and the app line', () => {
+  const s = step(7)
+  assert.ok(s.includes('`A red extra test is a case the ticket does not cover: show it to the ticket\'s author. Do not change the test to make it pass.`'))
+  assert.ok(s.includes('`Start the app (or check the webServer in your Playwright config), then run /quality-code:check with the spec path above.`'))
+  assert.match(s, /starts with `Extra:`/)
+  assert.match(s, /app is not reachable/)
+})
+test('examples cover --route and --no-extras', () => {
+  assert.ok(doc.includes('`/quality-code:write ABC-123 --route /orders/new`'))
+  assert.ok(doc.includes('`/quality-code:write ABC-123 --no-extras`'))
+})
+
+test('playwright guide: shape and tags on the test line', () => {
+  assert.ok(pguide.includes("test.describe('<KEY> <summary>', { tag:\n  '@<KEY>' }, () => { … })"))
+  assert.ok(pguide.includes("{ tag: ['@anchor', '@<KEY>'] }"))
+  assert.ok(pguide.includes("{ tag: ['@finding', '@<KEY>'] }"))
+  assert.match(pguide, /Keep the tag list on the `test\(` line/)
+  assert.match(pguide, /One behaviour per test/)
+  assert.match(pguide, /`Extra: <what it probes>`/)
+})
+test('playwright guide: role and label locators over CSS, web-first assertions with the ticket values', () => {
+  assert.match(pguide, /Role and label first/)
+  assert.match(pguide, /No CSS or XPath selectors/)
+  assert.match(pguide, /Web-first assertions only/)
+  assert.match(pguide, /real expected values from the ticket/)
+  assert.ok(pguide.includes('expect(await el.textContent()).toBe(…)'))
+})
+test('playwright guide: no waitForTimeout, no .only, test.fixme for unknown behaviour, isolated state', () => {
+  assert.match(pguide, /No `page\.waitForTimeout`/)
+  assert.match(pguide, /`\.only`/)
+  assert.match(pguide, /`test\.fixme\('…'\)`/)
+  assert.match(pguide, /Each test arranges its own state/)
+})
+test('playwright guide: stubs only at boundaries, shape copied, last handler wins', () => {
+  assert.match(pguide, /Stub only at boundaries/)
+  assert.ok(pguide.includes('page.route(…)'))
+  assert.match(pguide, /Copy the response shape from an existing stub/)
+  assert.match(pguide, /One row per fact/)
+  assert.match(pguide, /registered \*\*last\*\*/)
+})
+test('playwright guide: at most 3 extra probes, never an invented value', () => {
+  assert.match(pguide, /at most 3/)
+  assert.match(pguide, /Never invent an expected value/)
+  assert.match(pguide, /do not write the probe/)
+})
+test('playwright guide: its example passes the honesty rule and carries no project values', () => {
+  const ex = pguide.slice(pguide.indexOf('```ts'), pguide.indexOf('```', pguide.indexOf('```ts') + 5))
+  for (const l of ex.split('\n').filter(x => /'@(anchor|finding)'/.test(x))) assert.match(l, /'@ABC-123'/)
+  assert.ok(!ex.includes('waitForTimeout'))
+  assert.doesNotMatch(pguide, /AGT|FIC/)
+  assert.doesNotMatch(pguide, /warehouse|teamsystem|Giacenza|Magazzino/i)
 })
