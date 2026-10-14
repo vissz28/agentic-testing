@@ -12,9 +12,10 @@ import { fakeBin } from '../runners/fake-bin.mjs'
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../core/pipeline/cli.mjs')
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const CONFIG = adapter => JSON.stringify({ version: 1, adapter, jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } })
-// A snapshot assertion has no strict mutant, so mutation has nothing to run and the fake needs no mutant logic.
-const GOOD = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n"
-const RED = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n  it('breaks', () => { expect(run()).toMatchSnapshot() })\n})\n"
+// A strict matcher: mutation makes mutants, and the fake vitest fails them (killed).
+const GOOD = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n})\n"
+const SNAP = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n"
+const RED = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n  it('breaks', () => { expect(run()).toBe(true) })\n})\n"
 
 function repo({ adapter = 'vitest', config = true, spec = GOOD } = {}) {
   const d = mkdtempSync(join(tmpdir(), 'qc-pcli-'))
@@ -38,26 +39,41 @@ const bins = (d, tests, extra = {}) => {
 
 test('green: exit 0, the card ends with the PIPELINE_JSON line', () => {
   const d = repo()
-  bins(d, [at('adds', 'passed')])
+  bins(d, [at('adds', 'passed')], { mutantReport: { title: 'adds', status: 'failed' } })
   const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1'])
   assert.equal(r.status, 0, r.stderr + r.stdout)
+  assert.match(r.stdout, /mutation\s+1\/1 mutants killed/)
   assert.match(r.stdout, /Verdict: ✅ green/)
   assert.match(r.stdout.trim().split('\n').at(-1), /^PIPELINE_JSON:\{/)
 })
 test('--json prints only the JSON', () => {
   const d = repo()
-  bins(d, [at('adds', 'passed')])
-  const r = run(d, ['test/a.spec.ts', '--json'])
+  bins(d, [at('adds', 'passed')], { mutantReport: { title: 'adds', status: 'failed' } })
+  const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1', '--json'])
   assert.equal(r.status, 0, r.stderr)
   assert.equal(JSON.parse(r.stdout).verdict, 'green')
   assert.equal(r.stdout.trim().split('\n').length, 1)
 })
 test('a red test: exit 1', () => {
   const d = repo({ spec: RED })
-  bins(d, [at('adds', 'passed'), at('breaks', 'failed', ['Expected true'])])
+  bins(d, [at('adds', 'passed'), at('breaks', 'failed', ['Expected true'])], { mutantReport: { title: 'adds', status: 'failed' } })
   const r = run(d, ['test/a.spec.ts'])
   assert.equal(r.status, 1, r.stderr + r.stdout)
-  assert.match(r.stdout, /tests red/)
+  assert.match(r.stdout, /Verdict: 🔴 tests red/)
+})
+test('a snapshot-only spec: nothing for mutation to check, so not verified, exit 3', () => {
+  const d = repo({ spec: SNAP })
+  bins(d, [at('adds', 'passed')])
+  const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1'])
+  assert.equal(r.status, 3, r.stderr + r.stdout)
+  assert.match(r.stdout, /mutation\s+not run: no assertion/)
+})
+test('duplicate specs are one spec on the card', () => {
+  const d = repo()
+  bins(d, [at('adds', 'passed')], { mutantReport: { title: 'adds', status: 'failed' } })
+  const r = run(d, ['test/a.spec.ts', './test/a.spec.ts', '--key', 'ABC-1'])
+  assert.equal(r.status, 0, r.stderr + r.stdout)
+  assert.match(r.stdout, /^quality-code check · 1 spec file ·/)
 })
 test('fake vitest with no report: not verified, exit 3', () => {
   const d = repo()
@@ -102,8 +118,8 @@ test('a spec outside the project root is refused', () => {
 })
 test('--flaky runs the flaky step', () => {
   const d = repo()
-  bins(d, [at('adds', 'passed')])
-  const r = run(d, ['test/a.spec.ts', '--flaky', '2', '--json'])
+  bins(d, [at('adds', 'passed')], { mutantReport: { title: 'adds', status: 'failed' } })
+  const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1', '--flaky', '2', '--json'])
   assert.equal(r.status, 0, r.stderr)
   assert.equal(JSON.parse(r.stdout).steps.at(-1).check, 'flaky')
 })

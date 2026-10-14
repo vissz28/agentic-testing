@@ -1,6 +1,7 @@
 // Installs a fake executable at <dir>/node_modules/.bin/<name>. Its behaviour comes from
 // <dir>/.fake-<name>.json: { report?, reportFor?: { [config or 'default']: report }, exit?, stderr?,
-// stdout?, sleepMs?, grandchild? }. With grandchild, a long-lived child process is started and its pid
+// stdout?, sleepMs?, grandchild?, mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
+// that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
 // and the report is written to the --outputFile path.
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -18,7 +19,10 @@ if (spec.grandchild) {
 }
 const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13)
 const ci = args.indexOf('--config')
-const report = (spec.reportFor && spec.reportFor[ci >= 0 ? args[ci + 1] : 'default']) || spec.report
+let report = (spec.reportFor && spec.reportFor[ci >= 0 ? args[ci + 1] : 'default']) || spec.report
+if (args.includes('-t') && spec.mutantReport) {
+  report = { testResults: [{ name: path.resolve(dir, args[1]), status: 'failed', message: '', assertionResults: [{ title: spec.mutantReport.title, status: spec.mutantReport.status, failureMessages: ['mutant'] }] }] }
+}
 setTimeout(() => {
   if (out && report) fs.writeFileSync(out, JSON.stringify(report))
   if (spec.stdout) process.stdout.write(spec.stdout)

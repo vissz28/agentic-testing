@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { decide, runPipeline, testsStep } from '../../core/pipeline/vitest.mjs'
 import { dialectFor } from '../../core/checks/dialects/index.mjs'
 import { result } from '../../core/checks/result.mjs'
+import { RUN_MARKER } from '../../core/checks/boundary.mjs'
 import { ENV } from '../checks/git-env.mjs'
 
 const config = { adapter: 'vitest', jira: { projects: ['ABC'] } }
@@ -46,12 +47,24 @@ test('green: every step ran and passed; mutation used the step-5 baseline withou
   assert.ok(m.data.total >= 1)
   assert.equal(m.data.killed, m.data.total)
 })
-test('tests red', async () => {
+test('a pure-red spec (no passing test) skips mutation and gives tests_red', async () => {
   const d = repo()
-  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { runTests: makeRunner(d, { red: true }) }))
-  assert.equal(r.verdict, 'not_verified') // review focus 5: no passing test → empty baseline → mutation not_run
+  let mutated = 0
+  const r0 = makeRunner(d, { red: true })
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests: async a => { if (a.testName) mutated++; return r0(a) } }))
+  assert.equal(r.verdict, 'tests_red')
   assert.equal(r.steps.find(s => s.check === 'tests').status, 'fail')
-  assert.equal(r.steps.find(s => s.check === 'mutation').status, 'not_run')
+  assert.equal(r.steps.find(s => s.check === 'mutation').status, 'pass')
+  assert.equal(mutated, 0)
+})
+test('a spec with passing tests whose assertions mutation cannot touch is not verified', async () => {
+  const d = repo("describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n")
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d))
+  const m = r.steps.find(s => s.check === 'mutation')
+  assert.equal(m.status, 'not_run')
+  assert.match(m.summary, /^no assertion in test\/a\.spec\.ts that mutation can check/)
+  assert.equal(m.findings[0].kind, 'nothing to mutate')
+  assert.equal(r.verdict, 'not_verified')
 })
 test('checks failed beats everything; types fail skips tests and mutation', async () => {
   const d = repo("it('hollow', () => { run() })\n")
@@ -68,10 +81,23 @@ test('not verified when the tests could not run', async () => {
   assert.equal(r.verdict, 'not_verified')
   assert.equal(r.decidedBy, 'tests')
 })
-test('a boundary violation fails the run', async () => {
+test('a boundary violation fails a test-writing run (the run marker is present)', async () => {
+  const d = repo()
+  put(d, RUN_MARKER, '1')
+  put(d, 'src/app.ts', 'x')
+  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d))
+  assert.equal(r.verdict, 'checks_failed')
+  assert.equal(r.decidedBy, 'boundary')
+})
+test('without the run marker boundary is not applicable and passes, even with changes outside the tests', async () => {
   const d = repo()
   put(d, 'src/app.ts', 'x')
-  assert.equal((await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d))).verdict, 'checks_failed')
+  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d))
+  const b = r.steps.find(s => s.check === 'boundary')
+  assert.equal(b.status, 'pass')
+  assert.equal(b.summary, 'not applicable: not a test-writing run')
+  assert.equal(b.data.applicable, false)
+  assert.notEqual(r.verdict, 'checks_failed')
 })
 test('flaky only when asked', async () => {
   const d = repo()
@@ -92,9 +118,69 @@ test('a throwing type-check is reported with its step name', async () => {
   const d = repo()
   await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { typeCheck: async () => { throw new Error('kaput') } })), e => e.step === 'types' && /kaput/.test(e.message))
 })
-test('a throwing flaky or mutation step is reported with its name', async () => {
+test('a throwing tests step is reported with its name', async () => {
   const d = repo()
   await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { runTests: async () => { throw new Error('boom') } })), e => e.step === 'tests' && /boom/.test(e.message))
+})
+test('a throwing mutation step is reported with its name', async () => {
+  const d = repo()
+  const r0 = makeRunner(d)
+  const runTests = async a => { if (a.testName) throw new Error('mutant boom'); return r0(a) }
+  await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests })), e => e.step === 'mutation' && /mutant boom/.test(e.message))
+})
+test('mutation and flaky get the timeout from vitest.timeoutSeconds, 300 s by default', async () => {
+  const d = repo()
+  const seen = async cfg => {
+    const timeouts = []
+    const r0 = makeRunner(d)
+    await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', flakyRuns: 2 }, ctx(d, { config: cfg, runTests: async a => { if (a.timeoutMs !== undefined) timeouts.push(a.timeoutMs); return r0(a) } }))
+    return timeouts
+  }
+  const t900 = await seen({ ...config, vitest: { timeoutSeconds: 900 } })
+  assert.ok(t900.length >= 3)
+  assert.deepEqual([...new Set(t900)], [900_000])
+  assert.deepEqual([...new Set(await seen(config))], [300_000])
+})
+test('flaky on a red run: tests that fail every run are not a flaky failure, the verdict stays tests_red', async () => {
+  const d = repo()
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 2 }, ctx(d, { runTests: makeRunner(d, { red: true }) }))
+  assert.equal(r.verdict, 'tests_red')
+  const f = r.steps.find(s => s.check === 'flaky')
+  assert.equal(f.status, 'pass')
+  assert.match(f.summary, /fail every run \(see tests\)/)
+})
+test('flaky is not_run when the tests step did not run, without calling the runner for it', async () => {
+  const d = repo()
+  let calls = 0
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 2 }, ctx(d, { runTests: async () => { calls++; return { ran: false, tests: [], error: 'db down' } } }))
+  assert.equal(calls, 1)
+  const f = r.steps.find(s => s.check === 'flaky')
+  assert.equal(f.status, 'not_run')
+  assert.equal(f.summary, 'skipped: the tests did not run')
+  assert.equal(r.verdict, 'not_verified')
+})
+test('a genuinely flaky test is still a flaky failure', async () => {
+  const d = repo()
+  let n = 0
+  const r0 = makeRunner(d)
+  const runTests = async a => {
+    const r = await r0(a)
+    if (a.testName) return r
+    n++ // call 1 is step 5, calls 2 and 3 are the flaky runs: pass, then fail
+    return n === 3 ? { ...r, tests: r.tests.map(t => ({ ...t, status: 'failed', message: 'x' })) } : r
+  }
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 2 }, ctx(d, { runTests }))
+  assert.equal(r.steps.find(s => s.check === 'flaky').status, 'fail')
+  assert.equal(r.verdict, 'checks_failed')
+})
+test('specs are de-duplicated after normalization', async () => {
+  const d = repo()
+  const seen = []
+  const r0 = makeRunner(d)
+  const r = await runPipeline({ specs: ['test/a.spec.ts', './test/a.spec.ts', join(d, 'test/a.spec.ts')], key: 'ABC-1' }, ctx(d, { runTests: async a => { seen.push(a); return r0(a) } }))
+  assert.equal(r.verdict, 'green')
+  assert.deepEqual(seen.filter(a => !a.testName).map(a => a.files), [['test/a.spec.ts']])
+  assert.equal(seen.filter(a => a.testName).length, r.steps.find(s => s.check === 'mutation').data.total)
 })
 test('a part 2 check that throws is reported with its step name', async () => {
   const d = repo()

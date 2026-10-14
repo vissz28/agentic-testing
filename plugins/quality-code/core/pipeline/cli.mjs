@@ -55,7 +55,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
     return 2
   }
-  const specs = a.specs.map(s => normalizeSpec(root, s))
+  const specs = [...new Set(a.specs.map(s => normalizeSpec(root, s)))]
   process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }

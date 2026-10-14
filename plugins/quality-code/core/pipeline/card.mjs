@@ -7,7 +7,7 @@ const quoted = findings => findings.filter(f => f.test).map(f => `'${f.test}'`).
 
 function stepLine(step) {
   let text = step.summary
-  if (step.status === 'not_run') text = `not run: ${text}`
+  if (step.status === 'not_run') text = `not run: ${text.replace(/^skipped: /, '')}`
   else if (step.status === 'fail') {
     const f = (step.findings || []).find(x => x.test)
     if (f) text += `: ${f.file ? `${f.file} › ` : ''}'${f.test}'`
@@ -20,7 +20,7 @@ function whatToDo(outcome) {
   const steps = outcome.steps
   if (outcome.verdict === 'not_verified') {
     const nr = steps.find(x => x.status === 'not_run')
-    return nr ? `${label(nr.check)} could not run: ${nr.summary}` : null
+    return nr ? `${label(nr.check)} could not run: ${String(nr.summary).replace(/^skipped: /, '')}` : null
   }
   const step = steps.find(x => x.check === outcome.decidedBy) || steps.find(x => x.status === 'fail')
   if (!step) return null
@@ -31,10 +31,10 @@ function whatToDo(outcome) {
     case 'suite-honesty': return `add a real expect(...) to ${quoted(fs)}, or mark it todo if the behaviour isn't known yet.`
     case 'types': return `fix the compile error: ${String(step.summary).split('\n')[0]}`
     case 'mutation': return `an assertion can't fail: bind the real expected value in ${quoted(fs)}.`
-    case 'flaky': return `fix the non-determinism in ${quoted(fs)}, or skip it with a ticket.`
+    case 'flaky': return `fix the non-determinism in ${quoted(fs)}, or skip them with a ticket.`
     case 'tests': {
       const f = fs.find(x => x.test) || fs[0] || {}
-      return `'${f.test}': ${f.detail}. For a bug whose fix isn't merged yet, red is the expected result.`
+      return `'${f.test}'${f.detail ? `: ${f.detail}` : ''}. For a bug whose fix isn't merged yet, red is the expected result.`
     }
     default: return null
   }
@@ -48,7 +48,7 @@ export function formatCard(outcome, { specs = [], key = null } = {}) {
   if (counts) lines.push('', `Tests     ${d.passed} passed · ${d.failed} failed · ${d.skipped || 0} to do`)
   if (outcome.steps.length) {
     if (!counts) lines.push('')
-    lines.push('Checks', ...outcome.steps.map(stepLine))
+    lines.push('Checks', ...outcome.steps.filter(x => !(x.check === 'boundary' && x.data?.applicable === false)).map(stepLine))
   }
   const todo = whatToDo(outcome)
   if (todo) lines.push('', `What to do: ${todo}`)

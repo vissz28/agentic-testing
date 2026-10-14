@@ -27,7 +27,7 @@ test('the checks-failed card, exactly', () => {
     "  ❌ assertions     1 test(s) run but assert nothing: orders.spec.ts › 'cancels'",
     '  ✅ types          compiles',
     '  ✅ tests          8 passed',
-    '  ⚠️ mutation       not run: skipped: the tests did not run',
+    '  ⚠️ mutation       not run: the tests did not run',
     '',
     "What to do: add a real expect(...) to 'cancels', or mark it todo if the behaviour isn't known yet.",
   ])
@@ -46,10 +46,26 @@ test('what to do, per deciding step', () => {
   assert.equal(card('honesty', s('honesty', 'fail', 'x')), 'What to do: restore the removed assertion or test, or name a ticket on the skip.')
   assert.equal(card('types', s('types', 'fail', 'a.ts(1,1): error TS1')), 'What to do: fix the compile error: a.ts(1,1): error TS1')
   assert.equal(card('mutation', s('mutation', 'fail', 'x', [{ test: 'adds' }, { test: 'subs' }])), "What to do: an assertion can't fail: bind the real expected value in 'adds', 'subs'.")
-  assert.equal(card('flaky', s('flaky', 'fail', 'x', [{ test: 'a > t' }])), "What to do: fix the non-determinism in 'a > t', or skip it with a ticket.")
+  assert.equal(card('flaky', s('flaky', 'fail', 'x', [{ test: 'a > t' }])), "What to do: fix the non-determinism in 'a > t', or skip them with a ticket.")
   assert.equal(card('tests', s('tests', 'fail', 'x', [{ test: 'adds', detail: 'Expected 2' }]), 'tests_red'), "What to do: 'adds': Expected 2. For a bug whose fix isn't merged yet, red is the expected result.")
   assert.equal(card('tests', s('tests', 'not_run', 'could not run: db down'), 'not_verified'), 'What to do: tests could not run: could not run: db down')
   assert.equal(formatCard({ verdict: 'green', decidedBy: null, steps: [] }, { specs: ['a'] }).includes('What to do'), false)
+})
+test('a failing test with an empty message gives no dangling colon', () => {
+  const out = formatCard({ verdict: 'tests_red', decidedBy: 'tests', steps: [s('tests', 'fail', 'x', [{ test: 'adds', detail: '' }])] }, { specs: ['a'] })
+  assert.ok(out.includes("What to do: 'adds'. For a bug whose fix isn't merged yet, red is the expected result."))
+  assert.ok(!out.includes("'adds': ."))
+})
+test('a not-applicable boundary line is hidden from the card; an applicable one stays', () => {
+  const na = s('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false })
+  const out = formatCard({ verdict: 'green', decidedBy: null, steps: [na, s('honesty', 'pass', 'ok')] }, { specs: ['a'] })
+  assert.ok(!out.split('\n').slice(0, -1).join('\n').includes('boundary'))
+  assert.ok(out.includes('  ✅ honesty'))
+  assert.ok(formatCard({ verdict: 'green', decidedBy: null, steps: [s('boundary', 'pass', 'ok', [], { applicable: true })] }, { specs: ['a'] }).includes('  ✅ boundary'))
+})
+test('a skipped step is not shown as "not run: skipped:" in what to do either', () => {
+  const out = formatCard({ verdict: 'not_verified', decidedBy: 'mutation', steps: [s('mutation', 'not_run', 'skipped: the tests did not run')] }, { specs: ['a'] })
+  assert.ok(out.includes('What to do: mutation could not run: the tests did not run'))
 })
 test('not verified uses the step summary generically, including a never-ran file', () => {
   const step = s('tests', 'not_run', '1 file(s) never ran: x.spec.ts: boom', [{ file: 'x.spec.ts', kind: 'never ran', detail: 'boom' }])

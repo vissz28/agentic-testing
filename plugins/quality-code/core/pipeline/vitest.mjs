@@ -1,6 +1,7 @@
 // The Vitest pipeline: the shared checks, the type-check and the tests in a fixed order, then one
 // verdict. Nothing here grades by opinion: every step is a script's result.
 import * as boundary from '../checks/boundary.mjs'
+import { runActive } from '../checks/boundary.mjs'
 import * as flaky from '../checks/flaky.mjs'
 import * as honesty from '../checks/honesty.mjs'
 import * as mutation from '../checks/mutation.mjs'
@@ -45,14 +46,24 @@ export function testsStep(run, requested = []) {
   return result('tests', 'pass', `${data.passed} passed`, [], data)
 }
 
-async function mutationStep(specs, key, run, ctx) {
+async function mutationStep(specs, key, run, ctx, timeoutMs) {
   const per = []
+  let redOnly = 0
   for (const spec of specs) {
-    const baseline = run.tests.filter(t => t.file === spec && t.status === 'passed').map(t => t.title)
-    const r = await mutation.run({ spec, key, baseline }, ctx)
+    const own = run.tests.filter(t => t.file === spec)
+    const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
+    // A spec with failing tests and no passing one already shows its assertions can fail (spec §13).
+    if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
+    let r = await mutation.run({ spec, key, baseline, timeoutMs }, ctx)
+    // Nothing eligible in a spec that had passing tests: the pipeline cannot show its assertions bind.
+    if (r.status === 'pass' && (r.data?.total ?? 0) === 0 && baseline.length) {
+      r = result('mutation', 'not_run', `no assertion in ${spec} that mutation can check (snapshot, chai-style or custom matchers)`,
+        [{ file: spec, kind: 'nothing to mutate', detail: `${baseline.length} passing test(s) unchecked` }])
+    }
     if (key && r.status === 'not_run' && r.findings.some(f => f.kind === 'no anchor block')) continue
     per.push(r)
   }
+  if (!per.length && redOnly) return result('mutation', 'pass', 'skipped: no passing test to mutate (see tests)', [], { killed: 0, survived: 0, errors: 0, total: 0, survivors: [] })
   if (!per.length) return result('mutation', 'not_run', key ? `no ${key} block in the specs` : 'nothing to mutate')
   const sum = k => per.reduce((n, r) => n + (r.data?.[k] ?? 0), 0)
   const data = { killed: sum('killed'), survived: sum('survived'), errors: sum('errors'), total: sum('total'), survivors: per.flatMap(r => r.data?.survivors ?? []) }
@@ -60,20 +71,23 @@ async function mutationStep(specs, key, run, ctx) {
   if (per.some(r => r.status === 'fail')) return result('mutation', 'fail', `${data.survived} of ${data.total} mutant(s) survived: an assertion that cannot fail`, findings, data)
   const nr = per.find(r => r.status === 'not_run')
   if (nr) return result('mutation', 'not_run', nr.summary, findings, data)
-  return result('mutation', 'pass', data.total ? `${data.killed}/${data.total} mutants killed` : 'no eligible assertions to mutate', findings, data)
+  return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed`, findings, data)
 }
 
 export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null }, ctx) {
   const runTests = ctx.runTests ?? vitestRunner(ctx.root, ctx.config)
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
-  const specs = rawSpecs.map(f => normalizeSpec(ctx.root, f))
+  const specs = [...new Set(rawSpecs.map(f => normalizeSpec(ctx.root, f)))]
+  const timeoutMs = (ctx.config.vitest?.timeoutSeconds ?? 300) * 1000
   // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
   const step = async (name, fn) => {
     try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
   }
   const steps = []
-  steps.push(await step('boundary', () => boundary.run({ range }, c)))
+  // Boundary guards a test-writing run: without the run marker there is nothing it can judge.
+  if (runActive(ctx.root)) steps.push(await step('boundary', () => boundary.run({ range }, c)))
+  else steps.push(result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
   steps.push(await step('honesty', () => honesty.run({ specs, range }, c)))
   steps.push(await step('suite-honesty', () => suite.run({ specs, key }, c)))
   const types = await step('types', () => typeCheck(specs))
@@ -85,8 +99,16 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
     run = await step('tests', () => runTests({ files: specs }))
     steps.push(testsStep(run, specs))
   }
-  if (steps.at(-1).status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c)))
+  if (steps.at(-1).status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
-  if (flakyRuns) steps.push(await step('flaky', () => flaky.run({ specs, runs: flakyRuns }, c)))
+  if (flakyRuns) {
+    if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))
+    else {
+      const f = await step('flaky', () => flaky.run({ specs, runs: flakyRuns, timeoutMs }, c))
+      // Tests that fail every run are the tests step's red result, not a flaky failure.
+      steps.push(f.status === 'fail' && !f.findings.some(x => x.kind === 'flaky')
+        ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
+    }
+  }
   return { ...decide(steps), steps }
 }
