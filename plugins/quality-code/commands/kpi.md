@@ -1,0 +1,37 @@
+---
+description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, read from the local audit log. Read-only; sends nothing anywhere.
+argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs":*)
+---
+
+Shows how the plugin is used in this project. You relay; the script reads and counts. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+
+## Rules
+
+- **The script decides.** `kpi.mjs` reads the audit log and counts. Never compute, round, change or add up a count yourself, and never grade a team or a ticket from it.
+- **Never read the log files yourself.** The card holds only counts, ticket keys, criterion names and dates.
+- **Local only.** The audit log lives in `.claude/quality-code/audit/`, git-ignored, on this machine. Nothing is sent anywhere. Run only the script below; no other tool.
+- **Never ask for a token**, key or password in the chat.
+- The script runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs" …`.
+
+## Steps
+
+1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`); with none, the script shows the last 30 days. Do not pass `--json`.
+   - Exit 3: no audit data yet. Show its lines as they are (they say where it looked) and stop.
+   - Exit 2: show its lines as they are and stop.
+2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Then show this card and end the turn:
+
+   ```
+   What next?
+   1. The AI cost of the same days
+   2. Another period
+   3. Stop
+   ```
+
+   On `1`, run `/quality-code:consumption` with the `--since` and `--until` from the card's `AI cost:` line. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `3`, stop.
+
+## Examples
+
+- `/quality-code:kpi` shows the last 30 days.
+- `/quality-code:kpi --since 7d` shows the last 7 days.
+- `/quality-code:kpi --since 2026-10-01 --until 2026-10-31` shows October.
