@@ -492,7 +492,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 |---|---|---|---|
 | 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
-| 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
+| 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
 | 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
 
@@ -524,7 +524,7 @@ Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 quality-code/
 ├─ CHANGELOG.md                      what changed in each version
 ├─ .claude-plugin/marketplace.json
-├─ .github/workflows/test.yml          core tests, JSON check, no project values in core
+├─ .github/workflows/test.yml          core tests, JSON check, no project values in core or the checks
 ├─ plugins/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
@@ -551,6 +551,9 @@ Run a check by hand (from a set-up repo):
 ```bash
 node <plugin>/core/checks/cli.mjs honesty test/orders.spec.ts
 ```
+
+Exit codes: `0` pass, `1` fail, `2` usage or config error (or a crash), `3` not run.
+Diff mode (`boundary`, `honesty`) reads git, so it cannot see git-ignored files such as `.env` or `dist/`.
 
 `boundary`, `honesty`, `suite-honesty` run as they are; `flaky` and `mutation` need the test runner
 that the Vitest and Playwright adapters bring.

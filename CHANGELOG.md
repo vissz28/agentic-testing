@@ -24,9 +24,15 @@ Update with `/plugin update quality-code@quality-code`.
 
 ### Upgrade
 
-Update the plugin before re-running setup: a config with `boundaries` is refused by 0.3.0. Re-run
+Update the plugin before re-running setup: a config with `boundaries` is refused by 0.3.x or older. Re-run
 `/quality-code:setup advanced` to get the boundaries card and the new `.gitignore` lines; without
 it the checks use the defaults.
+
+### Good to know
+
+- A spec with no test in it is `not run`, not a pass.
+- A file renamed out of a forbidden folder is caught (the old path is named).
+- A new, untracked spec is read by `honesty` like any other.
 
 ## [0.3.3] - 2026-10-14
 

@@ -279,6 +279,19 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 14. flaky: green requires every run to have executed (else `not_run`, "only N of M runs executed");
     `runs` must be a whole number of at least 1.
 15. A check that crashes makes `core/checks/cli.mjs` exit 2 with "check <name> crashed: ..." on stderr.
+16. `dist/`, `node_modules/`, `.git/` and the config file are always forbidden, for both stacks (the old
+    frontend guard did not know the first two).
+17. suite-honesty: when no test can be graded (no file has one, or all are capture tests) the result is
+    `not_run` ("no test to grade"), not a pass.
+18. honesty: an untracked spec is read as all added lines (git diff against `/dev/null`), so a new spec
+    with a bare skip fails. Applies to the working-tree diff, not to a `--range`.
+19. assertion-mutation: a baseline with no passing test (also an empty `--baseline` list) is `not_run`
+    ("baseline had no passing test").
+20. suite-honesty: every modifier except `skip` and the dialect's not-yet marker (`.only`, `.concurrent`,
+    `.fails`) is graded as a plain test: honest when it asserts, hollow when it does not.
+21. boundary: diff mode runs without rename detection, so a file moved out of a forbidden folder lists
+    its old path; and a `--range` that starts with `-` is refused inside the git helpers, not only in
+    the CLI.
 
 ## 10. Rollout
 
