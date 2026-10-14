@@ -1,6 +1,6 @@
 # Part 5: rollout
 
-Status: draft, open decisions in §8 · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-44 · Builds on:
+Status: decisions in §8 taken 14 Oct; two still open · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-44 · Builds on:
 parts [1](2026-10-12-part-1-core-config-design.md), [2](2026-10-14-part-2-shared-checks-design.md),
 [4a](2026-10-14-part-4a-vitest-pipeline-design.md), [4b](2026-10-14-part-4b-write-tests-design.md),
 [3](2026-10-14-part-3-playwright-design.md)
@@ -71,20 +71,18 @@ config).
   every verdict can be explained from its card; no write outside the boundary.
 - Then one or two other teams, chosen by the owner.
 
-## 8. Open decisions
+## 8. Decisions (owner, 14 Oct)
 
-From the logic-parity audit of the warehouse plugins (logic they had that no part covers yet):
+Taken from the logic-parity audit of the warehouse plugins: carry over what the warehouse did,
+generalized through the config.
 
-| Item | Options |
-|---|---|
-| Seeding test data (`:seed`) | build as a part, or leave seeding to the team's own helpers (recorded) |
-| Run log, audit log, KPI rollup | build (partly covered by `/quality-code:consumption` for AI usage), or drop |
-| Ticket-eval refuse option 3 ("continue anyway") | remove it, or let `write` run with every result marked at risk as the old harness did |
-| Merge-request links from the Jira dev panel | fetch them in `start`, or drop |
-| Which teams follow warehouse | the owner's choice |
-
-Switching warehouse does not wait on these, except the option 3 behaviour, which a developer meets on
-day one.
+| Item | Decision | Warehouse reference |
+|---|---|---|
+| Ticket-eval refuse option 3 ("continue anyway") | Kept for developers. It leads to `write` with every result marked: the pipeline gets `--incomplete-ticket <score>` and the card opens with `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/<bar>)`. The verdict is unchanged; the override is recorded in the audit log. | AGT-31 |
+| Run log, audit log, KPI rollup | Built: one JSON line per gate, pipeline run, Jira write and override in `.claude/quality-code/audit/`, **git-ignored** (the warehouse committed its logs and they grew with every run); `/quality-code:kpi` rolls them up. AI cost stays in `/quality-code:consumption`. | AGT-31, AGT-34 |
+| Seeding test data | Built: `/quality-code:seed <KEY>`, the data-only sibling of `write`: the project's own builders (Vitest) or network stubs copied from an existing spec (Playwright); an optional documented known dataset. | AGT-16, the warehouse `/seed` |
+| Merge-request links from the Jira dev panel | Still open. | — |
+| Which teams follow warehouse | The owner's choice. | — |
 
 ## 9. Access
 
