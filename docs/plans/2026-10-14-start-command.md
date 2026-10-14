@@ -1,8 +1,8 @@
-# `/agentic-testing:start` Implementation Plan
+# `/quality-code:start` Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A daily `/agentic-testing:start` command that checks the connectors, confirms the local repo and what the feature branch changed, takes the Jira key from the branch, and evaluates the ticket; setup gets the same connectors check first. Ships as v0.2.1 (Jira: AGT-43).
+**Goal:** A daily `/quality-code:start` command that checks the connectors, confirms the local repo and what the feature branch changed, takes the Jira key from the branch, and evaluates the ticket; setup gets the same connectors check first. Ships as v0.2.1 (Jira: AGT-43).
 
 **Architecture:** One new zero-dependency script, `core/branch.mjs`, reads local git (read-only, no network) and prints one `BRANCH_JSON:` line. The connectors check is written once as `core/connectors.md` and read by both `commands/setup.md` (new step 0) and the new `commands/start.md`. Commands are prompts: their rules are pinned by string tests, as `setup-command.test.mjs` already does.
 
@@ -14,7 +14,7 @@
 
 - No npm dependencies: imports are `node:*` or relative only.
 - Style: 2-space indent, single quotes, no semicolons.
-- No project values in `plugins/agentic-testing/core/**`: CI greps for `FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse`. Examples in `core/` and `commands/` use `ABC` / `DEMO` keys.
+- No project values in `plugins/quality-code/core/**`: CI greps for `FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse`. Examples in `core/` and `commands/` use `ABC` / `DEMO` keys.
 - No file under `test/` may contain `U` followed by five or more digits (`test/no-ids.test.mjs` scans `test/`); build such a string at runtime (`'U' + '123456'`) when a test needs one. Commit identities in tests use `user@example.test`.
 - `branch.mjs` never touches the network and never writes: only `git rev-parse`, `symbolic-ref`, `remote get-url`, `for-each-ref`, `merge-base`, `rev-list`, `diff`, `status`, `log`.
 - Diff contents are never read or printed. Only paths, statuses, counts and key candidates leave `branch.mjs`. Commit subjects are used only for key candidates.
@@ -23,7 +23,7 @@
 - No token, key or password is ever asked for in the chat.
 - Root: `projectRoot(env, cwd)` from `core/config.mjs` (`$CLAUDE_PROJECT_DIR`, else cwd).
 - Exit codes for `branch.mjs`: `0` with a `BRANCH_JSON:` line; `2` for usage or config errors (message on stderr). Git situations are reported in the JSON, never as an error exit.
-- Version `0.2.1` in `plugins/agentic-testing/.claude-plugin/plugin.json`.
+- Version `0.2.1` in `plugins/quality-code/.claude-plugin/plugin.json`.
 
 ## Review Focus
 
@@ -39,14 +39,14 @@
 
 | File | Responsibility |
 |---|---|
-| `plugins/agentic-testing/core/branch.mjs` (new) | Pure helpers (`stripCredentials`, `keyCandidates`, `kindOf`, `playwrightTestDirs`, `parseStatusZ`, `parseNameStatusZ`), `detect(root, config, opts)`, CLI `--detect [--base <name>]`. |
-| `plugins/agentic-testing/test/branch.test.mjs` (new) | Unit tests for the helpers; `detect` against real temp git repos; CLI exit codes. |
-| `plugins/agentic-testing/core/connectors.md` (new) | The connectors check: which connectors, how each is checked, the card, the fixes. |
-| `plugins/agentic-testing/commands/setup.md` (modify) | New step 0 that reads `core/connectors.md`. Steps 1–7 unchanged. |
-| `plugins/agentic-testing/commands/start.md` (new) | The `start` flow: config, connectors, repo card, key, action. |
-| `plugins/agentic-testing/test/connectors.test.mjs` (new) | Pins `core/connectors.md` and setup's step 0. |
-| `plugins/agentic-testing/test/start-command.test.mjs` (new) | Pins `commands/start.md`. |
-| `plugins/agentic-testing/.claude-plugin/plugin.json` (modify) | Version 0.2.1, description. |
+| `plugins/quality-code/core/branch.mjs` (new) | Pure helpers (`stripCredentials`, `keyCandidates`, `kindOf`, `playwrightTestDirs`, `parseStatusZ`, `parseNameStatusZ`), `detect(root, config, opts)`, CLI `--detect [--base <name>]`. |
+| `plugins/quality-code/test/branch.test.mjs` (new) | Unit tests for the helpers; `detect` against real temp git repos; CLI exit codes. |
+| `plugins/quality-code/core/connectors.md` (new) | The connectors check: which connectors, how each is checked, the card, the fixes. |
+| `plugins/quality-code/commands/setup.md` (modify) | New step 0 that reads `core/connectors.md`. Steps 1–7 unchanged. |
+| `plugins/quality-code/commands/start.md` (new) | The `start` flow: config, connectors, repo card, key, action. |
+| `plugins/quality-code/test/connectors.test.mjs` (new) | Pins `core/connectors.md` and setup's step 0. |
+| `plugins/quality-code/test/start-command.test.mjs` (new) | Pins `commands/start.md`. |
+| `plugins/quality-code/.claude-plugin/plugin.json` (modify) | Version 0.2.1, description. |
 | `README.md`, `docs/GETTING_STARTED.md` (modify) | `start` as the daily command; the connectors card. |
 
 ---
@@ -54,8 +54,8 @@
 ### Task 1: Pure helpers in `core/branch.mjs`
 
 **Files:**
-- Create: `plugins/agentic-testing/core/branch.mjs`
-- Test: `plugins/agentic-testing/test/branch.test.mjs`
+- Create: `plugins/quality-code/core/branch.mjs`
+- Test: `plugins/quality-code/test/branch.test.mjs`
 
 **Interfaces:**
 - Consumes: nothing yet.
@@ -69,7 +69,7 @@
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `plugins/agentic-testing/test/branch.test.mjs`:
+Create `plugins/quality-code/test/branch.test.mjs`:
 
 ```js
 import { test } from 'node:test'
@@ -139,15 +139,15 @@ test('parseNameStatusZ: renames keep the new path, copies count as added', () =>
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd plugins/agentic-testing && node --test test/branch.test.mjs`
+Run: `cd plugins/quality-code && node --test test/branch.test.mjs`
 Expected: FAIL, `Cannot find module '…/core/branch.mjs'`.
 
 - [ ] **Step 3: Write the helpers**
 
-Create `plugins/agentic-testing/core/branch.mjs`:
+Create `plugins/quality-code/core/branch.mjs`:
 
 ```js
-// Local git facts for /agentic-testing:start: the branch, its base, what changed, and ticket keys.
+// Local git facts for /quality-code:start: the branch, its base, what changed, and ticket keys.
 // Read-only and offline. Never reads diff contents. --detect prints one BRANCH_JSON: line.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -229,13 +229,13 @@ export function parseNameStatusZ(out) {
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `cd plugins/agentic-testing && node --test test/branch.test.mjs`
+Run: `cd plugins/quality-code && node --test test/branch.test.mjs`
 Expected: PASS, 7 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/agentic-testing/core/branch.mjs plugins/agentic-testing/test/branch.test.mjs
+git add plugins/quality-code/core/branch.mjs plugins/quality-code/test/branch.test.mjs
 git commit -m "feat(start): branch helpers for keys, file kinds and git -z parsing (AGT-43)"
 ```
 
@@ -244,8 +244,8 @@ git commit -m "feat(start): branch helpers for keys, file kinds and git -z parsi
 ### Task 2: `detect()` and the `--detect` CLI
 
 **Files:**
-- Modify: `plugins/agentic-testing/core/branch.mjs` (append)
-- Test: `plugins/agentic-testing/test/branch.test.mjs` (append)
+- Modify: `plugins/quality-code/core/branch.mjs` (append)
+- Test: `plugins/quality-code/test/branch.test.mjs` (append)
 
 **Interfaces:**
 - Consumes: Task 1 helpers; `loadConfig(root)` and `projectRoot(env, cwd)` from `core/config.mjs`; `redact(config, text)` from `core/sanitize.mjs`.
@@ -258,7 +258,7 @@ git commit -m "feat(start): branch helpers for keys, file kinds and git -z parsi
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `plugins/agentic-testing/test/branch.test.mjs` (add the new imports to the top import lines):
+Append to `plugins/quality-code/test/branch.test.mjs` (add the new imports to the top import lines):
 
 ```js
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -439,12 +439,12 @@ test('playwright: files under the configured testDir are tests', () => {
 })
 
 const run = (d, ...args) => spawnSync(process.execPath, [BRANCH, ...args], { cwd: d, env: { ...ENV, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
-const withConfig = d => { put(d, '.claude/agentic-testing.json', JSON.stringify(cfg())); return d }
+const withConfig = d => { put(d, '.claude/quality-code.json', JSON.stringify(cfg())); return d }
 
 test('CLI: no config exits 2 and says how to set up', () => {
   const r = run(repo(), '--detect')
   assert.equal(r.status, 2)
-  assert.match(r.stderr, /agentic-testing:setup/)
+  assert.match(r.stderr, /quality-code:setup/)
 })
 test('CLI: prints one BRANCH_JSON line', () => {
   const d = withConfig(repo())
@@ -467,12 +467,12 @@ test('CLI: usage errors exit 2; a --base that looks like an option is refused', 
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd plugins/agentic-testing && node --test test/branch.test.mjs`
+Run: `cd plugins/quality-code && node --test test/branch.test.mjs`
 Expected: FAIL, `detect` is not exported.
 
 - [ ] **Step 3: Write `detect` and the CLI**
 
-Add to the imports at the top of `plugins/agentic-testing/core/branch.mjs`:
+Add to the imports at the top of `plugins/quality-code/core/branch.mjs`:
 
 ```js
 import { execFileSync } from 'node:child_process'
@@ -588,18 +588,18 @@ Notes for the implementer:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `cd plugins/agentic-testing && node --test test/branch.test.mjs`
+Run: `cd plugins/quality-code && node --test test/branch.test.mjs`
 Expected: PASS, all tests (7 from Task 1 plus 17 here).
 
 - [ ] **Step 5: Run the whole suite and the CI grep**
 
-Run: `cd plugins/agentic-testing && npm test && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' core`
+Run: `cd plugins/quality-code && npm test && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' core`
 Expected: all tests pass; the grep prints nothing.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add plugins/agentic-testing/core/branch.mjs plugins/agentic-testing/test/branch.test.mjs
+git add plugins/quality-code/core/branch.mjs plugins/quality-code/test/branch.test.mjs
 git commit -m "feat(start): branch.mjs --detect reads base, changes and keys from local git (AGT-43)"
 ```
 
@@ -608,9 +608,9 @@ git commit -m "feat(start): branch.mjs --detect reads base, changes and keys fro
 ### Task 3: Connectors check, used by setup
 
 **Files:**
-- Create: `plugins/agentic-testing/core/connectors.md`
-- Modify: `plugins/agentic-testing/commands/setup.md` (insert step 0 above `1. **Detect.**`)
-- Test: `plugins/agentic-testing/test/connectors.test.mjs`
+- Create: `plugins/quality-code/core/connectors.md`
+- Modify: `plugins/quality-code/commands/setup.md` (insert step 0 above `1. **Detect.**`)
+- Test: `plugins/quality-code/test/connectors.test.mjs`
 
 **Interfaces:**
 - Consumes: `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` (existing; `SETUP_JSON:` line with `adapter`).
@@ -618,7 +618,7 @@ git commit -m "feat(start): branch.mjs --detect reads base, changes and keys fro
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `plugins/agentic-testing/test/connectors.test.mjs`:
+Create `plugins/quality-code/test/connectors.test.mjs`:
 
 ```js
 // The connectors check is a prompt read by setup and start: these pin what keeps it safe and usable.
@@ -654,7 +654,7 @@ test('no token is ever asked for or shown; fixes go through the plugin settings'
   assert.match(doc, /Do not paste it here/)
 })
 test('connector status is not written to the config', () => {
-  assert.match(doc, /Nothing here is written to `\.claude\/agentic-testing\.json`/)
+  assert.match(doc, /Nothing here is written to `\.claude\/quality-code\.json`/)
 })
 test('tools are named by operation, never by an mcp__ name', () => {
   assert.doesNotMatch(doc, /mcp__/)
@@ -668,19 +668,19 @@ test('setup step 0 reads the connectors check before detecting', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd plugins/agentic-testing && node --test test/connectors.test.mjs`
+Run: `cd plugins/quality-code && node --test test/connectors.test.mjs`
 Expected: FAIL, `ENOENT … core/connectors.md`.
 
 - [ ] **Step 3: Write `core/connectors.md`**
 
-Create `plugins/agentic-testing/core/connectors.md` with exactly this content:
+Create `plugins/quality-code/core/connectors.md` with exactly this content:
 
 ````markdown
 # Connectors check
 
-Shared by `/agentic-testing:setup` (step 0) and `/agentic-testing:start` (step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/agentic-testing.json`.
+Shared by `/quality-code:setup` (step 0) and `/quality-code:start` (step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
 
-**Which connectors.** Jira (Atlassian) and GitLab always. Figma only when the adapter is `playwright`: read `adapter` from `.claude/agentic-testing.json`; without a config, run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read `adapter` from its `SETUP_JSON:` line (`both` counts as `playwright`). For `vitest`, leave Figma off the card.
+**Which connectors.** Jira (Atlassian) and GitLab always. Figma only when the adapter is `playwright`: read `adapter` from `.claude/quality-code.json`; without a config, run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read `adapter` from its `SETUP_JSON:` line (`both` counts as `playwright`). For `vitest`, leave Figma off the card.
 
 **Check each one with a single read-only call:**
 
@@ -717,15 +717,15 @@ Connectors
 - **1. Continue:** go on. GitLab and Figma never block.
 - **2. Fix one first:** list the connectors that are not ✅ as a numbered card, end the turn, and show the fix for the one picked:
   - Jira: the sign-in line above.
-  - GitLab: "The GitLab address is the `gitlab_mcp_url` plugin setting. Change it from the `/plugin` menu (agentic-testing, configure), then type /mcp to reconnect gitlab." If you know the address the check tried, show it; never show a token.
-  - Figma: "The Figma key is the `figma_api_key` plugin setting. Set it from the `/plugin` menu (agentic-testing, configure). Do not paste it here."
+  - GitLab: "The GitLab address is the `gitlab_mcp_url` plugin setting. Change it from the `/plugin` menu (quality-code, configure), then type /mcp to reconnect gitlab." If you know the address the check tried, show it; never show a token.
+  - Figma: "The Figma key is the `figma_api_key` plugin setting. Set it from the `/plugin` menu (quality-code, configure). Do not paste it here."
 
   Then show `1. Check again / 2. Continue without it` and end the turn. `1` runs the whole check again.
 ````
 
 - [ ] **Step 4: Add step 0 to setup**
 
-In `plugins/agentic-testing/commands/setup.md`, insert this line directly above the line that starts `1. **Detect.**`:
+In `plugins/quality-code/commands/setup.md`, insert this line directly above the line that starts `1. **Detect.**`:
 
 ```markdown
 0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. Go on to step 1 only when its card lets you continue.
@@ -733,18 +733,18 @@ In `plugins/agentic-testing/commands/setup.md`, insert this line directly above 
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `cd plugins/agentic-testing && node --test test/connectors.test.mjs test/setup-command.test.mjs`
+Run: `cd plugins/quality-code && node --test test/connectors.test.mjs test/setup-command.test.mjs`
 Expected: PASS (the existing setup-command tests are unchanged: their `step(n)` slices for n ≥ 1 still start at `\n1. **`).
 
 - [ ] **Step 6: Run the CI grep**
 
-Run: `cd plugins/agentic-testing && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' core`
+Run: `cd plugins/quality-code && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' core`
 Expected: prints nothing.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add plugins/agentic-testing/core/connectors.md plugins/agentic-testing/commands/setup.md plugins/agentic-testing/test/connectors.test.mjs
+git add plugins/quality-code/core/connectors.md plugins/quality-code/commands/setup.md plugins/quality-code/test/connectors.test.mjs
 git commit -m "feat(setup): check Jira, GitLab and Figma connectors first (AGT-43)"
 ```
 
@@ -753,16 +753,16 @@ git commit -m "feat(setup): check Jira, GitLab and Figma connectors first (AGT-4
 ### Task 4: The `start` command
 
 **Files:**
-- Create: `plugins/agentic-testing/commands/start.md`
-- Test: `plugins/agentic-testing/test/start-command.test.mjs`
+- Create: `plugins/quality-code/commands/start.md`
+- Test: `plugins/quality-code/test/start-command.test.mjs`
 
 **Interfaces:**
 - Consumes: `cli.mjs config check` (prints `ok` or error lines); `core/connectors.md` (Task 3); `branch.mjs --detect [--base]` and its `BRANCH_JSON` fields (Task 2: `isRepo`, `detached`, `head`, `branch`, `remote`, `repo`, `base`, `mergeBase`, `shallow`, `onBase`, `ahead`, `behind`, `files`, `counts`, `keys`, `branches`); `commands/setup.md` and `commands/ticket-eval.md` (existing).
-- Produces: `/agentic-testing:start`; Part 4 later replaces the "available with part 4" branch of step 4.
+- Produces: `/quality-code:start`; Part 4 later replaces the "available with part 4" branch of step 4.
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `plugins/agentic-testing/test/start-command.test.mjs`:
+Create `plugins/quality-code/test/start-command.test.mjs`:
 
 ```js
 // The start command is a prompt, not code: these pin its flow and its safety rules.
@@ -836,12 +836,12 @@ test('examples use neutral keys', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd plugins/agentic-testing && node --test test/start-command.test.mjs`
+Run: `cd plugins/quality-code && node --test test/start-command.test.mjs`
 Expected: FAIL, `ENOENT … commands/start.md`.
 
 - [ ] **Step 3: Write `commands/start.md`**
 
-Create `plugins/agentic-testing/commands/start.md` with exactly this content:
+Create `plugins/quality-code/commands/start.md` with exactly this content:
 
 ````markdown
 ---
@@ -909,14 +909,14 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `cd plugins/agentic-testing && node --test test/start-command.test.mjs`
+Run: `cd plugins/quality-code && node --test test/start-command.test.mjs`
 Expected: PASS, 9 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add plugins/agentic-testing/commands/start.md plugins/agentic-testing/test/start-command.test.mjs
-git commit -m "feat(start): /agentic-testing:start from the feature branch to the ticket (AGT-43)"
+git add plugins/quality-code/commands/start.md plugins/quality-code/test/start-command.test.mjs
+git commit -m "feat(start): /quality-code:start from the feature branch to the ticket (AGT-43)"
 ```
 
 ---
@@ -924,7 +924,7 @@ git commit -m "feat(start): /agentic-testing:start from the feature branch to th
 ### Task 5: Version, docs, and validation
 
 **Files:**
-- Modify: `plugins/agentic-testing/.claude-plugin/plugin.json`
+- Modify: `plugins/quality-code/.claude-plugin/plugin.json`
 - Modify: `README.md` (Quick start, "What you can do today", "Set up your project", Developing tree)
 - Modify: `docs/GETTING_STARTED.md` (sections 3 and 4)
 
@@ -934,7 +934,7 @@ git commit -m "feat(start): /agentic-testing:start from the feature branch to th
 
 - [ ] **Step 1: Bump the plugin**
 
-In `plugins/agentic-testing/.claude-plugin/plugin.json` set `"version": "0.2.1"` and the description to:
+In `plugins/quality-code/.claude-plugin/plugin.json` set `"version": "0.2.1"` and the description to:
 
 ```
 "From a Jira ticket to graded tests, for any project. Setup, a daily start from your feature branch (connectors, branch changes, ticket from the branch name), the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push."
@@ -948,18 +948,18 @@ In `README.md`, replace step 3 of "Quick start" (the block starting `**3. Check 
 **3. Every day, start from your feature branch.**
 
 ```
-/agentic-testing:start
+/quality-code:start
 ```
 
 It checks your connectors, shows the branch and what it changed, takes the ticket key from the
 branch name (`ABC-123-add-export`), and evaluates that ticket. To check any ticket directly:
-`/agentic-testing:ticket-eval ABC-123`.
+`/quality-code:ticket-eval ABC-123`.
 ````
 
 - [ ] **Step 3: README, other sections**
 
 - In "What you can do today", add this row directly under the "Guided setup" row:
-  `| Start from your feature branch: connectors, branch changes, ticket from the branch name | \`/agentic-testing:start\` | ✅ available |`
+  `| Start from your feature branch: connectors, branch changes, ticket from the branch name | \`/quality-code:start\` | ✅ available |`
 - In "Set up your project", add above the numbered list: `Setup first checks the connectors (Jira required; GitLab and Figma optional) and shows what is connected, missing or broken, with the fix for each. Keys are set in the plugin settings, never typed in the chat.`
 - In the Developing tree, change `commands/                     setup.md, ticket-eval.md` to `commands/                     setup.md, start.md, ticket-eval.md` and add `branch, connectors.md` to the `core/` list.
 
@@ -973,19 +973,19 @@ In `docs/GETTING_STARTED.md`:
 Check out your feature branch (named with the ticket key, for example `ABC-123-add-export`), then:
 
 ```
-/agentic-testing:start
+/quality-code:start
 ```
 
 You confirm the repo card (branch, base, how many files changed), confirm the ticket key, and pick
 `1. Evaluate the ticket`. The rest of this section is what you then see. To check a ticket that has
-no branch yet, use `/agentic-testing:ticket-eval ABC-123`.
+no branch yet, use `/quality-code:ticket-eval ABC-123`.
 ````
 
 - [ ] **Step 5: Run everything**
 
 Run:
 ```bash
-cd plugins/agentic-testing && npm test && cd ../.. && claude plugin validate plugins/agentic-testing && claude plugin validate . && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' plugins/agentic-testing/core
+cd plugins/quality-code && npm test && cd ../.. && claude plugin validate plugins/quality-code && claude plugin validate . && ! grep -rn -E 'FIC|teamsystem\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' plugins/quality-code/core
 ```
 Expected: all tests pass (405 existing + the new ones), both validations pass, the grep prints nothing.
 
@@ -1000,8 +1000,8 @@ Expected: exit 0, nothing printed.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add plugins/agentic-testing/.claude-plugin/plugin.json README.md docs/GETTING_STARTED.md
-git commit -m "release: agentic-testing 0.2.1 with /agentic-testing:start (AGT-43)"
+git add plugins/quality-code/.claude-plugin/plugin.json README.md docs/GETTING_STARTED.md
+git commit -m "release: quality-code 0.2.1 with /quality-code:start (AGT-43)"
 ```
 
 - [ ] **Step 8: Release (ask the user first; it publishes to every team)**
@@ -1009,7 +1009,7 @@ git commit -m "release: agentic-testing 0.2.1 with /agentic-testing:start (AGT-4
 After the user says yes:
 
 ```bash
-claude plugin tag plugins/agentic-testing
+claude plugin tag plugins/quality-code
 git push origin main --follow-tags
 ```
 
@@ -1017,4 +1017,4 @@ Then move AGT-43 to the status the user asks for.
 
 - [ ] **Step 9: Try it by hand (no commit)**
 
-In the plugin repo itself (it has no `.claude/agentic-testing.json`), run `node plugins/agentic-testing/core/branch.mjs --detect`. Expected: exit 2 with `This repo is not set up. Run /agentic-testing:setup.` Then in a scratch copy of a set-up repo on a `DEMO-1-x` branch, run it again and check that `BRANCH_JSON` names the branch, the base and the changed files.
+In the plugin repo itself (it has no `.claude/quality-code.json`), run `node plugins/quality-code/core/branch.mjs --detect`. Expected: exit 2 with `This repo is not set up. Run /quality-code:setup.` Then in a scratch copy of a set-up repo on a `DEMO-1-x` branch, run it again and check that `BRANCH_JSON` names the branch, the base and the changed files.

@@ -6,7 +6,7 @@ Status: draft for review · Date: 2026-10-14 · Owner: Elvis Zefaj · Related: A
 ## 1. Goal
 
 Move the deterministic checks that grade generated tests out of the two warehouse repos and into the
-`agentic-testing` plugin, one merged version per check, driven by the project config instead of
+`quality-code` plugin, one merged version per check, driven by the project config instead of
 hard-coded warehouse values. At the end of part 2 the checks exist as tested building blocks with a
 CLI; the pipelines that call them come in part 4 (Vitest) and part 3 (Playwright).
 
@@ -51,7 +51,7 @@ operators.
 
 All new fields are optional and written by setup. The config stays `version: 1`.
 
-### 4.1 New fields in `.claude/agentic-testing.json`
+### 4.1 New fields in `.claude/quality-code.json`
 
 | Field | Type | Rule / default | Replaces today's |
 |---|---|---|---|
@@ -72,7 +72,7 @@ is checked against the same project list.
 
 | Value | Fixed at |
 |---|---|
-| Always forbidden, whatever the config | `dist/`, `node_modules/`, `.git/`, `.claude/agentic-testing.json` |
+| Always forbidden, whatever the config | `dist/`, `node_modules/`, `.git/`, `.claude/quality-code.json` |
 | Adapter defaults when `boundaries` is absent | `src/`, `.env`, `.env.*`, and the CI file setup would detect (`.gitlab-ci.yml`, `.github/workflows/`) when it exists |
 | Mutation bar | 100%: any surviving mutant fails the check |
 | Honesty violations | an `expect(` line removed; a test or group declaration removed; a skip added with no tracked key. Removing an already skipped or todo test is allowed. |
@@ -91,7 +91,7 @@ part 1 config proposes these defaults; nothing is written before the usual `1. W
 ## 5. Components
 
 ```
-plugins/agentic-testing/
+plugins/quality-code/
   core/checks/
     cli.mjs              entry point for every check
     result.mjs           the result shape and exit codes
@@ -197,12 +197,12 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 
 `hooks/hooks.json` wires `PreToolUse` on `Write|Edit|NotebookEdit` to `cli.mjs boundary --hook`.
 
-- **No active run → allow, silently.** A run is active when `.claude/agentic-testing/run.active`
+- **No active run → allow, silently.** A run is active when `.claude/quality-code/run.active`
   exists and is younger than 6 hours. The conductor (parts 3–4) writes it at start and removes it
   at the end. Outside a run, people use Claude on their code as usual.
 - During a run, a write to a forbidden path is denied with its `why`, and logged as one line in
-  `.claude/agentic-testing/boundary.jsonl` (`ts`, `path`, `decision`, `why`). Setup adds
-  `.claude/agentic-testing/*.jsonl` and `run.active` to the repo's `.gitignore` line it already
+  `.claude/quality-code/boundary.jsonl` (`ts`, `path`, `decision`, `why`). Setup adds
+  `.claude/quality-code/*.jsonl` and `run.active` to the repo's `.gitignore` line it already
   writes.
 - A failed log write never decides whether the tool runs.
 - The hook covers the file tools only, as today. The diff mode, run by the conductor after writing,
@@ -213,7 +213,7 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 
 | Situation | Result |
 |---|---|
-| No config, or a field is wrong | exit 2, part 1's message naming the field, "Run /agentic-testing:setup." |
+| No config, or a field is wrong | exit 2, part 1's message naming the field, "Run /quality-code:setup." |
 | Not a git repo, or the range does not resolve (honesty, boundary diff) | `not_run`, "cannot read the git diff: <reason>" |
 | A spec path that does not exist | exit 2, the path named |
 | `--key` with a key outside `jira.projects` ∪ `trackingProjects` | exit 2, the allowed projects named |
@@ -257,14 +257,14 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 4. A tracked skip may name a key from any configured project, not only `AGT` or `FIC`. With the
    warehouse configs (`projects: ["FIC"]`, `trackingProjects: ["AGT"]`) the result is unchanged.
 5. The hook's audit file moves from `.claude/audit/boundary.jsonl` to
-   `.claude/agentic-testing/boundary.jsonl`, git-ignored.
+   `.claude/quality-code/boundary.jsonl`, git-ignored.
 6. Results use one shape (§5.4) instead of each script's own `*_JSON` line; parity compares the
    verdicts and findings, not the printed text.
 
 ## 10. Rollout
 
-- `agentic-testing` **v0.3.0**: `core/checks/`, the hook, the setup card, the config fields.
-- **Compatibility risk:** a config written by v0.3.0 setup with `boundaries` is refused by a v0.2.0
+- `quality-code` **v0.4.0**: `core/checks/`, the hook, the setup card, the config fields.
+- **Compatibility risk:** a config written by v0.4.0 setup with `boundaries` is refused by a v0.2.0
   plugin ("unknown field"). The README and the setup card tell teams to update the plugin before
   re-running setup; `/plugin update` covers it.
 - **README:** the capability row for the checks moves to "available (building blocks)", the roadmap
@@ -275,7 +275,7 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 ## 11. Out of scope for part 2
 
 The conductor and result card, the real runners, `expected-check`, Stryker, `kpi`, `path-check`, a
-`/agentic-testing:check` command, unified mutation operators, a Bash matcher for the boundary hook,
+`/quality-code:check` command, unified mutation operators, a Bash matcher for the boundary hook,
 stacks other than Vitest and Playwright.
 
 ## 12. Acceptance criteria

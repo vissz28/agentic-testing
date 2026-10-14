@@ -1,16 +1,16 @@
 # Warehouse plugins (legacy reference implementation)
 
-> **Using agentic-testing for your own team?** You want the main [README](../README.md), not this page.
+> **Using quality-code for your own team?** You want the main [README](../README.md), not this page.
 > This page is for the TeamSystem warehouse repos only.
 
 `warehouse-frontend` and `warehouse-backend` are the original, warehouse-only version of this
 solution. They run the whole pipeline (readiness gate, test writing, deterministic checks, result
 card) using harness scripts that live in each warehouse repo under `.claude/harness/`. They stay as
-they are until part 5 moves the warehouse repos onto `agentic-testing`.
+they are until part 5 moves the warehouse repos onto `quality-code`.
 
 | | `warehouse-frontend` | `warehouse-backend` |
 |---|---|---|
-| Install (in that repo) | `/plugin install warehouse-frontend@agentic-testing` | `/plugin install warehouse-backend@agentic-testing` |
+| Install (in that repo) | `/plugin install warehouse-frontend@quality-code` | `/plugin install warehouse-backend@quality-code` |
 | Repo branch with the harness | `agentic-testing-fe`, or a branch merged from it | `agentic-testing-be` (or `agt-34-remove-audit-logs` until merged) |
 | Full run | `/warehouse-frontend:spec-frontend FIC-…` | `/warehouse-backend:spec FIC-…` |
 | Readiness check only | `/warehouse-frontend:ticket-eval FIC-…` | — |
@@ -41,4 +41,4 @@ Then `claude plugin validate plugins/warehouse-frontend` (and the backend one), 
 push. The step-by-step guide for QA is in [WAREHOUSE_USER_GUIDE.md](WAREHOUSE_USER_GUIDE.md).
 
 **Removal.** Both plugins are removed in part 5 of the [roadmap](../README.md#roadmap), once the
-warehouse repos run on `agentic-testing`.
+warehouse repos run on `quality-code`.

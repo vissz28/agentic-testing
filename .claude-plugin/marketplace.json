@@ -1,15 +1,15 @@
 {
-  "name": "agentic-testing",
+  "name": "quality-code",
   "owner": {
     "name": "Elvis Zefaj"
   },
   "metadata": {
-    "description": "Ticket-to-test harness: the warehouse frontend and backend plugins (readiness gate, guided fill-in, generated tests graded by deterministic checks), and now also agentic-testing, the reusable plugin for any project."
+    "description": "quality-code: from a Jira ticket to tests you can trust, for any team (setup, daily start from the feature branch, readiness gate, guided fill-in, Jira comment and push). Also holds the legacy warehouse frontend and backend plugins."
   },
   "plugins": [
     {
-      "name": "agentic-testing",
-      "source": "./plugins/agentic-testing",
+      "name": "quality-code",
+      "source": "./plugins/quality-code",
       "description": "Reusable ticket-to-test harness for any project: setup, readiness gate, guided fill-in, Jira comment and push (Playwright or Vitest)."
     },
     {

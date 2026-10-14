@@ -1,4 +1,4 @@
-# Agentic testing: how to use it
+# Quality code: how to use it
 
 > Written for QA and developers on the warehouse team. Install the plugins first: see the
 > [warehouse plugins page](WAREHOUSE.md). Other teams: see the [README](../README.md).

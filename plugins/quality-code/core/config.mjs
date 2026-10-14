@@ -2,8 +2,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const CONFIG_REL = '.claude/agentic-testing.json'
-const SETUP = 'Run /agentic-testing:setup.'
+export const CONFIG_REL = '.claude/quality-code.json'
+const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
 const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages'])
 const LANGS = new Set(['en', 'it'])
@@ -11,7 +11,7 @@ const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 
 export const DEFAULTS = Object.freeze({
   titlePrefixes: [],
-  ticketsDir: '.claude/agentic-testing/tickets',
+  ticketsDir: '.claude/quality-code/tickets',
   redact: { customerId: '\\bU\\d{5,}\\b' },
   messages: {},
   ticketTemplates: { bug: null, story: null },
@@ -26,8 +26,8 @@ export const configPath = root => join(root, CONFIG_REL)
 export function validateConfig(input) {
   const e = []
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
-  for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /agentic-testing:setup)`)
-  if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /agentic-testing:setup`)
+  for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
+  if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
   if (!['playwright', 'vitest'].includes(c.adapter)) e.push(`adapter: must be "playwright" or "vitest" (found ${JSON.stringify(c.adapter)})`)
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
   const j = isObj(c.jira) ? c.jira : {}

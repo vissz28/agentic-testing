@@ -31,7 +31,7 @@ test('no token is ever asked for or shown; fixes go through the plugin settings'
   assert.match(doc, /Do not paste it here/)
 })
 test('connector status is not written to the config', () => {
-  assert.match(doc, /Nothing here is written to `\.claude\/agentic-testing\.json`/)
+  assert.match(doc, /Nothing here is written to `\.claude\/quality-code\.json`/)
 })
 test('tools are named by operation, never by an mcp__ name', () => {
   assert.doesNotMatch(doc, /mcp__/)

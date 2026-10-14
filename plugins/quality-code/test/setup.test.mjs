@@ -10,7 +10,7 @@ import { detect, write } from '../core/setup.mjs'
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../core/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
 const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
-const LINE = '.claude/agentic-testing/tickets/*/raw.json'
+const LINE = '.claude/quality-code/tickets/*/raw.json'
 const cli = (d, ...args) => spawnSync(process.execPath, [SETUP, ...args], { cwd: d, env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
 
 test('detects the stack', () => {
@@ -39,7 +39,7 @@ test('detect reports existing config, bad JSON and gitignore state', () => {
   const r = detect(d)
   assert.deepEqual(r.existing, cfg)
   assert.equal(r.gitignore, true)
-  writeFileSync(join(d, '.claude/agentic-testing.json'), '{nope')
+  writeFileSync(join(d, '.claude/quality-code.json'), '{nope')
   const bad = detect(d)
   assert.equal(bad.existing, null)
   assert.match(bad.existingError, /not valid JSON/)
@@ -47,20 +47,20 @@ test('detect reports existing config, bad JSON and gitignore state', () => {
 test('write refuses an invalid config and writes nothing', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, languages: [] }, { gitignoreLine: 'x' }).ok, false)
-  assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
+  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
   assert.equal(existsSync(join(d, '.gitignore')), false)
 })
 test('write writes the config and one gitignore line, idempotently', () => {
   const d = repo({})
   write(d, cfg, { gitignoreLine: LINE })
   write(d, cfg, { gitignoreLine: LINE })
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8')), cfg)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')), cfg)
   assert.equal(readFileSync(join(d, '.gitignore'), 'utf8').match(/raw\.json/g).length, 1)
 })
 test('config is written as given, 2-space with trailing newline', () => {
   const d = repo({})
   write(d, cfg, {})
-  assert.equal(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'), `${JSON.stringify(cfg, null, 2)}\n`)
+  assert.equal(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'), `${JSON.stringify(cfg, null, 2)}\n`)
 })
 test('gitignore: newline added before the line, content kept; custom ticketsDir used', () => {
   const d = repo({}); writeFileSync(join(d, '.gitignore'), 'node_modules')
@@ -88,7 +88,7 @@ test('templates are written when absent and wired into ticketTemplates', () => {
   assert.equal(write(d, cfg, { templates: { bug: '# Bug', story: '# Story' } }).ok, true)
   assert.equal(readFileSync(join(d, '.gitlab/issue_templates/Bug.md'), 'utf8'), '# Bug\n')
   assert.equal(existsSync(join(d, '.gitlab/issue_templates/Story.md')), true)
-  const written = JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'))
+  const written = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
   assert.deepEqual(written.ticketTemplates, { bug: '.gitlab/issue_templates/Bug.md', story: '.gitlab/issue_templates/Story.md' })
 })
 test('existing templates are never overwritten', () => {
@@ -102,14 +102,14 @@ test('a ticketTemplates value already set is kept', () => {
   const d = repo({})
   const c = { ...cfg, ticketTemplates: { bug: 'docs/bug.md', story: null } }
   write(d, c, { templates: { bug: '#', story: '#' } })
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8')).ticketTemplates, c.ticketTemplates)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).ticketTemplates, c.ticketTemplates)
 })
 test('paths escaping the project are rejected and nothing is written', () => {
   for (const bad of [{ ticketsDir: '../out' }, { ticketsDir: '/abs' }, { ticketTemplates: { bug: '../b.md' } }, { ticketTemplates: { story: '/etc/x' } }]) {
     const d = repo({})
     const r = write(d, { ...cfg, ...bad }, { templates: { bug: '#', story: '#' } })
     assert.equal(r.ok, false)
-    assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
+    assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
     assert.equal(existsSync(join(d, '.gitlab')), false)
   }
 })
@@ -127,7 +127,7 @@ test('CLI --write @file writes and prints ok', () => {
   const r = cli(d, '--write', '@p.json')
   assert.equal(r.status, 0)
   assert.equal(r.stdout, 'ok\n')
-  assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), true)
+  assert.equal(existsSync(join(d, '.claude/quality-code.json')), true)
 })
 test('CLI --write prints each error on its own line, exits 2, writes nothing', () => {
   const d = repo({})
@@ -135,12 +135,12 @@ test('CLI --write prints each error on its own line, exits 2, writes nothing', (
   const r = cli(d, '--write', '@p.json')
   assert.equal(r.status, 2)
   assert.equal(r.stdout.trimEnd().split('\n').length >= 2, true)
-  assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
+  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
   assert.equal(cli(d, '--write', '@missing.json').status, 2)
 })
 test('re-running the same proposal is idempotent and keeps ticketTemplates', () => {
   const d = repo({})
-  const run = () => { assert.equal(write(d, cfg, { templates: { bug: '#', story: '#' } }).ok, true); return readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8') }
+  const run = () => { assert.equal(write(d, cfg, { templates: { bug: '#', story: '#' } }).ok, true); return readFileSync(join(d, '.claude/quality-code.json'), 'utf8') }
   const first = run()
   assert.equal(run(), first)
   assert.ok(JSON.parse(first).ticketTemplates)
@@ -153,7 +153,7 @@ test('write never throws: a dangling symlink at a template path is an error, not
   const r = write(d, proposal.config, { templates: proposal.templates })
   assert.equal(r.ok, false)
   assert.match(r.errors[0], /Bug\.md/)
-  assert.equal(existsSync(join(d, '.claude/agentic-testing.json')), false)
+  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
   writeFileSync(join(d, 'p.json'), JSON.stringify(proposal))
   const c = cli(d, '--write', '@p.json')
   assert.equal(c.status, 2)

@@ -9,7 +9,7 @@ const CLI = new URL('../core/cli.mjs', import.meta.url).pathname
 const proj = () => {
   const d = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
   writeFileSync(join(d, 't.json'), JSON.stringify({ key: 'DEMO-1', issuetype: 'Bug', summary: 's', labels: [], text: { description: 'Broken.' } }))
   return d
 }
@@ -27,7 +27,7 @@ test('no config: exit 2 with the setup message', () => {
   const d = mkdtempSync(join(tmpdir(), 'at-'))
   const r = run(d, 'score', '--in', '{}')
   assert.equal(r.status, 2)
-  assert.match(r.stderr, /Run \/agentic-testing:setup/)
+  assert.match(r.stderr, /Run \/quality-code:setup/)
 })
 test('a key from another project is flagged; --ci stops', () => {
   const d = proj()
@@ -48,9 +48,9 @@ test('config check', () => {
 })
 test('config check: a lowercase jira.projects key exits 2 naming jira.projects[0]', () => {
   const d = proj()
-  const c = JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'))
+  const c = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
   c.jira.projects = ['fic']
-  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify(c))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify(c))
   const r = run(d, 'config', 'check')
   assert.equal(r.status, 2)
   assert.match(r.stdout + r.stderr, /jira\.projects\[0\]/)
@@ -98,7 +98,7 @@ test('missing --in and unknown command exit 2', () => {
 })
 test('add rejection: no Example line for a key the rubric does not score', () => {
   const d = proj()
-  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
   const r = run(d, 'add', '--in', '@t.json', 'context', 'Order filter matches substrings')
   assert.equal(r.status, 1)
   assert.equal(r.stdout.split('\n')[0], 'Not accepted: There is no criterion called context that can be typed in.')
@@ -139,8 +139,8 @@ test('-- ends flag parsing, so an answer may start with --', () => {
 })
 test('jira-update uses the configured fill marker', () => {
   const d = proj()
-  const c = JSON.parse(readFileSync(join(d, '.claude/agentic-testing.json'), 'utf8'))
-  writeFileSync(join(d, '.claude/agentic-testing.json'), JSON.stringify({ ...c, messages: { jiraFillMark: '_Added by QA._' } }))
+  const c = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ ...c, messages: { jiraFillMark: '_Added by QA._' } }))
   assert.equal(run(d, 'add', '--in', '@t.json', 'environment', 'staging').status, 0)
   const line = run(d, 'jira-update', '--in', '@t.json').stdout.split('\n').find(l => l.startsWith('JIRA_UPDATE_JSON:'))
   assert.match(JSON.parse(line.slice('JIRA_UPDATE_JSON:'.length)).append, /^_Added by QA\._\n\n## Environment/)

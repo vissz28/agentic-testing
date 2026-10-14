@@ -1,4 +1,4 @@
-# `/agentic-testing:start`: from the developer's branch to the ticket
+# `/quality-code:start`: from the developer's branch to the ticket
 
 Status: draft for review · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-43 · Builds on:
 [part 1](2026-10-12-part-1-core-config-design.md)
@@ -16,7 +16,7 @@ Setup gets the same connectors check as its first step.
 
 | Decision | Value |
 |---|---|
-| Entry point | A new command, `/agentic-testing:start`. Not inside setup (once per repo) or ticket-eval (needs a key). |
+| Entry point | A new command, `/quality-code:start`. Not inside setup (once per repo) or ticket-eval (needs a key). |
 | Connectors | Jira is required; GitLab and Figma are optional and never block. Figma only matters for Playwright repos. |
 | Diff role | A target hint only. It never changes the ticket score; generated tests are graded against the ticket's criteria, never against the diff. |
 | Diff exposure | Paths and counts only in this version. No hunks reach the model; part 4 adds a redacted hunk reader if the pipeline needs one. |
@@ -26,7 +26,7 @@ Setup gets the same connectors check as its first step.
 ## 3. The flow
 
 ```
-/agentic-testing:start
+/quality-code:start
  0. Config?        none → "This repo is not set up yet." 1. Run setup now / 2. Stop
  1. Connectors     status card (core/connectors.md)
  2. Repo card      local repo, branch, base, change counts → confirm
@@ -39,7 +39,7 @@ each card, as setup and ticket-eval do.
 
 ### 3.1 Step 0: no config
 
-`core/config.mjs` finds no `.claude/agentic-testing.json`, or a wrong one: show the card
+`core/config.mjs` finds no `.claude/quality-code.json`, or a wrong one: show the card
 `1. Run setup now / 2. Stop`. On 1, run the setup flow; when it finishes, continue at step 2 (setup
 has just shown the connectors).
 
@@ -110,7 +110,7 @@ FIC-14333 on FIC-14333-fe-smart-component-… (9 files changed against develop)
 3. Stop
 ```
 
-- **1** runs the `/agentic-testing:ticket-eval` flow for that key, unchanged: gate, refuse options,
+- **1** runs the `/quality-code:ticket-eval` flow for that key, unchanged: gate, refuse options,
   fill-in, Jira push. Under the result, one line repeats the change counts. The score never uses
   the diff.
 - **2** says, until part 4 ships: "Writing and grading tests for any project comes with part 4. For
@@ -211,7 +211,7 @@ others fall back to `origin/HEAD`), setting plugin settings for the user.
 
 1. In a set-up repo on a feature branch named with a configured key, `start` shows the connectors
    card, the repo card with correct base and counts, proposes the key, and option 1 gives the same
-   result as `/agentic-testing:ticket-eval <KEY>`.
+   result as `/quality-code:ticket-eval <KEY>`.
 2. With Jira not connected, `start` and `setup` stop at the connectors card with the sign-in steps;
    with GitLab or Figma broken, they continue.
 3. No token or key is ever asked for in the chat.

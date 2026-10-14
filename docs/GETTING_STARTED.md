@@ -1,4 +1,4 @@
-# Getting started with agentic-testing
+# Getting started with quality-code
 
 A short guide for QA and developers. It shows how to check whether a Jira ticket is ready to be
 tested and how to fix it when it is not, all inside Claude Code. It works for any team with a
@@ -28,7 +28,7 @@ Open Claude Code in your repo and type:
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install agentic-testing@agentic-testing
+/plugin install quality-code@quality-code
 ```
 
 When Claude Code asks for the plugin's settings:
@@ -44,9 +44,9 @@ repo's `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "agentic-testing": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "quality-code": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
-  "enabledPlugins": { "agentic-testing@agentic-testing": true }
+  "enabledPlugins": { "quality-code@quality-code": true }
 }
 ```
 
@@ -58,7 +58,7 @@ Setup first shows a Connectors card: Jira must be connected; GitLab and Figma ar
 stop you. Keys go in the plugin settings, never in the chat.
 
 ```
-/agentic-testing:setup
+/quality-code:setup
 ```
 
 Setup asks one question per card. You answer by typing a number (or `stop` to quit):
@@ -80,8 +80,8 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 At the end you see the **whole config** and choose `1. Write it / 2. Change something / 3. Cancel`.
 Nothing is written before you type `1`. Setup then checks one recent ticket to show that it works.
 
-**Then commit** `.claude/agentic-testing.json`, plus the templates and the `.gitignore` line if setup
-added them. To change anything later, run `/agentic-testing:setup` again rather than editing the
+**Then commit** `.claude/quality-code.json`, plus the templates and the `.gitignore` line if setup
+added them. To change anything later, run `/quality-code:setup` again rather than editing the
 file by hand.
 
 ---
@@ -91,15 +91,15 @@ file by hand.
 Check out your feature branch (named with the ticket key, for example `ABC-123-add-export`), then:
 
 ```
-/agentic-testing:start
+/quality-code:start
 ```
 
 You confirm the repo card (branch, base, how many files changed), confirm the ticket key, and pick
 `1. Evaluate the ticket`. The rest of this section is what you then see. To check a ticket that has
-no branch yet, use `/agentic-testing:ticket-eval ABC-123`.
+no branch yet, use `/quality-code:ticket-eval ABC-123`.
 
 ```
-/agentic-testing:ticket-eval ABC-123
+/quality-code:ticket-eval ABC-123
 ```
 
 The plugin reads the ticket, hides customer data in its local copy, and a script gives it a
@@ -187,9 +187,9 @@ What does **not** count:
 
 | Command | What it does |
 |---|---|
-| `/agentic-testing:ticket-eval ABC-123 --refuse-comment` | prints the Jira comment without posting it |
-| `/agentic-testing:ticket-eval ABC-123 --json` | prints only the machine result |
-| `/agentic-testing:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
+| `/quality-code:ticket-eval ABC-123 --refuse-comment` | prints the Jira comment without posting it |
+| `/quality-code:ticket-eval ABC-123 --json` | prints only the machine result |
+| `/quality-code:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
 
 ---
 
@@ -197,7 +197,7 @@ What does **not** count:
 
 | You see | Do this |
 |---|---|
-| `Run /agentic-testing:setup.` | the repo has no config yet, or a field is wrong: run setup |
+| `Run /quality-code:setup.` | the repo has no config yet, or a field is wrong: run setup |
 | `This stack is not supported yet` | `package.json` has neither Playwright nor Vitest |
 | `Sign in to Atlassian when prompted…` | type `/mcp` and connect Atlassian, or paste the ticket text |
 | "This ticket is from project X…" | pick `1` to check it anyway, or add the project with setup |

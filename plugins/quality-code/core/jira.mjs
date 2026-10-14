@@ -13,7 +13,7 @@ export const REFUSE_COMMENT_FOOTER = 'Thanks, we can continue as soon as these a
 export const OLD_FOOTER = 'Thanks — we can continue as soon as these are on the ticket.'
 
 /** The line above the sections a fill-in adds to Jira, unless config.messages.jiraFillMark says otherwise. */
-export const JIRA_FILL_MARK = '_Added during the agentic-testing readiness check._'
+export const JIRA_FILL_MARK = '_Added during the quality-code readiness check._'
 
 export function jiraFillMark(config) {
   const custom = config?.messages?.jiraFillMark

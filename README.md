@@ -1,8 +1,8 @@
-# agentic-testing
+# quality-code
 
 **Test-ready tickets and tests you can trust, inside Claude Code. One plugin for every team.**
 
-agentic-testing connects your Jira tickets to your test suite. It checks whether a ticket is clear
+quality-code connects your Jira tickets to your test suite. It checks whether a ticket is clear
 enough to test, helps its author fill the gaps, and (as the [roadmap](#roadmap) lands) writes tests
 from the ticket's acceptance criteria and grades them. It works with any Jira project and any repo
 that uses **Playwright** (frontend) or **Vitest** (backend). What is specific to your team (Jira
@@ -32,25 +32,25 @@ a guided setup command writes for you. Your application code is never changed.
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install agentic-testing@agentic-testing
+/plugin install quality-code@quality-code
 ```
 
 **2. Set up the repo (once per repo, by one person).** Answer the numbered cards, then commit the
 config it writes:
 
 ```
-/agentic-testing:setup
+/quality-code:setup
 ```
 
 **3. Every day, start from your feature branch.**
 
 ```
-/agentic-testing:start
+/quality-code:start
 ```
 
 It checks your connectors, shows the branch and what it changed, takes the ticket key from the
 branch name (`ABC-123-add-export`), and evaluates that ticket. To check any ticket directly:
-`/agentic-testing:ticket-eval ABC-123`.
+`/quality-code:ticket-eval ABC-123`.
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
 comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
@@ -76,9 +76,9 @@ other than English and Italian. See [Known limits](#known-limits).
 
 | Capability | How | Status |
 |---|---|---|
-| Guided setup for your repo and Jira project | `/agentic-testing:setup` | ✅ available |
-| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/agentic-testing:start` | ✅ available |
-| Readiness gate: score a ticket out of 100 | `/agentic-testing:ticket-eval <KEY>` | ✅ available |
+| Guided setup for your repo and Jira project | `/quality-code:setup` | ✅ available |
+| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/quality-code:start` | ✅ available |
+| Readiness gate: score a ticket out of 100 | `/quality-code:ticket-eval <KEY>` | ✅ available |
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
@@ -93,7 +93,7 @@ other than English and Italian. See [Known limits](#known-limits).
 | **QA** | check a ticket before testing starts, fill the gaps with the author, (later) get tests written and graded |
 | **Developer** | check a ticket before picking it up; (later) get a regression test pinned to a bug |
 | **Product owner / ticket author** | read the Jira comment that says exactly what to add, with examples |
-| **Team lead** | run setup once and own `.claude/agentic-testing.json` in the repo |
+| **Team lead** | run setup once and own `.claude/quality-code.json` in the repo |
 | **CI** | refuse untestable tickets automatically with `--ci` |
 
 ---
@@ -128,7 +128,7 @@ Inside Claude Code, in your repo:
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install agentic-testing@agentic-testing
+/plugin install quality-code@quality-code
 ```
 
 The same from a shell:
@@ -138,7 +138,7 @@ claude plugin marketplace add vissz28/agentic-testing
 ```
 
 ```bash
-claude plugin install agentic-testing@agentic-testing --scope project
+claude plugin install quality-code@quality-code --scope project
 ```
 
 **Offer it to everyone who opens the repo:** add this to the repo's `.claude/settings.json` and
@@ -147,20 +147,37 @@ commit it:
 ```json
 {
   "extraKnownMarketplaces": {
-    "agentic-testing": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "quality-code": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
-  "enabledPlugins": { "agentic-testing@agentic-testing": true }
+  "enabledPlugins": { "quality-code@quality-code": true }
 }
 ```
 
-**Update** with `/plugin update agentic-testing@agentic-testing`.
+**Update** with `/plugin update quality-code@quality-code`.
+
+### Upgrading from agentic-testing
+
+The plugin was called `agentic-testing` up to v0.2.1. From v0.3.0 it is `quality-code`, and the old
+name is not read any more. Once per person, then once per repo:
+
+```
+/plugin uninstall agentic-testing@agentic-testing
+/plugin marketplace remove agentic-testing
+/plugin marketplace add vissz28/agentic-testing
+/plugin install quality-code@quality-code
+```
+
+Then, in each repo that was set up, run `/quality-code:setup` (it writes `.claude/quality-code.json`),
+commit it, and delete `.claude/agentic-testing.json`, the old `.claude/agentic-testing/` folder and
+its `.gitignore` line. In a repo's `.claude/settings.json`, rename the `agentic-testing` marketplace
+key and `enabledPlugins` entry to `quality-code` as shown above.
 
 ---
 
 ## Set up your project
 
 ```
-/agentic-testing:setup
+/quality-code:setup
 ```
 
 Setup first checks the connectors (Jira required; GitLab and Figma optional) and shows what is
@@ -190,18 +207,18 @@ by typing a number:
 8. **Templates**: if the repo has no Bug/Story issue templates, it offers the plugin's standard ones.
 
 It then shows the whole config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
-written before you type `1`. Setup writes only `.claude/agentic-testing.json`, the templates you
+written before you type `1`. Setup writes only `.claude/quality-code.json`, the templates you
 accepted, and one `.gitignore` line for the raw ticket copies. Finally it scores one recent ticket
 to prove the setup works.
 
-Run `/agentic-testing:setup` again any time to change a value; it starts from the current config.
+Run `/quality-code:setup` again any time to change a value; it starts from the current config.
 
 ---
 
 ## Check a ticket
 
 ```
-/agentic-testing:ticket-eval ABC-123
+/quality-code:ticket-eval ABC-123
 ```
 
 ```
@@ -346,7 +363,7 @@ real ticket. You see exactly what will be added; only after you confirm is it ap
 ```
 This will be added to the end of the description:
 
-  _Added during the agentic-testing readiness check._
+  _Added during the quality-code readiness check._
 
   ## Acceptance criteria
   - The export file uses the language of the user's account …
@@ -368,9 +385,9 @@ If the ticket has nothing to check at all, it asks you to add what should happen
 
 ## The config file
 
-`.claude/agentic-testing.json` in the project root. Commit it, and change it by running
-`/agentic-testing:setup` again rather than by hand. Every `ticket-eval` run checks it first and names
-any field that is wrong. A JSON schema ships with the plugin (`schema/agentic-testing.schema.json`).
+`.claude/quality-code.json` in the project root. Commit it, and change it by running
+`/quality-code:setup` again rather than by hand. Every `ticket-eval` run checks it first and names
+any field that is wrong. A JSON schema ships with the plugin (`schema/quality-code.schema.json`).
 
 ```json
 {
@@ -401,7 +418,7 @@ any field that is wrong. A JSON schema ships with the plugin (`schema/agentic-te
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
-| `ticketsDir` | where local ticket copies go, inside the project | `.claude/agentic-testing/tickets` |
+| `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
 
@@ -447,7 +464,8 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 
 | You see | Do this |
 |---|---|
-| `Run /agentic-testing:setup.` | The repo has no config yet, or a field is wrong. Run setup. |
+| `Run /quality-code:setup.` | The repo has no config yet, or a field is wrong. Run setup. |
+| `/agentic-testing:…` is unknown, or the old config is ignored | The plugin is now `quality-code`: see [Upgrading from agentic-testing](#upgrading-from-agentic-testing). |
 | `jira.projects[0] … upper-case letters and digits` | Project keys are upper case: `ABC`, not `abc`. |
 | `This stack is not supported yet (v1: Playwright, Vitest).` | `package.json` has neither `@playwright/test` nor `vitest`. |
 | `Sign in to Atlassian when prompted…` | Connect the Atlassian connector with `/mcp`, or paste the ticket text. |
@@ -473,7 +491,7 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 
 | # | Part | What it brings | Status |
 |---|---|---|---|
-| 1 | Core + config | `/agentic-testing:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available (v0.2.0)** |
+| 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available (v0.2.0)** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | 🛠 in design |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
@@ -495,7 +513,7 @@ Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 - **Something is not working:** check [Troubleshooting](#troubleshooting) first.
 - **A bug, or a request for your stack or language:** open an issue in
   [vissz28/agentic-testing](https://github.com/vissz28/agentic-testing/issues) with the command you ran,
-  the output, and your `.claude/agentic-testing.json` (it holds no secrets).
+  the output, and your `.claude/quality-code.json` (it holds no secrets).
 - **A ticket scored lower than you expected:** run `ticket-eval` with `--json`; the output lists
   every signal the rubric found and what is missing.
 
@@ -504,18 +522,18 @@ Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 ## Developing the plugin
 
 ```
-agentic-testing/
+quality-code/
 ├─ .claude-plugin/marketplace.json
 ├─ .github/workflows/test.yml          core tests, JSON check, no project values in core
 ├─ plugins/
-│  ├─ agentic-testing/
+│  ├─ quality-code/
 │  │  ├─ .claude-plugin/plugin.json    manifest and personal settings
 │  │  ├─ .mcp.json                     Atlassian, Figma, GitLab connectors
 │  │  ├─ commands/                     setup.md, start.md, ticket-eval.md
 │  │  ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │  │  │                                rubrics, score, sanitize, fill, jira, cli, setup,
 │  │  │                                branch, connectors.md
-│  │  ├─ schema/                       agentic-testing.schema.json
+│  │  ├─ schema/                       quality-code.schema.json
 │  │  ├─ templates/                    standard Story and Bug templates
 │  │  └─ test/                         unit tests and the parity suite
 │  ├─ warehouse-frontend/              legacy, warehouse only; removed in part 5
@@ -525,11 +543,11 @@ agentic-testing/
 ```
 
 ```bash
-cd plugins/agentic-testing && npm test
+cd plugins/quality-code && npm test
 ```
 
 ```bash
-claude plugin validate plugins/agentic-testing && claude plugin validate .
+claude plugin validate plugins/quality-code && claude plugin validate .
 ```
 
 - **No dependencies and no project values in `core/`.** CI fails if a warehouse value (project key,
@@ -537,8 +555,8 @@ claude plugin validate plugins/agentic-testing && claude plugin validate .
 - **Parity suite.** `test/parity/` runs the core with the warehouse configs against 116 real ticket
   fixtures and compares the output with what the original warehouse scripts printed. Differences
   are allowed only where the spec's §10 lists them.
-- **Release:** bump `version` in `plugins/agentic-testing/.claude-plugin/plugin.json`, then
-  `claude plugin tag plugins/agentic-testing`, then push. Users get it with `/plugin update`.
+- **Release:** bump `version` in `plugins/quality-code/.claude-plugin/plugin.json`, then
+  `claude plugin tag plugins/quality-code`, then push. Users get it with `/plugin update`.
 
 ---
 
@@ -546,4 +564,4 @@ claude plugin validate plugins/agentic-testing && claude plugin validate .
 
 `warehouse-frontend` and `warehouse-backend` are the original pipeline, built for the TeamSystem
 warehouse repos only. Other teams do not need them. They are kept as a reference until part 5 moves
-the warehouse repos onto `agentic-testing`: see [docs/WAREHOUSE.md](docs/WAREHOUSE.md).
+the warehouse repos onto `quality-code`: see [docs/WAREHOUSE.md](docs/WAREHOUSE.md).

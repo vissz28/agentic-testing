@@ -1,6 +1,6 @@
 {
   "name": "warehouse-frontend",
-  "displayName": "Agentic testing: warehouse frontend",
+  "displayName": "Quality code: warehouse frontend",
   "version": "0.1.0",
   "description": "From a FIC Jira ticket to a Playwright spec and an XRay case: readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in on refuse, deterministic checks after writing. Needs a warehouse-frontend checkout that has .claude/harness/.",
   "author": {

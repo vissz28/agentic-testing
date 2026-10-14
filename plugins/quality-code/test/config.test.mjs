@@ -17,7 +17,7 @@ test('a minimal valid config passes and gets defaults', () => {
   const r = validateConfig(good)
   assert.equal(r.ok, true)
   assert.deepEqual(r.config.titlePrefixes, [])
-  assert.equal(r.config.ticketsDir, '.claude/agentic-testing/tickets')
+  assert.equal(r.config.ticketsDir, '.claude/quality-code/tickets')
   assert.deepEqual(r.config.redact, { customerId: '\\bU\\d{5,}\\b' })
   assert.deepEqual(r.config.jira.trackingProjects, [])
 })
@@ -45,25 +45,25 @@ bad({ surprise: true }, 'surprise')
 
 test('the old-version message tells you to re-run setup', () => {
   const r = validateConfig({ ...good, version: undefined })
-  assert.match(r.errors.join(' '), /re-run \/agentic-testing:setup/)
+  assert.match(r.errors.join(' '), /re-run \/quality-code:setup/)
 })
 
 test('loadConfig reports a missing file distinctly', () => {
   const dir = mkdtempSync(join(tmpdir(), 'at-'))
-  assert.deepEqual(loadConfig(dir), { ok: false, missing: true, errors: ['This repo is not set up. Run /agentic-testing:setup.'] })
+  assert.deepEqual(loadConfig(dir), { ok: false, missing: true, errors: ['This repo is not set up. Run /quality-code:setup.'] })
 })
 
 test('loadConfig reads and validates the file', () => {
   const dir = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(dir, '.claude'))
-  writeFileSync(join(dir, '.claude/agentic-testing.json'), JSON.stringify(good))
+  writeFileSync(join(dir, '.claude/quality-code.json'), JSON.stringify(good))
   assert.equal(loadConfig(dir).ok, true)
 })
 
 test('loadConfig names a JSON syntax error', () => {
   const dir = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(dir, '.claude'))
-  writeFileSync(join(dir, '.claude/agentic-testing.json'), '{ "version": 1, ')
+  writeFileSync(join(dir, '.claude/quality-code.json'), '{ "version": 1, ')
   const r = loadConfig(dir)
   assert.equal(r.ok, false)
   assert.match(r.errors[0], /not valid JSON/)
@@ -72,7 +72,7 @@ test('loadConfig names a JSON syntax error', () => {
 test('projectRoot prefers CLAUDE_PROJECT_DIR, else cwd', () => {
   assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: '/p' }, '/c'), '/p')
   assert.equal(projectRoot({}, '/c'), '/c')
-  assert.equal(configPath('/p'), '/p/.claude/agentic-testing.json')
+  assert.equal(configPath('/p'), '/p/.claude/quality-code.json')
 })
 
 bad({ jira: 'x' }, 'jira')
@@ -140,7 +140,7 @@ test('confluenceSpaces: one clear error naming the index', () => {
   assert.deepEqual(r.errors, ['confluenceSpaces[1] "A B" must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"'])
 })
 test('the schema documents confluenceSpaces with the validator\'s pattern', () => {
-  const schema = JSON.parse(readFileSync(new URL('../schema/agentic-testing.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   const p = schema.properties.confluenceSpaces
   assert.equal(p.type, 'array')
   assert.equal(p.items.pattern, '^[A-Za-z0-9_~-]+$')

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "agentic-testing team config (.claude/agentic-testing.json)",
+  "title": "quality-code team config (.claude/quality-code.json)",
   "description": "Documentation of the rules enforced by core/config.mjs.",
   "type": "object",
   "additionalProperties": false,
@@ -66,7 +66,7 @@
     },
     "ticketsDir": {
       "type": "string",
-      "default": ".claude/agentic-testing/tickets",
+      "default": ".claude/quality-code/tickets",
       "pattern": "^[^\\r\\n]+$",
       "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\" and a trailing \"/\" is dropped, so the .gitignore line is <dir>/*/raw.json."
     },
@@ -84,7 +84,7 @@
         "jiraFillMark": {
           "type": "string",
           "minLength": 1,
-          "default": "_Added during the agentic-testing readiness check._",
+          "default": "_Added during the quality-code readiness check._",
           "description": "The line put above the sections a guided fill-in appends to the Jira description."
         },
         "refuseFallback": { "type": "string" },

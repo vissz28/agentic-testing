@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Run every parity fixture through today's warehouse scorers and record what they print.
 // Needs the two warehouse repos next to this one (or WAREHOUSE_FE / WAREHOUSE_BE); CI does not:
-// the captured files under plugins/agentic-testing/test/parity/expected/ are committed.
+// the captured files under plugins/quality-code/test/parity/expected/ are committed.
 //
 //   node scripts/capture-parity.mjs
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -11,7 +11,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const PARITY = join(ROOT, 'plugins/agentic-testing/test/parity')
+const PARITY = join(ROOT, 'plugins/quality-code/test/parity')
 const SOURCES = {
   fe: {
     repo: process.env.WAREHOUSE_FE || resolve(ROOT, '../warehouse-frontend'),

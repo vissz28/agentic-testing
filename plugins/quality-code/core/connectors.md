@@ -1,8 +1,8 @@
 # Connectors check
 
-Shared by `/agentic-testing:setup` (step 0) and `/agentic-testing:start` (step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/agentic-testing.json`.
+Shared by `/quality-code:setup` (step 0) and `/quality-code:start` (step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
 
-**Which connectors.** Jira (Atlassian) and GitLab always. Figma only when the adapter is `playwright`: read `adapter` from `.claude/agentic-testing.json`; without a config, run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read `adapter` from its `SETUP_JSON:` line (`both` counts as `playwright`). For `vitest`, leave Figma off the card.
+**Which connectors.** Jira (Atlassian) and GitLab always. Figma only when the adapter is `playwright`: read `adapter` from `.claude/quality-code.json`; without a config, run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read `adapter` from its `SETUP_JSON:` line (`both` counts as `playwright`). For `vitest`, leave Figma off the card.
 
 **Check each one with a single read-only call:**
 
@@ -39,7 +39,7 @@ Connectors
 - **1. Continue:** go on. GitLab and Figma never block.
 - **2. Fix one first:** list the connectors that are not ✅ as a numbered card, end the turn, and show the fix for the one picked:
   - Jira: the sign-in line above.
-  - GitLab: "The GitLab address is the `gitlab_mcp_url` plugin setting. Change it from the `/plugin` menu (agentic-testing, configure), then type /mcp to reconnect gitlab." If you know the address the check tried, show it; never show a token.
-  - Figma: "The Figma key is the `figma_api_key` plugin setting. Set it from the `/plugin` menu (agentic-testing, configure). Do not paste it here."
+  - GitLab: "The GitLab address is the `gitlab_mcp_url` plugin setting. Change it from the `/plugin` menu (quality-code, configure), then type /mcp to reconnect gitlab." If you know the address the check tried, show it; never show a token.
+  - Figma: "The Figma key is the `figma_api_key` plugin setting. Set it from the `/plugin` menu (quality-code, configure). Do not paste it here."
 
   Then show `1. Check again / 2. Continue without it` and end the turn. `1` runs the whole check again.

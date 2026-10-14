@@ -1,4 +1,4 @@
-// Local git facts for /agentic-testing:start: the branch, its base, what changed, and ticket keys.
+// Local git facts for /quality-code:start: the branch, its base, what changed, and ticket keys.
 // Read-only and offline. Never reads diff contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'

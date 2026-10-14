@@ -238,12 +238,12 @@ test('playwright: files under the configured testDir are tests', () => {
 })
 
 const run = (d, ...args) => spawnSync(process.execPath, [BRANCH, ...args], { cwd: d, env: { ...ENV, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
-const withConfig = d => { put(d, '.claude/agentic-testing.json', JSON.stringify(cfg())); return d }
+const withConfig = d => { put(d, '.claude/quality-code.json', JSON.stringify(cfg())); return d }
 
 test('CLI: no config exits 2 and says how to set up', () => {
   const r = run(repo(), '--detect')
   assert.equal(r.status, 2)
-  assert.match(r.stderr, /agentic-testing:setup/)
+  assert.match(r.stderr, /quality-code:setup/)
 })
 test('CLI: prints one BRANCH_JSON line', () => {
   const d = withConfig(repo())

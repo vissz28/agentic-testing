@@ -105,7 +105,7 @@ async function runFixture(fx) {
   const dir = mkdtempSync(join(tmpdir(), 'parity-'))
   try {
     mkdirSync(join(dir, '.claude'))
-    writeFileSync(join(dir, '.claude/agentic-testing.json'), JSON.stringify(CONFIGS[fx.repo]))
+    writeFileSync(join(dir, '.claude/quality-code.json'), JSON.stringify(CONFIGS[fx.repo]))
     writeFileSync(join(dir, 'ticket.json'), JSON.stringify(fx.ticket))
     const results = []
     for (const op of fx.ops) {
@@ -178,7 +178,7 @@ describe('sanitize parity with today\'s backend sanitizer', { concurrency: 8 }, 
       const dir = mkdtempSync(join(tmpdir(), 'parity-sanitize-'))
       try {
         mkdirSync(join(dir, '.claude'))
-        writeFileSync(join(dir, '.claude/agentic-testing.json'), JSON.stringify(CONFIGS.be))
+        writeFileSync(join(dir, '.claude/quality-code.json'), JSON.stringify(CONFIGS.be))
         writeFileSync(join(dir, 'raw.json'), JSON.stringify(raw))
         const got = await run(dir, ['sanitize', '--in', '@raw.json', '--out', 'ticket.json'])
         assert.equal(got.exit, want.exit)
