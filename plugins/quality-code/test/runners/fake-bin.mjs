@@ -3,7 +3,7 @@
 // stdout?, sleepMs?, grandchild?, mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
-// and the report is written to the --outputFile path.
+// and the report is written to the --outputFile path (or the --jsonReporter.fileName path, for Stryker).
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -17,7 +17,8 @@ if (spec.grandchild) {
   const gc = require('child_process').spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached: false, stdio: 'ignore' })
   fs.writeFileSync(path.join(dir, '.fake-${name}.grandchild'), String(gc.pid))
 }
-const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13)
+const ji = args.indexOf('--jsonReporter.fileName')
+const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || (ji >= 0 ? args[ji + 1] : '')
 const ci = args.indexOf('--config')
 let report = (spec.reportFor && spec.reportFor[ci >= 0 ? args[ci + 1] : 'default']) || spec.report
 if (args.includes('-t') && spec.mutantReport) {
