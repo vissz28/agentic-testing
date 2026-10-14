@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../config.mjs'
 import * as boundary from './boundary.mjs'
 import { dialectFor } from './dialects/index.mjs'
+import * as expected from './expected.mjs'
 import * as flaky from './flaky.mjs'
 import * as honesty from './honesty.mjs'
 import { isProjectKey, projectKeys } from './keys.mjs'
@@ -17,11 +18,12 @@ const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
   honesty: { run: honesty.run, specs: 'many' },
   'suite-honesty': { run: suite.run, specs: 'many' },
+  expected: { run: expected.run, specs: 'many' },
 }
 CHECKS.mutation = { run: mutation.run, specs: 'one' }
 CHECKS.flaky = { run: flaky.run, specs: 'many' }
 const NEEDS_RUNNER = new Set(['flaky', 'mutation'])
-const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | boundary --hook'
+const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | expected --ticket @file --key KEY <spec...> | boundary --hook'
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 
 /** For parts 3–4: run one check with a ready context. */
@@ -38,7 +40,7 @@ export function registerCheck(name, run, specs) {
 
 function parse(argv) {
   const a = { flags: new Set(), specs: [] }
-  const VALUE = new Set(['--range', '--key', '--runs', '--timeout', '--test', '--baseline', '--max'])
+  const VALUE = new Set(['--range', '--key', '--runs', '--timeout', '--test', '--baseline', '--max', '--ticket'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
@@ -89,10 +91,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (check.specs === 'many' && !a.specs.length) return err(`${name} needs at least one spec path. ${USAGE}`)
   for (const s of a.specs) if (!existsSync(resolve(root, s))) return err(`spec not found: ${s}`)
   if (a.key && !isProjectKey(config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(config).join(', ')}`)
+  if (name === 'expected' && (!a.ticket || !a.key)) return err(`expected needs --ticket @file and --key KEY. ${USAGE}`)
+  const ticket = a.ticket ? a.ticket.replace(/^@/, '') : null
   const ctx = { config, dialect: dialectFor(config.adapter), root }
   let r
   try {
-    r = await check.run({ specs: a.specs, range: a.range ?? null, key: a.key ?? null }, ctx)
+    r = await check.run({ specs: a.specs, range: a.range ?? null, key: a.key ?? null, ticket }, ctx)
   } catch (e) {
     const msg = String(e?.message ?? e).split('\n')[0]
     process.stderr.write(`check ${name} crashed: ${msg}\n`)
