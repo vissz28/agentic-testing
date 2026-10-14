@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../config.mjs'
 import * as boundary from './boundary.mjs'
 import { dialectFor } from './dialects/index.mjs'
+import * as flaky from './flaky.mjs'
 import * as honesty from './honesty.mjs'
 import { isProjectKey, projectKeys } from './keys.mjs'
 import * as mutation from './mutation.mjs'
@@ -18,6 +19,7 @@ const CHECKS = {
   'suite-honesty': { run: suite.run, specs: 'many' },
 }
 CHECKS.mutation = { run: mutation.run, specs: 'one' }
+CHECKS.flaky = { run: flaky.run, specs: 'many' }
 const NEEDS_RUNNER = new Set(['flaky', 'mutation'])
 const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | boundary --hook'
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
