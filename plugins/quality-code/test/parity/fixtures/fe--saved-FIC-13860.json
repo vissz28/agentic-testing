@@ -1,0 +1,98 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13860",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13860",
+    "summary": "[BE] KPI \"last unit cost\" drops a zero-cost movement — kpi.repository",
+    "issuetype": "Test",
+    "status": "DONE",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "## Summary\n\nWhen an incoming movement has unit cost 0, the KPI last unit cost is not set to 0. It keeps the previous value. The same happens for last unit price when an outgoing movement has price 0.\n\n## Environment\n\nEnv: local\n\n## Steps to reproduce\n\n1. A product has a prior KPI row with last_cost = 50.\n2. Ingest an incoming movement for that product with unit cost = 0.\n3. Read the product's KPI last unit cost.\n\n## Expected\n\nThe KPI last unit cost is 0.\n\n## Actual\n\nThe KPI last unit cost is 50. The 0 is ignored.\n\n## Acceptance criteria\n\nGiven a product with last cost = 50  \nWhen I save a movement with cost = 0  \nThen the last cost is 0",
+      "acField": "Given a product with last cost = 50\nWhen I save a movement with cost = 0\nThen the last cost is 0"
+    },
+    "remoteLinks": [
+      {
+        "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-backend/-/commit/d4f0cc407c8a91118dc1779a04337b00ae17ddb1"
+      }
+    ],
+    "gitlab": null
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "add",
+      "title_prefix",
+      "backend team"
+    ],
+    [
+      "add",
+      "title_prefix",
+      "be"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
+    ]
+  ]
+}

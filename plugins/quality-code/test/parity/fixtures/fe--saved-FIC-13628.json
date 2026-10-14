@@ -1,0 +1,92 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13628",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13628",
+    "issuetype": "Bug from field",
+    "status": "TO DO",
+    "labels": [
+      "CS-Tech-bug"
+    ],
+    "summary": "Stock import report generated in English instead of Italian",
+    "text": {
+      "description": "Stock import report generated in English instead of Italian\n\n* Reference UID/PEID: Shared/global behavior (no specific UID provided by the customer)\n* Additional cases: N/A - To be updated during analysis\n\nWhat happens?\nIn the new \"Warehouse\" module of Fatture in Cloud, following a stock import, the user has the option to download a report file via a dedicated link. The file is generated correctly, but the content is in English instead of Italian.\n\nExample file: import-report (1).xlsx\n\nWhat is the expected behavior?\nThe generated report file should be in Italian.\n\nReproducible by admin?\nYes, it should be sufficient to impersonate the customer's account, perform a stock import in the Warehouse module and download the report file to verify the language used for generation.\n\n---\n\nReport importazione giacenze generato in inglese anziche in italiano\n\nCosa succede?\nNel nuovo modulo \"Magazzino\" di Fatture in Cloud, a seguito di un'importazione di giacenze, l'utente ha la possibilita di scaricare un file di report tramite apposito link. Il file viene generato correttamente, ma il contenuto risulta in lingua inglese anziche in italiano.\n\nQual e il comportamento atteso?\nIl file di report generato dovrebbe essere in italiano.\n\nReplicabile da admin?\nSi, dovrebbe essere sufficiente impersonificare l'account del cliente, effettuare un'importazione di giacenze nel modulo Magazzino e scaricare il file di report per verificare la lingua di generazione.",
+      "acField": ""
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_present",
+      "it works correctly"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent."
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
+    ]
+  ]
+}

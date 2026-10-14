@@ -1,0 +1,304 @@
+{
+  "fixture": "fe--saved-FIC-13986.json",
+  "repo": "fe",
+  "source": {
+    "local": "quality-code 1de5b91",
+    "note": "Recorded locally: the original frontend scorer lives in the warehouse-frontend repo. Its shared signals are checked against the original backend capture of the same ticket in parity.test.mjs."
+  },
+  "results": [
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-13986 — test-readiness 55% · too thin (threshold 70%)\nFeature: none\nQA plan: not found\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - feature label (one of the 8 — routes the test to a screen) (15)\n  - a Confluence QA plan for the feature (15)\n  - steps to reproduce (Bug) or a user story (Story) (10)\n  - environment / workspace context (5)\nFlags: none\nGate: refuse — below 70%. Do not generate. Add the missing items on the ticket, then re-run.\nTICKET_EVAL_JSON:{\"key\":\"FIC-13986\",\"browse\":\"https://teamsystem.atlassian.net/browse/FIC-13986\",\"issuetype\":\"Bug from field\",\"status\":\"TO DO\",\"score\":55,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":false,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[],\"derivable\":0,\"missing\":[{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":15},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":false,\"steps\":false,\"expected_defined\":true,\"environment\":false,\"qa_plan_found\":false}}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "score",
+        "--json"
+      ],
+      "stdout": "{\"key\":\"FIC-13986\",\"browse\":\"https://teamsystem.atlassian.net/browse/FIC-13986\",\"issuetype\":\"Bug from field\",\"status\":\"TO DO\",\"score\":55,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":false,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[],\"derivable\":0,\"missing\":[{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":15},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":false,\"steps\":false,\"expected_defined\":true,\"environment\":false,\"qa_plan_found\":false}}\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\n### 1. Feature label\nThe ticket has no warehouse feature label, so we cannot tell which screen to open.\n\nPlease add one of these existing labels (do not create a new one):\nGiacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze,\narrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\n\n### 2. Steps to reproduce\nThere is no Steps to reproduce section (or user story).\n\nA short numbered list is enough. You can adapt this:\n\n## Steps to reproduce\n1. Open the movement list\n2. Filter by document 22\n3. Look at the rows that come back\n\n### 3. Environment\nThere is no Environment section with Env: …\n\nPlease add which environment you used (prod, staging or local):\n\n## Environment\nEnv: staging\n\nThe full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 1
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 55 of the 70 points it needs.\nWhat is missing:\n  1. Feature label       +15\n  2. Steps to reproduce  +10\n  3. Environment         +5\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":55,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":15,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":2,\"key\":\"steps\",\"title\":\"Steps to reproduce\",\"gain\":10,\"question\":\"How do you reproduce it? One step per line.\",\"example\":\"Open the products stock\\nFilter by a code that does not exist\\nLook at the empty grid\"},{\"n\":3,\"key\":\"environment\",\"title\":\"Environment\",\"gain\":5,\"question\":\"Which environment did you use (prod, staging or local)?\",\"example\":\"staging\"}]}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "1 2"
+      ],
+      "stdout": "With 1 and 2 the ticket reaches 80 points (the bar is 70): enough.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"feature_label\",\"title\":\"Feature label\",\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":2,\"key\":\"steps\",\"title\":\"Steps to reproduce\",\"question\":\"How do you reproduce it? One step per line.\",\"example\":\"Open the products stock\\nFilter by a code that does not exist\\nLook at the empty grid\"}],\"score\":80,\"threshold\":70,\"enough\":true,\"short\":0}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "1"
+      ],
+      "stdout": "With 1 the ticket reaches 70 points (the bar is 70): enough.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"feature_label\",\"title\":\"Feature label\",\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"}],\"score\":70,\"threshold\":70,\"enough\":true,\"short\":0}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "pick",
+        "9"
+      ],
+      "stdout": "There is no number 9 on the list.\nFILL_JSON:{\"error\":\"There is no number 9 on the list.\"}\n",
+      "exit": 2
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "Nothing was added, so there is nothing to put on the Jira ticket.\nJIRA_UPDATE_JSON:{\"append\":null,\"labelsAdd\":[],\"titlePrefix\":null,\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "steps",
+        "short"
+      ],
+      "stdout": "Not accepted: Too short to follow. Write the steps one per line.\nExample: Open the products stock / Filter by a code that does not exist / Look at the empty grid\nFILL_JSON:{\"ok\":false,\"reason\":\"Too short to follow. Write the steps one per line.\",\"score\":55,\"gate\":\"refuse\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null
+      }
+    },
+    {
+      "op": [
+        "add",
+        "steps",
+        "Open the list\nFilter by 22"
+      ],
+      "stdout": "Accepted. The ticket now has 65 points (the bar is 70): 5 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":65,\"gate\":\"refuse\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "expected_defined",
+        "it works correctly | the grid is blank"
+      ],
+      "stdout": "Not accepted: \"works correctly\" is not something a test can see. Name the label, the count or the exact text.\nExample: The message \"Nessun dato\" is shown | The grid is blank\nFILL_JSON:{\"ok\":false,\"reason\":\"\\\"works correctly\\\" is not something a test can see. Name the label, the count or the exact text.\",\"score\":65,\"gate\":\"refuse\"}\n",
+      "exit": 1,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "feature_label",
+        "Spinta_warehouse"
+      ],
+      "stdout": "Accepted. The ticket now has 80 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":80,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [
+          "Spinta_warehouse"
+        ],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          },
+          {
+            "key": "feature_label",
+            "label": "Spinta_warehouse"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "add",
+        "environment",
+        "staging"
+      ],
+      "stdout": "Accepted. The ticket now has 85 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":85,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [
+          "Spinta_warehouse"
+        ],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22\n\n## Environment\nEnv: staging",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          },
+          {
+            "key": "feature_label",
+            "label": "Spinta_warehouse"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Steps to reproduce\n  1. Open the list\n  2. Filter by 22\n\n  ## Environment\n  Env: staging\n\nLabel added: Spinta_warehouse\nNothing already on the ticket is changed.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Steps to reproduce\\n1. Open the list\\n2. Filter by 22\\n\\n## Environment\\nEnv: staging\",\"labelsAdd\":[\"Spinta_warehouse\"],\"titlePrefix\":null,\"replacedVague\":false}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "score"
+      ],
+      "stdout": "FIC-13986 — test-readiness 85% · ready (threshold 70%)\nFeature: Spinta_warehouse → /warehouse-push\nQA plan: not found\nScenarios: 0 read from the ticket · 0 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - a Confluence QA plan for the feature (15)\nFlags: none\nGate: pass — ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-13986\",\"browse\":\"https://teamsystem.atlassian.net/browse/FIC-13986\",\"issuetype\":\"Bug from field\",\"status\":\"TO DO\",\"score\":85,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Spinta_warehouse\",\"route\":\"/warehouse-push\",\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[],\"derivable\":0,\"missing\":[{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":15}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"feature_label\":true,\"steps\":true,\"expected_defined\":true,\"environment\":true,\"qa_plan_found\":false}}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "fill-menu"
+      ],
+      "stdout": "This ticket has 85 of the 70 points it needs.\nWhat is missing:\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":85,\"threshold\":70,\"items\":[]}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "add",
+        "ac_testable",
+        "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+      ],
+      "stdout": "Accepted. The ticket now has 85 points (the bar is 70): enough to continue.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":85,\"gate\":\"pass\"}\n",
+      "exit": 0,
+      "fileAfter": {
+        "key": "FIC-13986",
+        "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+        "issuetype": "Bug from field",
+        "status": "TO DO",
+        "labels": [
+          "Spinta_warehouse"
+        ],
+        "summary": "[U######] Incorrect stock between report and product master data",
+        "remoteLinks": [],
+        "text": {
+          "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.",
+          "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+        },
+        "gitlab": null,
+        "filled": [
+          {
+            "key": "steps",
+            "section": "## Steps to reproduce\n1. Open the list\n2. Filter by 22"
+          },
+          {
+            "key": "feature_label",
+            "label": "Spinta_warehouse"
+          },
+          {
+            "key": "environment",
+            "section": "## Environment\nEnv: staging"
+          },
+          {
+            "key": "ac_testable",
+            "replacedVague": true,
+            "section": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          }
+        ]
+      }
+    },
+    {
+      "op": [
+        "jira-update"
+      ],
+      "stdout": "This will be added to the end of the description:\n\n  _Added during the /spec readiness check._\n\n  ## Steps to reproduce\n  1. Open the list\n  2. Filter by 22\n\n  ## Environment\n  Env: staging\n\n  ## Acceptance criteria\n  - The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\nLabel added: Spinta_warehouse\nNothing already on the ticket is changed.\nThe vague criterion you rewrote stays on the ticket; remove it there if you want the next check to pass without this step.\nJIRA_UPDATE_JSON:{\"append\":\"_Added during the /spec readiness check._\\n\\n## Steps to reproduce\\n1. Open the list\\n2. Filter by 22\\n\\n## Environment\\nEnv: staging\\n\\n## Acceptance criteria\\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\",\"labelsAdd\":[\"Spinta_warehouse\"],\"titlePrefix\":null,\"replacedVague\":true}\n",
+      "exit": 0
+    },
+    {
+      "op": [
+        "refuse-comment"
+      ],
+      "stdout": "Hi, this ticket needs a bit more information before we can start the checks.\n\nHere is what to add:\n\nPlease add Steps to reproduce, Expected, Actual, and Given / When / Then.\n\nThe full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.\n\nThanks, we can continue as soon as these are on the ticket.\n",
+      "exit": 0
+    }
+  ]
+}

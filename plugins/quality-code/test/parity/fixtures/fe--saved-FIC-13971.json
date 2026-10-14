@@ -1,0 +1,90 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13971",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13971",
+    "issuetype": "Bug from QA/Test",
+    "status": "TEST OK",
+    "summary": "Unendo/trasformando un ordine con DDT il magazzino viene movimentato nuovamente",
+    "labels": [],
+    "text": {
+      "description": "Quando procedo ad unire/trasformare degli ordini con DDT in fattura il magazzino viene nuovamente movimentato, sia disponibilità che giacenza, anche se il DDT contenuto nell'ordine aveva già effettuato la movimentazione.\n\n- ordine 258048699\n- fattura 258048701\n\nDai commenti QA: creando un ordine con DDT il magazzino deve essere movimentato di 5 la giacenza e di 15 la disponibilità; la movimentazione di -5 dovrebbe essere solo di giacenza. Trasformando / facendo 'unisci e raggruppa' dell'ordine con DDT in fattura, la giacenza NON deve essere movimentata nuovamente (resta -5, non -10).",
+      "acField": "Given un ordine con DDT che ha già movimentato la giacenza di 5 (stockOnHand -5) e la disponibilità (stockAvailability -15)\nWhen l'ordine viene unito/trasformato in fattura\nThen the stockOnHand (giacenza) stays -5 and is NOT decremented again to -10, and the stockAvailability (disponibilità) stays -15; giacenza is moved exactly once by the DDT."
+    }
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "only document 22 | documents 220 and 122 too"
+    ],
+    [
+      "add",
+      "qa_plan_found",
+      "x"
+    ],
+    [
+      "add",
+      "nope",
+      "x"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
+    ]
+  ]
+}

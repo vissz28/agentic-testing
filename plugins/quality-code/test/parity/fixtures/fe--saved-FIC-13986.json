@@ -1,0 +1,92 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13986",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13986",
+    "issuetype": "Bug from field",
+    "status": "TO DO",
+    "labels": [],
+    "summary": "[U######] Incorrect stock between report and product master data",
+    "remoteLinks": [],
+    "text": {
+      "description": "**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n* **Reference UID/PEID:** U###### (workspace id: 00000000-0000-4000-8000-000000000001)\n* **Additional cases:**\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Carnasciale 2020\")\n    * Trade item id 00000000-0000-4000-8000-000000000001 (code \"Ottantadue 2022\")\n\n**What is happening?**\nThe customer reports a discrepancy between the stock shown in the product master data and that indicated in the requested stock report, for at least two products:\n\n1. Code \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 914 (correct), report = 911 (difference of -3 units).\n\n2. Code \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): product master data = 77 (correct), report = 74 (difference of -3 units).\n\nThe reported values and screenshots refer to the date 28/07/2026, the date the report was opened, and may no longer be up to date at the time of verification.\n\n**What is the expected behavior?**\nThe stock calculated and displayed in the report requested by the customer should match that shown in the product master data, except for differences justified by a time misalignment between when the two data points were generated (which should in any case be investigated and made consistent).\n\n**Reproducible by admin?**\nNo — requires technical DB analysis\n\n---\n\n**Giacenza errata tra report e anagrafica prodotto**\n\n**Account:**\nU###### — workspace id 00000000-0000-4000-8000-000000000001\n\n**Cosa succede?**\nIl cliente segnala una discrepanza tra la giacenza mostrata nell'anagrafica prodotto e quella indicata nel report di giacenza richiesto, per almeno due prodotti:\n\n1. Codice \"Carnasciale 2020\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 914 (corretta), report = 911 (differenza di -3 unità).\n\n2. Codice \"Ottantadue 2022\" (trade item id 00000000-0000-4000-8000-000000000001): anagrafica prodotto = 77 (corretta), report = 74 (differenza di -3 unità).\n\nI valori riportati e gli screenshot fanno riferimento alla data del 28/07/2026, data di apertura della segnalazione, e potrebbero non essere più aggiornati al momento della verifica.\n\n**Qual è il comportamento atteso?**\nLa giacenza calcolata ed esposta nel report richiesto dal cliente dovrebbe coincidere con quella mostrata nell'anagrafica prodotto, salvo eventuali differenze giustificate da un disallineamento temporale tra il momento di generazione dei due dati (che andrebbe comunque verificato e reso coerente).\n\n**Replicabile da admin?**\nNo — richiede analisi DB tecnica",
+      "acField": "Given a workspace with movements for a trade item\nWhen the stock report (report di giacenza) is generated for that trade item\nThen the report stock equals the product master-data stock (anagrafica) for the same trade item\nThen the report stock is 914 for the first product and 77 for the second product"
+    },
+    "gitlab": null
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "steps",
+      "short"
+    ],
+    [
+      "add",
+      "steps",
+      "Open the list\nFilter by 22"
+    ],
+    [
+      "add",
+      "expected_defined",
+      "it works correctly | the grid is blank"
+    ],
+    [
+      "add",
+      "feature_label",
+      "Spinta_warehouse"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
+    ]
+  ]
+}

@@ -156,7 +156,7 @@ test('spec §10 #5: the backend output really names the key warehouse_label toda
 })
 
 test('spec §10 #6: the frontend JIRA_UPDATE_JSON has no titlePrefix today', () => {
-  const lines = FIXTURES.filter(f => f.repo === 'fe').flatMap(f => f.expected.results)
+  const lines = FIXTURES.filter(f => f.repo === 'fe' && !f.expected.source?.local).flatMap(f => f.expected.results)
     .filter(r => r.op[0] === 'jira-update').map(r => briefOf(r.stdout, 'JIRA_UPDATE_JSON:'))
   assert.ok(lines.length > 0)
   assert.ok(lines.every(u => !('titlePrefix' in u)))
@@ -188,5 +188,29 @@ describe('sanitize parity with today\'s backend sanitizer', { concurrency: 8 }, 
         rmSync(dir, { recursive: true, force: true })
       }
     })
+  }
+})
+
+// The frontend saved real tickets are recorded locally (the original frontend scorer lives in the
+// warehouse-frontend repo). What makes them a proof: on every signal both rubrics share, the
+// frontend run agrees with the ORIGINAL backend capture of the same ticket. The one rule the two
+// original rubrics disagree on is the bug question form ("What is the expected behavior?"): the
+// backend counts it as an Expected section, the frontend wants a heading (fe--be-question-form).
+test('frontend saved real tickets: the shared signals match the original backend scorer', () => {
+  const SHARED = ['ac_present', 'ac_testable', 'steps', 'expected_defined', 'environment']
+  const saved = FIXTURES.filter(f => f.repo === 'fe' && f.name.startsWith('fe--saved-'))
+  assert.equal(saved.length, 7)
+  for (const fe of saved) {
+    const be = FIXTURES.find(f => f.name === fe.name.replace(/^fe--/, 'be--'))
+    assert.equal(be.expected.source.ref, 'origin/agt-34-remove-audit-logs', 'the backend side is the original capture')
+    assert.ok(fe.expected.source.local, 'the frontend side says it was recorded locally')
+    assert.deepEqual(fe.ticket, be.ticket)
+    const b = briefOf(be.expected.results[0].stdout).signals
+    const f = briefOf(fe.expected.results[0].stdout).signals
+    for (const k of SHARED) {
+      // FIC-13628 states its expected result only in the question form and has no criteria.
+      if (fe.name === 'fe--saved-FIC-13628.json' && k === 'expected_defined') assert.deepEqual([b[k], f[k]], [true, false])
+      else assert.equal(f[k], b[k], `${fe.name}: ${k}`)
+    }
   }
 })

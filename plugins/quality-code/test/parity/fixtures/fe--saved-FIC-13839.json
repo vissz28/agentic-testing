@@ -1,0 +1,107 @@
+{
+  "repo": "fe",
+  "ticket": {
+    "key": "FIC-13839",
+    "browse": "https://teamsystem.atlassian.net/browse/FIC-13839",
+    "issuetype": "Bug",
+    "status": "DONE",
+    "summary": "[BE] Products stock list returns soft-deleted trade items — trade-item.service",
+    "labels": [
+      "Giacenza_Prodotti"
+    ],
+    "text": {
+      "description": "⚠️ SANDBOX / TOOLING FIXTURE for /spec (backend Vitest). Targets a plausible backend read-path bug for demo. Safe to cancel/delete after validation.\n\n## Summary\n\nThe products-stock read path returns trade items whose `deletedAt` is set, so soft-deleted products still appear in the stock list. Reads must exclude `deletedAt != null` (soft-delete rule).\n\n## Environment\n\n* Env: staging\n* Tenant / workspace ID: <redacted>\n* Time observed: 2026-08-20T10:00Z\n\n## Steps to reproduce\n\n1. In a workspace that has at least one soft-deleted trade item (`deletedAt` set).\n2. Read the products-stock list endpoint.\n3. Inspect the returned rows.\n\n## Expected\n\nOnly trade items with `deletedAt: null` are returned.\n\n## Actual\n\nSoft-deleted trade items (`deletedAt` set) are included in the list.\n\n## Impact\n\n* Users affected: all workspaces that have soft-deleted any product.\n* Data correctness: display-only (no writes) — shows removed products.\n* Reversibility: fix + re-query; no migration.\n* Frequency: always, when soft-deleted items exist.\n\n## Root cause hypothesis\n\nA find query in the trade-item read path is missing the `deletedAt: null` filter. Grep callers of the shared find helper; fix at the shared function, not one caller.\n\n## Regression risk\n\nOther reads sharing the same trade-item find helper (movements list, KPI aggregation).\n",
+      "acField": "Scenario: products-stock read excludes soft-deleted trade items\nGiven a workspace with trade item A (deletedAt: null) and trade item B (deletedAt set)\nWhen the products-stock list is read\nThen only trade item A is returned\nAnd trade item B is not in the result\n\nScenario: regression test\nGiven the trade-item read path used by products stock\nWhen the list is read on a fixture with one soft-deleted item\nThen the test fails if the deletedAt: null filter is removed\n"
+    },
+    "remoteLinks": [
+      {
+        "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-frontend/-/commit/f19e6224a50e1259cb5dfcced4f87b33551232d5"
+      },
+      {
+        "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-frontend/-/commit/7abc2d096e00c1336223671a7865ec0fd27f908a"
+      },
+      {
+        "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-frontend/-/commit/ec5760f37159b902f25b66a27b67d2faf8bf5007"
+      },
+      {
+        "url": "https://biosphere.teamsystem.com/oneplatform/islands/microsme/warehouse-frontend/-/commit/c646f10737e5dc532572ef590008750f2b9eefd8"
+      }
+    ],
+    "gitlab": null
+  },
+  "ops": [
+    [
+      "score"
+    ],
+    [
+      "score",
+      "--json"
+    ],
+    [
+      "refuse-comment"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "pick",
+      "1 2"
+    ],
+    [
+      "pick",
+      "1"
+    ],
+    [
+      "pick",
+      "9"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "add",
+      "ac_present",
+      "The Delete button is disabled for a warehouse with stock"
+    ],
+    [
+      "add",
+      "ac_present",
+      "Given a warehouse with stock\nWhen I open its menu\nThen Delete is disabled"
+    ],
+    [
+      "add",
+      "environment",
+      "  "
+    ],
+    [
+      "add",
+      "environment",
+      "Env: staging"
+    ],
+    [
+      "add",
+      "environment",
+      "staging"
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "score"
+    ],
+    [
+      "fill-menu"
+    ],
+    [
+      "add",
+      "ac_testable",
+      "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+    ],
+    [
+      "jira-update"
+    ],
+    [
+      "refuse-comment"
+    ]
+  ]
+}
