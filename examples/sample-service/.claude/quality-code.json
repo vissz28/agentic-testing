@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "adapter": "vitest",
+  "jira": {
+    "site": "https://example.atlassian.net",
+    "projects": ["DEMO"]
+  },
+  "vitest": {
+    "layers": [{ "name": "unit", "folder": "test/unit/" }]
+  }
+}

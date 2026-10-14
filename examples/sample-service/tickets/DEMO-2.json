@@ -1,0 +1,11 @@
+{
+  "key": "DEMO-2",
+  "summary": "VAT amount rounds half a cent down instead of up",
+  "issuetype": "Bug",
+  "text": {
+    "description": "## Summary\nThe VAT amount of a net amount is rounded half a cent down, so the VAT is one cent short whenever the exact VAT ends in half a cent.\n\n## Steps to reproduce\n1. Compute the VAT of a net amount of 0.25 at a VAT rate of 22%\n2. Read the VAT amount and the gross total\n\n## Expected result\nHalf a cent rounds up to the next cent; amounts with no half cent are not changed.\n\n## Actual result\nThe VAT amount is 0.05 and the gross total is 0.30: half a cent is rounded down.\n\n## Environment\nenv: staging",
+    "acField": "Scenario: half a cent rounds up\nGiven a net amount of 0.25 and a VAT rate of 22%\nWhen the VAT amount is computed\nThen the VAT amount is 0.06\n\nScenario: half a cent rounds up at the reduced rate\nGiven a net amount of 10.25 and a VAT rate of 10%\nWhen the VAT amount is computed\nThen the VAT amount is 1.03\n\nScenario: an amount with no half cent is unchanged\nGiven a net amount of 12.50 and a VAT rate of 22%\nWhen the VAT amount is computed\nThen the VAT amount is 2.75\n\nScenario: the gross total includes the rounded VAT\nGiven a net amount of 0.25 and a VAT rate of 22%\nWhen the gross total is computed\nThen the gross total is 0.31"
+  },
+  "labels": [],
+  "gitlab": null
+}

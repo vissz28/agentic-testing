@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { parseStrykerReport, runStryker } from '../../core/runners/stryker.mjs'
+import { pathToFileURL } from 'node:url'
+import { parseStrykerReport, projectStrykerConfig, runStryker, strykerConfigSource } from '../../core/runners/stryker.mjs'
 import { calls, fakeBin } from './fake-bin.mjs'
 
 const proj = () => mkdtempSync(join(tmpdir(), 'qc-stryker-run-'))
@@ -11,7 +12,8 @@ const report = (...statuses) => ({
   schemaVersion: '1',
   files: { 'src/a.ts': { language: 'typescript', source: '', mutants: statuses.map((status, i) => ({ id: String(i), mutatorName: 'm', status })) } },
 })
-const outOf = argv => argv[argv.indexOf('--jsonReporter.fileName') + 1]
+// The report path sits next to the temp config file Stryker is given (argv[1]).
+const outOf = argv => join(dirname(argv[1]), 'mutation.json')
 
 test('parseStrykerReport: counts per status, score over killed, survived, timeout and no coverage', () => {
   const r = parseStrykerReport(report('Killed', 'Killed', 'Killed', 'Survived', 'Timeout', 'NoCoverage', 'CompileError', 'RuntimeError', 'Ignored', 'Pending'))
@@ -40,10 +42,39 @@ test('runner: argv, cwd, score read from the report, temp dir removed, nothing w
   const tmp = dirname(out)
   assert.ok(!out.startsWith(d))
   assert.equal(out, join(tmp, 'mutation.json'))
-  assert.deepEqual(argv, ['run', '--mutate', 'src/my a.ts', '--testRunner', 'vitest', '--reporters', 'json',
-    '--jsonReporter.fileName', out, '--tempDirName', join(tmp, 'stryker-tmp'), '--concurrency', '2'])
+  assert.deepEqual(argv, ['run', join(tmp, 'stryker.config.mjs'), '--mutate', 'src/my a.ts', '--testRunner', 'vitest', '--reporters', 'json',
+    '--tempDirName', join(tmp, 'stryker-tmp'), '--concurrency', '2'])
   assert.equal(existsSync(tmp), false)
   assert.deepEqual(readdirSync(d).sort(), before.concat(['.fake-stryker.calls']).sort())
+})
+// Stryker has no command-line option for the JSON report file: the runner hands it a temp config
+// module that keeps the project's own config and only sets jsonReporter.fileName.
+const loadConfig = async (root, out) => {
+  const dir = mkdtempSync(join(tmpdir(), 'qc-stryker-cfg-'))
+  const f = join(dir, 'stryker.config.mjs')
+  writeFileSync(f, strykerConfigSource(root, out))
+  return (await import(pathToFileURL(f).href)).default
+}
+test('config: no project config gives only the report file', async () => {
+  const d = proj()
+  assert.equal(projectStrykerConfig(d), null)
+  assert.deepEqual(await loadConfig(d, '/tmp/x/mutation.json'), { jsonReporter: { fileName: '/tmp/x/mutation.json' } })
+})
+test('config: the project JSON config is kept, its report file replaced', async () => {
+  const d = proj()
+  writeFileSync(join(d, 'stryker.config.json'), JSON.stringify({ vitest: { related: false }, jsonReporter: { fileName: 'reports/x.json', extra: 1 } }))
+  assert.equal(projectStrykerConfig(d), join(d, 'stryker.config.json'))
+  assert.deepEqual(await loadConfig(d, '/tmp/"q"/mutation.json'), { vitest: { related: false }, jsonReporter: { fileName: '/tmp/"q"/mutation.json', extra: 1 } })
+})
+test('config: a JS config is imported, and Stryker\'s own name order picks the first', async () => {
+  const d = proj()
+  writeFileSync(join(d, 'stryker.config.mjs'), "export default { concurrency: 4, mutate: ['src/**'] }\n")
+  writeFileSync(join(d, '.stryker.conf.json'), '{"concurrency": 9}')
+  assert.equal(projectStrykerConfig(d), join(d, 'stryker.config.mjs'))
+  assert.deepEqual(await loadConfig(d, '/o.json'), { concurrency: 4, mutate: ['src/**'], jsonReporter: { fileName: '/o.json' } })
+  const c = proj()
+  writeFileSync(join(c, 'stryker.conf.cjs'), 'module.exports = { timeoutMS: 7 }\n')
+  assert.deepEqual(await loadConfig(c, '/o.json'), { timeoutMS: 7, jsonReporter: { fileName: '/o.json' } })
 })
 test('runner: zero mutants → ran with a null score', async () => {
   const d = proj()

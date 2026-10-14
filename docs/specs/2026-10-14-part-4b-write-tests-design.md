@@ -73,9 +73,11 @@ the layers from the folders that already hold specs (`detect().specFolders`).
 
 `runStryker(root, { target, specs, timeoutMs }) → { ran, score?, killed?, survived?, error? }`.
 
-- Command (no shell): `<root>/node_modules/.bin/stryker run --mutate <target> --testRunner vitest
-  --reporters json --jsonReporter.fileName <tmp>/mutation.json --tempDirName <tmp>/stryker-tmp
-  --concurrency 2`, cwd root, `NO_COLOR=1 CI=1`, same process-group kill and temp clean-up as the
+- Command (no shell): `<root>/node_modules/.bin/stryker run <tmp>/stryker.config.mjs --mutate <target>
+  --testRunner vitest --reporters json --tempDirName <tmp>/stryker-tmp --concurrency 2`. Stryker has
+  no command-line option for the JSON report file, so `<tmp>/stryker.config.mjs` loads the project's
+  own Stryker config (if any, by Stryker's own file names) and sets only `jsonReporter.fileName` to
+  `<tmp>/mutation.json` (found by the sample service's end-to-end run). cwd root, `NO_COLOR=1 CI=1`, same process-group kill and temp clean-up as the
   Vitest runner. Score = killed / (killed + survived + timeout + no coverage), from the JSON report.
 - Pipeline step 8 `stryker`, after `mutation`, only when the tests step passed or is red, and
   `target` is given:

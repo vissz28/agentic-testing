@@ -1,0 +1,6 @@
+{
+  "testRunner": "vitest",
+  "mutate": ["src/**/*.ts"],
+  "reporters": ["clear-text", "progress"],
+  "vitest": { "related": true }
+}

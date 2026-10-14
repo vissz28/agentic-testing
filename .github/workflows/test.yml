@@ -14,3 +14,11 @@ jobs:
         run: "! grep -rn -E 'FIC|teamsystem\\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' plugins/quality-code/core"
       - name: no project keys in the checks, runners and pipeline
         run: "! grep -rn -E 'AGT|FIC' plugins/quality-code/core/checks plugins/quality-code/core/runners plugins/quality-code/core/pipeline"
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd examples/sample-service && npm ci
+      - run: cd plugins/quality-code && QC_E2E=1 node --test "test/e2e/**/*.test.mjs"
