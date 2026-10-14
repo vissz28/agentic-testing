@@ -7,6 +7,42 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.8.0] - 2026-10-14
+
+### Added
+
+- **`/quality-code:write` for Playwright projects** (and `/quality-code:start` option 3). From a
+  ticket that passes the gate it writes one e2e spec for the screen the ticket changes, then runs the
+  same pipeline as `/quality-code:check`. The screen comes from `--route`, else from the configured
+  feature whose label is on the ticket, else a card. Tests from the ticket carry `@anchor` and the
+  key; up to 3 extra probes (`Extra: …`, `@finding`) try cases the ticket did not state;
+  `--no-extras` leaves them out. Guide: `core/guides/playwright-writing.md`.
+- `playwright.folder` (where new specs go; default: your config's `testDir` when it is a plain
+  string, else `e2e/`) and `playwright.guide`; `core/cli.mjs config e2e-folder` shows the folder.
+- **`/quality-code:seed <KEY> [--path <spec>]`**: only the test data a ticket needs, as calls to your
+  own seed builders (Vitest) or route stubs copied from your existing stubs (Playwright). It never
+  invents a builder, a shape or a value and never writes to a database. Optional `seed` block
+  (`builders`, `dataset`, `stubsFrom`); guide `core/guides/seed-data.md`.
+- **`/quality-code:kpi`**: tickets gated, refused then filled in then passed, Jira comments posted,
+  forced runs, pipeline verdicts and deciding steps, boundary blocks.
+- **A local audit log**, `.claude/quality-code/audit/<kind>.jsonl` (gate, pipeline, jira, override):
+  keys and numbers only, git-ignored (setup adds the line and the folder ignores itself).
+  `--no-audit` or `QC_NO_AUDIT=1` turns it off.
+- `core/pipeline/cli.mjs --incomplete-ticket <score>` (0–69): the card opens with
+  `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/70)`; the verdict is unchanged.
+
+### Changed
+
+- **Refuse option 3 ("continue anyway") leads to writing again**, for developers, with every result
+  card marked as above and the override recorded (as the warehouse plugins did).
+- `ticket-eval` records a posted Jira comment or fill-in push with `cli.mjs jira-posted`.
+
+### Upgrade
+
+Update the plugin before adding `playwright.folder`, `playwright.guide` or a `seed` block: 0.7.x
+refuses them. Re-run `/quality-code:setup` once (or add `.claude/quality-code/audit/` to
+`.gitignore`); the audit folder also ignores itself.
+
 ## [0.7.0] - 2026-10-14
 
 ### Added

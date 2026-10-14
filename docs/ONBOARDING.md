@@ -70,7 +70,7 @@ Playwright, the app must be running, or your config's `webServer` must start it.
 
 Only for a ticket that passes the gate. It asks which code the ticket changes, shows the plan, writes
 the tests in your test folders only, runs the checks and shows the card. Read the tests before you
-commit them. Writing Playwright tests comes with part 3b.
+commit them. On Playwright it asks which screen (or takes it from the feature's route).
 
 From then on, every day: `/quality-code:start` on your feature branch.
 

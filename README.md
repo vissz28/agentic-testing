@@ -87,7 +87,9 @@ other than English and Italian. See [Known limits](#known-limits).
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `core/checks/cli.mjs` | ✅ available (building blocks) |
 | Check the tests on your branch: run them and grade them | `/quality-code:check` (or `start`, option 2) | ✅ available (Vitest, Playwright) |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Vitest) |
-| Write frontend tests from a ticket, any Playwright app | — | 📅 planned (part 3b); checking them is available above |
+| Write frontend tests from a ticket, any Playwright app | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Playwright) |
+| Write only the test data a ticket needs: seed builder calls (Vitest) or route stubs (Playwright) | `/quality-code:seed <KEY> [--path <spec>]` | ✅ available |
+| How the plugin is used here: tickets gated, fill-ins, Jira comments, forced runs, verdicts, boundary blocks | `/quality-code:kpi` | ✅ available |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
 
 ## Who does what
@@ -306,7 +308,7 @@ in `node_modules/.vite` and the mutation check's temporary spec copies, deleted 
 
 ## Write tests from a ticket
 
-For Vitest projects. `/quality-code:write` writes tests from a ticket that passes the readiness gate,
+For Vitest and Playwright projects. `/quality-code:write` writes tests from a ticket that passes the readiness gate,
 then the pipeline grades them. Claude writes; the scripts gate and grade.
 
 ```
@@ -341,6 +343,36 @@ way out. One older than 12 hours is ignored and replaced. By hand:
 `node <plugin>/core/checks/cli.mjs run start --key ABC-123`, `run stop`, `run status`.
 
 ---
+
+### Playwright projects
+
+On a Playwright project, `write` takes the screen from `--route`, else from the configured feature
+whose label is on the ticket (`features[].route`), else asks. It plans the ticket's scenarios plus up
+to 3 extra probes (`Extra: …`, tagged `@finding`; `--no-extras` leaves them out), writes
+`<e2e folder>/<screen>.<key>.spec.ts` with `@anchor` and the ticket key on each test from the ticket,
+and runs the checks. The app must be running, or started by your config's `webServer`. The e2e
+folder is `playwright.folder`, else your Playwright config's `testDir` when it is a plain string,
+else `e2e/` (`node <plugin>/core/cli.mjs config e2e-folder` shows which and why).
+
+### Seed test data
+
+`/quality-code:seed ABC-123` reads the ticket (no readiness gate: nothing is graded) and writes only
+the data setup. On Vitest: calls to your own seed builders (`seed.builders`), in foreign-key order,
+with the ticket's exact values. On Playwright: `page.route` stubs whose response shapes are copied
+from a stub you already have (`seed.stubsFrom`). With `seed.dataset`, a documented known dataset's
+ids and values come first. It prints the block, or puts it into an existing spec's setup with
+`--path`. It never invents a builder, a shape or a value, and never writes to a database.
+
+### What the plugin did here: `/quality-code:kpi`
+
+```
+/quality-code:kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
+```
+
+Tickets gated (pass and refuse, score bands, the most missing criteria), refused then filled in then
+passed, Jira comments posted, forced runs (option 3), pipeline runs by verdict and deciding step,
+and boundary blocks. It reads the local audit log in `.claude/quality-code/audit/` (git-ignored; keys
+and numbers only, never ticket text; `QC_NO_AUDIT=1` turns it off).
 
 ### What do the runs cost?
 
@@ -483,9 +515,11 @@ real data. The ticket is re-read from Jira first and only appended to. `--ci` ne
 
 ### 3. Continue anyway
 
-For developers. Nothing is posted; the run stops here with the `[RISK / NOT RECOMMENDED]` mark.
-`/quality-code:write` never writes tests for a refused ticket, override included. If the ticket has
-nothing to check at all, it asks you to add what should happen first.
+For developers. Nothing is posted. Inside `/quality-code:write`, the tests are still written and
+checked, but the card opens with `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/70)` and the
+override is recorded in the audit log (`/quality-code:kpi` counts these forced runs). The verdict is
+not changed by the mark. If the ticket has nothing to check at all, it asks you to add what should
+happen first.
 
 ---
 
@@ -529,7 +563,8 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions | `src/`, `.env`, `.env.*`, the CI file |
-| `playwright` | Playwright only: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Playwright config, every project, `tsconfig.json`, 600 |
+| `playwright` | Playwright only: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600), `folder` (where `write` puts new specs, ending in `/`, not in a forbidden boundary), `guide` (a `.md` with your e2e conventions) | default Playwright config, every project, `tsconfig.json`, 600; folder: your config's `testDir` when it is a plain string, else `e2e/`; no guide |
+| `seed` | optional: `builders` (Vitest: the files with your seed builders), `dataset` (a `.md` documenting a known test dataset), `stubsFrom` (Playwright: the folder whose specs hold your route stubs) | none |
 | `vitest` | Vitest only: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. Used only when the project has `node_modules/.bin/stryker` | `60` |
@@ -602,15 +637,17 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
 | `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
 | `Another test-writing run is active.` | A `/quality-code:write` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/core/checks/cli.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
-| `Writing Playwright tests is not available yet` | `/quality-code:write` writes Vitest tests only; check your Playwright tests with `/quality-code:check`. |
+| `the e2e folder "…" is inside the forbidden "…"` | Your Playwright `testDir` is in a folder tests must not write. Set `playwright.folder` to a test folder, or allow it in `boundaries.allow`. |
+| `honesty: anchor tag without a ticket tag` | A tag list was split over lines; keep `{ tag: ['@anchor', '@KEY'] }` on the `test(` line. |
+| `No quality-code audit data yet` | Gate a ticket or run a check first; the audit log is local to your machine. |
 | A Playwright check says `the app is not reachable` | Start the app, or let your Playwright config's `webServer` start it, then run the check again. The verdict is `not verified`, never red. |
 
 ---
 
 ## Known limits
 
-- **Test writing is Vitest only.** `/quality-code:check` works for Vitest and Playwright projects;
-  `/quality-code:write` writes Vitest tests only (Playwright writing is part 3b).
+- **Playwright writing covers behaviour only.** No design (Figma) captures and no XRay rows yet;
+  one e2e folder per project (`playwright.folder`).
 - **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
   end-to-end tests.
 - **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, or without a target
@@ -630,7 +667,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config (no database, Prisma or Docker), the expected-values check, optional Stryker; proved end to end on [`examples/sample-service`](examples/sample-service) with a real Vitest and Stryker | ✅ **available** (4a checking in 0.5.0, 4b writing in 0.6.0) |
-| 3 | Playwright adapter | the pipeline for any Playwright app (3a), then writing Playwright tests from a ticket (3b) | 3a ✅ **available** (checking, 0.7.0); 3b 📅 next |
+| 3 | Playwright adapter | the pipeline for any Playwright app (3a), then writing Playwright tests from a ticket (3b) | ✅ **available** (3a checking in 0.7.0, 3b writing in 0.8.0) |
 | 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
 
 Parts are numbered by design order; the backend adapter (4) is built before the frontend one (3).
@@ -642,11 +679,11 @@ model never grades its own tests.
 **Not scheduled yet.** Logic the old warehouse plugins had that no part covers yet. These are open
 items, not promises:
 
-- seeding test data (`:seed`), which part 1 expected in parts 3–4 and neither has;
-- the run log, the audit log and the KPI rollup;
 - reading merge-request links from the Jira development panel;
-- what refuse option 3 ("continue anyway") should lead to, now that `/quality-code:write` never
-  writes tests for a refused ticket.
+- design (Figma) captures and XRay rows for Playwright tests.
+
+Seeding, the audit log with `/quality-code:kpi`, and what option 3 leads to were decided on 14 Oct
+and ship in 0.8.0 (see the part 5 spec, §8).
 
 Details:
 part 1 [spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
@@ -664,7 +701,13 @@ part 3 [spec](docs/specs/2026-10-14-part-3-playwright-design.md) ·
 part 5 [spec](docs/specs/2026-10-14-part-5-rollout-design.md) ·
 [plan](docs/plans/2026-10-14-part-5-rollout.md);
 consumption [spec](docs/specs/2026-10-14-consumption-design.md) ·
-[plan](docs/plans/2026-10-14-consumption.md).
+[plan](docs/plans/2026-10-14-consumption.md);
+part 3b [spec](docs/specs/2026-10-14-part-3b-playwright-writing-design.md) ·
+[plan](docs/plans/2026-10-14-part-3b-playwright-writing.md);
+seed [spec](docs/specs/2026-10-14-seed-design.md) ·
+[plan](docs/plans/2026-10-14-seed.md);
+audit and KPI [spec](docs/specs/2026-10-14-audit-kpi-design.md) ·
+[plan](docs/plans/2026-10-14-audit-kpi.md).
 
 ---
 
@@ -690,7 +733,7 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     check.md, consumption.md, setup.md, start.md, ticket-eval.md, write.md
+│     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, start.md, ticket-eval.md, write.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │     │                                rubrics, score, sanitize, fill, jira, fields, messages,

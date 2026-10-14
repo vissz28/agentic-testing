@@ -153,12 +153,13 @@ Type the numbers you want to fill, for example: 1 3
 
 ### Option 3: continue anyway
 
-Only for developers who know the risk. Nothing is posted, and the run stops with the
-`[RISK / NOT RECOMMENDED]` mark. No tests are written for a refused ticket.
+Only for developers who know the risk. Nothing is posted. If you came from `/quality-code:write`,
+the tests are still written, but the result card opens with `🔴 [RISK / NOT RECOMMENDED] Ticket
+incomplete` and the override is recorded.
 
 ---
 
-## Checking tests (Vitest projects)
+## Checking tests (Vitest and Playwright projects)
 
 Once your branch has test files, run:
 
@@ -184,7 +185,7 @@ repo has more than one Vitest config, `/quality-code:setup advanced` asks which 
 
 ---
 
-## Writing tests (Vitest projects)
+## Writing tests (Vitest and Playwright projects)
 
 To have the tests written from the ticket, run:
 
@@ -258,6 +259,9 @@ What does **not** count:
 | `/quality-code:check test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
 | `/quality-code:write ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
 | `/quality-code:write ABC-123 --layer unit` | writes only in the `unit` test folder |
+| `/quality-code:write ABC-123 --route /orders` | Playwright: writes the tests for the `/orders` screen |
+| `/quality-code:seed ABC-123` | writes only the test data the ticket needs |
+| `/quality-code:kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days |
 | `/quality-code:consumption --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |
 
 ---
