@@ -1,0 +1,97 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import * as fc from "fast-check";
+import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
+import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
+import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedMany, seedTradeItem, WS } from "@test/seed";
+
+describe("TradeItemRepository (db range)", () => {
+  let db: LiveDb;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  it("findByCode never returns a row whose deletedAt is set", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
+        await db.restore();
+        const prisma = db.prisma();
+        const repo = new TradeItemRepository(prisma);
+        const code = `C-${n}`;
+        await seedTradeItem(prisma, {
+          id: `ti-${n}`,
+          code,
+          deletedAt: new Date("2024-06-01"),
+        });
+        expect(await repo.findByCode({ code, workspaceId: WS })).toBeNull();
+      }),
+      { numRuns: 10 },
+    );
+  });
+
+  it("findByCode returns the live row for any generated code", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
+        await db.restore();
+        const prisma = db.prisma();
+        const repo = new TradeItemRepository(prisma);
+        const code = `L-${n}`;
+        await seedTradeItem(prisma, { id: `live-${n}`, code, unitCost: "80" });
+        const found = await repo.findByCode({ code, workspaceId: WS });
+        expect(found?.code).toBe(code);
+        expect(found?.deletedAt).toBeNull();
+      }),
+      { numRuns: 10 },
+    );
+  });
+});
+
+// FIC-13839 — for any mix of live and soft-deleted items in a workspace, the products-stock list
+// (findAllByIds) returns exactly the live ones and never a row whose deletedAt is set. The count of
+// returned rows equals the number of live items regardless of how many soft-deleted rows exist.
+describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
+  let db: LiveDb;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  it("findAllByIds never returns a soft-deleted item for any live/deleted mix", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 5 }),
+        fc.integer({ min: 0, max: 5 }),
+        async (liveCount, deletedCount) => {
+          await db.restore();
+          const prisma = db.prisma();
+          const repo = new TradeItemRepository(prisma);
+
+          await seedMany(seedTradeItem, prisma, liveCount, (i) => ({
+            id: `live-${i}`,
+            code: `LIVE-${i}`,
+            deletedAt: null,
+          }));
+          await seedMany(seedTradeItem, prisma, deletedCount, (i) => ({
+            id: `gone-${i}`,
+            code: `GONE-${i}`,
+            deletedAt: new Date("2024-06-01"),
+          }));
+
+          const result = await repo.findAllByIds(
+            { workspaceId: WS, take: 100 },
+            {} as FilterTradeItemDTO,
+            undefined as unknown as SortingParam,
+            false,
+          );
+
+          expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
+          expect(result.items.some((i) => i.id.startsWith("gone-"))).toBe(false);
+          expect(result.items).toHaveLength(liveCount);
+        },
+      ),
+      { numRuns: 20 },
+    );
+  });
+});

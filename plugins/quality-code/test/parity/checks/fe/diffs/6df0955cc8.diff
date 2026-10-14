@@ -1,0 +1,317 @@
+diff --git a/e2e/tests/movements-list/FIC-12624.spec.ts b/e2e/tests/movements-list/FIC-12624.spec.ts
+new file mode 100644
+index 0000000..54e2332
+--- /dev/null
++++ b/e2e/tests/movements-list/FIC-12624.spec.ts
+@@ -0,0 +1,311 @@
++import { readFileSync } from 'node:fs'
++import type { Page } from '@playwright/test'
++import { expect, test } from '../../fixtures'
++
++// FIC-12624 — [Movements List Drawer] Data loss confirmation modal shown when closing
++// 'Edit Manual Transaction' without changes
++// https://teamsystem.atlassian.net/browse/FIC-12624
++// Bug from QA/Test, DONE. No acceptance criteria in the ticket (one sentence of prose), so the
++// three scenarios below are read out of that sentence: it names three ways to close the drawer.
++//
++// The bug: opening a movement for editing and closing it again without touching anything showed
++// the "unsaved data" warning. The cause (MR 47a08a3, MovementForm.tsx) is that the form captured
++// its "original values" on the very first render, while the movement was still being fetched.
++// The values arrived a moment later, the form compared them against that empty snapshot, and
++// decided the user had made changes. The fix waits until the movement data is really there
++// before taking the snapshot.
++//
++// These are regression anchors: they pass today and fail again if that snapshot timing breaks.
++// The delay in the stub below is deliberate. It recreates the gap between opening the drawer and
++// the data arriving, which is the exact window where the bug lived.
++
++const IT_BUCKET = JSON.parse(
++  readFileSync(
++    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
++    'utf8'
++  )
++)
++
++// A manual movement. `isManual: true` matters: the row only offers the actions menu, and the
++// drawer only allows editing, for manual movements.
++const MOVEMENT = {
++  id: 'mov-001',
++  tradeItem: { name: 'Product SKU001', code: 'SKU001', measurementUnit: 'kg' },
++  type: 'incoming',
++  date: '2026-05-12',
++  document: 'DOC-1001',
++  parentDocument: null,
++  client: null,
++  supplier: 'Supplier Alpha',
++  quantity: '100.0000',
++  reason: 'purchase',
++  isManual: true,
++}
++
++// What GET movements/<id>/workspace/<ws> returns — the shape the edit form fills itself from.
++const MOVEMENT_BY_ID = {
++  ...MOVEMENT,
++  tradeItem: {
++    id: 'ti-001',
++    name: 'Product SKU001',
++    code: 'SKU001',
++    measurementUnit: 'kg',
++  },
++  entity: null,
++  description: null,
++  totalAmount: '1000.00',
++  unitPrice: '10.00',
++  importDate: null,
++  importedFileName: null,
++}
++
++// The product behind the movement, as GET trade-items/<id>/workspace/<ws> returns it. The edit
++// form fetches this separately and takes `tradeItemId` from it, which is what tells the form its
++// data is complete and it can start watching for changes. `unitPrice` x `quantity` must equal
++// `totalAmount` above, or the form recalculates the total on load and looks changed before the
++// user has touched anything.
++const TRADE_ITEM = {
++  id: 'ti-001',
++  code: 'SKU001',
++  name: 'Product SKU001',
++  description: '',
++  measurementUnit: 'kg',
++  unitPrice: '10.00',
++  kpi: [{ stockOnHand: '500', stockAvailability: '500' }],
++}
++
++// Italian labels the tests assert on. Read from the bucket rather than retyped, so a copy change
++// moves the test with the app instead of breaking it.
++const L = IT_BUCKET.value
++const EDIT_TITLE = L.EditManualMovement // "Modifica movimento manuale"
++const VIEW_TITLE = L.DetailsMovement // "Dettagli movimento"
++const WARNING = L.CancelNewMovementDialogTitle // "Attenzione: dati non salvati"
++const WARNING_STAY = L.CancelNewMovementDialogCancelButton // "Continua a creare il movimento"
++const MENU_EDIT = L.EditMovement // "Modifica movimento"
++const CANCEL = L.Cancel // "Annulla"
++const DOC_FIELD = L.DocumentNumber // "Documento" — a plain text field, editable in this movement
++
++// The URL the drawer fetches the single movement from. Waiting on this response is what proves
++// the form has its data; it does not depend on any field markup. The movement id is spelled out
++// rather than a wildcard, which would also match the documents and clients-suppliers calls the
++// list makes on load.
++const BY_ID = `**/movements/${MOVEMENT.id}/workspace/**`
++
++async function stubMovements(page: Page) {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  // `warehouse.id` has to be present: the edit form reads `basicInfo?.warehouse.id`, where the
++  // optional chain stops one level short, so an empty object crashes the drawer.
++  await page.route('**/warehouse/basic-info/**', route =>
++    route.fulfill({
++      json: {
++        importAdjustmentsStatus: null,
++        fileGenerationStatus: null,
++        historicalReport: null,
++        warehouse: { id: 'wh-001' },
++      },
++    })
++  )
++  // The product autocomplete list — empty is fine, nothing here searches it.
++  await page.route('**/trade-items/**', route =>
++    route.fulfill({ json: { count: 0, items: [] } })
++  )
++  // Registered after the line above so it wins: in edit mode the product section makes a SECOND
++  // call for the movement's own product, and the form takes `tradeItemId` from that response.
++  // Without it `tradeItemId` stays empty, the form never counts itself as ready, and it never
++  // starts tracking changes — which would make every test below pass without proving anything.
++  await page.route('**/trade-items/*/workspace/**', route =>
++    route.fulfill({ json: TRADE_ITEM })
++  )
++
++  // Registration order matters: Playwright prefers the handler registered LAST, so the
++  // single-movement route goes first and the two more specific list routes override it.
++  await page.route(BY_ID, async route => {
++    // The movement does not arrive in the same tick the drawer opens. That gap is what the bug
++    // needed, so the test keeps it instead of answering instantly.
++    await new Promise(resolve => setTimeout(resolve, 300))
++    // The movement itself, not wrapped: the app reads the response body as the movement.
++    await route.fulfill({ json: MOVEMENT_BY_ID })
++  })
++  await page.route('**/movements/documents/workspace/**', route =>
++    route.fulfill({ json: { data: [], total: 0 } })
++  )
++  await page.route('**/movements/clients-suppliers/workspace/**', route =>
++    route.fulfill({ json: { clients: [], suppliers: [] } })
++  )
++  await page.route('**/movements/workspace/**', route =>
++    route.fulfill({ json: { data: [MOVEMENT], total: 1 } })
++  )
++}
++
++/**
++ * Open the movement for editing the way a user does: row menu → "Modifica movimento".
++ *
++ * Returns once the movement data has actually arrived. Closing the drawer while it is still
++ * loading would not touch the bug at all — the whole defect is about what happens after.
++ */
++async function openEditDrawer(page: Page) {
++  await expect(page.locator('.MuiDataGrid-row').first()).toBeVisible({
++    timeout: 15_000,
++  })
++  // First button in the row is the "…" actions menu; it only renders for manual movements.
++  await page
++    .getByRole('row', { name: /SKU001/ })
++    .getByRole('button')
++    .first()
++    .click()
++
++  const loaded = page.waitForResponse(BY_ID)
++  await page.getByRole('menuitem', { name: MENU_EDIT }).click()
++  await loaded
++
++  await expect(page.getByText(EDIT_TITLE)).toBeVisible({ timeout: 15_000 })
++  // The loaded document number proves the form filled itself from the response.
++  await expect(page.getByRole('textbox', { name: DOC_FIELD })).toHaveValue(
++    'DOC-1001',
++    { timeout: 15_000 }
++  )
++}
++
++const drawer = (page: Page) => page.locator('.MuiDrawer-paper')
++
++// --- Acceptance criteria (read from the ticket prose) ---
++
++// Scenario 1:
++// Given the "Modifica movimento manuale" drawer is open on an existing movement
++// When I click outside the drawer without changing any field
++// Then the unsaved-data warning is not shown and the drawer closes.
++test('FIC-12624-1-close-edit-drawer-by-clicking-outside-shows-no-warning', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await openEditDrawer(page)
++
++  // Clicking the backdrop is what "click outside the drawer" means for this drawer.
++  await page.locator('.MuiBackdrop-root').last().click({ position: { x: 5, y: 5 } })
++
++  await expect(page.getByText(WARNING)).toHaveCount(0)
++  await expect(page.getByText(EDIT_TITLE)).toHaveCount(0)
++})
++
++// Scenario 2:
++// Given the drawer is open on an existing movement
++// When I click the X button without changing any field
++// Then the unsaved-data warning is not shown and the drawer closes.
++test('FIC-12624-2-close-edit-drawer-with-x-button-shows-no-warning', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await openEditDrawer(page)
++
++  // The X sits in the drawer header, to the right of the title, and is its first button.
++  await drawer(page).getByRole('button').first().click()
++
++  await expect(page.getByText(WARNING)).toHaveCount(0)
++  await expect(page.getByText(EDIT_TITLE)).toHaveCount(0)
++})
++
++// Scenario 3:
++// Given the drawer is open on an existing movement
++// When I click the Annulla button without changing any field
++// Then the unsaved-data warning is not shown and the drawer closes.
++test('FIC-12624-3-close-edit-drawer-with-cancel-button-shows-no-warning', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await openEditDrawer(page)
++
++  await drawer(page).getByRole('button', { name: CANCEL }).click()
++
++  await expect(page.getByText(WARNING)).toHaveCount(0)
++  await expect(page.getByText(EDIT_TITLE)).toHaveCount(0)
++})
++
++// --- Edge cases (proposed by the tool, not in the ticket) ---
++
++// E1 — the other direction. The fix works by delaying when the form takes its "original values"
++// snapshot. If that snapshot were taken too late, or never, the warning would stop appearing at
++// all and real edits would be thrown away without asking. That is the more expensive bug of the
++// two, and the ticket does not cover it. Probes that a real change still warns.
++test('FIC-12624-edge-1-warning-is-still-shown-when-a-change-was-made', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await openEditDrawer(page)
++
++  const documentField = page.getByRole('textbox', { name: DOC_FIELD })
++  await documentField.fill('DOC-9999')
++  await documentField.blur()
++  // Prove the change really landed before asking whether it is protected. Without this the test
++  // could pass on a typo in the selector, having changed nothing at all.
++  await expect(documentField).toHaveValue('DOC-9999')
++
++  await drawer(page).getByRole('button', { name: CANCEL }).click()
++
++  await expect(page.getByText(WARNING)).toBeVisible()
++})
++
++// E2 — read-only mode. The drawer also opens as a detail view, where there is nothing to lose
++// and the warning should never appear whatever the form state looks like. Probes the
++// "not in view mode" guard in MovementFormDrawer, which the ticket does not mention.
++test('FIC-12624-edge-2-view-drawer-closes-without-warning', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await expect(page.locator('.MuiDataGrid-row').first()).toBeVisible({
++    timeout: 15_000,
++  })
++
++  // The arrow button at the end of the row opens the read-only detail view.
++  const loaded = page.waitForResponse(BY_ID)
++  await page
++    .getByRole('row', { name: /SKU001/ })
++    .getByRole('button')
++    .last()
++    .click()
++  await loaded
++  await expect(page.getByText(VIEW_TITLE)).toBeVisible({ timeout: 15_000 })
++
++  await page.locator('.MuiBackdrop-root').last().click({ position: { x: 5, y: 5 } })
++
++  await expect(page.getByText(WARNING)).toHaveCount(0)
++  await expect(page.getByText(VIEW_TITLE)).toHaveCount(0)
++})
++
++// E3 — the way back out of the warning. Once it does appear, its left button is meant to return
++// the user to the form with the edit intact. Nothing in the ticket says what that button does.
++// Probes that it keeps the drawer open and keeps the typed value.
++test('FIC-12624-edge-3-staying-on-the-form-keeps-the-drawer-open', async ({
++  page,
++  warehouse,
++}) => {
++  await stubMovements(page)
++  await warehouse.goto('/movements-list')
++  await openEditDrawer(page)
++
++  const documentField = page.getByRole('textbox', { name: DOC_FIELD })
++  await documentField.fill('DOC-9999')
++  await documentField.blur()
++  await drawer(page).getByRole('button', { name: CANCEL }).click()
++  await expect(page.getByText(WARNING)).toBeVisible()
++
++  await page.getByRole('button', { name: WARNING_STAY }).click()
++
++  // The warning is gone, the drawer is still there, and the typed change survived.
++  await expect(page.getByText(WARNING)).toHaveCount(0)
++  await expect(page.getByText(EDIT_TITLE)).toBeVisible()
++  await expect(page.getByRole('textbox', { name: DOC_FIELD })).toHaveValue(
++    'DOC-9999'
++  )
++})

@@ -1,0 +1,356 @@
+diff --git a/test/integration/common/repositories/trade-item.repository.spec.ts b/test/integration/common/repositories/trade-item.repository.spec.ts
+index d1e214f..376094e 100644
+--- a/test/integration/common/repositories/trade-item.repository.spec.ts
++++ b/test/integration/common/repositories/trade-item.repository.spec.ts
+@@ -1,11 +1,7 @@
+-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+ import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
+-import { TradeItemService } from "@app/common/services/trade-item/trade-item.service";
+ import type { GetTradeItemDTO } from "@app/common/dto/trade-item/get-trade-item-dto";
+ import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+-import type { ConfigService } from "@nestjs/config";
+-import type { JwtService } from "@nestjs/jwt";
+-import type { HttpService } from "@nestjs/axios";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedKpi, seedTradeItem, WS } from "@test/seed";
+ 
+@@ -57,42 +53,3 @@ describe("TradeItemRepository (db integration)", () => {
+     expect(result.items).toHaveLength(0);
+   });
+ });
+-
+-describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
+-  let db: LiveDb;
+-  let service: TradeItemService;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    service = new TradeItemService(
+-      new TradeItemRepository(db.prisma()),
+-      { get: vi.fn() } as unknown as ConfigService,
+-      {} as JwtService,
+-      {} as HttpService,
+-    );
+-  });
+-
+-  // Scenario: KPI reads unit_cost, not unit_price
+-  //   Given a product with unit_cost = 80 and unit_price = 150 in master data
+-  //   When tradeItems is listed
+-  //   Then unitCost is 80, never 150
+-  it("tradeItems returns unitCost from master-data unit_cost, not unit_price", async () => {
+-    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
+-    const result = await service.tradeItems(
+-      { workspaceId: WS },
+-      false,
+-      {} as GetTradeItemDTO,
+-      undefined as unknown as SortingParam,
+-    );
+-    expect(result.count).toBe(1);
+-    const item = result.items[0];
+-    expect(item.unitCost?.toString()).toBe("80");
+-    expect(item.unitCost?.toString()).not.toBe("150");
+-    expect(item.unitPrice?.toString()).toBe("150");
+-    expect(item.deletedAt).toBeNull();
+-  });
+-});
+diff --git a/test/range/common/repositories/kpi.repository.spec.ts b/test/range/common/repositories/kpi.repository.spec.ts
+index 88dfffd..ebe102f 100644
+--- a/test/range/common/repositories/kpi.repository.spec.ts
++++ b/test/range/common/repositories/kpi.repository.spec.ts
+@@ -1,84 +1,11 @@
+ import { describe, it, expect, beforeAll } from "vitest";
+ import * as fc from "fast-check";
+ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+-import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
+ import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { logRange } from "@test/range-log";
+ import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+ 
+-// The invariant behind FIC-13436: applying a movement moves stockOnHand by exactly ±quantity.
+-// An outgoing movement never increases stock (the ticket's failure); an incoming never decreases it.
+-// Quantities are fractional (hundredths) like the ticket's 25.89 / 57.89 / 58.86.
+-const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
+-const BASELINE_DATE = new Date("2024-01-01");
+-const MOVEMENT_DATE = new Date("2024-01-02");
+-
+-describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+-  let db: LiveDb;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  it("upsertKpiStock: outgoing never raises stockOnHand, incoming never lowers it (newStock = baseline ± quantity)", async () => {
+-    await fc.assert(
+-      fc.asyncProperty(
+-        fc.integer({ min: 0, max: 1_000_000 }), // baseline hundredths of a unit
+-        fc.integer({ min: 1, max: 1_000_000 }), // movement quantity, hundredths
+-        fc.constantFrom("incoming" as const, "outgoing" as const),
+-        async (baseHundredths, qtyHundredths, direction) => {
+-          await db.restore();
+-          const prisma = db.prisma();
+-          const repo = new KpiRepository(prisma);
+-
+-          const baseline = baseHundredths / 100;
+-          const quantity = qtyHundredths / 100;
+-          const signedDelta = direction === "outgoing" ? -quantity : quantity;
+-
+-          await seedTradeItem(prisma);
+-          await seedKpi(prisma, { stockOnHand: baseline.toFixed(2), date: BASELINE_DATE });
+-
+-          const stock: UpsertKpiStockDTO = {
+-            workspaceId: WS,
+-            tradeItemId: TI,
+-            warehouseId: WH,
+-            stockOnHandDelta: signedDelta,
+-            stockValueDelta: 0,
+-            stockAvailabilityDelta: 0,
+-            orderedStockDelta: 0,
+-            reservedStockDelta: 0,
+-            lastMovementId: LAST_MOVEMENT,
+-            date: MOVEMENT_DATE,
+-          };
+-
+-          const result = await repo.upsertKpiStock(stock);
+-          const newStock = result.stockOnHand.toNumber();
+-
+-          const monotone =
+-            direction === "outgoing" ? newStock <= baseline : newStock >= baseline;
+-          const exact = Math.abs(newStock - (baseline + signedDelta)) < 1e-5;
+-
+-          logRange({
+-            key: "FIC-13436",
+-            sample: { baseline, quantity, direction },
+-            actual: newStock,
+-            ok: monotone && exact,
+-          });
+-
+-          expect(newStock).toBeCloseTo(baseline + signedDelta, 5);
+-          if (direction === "outgoing") {
+-            expect(newStock).toBeLessThanOrEqual(baseline);
+-          } else {
+-            expect(newStock).toBeGreaterThanOrEqual(baseline);
+-          }
+-        },
+-      ),
+-      { numRuns: 20 },
+-    );
+-  });
+-});
+-
+ // FIC-13860 invariant: a provided cost/price is what getLastUnitCost/getLastUnitPrice returns —
+ // for EVERY value including 0, and independent of whatever the last KPI row holds. The defect
+ // (`if (cost)`) only returns the provided value when it is truthy, so any generated 0 falls back
+diff --git a/test/range/common/repositories/trade-item.repository.spec.ts b/test/range/common/repositories/trade-item.repository.spec.ts
+index b7cd51f..5375c00 100644
+--- a/test/range/common/repositories/trade-item.repository.spec.ts
++++ b/test/range/common/repositories/trade-item.repository.spec.ts
+@@ -45,39 +45,3 @@ describe("TradeItemRepository (db range)", () => {
+     );
+   });
+ });
+-
+-describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
+-  let db: LiveDb;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  it("unitCost always equals seeded unit_cost, never unit_price, for distinct values", async () => {
+-    await fc.assert(
+-      fc.asyncProperty(
+-        fc
+-          .tuple(
+-            fc.integer({ min: 1, max: 10_000 }),
+-            fc.integer({ min: 1, max: 10_000 }),
+-          )
+-          .filter(([cost, price]) => cost !== price),
+-        async ([cost, price]) => {
+-          await db.restore();
+-          const prisma = db.prisma();
+-          const repo = new TradeItemRepository(prisma);
+-          await seedTradeItem(prisma, {
+-            unitCost: String(cost),
+-            unitPrice: String(price),
+-          });
+-          const item = await repo.get({ id: "ti-1", workspaceId: WS }, false);
+-          expect(Number(item.unitCost)).toBe(cost);
+-          expect(Number(item.unitCost)).not.toBe(price);
+-          expect(Number(item.unitPrice)).toBe(price);
+-          expect(item.deletedAt).toBeNull();
+-        },
+-      ),
+-      { numRuns: 20 },
+-    );
+-  });
+-});
+diff --git a/test/unit/common/repositories/kpi.repository.spec.ts b/test/unit/common/repositories/kpi.repository.spec.ts
+index 8ea0a05..b10b183 100644
+--- a/test/unit/common/repositories/kpi.repository.spec.ts
++++ b/test/unit/common/repositories/kpi.repository.spec.ts
+@@ -1,86 +1,9 @@
+ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+-import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
+ import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+ 
+-// Ticket exhibit (product ORO ROSA 9KT): initial 32, +25.89 (load), -57.89 (active doc),
+-// +58.86 (load) must reconstruct to 58.86. The reported 116.75 is 32 + 25.89 + 58.86 —
+-// the outgoing -57.89 was never subtracted. This pins the running stockOnHand accumulation.
+-const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
+-
+-function mkStock(stockOnHandDelta: number, date: Date): UpsertKpiStockDTO {
+-  return {
+-    workspaceId: WS,
+-    tradeItemId: TI,
+-    warehouseId: WH,
+-    stockOnHandDelta,
+-    stockValueDelta: 0,
+-    stockAvailabilityDelta: 0,
+-    orderedStockDelta: 0,
+-    reservedStockDelta: 0,
+-    lastMovementId: LAST_MOVEMENT,
+-    date,
+-  };
+-}
+-
+-describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+-  let db: LiveDb;
+-  let repo: KpiRepository;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    repo = new KpiRepository(db.prisma());
+-  });
+-
+-  // Regression anchor: replay the ticket's movement history through the real accumulation.
+-  // Buggy behaviour (outgoing ignored) lands the final row on 116.75; correct behaviour on 58.86.
+-  it("upsertKpiStock: outgoing delta subtracts, so 32 +25.89 -57.89 +58.86 = 58.86 (not 116.75)", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    // Opening balance: initial quantity 32
+-    await seedKpi(prisma, { stockOnHand: "32", date: new Date("2024-01-01") });
+-
+-    const afterLoad1 = await repo.upsertKpiStock(
+-      mkStock(25.89, new Date("2024-01-02")),
+-    );
+-    expect(afterLoad1.stockOnHand.toNumber()).toBeCloseTo(57.89, 2);
+-
+-    // The outgoing active document (-57.89) must DECREASE stock, not be dropped or added.
+-    const afterOutgoing = await repo.upsertKpiStock(
+-      mkStock(-57.89, new Date("2024-01-03")),
+-    );
+-    expect(afterOutgoing.stockOnHand.toNumber()).toBeCloseTo(0, 5);
+-    expect(afterOutgoing.stockOnHand.toNumber()).toBeLessThan(57.89);
+-
+-    const afterLoad2 = await repo.upsertKpiStock(
+-      mkStock(58.86, new Date("2024-01-04")),
+-    );
+-    expect(afterLoad2.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
+-    // Explicitly reject the reported (buggy) value.
+-    expect(afterLoad2.stockOnHand.toNumber()).not.toBeCloseTo(116.75, 2);
+-  });
+-
+-  // The invariant in isolation: an outgoing delta is (previous - quantity), independent of sign.
+-  it("edge: outgoing delta subtracts even when it drives stock below zero", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { stockOnHand: "10", date: new Date("2024-01-01") });
+-
+-    const after = await repo.upsertKpiStock(
+-      mkStock(-57.89, new Date("2024-01-02")),
+-    );
+-
+-    expect(after.stockOnHand.toNumber()).toBeCloseTo(-47.89, 2);
+-    expect(after.stockOnHand.toNumber()).toBeLessThan(10);
+-  });
+-});
+-
+ // A provided cost/price of exactly 0 (free sample, promo, zero-value receipt) must be recorded,
+ // not dropped. The defect: getLastUnitCost uses `if (cost)` — 0 is falsy, so the provided 0 is
+ // ignored and the stale previous KPI value (50) is returned. Same for getLastUnitPrice with 0.
+diff --git a/test/unit/common/repositories/trade-item.repository.spec.ts b/test/unit/common/repositories/trade-item.repository.spec.ts
+index e7cfd6a..ed4796f 100644
+--- a/test/unit/common/repositories/trade-item.repository.spec.ts
++++ b/test/unit/common/repositories/trade-item.repository.spec.ts
+@@ -1,7 +1,7 @@
+ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+ import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedTradeItem, TI, WS } from "@test/seed";
++import { seedTradeItem, WS } from "@test/seed";
+ 
+ describe("TradeItemRepository (db unit)", () => {
+   let db: LiveDb;
+@@ -37,58 +37,3 @@ describe("TradeItemRepository (db unit)", () => {
+     expect(await repo.findByCode({ code: "GONE", workspaceId: WS })).toBeNull();
+   });
+ });
+-
+-describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
+-  let db: LiveDb;
+-  let repo: TradeItemRepository;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    repo = new TradeItemRepository(db.prisma());
+-  });
+-
+-  // Scenario: KPI reads unit_cost, not unit_price
+-  //   Given a product with unit_cost = 80 and unit_price = 150 in master data
+-  //   When the item is read
+-  //   Then unitCost is 80, never 150
+-  it("get returns unitCost from unit_cost, not unit_price", async () => {
+-    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
+-    const item = await repo.get({ id: TI, workspaceId: WS }, false);
+-    expect(item.unitCost?.toString()).toBe("80");
+-    expect(item.unitCost?.toString()).not.toBe("150");
+-    expect(item.unitPrice?.toString()).toBe("150");
+-    expect(item.deletedAt).toBeNull();
+-  });
+-
+-  it("edge: null unit_cost does not leak unit_price into unitCost", async () => {
+-    await seedTradeItem(db.prisma(), { unitCost: null, unitPrice: "150" });
+-    const item = await repo.get({ id: TI, workspaceId: WS }, false);
+-    expect(item.unitCost).toBeNull();
+-    expect(item.unitPrice?.toString()).toBe("150");
+-  });
+-
+-  it("edge: equal unit_cost and unit_price still map to their own columns", async () => {
+-    await seedTradeItem(db.prisma(), { unitCost: "100", unitPrice: "100" });
+-    const item = await repo.get({ id: TI, workspaceId: WS }, false);
+-    expect(item.unitCost?.toString()).toBe("100");
+-    expect(item.unitPrice?.toString()).toBe("100");
+-  });
+-
+-  it("edge: findAll excludes a soft-deleted product", async () => {
+-    await seedTradeItem(db.prisma(), {
+-      unitCost: "80",
+-      unitPrice: "150",
+-      deletedAt: new Date("2024-01-01"),
+-    });
+-    const result = await repo.findAllByWorkspace(WS);
+-    expect(result).toHaveLength(0);
+-  });
+-
+-  it.todo(
+-    "sibling KPIs on the products dashboard are unchanged — needs product-owned fixtures",
+-  );
+-});

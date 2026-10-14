@@ -1,0 +1,438 @@
+diff --git a/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+deleted file mode 100644
+index 21f89ad..0000000
+--- a/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ /dev/null
+@@ -1,81 +0,0 @@
+-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+-import * as XLSX from "xlsx";
+-import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
+-import { ImportAdjustmentReportService } from "@app/common/services/import-adjustment-report/import-adjustment-report.service";
+-import { ImportAdjustmentReportRepository } from "@app/common/repositories/import-adjustment-report.repository";
+-import { ReportType } from "@prisma-client";
+-import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { IA, WS, seedImportAdjustment } from "@test/seed";
+-
+-function workbookText(buffer: Buffer): string {
+-  const wb = XLSX.read(buffer, { type: "buffer" });
+-  return wb.SheetNames.flatMap((name) => [
+-    name,
+-    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
+-  ]).join("\n");
+-}
+-
+-// Ticket Then: the generated report file should be in Italian. Red until the chrome is localized.
+-function reportLanguage(text: string): "italian" | "english" {
+-  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
+-    return "english";
+-  return "italian";
+-}
+-
+-describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+-  let db: LiveDb;
+-  let captured: Buffer | undefined;
+-  let service: ImportAdjustmentReportGenerationService;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    captured = undefined;
+-    const storage = {
+-      storeFile: vi.fn(async (buffer: Buffer) => {
+-        captured = buffer;
+-        return "reports/ws/file.xlsx";
+-      }),
+-    };
+-    service = new ImportAdjustmentReportGenerationService(
+-      new ImportAdjustmentReportService(
+-        new ImportAdjustmentReportRepository(db.prisma()),
+-        storage as never,
+-      ),
+-      storage as never,
+-    );
+-  });
+-
+-  it("persists a SUCCESS report whose xlsx is Italian, not English", async () => {
+-    await seedImportAdjustment(db.prisma());
+-    await service.generateSuccessReport({
+-      importAdjustmentId: IA,
+-      workspaceId: WS,
+-      originalFilename: "giacenze.xlsx",
+-      importDate: new Date("2024-06-01"),
+-      selectedDate: new Date("2024-06-01"),
+-      rows: [
+-        {
+-          sku: "SKU-1",
+-          previousStock: 10,
+-          targetStock: 12,
+-          movementQuantity: 2,
+-          movementType: "incoming",
+-        },
+-      ],
+-    });
+-
+-    const reports = await db.prisma().client.importAdjustmentReport.findMany({
+-      where: { importAdjustmentId: IA, workspaceId: WS },
+-    });
+-    expect(reports).toHaveLength(1);
+-    expect(reports[0].reportType).toBe(ReportType.SUCCESS);
+-    expect(captured).toBeDefined();
+-    expect(workbookText(captured!)).not.toContain("Import Report");
+-    expect(workbookText(captured!)).not.toContain("Date of Import");
+-    expect(reportLanguage(workbookText(captured!))).toBe("italian");
+-  });
+-});
+diff --git a/test/range/common/repositories/kpi.repository.spec.ts b/test/range/common/repositories/kpi.repository.spec.ts
+deleted file mode 100644
+index 0212b32..0000000
+--- a/test/range/common/repositories/kpi.repository.spec.ts
++++ /dev/null
+@@ -1,113 +0,0 @@
+-import { describe, it, expect, beforeAll } from "vitest";
+-import * as fc from "fast-check";
+-import { KpiRepository } from "@app/common/repositories/kpi.repository";
+-import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+-import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { logRange } from "@test/range-log";
+-import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+-
+-// FIC-13860 invariant: a provided cost/price is what getLastUnitCost/getLastUnitPrice returns —
+-// for EVERY value including 0, and independent of whatever the last KPI row holds. The defect
+-// (`if (cost)`) only returns the provided value when it is truthy, so any generated 0 falls back
+-// to the seeded last_cost/last_price and fails the property.
+-describe(`FIC-13860 — [BE] KPI "last unit cost" drops a zero-cost movement — kpi.repository`, () => {
+-  let db: LiveDb;
+-  const kpiData: GetKPIDTO = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  // Pinned counterexample: the exact zero-cost sample the property must never regress on.
+-  // RED on current source (returns the stale 50). The properties below generalise it.
+-  it("getLastUnitCost: the pinned zero-cost sample returns 0, not the seeded last_cost=50", async () => {
+-    await db.restore();
+-    const prisma = db.prisma();
+-    const repo = new KpiRepository(prisma);
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastCost: "50" });
+-
+-    const result = await repo.getLastUnitCost(kpiData, 0);
+-
+-    expect(result).toBe(0);
+-    expect(result).not.toBe(50);
+-  });
+-
+-  it("getLastUnitPrice: the pinned zero-price sample returns 0, not the seeded last_price=30", async () => {
+-    await db.restore();
+-    const prisma = db.prisma();
+-    const repo = new KpiRepository(prisma);
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastPrice: "30" });
+-
+-    const result = await repo.getLastUnitPrice(kpiData, 0);
+-
+-    expect(result).toBe(0);
+-    expect(result).not.toBe(30);
+-  });
+-
+-  it("getLastUnitCost: the provided cost (0..1e6 incl. 0) is returned verbatim, never the seeded last_cost", async () => {
+-    await fc.assert(
+-      fc.asyncProperty(
+-        // 0 is the whole point of the bug — sample it as often as any other value, not by luck.
+-        fc.oneof(fc.constant(0), fc.integer({ min: 0, max: 100_000_000 })), // provided cost, hundredths of a currency unit
+-        fc.integer({ min: 1, max: 100_000_000 }), // seeded last_cost, hundredths (always > 0 to prove it is not the source)
+-        async (costHundredths, seededHundredths) => {
+-          await db.restore();
+-          const prisma = db.prisma();
+-          const repo = new KpiRepository(prisma);
+-
+-          const cost = costHundredths / 100;
+-          const seededLastCost = seededHundredths / 100;
+-
+-          await seedTradeItem(prisma);
+-          await seedKpi(prisma, { lastCost: seededLastCost.toFixed(2) });
+-
+-          const result = await repo.getLastUnitCost(kpiData, cost);
+-
+-          logRange({
+-            key: "FIC-13860",
+-            sample: { cost, seededLastCost, method: "getLastUnitCost" },
+-            actual: result,
+-            ok: result === cost,
+-          });
+-
+-          expect(result).toBe(cost);
+-        },
+-      ),
+-      { numRuns: 20 },
+-    );
+-  });
+-
+-  it("getLastUnitPrice: the provided price (0..1e6 incl. 0) is returned verbatim, never the seeded last_price", async () => {
+-    await fc.assert(
+-      fc.asyncProperty(
+-        fc.oneof(fc.constant(0), fc.integer({ min: 0, max: 100_000_000 })),
+-        fc.integer({ min: 1, max: 100_000_000 }),
+-        async (priceHundredths, seededHundredths) => {
+-          await db.restore();
+-          const prisma = db.prisma();
+-          const repo = new KpiRepository(prisma);
+-
+-          const price = priceHundredths / 100;
+-          const seededLastPrice = seededHundredths / 100;
+-
+-          await seedTradeItem(prisma);
+-          await seedKpi(prisma, { lastPrice: seededLastPrice.toFixed(2) });
+-
+-          const result = await repo.getLastUnitPrice(kpiData, price);
+-
+-          logRange({
+-            key: "FIC-13860",
+-            sample: { price, seededLastPrice, method: "getLastUnitPrice" },
+-            actual: result,
+-            ok: result === price,
+-          });
+-
+-          expect(result).toBe(price);
+-        },
+-      ),
+-      { numRuns: 20 },
+-    );
+-  });
+-});
+diff --git a/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+deleted file mode 100644
+index a25e562..0000000
+--- a/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ /dev/null
+@@ -1,68 +0,0 @@
+-import { describe, it, expect, beforeAll, vi } from "vitest";
+-import * as fc from "fast-check";
+-import * as XLSX from "xlsx";
+-import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
+-import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { IA, WS } from "@test/seed";
+-
+-function workbookText(buffer: Buffer): string {
+-  const wb = XLSX.read(buffer, { type: "buffer" });
+-  return wb.SheetNames.flatMap((name) => [
+-    name,
+-    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
+-  ]).join("\n");
+-}
+-
+-// Ticket Then: the generated report file should be in Italian. Red until the chrome is localized.
+-function reportLanguage(text: string): "italian" | "english" {
+-  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
+-    return "english";
+-  return "italian";
+-}
+-
+-describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+-  let db: LiveDb;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  it("success report never contains English chrome for any filename", async () => {
+-    await fc.assert(
+-      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
+-          await db.restore();
+-          let captured: Buffer | undefined;
+-          const service = new ImportAdjustmentReportGenerationService(
+-            { createReport: vi.fn().mockResolvedValue({ id: "r1" }) } as never,
+-            {
+-              storeFile: vi.fn(async (buffer: Buffer) => {
+-                captured = buffer;
+-                return "reports/ws/file.xlsx";
+-              }),
+-            } as never,
+-          );
+-          await service.generateSuccessReport({
+-            importAdjustmentId: IA,
+-            workspaceId: WS,
+-            originalFilename: `giacenze-${n}.xlsx`,
+-            importDate: new Date("2024-06-01"),
+-            selectedDate: new Date("2024-06-01"),
+-            rows: [
+-              {
+-                sku: `SKU-${n}`,
+-                previousStock: 1,
+-                targetStock: 2,
+-                movementQuantity: 1,
+-                movementType: "incoming",
+-              },
+-            ],
+-          });
+-          expect(captured).toBeDefined();
+-          expect(workbookText(captured!)).not.toContain("Import Report");
+-          expect(reportLanguage(workbookText(captured!))).toBe("italian");
+-        },
+-      ),
+-      { numRuns: 20 },
+-    );
+-  });
+-});
+diff --git a/test/unit/common/repositories/kpi.repository.spec.ts b/test/unit/common/repositories/kpi.repository.spec.ts
+deleted file mode 100644
+index b10b183..0000000
+--- a/test/unit/common/repositories/kpi.repository.spec.ts
++++ /dev/null
+@@ -1,67 +0,0 @@
+-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+-import { KpiRepository } from "@app/common/repositories/kpi.repository";
+-import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+-import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+-
+-// A provided cost/price of exactly 0 (free sample, promo, zero-value receipt) must be recorded,
+-// not dropped. The defect: getLastUnitCost uses `if (cost)` — 0 is falsy, so the provided 0 is
+-// ignored and the stale previous KPI value (50) is returned. Same for getLastUnitPrice with 0.
+-describe(`FIC-13860 — [BE] KPI "last unit cost" drops a zero-cost movement — kpi.repository`, () => {
+-  let db: LiveDb;
+-  let repo: KpiRepository;
+-  const kpiData: GetKPIDTO = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    repo = new KpiRepository(db.prisma());
+-  });
+-
+-  // Regression anchor: RED on current source (returns the stale 50 instead of 0).
+-  it("getLastUnitCost: a provided cost of 0 is recorded, not the previous KPI's last_cost=50", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastCost: "50" });
+-
+-    const result = await repo.getLastUnitCost(kpiData, 0);
+-
+-    expect(result).toBe(0);
+-    expect(result).not.toBe(50);
+-  });
+-
+-  it("getLastUnitCost: a provided non-zero cost (80) is used over last_cost=50", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastCost: "50" });
+-
+-    const result = await repo.getLastUnitCost(kpiData, 80);
+-
+-    expect(result).toBe(80);
+-  });
+-
+-  it("getLastUnitCost: no provided cost falls back to the last KPI's last_cost=50", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastCost: "50" });
+-
+-    const result = await repo.getLastUnitCost(kpiData);
+-
+-    expect(result).toBe(50);
+-  });
+-
+-  // Twin anchor: RED on current source (returns the stale 30 instead of 0).
+-  it("getLastUnitPrice: a provided price of 0 is recorded, not the previous KPI's last_price=30", async () => {
+-    const prisma = db.prisma();
+-    await seedTradeItem(prisma);
+-    await seedKpi(prisma, { lastPrice: "30" });
+-
+-    const result = await repo.getLastUnitPrice(kpiData, 0);
+-
+-    expect(result).toBe(0);
+-    expect(result).not.toBe(30);
+-  });
+-});
+diff --git a/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+deleted file mode 100644
+index 4ba4358..0000000
+--- a/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ /dev/null
+@@ -1,79 +0,0 @@
+-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+-import * as XLSX from "xlsx";
+-import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
+-import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { IA, WS } from "@test/seed";
+-
+-const ENGLISH = [
+-  "Import Report",
+-  "Date of Import",
+-  "Stock Before Import",
+-  "Movement Quantity",
+-  "Imported Products",
+-];
+-
+-function workbookText(buffer: Buffer): string {
+-  const wb = XLSX.read(buffer, { type: "buffer" });
+-  return wb.SheetNames.flatMap((name) => [
+-    name,
+-    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
+-  ]).join("\n");
+-}
+-
+-// Classify the report by the language of its chrome (sheet names, titles, headers).
+-// Ticket Then: the generated file should be in Italian. Red until the chrome is localized.
+-function reportLanguage(text: string): "italian" | "english" {
+-  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
+-    return "english";
+-  return "italian";
+-}
+-
+-describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+-  let db: LiveDb;
+-  let captured: Buffer | undefined;
+-
+-  beforeAll(async () => {
+-    db = await startLiveDb();
+-  });
+-
+-  beforeEach(async () => {
+-    await db.restore();
+-    captured = undefined;
+-  });
+-
+-  it("generateSuccessReport writes Italian labels, not English", async () => {
+-    const service = new ImportAdjustmentReportGenerationService(
+-      { createReport: vi.fn().mockResolvedValue({ id: "r1" }) } as never,
+-      {
+-        storeFile: vi.fn(async (buffer: Buffer) => {
+-          captured = buffer;
+-          return "reports/ws/file.xlsx";
+-        }),
+-      } as never,
+-    );
+-
+-    await service.generateSuccessReport({
+-      importAdjustmentId: IA,
+-      workspaceId: WS,
+-      originalFilename: "giacenze.xlsx",
+-      importDate: new Date("2024-06-01"),
+-      selectedDate: new Date("2024-06-01"),
+-      rows: [
+-        {
+-          sku: "SKU-1",
+-          previousStock: 10,
+-          targetStock: 12,
+-          movementQuantity: 2,
+-          movementType: "incoming",
+-        },
+-      ],
+-    });
+-
+-    expect(captured).toBeDefined();
+-    const text = workbookText(captured!);
+-    for (const phrase of ENGLISH) {
+-      expect(text).not.toContain(phrase);
+-    }
+-    expect(reportLanguage(text)).toBe("italian");
+-  });
+-});

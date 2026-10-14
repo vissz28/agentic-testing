@@ -1,0 +1,216 @@
+diff --git a/e2e/tests/movements-list/FIC-11947.spec.ts b/e2e/tests/movements-list/FIC-11947.spec.ts
+index d1c610b..038e50a 100644
+--- a/e2e/tests/movements-list/FIC-11947.spec.ts
++++ b/e2e/tests/movements-list/FIC-11947.spec.ts
+@@ -56,7 +56,7 @@ test('FIC-11947-1-italian-filter-empty-state-shows-translated-message', async ({
+   )
+   await stubEmptyMovements(page)
+ 
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+ 
+   // Italian text is shown.
+   await expect(page.getByText('Nessun movimento trovato')).toBeVisible({
+@@ -87,7 +87,7 @@ test('FIC-11947-edge-1-english-filter-empty-state-no-raw-key', async ({
+   )
+   await stubEmptyMovements(page)
+ 
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+ 
+   // Empty-state title is present (its EN key exists), so the screen rendered.
+   await expect(page.getByText('No movement found')).toBeVisible({
+@@ -109,7 +109,7 @@ test('FIC-11947-edge-2-special-char-filter-still-shows-italian-empty-state', asy
+   )
+   await stubEmptyMovements(page)
+ 
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+ 
+   const search = page.getByRole('textbox').first()
+   await search.fill("<script>ù€ 日本 'ok'")
+diff --git a/e2e/tests/movements-list/FIC-12624.spec.ts b/e2e/tests/movements-list/FIC-12624.spec.ts
+index 54e2332..9f98cc9 100644
+--- a/e2e/tests/movements-list/FIC-12624.spec.ts
++++ b/e2e/tests/movements-list/FIC-12624.spec.ts
+@@ -181,7 +181,7 @@ test('FIC-12624-1-close-edit-drawer-by-clicking-outside-shows-no-warning', async
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await openEditDrawer(page)
+ 
+   // Clicking the backdrop is what "click outside the drawer" means for this drawer.
+@@ -200,7 +200,7 @@ test('FIC-12624-2-close-edit-drawer-with-x-button-shows-no-warning', async ({
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await openEditDrawer(page)
+ 
+   // The X sits in the drawer header, to the right of the title, and is its first button.
+@@ -219,7 +219,7 @@ test('FIC-12624-3-close-edit-drawer-with-cancel-button-shows-no-warning', async
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await openEditDrawer(page)
+ 
+   await drawer(page).getByRole('button', { name: CANCEL }).click()
+@@ -239,7 +239,7 @@ test('FIC-12624-edge-1-warning-is-still-shown-when-a-change-was-made', async ({
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await openEditDrawer(page)
+ 
+   const documentField = page.getByRole('textbox', { name: DOC_FIELD })
+@@ -262,7 +262,7 @@ test('FIC-12624-edge-2-view-drawer-closes-without-warning', async ({
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await expect(page.locator('.MuiDataGrid-row').first()).toBeVisible({
+     timeout: 15_000,
+   })
+@@ -291,7 +291,7 @@ test('FIC-12624-edge-3-staying-on-the-form-keeps-the-drawer-open', async ({
+   warehouse,
+ }) => {
+   await stubMovements(page)
+-  await warehouse.goto('/movements-list')
++  await warehouse.goto('/movementsList')
+   await openEditDrawer(page)
+ 
+   const documentField = page.getByRole('textbox', { name: DOC_FIELD })
+diff --git a/e2e/tests/products-stock.smoke.spec.ts b/e2e/tests/products-stock.smoke.spec.ts
+index 681213a..0ca1c48 100644
+--- a/e2e/tests/products-stock.smoke.spec.ts
++++ b/e2e/tests/products-stock.smoke.spec.ts
+@@ -41,7 +41,7 @@ test('products-stock renders past the iframe auth gate', async ({
+     route.fulfill({ json: {} })
+   )
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+ 
+   // If the token handshake had blocked, the app would be blank. The data grid rendering
+   // proves it booted, authenticated with the fake token, and reached the feature.
+diff --git a/e2e/tests/products-stock/FIC-13860.spec.ts b/e2e/tests/products-stock/FIC-13860.spec.ts
+index def2fb3..0742d48 100644
+--- a/e2e/tests/products-stock/FIC-13860.spec.ts
++++ b/e2e/tests/products-stock/FIC-13860.spec.ts
+@@ -48,7 +48,9 @@ async function filterBy(page: import('@playwright/test').Page, code: string) {
+ // Scenario 1:
+ // Given the Italian profile language is selected
+ // When I filter the products stock by a code that matches no product
+-// Then the message is "Nessun dato disponibile con i filtri attuali"
++// Then the message is the bucket's NoDataFiltersMessage text (read from the real bucket,
++// not hardcoded — the ticket's guessed Italian phrase predates the translation that
++// actually shipped and no longer matches it word-for-word).
+ test('FIC-13860-1-italian-profile-sees-the-italian-empty-message', async ({
+   page,
+   warehouse,
+@@ -58,15 +60,15 @@ test('FIC-13860-1-italian-profile-sees-the-italian-empty-message', async ({
+   )
+   await stubEmptyProductsStock(page)
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+   await filterBy(page, 'ZZZ-000')
+ 
+   await expect(
+-    page.getByText('Nessun dato disponibile con i filtri attuali')
++    page.getByText(IT_BUCKET.value.NoDataFiltersMessage)
+   ).toBeVisible({ timeout: 15_000 })
+   // The English text is the bug, so it must not be on an Italian screen.
+   await expect(
+-    page.getByText('No data available with current filters')
++    page.getByText(EN_BUCKET.value.NoDataFiltersMessage)
+   ).toHaveCount(0)
+ })
+ 
+@@ -83,7 +85,7 @@ test('FIC-13860-2-english-profile-sees-the-english-empty-message', async ({
+   )
+   await stubEmptyProductsStock(page)
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+   await filterBy(page, 'ZZZ-000')
+ 
+   await expect(
+@@ -104,7 +106,7 @@ test('FIC-13860-edge-1-very-long-product-code-in-the-filter', async ({
+   )
+   await stubEmptyProductsStock(page)
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+   await filterBy(page, 'Z'.repeat(250))
+ 
+   // The Italian empty area is shown and it reads as a sentence, not a label code.
+@@ -127,7 +129,7 @@ test('FIC-13860-edge-2-special-characters-in-the-product-filter', async ({
+   )
+   await stubEmptyProductsStock(page)
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+   await filterBy(page, "<script>ù€ 日本 'ok'")
+ 
+   // The Italian empty area is shown and it reads as a sentence, not a label code.
+@@ -150,7 +152,7 @@ test('FIC-13860-edge-3-no-raw-label-code-shows-on-the-english-screen', async ({
+   )
+   await stubEmptyProductsStock(page)
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+   await filterBy(page, 'ZZZ-000')
+ 
+   // Wait until the empty area is actually on screen, otherwise the checks below would pass
+diff --git a/e2e/tests/products-stock/live-backend.smoke.spec.ts b/e2e/tests/products-stock/live-backend.smoke.spec.ts
+index baa7050..be08efe 100644
+--- a/e2e/tests/products-stock/live-backend.smoke.spec.ts
++++ b/e2e/tests/products-stock/live-backend.smoke.spec.ts
+@@ -26,7 +26,7 @@ test('products-stock reads from the real backend, not a stub', async ({
+     { timeout: 30_000 }
+   )
+ 
+-  await warehouse.goto('/products-stock')
++  await warehouse.goto('/productsStock')
+ 
+   const response = await tradeItems
+   // Port 3010 is warehouse-read. A stubbed response would never carry it.
+diff --git a/e2e/tests/visual/screens.visual.spec.ts b/e2e/tests/visual/screens.visual.spec.ts
+index b2a2212..3c87c8e 100644
+--- a/e2e/tests/visual/screens.visual.spec.ts
++++ b/e2e/tests/visual/screens.visual.spec.ts
+@@ -94,7 +94,7 @@ test.describe('@visual warehouse screens', () => {
+     await page.route('**/trade-items/workspace/**', route =>
+       route.fulfill({ json: { count: 1, items: [PRODUCT] } })
+     )
+-    await warehouse.goto('/products-stock')
++    await warehouse.goto('/productsStock')
+     await expect(page.getByText('Product SKU001')).toBeVisible({
+       timeout: 15_000,
+     })
+@@ -112,7 +112,7 @@ test.describe('@visual warehouse screens', () => {
+     await page.route('**/trade-items/workspace/**', route =>
+       route.fulfill({ json: { count: 1, items: [PRODUCT] } })
+     )
+-    await warehouse.goto('/products-stock')
++    await warehouse.goto('/productsStock')
+     // Open the drawer via the row's quick-view (last action button) — same path as FIC-12505.
+     await page
+       .getByRole('row', { name: /SKU001/ })
+@@ -137,7 +137,7 @@ test.describe('@visual warehouse screens', () => {
+     await page.route('**/trade-items/**', route =>
+       route.fulfill({ json: { count: 0, items: [] } })
+     )
+-    await warehouse.goto('/movements-list')
++    await warehouse.goto('/movementsList')
+     await expect(page.locator('.MuiDataGrid-root')).toBeVisible({
+       timeout: 15_000,
+     })

@@ -1,0 +1,46 @@
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { KpiRepository } from "@app/common/repositories/kpi.repository";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+
+// FIC-14376 — a goods receipt saved with unit cost 0 must set the product's last cost to 0.
+// getLastUnitCost / getLastUnitPrice gate the carried value with a truthy `if (cost)`, so a
+// legitimate 0 is dropped and the previous KPI value (50) is kept instead. Red now; green once the
+// guard becomes `!= null`.
+describe(`FIC-14376 — incoming movement with unit cost 0 does not update the product last cost`, () => {
+  let db: LiveDb;
+  let repo: KpiRepository;
+
+  const kpiKey = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new KpiRepository(db.prisma());
+  });
+
+  it("getLastUnitCost carries a 0 cost instead of keeping the previous last cost", async () => {
+    const prisma = db.prisma();
+    await seedTradeItem(prisma);
+    await seedKpi(prisma, { lastCost: "50", date: new Date("2024-01-15") });
+
+    const lastCost = await repo.getLastUnitCost(kpiKey, 0);
+
+    expect(lastCost).toBe(0);
+    expect(lastCost).not.toBe(50);
+  });
+
+  it("getLastUnitPrice carries a 0 price instead of keeping the previous last price", async () => {
+    const prisma = db.prisma();
+    await seedTradeItem(prisma);
+    await seedKpi(prisma, { lastPrice: "50", date: new Date("2024-01-15") });
+
+    const lastPrice = await repo.getLastUnitPrice(kpiKey, 0);
+
+    expect(lastPrice).toBe(0);
+    expect(lastPrice).not.toBe(50);
+  });
+});

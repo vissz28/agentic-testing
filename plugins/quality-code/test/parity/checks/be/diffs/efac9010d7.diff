@@ -1,0 +1,95 @@
+diff --git a/test/integration/common/services/kpi/kpi.service.spec.ts b/test/integration/common/services/kpi/kpi.service.spec.ts
+new file mode 100644
+index 0000000..bf3a3c7
+--- /dev/null
++++ b/test/integration/common/services/kpi/kpi.service.spec.ts
+@@ -0,0 +1,89 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import {
++  MovementType,
++  MovementReason,
++  Operation,
++  EventSource,
++} from "@prisma-client";
++import { KpiService } from "@app/common/services/kpi/kpi.service";
++import { KpiRepository } from "@app/common/repositories/kpi.repository";
++import type { EventDTO } from "@app/common/dto/event/event.dto";
++import { EventType } from "@app/common/enums/event/type.enum";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedTradeItem, seedKpi, WS, TI, WH } from "@test/seed";
++
++// FIC-13436 — service-level view of the stock-reconstruction bug: an OUTGOING movement must
++// DECREASE stockOnHand. KpiService.processKpiUpdate → handleMovement → calculateStockDelta signs
++// the quantity from the stock config's stockOnHandOperation (decrement for outgoing), then the real
++// KpiRepository.upsertKpiStock accumulates it. If the outgoing sign were dropped/inverted (the
++// 116.75 defect), stock would grow. Two real collaborators (KpiService + real KpiRepository + Prisma).
++describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
++  let db: LiveDb;
++  let service: KpiService;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    service = new KpiService(
++      new KpiRepository(db.prisma()),
++      // eventsService: store returns a truthy stored event so processing continues
++      {
++        createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "evt-kpi-13436" }),
++      } as never,
++      // stockCalculationConfigurationsService: outgoing → decrement stock on hand
++      {
++        get: vi.fn().mockResolvedValue({
++          stockOnHandOperation: Operation.decrement,
++          stockAvailabilityOperation: Operation.decrement,
++          stockValueOperation: Operation.decrement,
++          orderedStockOperation: null,
++          reservedStockOperation: null,
++        }),
++      } as never,
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++    );
++  });
++
++  it("an outgoing movement subtracts from stock: 32 − 57.89 = −25.89 (never grows)", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { stockOnHand: "32", date: new Date("2024-01-01") });
++
++    const movement = {
++      id: "mov-kpi-13436",
++      workspaceId: WS,
++      tradeItemId: TI,
++      warehouseId: WH,
++      type: MovementType.outgoing,
++      reason: MovementReason.sale,
++      quantity: "57.89",
++      unitPrice: "10",
++      date: "2024-01-02",
++    };
++    const event = {
++      eventId: "evt-kpi-13436",
++      eventType: EventType.MOVEMENT_GENERATION,
++      source: EventSource.manual,
++      workspaceId: WS,
++      payload: JSON.stringify(movement),
++    } as unknown as EventDTO;
++
++    await service.processKpiUpdate(event);
++
++    const kpi = await prisma.client.kpi.findFirst({
++      where: {
++        workspaceId: WS,
++        tradeItemId: TI,
++        warehouseId: WH,
++        date: new Date("2024-01-02"),
++      },
++    });
++
++    expect(kpi).not.toBeNull();
++    expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(-25.89, 2);
++    expect(kpi!.stockOnHand.toNumber()).toBeLessThan(32);
++  });
++});

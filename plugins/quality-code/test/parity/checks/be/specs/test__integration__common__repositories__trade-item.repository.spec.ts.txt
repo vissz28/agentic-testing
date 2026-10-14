@@ -1,0 +1,103 @@
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
+import { TradeItemService } from "@app/common/services/trade-item/trade-item.service";
+import type { GetTradeItemDTO } from "@app/common/dto/trade-item/get-trade-item-dto";
+import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
+import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedKpi, seedTradeItem, WS } from "@test/seed";
+
+describe("TradeItemRepository (db integration)", () => {
+  let db: LiveDb;
+  let repo: TradeItemRepository;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new TradeItemRepository(db.prisma());
+  });
+
+  it("findAll with includeKpis returns the latest kpi on the item", async () => {
+    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
+    await seedKpi(db.prisma(), { stockOnHand: "12" });
+
+    const result = await repo.findAll(
+      { workspaceId: WS },
+      {} as GetTradeItemDTO,
+      undefined as unknown as SortingParam,
+      true,
+    );
+
+    expect(result.count).toBe(1);
+    expect(result.items).toHaveLength(1);
+    const kpis = (
+      result.items[0] as { kpi?: { stockOnHand: { toString(): string } }[] }
+    ).kpi;
+    expect(kpis).toHaveLength(1);
+    expect(kpis?.[0]?.stockOnHand.toString()).toBe("12");
+  });
+
+  it("findAll excludes soft-deleted items even when a kpi exists", async () => {
+    await seedTradeItem(db.prisma(), { deletedAt: new Date("2024-01-01") });
+    await seedKpi(db.prisma(), { stockOnHand: "12" });
+
+    const result = await repo.findAll(
+      { workspaceId: WS },
+      {} as GetTradeItemDTO,
+      undefined as unknown as SortingParam,
+      true,
+    );
+
+    expect(result.count).toBe(0);
+    expect(result.items).toHaveLength(0);
+  });
+});
+
+// FIC-13839 — the same soft-delete rule seen from the caller the products-stock list actually
+// uses: TradeItemService.tradeItemsByIds drives TradeItemRepository.findAllByIds against real
+// Postgres. Config/JWT/HTTP are unused on this read path, so they are stubbed. A soft-deleted item
+// (B) must not leak through the service into the list.
+describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
+  let db: LiveDb;
+  let service: TradeItemService;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    service = new TradeItemService(
+      new TradeItemRepository(db.prisma()),
+      { get: vi.fn() } as never,
+      { sign: vi.fn() } as never,
+      { get: vi.fn() } as never,
+    );
+  });
+
+  it("tradeItemsByIds does not return a soft-deleted trade item", async () => {
+    const prisma = db.prisma();
+    await seedTradeItem(prisma, { id: "ti-A", code: "A", deletedAt: null });
+    await seedTradeItem(prisma, {
+      id: "ti-B",
+      code: "B",
+      deletedAt: new Date("2024-01-01"),
+    });
+
+    const result = await service.tradeItemsByIds(
+      { workspaceId: WS },
+      false,
+      {} as FilterTradeItemDTO,
+      undefined as unknown as SortingParam,
+    );
+
+    expect(result.count).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe("ti-A");
+    expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
+    expect(result.items.some((i) => i.id === "ti-B")).toBe(false);
+  });
+});

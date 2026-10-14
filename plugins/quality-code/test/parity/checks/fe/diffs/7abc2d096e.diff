@@ -1,0 +1,112 @@
+diff --git a/e2e/tests/products-stock/FIC-13839.spec.ts b/e2e/tests/products-stock/FIC-13839.spec.ts
+deleted file mode 100644
+index 65d4ff2..0000000
+--- a/e2e/tests/products-stock/FIC-13839.spec.ts
++++ /dev/null
+@@ -1,106 +0,0 @@
+-import { readFileSync } from 'node:fs'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-13839 — Products-stock empty state renders raw i18n key instead of translated no-data message (EN)
+-// https://teamsystem.atlassian.net/browse/FIC-13839
+-//
+-// Bug: ProductsStockTable.tsx:73 renders description={t('NoDataFiltersMessage')}. The EN locale is
+-// missing that key (it carries an orphan NoDataWithFiltersMessage instead), so i18next returns the raw
+-// key string; the IT locale defines it. The empty-state text is driven entirely by the bucket served on
+-// **/i18n/** — embed mode forces i18n.language='it' (AppWrapper.tsx:32), but the served bucket's values
+-// populate the active namespace, so the FILE served is what renders (same trick as FIC-12505). The EN
+-// scenario is a RED regression anchor until the locale is fixed; the IT scenario passes today.
+-// Figma: FHVhLMEY5crUlZPU6xzhhC#12226-81435 — design reference for the visual-conformance artifact.
+-
+-const bucket = (locale: 'en' | 'it') =>
+-  JSON.parse(
+-    readFileSync(
+-      new URL(
+-        `../../../mocks/buckets/i18n/warehouse-app--${locale}.json`,
+-        import.meta.url
+-      ),
+-      'utf8'
+-    )
+-  )
+-const EN_BUCKET = bucket('en')
+-const IT_BUCKET = bucket('it')
+-
+-test.describe('FIC-13839 — products-stock empty-state translation', () => {
+-  test.beforeEach(async ({ page }) => {
+-    await page.route('**/warehouse/basic-info/**', route =>
+-      route.fulfill({ json: {} })
+-    )
+-    // Zero trade items → ProductsStockTable renders <EmptyState/> (items.length === 0 && !loading).
+-    await page.route('**/trade-items/workspace/**', route =>
+-      route.fulfill({ json: { count: 0, items: [] } })
+-    )
+-  })
+-
+-  // Scenario: English empty state shows the translated no-data message
+-  //   Given the products-stock page with the app language set to English
+-  //   And the trade-items endpoint returns zero items
+-  //   When the grid finishes loading
+-  //   Then the empty-state title reads "No products found"
+-  //   And the empty-state description reads "No data available with current filters"
+-  //   And the description is not the literal text "NoDataFiltersMessage"
+-  test('FIC-13839-1-english-empty-state-shows-the-translated-no-data-message', async ({
+-    page,
+-    warehouse,
+-  }) => {
+-    await page.route('**/i18n/**', route =>
+-      route.fulfill({ json: { item: EN_BUCKET } })
+-    )
+-    await warehouse.goto('/products-stock')
+-
+-    await expect(page.getByText('No products found')).toBeVisible({
+-      timeout: 15_000,
+-    })
+-    await expect(
+-      page.getByText('No data available with current filters')
+-    ).toBeVisible()
+-    // The bug: EN has no NoDataFiltersMessage key, so i18next echoes the raw key as the description.
+-    await expect(
+-      page.getByText('NoDataFiltersMessage', { exact: true })
+-    ).toHaveCount(0)
+-  })
+-
+-  // Scenario: Italian empty state shows the translated no-data message
+-  //   Given the products-stock page with the app language set to Italian
+-  //   And the trade-items endpoint returns zero items
+-  //   When the grid finishes loading
+-  //   Then the empty-state title reads "Nessun prodotto trovato"
+-  //   And the empty-state description reads "I filtri selezionati non hanno prodotto risultati"
+-  test('FIC-13839-2-italian-empty-state-shows-the-translated-no-data-message', async ({
+-    page,
+-    warehouse,
+-  }) => {
+-    await page.route('**/i18n/**', route =>
+-      route.fulfill({ json: { item: IT_BUCKET } })
+-    )
+-    await warehouse.goto('/products-stock')
+-
+-    await expect(page.getByText('Nessun prodotto trovato')).toBeVisible({
+-      timeout: 15_000,
+-    })
+-    await expect(
+-      page.getByText('I filtri selezionati non hanno prodotto risultati')
+-    ).toBeVisible()
+-  })
+-
+-  // Design-conformance capture (Figma present): dump the EN empty state so a reviewer sees the raw-key
+-  // defect next to the intended design. page.screenshot (a capture, never toHaveScreenshot) so it can't
+-  // turn the run red; build-artifact.mjs pairs it with the Figma frame.
+-  test('FIC-13839 — design-conformance capture', async ({ page, warehouse }) => {
+-    await page.route('**/i18n/**', route =>
+-      route.fulfill({ json: { item: EN_BUCKET } })
+-    )
+-    await warehouse.goto('/products-stock')
+-    await expect(page.getByText('No products found')).toBeVisible({
+-      timeout: 15_000,
+-    })
+-    await page.screenshot({
+-      path: 'e2e/visual-conformance/FIC-13839/app.png',
+-      fullPage: true,
+-    })
+-  })
+-})

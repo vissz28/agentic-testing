@@ -1,0 +1,13 @@
+diff --git a/e2e/tests/visual/screens.visual.spec.ts b/e2e/tests/visual/screens.visual.spec.ts
+index 083f8b7..b2a2212 100644
+--- a/e2e/tests/visual/screens.visual.spec.ts
++++ b/e2e/tests/visual/screens.visual.spec.ts
+@@ -4,7 +4,7 @@ import { expect, test } from '../../fixtures'
+ /**
+  * Visual-regression baselines for the highest-traffic warehouse screens, using native
+  * Playwright `toHaveScreenshot` — no dependency added. Styling is this frontend's dominant
+- * defect class (recorded defects: movements list 81, reports 51, import 38, products stock 33),
++ * defect class (recorded defects: movements list 80, reports 53, import 39, products stock 39),
+  * and CSS regressions are exactly what DOM assertions miss. This is the frontend's analogue to
+  * the backend's mutation testing: it perturbs nothing but catches what assertions can't.
+  *

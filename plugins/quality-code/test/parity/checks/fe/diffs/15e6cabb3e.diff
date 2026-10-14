@@ -1,0 +1,511 @@
+diff --git a/e2e/tests/warehouse-management/FIC-13374.spec.ts b/e2e/tests/warehouse-management/FIC-13374.spec.ts
+index f1f11fc..6fcca78 100644
+--- a/e2e/tests/warehouse-management/FIC-13374.spec.ts
++++ b/e2e/tests/warehouse-management/FIC-13374.spec.ts
+@@ -21,6 +21,10 @@ import { expect, test, WORKSPACE_ID } from '../../fixtures'
+ //     (only when the warehouse can be set-primary / archived / restored)
+ //   • i18n keys DeleteWarehouseDialog*, DeleteWarehouse{Success,Error}, Cancel
+ //
++// Every test below is tagged ANCHOR: it waits on the feature, so it stays out of the blocking e2e
++// gate and runs in the non-blocking e2e-anchors job instead, which reports when one turns green.
++// When the feature lands, drop `ANCHOR, ` from each test that passes so it joins the gate.
++//
+ // GAP found: the ticket says a warehouse "with at least one movement" must hide the delete icon,
+ // but the shipped eligibility rule never looks at movements and the warehouse list carries no
+ // movements flag. That rule cannot be driven from the screen — see the test.fixme below.
+@@ -31,13 +35,19 @@ import { expect, test, WORKSPACE_ID } from '../../fixtures'
+ // Real label buckets, wrapped as the OneFront i18n loader expects (`.item`).
+ const IT_BUCKET = JSON.parse(
+   readFileSync(
+-    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
++    new URL(
++      '../../../mocks/buckets/i18n/warehouse-app--it.json',
++      import.meta.url
++    ),
+     'utf8'
+   )
+ )
+ const EN_BUCKET = JSON.parse(
+   readFileSync(
+-    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
++    new URL(
++      '../../../mocks/buckets/i18n/warehouse-app--en.json',
++      import.meta.url
++    ),
+     'utf8'
+   )
+ )
+@@ -47,7 +57,8 @@ const EN_BUCKET = JSON.parse(
+ // live on feature/multi-warehouse). When the feature lands, the app renders exactly these
+ // strings and the checks turn green.
+ const IT = {
+-  modalText: 'Una volta eliminato, il magazzino non potrà più essere recuperato.',
++  modalText:
++    'Una volta eliminato, il magazzino non potrà più essere recuperato.',
+   confirm: 'Elimina magazzino',
+   cancel: 'Annulla',
+   success: 'Magazzino eliminato',
+@@ -111,10 +122,15 @@ const wh = (
+   ...over,
+ })
+ 
+-const PRIMARY = wh('wh-primary', 'Magazzino Centrale', 'MC', { isPrimary: true })
++const PRIMARY = wh('wh-primary', 'Magazzino Centrale', 'MC', {
++  isPrimary: true,
++})
+ const NORTH = wh('wh-north', 'Magazzino Nord', 'MN')
+ const SOUTH = wh('wh-south', 'Magazzino Sud', 'MS')
+ 
++// Tag for tests that wait on the multi-warehouse feature (see the header).
++const ANCHOR = { tag: ['@anchor', '@FIC-13374'] }
++
+ // A warehouse card, found by the warehouse name (unique per card).
+ const card = (page: Page, name: string) =>
+   page.locator('.MuiCard-root').filter({ hasText: name })
+@@ -170,57 +186,60 @@ async function stubWarehouses(page: Page, opts: StubOptions) {
+ //   Given a warehouse has no movements, is not the primary warehouse, and at least 2 exist
+ //   When I open the warehouse management grid
+ //   Then that warehouse's card shows a delete icon
+-test('FIC-13374-1-eligible-warehouse-card-shows-a-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const eligible = card(page, NORTH.name)
+-  await expect(eligible).toBeVisible({ timeout: 15_000 })
+-  // Edit, Delete and the "…" menu — three controls; the delete icon only appears when eligible.
+-  await expect(eligible.getByRole('button')).toHaveCount(3)
+-  // Prove the middle control really is delete: it opens the deletion window.
+-  await deleteIcon(page, NORTH.name).click()
+-  await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
+-})
++test(
++  'FIC-13374-1-eligible-warehouse-card-shows-a-delete-icon',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH] })
++    await warehouse.goto('/warehouseManagement')
++
++    const eligible = card(page, NORTH.name)
++    await expect(eligible).toBeVisible({ timeout: 15_000 })
++    // Edit, Delete and the "…" menu — three controls; the delete icon only appears when eligible.
++    await expect(eligible.getByRole('button')).toHaveCount(3)
++    // Prove the middle control really is delete: it opens the deletion window.
++    await deleteIcon(page, NORTH.name).click()
++    await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
++  }
++)
+ 
+ // Scenario: delete icon is hidden for an ineligible warehouse — the primary one
+ //   Given a warehouse is the primary warehouse
+ //   When I open the warehouse management grid
+ //   Then that warehouse's card does not show a delete icon
+-test('FIC-13374-2-primary-warehouse-card-has-no-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const primary = card(page, PRIMARY.name)
+-  await expect(primary).toBeVisible({ timeout: 15_000 })
+-  // The primary warehouse offers only Edit: no delete, and no "…" menu (it cannot be archived
+-  // or set primary again).
+-  await expect(primary.getByRole('button')).toHaveCount(1)
+-})
++test(
++  'FIC-13374-2-primary-warehouse-card-has-no-delete-icon',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH] })
++    await warehouse.goto('/warehouseManagement')
++
++    const primary = card(page, PRIMARY.name)
++    await expect(primary).toBeVisible({ timeout: 15_000 })
++    // The primary warehouse offers only Edit: no delete, and no "…" menu (it cannot be archived
++    // or set primary again).
++    await expect(primary.getByRole('button')).toHaveCount(1)
++  }
++)
+ 
+ // Scenario: delete icon is hidden for an ineligible warehouse — the only one left
+ //   Given only 1 warehouse exists
+ //   When I open the warehouse management grid
+ //   Then that warehouse's card does not show a delete icon
+-test('FIC-13374-3-the-only-warehouse-has-no-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const only = wh('wh-only', 'Magazzino Unico', 'MU')
+-  await stubWarehouses(page, { active: [only] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const onlyCard = card(page, only.name)
+-  await expect(onlyCard).toBeVisible({ timeout: 15_000 })
+-  // Edit and the "…" menu, but no delete: a warehouse cannot be deleted when it is the last one.
+-  await expect(onlyCard.getByRole('button')).toHaveCount(2)
+-})
++test(
++  'FIC-13374-3-the-only-warehouse-has-no-delete-icon',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    const only = wh('wh-only', 'Magazzino Unico', 'MU')
++    await stubWarehouses(page, { active: [only] })
++    await warehouse.goto('/warehouseManagement')
++
++    const onlyCard = card(page, only.name)
++    await expect(onlyCard).toBeVisible({ timeout: 15_000 })
++    // Edit and the "…" menu, but no delete: a warehouse cannot be deleted when it is the last one.
++    await expect(onlyCard.getByRole('button')).toHaveCount(2)
++  }
++)
+ 
+ // Scenario: delete icon is hidden for a warehouse that has movements
+ //   The ticket lists "has at least one movement" as a reason to hide the delete icon. The shipped
+@@ -228,187 +247,196 @@ test('FIC-13374-3-the-only-warehouse-has-no-delete-icon', async ({
+ //   looks at movements, and the warehouse list has no movements / "deletable" flag to drive this
+ //   from. So this rule cannot be exercised from the screen yet. The acceptance criteria and the
+ //   implementation disagree; this is a finding for the team, not something to assert on today.
+-test.fixme(
+-  'FIC-13374-4-warehouse-with-movements-has-no-delete-icon',
+-  async () => {}
+-)
++test.fixme('FIC-13374-4-warehouse-with-movements-has-no-delete-icon', async () => {})
+ 
+ // Scenario: confirming deletion removes the warehouse
+ //   Given I click the delete icon on an eligible warehouse's card
+ //   When the "Eliminazione magazzino" modal opens and I click "Elimina magazzino"
+ //   Then the card is removed, a success toast "Magazzino eliminato" shows, and I stay on the tab
+-test('FIC-13374-5-confirming-removes-the-warehouse-and-shows-a-success-message', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  // Three active warehouses, so one deletion still leaves two and the tab stays visible.
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH, SOUTH] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
+-  await deleteIcon(page, NORTH.name).click()
+-  await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
+-  await dialog(page).getByRole('button', { name: IT.confirm }).click()
+-
+-  // Success message is shown.
+-  await expect(page.getByText(IT.success)).toBeVisible({ timeout: 15_000 })
+-  // The card is gone from the grid.
+-  await expect(page.getByText(NORTH.name)).toHaveCount(0)
+-  // We are still on the first (active) tab we started from.
+-  await expect(page.getByRole('tab').first()).toHaveAttribute(
+-    'aria-selected',
+-    'true'
+-  )
+-})
++test(
++  'FIC-13374-5-confirming-removes-the-warehouse-and-shows-a-success-message',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    // Three active warehouses, so one deletion still leaves two and the tab stays visible.
++    await stubWarehouses(page, { active: [PRIMARY, NORTH, SOUTH] })
++    await warehouse.goto('/warehouseManagement')
++
++    await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
++    await deleteIcon(page, NORTH.name).click()
++    await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
++    await dialog(page).getByRole('button', { name: IT.confirm }).click()
++
++    // Success message is shown.
++    await expect(page.getByText(IT.success)).toBeVisible({ timeout: 15_000 })
++    // The card is gone from the grid.
++    await expect(page.getByText(NORTH.name)).toHaveCount(0)
++    // We are still on the first (active) tab we started from.
++    await expect(page.getByRole('tab').first()).toHaveAttribute(
++      'aria-selected',
++      'true'
++    )
++  }
++)
+ 
+ // Scenario: cancelling the modal keeps the warehouse
+ //   Given the "Eliminazione magazzino" modal is open
+ //   When I click "Annulla"
+ //   Then the modal closes and the warehouse card is still in the grid
+-test('FIC-13374-6-cancelling-the-window-keeps-the-warehouse', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
+-  await deleteIcon(page, NORTH.name).click()
+-  // The window explains the deletion is permanent.
+-  await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
+-  await dialog(page).getByRole('button', { name: IT.cancel }).click()
+-
+-  await expect(dialog(page)).toHaveCount(0)
+-  await expect(card(page, NORTH.name)).toBeVisible()
+-})
++test(
++  'FIC-13374-6-cancelling-the-window-keeps-the-warehouse',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH] })
++    await warehouse.goto('/warehouseManagement')
++
++    await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
++    await deleteIcon(page, NORTH.name).click()
++    // The window explains the deletion is permanent.
++    await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
++    await dialog(page).getByRole('button', { name: IT.cancel }).click()
++
++    await expect(dialog(page)).toHaveCount(0)
++    await expect(card(page, NORTH.name)).toBeVisible()
++  }
++)
+ 
+ // Scenario: a failed deletion shows an error and keeps the warehouse
+ //   Given I click "Elimina magazzino" and the delete request fails
+ //   When the response returns
+ //   Then an error toast "Errore nell'eliminazione del magazzino, riprova" shows and the card stays
+-test('FIC-13374-7-a-failed-deletion-shows-an-error-and-keeps-the-warehouse', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH], deleteStatus: 500 })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
+-  await deleteIcon(page, NORTH.name).click()
+-  await dialog(page).getByRole('button', { name: IT.confirm }).click()
+-
+-  await expect(page.getByText(IT.error)).toBeVisible({ timeout: 15_000 })
+-  await expect(card(page, NORTH.name)).toBeVisible()
+-})
++test(
++  'FIC-13374-7-a-failed-deletion-shows-an-error-and-keeps-the-warehouse',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH], deleteStatus: 500 })
++    await warehouse.goto('/warehouseManagement')
++
++    await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
++    await deleteIcon(page, NORTH.name).click()
++    await dialog(page).getByRole('button', { name: IT.confirm }).click()
++
++    await expect(page.getByText(IT.error)).toBeVisible({ timeout: 15_000 })
++    await expect(card(page, NORTH.name)).toBeVisible()
++  }
++)
+ 
+ // --- Edge cases (proposed by the tool, not in the ticket) ---
+ 
+ // E1 — long text: a warehouse name near the 255-char field limit must still fit its card and the
+ // delete icon must still be reachable.
+-test('FIC-13374-edge-1-a-very-long-warehouse-name-still-fits-its-card', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const longName = 'Magazzino molto lungo ' + 'parola '.repeat(30) // ~230 chars
+-  const big = wh('wh-long', longName, 'WL')
+-  await stubWarehouses(page, { active: [PRIMARY, big] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const bigCard = card(page, 'Magazzino molto lungo')
+-  await expect(bigCard).toBeVisible({ timeout: 15_000 })
+-  await expect(bigCard.getByRole('button')).toHaveCount(3)
+-})
++test(
++  'FIC-13374-edge-1-a-very-long-warehouse-name-still-fits-its-card',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    const longName = 'Magazzino molto lungo ' + 'parola '.repeat(30) // ~230 chars
++    const big = wh('wh-long', longName, 'WL')
++    await stubWarehouses(page, { active: [PRIMARY, big] })
++    await warehouse.goto('/warehouseManagement')
++
++    const bigCard = card(page, 'Magazzino molto lungo')
++    await expect(bigCard).toBeVisible({ timeout: 15_000 })
++    await expect(bigCard.getByRole('button')).toHaveCount(3)
++  }
++)
+ 
+ // E2 — missing fields: a warehouse with no address information must still render its name and
+ // code without crashing, and still be deletable.
+-test('FIC-13374-edge-2-a-warehouse-with-no-address-still-renders', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const bare = wh('wh-bare', 'Magazzino Senza Indirizzo', 'WB', {
+-    country: null,
+-    address: null,
+-    houseNumber: null,
+-    addressDetails: null,
+-    fraction: null,
+-    municipality: null,
+-    province: null,
+-    zipCode: null,
+-  })
+-  await stubWarehouses(page, { active: [PRIMARY, bare] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const bareCard = card(page, bare.name)
+-  await expect(bareCard).toBeVisible({ timeout: 15_000 })
+-  await expect(bareCard.getByText('WB')).toBeVisible()
+-  await expect(bareCard.getByRole('button')).toHaveCount(3)
+-})
++test(
++  'FIC-13374-edge-2-a-warehouse-with-no-address-still-renders',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    const bare = wh('wh-bare', 'Magazzino Senza Indirizzo', 'WB', {
++      country: null,
++      address: null,
++      houseNumber: null,
++      addressDetails: null,
++      fraction: null,
++      municipality: null,
++      province: null,
++      zipCode: null,
++    })
++    await stubWarehouses(page, { active: [PRIMARY, bare] })
++    await warehouse.goto('/warehouseManagement')
++
++    const bareCard = card(page, bare.name)
++    await expect(bareCard).toBeVisible({ timeout: 15_000 })
++    await expect(bareCard.getByText('WB')).toBeVisible()
++    await expect(bareCard.getByRole('button')).toHaveCount(3)
++  }
++)
+ 
+ // E3 — special characters: accents, symbols and quotes in a name must render as-is and must not
+ // break locating the card or opening its delete window.
+-test('FIC-13374-edge-3-special-characters-in-a-warehouse-name', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const odd = wh('wh-odd', "Magazzino Café ☕ <&> 'test'", 'WX')
+-  await stubWarehouses(page, { active: [PRIMARY, odd] })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  const oddCard = card(page, 'Magazzino Café')
+-  await expect(oddCard).toBeVisible({ timeout: 15_000 })
+-  await oddCard.getByRole('button').nth(1).click()
+-  await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
+-})
++test(
++  'FIC-13374-edge-3-special-characters-in-a-warehouse-name',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    const odd = wh('wh-odd', "Magazzino Café ☕ <&> 'test'", 'WX')
++    await stubWarehouses(page, { active: [PRIMARY, odd] })
++    await warehouse.goto('/warehouseManagement')
++
++    const oddCard = card(page, 'Magazzino Café')
++    await expect(oddCard).toBeVisible({ timeout: 15_000 })
++    await oddCard.getByRole('button').nth(1).click()
++    await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
++  }
++)
+ 
+ // E4 — locale: the ticket says English copy is still needed. With the English bucket, the window
+ // and the success message must read in English, not Italian.
+-test('FIC-13374-edge-4-the-delete-window-and-message-are-translated-in-english', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH], bucket: EN_BUCKET })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
+-  await deleteIcon(page, NORTH.name).click()
+-  await expect(dialog(page).getByText(EN.modalText)).toBeVisible()
+-  await dialog(page).getByRole('button', { name: EN.confirm }).click()
+-  await expect(page.getByText(EN.success)).toBeVisible({ timeout: 15_000 })
+-})
++test(
++  'FIC-13374-edge-4-the-delete-window-and-message-are-translated-in-english',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH], bucket: EN_BUCKET })
++    await warehouse.goto('/warehouseManagement')
++
++    await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
++    await deleteIcon(page, NORTH.name).click()
++    await expect(dialog(page).getByText(EN.modalText)).toBeVisible()
++    await dialog(page).getByRole('button', { name: EN.confirm }).click()
++    await expect(page.getByText(EN.success)).toBeVisible({ timeout: 15_000 })
++  }
++)
+ 
+ // E5 — large list: a tenant with many warehouses must still render the grid without hanging.
+-test('FIC-13374-edge-5-a-long-list-of-warehouses-still-loads', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const many = [
+-    PRIMARY,
+-    ...Array.from({ length: 119 }, (_, i) =>
+-      wh(`wh-${i}`, `Magazzino ${String(i).padStart(3, '0')}`, `W${i}`)
+-    ),
+-  ]
+-  await stubWarehouses(page, { active: many })
+-  await warehouse.goto('/warehouseManagement')
+-
+-  // The grid renders all 120 cards (119 warehouses + the primary), no hang or blank screen.
+-  await expect(page.locator('.MuiCard-root')).toHaveCount(120, {
+-    timeout: 15_000,
+-  })
+-})
++test(
++  'FIC-13374-edge-5-a-long-list-of-warehouses-still-loads',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    const many = [
++      PRIMARY,
++      ...Array.from({ length: 119 }, (_, i) =>
++        wh(`wh-${i}`, `Magazzino ${String(i).padStart(3, '0')}`, `W${i}`)
++      ),
++    ]
++    await stubWarehouses(page, { active: many })
++    await warehouse.goto('/warehouseManagement')
++
++    // The grid renders all 120 cards (119 warehouses + the primary), no hang or blank screen.
++    await expect(page.locator('.MuiCard-root')).toHaveCount(120, {
++      timeout: 15_000,
++    })
++  }
++)
+ 
+ // --- Design-conformance capture (manual QA sign-off, never a gate) ---
+ 
+ // Figma is a flow/annotation frame with no exportable reference image, so this only captures the
+ // running screen (the open deletion window) for a human to compare against the design.
+-test('FIC-13374 — design-conformance capture', async ({ page, warehouse }) => {
+-  await stubWarehouses(page, { active: [PRIMARY, NORTH] })
+-  await warehouse.goto('/warehouseManagement')
+-  await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
+-  await deleteIcon(page, NORTH.name).click()
+-  await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
+-  await warehouse.settle()
+-  await page.screenshot({
+-    path: 'e2e/tickets/FIC-13374/design-capture.png',
+-    fullPage: true,
+-  })
+-})
++test(
++  'FIC-13374 — design-conformance capture',
++  ANCHOR,
++  async ({ page, warehouse }) => {
++    await stubWarehouses(page, { active: [PRIMARY, NORTH] })
++    await warehouse.goto('/warehouseManagement')
++    await expect(card(page, NORTH.name)).toBeVisible({ timeout: 15_000 })
++    await deleteIcon(page, NORTH.name).click()
++    await expect(dialog(page).getByText(IT.modalText)).toBeVisible()
++    await warehouse.settle()
++    await page.screenshot({
++      path: 'e2e/tickets/FIC-13374/design-capture.png',
++      fullPage: true,
++    })
++  }
++)

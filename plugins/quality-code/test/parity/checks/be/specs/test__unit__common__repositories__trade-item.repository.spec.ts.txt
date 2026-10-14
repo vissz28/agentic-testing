@@ -1,0 +1,83 @@
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
+import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
+import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedTradeItem, WS } from "@test/seed";
+
+describe("TradeItemRepository (db unit)", () => {
+  let db: LiveDb;
+  let repo: TradeItemRepository;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new TradeItemRepository(db.prisma());
+  });
+
+  it("findByCode returns the seeded row", async () => {
+    await seedTradeItem(db.prisma(), {
+      code: "CODE-1",
+      unitCost: "80",
+      unitPrice: "150",
+    });
+    const found = await repo.findByCode({ code: "CODE-1", workspaceId: WS });
+    expect(found).not.toBeNull();
+    expect(found?.code).toBe("CODE-1");
+    expect(found?.unitCost?.toString()).toBe("80");
+    expect(found?.deletedAt).toBeNull();
+  });
+
+  it("findByCode skips a soft-deleted row", async () => {
+    await seedTradeItem(db.prisma(), {
+      code: "GONE",
+      deletedAt: new Date("2024-01-01"),
+    });
+    expect(await repo.findByCode({ code: "GONE", workspaceId: WS })).toBeNull();
+  });
+});
+
+// FIC-13839 — the products-stock list (GET trade-items/workspace/:workspaceId →
+// TradeItemService.tradeItemsByIds → TradeItemRepository.findAllByIds) must exclude soft-deleted
+// trade items. Reads follow the soft-delete rule: only rows with `deletedAt: null` are returned.
+// This anchor seeds one live item (A) and one soft-deleted item (B) and asserts B never appears —
+// a Stryker mutant that drops the `deletedAt: null` filter in the read query is killed.
+describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
+  let db: LiveDb;
+  let repo: TradeItemRepository;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new TradeItemRepository(db.prisma());
+  });
+
+  it("findAllByIds excludes a soft-deleted trade item from the products-stock list", async () => {
+    const prisma = db.prisma();
+    await seedTradeItem(prisma, { id: "ti-A", code: "A", deletedAt: null });
+    await seedTradeItem(prisma, {
+      id: "ti-B",
+      code: "B",
+      deletedAt: new Date("2024-01-01"),
+    });
+
+    const result = await repo.findAllByIds(
+      { workspaceId: WS },
+      {} as FilterTradeItemDTO,
+      undefined as unknown as SortingParam,
+      false,
+    );
+
+    expect(result.count).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.id).toBe("ti-A");
+    expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
+    expect(result.items.some((i) => i.id === "ti-B")).toBe(false);
+  });
+});

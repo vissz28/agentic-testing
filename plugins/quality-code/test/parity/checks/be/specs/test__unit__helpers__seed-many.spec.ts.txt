@@ -1,0 +1,37 @@
+import { describe, it, expect, vi } from "vitest";
+import type { PrismaService } from "@app/common/database/prisma/prisma.service";
+import { seedMany } from "@test/seed";
+
+// Pure test — no live DB. seedMany is a thin loop over a builder; a fake builder proves it calls
+// the builder `count` times, in order, with each(i)'s overrides.
+describe("seedMany", () => {
+  it("calls the builder count times, in order, with each(i) overrides", async () => {
+    const seen: Array<{ eventId: string }> = [];
+    const builder = vi.fn(async (_p: PrismaService, o?: { eventId: string }) => {
+      seen.push(o!);
+      return o!;
+    });
+
+    const rows = await seedMany(
+      builder,
+      {} as PrismaService,
+      3,
+      (i) => ({ eventId: `evt-${i}` }),
+    );
+
+    expect(builder).toHaveBeenCalledTimes(3);
+    expect(seen).toEqual([
+      { eventId: "evt-0" },
+      { eventId: "evt-1" },
+      { eventId: "evt-2" },
+    ]);
+    expect(rows).toHaveLength(3);
+  });
+
+  it("count 0 seeds nothing", async () => {
+    const builder = vi.fn(async () => ({}));
+    const rows = await seedMany(builder, {} as PrismaService, 0, () => ({}));
+    expect(builder).not.toHaveBeenCalled();
+    expect(rows).toEqual([]);
+  });
+});

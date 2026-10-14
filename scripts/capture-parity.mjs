@@ -7,7 +7,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -24,6 +24,101 @@ const SOURCES = {
     // the scorer imports ./expected-check.mjs; the sanitizer is kept for reference
     files: ['score-ticket.mjs', 'expected-check.mjs', 'sanitize-ticket.mjs'],
   },
+}
+
+// --checks: the five checks. Old scripts run their CLI on import, so each is cut at its entry
+// point (CUT) and the pure functions are imported from the cut copy; suite-honesty's verdict
+// comes from running the whole old CLI, as the pipeline does.
+const CHECK_FILES = {
+  fe: { harness: ['honesty-check.mjs', 'suite-honesty.mjs', 'flaky-check.mjs', 'mutate-generated.mjs'], guard: '.claude/boundary-guard.mjs', dirs: ['e2e/tests'], spec: p => /^e2e\/tests\/.*FIC-\d+\.spec\.ts$/.test(p) },
+  be: { harness: ['honesty-check.mjs', 'suite-honesty.mjs', 'flaky-check.mjs', 'mutate-generated.mjs'], guard: '.claude/boundary-guard.mjs', dirs: ['test/unit', 'test/integration', 'test/range'], spec: p => /^test\/(unit|integration|range)\/.*\.spec\.ts$/.test(p) },
+}
+const CUT = /^(?:const (?:args|rawArgs) = process\.argv|if \(process\.argv|main\(\);?\s*$)/m
+const DIFFS_PER_REPO = 15
+const KEY_GROUP = /^describe(?:\.(?:skip|only))?\s*\(\s*['"`]((?:FIC|AGT)-\d+)/gm
+
+function show(repo, ref, path) {
+  return execFileSync('git', ['-C', repo, 'show', `${ref}:${path}`], { encoding: 'utf8', maxBuffer: 1e8 })
+}
+
+async function loadOld(tmp, name, repo, ref, path) {
+  const src = show(repo, ref, path)
+  const full = join(tmp, name, `${basename(path, '.mjs')}.full.mjs`)
+  mkdirSync(dirname(full), { recursive: true })
+  writeFileSync(full, src)
+  const m = CUT.exec(src)
+  const cut = join(tmp, name, basename(path))
+  writeFileSync(cut, m ? src.slice(0, m.index) : src)
+  return { full, mod: await import(pathToFileURL(cut).href) }
+}
+
+async function captureChecks() {
+  const { mask } = await import(pathToFileURL(join(PARITY, 'sanitize-inputs.mjs')).href)
+  const out = join(PARITY, 'checks')
+  rmSync(out, { recursive: true, force: true })
+  mkdirSync(out, { recursive: true })
+  const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'parity-checks-')))
+  const expected = { source: {}, honesty: [], suite: [], boundary: [], flaky: { classify: [], overall: [] }, mutation: [] }
+  try {
+    for (const [name, files] of Object.entries(CHECK_FILES)) {
+      const { repo, ref } = SOURCES[name]
+      expected.source[name] = { ref, commit: execFileSync('git', ['-C', repo, 'rev-parse', ref], { encoding: 'utf8' }).trim() }
+      const old = {}
+      for (const f of files.harness) old[f] = await loadOld(tmp, name, repo, ref, `.claude/harness/${f}`)
+      old.guard = await loadOld(tmp, name, repo, ref, files.guard)
+
+      // specs: suite-honesty (whole old CLI) and mutation plans
+      const specs = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '--name-only', ref], { encoding: 'utf8' }).split('\n').filter(files.spec)
+      for (const p of specs) {
+        const src = mask(show(repo, ref, p))
+        const fixture = `${name}/specs/${p.replace(/\//g, '__')}.txt`
+        mkdirSync(dirname(join(out, fixture)), { recursive: true })
+        writeFileSync(join(out, fixture), src)
+        const work = join(tmp, name, 'work.spec.ts')
+        writeFileSync(work, src)
+        const keys = name === 'be' ? [...new Set([...src.matchAll(KEY_GROUP)].map(m => m[1]))] : []
+        for (const key of [null, ...keys]) {
+          const r = spawnSync('node', [old['suite-honesty.mjs'].full, work, ...(key ? ['--key', key] : [])], { cwd: tmp, encoding: 'utf8' })
+          const hollow = [...`${r.stderr}`.matchAll(/^\s+.*: (?:it|test)\('(.*)'\) has no expect\(\)$/gm)].map(m => m[1])
+          expected.suite.push({ repo: name, fixture, key, exit: r.status, percent: Number(/SUITE HONESTY: (\d+)%/.exec(r.stdout)?.[1] ?? NaN), hollow })
+          const blocks = old['mutate-generated.mjs'].mod.findTestBlocks(src)
+          const passed = blocks.filter(b => !b.mod).map(b => b.title)
+          const plans = name === 'be' ? [false, true].map(thorough => ({ thorough, mutants: old['mutate-generated.mjs'].mod.planMutants(src, passed, key, thorough) })) : key ? [] : [{ thorough: false, mutants: old['mutate-generated.mjs'].mod.planMutants(src, passed) }]
+          for (const pl of plans) expected.mutation.push({ repo: name, fixture, key, passed, ...pl })
+        }
+      }
+
+      // diffs: honesty on spec-touching commits; boundary on every path those commits change
+      const commits = execFileSync('git', ['-C', repo, 'log', '--format=%H', '-n', String(DIFFS_PER_REPO), ref, '--', ...files.dirs], { encoding: 'utf8' }).split('\n').filter(Boolean)
+      for (const c of commits) {
+        if (spawnSync('git', ['-C', repo, 'rev-parse', '--verify', '--quiet', `${c}^`]).status !== 0) continue
+        const diff = mask(execFileSync('git', ['-C', repo, 'diff', `${c}^`, c, '--', ...files.dirs], { encoding: 'utf8', maxBuffer: 1e8 }))
+        const fixture = `${name}/diffs/${c.slice(0, 10)}.diff`
+        mkdirSync(dirname(join(out, fixture)), { recursive: true })
+        writeFileSync(join(out, fixture), diff)
+        expected.honesty.push({ repo: name, fixture, violations: old['honesty-check.mjs'].mod.scanDiff(diff) })
+        const paths = execFileSync('git', ['-C', repo, 'diff', '--name-only', '-z', `${c}^`, c], { encoding: 'utf8' }).split('\0').filter(Boolean).map(mask)
+        for (const p of paths) {
+          if (name === 'fe') {
+            const v = old.guard.mod.violation(p)
+            expected.boundary.push({ repo: name, variant: 'default', path: p, forbidden: Boolean(v), why: v?.why ?? null })
+          } else {
+            for (const variant of ['default', 'mocked']) expected.boundary.push({ repo: name, variant, path: p, forbidden: old.guard.mod.isForbidden(p, { allowSrcSpecs: variant === 'mocked' }), why: null })
+          }
+        }
+      }
+
+      // flaky: the pure classification over every tally of up to 5 runs
+      if (name === 'be') {
+        for (let p = 0; p <= 5; p++) for (let f = 0; p + f <= 5; f++) expected.flaky.classify.push([p, f, old['flaky-check.mjs'].mod.classify(p, f)])
+        for (const vs of [['green'], ['real'], ['flaky'], ['green', 'real'], ['green', 'flaky'], ['real', 'flaky'], ['green', 'real', 'flaky'], []]) expected.flaky.overall.push([vs, old['flaky-check.mjs'].mod.overall(vs)])
+      }
+    }
+    writeFileSync(join(out, 'expected.json'), `${JSON.stringify(expected, null, 2)}\n`)
+    console.log(`checks: ${expected.suite.length} suite runs, ${expected.honesty.length} diffs, ${expected.boundary.length} paths, ${expected.mutation.length} mutation plans`)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
 }
 
 // Today's backend names the feature-label key warehouse_label (spec §10 #5): fixtures use the new
@@ -111,4 +206,4 @@ async function main() {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main()
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes('--checks') ? captureChecks() : main())

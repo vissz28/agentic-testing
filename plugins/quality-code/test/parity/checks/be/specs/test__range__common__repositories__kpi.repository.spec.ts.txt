@@ -1,0 +1,56 @@
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import fc from "fast-check";
+import { KpiRepository } from "@app/common/repositories/kpi.repository";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+import { logRange } from "@test/range-log";
+
+// FIC-14376 — property view: when a carried cost is provided, getLastUnitCost must return exactly
+// that cost, even when it is 0. The previous last cost (50) must never override a provided value.
+// The truthy `if (cost)` guard drops a 0, so the pinned [0] case and every 0-valued sample go red
+// now and green once the guard becomes `!= null`.
+describe(`FIC-14376 — incoming movement with unit cost 0 does not update the product last cost`, () => {
+  let db: LiveDb;
+
+  const kpiKey = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+  });
+
+  it("getLastUnitCost returns the provided cost for any value, including 0", async () => {
+    // Deterministic pin of the ticket's exact case (red now, green after the guard fix).
+    const prisma = db.prisma();
+    await seedTradeItem(prisma);
+    await seedKpi(prisma, { lastCost: "50", date: new Date("2024-01-15") });
+    expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).toBe(0);
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        async (carried) => {
+          await db.restore();
+          const p = db.prisma();
+          await seedTradeItem(p);
+          await seedKpi(p, { lastCost: "50", date: new Date("2024-01-15") });
+          const result = await new KpiRepository(p).getLastUnitCost(
+            kpiKey,
+            carried,
+          );
+          logRange({
+            key: "FIC-14376",
+            sample: carried,
+            actual: result,
+            ok: result === carried,
+          });
+          expect(result).toBe(carried);
+        },
+      ),
+      { numRuns: 20, examples: [[0]] },
+    );
+  });
+});

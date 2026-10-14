@@ -1,0 +1,339 @@
+diff --git a/e2e/tests/warehouse-management/FIC-13374.spec.ts b/e2e/tests/warehouse-management/FIC-13374.spec.ts
+deleted file mode 100644
+index a4f9483..0000000
+--- a/e2e/tests/warehouse-management/FIC-13374.spec.ts
++++ /dev/null
+@@ -1,333 +0,0 @@
+-import { readFileSync } from 'node:fs'
+-import type { Page } from '@playwright/test'
+-import { expect, test } from '../../fixtures'
+-
+-const IT_BUCKET = JSON.parse(
+-  readFileSync(
+-    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
+-    'utf8'
+-  )
+-)
+-const EN_BUCKET = JSON.parse(
+-  readFileSync(
+-    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
+-    'utf8'
+-  )
+-)
+-
+-// FIC-13374 — [FE] Delete warehouse
+-// https://teamsystem.atlassian.net/browse/FIC-13374
+-//
+-// Verified against the real implementation (commit 78a85f2, "Merge branch
+-// 'FIC-13374-fe-delete-warehouse' into 'feature/multi-warehouse'"):
+-//   - src/features/warehouseManagement/components/WarehouseCard.tsx
+-//   - src/features/warehouseManagement/components/DeleteWarehouseDialog.tsx
+-//   - src/features/warehouseManagement/hooks/useDeleteWarehouse.ts
+-//
+-// NOTE ON THIS BRANCH: the warehouseManagement feature above lives on
+-// feature/multi-warehouse, not on this branch's lineage yet. This spec was written and
+-// verified for real (all 9 checks, 100% assertion-mutation kill) in a throwaway worktree
+-// checked out at that commit. Until feature/multi-warehouse merges into this branch's
+-// history, running this spec here is a written-ahead regression anchor — it will not find
+-// the /warehouse-management route and is expected to fail, not because the checks are wrong,
+-// but because the app under test does not have this screen yet.
+-//
+-// IMPORTANT — design/implementation gap found while writing this spec: the Figma flow's
+-// eligibility rule requires THREE conditions ("no movements for that warehouse", "at least 2
+-// warehouses", "is not the primary warehouse") before the delete icon shows. The shipped code
+-// only implements two of them:
+-//   const canDelete = !warehouse.isPrimary && totalWarehouses >= 2
+-// There is no movements check anywhere, and the Warehouse type has no field that could carry
+-// one. Scenario 7 below is test.fixme for exactly this reason — it cannot be set up, because
+-// the data to set it up with does not exist yet on the frontend.
+-
+-const IT = {
+-  delete: 'Elimina',
+-  cancel: 'Annulla',
+-  dialogTitle: 'Eliminazione magazzino',
+-  dialogDescription:
+-    'Una volta eliminato, il magazzino non potrà più essere recuperato.',
+-  confirmButton: 'Elimina magazzino',
+-  success: 'Magazzino eliminato',
+-  error: "Errore nell'eliminazione del magazzino, riprova",
+-}
+-
+-const EN = {
+-  success: 'Warehouse deleted',
+-  error: 'Error deleting the warehouse, please try again',
+-}
+-
+-const buildWarehouse = (overrides: Record<string, unknown>) => ({
+-  id: 'wh-default',
+-  name: 'Magazzino',
+-  code: 'WH',
+-  location: 'Milano',
+-  country: 'Italia',
+-  region: null,
+-  province: 'MI',
+-  municipality: 'Milano',
+-  zipCode: '20120',
+-  address: 'Via Milano',
+-  houseNumber: '1',
+-  addressDetails: null,
+-  fraction: null,
+-  isPrimary: false,
+-  isArchive: false,
+-  workspaceId: 'ws-1',
+-  workspaceAttributeId: null,
+-  createdAt: '2026-06-25T12:04:27.007Z',
+-  updatedAt: '2026-07-02T10:10:01.592Z',
+-  deletedAt: null,
+-  ...overrides,
+-})
+-
+-const PRIMARY = buildWarehouse({
+-  id: 'wh-primary',
+-  name: 'Magazzino Primario',
+-  code: 'WH-P',
+-  isPrimary: true,
+-})
+-const SECONDARY = buildWarehouse({
+-  id: 'wh-secondary',
+-  name: 'Magazzino Secondario',
+-  code: 'WH-S',
+-})
+-
+-/** Stubs the two list reads plus i18n. Defaults to the Italian bucket, the app's default. */
+-async function stubWarehouseList(
+-  page: Page,
+-  active: Record<string, unknown>[],
+-  archived: Record<string, unknown>[] = [],
+-  bucket: unknown = IT_BUCKET
+-) {
+-  await page.route('**/i18n/**', route =>
+-    route.fulfill({ json: { item: bucket } })
+-  )
+-  await page.route('**/warehouse/workspace/*/active', route =>
+-    route.fulfill({ json: active })
+-  )
+-  await page.route('**/warehouse/workspace/*/archived', route =>
+-    route.fulfill({ json: archived })
+-  )
+-}
+-
+-/** Stubs the DELETE endpoint. `ok: false` simulates a server error. */
+-async function stubDelete(page: Page, warehouseId: string, ok: boolean) {
+-  await page.route(`**/warehouse/${warehouseId}/workspace/*`, route => {
+-    if (route.request().method() !== 'DELETE') return route.fallback()
+-    return ok
+-      ? route.fulfill({ status: 204 })
+-      : route.fulfill({ status: 500, json: { message: 'boom' } })
+-  })
+-}
+-
+-// `.MuiCard-root` alone also matches VaporPage.Section's own wrapper card, an ancestor of
+-// every individual WarehouseCard, which trivially "contains" every warehouse's text too.
+-// WarehouseCard specifically uses `variant="outlined"` (MuiPaper-outlined), which the page
+-// wrapper does not, so scoping to that disambiguates the real card from its ancestor.
+-const card = (page: Page, name: string) =>
+-  page
+-    .locator('.MuiCard-root.MuiPaper-outlined')
+-    .filter({ hasText: name })
+-
+-// --- Acceptance criteria ---
+-
+-// Scenario 1:
+-// Given a warehouse is not the primary one, and at least 2 warehouses exist
+-// When I open the warehouse management grid
+-// Then that warehouse's card shows a delete icon
+-test('FIC-13374-1-eligible-warehouse-shows-a-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await expect(
+-    card(page, SECONDARY.name).getByRole('button', { name: IT.delete })
+-  ).toBeVisible()
+-})
+-
+-// Scenario 2:
+-// Given a warehouse is the primary one, even with 2+ warehouses total
+-// When I open the warehouse management grid
+-// Then that warehouse's card does not show a delete icon
+-test('FIC-13374-2-primary-warehouse-has-no-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await expect(
+-    card(page, PRIMARY.name).getByRole('button', { name: IT.delete })
+-  ).toHaveCount(0)
+-})
+-
+-// Scenario 3:
+-// Given only 1 warehouse exists in the workspace (necessarily the primary one)
+-// When I open the warehouse management grid
+-// Then that warehouse's card does not show a delete icon
+-test('FIC-13374-3-only-warehouse-has-no-delete-icon', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY])
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await expect(
+-    card(page, PRIMARY.name).getByRole('button', { name: IT.delete })
+-  ).toHaveCount(0)
+-})
+-
+-// Scenario 4:
+-// Given I click the delete icon on an eligible warehouse's card
+-// When the "Eliminazione magazzino" modal opens and I click "Elimina magazzino"
+-// Then the modal closes immediately, a success toast is shown, and the warehouse
+-// disappears once the list refreshes
+-test('FIC-13374-4-confirming-deletion-closes-the-modal-and-shows-success', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  await stubDelete(page, SECONDARY.id, true)
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await card(page, SECONDARY.name)
+-    .getByRole('button', { name: IT.delete })
+-    .click()
+-
+-  await expect(page.getByText(IT.dialogTitle)).toBeVisible()
+-  await expect(page.getByText(IT.dialogDescription)).toBeVisible()
+-
+-  // The list, after deletion, will only return the primary warehouse.
+-  await stubWarehouseList(page, [PRIMARY])
+-
+-  await page.getByRole('button', { name: IT.confirmButton }).click()
+-
+-  // The dialog closes synchronously on click — it does not wait for the request.
+-  await expect(page.getByText(IT.dialogTitle)).toHaveCount(0)
+-  await expect(page.getByText(IT.success)).toBeVisible()
+-  await expect(card(page, SECONDARY.name)).toHaveCount(0)
+-})
+-
+-// Scenario 5:
+-// Given the "Eliminazione magazzino" modal is open
+-// When I click "Annulla"
+-// Then the modal closes, the warehouse card is still there, and nothing was sent
+-test('FIC-13374-5-cancelling-keeps-the-warehouse-and-sends-nothing', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  let deleteCalled = false
+-  await page.route(`**/warehouse/${SECONDARY.id}/workspace/*`, route => {
+-    if (route.request().method() === 'DELETE') deleteCalled = true
+-    return route.fallback()
+-  })
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await card(page, SECONDARY.name)
+-    .getByRole('button', { name: IT.delete })
+-    .click()
+-  await expect(page.getByText(IT.dialogTitle)).toBeVisible()
+-
+-  await page.getByRole('button', { name: IT.cancel }).click()
+-
+-  await expect(page.getByText(IT.dialogTitle)).toHaveCount(0)
+-  await expect(card(page, SECONDARY.name)).toBeVisible()
+-  expect(deleteCalled).toBe(false)
+-})
+-
+-// Scenario 6:
+-// Given I click "Elimina magazzino" and the delete request fails
+-// When the response returns
+-// Then an error toast is shown and the warehouse card is still in the grid
+-test('FIC-13374-6-failed-deletion-shows-error-and-keeps-the-warehouse', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  await stubDelete(page, SECONDARY.id, false)
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await card(page, SECONDARY.name)
+-    .getByRole('button', { name: IT.delete })
+-    .click()
+-  await page.getByRole('button', { name: IT.confirmButton }).click()
+-
+-  await expect(page.getByText(IT.error)).toBeVisible()
+-  await expect(card(page, SECONDARY.name)).toBeVisible()
+-})
+-
+-// Scenario 7 — cannot be verified today.
+-// Given a warehouse has at least one movement
+-// When I open the warehouse management grid
+-// Then that warehouse's card should not show a delete icon
+-//
+-// The shipped `canDelete` check (WarehouseCard.tsx) is `!isPrimary && totalWarehouses >= 2`
+-// only. There is no movements check, and the Warehouse type carries no field a test could set
+-// to represent "this warehouse has movements" — there is nothing to stub. This is not a
+-// generator gap; the data plumbing for this rule does not exist on the frontend yet.
+-test.fixme(
+-  'FIC-13374-7-warehouse-with-movements-has-no-delete-icon',
+-  async () => {}
+-)
+-
+-// --- Extras the ticket does not mention ---
+-
+-// Locale: the same success/error copy, read correctly in English.
+-test('FIC-13374-edge-1-success-and-error-messages-in-english', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY], [], EN_BUCKET)
+-  await stubDelete(page, SECONDARY.id, false)
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  await card(page, SECONDARY.name)
+-    .getByRole('button', { name: 'Delete' })
+-    .click()
+-  await page.getByRole('button', { name: 'Delete warehouse' }).click()
+-
+-  await expect(page.getByText(EN.error)).toBeVisible()
+-})
+-
+-// A long warehouse name should not break the card layout or hide the action buttons.
+-test('FIC-13374-edge-2-long-warehouse-name-does-not-hide-actions', async ({
+-  page,
+-  warehouse,
+-}) => {
+-  const LONG_NAME =
+-    'Magazzino Centrale di Distribuzione Regionale per il Nord Italia — Sede Secondaria Numero Due'
+-  const longWarehouse = buildWarehouse({
+-    id: 'wh-long',
+-    name: LONG_NAME,
+-    code: 'WH-LONG',
+-  })
+-  await stubWarehouseList(page, [PRIMARY, longWarehouse])
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-
+-  const target = card(page, LONG_NAME)
+-  await expect(target).toBeVisible()
+-  await expect(target.getByRole('button', { name: IT.delete })).toBeVisible()
+-})
+-
+-// Design-conformance capture — visual only, never asserts.
+-test('FIC-13374 — design-conformance capture', async ({ page, warehouse }) => {
+-  await stubWarehouseList(page, [PRIMARY, SECONDARY])
+-  await warehouse.goto('/warehouse-management')
+-  await warehouse.settle()
+-  await page.screenshot({
+-    path: 'e2e/tickets/FIC-13374/capture.png',
+-    fullPage: true,
+-  })
+-})

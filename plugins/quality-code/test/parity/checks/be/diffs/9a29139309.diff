@@ -1,0 +1,360 @@
+diff --git a/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts b/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts
+new file mode 100644
+index 0000000..db5d30f
+--- /dev/null
++++ b/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts
+@@ -0,0 +1,354 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import {
++  MovementType,
++  MovementReason,
++  DocumentType,
++  ParentDocument,
++  Operation,
++  EventSource,
++} from "@prisma-client";
++import { OperationalInvoiceService } from "@app/common/services/operational-invoice/operational-invoice.service";
++import { MovementService } from "@app/common/services/movement/movement.service";
++import { MovementRepository } from "@app/common/repositories/movement.repository";
++import { EventsService } from "@app/common/services/event/events.service";
++import { EventRepository } from "@app/common/repositories/event.repository";
++import { KpiService } from "@app/common/services/kpi/kpi.service";
++import { KpiRepository } from "@app/common/repositories/kpi.repository";
++import { StockCalculationConfigurationsService } from "@app/common/services/kpi/stock.calculation.configurations.service";
++import { StockCalculationConfigurationsRepository } from "@app/common/repositories/stock.calculation.configurations.repository";
++import { EventType } from "@app/common/enums/event/type.enum";
++import type { EventDTO } from "@app/common/dto/event/event.dto";
++import type { OperationalInvoiceV1 } from "src/warehouse-write/types/operational-invoice.event";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedWorkspace, seedWarehouse, seedTradeItem, WS, WH, TI } from "@test/seed";
++
++// FIC-13971 — https://teamsystem.atlassian.net/browse/FIC-13971
++// Unendo/trasformando un ordine con DDT il magazzino viene movimentato nuovamente.
++//
++// An order that already carries a DDT (delivery note) has ALREADY moved giacenza (stockOnHand).
++// When that order is transformed / merged ("unisci e raggruppa") into an invoice,
++// OperationalInvoiceService.resolveMovementContext looks only at `linkedOrdersList` and IGNORES
++// `linkedDeliveryNotesList`, so it stamps the invoice movement documentType=order /
++// parentDocument=salesInvoice. That combination resolves to a stock config that decrements
++// stockOnHand a SECOND time (seed rule 25) → giacenza doubled.
++//
++// This drives the real write→KPI chain: OperationalInvoiceService → real MovementService/repo
++// persists the invoice movement with the (buggy) context; the real KpiService + real stock-config
++// lookup then apply the delta. Baseline KPI stockOnHand=-5 / stockAvailability=-15 represents the
++// state after the DDT (giacenza -5) and the order (disponibilità -15). The ticket's expected result
++// is that transforming the order-with-DDT into an invoice does NOT re-move giacenza, so stockOnHand
++// stays -5. Current source re-decrements to -10 → this anchor is RED until the DDT-aware fix lands.
++describe(`FIC-13971 — Unendo/trasformando un ordine con DDT il magazzino (giacenza) viene movimentato nuovamente`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++  });
++
++  it("an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10", async () => {
++    const prisma = db.prisma();
++
++    // Given: an activated workspace, a warehouse, and one trade item.
++    await seedWorkspace(prisma);
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++
++    // The stock rule the transformed-order invoice lands on today (prisma/seed.ts rule 25):
++    // outgoing / sale / documentType=order / parentDocument=salesInvoice → stockOnHand decrement,
++    // stockAvailability untouched. The DDT already moved giacenza, so this second decrement is the bug.
++    await prisma.client.stockCalculationConfiguration.create({
++      data: {
++        movementType: MovementType.outgoing,
++        movementReason: MovementReason.sale,
++        documentType: DocumentType.order,
++        parentDocument: ParentDocument.salesInvoice,
++        stockOnHandOperation: Operation.decrement,
++        stockAvailabilityOperation: null,
++        reservedStockOperation: null,
++        orderedStockOperation: null,
++        stockValueOperation: null,
++      },
++    });
++
++    // State after the DDT (giacenza -5) and the order (disponibilità -15) — the correct final numbers.
++    await prisma.client.kpi.create({
++      data: {
++        workspaceId: WS,
++        tradeItemId: TI,
++        warehouseId: WH,
++        stockOnHand: "-5",
++        stockAvailability: "-15",
++        lastMovementId: "00000000-0000-4000-8000-000000000099",
++        date: new Date("2024-01-01"),
++      },
++    });
++
++    // Wire the real write chain: OperationalInvoiceService → real MovementService + real repos + Prisma.
++    // Only the external boundaries (KPI bus, cache, queue, trade-item/warehouse/activation lookups) are mocked.
++    const eventsService = new EventsService(new EventRepository(prisma));
++    const movementService = new MovementService(
++      { emit: vi.fn() } as never, // KPI_MICROSERVICE ClientProxy — internal publish is a no-op here
++      new MovementRepository(prisma),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      eventsService,
++      { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
++      { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
++      { add: vi.fn() } as never, // MANUAL_MOVEMENT_QUEUE
++      { hasInProgressAdjustments: vi.fn().mockResolvedValue(false) } as never, // import-adjustment check
++    );
++    const invoiceService = new OperationalInvoiceService(
++      { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
++      {
++        findActivationByWorkspaceId: vi
++          .fn()
++          .mockResolvedValue({ isActive: true, activatedAt: new Date("2020-01-01") }),
++      } as never, // activationService
++      movementService,
++      eventsService,
++      { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
++    );
++
++    // When: the order (with a linked DDT) is transformed/merged into an invoice.
++    const invoice = {
++      id: "inv-evt-13971",
++      source: "sales",
++      specversion: "1.0",
++      type: "operational_invoice",
++      data: {
++        id: 258048788,
++        appName: "invoicing",
++        ownerData: { businessName: "ACME", workspaceId: WS },
++        active: true,
++        type: "invoice",
++        date: "2024-01-02",
++        number: "INV-1",
++        numeration: "INV-1",
++        year: 2024,
++        useSplitPayment: false,
++        useGrossPrices: false,
++        amountNet: 500,
++        amountVat: 0,
++        amountGross: 500,
++        updateWarehouse: true,
++        entity: { name: "ACME" },
++        language: { code: "it", name: "Italian" },
++        linkedOrdersList: [{ id: 258048787, number: "ORD-1" }],
++        linkedDeliveryNotesList: [{ id: 987, number: "DDT-1" }],
++        itemsList: [{ id: 1, tradeItemId: TI, qty: 5, netPrice: 100, grossPrice: 100 }],
++      },
++    } as unknown as OperationalInvoiceV1;
++
++    await invoiceService.createMovementFromOperationalInvoice(invoice);
++
++    // The invoice movement was persisted (documentType=order / parentDocument=salesInvoice — the defect context).
++    const movement = await prisma.client.movement.findFirst({
++      where: { workspaceId: WS, parentDocument: ParentDocument.salesInvoice, deletedAt: null },
++    });
++    expect(movement).not.toBeNull();
++
++    // Recompute KPI from that movement through the real config lookup + real KpiRepository.
++    const kpiService = new KpiService(
++      new KpiRepository(prisma),
++      // events service is mocked so the KPI-event insert never collides with the write-side event row
++      {
++        createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "kpi-evt-13971" }),
++        getByEventId: vi.fn().mockResolvedValue(null),
++      } as never,
++      new StockCalculationConfigurationsService(
++        new StockCalculationConfigurationsRepository(prisma),
++      ),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++    );
++
++    const kpiEvent = {
++      eventId: "kpi-evt-13971",
++      eventType: EventType.MOVEMENT_GENERATION,
++      source: EventSource.manual,
++      workspaceId: WS,
++      payload: JSON.stringify(movement),
++    } as unknown as EventDTO;
++
++    await kpiService.processKpiUpdate(kpiEvent);
++
++    const kpi = await prisma.client.kpi.findFirst({
++      where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH },
++      orderBy: { date: "desc" },
++    });
++
++    // Then: giacenza must stay at the DDT's single move (-5), not be decremented a second time (-10).
++    expect(kpi).not.toBeNull();
++    expect(kpi!.stockOnHand.toNumber()).toBe(-5);
++    // disponibilità is unchanged by the invoice line here and stays at the order's move (-15).
++    expect(kpi!.stockAvailability.toNumber()).toBe(-15);
++  });
++});
++
++// FIC-13962 — https://teamsystem.atlassian.net/browse/FIC-13962
++// Emettendo una fattura con DDT il magazzino viene movimentato più volte.
++//
++// Sibling of FIC-13971 for the invoice-with-DDT-but-NO-order case. Goods already shipped by a DDT
++// (delivery note) have ALREADY moved giacenza (stockOnHand) and disponibilità (stockAvailability).
++// The invoice that references that DDT carries `linkedDeliveryNotesList` but NO `linkedOrdersList`, so
++// OperationalInvoiceService.resolveMovementContext leaves documentType=undefined (it only inspects
++// linkedOrdersList) and stamps parentDocument=salesInvoice. It IGNORES the linked DDT entirely, so the
++// invoice line persists a fresh outgoing/sale movement that lands on a decrement stock config and moves
++// the warehouse a SECOND time — "movimentato più volte" (the ticket reports giacenza/disponibilità at
++// -15 instead of -5).
++//
++// This drives the real write→KPI chain: OperationalInvoiceService → real MovementService/repo persists
++// the invoice movement with the DDT-blind context; the real KpiService + real stock-config lookup then
++// apply the delta. Baseline KPI stockOnHand=-5 / stockAvailability=-5 is the state after the DDT's single
++// move. The ticket's expected result is that emitting the invoice for goods already moved by the DDT does
++// NOT re-move the warehouse, so both stay -5 (the movement is counted exactly once). Current source
++// re-decrements to -10 → this anchor is RED until the DDT-aware fix lands.
++describe(`FIC-13962 — Emettendo una fattura con DDT il magazzino viene movimentato più volte`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++  });
++
++  it("an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10", async () => {
++    const prisma = db.prisma();
++
++    // Given: an activated workspace, a warehouse, and one trade item ("hi1", qty 5 in the ticket).
++    await seedWorkspace(prisma);
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++
++    // The stock rule the invoice-with-DDT (no order) movement lands on today: outgoing / sale /
++    // documentType=null / parentDocument=salesInvoice → decrement BOTH stockOnHand and stockAvailability.
++    // The DDT already applied this move once; the invoice repeating it is the bug.
++    await prisma.client.stockCalculationConfiguration.create({
++      data: {
++        movementType: MovementType.outgoing,
++        movementReason: MovementReason.sale,
++        documentType: null,
++        parentDocument: ParentDocument.salesInvoice,
++        stockOnHandOperation: Operation.decrement,
++        stockAvailabilityOperation: Operation.decrement,
++        reservedStockOperation: null,
++        orderedStockOperation: null,
++        stockValueOperation: null,
++      },
++    });
++
++    // State after the DDT's single move: giacenza -5 and disponibilità -5 — the correct final numbers.
++    await prisma.client.kpi.create({
++      data: {
++        workspaceId: WS,
++        tradeItemId: TI,
++        warehouseId: WH,
++        stockOnHand: "-5",
++        stockAvailability: "-5",
++        lastMovementId: "00000000-0000-4000-8000-000000000099",
++        date: new Date("2024-01-01"),
++      },
++    });
++
++    // Wire the real write chain: OperationalInvoiceService → real MovementService + real repos + Prisma.
++    // Only the external boundaries (KPI bus, cache, queue, trade-item/warehouse/activation lookups) are mocked.
++    const eventsService = new EventsService(new EventRepository(prisma));
++    const movementService = new MovementService(
++      { emit: vi.fn() } as never, // KPI_MICROSERVICE ClientProxy — internal publish is a no-op here
++      new MovementRepository(prisma),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      eventsService,
++      { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
++      { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
++      { add: vi.fn() } as never, // MANUAL_MOVEMENT_QUEUE
++      { hasInProgressAdjustments: vi.fn().mockResolvedValue(false) } as never, // import-adjustment check
++    );
++    const invoiceService = new OperationalInvoiceService(
++      { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
++      {
++        findActivationByWorkspaceId: vi
++          .fn()
++          .mockResolvedValue({ isActive: true, activatedAt: new Date("2020-01-01") }),
++      } as never, // activationService
++      movementService,
++      eventsService,
++      { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
++    );
++
++    // When: an invoice that references a DDT (but no order) is emitted for goods already moved by the DDT.
++    const invoice = {
++      id: "inv-evt-13962",
++      source: "sales",
++      specversion: "1.0",
++      type: "operational_invoice",
++      data: {
++        id: 258048641,
++        appName: "invoicing",
++        ownerData: { businessName: "ACME", workspaceId: WS },
++        active: true,
++        type: "invoice",
++        date: "2024-01-02",
++        number: "INV-1",
++        numeration: "INV-1",
++        year: 2024,
++        useSplitPayment: false,
++        useGrossPrices: false,
++        amountNet: 500,
++        amountVat: 0,
++        amountGross: 500,
++        updateWarehouse: true,
++        entity: { name: "ACME" },
++        language: { code: "it", name: "Italian" },
++        // No linked order — only a linked DDT (the goods were already shipped and moved via the DDT).
++        linkedDeliveryNotesList: [{ id: 987, number: "DDT-1" }],
++        itemsList: [{ id: 1, tradeItemId: TI, qty: 5, netPrice: 100, grossPrice: 100 }],
++      },
++    } as unknown as OperationalInvoiceV1;
++
++    await invoiceService.createMovementFromOperationalInvoice(invoice);
++
++    // The invoice movement was persisted (documentType=null / parentDocument=salesInvoice — the DDT-blind context).
++    const movement = await prisma.client.movement.findFirst({
++      where: { workspaceId: WS, parentDocument: ParentDocument.salesInvoice, deletedAt: null },
++    });
++    expect(movement).not.toBeNull();
++
++    // Recompute KPI from that movement through the real config lookup + real KpiRepository.
++    const kpiService = new KpiService(
++      new KpiRepository(prisma),
++      // events service is mocked so the KPI-event insert never collides with the write-side event row
++      {
++        createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "kpi-evt-13962" }),
++        getByEventId: vi.fn().mockResolvedValue(null),
++      } as never,
++      new StockCalculationConfigurationsService(
++        new StockCalculationConfigurationsRepository(prisma),
++      ),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++    );
++
++    const kpiEvent = {
++      eventId: "kpi-evt-13962",
++      eventType: EventType.MOVEMENT_GENERATION,
++      source: EventSource.manual,
++      workspaceId: WS,
++      payload: JSON.stringify(movement),
++    } as unknown as EventDTO;
++
++    await kpiService.processKpiUpdate(kpiEvent);
++
++    const kpi = await prisma.client.kpi.findFirst({
++      where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH },
++      orderBy: { date: "desc" },
++    });
++
++    // Then: the invoice must NOT re-move goods the DDT already moved — the movement is counted exactly once.
++    expect(kpi).not.toBeNull();
++    expect(kpi!.stockOnHand.toNumber()).toBe(-5);
++    expect(kpi!.stockAvailability.toNumber()).toBe(-5);
++  });
++});

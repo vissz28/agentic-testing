@@ -1,0 +1,45 @@
+diff --git a/test/integration/common/services/kpi/kpi.service.spec.ts b/test/integration/common/services/kpi/kpi.service.spec.ts
+index bf3a3c7..b21a652 100644
+--- a/test/integration/common/services/kpi/kpi.service.spec.ts
++++ b/test/integration/common/services/kpi/kpi.service.spec.ts
+@@ -47,10 +47,10 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+     );
+   });
+ 
+-  it("an outgoing movement subtracts from stock: 32 − 57.89 = −25.89 (never grows)", async () => {
++  it("an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)", async () => {
+     const prisma = db.prisma();
+     await seedTradeItem(prisma);
+-    await seedKpi(prisma, { stockOnHand: "32", date: new Date("2024-01-01") });
++    await seedKpi(prisma, { stockOnHand: "116.75", date: new Date("2024-01-01") });
+ 
+     const movement = {
+       id: "mov-kpi-13436",
+@@ -83,7 +83,7 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+     });
+ 
+     expect(kpi).not.toBeNull();
+-    expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(-25.89, 2);
+-    expect(kpi!.stockOnHand.toNumber()).toBeLessThan(32);
++    expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
++    expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, 2);
+   });
+ });
+diff --git a/test/integration/common/services/movement/movement.service.spec.ts b/test/integration/common/services/movement/movement.service.spec.ts
+index baf8567..534588d 100644
+--- a/test/integration/common/services/movement/movement.service.spec.ts
++++ b/test/integration/common/services/movement/movement.service.spec.ts
+@@ -61,9 +61,10 @@ describe(`FIC-13441 — KPI "Unit cost from master data" shows sales price inste
+     const { movement } = await service.create(dto);
+ 
+     expect(movement).toBeDefined();
+-    // the bug: this was 150 (unit_price); correct is 80 (unit_cost from master data)
+-    expect(movement!.unitPrice.toNumber()).toBe(80);
+-    expect(movement!.unitPrice.toNumber()).not.toBe(150);
++    // persisted on movement.unitPrice; ticket Then is 80 (unit_cost), not 150 (unit_price)
++    const unitCost = movement!.unitPrice.toNumber();
++    expect(unitCost).toBe(80);
++    expect(unitCost).not.toBe(150);
+     // total flows from the same choice: 10 × 80, never 10 × 150
+     expect(movement!.totalAmount.toNumber()).toBe(800);
+   });

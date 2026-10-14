@@ -1,0 +1,172 @@
+diff --git a/test/range/common/repositories/kpi.repository.spec.ts b/test/range/common/repositories/kpi.repository.spec.ts
+index cf04de7..88dfffd 100644
+--- a/test/range/common/repositories/kpi.repository.spec.ts
++++ b/test/range/common/repositories/kpi.repository.spec.ts
+@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
+ import * as fc from "fast-check";
+ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+ import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
++import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { logRange } from "@test/range-log";
+ import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+@@ -77,3 +78,81 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+     );
+   });
+ });
++
++// FIC-13860 invariant: a provided cost/price is what getLastUnitCost/getLastUnitPrice returns —
++// for EVERY value including 0, and independent of whatever the last KPI row holds. The defect
++// (`if (cost)`) only returns the provided value when it is truthy, so any generated 0 falls back
++// to the seeded last_cost/last_price and fails the property.
++describe(`FIC-13860 — [BE] KPI "last unit cost" drops a zero-cost movement — kpi.repository`, () => {
++  let db: LiveDb;
++  const kpiData: GetKPIDTO = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("getLastUnitCost: the provided cost (0..1e6 incl. 0) is returned verbatim, never the seeded last_cost", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        // 0 is the whole point of the bug — sample it as often as any other value, not by luck.
++        fc.oneof(fc.constant(0), fc.integer({ min: 0, max: 100_000_000 })), // provided cost, hundredths of a currency unit
++        fc.integer({ min: 1, max: 100_000_000 }), // seeded last_cost, hundredths (always > 0 to prove it is not the source)
++        async (costHundredths, seededHundredths) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new KpiRepository(prisma);
++
++          const cost = costHundredths / 100;
++          const seededLastCost = seededHundredths / 100;
++
++          await seedTradeItem(prisma);
++          await seedKpi(prisma, { lastCost: seededLastCost.toFixed(2) });
++
++          const result = await repo.getLastUnitCost(kpiData, cost);
++
++          logRange({
++            key: "FIC-13860",
++            sample: { cost, seededLastCost, method: "getLastUnitCost" },
++            actual: result,
++            ok: result === cost,
++          });
++
++          expect(result).toBe(cost);
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++
++  it("getLastUnitPrice: the provided price (0..1e6 incl. 0) is returned verbatim, never the seeded last_price", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        fc.oneof(fc.constant(0), fc.integer({ min: 0, max: 100_000_000 })),
++        fc.integer({ min: 1, max: 100_000_000 }),
++        async (priceHundredths, seededHundredths) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new KpiRepository(prisma);
++
++          const price = priceHundredths / 100;
++          const seededLastPrice = seededHundredths / 100;
++
++          await seedTradeItem(prisma);
++          await seedKpi(prisma, { lastPrice: seededLastPrice.toFixed(2) });
++
++          const result = await repo.getLastUnitPrice(kpiData, price);
++
++          logRange({
++            key: "FIC-13860",
++            sample: { price, seededLastPrice, method: "getLastUnitPrice" },
++            actual: result,
++            ok: result === price,
++          });
++
++          expect(result).toBe(price);
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/unit/common/repositories/kpi.repository.spec.ts b/test/unit/common/repositories/kpi.repository.spec.ts
+index 90092da..8ea0a05 100644
+--- a/test/unit/common/repositories/kpi.repository.spec.ts
++++ b/test/unit/common/repositories/kpi.repository.spec.ts
+@@ -1,6 +1,7 @@
+ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+ import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
++import type { GetKPIDTO } from "@app/common/dto/kpi/get-kpi.dto";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
+ 
+@@ -79,3 +80,65 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+     expect(after.stockOnHand.toNumber()).toBeLessThan(10);
+   });
+ });
++
++// A provided cost/price of exactly 0 (free sample, promo, zero-value receipt) must be recorded,
++// not dropped. The defect: getLastUnitCost uses `if (cost)` — 0 is falsy, so the provided 0 is
++// ignored and the stale previous KPI value (50) is returned. Same for getLastUnitPrice with 0.
++describe(`FIC-13860 — [BE] KPI "last unit cost" drops a zero-cost movement — kpi.repository`, () => {
++  let db: LiveDb;
++  let repo: KpiRepository;
++  const kpiData: GetKPIDTO = { workspaceId: WS, tradeItemId: TI, warehouseId: WH };
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new KpiRepository(db.prisma());
++  });
++
++  // Regression anchor: RED on current source (returns the stale 50 instead of 0).
++  it("getLastUnitCost: a provided cost of 0 is recorded, not the previous KPI's last_cost=50", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastCost: "50" });
++
++    const result = await repo.getLastUnitCost(kpiData, 0);
++
++    expect(result).toBe(0);
++    expect(result).not.toBe(50);
++  });
++
++  it("getLastUnitCost: a provided non-zero cost (80) is used over last_cost=50", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastCost: "50" });
++
++    const result = await repo.getLastUnitCost(kpiData, 80);
++
++    expect(result).toBe(80);
++  });
++
++  it("getLastUnitCost: no provided cost falls back to the last KPI's last_cost=50", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastCost: "50" });
++
++    const result = await repo.getLastUnitCost(kpiData);
++
++    expect(result).toBe(50);
++  });
++
++  // Twin anchor: RED on current source (returns the stale 30 instead of 0).
++  it("getLastUnitPrice: a provided price of 0 is recorded, not the previous KPI's last_price=30", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastPrice: "30" });
++
++    const result = await repo.getLastUnitPrice(kpiData, 0);
++
++    expect(result).toBe(0);
++    expect(result).not.toBe(30);
++  });
++});

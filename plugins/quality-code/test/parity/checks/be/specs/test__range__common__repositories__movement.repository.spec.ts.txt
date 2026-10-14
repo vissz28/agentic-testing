@@ -1,0 +1,86 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import * as fc from "fast-check";
+import { ParentDocument } from "@prisma-client";
+import { MovementRepository } from "@app/common/repositories/movement.repository";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { logRange } from "@test/range-log";
+import { seedMovement, seedTradeItem, seedWarehouse, WS } from "@test/seed";
+
+const FILTERABLE_PARENTS = [
+  ParentDocument.purchaseOrder,
+  ParentDocument.purchaseInvoice,
+  ParentDocument.purchaseCreditNote,
+  ParentDocument.purchaseDeliveryNote,
+  ParentDocument.salesOrder,
+  ParentDocument.salesInvoice,
+  ParentDocument.salesCreditNote,
+  ParentDocument.salesDeliveryNote,
+] as const;
+
+describe(`FIC-13173 — [Lista movimenti] Viene mostrato solo il numero documento e non la tipologia`, () => {
+  let db: LiveDb;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  it("findAllUniqueDocuments always pairs document number with parentDocument for filterable types", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 1_000_000 }),
+        fc.constantFrom(...FILTERABLE_PARENTS),
+        async (docNum, parentDocument) => {
+          await db.restore();
+          const prisma = db.prisma();
+          const repo = new MovementRepository(prisma);
+          const document = String(docNum);
+
+          await seedWarehouse(prisma);
+          await seedTradeItem(prisma);
+          await seedMovement(prisma, {
+            eventId: `evt-${docNum}`,
+            document,
+            parentDocument,
+          });
+          // Adjustment must never leak into the filter list
+          await seedMovement(prisma, {
+            eventId: `evt-adj-${docNum}`,
+            document: `ADJ-${docNum}`,
+            parentDocument: ParentDocument.inventoryStockAdjustmentNote,
+          });
+
+          type DocRow = { document: string; parentDocument: string | null };
+          const docs = (await repo.findAllUniqueDocuments(
+            WS,
+          )) as unknown as DocRow[];
+          const hit = docs.find((d) => d.document === document);
+          const ok =
+            hit != null &&
+            hit.parentDocument === parentDocument &&
+            !docs.some(
+              (d) =>
+                d.parentDocument ===
+                ParentDocument.inventoryStockAdjustmentNote,
+            );
+
+          logRange({
+            key: "FIC-13173",
+            sample: { document, parentDocument },
+            actual: docs,
+            ok,
+          });
+
+          expect(hit).toEqual({ document, parentDocument });
+          expect(
+            docs.some(
+              (d) =>
+                d.parentDocument ===
+                ParentDocument.inventoryStockAdjustmentNote,
+            ),
+          ).toBe(false);
+        },
+      ),
+      { numRuns: 20 },
+    );
+  });
+});

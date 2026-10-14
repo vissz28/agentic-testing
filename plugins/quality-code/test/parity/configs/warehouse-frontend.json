@@ -120,5 +120,12 @@
     },
     "refuseFallback": "Please add Steps to reproduce, Expected, Actual, and Given / When / Then.",
     "jiraFillMark": "_Added during the /spec readiness check._"
+  },
+  "boundaries": {
+    "forbidden": [
+      { "path": "src/", "why": "src/ is application code. This harness generates tests, it never changes the code under test — a generator that can edit the app can make a red test green the wrong way (Quality Program §6)." },
+      { "path": ".gitlab-ci.yml", "why": "the shared team pipeline. A change here lands on every merge request. Propose it in the e2e README instead and let a human wire it." },
+      { "path": ".env", "why": ".env points at shared remote systems; the root CLAUDE.md warns that pointing local dev back at *-test.teamsystem.cloud writes to an environment other people use. Edit .env.example if you need to document a variable." }
+    ]
   }
 }

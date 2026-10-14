@@ -1,0 +1,77 @@
+diff --git a/e2e/tests/products-stock/live-backend.smoke.spec.ts b/e2e/tests/products-stock/live-backend.smoke.spec.ts
+index be08efe..1f97b5f 100644
+--- a/e2e/tests/products-stock/live-backend.smoke.spec.ts
++++ b/e2e/tests/products-stock/live-backend.smoke.spec.ts
+@@ -3,12 +3,18 @@ import { expect, test, WORKSPACE_ID } from '../../fixtures'
+ /**
+  * The check on e2e/backend-up.sh: proves a spec can reach the real warehouse-read service
+  * instead of a page.route stub. Unlike products-stock.smoke.spec.ts, this one registers no
+- * feature-data routes, so /trade-items goes out over the wire.
++ * *stubbing* route — /trade-items still goes out over the wire and the real response reaches
++ * the page unmodified. The route below only spies on that real response: `route.fetch()`
++ * performs genuine network I/O, and the body is captured here because Playwright's CDP buffer
++ * for a `page.waitForResponse` capture can get evicted once the page moves on (observed: it's
++ * gone by the time the grid-visibility check below resolves), while a value captured in this
++ * Node-side closure cannot.
+  *
+  * Run with: npm run e2e:live  (plain `npm run e2e` skips it — no backend is started).
+  *
+- * Asserts the round-trip, not the rows: the DB is empty unless someone seeded it, and an
+- * empty 200 still proves the request left the browser and a real service answered.
++ * backend-up.sh seeds a known dataset (AGT-16, warehouse-backend/scripts/seed-e2e-dataset.ts).
++ * "E2E Widget" / stockOnHand "42" below must match that script's E2E_DATASET — kept as a
++ * literal here rather than imported since this is a separate repo.
+  */
+ test('products-stock reads from the real backend, not a stub', async ({
+   page,
+@@ -19,21 +25,41 @@ test('products-stock reads from the real backend, not a stub', async ({
+     'needs the real backend — run `npm run e2e:live`'
+   )
+ 
+-  const tradeItems = page.waitForResponse(
+-    response =>
+-      response.url().includes(`/trade-items/workspace/${WORKSPACE_ID}`) &&
+-      response.request().method() === 'GET',
+-    { timeout: 30_000 }
++  let capturedUrl = ''
++  let capturedStatus = 0
++  let capturedBody: { items: Array<{ name: string; kpi: Array<{ stockOnHand: string }> }> } | undefined
++
++  await page.route(
++    url =>
++      url.pathname.includes('/trade-items/workspace/') &&
++      url.pathname.includes(WORKSPACE_ID),
++    async route => {
++      const response = await route.fetch()
++      capturedUrl = response.url()
++      capturedStatus = response.status()
++      capturedBody = await response.json()
++      await route.fulfill({ response })
++    }
+   )
+ 
+   await warehouse.goto('/productsStock')
+ 
+-  const response = await tradeItems
++  await expect
++    .poll(() => capturedStatus, { timeout: 30_000 })
++    .not.toBe(0)
++
+   // Port 3010 is warehouse-read. A stubbed response would never carry it.
+-  expect(new URL(response.url()).port).toBe('3010')
+-  expect(response.status()).toBe(200)
+-  // 200 rather than 404 also means the workspace row backend-up.sh inserted took effect.
++  expect(new URL(capturedUrl).port).toBe('3010')
++  expect(capturedStatus).toBe(200)
++
++  // 200 rather than 404 also means the workspace activation the seed script did took effect.
+   await expect(page.locator('.MuiDataGrid-root')).toBeVisible({
+     timeout: 15_000,
+   })
++
++  // Assert the seeded dataset's actual content, not just an empty-but-200 round-trip.
++  const widget = capturedBody?.items.find(item => item.name === 'E2E Widget')
++  expect(widget).toBeTruthy()
++  expect(Number(widget!.kpi[0].stockOnHand)).toBe(42)
++  await expect(page.getByText('E2E Widget')).toBeVisible()
+ })

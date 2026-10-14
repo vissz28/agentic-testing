@@ -1,0 +1,77 @@
+diff --git a/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+index 5de5f0d..21f89ad 100644
+--- a/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ b/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -15,6 +15,13 @@ function workbookText(buffer: Buffer): string {
+   ]).join("\n");
+ }
+ 
++// Ticket Then: the generated report file should be in Italian. Red until the chrome is localized.
++function reportLanguage(text: string): "italian" | "english" {
++  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
++    return "english";
++  return "italian";
++}
++
+ describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+   let db: LiveDb;
+   let captured: Buffer | undefined;
+@@ -69,5 +76,6 @@ describe(`FIC-13628 — Stock import report generated in English instead of Ital
+     expect(captured).toBeDefined();
+     expect(workbookText(captured!)).not.toContain("Import Report");
+     expect(workbookText(captured!)).not.toContain("Date of Import");
++    expect(reportLanguage(workbookText(captured!))).toBe("italian");
+   });
+ });
+diff --git a/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+index 1937a23..a25e562 100644
+--- a/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ b/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -13,6 +13,13 @@ function workbookText(buffer: Buffer): string {
+   ]).join("\n");
+ }
+ 
++// Ticket Then: the generated report file should be in Italian. Red until the chrome is localized.
++function reportLanguage(text: string): "italian" | "english" {
++  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
++    return "english";
++  return "italian";
++}
++
+ describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+   let db: LiveDb;
+ 
+@@ -52,6 +59,7 @@ describe(`FIC-13628 — Stock import report generated in English instead of Ital
+           });
+           expect(captured).toBeDefined();
+           expect(workbookText(captured!)).not.toContain("Import Report");
++          expect(reportLanguage(workbookText(captured!))).toBe("italian");
+         },
+       ),
+       { numRuns: 20 },
+diff --git a/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+index 2397ca7..4ba4358 100644
+--- a/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
++++ b/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -20,6 +20,14 @@ function workbookText(buffer: Buffer): string {
+   ]).join("\n");
+ }
+ 
++// Classify the report by the language of its chrome (sheet names, titles, headers).
++// Ticket Then: the generated file should be in Italian. Red until the chrome is localized.
++function reportLanguage(text: string): "italian" | "english" {
++  if (/\b(Import Report|Imported Products|Stock Before Import|Movement Quantity|Date of Import)\b/i.test(text))
++    return "english";
++  return "italian";
++}
++
+ describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
+   let db: LiveDb;
+   let captured: Buffer | undefined;
+@@ -66,5 +74,6 @@ describe(`FIC-13628 — Stock import report generated in English instead of Ital
+     for (const phrase of ENGLISH) {
+       expect(text).not.toContain(phrase);
+     }
++    expect(reportLanguage(text)).toBe("italian");
+   });
+ });

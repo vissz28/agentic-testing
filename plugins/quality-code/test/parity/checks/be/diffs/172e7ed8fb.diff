@@ -1,0 +1,364 @@
+diff --git a/test/integration/common/services/kpi/kpi.service.spec.ts b/test/integration/common/services/kpi/kpi.service.spec.ts
+index 25be128..b1cb8bf 100644
+--- a/test/integration/common/services/kpi/kpi.service.spec.ts
++++ b/test/integration/common/services/kpi/kpi.service.spec.ts
+@@ -10,7 +10,8 @@ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+ import type { EventDTO } from "@app/common/dto/event/event.dto";
+ import { EventType } from "@app/common/enums/event/type.enum";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedTradeItem, seedKpi, WS, TI, WH } from "@test/seed";
++import { seedTradeItem, seedKpi, seedMovement, WS, TI, WH } from "@test/seed";
++import { allocationService, cacheDouble } from "@test/fakes";
+ 
+ // FIC-13436 — service-level view of the stock-reconstruction bug: an OUTGOING movement must
+ // DECREASE stockOnHand. KpiService.processKpiUpdate → handleMovement → calculateStockDelta signs
+@@ -43,7 +44,17 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+           reservedStockOperation: null,
+         }),
+       } as never,
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      allocationService(db.prisma(), // stockCalculationConfigurationsService: outgoing → decrement stock on hand
++      {
++        get: vi.fn().mockResolvedValue({
++          stockOnHandOperation: Operation.decrement,
++          stockAvailabilityOperation: Operation.decrement,
++          stockValueOperation: Operation.decrement,
++          orderedStockOperation: null,
++          reservedStockOperation: null,
++        }),
++      } as never),
++      cacheDouble() as never,
+     );
+   });
+ 
+@@ -52,8 +63,20 @@ describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+     await seedTradeItem(prisma);
+     await seedKpi(prisma, { stockOnHand: "116.75", date: new Date("2024-01-01") });
+ 
++    // The allocation service persists a snapshot onto the movement row, so the row the payload
++    // names has to exist. Seed it first and reuse its real id.
++    const row = await seedMovement(prisma, {
++      eventId: "evt-kpi-13436",
++      type: MovementType.outgoing,
++      reason: MovementReason.sale,
++      quantity: "57.89",
++      unitPrice: "10",
++      totalAmount: "578.9",
++      date: new Date("2024-01-02"),
++    });
++
+     const movement = {
+-      id: "mov-kpi-13436",
++      id: row.id,
+       workspaceId: WS,
+       tradeItemId: TI,
+       warehouseId: WH,
+@@ -136,7 +159,22 @@ describe(`FIC-13986 — [U######] Incorrect stock between report and product mas
+           });
+         }),
+       } as never,
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      allocationService(db.prisma(), {
++        get: vi.fn().mockImplementation((m: { type: MovementType }) => {
++          const op =
++            m.type === MovementType.incoming
++              ? Operation.increment
++              : Operation.decrement;
++          return Promise.resolve({
++            stockOnHandOperation: op,
++            stockAvailabilityOperation: op,
++            stockValueOperation: op,
++            orderedStockOperation: null,
++            reservedStockOperation: null,
++          });
++        }),
++      }),
++      cacheDouble() as never,
+     );
+   });
+ 
+@@ -146,8 +184,23 @@ describe(`FIC-13986 — [U######] Incorrect stock between report and product mas
+     quantity: string,
+     seq: number,
+   ): Promise<void> {
++    // The allocation service writes a snapshot onto the movement row, so seed the row the
++    // payload names and reuse its real id.
++    const row = await seedMovement(db.prisma(), {
++      eventId: `evt-13986-${tradeItemId}-${seq}`,
++      tradeItemId,
++      type,
++      reason:
++        type === MovementType.incoming
++          ? MovementReason.positiveAdjustment
++          : MovementReason.sale,
++      quantity,
++      unitPrice: "10",
++      date: MOV_DATE,
++    });
++
+     const movement = {
+-      id: `mov-13986-${tradeItemId}-${seq}`,
++      id: row.id,
+       workspaceId: WS,
+       tradeItemId,
+       warehouseId: WH,
+diff --git a/test/integration/common/services/movement/movement.service.spec.ts b/test/integration/common/services/movement/movement.service.spec.ts
+index 534588d..739463d 100644
+--- a/test/integration/common/services/movement/movement.service.spec.ts
++++ b/test/integration/common/services/movement/movement.service.spec.ts
+@@ -6,6 +6,9 @@ import type { CreateMovementDTO } from "@app/common/dto/movement/create-movement
+ import type { ClientProxy } from "@nestjs/microservices";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedWarehouse, seedTradeItem, seedEvent, WS, WH, TI } from "@test/seed";
++import { StockCalculationConfigurationsService } from "@app/common/services/kpi/stock.calculation.configurations.service";
++import { StockCalculationConfigurationsRepository } from "@app/common/repositories/stock.calculation.configurations.repository";
++import { allocationService, cacheDouble } from "@test/fakes";
+ 
+ // FIC-13441 — the "Unit cost from master data" KPI showed the sales price (unit_price=150) instead
+ // of the net purchase cost (unit_cost=80). The field choice lives in MovementService.create: an
+@@ -23,10 +26,13 @@ describe(`FIC-13441 — KPI "Unit cost from master data" shows sales price inste
+ 
+   beforeEach(async () => {
+     await db.restore();
++    const stockConfig = new StockCalculationConfigurationsService(
++      new StockCalculationConfigurationsRepository(db.prisma()),
++    );
+     service = new MovementService(
+       { emit: vi.fn() } as unknown as ClientProxy,
+       new MovementRepository(db.prisma()),
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      cacheDouble() as never,
+       {
+         createFromEventDTO: vi.fn().mockResolvedValue({ eventId: EVENT_ID }),
+       } as never,
+@@ -39,6 +45,12 @@ describe(`FIC-13441 — KPI "Unit cost from master data" shows sales price inste
+         }),
+       } as never,
+       { add: vi.fn() } as never,
++      // Args 8 and 9 were missing, so create() hit `Cannot read properties of undefined
++      // (reading 'get')` inside persistAllocationSnapshotEarly — which swallows its own errors,
++      // so the spec stayed green while never running the allocation path. The real config
++      // service reads the seeded stock_calculation_configurations rows.
++      stockConfig,
++      allocationService(db.prisma(), stockConfig),
+     );
+   });
+ 
+diff --git a/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts b/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts
+index db5d30f..15dcdfa 100644
+--- a/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts
++++ b/test/integration/common/services/operational-invoice/operational-invoice.service.spec.ts
+@@ -20,7 +20,8 @@ import { EventType } from "@app/common/enums/event/type.enum";
+ import type { EventDTO } from "@app/common/dto/event/event.dto";
+ import type { OperationalInvoiceV1 } from "src/warehouse-write/types/operational-invoice.event";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedWorkspace, seedWarehouse, seedTradeItem, WS, WH, TI } from "@test/seed";
++import { seedWorkspace, seedWarehouse, seedTradeItem, seedMovement, WS, WH, TI } from "@test/seed";
++import { allocationService, cacheDouble } from "@test/fakes";
+ 
+ // FIC-13971 — https://teamsystem.atlassian.net/browse/FIC-13971
+ // Unendo/trasformando un ordine con DDT il magazzino viene movimentato nuovamente.
+@@ -74,6 +75,35 @@ describe(`FIC-13971 — Unendo/trasformando un ordine con DDT il magazzino (giac
+       },
+     });
+ 
++    // The order's own movement (seed rule 12: outgoing/order/salesOrder reserves availability),
++    // then the DDT that shipped against it. The allocation service resolves a parent by looking
++    // movements up by sourceDocument, so without these rows the invoice has no parent to be
++    // deduplicated against and applies its quantity in full. Orders carry no active/passive
++    // suffix; DDTs do (OperationalInvoiceService.buildParentSourceDocumentResolver).
++    await seedMovement(prisma, {
++      eventId: "evt-ord-13971",
++      sourceDocument: "sales-258048787",
++      type: MovementType.outgoing,
++      reason: MovementReason.order,
++      parentDocument: ParentDocument.salesOrder,
++      quantity: "15",
++      unitPrice: "10",
++      totalAmount: "150",
++      date: new Date("2024-01-01"),
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-ddt-13971",
++      sourceDocument: "sales-987-active",
++      parentSourceDocument: "sales-258048787",
++      type: MovementType.outgoing,
++      reason: MovementReason.sale,
++      parentDocument: ParentDocument.salesDeliveryNote,
++      quantity: "5",
++      unitPrice: "10",
++      totalAmount: "50",
++      date: new Date("2024-01-01"),
++    });
++
+     // State after the DDT (giacenza -5) and the order (disponibilità -15) — the correct final numbers.
+     await prisma.client.kpi.create({
+       data: {
+@@ -90,14 +120,24 @@ describe(`FIC-13971 — Unendo/trasformando un ordine con DDT il magazzino (giac
+     // Wire the real write chain: OperationalInvoiceService → real MovementService + real repos + Prisma.
+     // Only the external boundaries (KPI bus, cache, queue, trade-item/warehouse/activation lookups) are mocked.
+     const eventsService = new EventsService(new EventRepository(prisma));
++    const stockConfig = new StockCalculationConfigurationsService(
++      new StockCalculationConfigurationsRepository(prisma),
++    );
+     const movementService = new MovementService(
+       { emit: vi.fn() } as never, // KPI_MICROSERVICE ClientProxy — internal publish is a no-op here
+       new MovementRepository(prisma),
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      cacheDouble() as never, // cache
+       eventsService,
+       { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
+       { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
+       { add: vi.fn() } as never, // MANUAL_MOVEMENT_QUEUE
++      // The import-adjustment check used to sit here, in arg 8. It is arg 12, so it was never
++      // consulted, and MovementService read it as its config service: persistAllocationSnapshotEarly
++      // died on "stockCalculationConfigurationsService.get is not a function" and swallowed it.
++      stockConfig,
++      allocationService(prisma, stockConfig),
++      undefined as never, // KPI_SERVICE — not reached on the create path under test
++      undefined as never, // RedisService — idem
+       { hasInProgressAdjustments: vi.fn().mockResolvedValue(false) } as never, // import-adjustment check
+     );
+     const invoiceService = new OperationalInvoiceService(
+@@ -158,10 +198,9 @@ describe(`FIC-13971 — Unendo/trasformando un ordine con DDT il magazzino (giac
+         createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "kpi-evt-13971" }),
+         getByEventId: vi.fn().mockResolvedValue(null),
+       } as never,
+-      new StockCalculationConfigurationsService(
+-        new StockCalculationConfigurationsRepository(prisma),
+-      ),
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      stockConfig,
++      allocationService(prisma, stockConfig),
++      cacheDouble() as never, // cache
+     );
+ 
+     const kpiEvent = {
+@@ -241,6 +280,25 @@ describe(`FIC-13962 — Emettendo una fattura con DDT il magazzino viene movimen
+       },
+     });
+ 
++    // The DDT's own movement row. The allocation service resolves the parent by looking
++    // movements up by sourceDocument (forms "sales-987-active" and "sales-987", built in
++    // OperationalInvoiceService.buildParentSourceDocumentResolver), so without this row the
++    // invoice has no parent to be deduplicated against and applies its quantity in full.
++    await seedMovement(prisma, {
++      eventId: "evt-ddt-13962",
++      sourceDocument: "sales-987-active",
++      type: MovementType.outgoing,
++      reason: MovementReason.sale,
++      // Config 30 in prisma/seed.ts keys the DDT's own rule on salesDeliveryNote. Without it the
++      // parent matches no configuration, resolveAllocation returns parentConfig=null, and the
++      // invoice falls back to applying every dimension in full — the -10 this test is about.
++      parentDocument: ParentDocument.salesDeliveryNote,
++      quantity: "5",
++      unitPrice: "10",
++      totalAmount: "50",
++      date: new Date("2024-01-01"),
++    });
++
+     // State after the DDT's single move: giacenza -5 and disponibilità -5 — the correct final numbers.
+     await prisma.client.kpi.create({
+       data: {
+@@ -257,14 +315,24 @@ describe(`FIC-13962 — Emettendo una fattura con DDT il magazzino viene movimen
+     // Wire the real write chain: OperationalInvoiceService → real MovementService + real repos + Prisma.
+     // Only the external boundaries (KPI bus, cache, queue, trade-item/warehouse/activation lookups) are mocked.
+     const eventsService = new EventsService(new EventRepository(prisma));
++    const stockConfig = new StockCalculationConfigurationsService(
++      new StockCalculationConfigurationsRepository(prisma),
++    );
+     const movementService = new MovementService(
+       { emit: vi.fn() } as never, // KPI_MICROSERVICE ClientProxy — internal publish is a no-op here
+       new MovementRepository(prisma),
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      cacheDouble() as never, // cache
+       eventsService,
+       { get: vi.fn().mockResolvedValue({ id: WH }) } as never, // warehouseService
+       { get: vi.fn().mockResolvedValue({ id: TI }) } as never, // tradeItemService
+       { add: vi.fn() } as never, // MANUAL_MOVEMENT_QUEUE
++      // The import-adjustment check used to sit here, in arg 8. It is arg 12, so it was never
++      // consulted, and MovementService read it as its config service: persistAllocationSnapshotEarly
++      // died on "stockCalculationConfigurationsService.get is not a function" and swallowed it.
++      stockConfig,
++      allocationService(prisma, stockConfig),
++      undefined as never, // KPI_SERVICE — not reached on the create path under test
++      undefined as never, // RedisService — idem
+       { hasInProgressAdjustments: vi.fn().mockResolvedValue(false) } as never, // import-adjustment check
+     );
+     const invoiceService = new OperationalInvoiceService(
+@@ -325,10 +393,9 @@ describe(`FIC-13962 — Emettendo una fattura con DDT il magazzino viene movimen
+         createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "kpi-evt-13962" }),
+         getByEventId: vi.fn().mockResolvedValue(null),
+       } as never,
+-      new StockCalculationConfigurationsService(
+-        new StockCalculationConfigurationsRepository(prisma),
+-      ),
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never, // cache
++      stockConfig,
++      allocationService(prisma, stockConfig),
++      cacheDouble() as never, // cache
+     );
+ 
+     const kpiEvent = {
+diff --git a/test/range/common/services/kpi/kpi.service.spec.ts b/test/range/common/services/kpi/kpi.service.spec.ts
+index 230ecb1..34eff1a 100644
+--- a/test/range/common/services/kpi/kpi.service.spec.ts
++++ b/test/range/common/services/kpi/kpi.service.spec.ts
+@@ -11,7 +11,8 @@ import { KpiRepository } from "@app/common/repositories/kpi.repository";
+ import type { EventDTO } from "@app/common/dto/event/event.dto";
+ import { EventType } from "@app/common/enums/event/type.enum";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedTradeItem, WS, TI, WH } from "@test/seed";
++import { seedTradeItem, seedMovement, WS, TI, WH } from "@test/seed";
++import { allocationService, cacheDouble } from "@test/fakes";
+ import { logRange } from "@test/range-log";
+ 
+ // FIC-13986 — property view of "report giacenza must equal the product master data". For any
+@@ -55,7 +56,22 @@ describe(`FIC-13986 — [U######] Incorrect stock between report and product mas
+           });
+         }),
+       } as never,
+-      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      allocationService(db.prisma(), {
++        get: vi.fn().mockImplementation((m: { type: MovementType }) => {
++          const op =
++            m.type === MovementType.incoming
++              ? Operation.increment
++              : Operation.decrement;
++          return Promise.resolve({
++            stockOnHandOperation: op,
++            stockAvailabilityOperation: op,
++            stockValueOperation: op,
++            orderedStockOperation: null,
++            reservedStockOperation: null,
++          });
++        }),
++      } as never),
++      cacheDouble() as never,
+     );
+   }
+ 
+@@ -65,8 +81,22 @@ describe(`FIC-13986 — [U######] Incorrect stock between report and product mas
+     quantity: number,
+     seq: number,
+   ): Promise<void> {
++    // The allocation service writes a snapshot onto the movement row, so seed the row the
++    // payload names and reuse its real id.
++    const row = await seedMovement(db.prisma(), {
++      eventId: `evt-13986r-${seq}`,
++      type,
++      reason:
++        type === MovementType.incoming
++          ? MovementReason.positiveAdjustment
++          : MovementReason.sale,
++      quantity: String(quantity),
++      unitPrice: "10",
++      date: MOV_DATE,
++    });
++
+     const movement = {
+-      id: `mov-13986r-${seq}`,
++      id: row.id,
+       workspaceId: WS,
+       tradeItemId: TI,
+       warehouseId: WH,

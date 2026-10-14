@@ -1,0 +1,89 @@
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { MovementReason, MovementType, Operation } from "@prisma-client";
+import { KpiRepository } from "@app/common/repositories/kpi.repository";
+import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedKpi, seedMovement, seedTradeItem, seedWarehouse, WS, TI, WH } from "@test/seed";
+
+// The ticket is a "recalculation of stock" bug: the persisted KPI history for ORO ROSA 9KT
+// showed 116.75 because the outgoing movement was never applied. rebuildFutureKpiRecords replays
+// the real movement history (Kpi ⋈ Movement ⋈ StockCalculationConfiguration) — this exercises that
+// join and asserts the reconstructed history matches the signed sum, ending on 58.86.
+const D0 = new Date("2024-01-01"); // opening balance 32
+const D1 = new Date("2024-01-02"); // load +25.89
+const D2 = new Date("2024-01-03"); // active document -57.89
+const D3 = new Date("2024-01-04"); // load +58.86
+const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
+
+describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
+  let db: LiveDb;
+  let repo: KpiRepository;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new KpiRepository(db.prisma());
+  });
+
+  it("rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86", async () => {
+    const prisma = db.prisma();
+    await seedWarehouse(prisma);
+    await seedTradeItem(prisma);
+
+    // Stock configs: incoming loads increment, outgoing document decrements stockOnHand.
+    await prisma.client.stockCalculationConfiguration.createMany({
+      data: [
+        {
+          movementType: MovementType.incoming,
+          movementReason: MovementReason.positiveAdjustment,
+          stockOnHandOperation: Operation.increment,
+        },
+        {
+          movementType: MovementType.outgoing,
+          movementReason: MovementReason.negativeAdjustment,
+          stockOnHandOperation: Operation.decrement,
+        },
+      ],
+    });
+
+    // Real movement history.
+    await seedMovement(prisma, { eventId: "evt-load1", type: MovementType.incoming, reason: MovementReason.positiveAdjustment, quantity: "25.89", date: D1 });
+    await seedMovement(prisma, { eventId: "evt-doc", type: MovementType.outgoing, reason: MovementReason.negativeAdjustment, quantity: "57.89", date: D2 });
+    await seedMovement(prisma, { eventId: "evt-load2", type: MovementType.incoming, reason: MovementReason.positiveAdjustment, quantity: "58.86", date: D3 });
+
+    // Corrupted KPI history as reported: the outgoing was dropped, so it grew 32 → 57.89 → 57.89 → 116.75.
+    await seedKpi(prisma, { stockOnHand: "57.89", date: D1 });
+    await seedKpi(prisma, { stockOnHand: "57.89", date: D2 });
+    await seedKpi(prisma, { stockOnHand: "116.75", date: D3 });
+
+    // Establish the opening balance (32) at D0; this triggers rebuild of every later KPI row.
+    const opening: UpsertKpiStockDTO = {
+      workspaceId: WS,
+      tradeItemId: TI,
+      warehouseId: WH,
+      stockOnHandDelta: 32,
+      stockValueDelta: 0,
+      stockAvailabilityDelta: 0,
+      orderedStockDelta: 0,
+      reservedStockDelta: 0,
+      lastMovementId: LAST_MOVEMENT,
+      date: D0,
+    };
+    await repo.upsertKpiStock(opening);
+
+    // Compute side: the outgoing row is subtracted (0 at D2), the final row is 58.86, not 116.75.
+    const atD2 = await prisma.client.kpi.findFirst({ where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH, date: D2 } });
+    const atD3 = await prisma.client.kpi.findFirst({ where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH, date: D3 } });
+    expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);
+    expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
+
+    // Display side: what the customer sees (latest KPI ≤ today) must equal the corrected value.
+    const displayed = await repo.getStockDataForDateWithFallback(WS, WH, new Date());
+    const item = displayed.find((row) => row.tradeItemId === TI);
+    expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
+    expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75, 2);
+  });
+});

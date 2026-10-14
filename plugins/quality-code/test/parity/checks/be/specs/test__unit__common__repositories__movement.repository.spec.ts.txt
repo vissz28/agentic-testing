@@ -1,0 +1,106 @@
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { ParentDocument } from "@prisma-client";
+import { MovementRepository } from "@app/common/repositories/movement.repository";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedMovement, seedTradeItem, seedWarehouse, WS } from "@test/seed";
+
+describe(`FIC-13173 — [Lista movimenti] Viene mostrato solo il numero documento e non la tipologia`, () => {
+  let db: LiveDb;
+  let repo: MovementRepository;
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+    repo = new MovementRepository(db.prisma());
+  });
+
+  // Documento filter must expose typology so FE can render "fattura 78", not bare "78"
+  it("findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order", async () => {
+    const prisma = db.prisma();
+    await seedWarehouse(prisma);
+    await seedTradeItem(prisma);
+    await seedMovement(prisma, {
+      eventId: "evt-inv",
+      document: "78",
+      parentDocument: ParentDocument.salesInvoice,
+    });
+    await seedMovement(prisma, {
+      eventId: "evt-ord",
+      document: "98",
+      parentDocument: ParentDocument.salesOrder,
+    });
+
+    const docs = await repo.findAllUniqueDocuments(WS);
+
+    type DocRow = { document: string; parentDocument: string | null };
+    const rows = docs as unknown as DocRow[];
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { document: "78", parentDocument: ParentDocument.salesInvoice },
+        { document: "98", parentDocument: ParentDocument.salesOrder },
+      ]),
+    );
+    expect(rows.every((d) => typeof d === "object" && d !== null)).toBe(true);
+    expect(rows.every((d) => typeof d.document === "string")).toBe(true);
+  });
+
+  it("edge: excludes inventoryStockAdjustmentNote from the documents filter", async () => {
+    const prisma = db.prisma();
+    await seedWarehouse(prisma);
+    await seedTradeItem(prisma);
+    await seedMovement(prisma, {
+      eventId: "evt-adj",
+      document: "ADJ-1",
+      parentDocument: ParentDocument.inventoryStockAdjustmentNote,
+    });
+    await seedMovement(prisma, {
+      eventId: "evt-cn",
+      document: "65",
+      parentDocument: ParentDocument.salesCreditNote,
+    });
+
+    type DocRow = { document: string; parentDocument: string | null };
+    const rows = (await repo.findAllUniqueDocuments(WS)) as unknown as DocRow[];
+
+    expect(rows).toEqual([
+      { document: "65", parentDocument: ParentDocument.salesCreditNote },
+    ]);
+    expect(
+      rows.some(
+        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,
+      ),
+    ).toBe(false);
+  });
+
+  it("edge: soft-deleted and null-document movements are omitted", async () => {
+    const prisma = db.prisma();
+    await seedWarehouse(prisma);
+    await seedTradeItem(prisma);
+    await seedMovement(prisma, {
+      eventId: "evt-live",
+      document: "53",
+      parentDocument: ParentDocument.salesCreditNote,
+    });
+    await seedMovement(prisma, {
+      eventId: "evt-del",
+      document: "99",
+      parentDocument: ParentDocument.salesInvoice,
+      deletedAt: new Date("2024-01-01"),
+    });
+    await seedMovement(prisma, {
+      eventId: "evt-null",
+      document: null,
+      parentDocument: ParentDocument.salesOrder,
+    });
+
+    type DocRow = { document: string; parentDocument: string | null };
+    const rows = (await repo.findAllUniqueDocuments(WS)) as unknown as DocRow[];
+
+    expect(rows).toEqual([
+      { document: "53", parentDocument: ParentDocument.salesCreditNote },
+    ]);
+  });
+});

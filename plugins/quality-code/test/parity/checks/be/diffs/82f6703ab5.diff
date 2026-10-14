@@ -1,0 +1,76 @@
+diff --git a/test/integration/common/services/movement/movement.service.spec.ts b/test/integration/common/services/movement/movement.service.spec.ts
+new file mode 100644
+index 0000000..baf8567
+--- /dev/null
++++ b/test/integration/common/services/movement/movement.service.spec.ts
+@@ -0,0 +1,70 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import { MovementType, MovementReason, Prisma } from "@prisma-client";
++import { MovementService } from "@app/common/services/movement/movement.service";
++import { MovementRepository } from "@app/common/repositories/movement.repository";
++import type { CreateMovementDTO } from "@app/common/dto/movement/create-movement.dto";
++import type { ClientProxy } from "@nestjs/microservices";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedWarehouse, seedTradeItem, seedEvent, WS, WH, TI } from "@test/seed";
++
++// FIC-13441 — the "Unit cost from master data" KPI showed the sales price (unit_price=150) instead
++// of the net purchase cost (unit_cost=80). The field choice lives in MovementService.create: an
++// INCOMING movement must be valued at the trade item's unitCost (master-data cost), never
++// unitPrice. This anchor drives that branch through the real repo, so a Stryker mutant that flips
++// the field or the `type === incoming` condition in movement.service.ts is killed.
++describe(`FIC-13441 — KPI "Unit cost from master data" shows sales price instead of net purchase cost`, () => {
++  let db: LiveDb;
++  let service: MovementService;
++  const EVENT_ID = "evt-fic13441";
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    service = new MovementService(
++      { emit: vi.fn() } as unknown as ClientProxy,
++      new MovementRepository(db.prisma()),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      {
++        createFromEventDTO: vi.fn().mockResolvedValue({ eventId: EVENT_ID }),
++      } as never,
++      { get: vi.fn().mockResolvedValue({ id: WH }) } as never,
++      {
++        // master data: net purchase cost 80, sales price 150 (the ticket's values)
++        get: vi.fn().mockResolvedValue({
++          unitCost: new Prisma.Decimal(80),
++          unitPrice: new Prisma.Decimal(150),
++        }),
++      } as never,
++      { add: vi.fn() } as never,
++    );
++  });
++
++  it("values an incoming movement at the master-data unit_cost (80), not unit_price (150)", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma); // defaults unitPrice=150, unitCost=80
++    await seedEvent(prisma, { eventId: EVENT_ID });
++
++    // no unitPrice/totalAmount on the DTO → the service derives them from master data
++    const dto = {
++      workspaceId: WS,
++      tradeItemId: TI,
++      type: MovementType.incoming,
++      reason: MovementReason.positiveAdjustment,
++      date: "2024-01-15",
++      quantity: 10,
++    } as CreateMovementDTO;
++
++    const { movement } = await service.create(dto);
++
++    expect(movement).toBeDefined();
++    // the bug: this was 150 (unit_price); correct is 80 (unit_cost from master data)
++    expect(movement!.unitPrice.toNumber()).toBe(80);
++    expect(movement!.unitPrice.toNumber()).not.toBe(150);
++    // total flows from the same choice: 10 × 80, never 10 × 150
++    expect(movement!.totalAmount.toNumber()).toBe(800);
++  });
++});

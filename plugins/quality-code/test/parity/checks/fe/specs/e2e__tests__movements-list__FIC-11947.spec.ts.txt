@@ -1,0 +1,123 @@
+import { readFileSync } from 'node:fs'
+import { expect, test } from '../../fixtures'
+
+// FIC-11947 — [Copy] [Movements List] No results message in filters is in English
+// https://teamsystem.atlassian.net/browse/FIC-11947
+// Bug from QA/Test, DONE. No AC in the ticket (one-line prose + a video), so the scenario
+// below is derived. The bug: in Italian, the movements filter "no results" empty-state showed
+// English text. The fix added the Italian keys, so this is a regression anchor — it passes now
+// and fails again if the Italian translation regresses.
+// No Figma, no MR in local git (the fix was an i18n bucket change).
+
+// Real label buckets, wrapped as the OneFront i18n loader expects (`.item`).
+const IT_BUCKET = JSON.parse(
+  readFileSync(
+    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
+    'utf8'
+  )
+)
+const EN_BUCKET = JSON.parse(
+  readFileSync(
+    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
+    'utf8'
+  )
+)
+
+// The movements screen renders EmptyState(NoMovementsWithFilters / NoDataFiltersMessage)
+// whenever the movements list is empty (src/features/movementsList/MovementsList.tsx:479).
+// Stub all three movements endpoints so the list comes back empty and the empty-state shows.
+async function stubEmptyMovements(page: import('@playwright/test').Page) {
+  await page.route('**/movements/documents/workspace/**', route =>
+    route.fulfill({ json: { data: [], total: 0 } })
+  )
+  await page.route('**/movements/clients-suppliers/workspace/**', route =>
+    route.fulfill({ json: { clients: [], suppliers: [] } })
+  )
+  await page.route('**/movements/workspace/**', route =>
+    route.fulfill({ json: { data: [], total: 0 } })
+  )
+  await page.route('**/warehouse/basic-info/**', route =>
+    route.fulfill({ json: {} })
+  )
+}
+
+// --- Acceptance criteria (derived) ---
+
+// Scenario 1 (regression anchor):
+// Given the app is in Italian
+// When a filter returns no movements
+// Then the empty-state shows the Italian message, not the English one, and no raw i18n key.
+test('FIC-11947-1-italian-filter-empty-state-shows-translated-message', async ({
+  page,
+  warehouse,
+}) => {
+  await page.route('**/i18n/**', route =>
+    route.fulfill({ json: { item: IT_BUCKET } })
+  )
+  await stubEmptyMovements(page)
+
+  await warehouse.goto('/movementsList')
+
+  // Italian text is shown.
+  await expect(page.getByText('Nessun movimento trovato')).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(
+    page.getByText('I filtri selezionati non hanno prodotto risultati')
+  ).toBeVisible()
+  // The English fallback is gone (the actual bug).
+  await expect(page.getByText('No movement found')).toHaveCount(0)
+  // No raw i18n key leaks.
+  await expect(page.getByText('NoMovementsWithFilters')).toHaveCount(0)
+  await expect(page.getByText('NoDataFiltersMessage')).toHaveCount(0)
+})
+
+// --- Edge cases (proposed by the tool, not in the ticket) ---
+
+// E1 — locale: the English empty-state must not leak a raw i18n key.
+// Probes the mirror of this bug in the other language. Expected RED finding: the EN bucket is
+// missing NoDataFiltersMessage, so the English description renders the raw key instead of a
+// sentence. Turns green once the English translation is added.
+test('FIC-11947-edge-1-english-filter-empty-state-no-raw-key', async ({
+  page,
+  warehouse,
+}) => {
+  await page.route('**/i18n/**', route =>
+    route.fulfill({ json: { item: EN_BUCKET } })
+  )
+  await stubEmptyMovements(page)
+
+  await warehouse.goto('/movementsList')
+
+  // Empty-state title is present (its EN key exists), so the screen rendered.
+  await expect(page.getByText('No movement found')).toBeVisible({
+    timeout: 15_000,
+  })
+  // No raw i18n key of the form "...Message" leaks into the description.
+  await expect(page.getByText(/^[A-Z][A-Za-z]+Message$/)).toHaveCount(0)
+})
+
+// E2 — special characters: a filter search with unicode / special chars still yields the
+// translated Italian empty-state (the list is stubbed empty regardless of the term).
+// Probes that odd filter input does not break the empty-state rendering.
+test('FIC-11947-edge-2-special-char-filter-still-shows-italian-empty-state', async ({
+  page,
+  warehouse,
+}) => {
+  await page.route('**/i18n/**', route =>
+    route.fulfill({ json: { item: IT_BUCKET } })
+  )
+  await stubEmptyMovements(page)
+
+  await warehouse.goto('/movementsList')
+
+  const search = page.getByRole('textbox').first()
+  await search.fill("<script>ù€ 日本 'ok'")
+
+  await expect(page.getByText('Nessun movimento trovato')).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(
+    page.getByText('I filtri selezionati non hanno prodotto risultati')
+  ).toBeVisible()
+})

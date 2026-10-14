@@ -1,0 +1,190 @@
+diff --git a/test/integration/common/repositories/trade-item.repository.spec.ts b/test/integration/common/repositories/trade-item.repository.spec.ts
+index 376094e..a5912d5 100644
+--- a/test/integration/common/repositories/trade-item.repository.spec.ts
++++ b/test/integration/common/repositories/trade-item.repository.spec.ts
+@@ -1,6 +1,8 @@
+-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+ import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import { TradeItemService } from "@app/common/services/trade-item/trade-item.service";
+ import type { GetTradeItemDTO } from "@app/common/dto/trade-item/get-trade-item-dto";
++import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
+ import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedKpi, seedTradeItem, WS } from "@test/seed";
+@@ -53,3 +55,49 @@ describe("TradeItemRepository (db integration)", () => {
+     expect(result.items).toHaveLength(0);
+   });
+ });
++
++// FIC-13839 — the same soft-delete rule seen from the caller the products-stock list actually
++// uses: TradeItemService.tradeItemsByIds drives TradeItemRepository.findAllByIds against real
++// Postgres. Config/JWT/HTTP are unused on this read path, so they are stubbed. A soft-deleted item
++// (B) must not leak through the service into the list.
++describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
++  let db: LiveDb;
++  let service: TradeItemService;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    service = new TradeItemService(
++      new TradeItemRepository(db.prisma()),
++      { get: vi.fn() } as never,
++      { sign: vi.fn() } as never,
++      { get: vi.fn() } as never,
++    );
++  });
++
++  it("tradeItemsByIds does not return a soft-deleted trade item", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma, { id: "ti-A", code: "A", deletedAt: null });
++    await seedTradeItem(prisma, {
++      id: "ti-B",
++      code: "B",
++      deletedAt: new Date("2024-01-01"),
++    });
++
++    const result = await service.tradeItemsByIds(
++      { workspaceId: WS },
++      false,
++      {} as FilterTradeItemDTO,
++      undefined as unknown as SortingParam,
++    );
++
++    expect(result.count).toBe(1);
++    expect(result.items).toHaveLength(1);
++    expect(result.items[0]?.id).toBe("ti-A");
++    expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
++    expect(result.items.some((i) => i.id === "ti-B")).toBe(false);
++  });
++});
+diff --git a/test/range/common/repositories/trade-item.repository.spec.ts b/test/range/common/repositories/trade-item.repository.spec.ts
+index 5375c00..c5e6206 100644
+--- a/test/range/common/repositories/trade-item.repository.spec.ts
++++ b/test/range/common/repositories/trade-item.repository.spec.ts
+@@ -1,8 +1,10 @@
+ import { describe, it, expect, beforeAll } from "vitest";
+ import * as fc from "fast-check";
+ import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
++import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+-import { seedTradeItem, WS } from "@test/seed";
++import { seedMany, seedTradeItem, WS } from "@test/seed";
+ 
+ describe("TradeItemRepository (db range)", () => {
+   let db: LiveDb;
+@@ -45,3 +47,51 @@ describe("TradeItemRepository (db range)", () => {
+     );
+   });
+ });
++
++// FIC-13839 — for any mix of live and soft-deleted items in a workspace, the products-stock list
++// (findAllByIds) returns exactly the live ones and never a row whose deletedAt is set. The count of
++// returned rows equals the number of live items regardless of how many soft-deleted rows exist.
++describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("findAllByIds never returns a soft-deleted item for any live/deleted mix", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        fc.integer({ min: 1, max: 5 }),
++        fc.integer({ min: 0, max: 5 }),
++        async (liveCount, deletedCount) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new TradeItemRepository(prisma);
++
++          await seedMany(seedTradeItem, prisma, liveCount, (i) => ({
++            id: `live-${i}`,
++            code: `LIVE-${i}`,
++            deletedAt: null,
++          }));
++          await seedMany(seedTradeItem, prisma, deletedCount, (i) => ({
++            id: `gone-${i}`,
++            code: `GONE-${i}`,
++            deletedAt: new Date("2024-06-01"),
++          }));
++
++          const result = await repo.findAllByIds(
++            { workspaceId: WS, take: 100 },
++            {} as FilterTradeItemDTO,
++            undefined as unknown as SortingParam,
++            false,
++          );
++
++          expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
++          expect(result.items.some((i) => i.id.startsWith("gone-"))).toBe(false);
++          expect(result.items).toHaveLength(liveCount);
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/unit/common/repositories/trade-item.repository.spec.ts b/test/unit/common/repositories/trade-item.repository.spec.ts
+index ed4796f..19dba22 100644
+--- a/test/unit/common/repositories/trade-item.repository.spec.ts
++++ b/test/unit/common/repositories/trade-item.repository.spec.ts
+@@ -1,5 +1,7 @@
+ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+ import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import type { FilterTradeItemDTO } from "@app/common/dto/trade-item/filter-trade-item-dto";
++import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
+ import { startLiveDb, type LiveDb } from "@test/postgres.container";
+ import { seedTradeItem, WS } from "@test/seed";
+ 
+@@ -37,3 +39,45 @@ describe("TradeItemRepository (db unit)", () => {
+     expect(await repo.findByCode({ code: "GONE", workspaceId: WS })).toBeNull();
+   });
+ });
++
++// FIC-13839 — the products-stock list (GET trade-items/workspace/:workspaceId →
++// TradeItemService.tradeItemsByIds → TradeItemRepository.findAllByIds) must exclude soft-deleted
++// trade items. Reads follow the soft-delete rule: only rows with `deletedAt: null` are returned.
++// This anchor seeds one live item (A) and one soft-deleted item (B) and asserts B never appears —
++// a Stryker mutant that drops the `deletedAt: null` filter in the read query is killed.
++describe("FIC-13839 — Products stock list returns soft-deleted trade items", () => {
++  let db: LiveDb;
++  let repo: TradeItemRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new TradeItemRepository(db.prisma());
++  });
++
++  it("findAllByIds excludes a soft-deleted trade item from the products-stock list", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma, { id: "ti-A", code: "A", deletedAt: null });
++    await seedTradeItem(prisma, {
++      id: "ti-B",
++      code: "B",
++      deletedAt: new Date("2024-01-01"),
++    });
++
++    const result = await repo.findAllByIds(
++      { workspaceId: WS },
++      {} as FilterTradeItemDTO,
++      undefined as unknown as SortingParam,
++      false,
++    );
++
++    expect(result.count).toBe(1);
++    expect(result.items).toHaveLength(1);
++    expect(result.items[0]?.id).toBe("ti-A");
++    expect(result.items.every((i) => i.deletedAt === null)).toBe(true);
++    expect(result.items.some((i) => i.id === "ti-B")).toBe(false);
++  });
++});

@@ -1,0 +1,674 @@
+diff --git a/e2e/tests/import-stock/FIC-12893.spec.ts b/e2e/tests/import-stock/FIC-12893.spec.ts
+deleted file mode 100644
+index bedd117..0000000
+--- a/e2e/tests/import-stock/FIC-12893.spec.ts
++++ /dev/null
+@@ -1,112 +0,0 @@
+-import type { Page } from '@playwright/test'
+-import { readFileSync } from 'node:fs'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-12893 — [Import Stock] Pre-filled file reloads when returning to step 1  (Bug from QA/Test, DONE)
+-// https://teamsystem.atlassian.net/browse/FIC-12893
+-// No AC / no Figma on the ticket — selectors below are derived from the feature source
+-// (src/features/importStock/*), which the user asked me to read to build real tests.
+-//
+-// Flow: /import-stock is a 3-step wizard (Upload file → Associate fields → Preview import).
+-// Step 1 shows a "pre-compiled file" card fed by GET historical-reports/latest/workspace/*
+-// (src/features/importStock/hooks/useGenerateFile.ts). The bug: coming back to step 1 from step 2
+-// re-fetches that endpoint, so the already-loaded file reloads. useGenerateFile's fetch effect
+-// depends on startPolling/stopPolling, whose identity changes when BasicInfoContext re-renders.
+-
+-// English i18n bucket, served the way the OneFront loader expects (wrapped under `item`).
+-const EN = JSON.parse(
+-  readFileSync(
+-    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
+-    'utf8'
+-  )
+-).value
+-
+-// A COMPLETED pre-compiled file — the "pre-filled generated file" from the ticket.
+-const COMPLETED_REPORT = {
+-  id: 'report-1',
+-  workspaceId: '550e8400-e29b-41d4-a716-446655440000',
+-  warehouseId: 'wh-1',
+-  filename: 'stock.csv',
+-  filePath: '/stock.csv',
+-  fileSize: 1024,
+-  selectedDate: '2026-01-15T00:00:00.000Z',
+-  status: 'COMPLETED',
+-  errorMessage: null,
+-  generatedBy: null,
+-  createdAt: '2026-01-15T09:30:00.000Z',
+-  updatedAt: '2026-01-15T09:30:00.000Z',
+-}
+-
+-// Stub the shell contexts (i18n, basic-info) + count hits on the pre-compiled-file endpoint.
+-// Returns a getter for the hit count so a test can assert it did not grow across navigation.
+-async function stubImportStock(page: Page): Promise<() => number> {
+-  let latestHits = 0
+-  await page.route('**/i18n/**', route =>
+-    route.fulfill({ json: { item: { value: EN } } })
+-  )
+-  await page.route('**/warehouse/basic-info/**', route =>
+-    route.fulfill({ json: { warehouse: { id: 'wh-1' } } })
+-  )
+-  await page.route('**/historical-reports/latest/**', route => {
+-    latestHits++
+-    route.fulfill({ json: COMPLETED_REPORT })
+-  })
+-  return () => latestHits
+-}
+-
+-test.describe('FIC-12893 — import-stock pre-filled file across step navigation', () => {
+-  // Scenario: Step 1 shows the pre-filled generated file
+-  //   Given the import-stock page
+-  //   And historical-reports/latest returns a COMPLETED pre-compiled file
+-  //   When step 1 finishes loading
+-  //   Then the "Use the pre-compiled file" card shows "Generated at" and a Download button
+-  test('FIC-12893-1-step1-shows-prefilled-file', async ({ page, warehouse }) => {
+-    await stubImportStock(page)
+-    await warehouse.goto('/import-stock')
+-
+-    await expect(page.getByText(EN.ImportNewStock)).toBeVisible()
+-    await expect(page.getByText(EN.UsePrecompiledFile)).toBeVisible()
+-    await expect(page.getByText(new RegExp(EN.GeneratedAt))).toBeVisible()
+-    await expect(
+-      page.getByRole('button', { name: EN.Download })
+-    ).toBeVisible()
+-  })
+-
+-  // Scenario: Returning to step 1 from step 2 does not reload the pre-filled file  (the bug)
+-  //   Given step 1 loaded the pre-compiled file (1 fetch)
+-  //   And a file has been uploaded so step 2 is reachable
+-  //   When I go Forward to step 2 and then Back to step 1
+-  //   Then historical-reports/latest is NOT fetched again (the file does not reload)
+-  test('FIC-12893-2-back-to-step1-keeps-prefilled-file', async ({
+-    page,
+-    warehouse,
+-  }) => {
+-    const latestHits = await stubImportStock(page)
+-    await warehouse.goto('/import-stock')
+-    await expect(page.getByText(EN.UsePrecompiledFile)).toBeVisible()
+-
+-    // Upload a minimal CSV so the wizard lets us advance past step 1.
+-    await page.locator('input[type="file"]').setInputFiles({
+-      name: 'stock.csv',
+-      mimeType: 'text/csv',
+-      buffer: Buffer.from('SKU;Stock\nABC;10\n'),
+-    })
+-
+-    const hitsBeforeNav = latestHits()
+-
+-    // Forward → step 2 (the "Back" button only exists off step 1).
+-    await page.getByRole('button', { name: EN.Forward }).click()
+-    const back = page.getByRole('button', { name: EN.Back })
+-    await expect(back).toBeVisible()
+-
+-    // Back → step 1: the pre-compiled card is shown again.
+-    await back.click()
+-    await expect(page.getByText(EN.UsePrecompiledFile)).toBeVisible()
+-
+-    // Give any erroneous refetch a moment to land before asserting.
+-    // ponytail: fixed wait — the bug is an extra async request with no UI signal to await on.
+-    await page.waitForTimeout(1000)
+-
+-    expect(latestHits()).toBe(hitsBeforeNav)
+-  })
+-})
+diff --git a/e2e/tests/movements-list/FIC-11947.spec.ts b/e2e/tests/movements-list/FIC-11947.spec.ts
+new file mode 100644
+index 0000000..d1c610b
+--- /dev/null
++++ b/e2e/tests/movements-list/FIC-11947.spec.ts
+@@ -0,0 +1,123 @@
++import { readFileSync } from 'node:fs'
++import { expect, test } from '../../fixtures'
++
++// FIC-11947 — [Copy] [Movements List] No results message in filters is in English
++// https://teamsystem.atlassian.net/browse/FIC-11947
++// Bug from QA/Test, DONE. No AC in the ticket (one-line prose + a video), so the scenario
++// below is derived. The bug: in Italian, the movements filter "no results" empty-state showed
++// English text. The fix added the Italian keys, so this is a regression anchor — it passes now
++// and fails again if the Italian translation regresses.
++// No Figma, no MR in local git (the fix was an i18n bucket change).
++
++// Real label buckets, wrapped as the OneFront i18n loader expects (`.item`).
++const IT_BUCKET = JSON.parse(
++  readFileSync(
++    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
++    'utf8'
++  )
++)
++const EN_BUCKET = JSON.parse(
++  readFileSync(
++    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
++    'utf8'
++  )
++)
++
++// The movements screen renders EmptyState(NoMovementsWithFilters / NoDataFiltersMessage)
++// whenever the movements list is empty (src/features/movementsList/MovementsList.tsx:479).
++// Stub all three movements endpoints so the list comes back empty and the empty-state shows.
++async function stubEmptyMovements(page: import('@playwright/test').Page) {
++  await page.route('**/movements/documents/workspace/**', route =>
++    route.fulfill({ json: { data: [], total: 0 } })
++  )
++  await page.route('**/movements/clients-suppliers/workspace/**', route =>
++    route.fulfill({ json: { clients: [], suppliers: [] } })
++  )
++  await page.route('**/movements/workspace/**', route =>
++    route.fulfill({ json: { data: [], total: 0 } })
++  )
++  await page.route('**/warehouse/basic-info/**', route =>
++    route.fulfill({ json: {} })
++  )
++}
++
++// --- Acceptance criteria (derived) ---
++
++// Scenario 1 (regression anchor):
++// Given the app is in Italian
++// When a filter returns no movements
++// Then the empty-state shows the Italian message, not the English one, and no raw i18n key.
++test('FIC-11947-1-italian-filter-empty-state-shows-translated-message', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  await stubEmptyMovements(page)
++
++  await warehouse.goto('/movements-list')
++
++  // Italian text is shown.
++  await expect(page.getByText('Nessun movimento trovato')).toBeVisible({
++    timeout: 15_000,
++  })
++  await expect(
++    page.getByText('I filtri selezionati non hanno prodotto risultati')
++  ).toBeVisible()
++  // The English fallback is gone (the actual bug).
++  await expect(page.getByText('No movement found')).toHaveCount(0)
++  // No raw i18n key leaks.
++  await expect(page.getByText('NoMovementsWithFilters')).toHaveCount(0)
++  await expect(page.getByText('NoDataFiltersMessage')).toHaveCount(0)
++})
++
++// --- Edge cases (proposed by the tool, not in the ticket) ---
++
++// E1 — locale: the English empty-state must not leak a raw i18n key.
++// Probes the mirror of this bug in the other language. Expected RED finding: the EN bucket is
++// missing NoDataFiltersMessage, so the English description renders the raw key instead of a
++// sentence. Turns green once the English translation is added.
++test('FIC-11947-edge-1-english-filter-empty-state-no-raw-key', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: EN_BUCKET } })
++  )
++  await stubEmptyMovements(page)
++
++  await warehouse.goto('/movements-list')
++
++  // Empty-state title is present (its EN key exists), so the screen rendered.
++  await expect(page.getByText('No movement found')).toBeVisible({
++    timeout: 15_000,
++  })
++  // No raw i18n key of the form "...Message" leaks into the description.
++  await expect(page.getByText(/^[A-Z][A-Za-z]+Message$/)).toHaveCount(0)
++})
++
++// E2 — special characters: a filter search with unicode / special chars still yields the
++// translated Italian empty-state (the list is stubbed empty regardless of the term).
++// Probes that odd filter input does not break the empty-state rendering.
++test('FIC-11947-edge-2-special-char-filter-still-shows-italian-empty-state', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  await stubEmptyMovements(page)
++
++  await warehouse.goto('/movements-list')
++
++  const search = page.getByRole('textbox').first()
++  await search.fill("<script>ù€ 日本 'ok'")
++
++  await expect(page.getByText('Nessun movimento trovato')).toBeVisible({
++    timeout: 15_000,
++  })
++  await expect(
++    page.getByText('I filtri selezionati non hanno prodotto risultati')
++  ).toBeVisible()
++})
+diff --git a/e2e/tests/products-stock/FIC-11869.spec.ts b/e2e/tests/products-stock/FIC-11869.spec.ts
+deleted file mode 100644
+index 1f00c35..0000000
+--- a/e2e/tests/products-stock/FIC-11869.spec.ts
++++ /dev/null
+@@ -1,127 +0,0 @@
+-import { readFileSync } from 'node:fs'
+-import type { Page } from '@playwright/test'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-11869 — [Copy] [Product Stock] Multiple discrepancies between Figma and staging
+-//   in Product Detail view
+-// https://teamsystem.atlassian.net/browse/FIC-11869
+-// Shallow ticket — no formal AC; scenarios derived from description + QA comments.
+-// No Figma URL on the ticket — selectors from ticket text only; visual half skipped.
+-// Ticket status: DONE (regression anchor).
+-
+-// Italian labels are what the ticket asserts against staging. Serve the real IT bucket
+-// (OneFront parses `.item.value`, so wrap under `item`).
+-const IT_BUCKET = JSON.parse(
+-  readFileSync(
+-    new URL(
+-      '../../../mocks/buckets/i18n/warehouse-app--it.json',
+-      import.meta.url
+-    ),
+-    'utf8'
+-  )
+-)
+-
+-const PRODUCT = {
+-  id: 'trade-item-001',
+-  code: 'SKU001',
+-  name: 'Product SKU001',
+-  measurementUnit: 'kg',
+-  minimumStock: '50.0000',
+-  kpi: [
+-    {
+-      stockOnHand: '150.0000',
+-      stockAvailability: '140.0000',
+-      stockValue: '2325.00',
+-      averageCost: '15.50',
+-      reservedStock: '10.0000',
+-      orderedStock: '20.0000',
+-      lastCost: '16.00',
+-    },
+-  ],
+-}
+-
+-/** The open product-detail drawer paper — scopes label checks away from the grid. */
+-function drawer(page: Page) {
+-  return page.locator('.MuiDrawer-paper')
+-}
+-
+-async function openDrawer(page: Page) {
+-  await page
+-    .getByRole('row', { name: /SKU001/ })
+-    .getByRole('button')
+-    .last()
+-    .click()
+-  // Accordion "Quantità" is expanded by default — wait for it as the drawer settle signal.
+-  await expect(drawer(page).getByText('Quantità', { exact: true })).toBeVisible()
+-}
+-
+-test.describe('FIC-11869 — product detail drawer IT copy labels', () => {
+-  test.beforeEach(async ({ page, warehouse }) => {
+-    await page.route('**/i18n/**', route =>
+-      route.fulfill({ json: { item: IT_BUCKET } })
+-    )
+-    await page.route('**/trade-items/*/workspace/**', route =>
+-      route.fulfill({ json: PRODUCT })
+-    )
+-    await page.route('**/trade-items/workspace/**', route =>
+-      route.fulfill({ json: { count: 1, items: [PRODUCT] } })
+-    )
+-    await page.route('**/warehouse/basic-info/**', route =>
+-      route.fulfill({ json: {} })
+-    )
+-    await warehouse.goto('/products-stock')
+-    await openDrawer(page)
+-  })
+-
+-  // Scenario: Quantity section labeled Quantità
+-  //   Given a product detail drawer on products-stock with Italian copy
+-  //   When the drawer opens
+-  //   Then the quantity accordion title is "Quantità" (not "Giacenza")
+-  test('FIC-11869-1-quantity-label-quantita — Quantity section labeled Quantità', async ({
+-    page,
+-  }) => {
+-    // Accordion title must be Quantità (ticket: staging wrongly showed Giacenza here).
+-    // Do not assert page-wide absence of "Giacenza" — that string is valid for the
+-    // StockLevel metric card and the grid InStock column.
+-    await expect(
+-      drawer(page).getByRole('button', { name: 'Quantità' })
+-    ).toBeVisible()
+-  })
+-
+-  // Scenario: Availability forecast label casing
+-  //   Given the product detail drawer is open
+-  //   When the Quantità section is visible
+-  //   Then the label reads "Previsione disponibilità" (lowercase 'd')
+-  test('FIC-11869-2-availability-forecast-label — Availability forecast label casing', async ({
+-    page,
+-  }) => {
+-    await expect(
+-      drawer(page).getByText('Previsione disponibilità', { exact: true })
+-    ).toBeVisible()
+-  })
+-
+-  // Scenario: Stock value label
+-  //   Given the product detail drawer is open
+-  //   When the Valore section is visible
+-  //   Then the label reads "Valore della giacenza" (not "Valore Stock")
+-  test('FIC-11869-3-stock-value-label — Stock value label', async ({ page }) => {
+-    await expect(
+-      drawer(page).getByText('Valore della giacenza', { exact: true })
+-    ).toBeVisible()
+-    await expect(
+-      drawer(page).getByText('Valore Stock', { exact: true })
+-    ).toHaveCount(0)
+-  })
+-
+-  // Scenario: Last unit cost label casing (from QA comments)
+-  //   Given the product detail drawer is open
+-  //   When the metric cards are visible
+-  //   Then the card title is "Ultimo costo unitario" (lowercase 'c' and 'u')
+-  test('FIC-11869-4-last-unit-cost-label — Last unit cost label casing', async ({
+-    page,
+-  }) => {
+-    await expect(
+-      drawer(page).getByText('Ultimo costo unitario', { exact: true })
+-    ).toBeVisible()
+-  })
+-})
+diff --git a/e2e/tests/products-stock/FIC-12505.spec.ts b/e2e/tests/products-stock/FIC-12505.spec.ts
+deleted file mode 100644
+index dd7f7d2..0000000
+--- a/e2e/tests/products-stock/FIC-12505.spec.ts
++++ /dev/null
+@@ -1,111 +0,0 @@
+-import { readFileSync } from 'node:fs'
+-import type { Page } from '@playwright/test'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-12505 — [Product stock] Product detail drawer: new UX for longer descriptions
+-// https://teamsystem.atlassian.net/browse/FIC-12505
+-// No formal AC on the ticket; scenarios derived from the description + Figma (node 12226-81435).
+-// Design labels: "View more" / "View less" (ProductDetailsDrawer.tsx uses t('ViewMore'/'ViewLess')).
+-
+-// Real English labels. The OneFront i18n loader parses the response as `.item.value`
+-// (react-sdk registry-parse), so the bucket ({ value: {...} }) is served wrapped under `item`.
+-const EN_BUCKET = JSON.parse(
+-  readFileSync(
+-    new URL(
+-      '../../../mocks/buckets/i18n/warehouse-app--en.json',
+-      import.meta.url
+-    ),
+-    'utf8'
+-  )
+-)
+-
+-// The drawer only shows "View more" when the description is longer than 180 chars
+-// (ProductDetailsDrawer.tsx:318). Keep the words "view more/less" OUT of this text so the
+-// getByText assertions target the link, not the description.
+-const LONG_DESCRIPTION =
+-  'This is a deliberately long product description written so that it spans well beyond two ' +
+-  'lines inside the detail drawer. Because it exceeds one hundred and eighty characters, the ' +
+-  'interface truncates it and offers a link to reveal the remainder.'
+-
+-const PRODUCT = {
+-  id: 'trade-item-001',
+-  code: 'SKU001',
+-  name: 'Product SKU001',
+-  description: LONG_DESCRIPTION,
+-  measurementUnit: 'kg',
+-  minimumStock: '50.0000',
+-  kpi: [
+-    {
+-      stockOnHand: '150.0000',
+-      stockAvailability: '140.0000',
+-      stockValue: '2325.00',
+-      averageCost: '15.50',
+-    },
+-  ],
+-}
+-
+-// Opens the detail drawer for the stubbed product via the row's quick-view action
+-// (the ArrowRight IconButton — the last button in the actions cell, DataGridActions.tsx:87).
+-async function openDrawer(page: Page) {
+-  await page
+-    .getByRole('row', { name: /SKU001/ })
+-    .getByRole('button')
+-    .last()
+-    .click()
+-  await expect(page.getByText(LONG_DESCRIPTION.slice(0, 30))).toBeVisible()
+-}
+-
+-test.describe('FIC-12505 — product detail drawer long-description UX', () => {
+-  // Serve real labels + product data, then open the drawer via the fixture's goto.
+-  test.beforeEach(async ({ page, warehouse }) => {
+-    await page.route('**/i18n/**', route =>
+-      route.fulfill({ json: { item: EN_BUCKET } })
+-    )
+-    await page.route('**/trade-items/*/workspace/**', route =>
+-      route.fulfill({ json: PRODUCT })
+-    )
+-    await page.route('**/trade-items/workspace/**', route =>
+-      route.fulfill({ json: { count: 1, items: [PRODUCT] } })
+-    )
+-    await warehouse.goto('/products-stock')
+-    await openDrawer(page)
+-  })
+-
+-  // Scenario: Long description is truncated and shows "View more"
+-  //   Given a product whose description is longer than 2 rows
+-  //   When the detail drawer opens
+-  //   Then a "View more" link is shown
+-  test('FIC-12505-1-long-description-truncated', async ({ page }) => {
+-    await expect(page.getByText('View more')).toBeVisible()
+-  })
+-
+-  // Scenario: Clicking "View more" expands the full description
+-  //   When the user clicks "View more"
+-  //   Then the full description is shown and the link becomes "View less"
+-  test('FIC-12505-2-view-more-expands', async ({ page }) => {
+-    await page.getByText('View more').click()
+-    await expect(page.getByText('View less')).toBeVisible()
+-    await expect(page.getByText('View more')).toHaveCount(0)
+-  })
+-
+-  // Scenario: Clicking "View less" collapses back to "View more"
+-  test('FIC-12505-3-view-less-collapses', async ({ page }) => {
+-    await page.getByText('View more').click()
+-    await page.getByText('View less').click()
+-    await expect(page.getByText('View more')).toBeVisible()
+-  })
+-
+-  // The CSS line-clamp(2) truncation itself is visual, not DOM-assertable — QA verifies the
+-  // ellipsis manually; the automation above guards the toggle behavior.
+-  test.fixme('FIC-12505-truncation-ellipsis-visual', async () => {})
+-
+-  // Visual-conformance capture: dump the drawer-open screen for the design↔app artifact. Uses
+-  // page.screenshot (a capture, never toHaveScreenshot) so it can never turn the run red. The
+-  // drawer is already open from beforeEach; build-artifact.mjs pairs this with the Figma frame.
+-  test('FIC-12505 — design-conformance capture', async ({ page }) => {
+-    await page.screenshot({
+-      path: 'e2e/visual-conformance/FIC-12505/app.png',
+-      fullPage: true,
+-    })
+-  })
+-})
+diff --git a/e2e/tests/products-stock/FIC-13839.spec.ts b/e2e/tests/products-stock/FIC-13839.spec.ts
+deleted file mode 100644
+index fb4bdb7..0000000
+--- a/e2e/tests/products-stock/FIC-13839.spec.ts
++++ /dev/null
+@@ -1,88 +0,0 @@
+-import { readFileSync } from 'node:fs'
+-import type { Page } from '@playwright/test'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-13839 — Products-stock empty state renders raw i18n key instead of translated no-data message (EN)
+-// https://teamsystem.atlassian.net/browse/FIC-13839
+-// AC from customfield_11707 (XRay test steps). Bug: the EN bucket is missing `NoDataFiltersMessage`
+-// (it carries an orphan `NoDataWithFiltersMessage` that no code references), so the English empty-state
+-// description renders the raw key. Italian defines `NoDataFiltersMessage` and renders correctly.
+-// Code: src/features/productsStock/components/productsStockTable/ProductsStockTable.tsx:73 — t('NoDataFiltersMessage').
+-// Design: node 12226-81435.
+-
+-// Real locale buckets. The OneFront i18n loader parses the response as `.item.value`
+-// (react-sdk registry-parse), so the bucket is served wrapped under `item`.
+-const bucket = (locale: string) =>
+-  JSON.parse(
+-    readFileSync(
+-      new URL(
+-        `../../../mocks/buckets/i18n/warehouse-app--${locale}.json`,
+-        import.meta.url
+-      ),
+-      'utf8'
+-    )
+-  )
+-
+-const EN = bucket('en')
+-const IT = bucket('it')
+-
+-// trade-items list returns zero items → the grid drops into its empty state.
+-const EMPTY = { count: 0, items: [] }
+-
+-// Serve the given locale bucket + an empty list, then load the page.
+-async function gotoEmpty(
+-  page: Page,
+-  warehouse: { goto: (path: string) => Promise<unknown> },
+-  i18nBucket: unknown
+-) {
+-  await page.route('**/i18n/**', route =>
+-    route.fulfill({ json: { item: i18nBucket } })
+-  )
+-  await page.route('**/trade-items/workspace/**', route =>
+-    route.fulfill({ json: EMPTY })
+-  )
+-  await warehouse.goto('/products-stock')
+-}
+-
+-test.describe('FIC-13839 — products-stock empty-state i18n', () => {
+-  // Scenario: English empty state shows the translated no-data message
+-  //   Given the products-stock page with the app language set to English
+-  //   And the trade-items endpoint returns zero items
+-  //   When the grid finishes loading
+-  //   Then the empty-state title reads "No products found"
+-  //   And the empty-state description reads "No data available with current filters"
+-  //   And the description is not the literal text "NoDataFiltersMessage"
+-  test('FIC-13839-1-en-empty-state-translated', async ({ page, warehouse }) => {
+-    await gotoEmpty(page, warehouse, EN)
+-    await expect(page.getByText('No products found')).toBeVisible()
+-    await expect(
+-      page.getByText('No data available with current filters')
+-    ).toBeVisible()
+-    await expect(page.getByText('NoDataFiltersMessage')).toHaveCount(0)
+-  })
+-
+-  // Scenario: Italian empty state shows the translated no-data message
+-  //   Given the products-stock page with the app language set to Italian
+-  //   And the trade-items endpoint returns zero items
+-  //   When the grid finishes loading
+-  //   Then the empty-state title reads "Nessun prodotto trovato"
+-  //   And the empty-state description reads "I filtri selezionati non hanno prodotto risultati"
+-  test('FIC-13839-2-it-empty-state-translated', async ({ page, warehouse }) => {
+-    await gotoEmpty(page, warehouse, IT)
+-    await expect(page.getByText('Nessun prodotto trovato')).toBeVisible()
+-    await expect(
+-      page.getByText('I filtri selezionati non hanno prodotto risultati')
+-    ).toBeVisible()
+-  })
+-
+-  // Visual-conformance capture: dump the EN empty-state screen for the design↔app artifact. Uses
+-  // page.screenshot (a capture, never toHaveScreenshot) so it can never turn the run red;
+-  // build-artifact.mjs pairs this with the Figma frame (node 12226-81435).
+-  test('FIC-13839 — design-conformance capture', async ({ page, warehouse }) => {
+-    await gotoEmpty(page, warehouse, EN)
+-    await page.screenshot({
+-      path: 'e2e/visual-conformance/FIC-13839/app.png',
+-      fullPage: true,
+-    })
+-  })
+-})
+diff --git a/e2e/tests/warehouse-management/FIC-13378.spec.ts b/e2e/tests/warehouse-management/FIC-13378.spec.ts
+deleted file mode 100644
+index 6d914af..0000000
+--- a/e2e/tests/warehouse-management/FIC-13378.spec.ts
++++ /dev/null
+@@ -1,77 +0,0 @@
+-import type { Page, Request } from '@playwright/test'
+-import { expect, test } from '../../fixtures'
+-
+-// FIC-13378 — [FE] Activate multi warehouse feature flow  (Task, status "Merged in MB")
+-// https://teamsystem.atlassian.net/browse/FIC-13378
+-//
+-// The ticket has no acceptance criteria (description is only a Figma link) and no feature
+-// label, so the behaviour below is taken from the MERGED code change, not the ticket text.
+-// Merge commit 8039afd, files under src/features/warehouseManagement/hooks/:
+-//
+-//   useArchiveWarehouse:  before  PUT   warehouse/{id}/workspace/{ws}   body { isArchive: true }
+-//                         after   PATCH warehouse/{id}/workspace/{ws}/archive    (no body)
+-//   useRestoreWarehouse:  before  PUT   warehouse/{id}/workspace/{ws}   body { isArchive: false }
+-//                         after   PATCH warehouse/{id}/workspace/{ws}/activate   (no body)
+-//
+-// Both tests are pending (test.fixme). The multi-warehouse management screen is not one of the
+-// four routes this harness knows, and the ticket gives no page route or button labels, so the
+-// UI that triggers archive/restore cannot be driven yet. The endpoint contract from the diff is
+-// recorded here so a developer or QA can add the navigation + button selectors and drop `.fixme`.
+-// Nothing about the UI is invented.
+-
+-// Record every call the app makes to the warehouse write endpoints, so a test can assert the
+-// method and path the archive/restore action actually used.
+-async function recordWarehouseWrites(page: Page): Promise<Request[]> {
+-  const calls: Request[] = []
+-  await page.route('**/warehouse/*/workspace/**', route => {
+-    calls.push(route.request())
+-    route.fulfill({ status: 200, json: {} })
+-  })
+-  return calls
+-}
+-
+-test.describe('FIC-13378 — multi-warehouse archive/restore use the new PATCH endpoints', () => {
+-  // Scenario: Archiving a warehouse calls PATCH .../archive (not the old PUT with a body)
+-  //   Given the multi-warehouse management screen with at least one active warehouse
+-  //   When I archive that warehouse
+-  //   Then the app sends PATCH warehouse/{id}/workspace/{ws}/archive
+-  //   And it does NOT send the old PUT warehouse/{id}/workspace/{ws} with { isArchive: true }
+-  test.fixme(
+-    'FIC-13378-1-archive-warehouse-uses-patch-archive',
+-    async ({ page, warehouse }) => {
+-      const calls = await recordWarehouseWrites(page)
+-      // TODO(QA): navigate to the multi-warehouse management route (unknown — not on the ticket).
+-      await warehouse.goto('/warehouse-management')
+-      // TODO(QA): click the archive action for a warehouse (button label unknown — not on the ticket).
+-
+-      await expect
+-        .poll(() => calls.map(c => `${c.method()} ${new URL(c.url()).pathname}`))
+-        .toContainEqual(expect.stringMatching(/^PATCH .*\/workspace\/.*\/archive$/))
+-      expect(
+-        calls.some(c => c.method() === 'PUT' && /\/isArchive/.test(c.postData() ?? ''))
+-      ).toBe(false)
+-    }
+-  )
+-
+-  // Scenario: Restoring a warehouse calls PATCH .../activate (not the old PUT with a body)
+-  //   Given the multi-warehouse management screen with at least one archived warehouse
+-  //   When I restore that warehouse
+-  //   Then the app sends PATCH warehouse/{id}/workspace/{ws}/activate
+-  //   And it does NOT send the old PUT warehouse/{id}/workspace/{ws} with { isArchive: false }
+-  test.fixme(
+-    'FIC-13378-2-restore-warehouse-uses-patch-activate',
+-    async ({ page, warehouse }) => {
+-      const calls = await recordWarehouseWrites(page)
+-      // TODO(QA): navigate to the multi-warehouse management route (unknown — not on the ticket).
+-      await warehouse.goto('/warehouse-management')
+-      // TODO(QA): click the restore action for an archived warehouse (button label unknown).
+-
+-      await expect
+-        .poll(() => calls.map(c => `${c.method()} ${new URL(c.url()).pathname}`))
+-        .toContainEqual(expect.stringMatching(/^PATCH .*\/workspace\/.*\/activate$/))
+-      expect(
+-        calls.some(c => c.method() === 'PUT' && /\/isArchive/.test(c.postData() ?? ''))
+-      ).toBe(false)
+-    }
+-  )
+-})

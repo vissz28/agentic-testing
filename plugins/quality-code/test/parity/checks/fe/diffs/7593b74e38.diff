@@ -1,0 +1,63 @@
+diff --git a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/movements-list-grid-darwin.png b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/movements-list-grid-darwin.png
+index 8cef086..cb5c98c 100644
+Binary files a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/movements-list-grid-darwin.png and b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/movements-list-grid-darwin.png differ
+diff --git a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-drawer-darwin.png b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-drawer-darwin.png
+index e6d69b6..274b5b2 100644
+Binary files a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-drawer-darwin.png and b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-drawer-darwin.png differ
+diff --git a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-grid-darwin.png b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-grid-darwin.png
+index dc9950f..df4659d 100644
+Binary files a/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-grid-darwin.png and b/e2e/tests/__screenshots__/visual/screens.visual.spec.ts/products-stock-grid-darwin.png differ
+diff --git a/e2e/tests/visual/screens.visual.spec.ts b/e2e/tests/visual/screens.visual.spec.ts
+index 7bd2c29..083f8b7 100644
+--- a/e2e/tests/visual/screens.visual.spec.ts
++++ b/e2e/tests/visual/screens.visual.spec.ts
+@@ -1,5 +1,4 @@
+ import { readFileSync } from 'node:fs'
+-import type { Page } from '@playwright/test'
+ import { expect, test } from '../../fixtures'
+ 
+ /**
+@@ -81,16 +80,6 @@ const MOVEMENTS = [
+   },
+ ]
+ 
+-// Freeze focus + wait for fonts so two identical renders match byte-for-byte.
+-async function settle(page: Page) {
+-  await page.evaluate(async () => {
+-    ;(document.activeElement as HTMLElement | null)?.blur()
+-    await (
+-      document as unknown as { fonts?: { ready?: Promise<unknown> } }
+-    ).fonts?.ready
+-  })
+-}
+-
+ test.describe('@visual warehouse screens', () => {
+   test.beforeEach(async ({ page }) => {
+     await page.route('**/i18n/**', route =>
+@@ -109,7 +98,7 @@ test.describe('@visual warehouse screens', () => {
+     await expect(page.getByText('Product SKU001')).toBeVisible({
+       timeout: 15_000,
+     })
+-    await settle(page)
++    await warehouse.settle()
+     await expect(page).toHaveScreenshot('products-stock-grid.png')
+   })
+ 
+@@ -131,7 +120,7 @@ test.describe('@visual warehouse screens', () => {
+       .last()
+       .click()
+     await expect(page.getByText(LONG_DESCRIPTION.slice(0, 30))).toBeVisible()
+-    await settle(page)
++    await warehouse.settle()
+     await expect(page).toHaveScreenshot('products-stock-drawer.png')
+   })
+ 
+@@ -153,7 +142,7 @@ test.describe('@visual warehouse screens', () => {
+       timeout: 15_000,
+     })
+     await expect(page.locator('.MuiDataGrid-row').first()).toBeVisible()
+-    await settle(page)
++    await warehouse.settle()
+     await expect(page).toHaveScreenshot('movements-list-grid.png')
+   })
+ })

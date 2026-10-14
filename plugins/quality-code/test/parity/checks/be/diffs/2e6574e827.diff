@@ -1,0 +1,1060 @@
+diff --git a/test/integration/common/repositories/kpi.repository.spec.ts b/test/integration/common/repositories/kpi.repository.spec.ts
+new file mode 100644
+index 0000000..45b29f0
+--- /dev/null
++++ b/test/integration/common/repositories/kpi.repository.spec.ts
+@@ -0,0 +1,89 @@
++import { describe, it, expect, beforeAll, beforeEach } from "vitest";
++import { MovementReason, MovementType, Operation } from "@prisma-client";
++import { KpiRepository } from "@app/common/repositories/kpi.repository";
++import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedKpi, seedMovement, seedTradeItem, seedWarehouse, WS, TI, WH } from "@test/seed";
++
++// The ticket is a "recalculation of stock" bug: the persisted KPI history for ORO ROSA 9KT
++// showed 116.75 because the outgoing movement was never applied. rebuildFutureKpiRecords replays
++// the real movement history (Kpi ⋈ Movement ⋈ StockCalculationConfiguration) — this exercises that
++// join and asserts the reconstructed history matches the signed sum, ending on 58.86.
++const D0 = new Date("2024-01-01"); // opening balance 32
++const D1 = new Date("2024-01-02"); // load +25.89
++const D2 = new Date("2024-01-03"); // active document -57.89
++const D3 = new Date("2024-01-04"); // load +58.86
++const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
++
++describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
++  let db: LiveDb;
++  let repo: KpiRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new KpiRepository(db.prisma());
++  });
++
++  it("rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++
++    // Stock configs: incoming loads increment, outgoing document decrements stockOnHand.
++    await prisma.client.stockCalculationConfiguration.createMany({
++      data: [
++        {
++          movementType: MovementType.incoming,
++          movementReason: MovementReason.positiveAdjustment,
++          stockOnHandOperation: Operation.increment,
++        },
++        {
++          movementType: MovementType.outgoing,
++          movementReason: MovementReason.negativeAdjustment,
++          stockOnHandOperation: Operation.decrement,
++        },
++      ],
++    });
++
++    // Real movement history.
++    await seedMovement(prisma, { eventId: "evt-load1", type: MovementType.incoming, reason: MovementReason.positiveAdjustment, quantity: "25.89", date: D1 });
++    await seedMovement(prisma, { eventId: "evt-doc", type: MovementType.outgoing, reason: MovementReason.negativeAdjustment, quantity: "57.89", date: D2 });
++    await seedMovement(prisma, { eventId: "evt-load2", type: MovementType.incoming, reason: MovementReason.positiveAdjustment, quantity: "58.86", date: D3 });
++
++    // Corrupted KPI history as reported: the outgoing was dropped, so it grew 32 → 57.89 → 57.89 → 116.75.
++    await seedKpi(prisma, { stockOnHand: "57.89", date: D1 });
++    await seedKpi(prisma, { stockOnHand: "57.89", date: D2 });
++    await seedKpi(prisma, { stockOnHand: "116.75", date: D3 });
++
++    // Establish the opening balance (32) at D0; this triggers rebuild of every later KPI row.
++    const opening: UpsertKpiStockDTO = {
++      workspaceId: WS,
++      tradeItemId: TI,
++      warehouseId: WH,
++      stockOnHandDelta: 32,
++      stockValueDelta: 0,
++      stockAvailabilityDelta: 0,
++      orderedStockDelta: 0,
++      reservedStockDelta: 0,
++      lastMovementId: LAST_MOVEMENT,
++      date: D0,
++    };
++    await repo.upsertKpiStock(opening);
++
++    // Compute side: the outgoing row is subtracted (0 at D2), the final row is 58.86, not 116.75.
++    const atD2 = await prisma.client.kpi.findFirst({ where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH, date: D2 } });
++    const atD3 = await prisma.client.kpi.findFirst({ where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH, date: D3 } });
++    expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);
++    expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
++
++    // Display side: what the customer sees (latest KPI ≤ today) must equal the corrected value.
++    const displayed = await repo.getStockDataForDateWithFallback(WS, WH, new Date());
++    const item = displayed.find((row) => row.tradeItemId === TI);
++    expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
++    expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75, 2);
++  });
++});
+diff --git a/test/integration/common/repositories/movement.repository.spec.ts b/test/integration/common/repositories/movement.repository.spec.ts
+new file mode 100644
+index 0000000..f15a503
+--- /dev/null
++++ b/test/integration/common/repositories/movement.repository.spec.ts
+@@ -0,0 +1,69 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import { ParentDocument } from "@prisma-client";
++import { MovementRepository } from "@app/common/repositories/movement.repository";
++import { MovementService } from "@app/common/services/movement/movement.service";
++import type { ClientProxy } from "@nestjs/microservices";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedMovement, seedTradeItem, seedWarehouse, WS } from "@test/seed";
++
++describe(`FIC-13173 — [Lista movimenti] Viene mostrato solo il numero documento e non la tipologia`, () => {
++  let db: LiveDb;
++  let service: MovementService;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    service = new MovementService(
++      { emit: vi.fn() } as unknown as ClientProxy,
++      new MovementRepository(db.prisma()),
++      { get: vi.fn(), set: vi.fn(), clear: vi.fn() } as never,
++      { createFromEventDTO: vi.fn() } as never,
++      { get: vi.fn() } as never,
++      { get: vi.fn() } as never,
++      { add: vi.fn() } as never,
++    );
++  });
++
++  // Documento filter (service → real repo): typology travels with the number
++  it("getAllDocuments returns { document, parentDocument }[] with total via real repo", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++    await seedMovement(prisma, {
++      eventId: "evt-inv",
++      document: "78",
++      parentDocument: ParentDocument.purchaseInvoice,
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-ord",
++      document: "98",
++      parentDocument: ParentDocument.purchaseOrder,
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-adj",
++      document: "ADJ-9",
++      parentDocument: ParentDocument.inventoryStockAdjustmentNote,
++    });
++
++    const res = await service.getAllDocuments(WS);
++    type DocRow = { document: string; parentDocument: string | null };
++    const rows = res.data as unknown as DocRow[];
++
++    expect(res.total).toBe(2);
++    expect(rows).toEqual(
++      expect.arrayContaining([
++        { document: "78", parentDocument: ParentDocument.purchaseInvoice },
++        { document: "98", parentDocument: ParentDocument.purchaseOrder },
++      ]),
++    );
++    expect(rows).toHaveLength(2);
++    expect(
++      rows.some(
++        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,
++      ),
++    ).toBe(false);
++  });
++});
+diff --git a/test/integration/common/repositories/trade-item.repository.spec.ts b/test/integration/common/repositories/trade-item.repository.spec.ts
+new file mode 100644
+index 0000000..d1e214f
+--- /dev/null
++++ b/test/integration/common/repositories/trade-item.repository.spec.ts
+@@ -0,0 +1,98 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import { TradeItemService } from "@app/common/services/trade-item/trade-item.service";
++import type { GetTradeItemDTO } from "@app/common/dto/trade-item/get-trade-item-dto";
++import type { SortingParam } from "@app/common/decorators/sorting-params.decorator";
++import type { ConfigService } from "@nestjs/config";
++import type { JwtService } from "@nestjs/jwt";
++import type { HttpService } from "@nestjs/axios";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedKpi, seedTradeItem, WS } from "@test/seed";
++
++describe("TradeItemRepository (db integration)", () => {
++  let db: LiveDb;
++  let repo: TradeItemRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new TradeItemRepository(db.prisma());
++  });
++
++  it("findAll with includeKpis returns the latest kpi on the item", async () => {
++    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
++    await seedKpi(db.prisma(), { stockOnHand: "12" });
++
++    const result = await repo.findAll(
++      { workspaceId: WS },
++      {} as GetTradeItemDTO,
++      undefined as unknown as SortingParam,
++      true,
++    );
++
++    expect(result.count).toBe(1);
++    expect(result.items).toHaveLength(1);
++    const kpis = (
++      result.items[0] as { kpi?: { stockOnHand: { toString(): string } }[] }
++    ).kpi;
++    expect(kpis).toHaveLength(1);
++    expect(kpis?.[0]?.stockOnHand.toString()).toBe("12");
++  });
++
++  it("findAll excludes soft-deleted items even when a kpi exists", async () => {
++    await seedTradeItem(db.prisma(), { deletedAt: new Date("2024-01-01") });
++    await seedKpi(db.prisma(), { stockOnHand: "12" });
++
++    const result = await repo.findAll(
++      { workspaceId: WS },
++      {} as GetTradeItemDTO,
++      undefined as unknown as SortingParam,
++      true,
++    );
++
++    expect(result.count).toBe(0);
++    expect(result.items).toHaveLength(0);
++  });
++});
++
++describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
++  let db: LiveDb;
++  let service: TradeItemService;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    service = new TradeItemService(
++      new TradeItemRepository(db.prisma()),
++      { get: vi.fn() } as unknown as ConfigService,
++      {} as JwtService,
++      {} as HttpService,
++    );
++  });
++
++  // Scenario: KPI reads unit_cost, not unit_price
++  //   Given a product with unit_cost = 80 and unit_price = 150 in master data
++  //   When tradeItems is listed
++  //   Then unitCost is 80, never 150
++  it("tradeItems returns unitCost from master-data unit_cost, not unit_price", async () => {
++    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
++    const result = await service.tradeItems(
++      { workspaceId: WS },
++      false,
++      {} as GetTradeItemDTO,
++      undefined as unknown as SortingParam,
++    );
++    expect(result.count).toBe(1);
++    const item = result.items[0];
++    expect(item.unitCost?.toString()).toBe("80");
++    expect(item.unitCost?.toString()).not.toBe("150");
++    expect(item.unitPrice?.toString()).toBe("150");
++    expect(item.deletedAt).toBeNull();
++  });
++});
+diff --git a/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+new file mode 100644
+index 0000000..5de5f0d
+--- /dev/null
++++ b/test/integration/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -0,0 +1,73 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import * as XLSX from "xlsx";
++import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
++import { ImportAdjustmentReportService } from "@app/common/services/import-adjustment-report/import-adjustment-report.service";
++import { ImportAdjustmentReportRepository } from "@app/common/repositories/import-adjustment-report.repository";
++import { ReportType } from "@prisma-client";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { IA, WS, seedImportAdjustment } from "@test/seed";
++
++function workbookText(buffer: Buffer): string {
++  const wb = XLSX.read(buffer, { type: "buffer" });
++  return wb.SheetNames.flatMap((name) => [
++    name,
++    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
++  ]).join("\n");
++}
++
++describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
++  let db: LiveDb;
++  let captured: Buffer | undefined;
++  let service: ImportAdjustmentReportGenerationService;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    captured = undefined;
++    const storage = {
++      storeFile: vi.fn(async (buffer: Buffer) => {
++        captured = buffer;
++        return "reports/ws/file.xlsx";
++      }),
++    };
++    service = new ImportAdjustmentReportGenerationService(
++      new ImportAdjustmentReportService(
++        new ImportAdjustmentReportRepository(db.prisma()),
++        storage as never,
++      ),
++      storage as never,
++    );
++  });
++
++  it("persists a SUCCESS report whose xlsx is Italian, not English", async () => {
++    await seedImportAdjustment(db.prisma());
++    await service.generateSuccessReport({
++      importAdjustmentId: IA,
++      workspaceId: WS,
++      originalFilename: "giacenze.xlsx",
++      importDate: new Date("2024-06-01"),
++      selectedDate: new Date("2024-06-01"),
++      rows: [
++        {
++          sku: "SKU-1",
++          previousStock: 10,
++          targetStock: 12,
++          movementQuantity: 2,
++          movementType: "incoming",
++        },
++      ],
++    });
++
++    const reports = await db.prisma().client.importAdjustmentReport.findMany({
++      where: { importAdjustmentId: IA, workspaceId: WS },
++    });
++    expect(reports).toHaveLength(1);
++    expect(reports[0].reportType).toBe(ReportType.SUCCESS);
++    expect(captured).toBeDefined();
++    expect(workbookText(captured!)).not.toContain("Import Report");
++    expect(workbookText(captured!)).not.toContain("Date of Import");
++  });
++});
+diff --git a/test/range/common/repositories/kpi.repository.spec.ts b/test/range/common/repositories/kpi.repository.spec.ts
+new file mode 100644
+index 0000000..cf04de7
+--- /dev/null
++++ b/test/range/common/repositories/kpi.repository.spec.ts
+@@ -0,0 +1,79 @@
++import { describe, it, expect, beforeAll } from "vitest";
++import * as fc from "fast-check";
++import { KpiRepository } from "@app/common/repositories/kpi.repository";
++import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { logRange } from "@test/range-log";
++import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
++
++// The invariant behind FIC-13436: applying a movement moves stockOnHand by exactly ±quantity.
++// An outgoing movement never increases stock (the ticket's failure); an incoming never decreases it.
++// Quantities are fractional (hundredths) like the ticket's 25.89 / 57.89 / 58.86.
++const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
++const BASELINE_DATE = new Date("2024-01-01");
++const MOVEMENT_DATE = new Date("2024-01-02");
++
++describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("upsertKpiStock: outgoing never raises stockOnHand, incoming never lowers it (newStock = baseline ± quantity)", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        fc.integer({ min: 0, max: 1_000_000 }), // baseline hundredths of a unit
++        fc.integer({ min: 1, max: 1_000_000 }), // movement quantity, hundredths
++        fc.constantFrom("incoming" as const, "outgoing" as const),
++        async (baseHundredths, qtyHundredths, direction) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new KpiRepository(prisma);
++
++          const baseline = baseHundredths / 100;
++          const quantity = qtyHundredths / 100;
++          const signedDelta = direction === "outgoing" ? -quantity : quantity;
++
++          await seedTradeItem(prisma);
++          await seedKpi(prisma, { stockOnHand: baseline.toFixed(2), date: BASELINE_DATE });
++
++          const stock: UpsertKpiStockDTO = {
++            workspaceId: WS,
++            tradeItemId: TI,
++            warehouseId: WH,
++            stockOnHandDelta: signedDelta,
++            stockValueDelta: 0,
++            stockAvailabilityDelta: 0,
++            orderedStockDelta: 0,
++            reservedStockDelta: 0,
++            lastMovementId: LAST_MOVEMENT,
++            date: MOVEMENT_DATE,
++          };
++
++          const result = await repo.upsertKpiStock(stock);
++          const newStock = result.stockOnHand.toNumber();
++
++          const monotone =
++            direction === "outgoing" ? newStock <= baseline : newStock >= baseline;
++          const exact = Math.abs(newStock - (baseline + signedDelta)) < 1e-5;
++
++          logRange({
++            key: "FIC-13436",
++            sample: { baseline, quantity, direction },
++            actual: newStock,
++            ok: monotone && exact,
++          });
++
++          expect(newStock).toBeCloseTo(baseline + signedDelta, 5);
++          if (direction === "outgoing") {
++            expect(newStock).toBeLessThanOrEqual(baseline);
++          } else {
++            expect(newStock).toBeGreaterThanOrEqual(baseline);
++          }
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/range/common/repositories/movement.repository.spec.ts b/test/range/common/repositories/movement.repository.spec.ts
+new file mode 100644
+index 0000000..1d7bbfe
+--- /dev/null
++++ b/test/range/common/repositories/movement.repository.spec.ts
+@@ -0,0 +1,86 @@
++import { describe, it, expect, beforeAll } from "vitest";
++import * as fc from "fast-check";
++import { ParentDocument } from "@prisma-client";
++import { MovementRepository } from "@app/common/repositories/movement.repository";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { logRange } from "@test/range-log";
++import { seedMovement, seedTradeItem, seedWarehouse, WS } from "@test/seed";
++
++const FILTERABLE_PARENTS = [
++  ParentDocument.purchaseOrder,
++  ParentDocument.purchaseInvoice,
++  ParentDocument.purchaseCreditNote,
++  ParentDocument.purchaseDeliveryNote,
++  ParentDocument.salesOrder,
++  ParentDocument.salesInvoice,
++  ParentDocument.salesCreditNote,
++  ParentDocument.salesDeliveryNote,
++] as const;
++
++describe(`FIC-13173 — [Lista movimenti] Viene mostrato solo il numero documento e non la tipologia`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("findAllUniqueDocuments always pairs document number with parentDocument for filterable types", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        fc.integer({ min: 1, max: 1_000_000 }),
++        fc.constantFrom(...FILTERABLE_PARENTS),
++        async (docNum, parentDocument) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new MovementRepository(prisma);
++          const document = String(docNum);
++
++          await seedWarehouse(prisma);
++          await seedTradeItem(prisma);
++          await seedMovement(prisma, {
++            eventId: `evt-${docNum}`,
++            document,
++            parentDocument,
++          });
++          // Adjustment must never leak into the filter list
++          await seedMovement(prisma, {
++            eventId: `evt-adj-${docNum}`,
++            document: `ADJ-${docNum}`,
++            parentDocument: ParentDocument.inventoryStockAdjustmentNote,
++          });
++
++          type DocRow = { document: string; parentDocument: string | null };
++          const docs = (await repo.findAllUniqueDocuments(
++            WS,
++          )) as unknown as DocRow[];
++          const hit = docs.find((d) => d.document === document);
++          const ok =
++            hit != null &&
++            hit.parentDocument === parentDocument &&
++            !docs.some(
++              (d) =>
++                d.parentDocument ===
++                ParentDocument.inventoryStockAdjustmentNote,
++            );
++
++          logRange({
++            key: "FIC-13173",
++            sample: { document, parentDocument },
++            actual: docs,
++            ok,
++          });
++
++          expect(hit).toEqual({ document, parentDocument });
++          expect(
++            docs.some(
++              (d) =>
++                d.parentDocument ===
++                ParentDocument.inventoryStockAdjustmentNote,
++            ),
++          ).toBe(false);
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/range/common/repositories/trade-item.repository.spec.ts b/test/range/common/repositories/trade-item.repository.spec.ts
+new file mode 100644
+index 0000000..b7cd51f
+--- /dev/null
++++ b/test/range/common/repositories/trade-item.repository.spec.ts
+@@ -0,0 +1,83 @@
++import { describe, it, expect, beforeAll } from "vitest";
++import * as fc from "fast-check";
++import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedTradeItem, WS } from "@test/seed";
++
++describe("TradeItemRepository (db range)", () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("findByCode never returns a row whose deletedAt is set", async () => {
++    await fc.assert(
++      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
++        await db.restore();
++        const prisma = db.prisma();
++        const repo = new TradeItemRepository(prisma);
++        const code = `C-${n}`;
++        await seedTradeItem(prisma, {
++          id: `ti-${n}`,
++          code,
++          deletedAt: new Date("2024-06-01"),
++        });
++        expect(await repo.findByCode({ code, workspaceId: WS })).toBeNull();
++      }),
++      { numRuns: 10 },
++    );
++  });
++
++  it("findByCode returns the live row for any generated code", async () => {
++    await fc.assert(
++      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
++        await db.restore();
++        const prisma = db.prisma();
++        const repo = new TradeItemRepository(prisma);
++        const code = `L-${n}`;
++        await seedTradeItem(prisma, { id: `live-${n}`, code, unitCost: "80" });
++        const found = await repo.findByCode({ code, workspaceId: WS });
++        expect(found?.code).toBe(code);
++        expect(found?.deletedAt).toBeNull();
++      }),
++      { numRuns: 10 },
++    );
++  });
++});
++
++describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("unitCost always equals seeded unit_cost, never unit_price, for distinct values", async () => {
++    await fc.assert(
++      fc.asyncProperty(
++        fc
++          .tuple(
++            fc.integer({ min: 1, max: 10_000 }),
++            fc.integer({ min: 1, max: 10_000 }),
++          )
++          .filter(([cost, price]) => cost !== price),
++        async ([cost, price]) => {
++          await db.restore();
++          const prisma = db.prisma();
++          const repo = new TradeItemRepository(prisma);
++          await seedTradeItem(prisma, {
++            unitCost: String(cost),
++            unitPrice: String(price),
++          });
++          const item = await repo.get({ id: "ti-1", workspaceId: WS }, false);
++          expect(Number(item.unitCost)).toBe(cost);
++          expect(Number(item.unitCost)).not.toBe(price);
++          expect(Number(item.unitPrice)).toBe(price);
++          expect(item.deletedAt).toBeNull();
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+new file mode 100644
+index 0000000..1937a23
+--- /dev/null
++++ b/test/range/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -0,0 +1,60 @@
++import { describe, it, expect, beforeAll, vi } from "vitest";
++import * as fc from "fast-check";
++import * as XLSX from "xlsx";
++import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { IA, WS } from "@test/seed";
++
++function workbookText(buffer: Buffer): string {
++  const wb = XLSX.read(buffer, { type: "buffer" });
++  return wb.SheetNames.flatMap((name) => [
++    name,
++    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
++  ]).join("\n");
++}
++
++describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
++  let db: LiveDb;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  it("success report never contains English chrome for any filename", async () => {
++    await fc.assert(
++      fc.asyncProperty(fc.integer({ min: 1, max: 999 }), async (n) => {
++          await db.restore();
++          let captured: Buffer | undefined;
++          const service = new ImportAdjustmentReportGenerationService(
++            { createReport: vi.fn().mockResolvedValue({ id: "r1" }) } as never,
++            {
++              storeFile: vi.fn(async (buffer: Buffer) => {
++                captured = buffer;
++                return "reports/ws/file.xlsx";
++              }),
++            } as never,
++          );
++          await service.generateSuccessReport({
++            importAdjustmentId: IA,
++            workspaceId: WS,
++            originalFilename: `giacenze-${n}.xlsx`,
++            importDate: new Date("2024-06-01"),
++            selectedDate: new Date("2024-06-01"),
++            rows: [
++              {
++                sku: `SKU-${n}`,
++                previousStock: 1,
++                targetStock: 2,
++                movementQuantity: 1,
++                movementType: "incoming",
++              },
++            ],
++          });
++          expect(captured).toBeDefined();
++          expect(workbookText(captured!)).not.toContain("Import Report");
++        },
++      ),
++      { numRuns: 20 },
++    );
++  });
++});
+diff --git a/test/unit/common/repositories/kpi.repository.spec.ts b/test/unit/common/repositories/kpi.repository.spec.ts
+new file mode 100644
+index 0000000..90092da
+--- /dev/null
++++ b/test/unit/common/repositories/kpi.repository.spec.ts
+@@ -0,0 +1,81 @@
++import { describe, it, expect, beforeAll, beforeEach } from "vitest";
++import { KpiRepository } from "@app/common/repositories/kpi.repository";
++import type { UpsertKpiStockDTO } from "@app/common/dto/kpi/upsert-kpi-stock.dto";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedKpi, seedTradeItem, WS, TI, WH } from "@test/seed";
++
++// Ticket exhibit (product ORO ROSA 9KT): initial 32, +25.89 (load), -57.89 (active doc),
++// +58.86 (load) must reconstruct to 58.86. The reported 116.75 is 32 + 25.89 + 58.86 —
++// the outgoing -57.89 was never subtracted. This pins the running stockOnHand accumulation.
++const LAST_MOVEMENT = "00000000-0000-4000-8000-000000000099";
++
++function mkStock(stockOnHandDelta: number, date: Date): UpsertKpiStockDTO {
++  return {
++    workspaceId: WS,
++    tradeItemId: TI,
++    warehouseId: WH,
++    stockOnHandDelta,
++    stockValueDelta: 0,
++    stockAvailabilityDelta: 0,
++    orderedStockDelta: 0,
++    reservedStockDelta: 0,
++    lastMovementId: LAST_MOVEMENT,
++    date,
++  };
++}
++
++describe(`FIC-13436 — [<secret:5>] Incorrect warehouse stock`, () => {
++  let db: LiveDb;
++  let repo: KpiRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new KpiRepository(db.prisma());
++  });
++
++  // Regression anchor: replay the ticket's movement history through the real accumulation.
++  // Buggy behaviour (outgoing ignored) lands the final row on 116.75; correct behaviour on 58.86.
++  it("upsertKpiStock: outgoing delta subtracts, so 32 +25.89 -57.89 +58.86 = 58.86 (not 116.75)", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    // Opening balance: initial quantity 32
++    await seedKpi(prisma, { stockOnHand: "32", date: new Date("2024-01-01") });
++
++    const afterLoad1 = await repo.upsertKpiStock(
++      mkStock(25.89, new Date("2024-01-02")),
++    );
++    expect(afterLoad1.stockOnHand.toNumber()).toBeCloseTo(57.89, 2);
++
++    // The outgoing active document (-57.89) must DECREASE stock, not be dropped or added.
++    const afterOutgoing = await repo.upsertKpiStock(
++      mkStock(-57.89, new Date("2024-01-03")),
++    );
++    expect(afterOutgoing.stockOnHand.toNumber()).toBeCloseTo(0, 5);
++    expect(afterOutgoing.stockOnHand.toNumber()).toBeLessThan(57.89);
++
++    const afterLoad2 = await repo.upsertKpiStock(
++      mkStock(58.86, new Date("2024-01-04")),
++    );
++    expect(afterLoad2.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);
++    // Explicitly reject the reported (buggy) value.
++    expect(afterLoad2.stockOnHand.toNumber()).not.toBeCloseTo(116.75, 2);
++  });
++
++  // The invariant in isolation: an outgoing delta is (previous - quantity), independent of sign.
++  it("edge: outgoing delta subtracts even when it drives stock below zero", async () => {
++    const prisma = db.prisma();
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { stockOnHand: "10", date: new Date("2024-01-01") });
++
++    const after = await repo.upsertKpiStock(
++      mkStock(-57.89, new Date("2024-01-02")),
++    );
++
++    expect(after.stockOnHand.toNumber()).toBeCloseTo(-47.89, 2);
++    expect(after.stockOnHand.toNumber()).toBeLessThan(10);
++  });
++});
+diff --git a/test/unit/common/repositories/movement.repository.spec.ts b/test/unit/common/repositories/movement.repository.spec.ts
+new file mode 100644
+index 0000000..d34d4d6
+--- /dev/null
++++ b/test/unit/common/repositories/movement.repository.spec.ts
+@@ -0,0 +1,106 @@
++import { describe, it, expect, beforeAll, beforeEach } from "vitest";
++import { ParentDocument } from "@prisma-client";
++import { MovementRepository } from "@app/common/repositories/movement.repository";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedMovement, seedTradeItem, seedWarehouse, WS } from "@test/seed";
++
++describe(`FIC-13173 — [Lista movimenti] Viene mostrato solo il numero documento e non la tipologia`, () => {
++  let db: LiveDb;
++  let repo: MovementRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new MovementRepository(db.prisma());
++  });
++
++  // Documento filter must expose typology so FE can render "fattura 78", not bare "78"
++  it("findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++    await seedMovement(prisma, {
++      eventId: "evt-inv",
++      document: "78",
++      parentDocument: ParentDocument.salesInvoice,
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-ord",
++      document: "98",
++      parentDocument: ParentDocument.salesOrder,
++    });
++
++    const docs = await repo.findAllUniqueDocuments(WS);
++
++    type DocRow = { document: string; parentDocument: string | null };
++    const rows = docs as unknown as DocRow[];
++    expect(rows).toEqual(
++      expect.arrayContaining([
++        { document: "78", parentDocument: ParentDocument.salesInvoice },
++        { document: "98", parentDocument: ParentDocument.salesOrder },
++      ]),
++    );
++    expect(rows.every((d) => typeof d === "object" && d !== null)).toBe(true);
++    expect(rows.every((d) => typeof d.document === "string")).toBe(true);
++  });
++
++  it("edge: excludes inventoryStockAdjustmentNote from the documents filter", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++    await seedMovement(prisma, {
++      eventId: "evt-adj",
++      document: "ADJ-1",
++      parentDocument: ParentDocument.inventoryStockAdjustmentNote,
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-cn",
++      document: "65",
++      parentDocument: ParentDocument.salesCreditNote,
++    });
++
++    type DocRow = { document: string; parentDocument: string | null };
++    const rows = (await repo.findAllUniqueDocuments(WS)) as unknown as DocRow[];
++
++    expect(rows).toEqual([
++      { document: "65", parentDocument: ParentDocument.salesCreditNote },
++    ]);
++    expect(
++      rows.some(
++        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,
++      ),
++    ).toBe(false);
++  });
++
++  it("edge: soft-deleted and null-document movements are omitted", async () => {
++    const prisma = db.prisma();
++    await seedWarehouse(prisma);
++    await seedTradeItem(prisma);
++    await seedMovement(prisma, {
++      eventId: "evt-live",
++      document: "53",
++      parentDocument: ParentDocument.salesCreditNote,
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-del",
++      document: "99",
++      parentDocument: ParentDocument.salesInvoice,
++      deletedAt: new Date("2024-01-01"),
++    });
++    await seedMovement(prisma, {
++      eventId: "evt-null",
++      document: null,
++      parentDocument: ParentDocument.salesOrder,
++    });
++
++    type DocRow = { document: string; parentDocument: string | null };
++    const rows = (await repo.findAllUniqueDocuments(WS)) as unknown as DocRow[];
++
++    expect(rows).toEqual([
++      { document: "53", parentDocument: ParentDocument.salesCreditNote },
++    ]);
++  });
++});
+diff --git a/test/unit/common/repositories/trade-item.repository.spec.ts b/test/unit/common/repositories/trade-item.repository.spec.ts
+new file mode 100644
+index 0000000..e7cfd6a
+--- /dev/null
++++ b/test/unit/common/repositories/trade-item.repository.spec.ts
+@@ -0,0 +1,94 @@
++import { describe, it, expect, beforeAll, beforeEach } from "vitest";
++import { TradeItemRepository } from "@app/common/repositories/trade-item.repository";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { seedTradeItem, TI, WS } from "@test/seed";
++
++describe("TradeItemRepository (db unit)", () => {
++  let db: LiveDb;
++  let repo: TradeItemRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new TradeItemRepository(db.prisma());
++  });
++
++  it("findByCode returns the seeded row", async () => {
++    await seedTradeItem(db.prisma(), {
++      code: "CODE-1",
++      unitCost: "80",
++      unitPrice: "150",
++    });
++    const found = await repo.findByCode({ code: "CODE-1", workspaceId: WS });
++    expect(found).not.toBeNull();
++    expect(found?.code).toBe("CODE-1");
++    expect(found?.unitCost?.toString()).toBe("80");
++    expect(found?.deletedAt).toBeNull();
++  });
++
++  it("findByCode skips a soft-deleted row", async () => {
++    await seedTradeItem(db.prisma(), {
++      code: "GONE",
++      deletedAt: new Date("2024-01-01"),
++    });
++    expect(await repo.findByCode({ code: "GONE", workspaceId: WS })).toBeNull();
++  });
++});
++
++describe(`FIC-13441 — KPI "Unit cost from master data" shows unit_price instead of unit_cost`, () => {
++  let db: LiveDb;
++  let repo: TradeItemRepository;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    repo = new TradeItemRepository(db.prisma());
++  });
++
++  // Scenario: KPI reads unit_cost, not unit_price
++  //   Given a product with unit_cost = 80 and unit_price = 150 in master data
++  //   When the item is read
++  //   Then unitCost is 80, never 150
++  it("get returns unitCost from unit_cost, not unit_price", async () => {
++    await seedTradeItem(db.prisma(), { unitCost: "80", unitPrice: "150" });
++    const item = await repo.get({ id: TI, workspaceId: WS }, false);
++    expect(item.unitCost?.toString()).toBe("80");
++    expect(item.unitCost?.toString()).not.toBe("150");
++    expect(item.unitPrice?.toString()).toBe("150");
++    expect(item.deletedAt).toBeNull();
++  });
++
++  it("edge: null unit_cost does not leak unit_price into unitCost", async () => {
++    await seedTradeItem(db.prisma(), { unitCost: null, unitPrice: "150" });
++    const item = await repo.get({ id: TI, workspaceId: WS }, false);
++    expect(item.unitCost).toBeNull();
++    expect(item.unitPrice?.toString()).toBe("150");
++  });
++
++  it("edge: equal unit_cost and unit_price still map to their own columns", async () => {
++    await seedTradeItem(db.prisma(), { unitCost: "100", unitPrice: "100" });
++    const item = await repo.get({ id: TI, workspaceId: WS }, false);
++    expect(item.unitCost?.toString()).toBe("100");
++    expect(item.unitPrice?.toString()).toBe("100");
++  });
++
++  it("edge: findAll excludes a soft-deleted product", async () => {
++    await seedTradeItem(db.prisma(), {
++      unitCost: "80",
++      unitPrice: "150",
++      deletedAt: new Date("2024-01-01"),
++    });
++    const result = await repo.findAllByWorkspace(WS);
++    expect(result).toHaveLength(0);
++  });
++
++  it.todo(
++    "sibling KPIs on the products dashboard are unchanged — needs product-owned fixtures",
++  );
++});
+diff --git a/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts b/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+new file mode 100644
+index 0000000..2397ca7
+--- /dev/null
++++ b/test/unit/common/services/import-adjustment-report/import-adjustment-report-generation.service.spec.ts
+@@ -0,0 +1,70 @@
++import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
++import * as XLSX from "xlsx";
++import { ImportAdjustmentReportGenerationService } from "@app/common/services/import-adjustment-report/import-adjustment-report-generation.service";
++import { startLiveDb, type LiveDb } from "@test/postgres.container";
++import { IA, WS } from "@test/seed";
++
++const ENGLISH = [
++  "Import Report",
++  "Date of Import",
++  "Stock Before Import",
++  "Movement Quantity",
++  "Imported Products",
++];
++
++function workbookText(buffer: Buffer): string {
++  const wb = XLSX.read(buffer, { type: "buffer" });
++  return wb.SheetNames.flatMap((name) => [
++    name,
++    ...(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1 }) as unknown[][]).flat(),
++  ]).join("\n");
++}
++
++describe(`FIC-13628 — Stock import report generated in English instead of Italian`, () => {
++  let db: LiveDb;
++  let captured: Buffer | undefined;
++
++  beforeAll(async () => {
++    db = await startLiveDb();
++  });
++
++  beforeEach(async () => {
++    await db.restore();
++    captured = undefined;
++  });
++
++  it("generateSuccessReport writes Italian labels, not English", async () => {
++    const service = new ImportAdjustmentReportGenerationService(
++      { createReport: vi.fn().mockResolvedValue({ id: "r1" }) } as never,
++      {
++        storeFile: vi.fn(async (buffer: Buffer) => {
++          captured = buffer;
++          return "reports/ws/file.xlsx";
++        }),
++      } as never,
++    );
++
++    await service.generateSuccessReport({
++      importAdjustmentId: IA,
++      workspaceId: WS,
++      originalFilename: "giacenze.xlsx",
++      importDate: new Date("2024-06-01"),
++      selectedDate: new Date("2024-06-01"),
++      rows: [
++        {
++          sku: "SKU-1",
++          previousStock: 10,
++          targetStock: 12,
++          movementQuantity: 2,
++          movementType: "incoming",
++        },
++      ],
++    });
++
++    expect(captured).toBeDefined();
++    const text = workbookText(captured!);
++    for (const phrase of ENGLISH) {
++      expect(text).not.toContain(phrase);
++    }
++  });
++});

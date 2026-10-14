@@ -1,0 +1,39 @@
+diff --git a/test/range/common/repositories/kpi.repository.spec.ts b/test/range/common/repositories/kpi.repository.spec.ts
+index ebe102f..0212b32 100644
+--- a/test/range/common/repositories/kpi.repository.spec.ts
++++ b/test/range/common/repositories/kpi.repository.spec.ts
+@@ -18,6 +18,34 @@ describe(`FIC-13860 — [BE] KPI "last unit cost" drops a zero-cost movement —
+     db = await startLiveDb();
+   });
+ 
++  // Pinned counterexample: the exact zero-cost sample the property must never regress on.
++  // RED on current source (returns the stale 50). The properties below generalise it.
++  it("getLastUnitCost: the pinned zero-cost sample returns 0, not the seeded last_cost=50", async () => {
++    await db.restore();
++    const prisma = db.prisma();
++    const repo = new KpiRepository(prisma);
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastCost: "50" });
++
++    const result = await repo.getLastUnitCost(kpiData, 0);
++
++    expect(result).toBe(0);
++    expect(result).not.toBe(50);
++  });
++
++  it("getLastUnitPrice: the pinned zero-price sample returns 0, not the seeded last_price=30", async () => {
++    await db.restore();
++    const prisma = db.prisma();
++    const repo = new KpiRepository(prisma);
++    await seedTradeItem(prisma);
++    await seedKpi(prisma, { lastPrice: "30" });
++
++    const result = await repo.getLastUnitPrice(kpiData, 0);
++
++    expect(result).toBe(0);
++    expect(result).not.toBe(30);
++  });
++
+   it("getLastUnitCost: the provided cost (0..1e6 incl. 0) is returned verbatim, never the seeded last_cost", async () => {
+     await fc.assert(
+       fc.asyncProperty(

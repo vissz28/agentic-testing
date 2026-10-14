@@ -1,0 +1,171 @@
+diff --git a/e2e/tests/products-stock/FIC-13860.spec.ts b/e2e/tests/products-stock/FIC-13860.spec.ts
+new file mode 100644
+index 0000000..def2fb3
+--- /dev/null
++++ b/e2e/tests/products-stock/FIC-13860.spec.ts
+@@ -0,0 +1,165 @@
++import { readFileSync } from 'node:fs'
++import { expect, test } from '../../fixtures'
++
++// FIC-13860 — [FE] products stock empty message in english
++// https://teamsystem.atlassian.net/browse/FIC-13860
++// Bug from QA/Test, status DONE. The ticket has full acceptance criteria: on the Products
++// stock page, when a filter returns nothing, an Italian profile must see the Italian empty
++// message. Today the Italian label bucket has no NoDataWithFiltersMessage key, so this check
++// is used as a regression anchor: it turns green when the Italian translation is added.
++// No design attached. No merge request found in local git.
++
++// Real label buckets, wrapped as the OneFront i18n loader expects (`.item`).
++const IT_BUCKET = JSON.parse(
++  readFileSync(
++    new URL('../../../mocks/buckets/i18n/warehouse-app--it.json', import.meta.url),
++    'utf8'
++  )
++)
++const EN_BUCKET = JSON.parse(
++  readFileSync(
++    new URL('../../../mocks/buckets/i18n/warehouse-app--en.json', import.meta.url),
++    'utf8'
++  )
++)
++
++// The products stock grid is empty whenever trade-items comes back with no rows, which is
++// what a filter matching no product produces. Stub it empty plus the shell's basic-info call.
++async function stubEmptyProductsStock(page: import('@playwright/test').Page) {
++  await page.route('**/trade-items/**', route =>
++    route.fulfill({ json: { count: 0, items: [] } })
++  )
++  await page.route('**/warehouse/basic-info/**', route =>
++    route.fulfill({ json: {} })
++  )
++}
++
++// Type a product code into the product filter. The filter is an autocomplete, and its label
++// is translated, so match either language.
++async function filterBy(page: import('@playwright/test').Page, code: string) {
++  const search = page
++    .getByRole('combobox', { name: /product|prodotto/i })
++    .first()
++  await search.fill(code)
++}
++
++// --- Acceptance criteria (from the ticket) ---
++
++// Scenario 1:
++// Given the Italian profile language is selected
++// When I filter the products stock by a code that matches no product
++// Then the message is "Nessun dato disponibile con i filtri attuali"
++test('FIC-13860-1-italian-profile-sees-the-italian-empty-message', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  await stubEmptyProductsStock(page)
++
++  await warehouse.goto('/products-stock')
++  await filterBy(page, 'ZZZ-000')
++
++  await expect(
++    page.getByText('Nessun dato disponibile con i filtri attuali')
++  ).toBeVisible({ timeout: 15_000 })
++  // The English text is the bug, so it must not be on an Italian screen.
++  await expect(
++    page.getByText('No data available with current filters')
++  ).toHaveCount(0)
++})
++
++// Scenario 2:
++// Given the English profile language is selected
++// When I filter the products stock by a code that matches no product
++// Then the message is "No data available with current filters"
++test('FIC-13860-2-english-profile-sees-the-english-empty-message', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: EN_BUCKET } })
++  )
++  await stubEmptyProductsStock(page)
++
++  await warehouse.goto('/products-stock')
++  await filterBy(page, 'ZZZ-000')
++
++  await expect(
++    page.getByText('No data available with current filters')
++  ).toBeVisible({ timeout: 15_000 })
++})
++
++// --- Edge cases (proposed by the tool, not in the ticket) ---
++
++// E1 — long text: a product code far longer than the field is meant to hold.
++// The screen must still render the translated empty message and no raw label code.
++test('FIC-13860-edge-1-very-long-product-code-in-the-filter', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  await stubEmptyProductsStock(page)
++
++  await warehouse.goto('/products-stock')
++  await filterBy(page, 'Z'.repeat(250))
++
++  // The Italian empty area is shown and it reads as a sentence, not a label code.
++  await expect(page.getByText('Nessun prodotto trovato')).toBeVisible({
++    timeout: 15_000,
++  })
++  await expect(
++    page.getByText('I filtri selezionati non hanno prodotto risultati')
++  ).toBeVisible()
++})
++
++// E2 — special characters: accents, symbols and non-latin letters in the filter.
++// The screen must still render the translated empty message instead of breaking.
++test('FIC-13860-edge-2-special-characters-in-the-product-filter', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: IT_BUCKET } })
++  )
++  await stubEmptyProductsStock(page)
++
++  await warehouse.goto('/products-stock')
++  await filterBy(page, "<script>ù€ 日本 'ok'")
++
++  // The Italian empty area is shown and it reads as a sentence, not a label code.
++  await expect(page.getByText('Nessun prodotto trovato')).toBeVisible({
++    timeout: 15_000,
++  })
++  await expect(
++    page.getByText('I filtri selezionati non hanno prodotto risultati')
++  ).toBeVisible()
++})
++
++// E3 — locale: the same screen in English must not show a raw label code where a sentence
++// belongs. Probes the mirror of this bug in the other language.
++test('FIC-13860-edge-3-no-raw-label-code-shows-on-the-english-screen', async ({
++  page,
++  warehouse,
++}) => {
++  await page.route('**/i18n/**', route =>
++    route.fulfill({ json: { item: EN_BUCKET } })
++  )
++  await stubEmptyProductsStock(page)
++
++  await warehouse.goto('/products-stock')
++  await filterBy(page, 'ZZZ-000')
++
++  // Wait until the empty area is actually on screen, otherwise the checks below would pass
++  // on a page that has not finished rendering.
++  await expect(page.getByText('No products found')).toBeVisible({
++    timeout: 15_000,
++  })
++  // The empty area must read as a sentence. A label code such as NoDataFiltersMessage
++  // showing here means the English translation is missing.
++  await expect(page.getByText('NoDataFiltersMessage')).toHaveCount(0)
++  await expect(page.getByText(/[A-Z][a-z]+[A-Z][A-Za-z]*(Message|Title)/)).toHaveCount(0)
++})

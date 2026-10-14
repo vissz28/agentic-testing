@@ -138,5 +138,8 @@
     },
     "refuseFallback": "Please add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then.",
     "jiraFillMark": "_Added during the /spec readiness check._"
+  },
+  "boundaries": {
+    "forbidden": [{ "path": "src/" }, { "path": "prisma/" }, { "path": "dapr/" }, { "path": ".gitlab-ci.yml" }, { "path": ".env" }, { "path": ".env.*" }]
   }
 }

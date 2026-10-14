@@ -1,0 +1,200 @@
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import fc from "fast-check";
+import {
+  MovementType,
+  MovementReason,
+  Operation,
+  EventSource,
+} from "@prisma-client";
+import { KpiService } from "@app/common/services/kpi/kpi.service";
+import { KpiRepository } from "@app/common/repositories/kpi.repository";
+import type { EventDTO } from "@app/common/dto/event/event.dto";
+import { EventType } from "@app/common/enums/event/type.enum";
+import { startLiveDb, type LiveDb } from "@test/postgres.container";
+import { seedTradeItem, seedMovement, WS, TI, WH } from "@test/seed";
+import { allocationService, cacheDouble } from "@test/fakes";
+import { logRange } from "@test/range-log";
+
+// FIC-13986 — property view of "report giacenza must equal the product master data". For any
+// incoming/outgoing pair the stock report (getStockDataForDateWithFallback) must agree with the
+// master-data value (latest KPI) and with the true net; an outgoing must never push the report
+// stock above what came in. A pinned deterministic case reproduces the ticket's 914 / 77.
+describe(`FIC-13986 — [U######] Incorrect stock between report and product master data`, () => {
+  let db: LiveDb;
+
+  // getStockDataForDateWithFallback filters `trade_items.created_at <= selectedDate`; seeded rows
+  // are created "now", so keep the KPI date at now and ask for the report a week out.
+  const MOV_DATE = new Date();
+  const AS_OF = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  beforeAll(async () => {
+    db = await startLiveDb();
+  });
+
+  beforeEach(async () => {
+    await db.restore();
+  });
+
+  function makeService(): KpiService {
+    return new KpiService(
+      new KpiRepository(db.prisma()),
+      {
+        createFromEventDTO: vi.fn().mockResolvedValue({ eventId: "evt-13986-r" }),
+      } as never,
+      {
+        get: vi.fn().mockImplementation((m: { type: MovementType }) => {
+          const op =
+            m.type === MovementType.incoming
+              ? Operation.increment
+              : Operation.decrement;
+          return Promise.resolve({
+            stockOnHandOperation: op,
+            stockAvailabilityOperation: op,
+            stockValueOperation: op,
+            orderedStockOperation: null,
+            reservedStockOperation: null,
+          });
+        }),
+      } as never,
+      allocationService(db.prisma(), {
+        get: vi.fn().mockImplementation((m: { type: MovementType }) => {
+          const op =
+            m.type === MovementType.incoming
+              ? Operation.increment
+              : Operation.decrement;
+          return Promise.resolve({
+            stockOnHandOperation: op,
+            stockAvailabilityOperation: op,
+            stockValueOperation: op,
+            orderedStockOperation: null,
+            reservedStockOperation: null,
+          });
+        }),
+      } as never),
+      cacheDouble() as never,
+    );
+  }
+
+  async function apply(
+    service: KpiService,
+    type: MovementType,
+    quantity: number,
+    seq: number,
+  ): Promise<void> {
+    // The allocation service writes a snapshot onto the movement row, so seed the row the
+    // payload names and reuse its real id.
+    const row = await seedMovement(db.prisma(), {
+      eventId: `evt-13986r-${seq}`,
+      type,
+      reason:
+        type === MovementType.incoming
+          ? MovementReason.positiveAdjustment
+          : MovementReason.sale,
+      quantity: String(quantity),
+      unitPrice: "10",
+      date: MOV_DATE,
+    });
+
+    const movement = {
+      id: row.id,
+      workspaceId: WS,
+      tradeItemId: TI,
+      warehouseId: WH,
+      type,
+      reason:
+        type === MovementType.incoming
+          ? MovementReason.positiveAdjustment
+          : MovementReason.sale,
+      quantity: String(quantity),
+      unitPrice: "10",
+      date: MOV_DATE.toISOString(),
+    };
+    await service.processKpiUpdate({
+      eventId: `evt-13986r-${seq}`,
+      eventType: EventType.MOVEMENT_GENERATION,
+      source: EventSource.manual,
+      workspaceId: WS,
+      payload: JSON.stringify(movement),
+    } as unknown as EventDTO);
+  }
+
+  /** Product-master-data value: the latest KPI row for the item (TradeItem.get, take 1). */
+  async function masterStock(prisma = db.prisma()): Promise<number> {
+    const kpi = await prisma.client.kpi.findFirst({
+      where: { workspaceId: WS, tradeItemId: TI, warehouseId: WH },
+      orderBy: { date: "desc" },
+    });
+    return kpi!.stockOnHand.toNumber();
+  }
+
+  /** Report value: KpiService.getStockDataForDateWithFallback (latest KPI ≤ selectedDate). */
+  async function reportStock(service: KpiService): Promise<number> {
+    const rows = await service.getStockDataForDateWithFallback(WS, WH, AS_OF);
+    return rows.find((r) => r.tradeItemId === TI)!.stockOnHand.toNumber();
+  }
+
+  it("report stock equals the master-data value and the true net for any incoming/outgoing", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 1_000_000 }),
+        fc.integer({ min: 1, max: 1_000_000 }),
+        async (kept, sold) => {
+          await db.restore();
+          const prisma = db.prisma();
+          await seedTradeItem(prisma, { id: TI });
+          const service = makeService();
+
+          const incoming = kept + sold; // enough to sell; net stays positive
+          await apply(service, MovementType.incoming, incoming, 1);
+          await apply(service, MovementType.outgoing, sold, 2);
+
+          const report = await reportStock(service);
+          const master = await masterStock(prisma);
+          const ok = report === master && report === kept && report <= incoming;
+          logRange({
+            key: "FIC-13986",
+            sample: { incoming, sold },
+            actual: { report, master },
+            ok,
+          });
+
+          // ticket invariant: report giacenza == product master data (anagrafica)
+          expect(report).toBe(master);
+          // correctness: report == true net (incoming − outgoing)
+          expect(report).toBe(kept);
+          // an outgoing never increases stock on hand
+          expect(report).toBeLessThanOrEqual(incoming);
+        },
+      ),
+      { numRuns: 20 },
+    );
+  });
+
+  it("pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022", async () => {
+    const prisma = db.prisma();
+    await seedTradeItem(prisma, {
+      id: TI,
+      code: "Carnasciale 2020",
+      name: "Carnasciale 2020",
+    });
+    const service = makeService();
+    await apply(service, MovementType.incoming, 917, 1);
+    await apply(service, MovementType.outgoing, 3, 2);
+    expect(await reportStock(service)).toBe(914);
+    expect(await reportStock(service)).toBe(await masterStock(prisma));
+
+    // second product, same −3 shape → 77
+    await db.restore();
+    const prisma2 = db.prisma();
+    await seedTradeItem(prisma2, {
+      id: TI,
+      code: "Ottantadue 2022",
+      name: "Ottantadue 2022",
+    });
+    const service2 = makeService();
+    await apply(service2, MovementType.incoming, 80, 1);
+    await apply(service2, MovementType.outgoing, 3, 2);
+    expect(await reportStock(service2)).toBe(77);
+    expect(await reportStock(service2)).toBe(await masterStock(prisma2));
+  });
+});
