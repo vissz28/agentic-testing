@@ -199,3 +199,34 @@ test('the schema documents boundaries', () => {
   assert.equal(b.properties.forbidden.minItems, 1)
   assert.ok(!schema.required.includes('boundaries'))
 })
+
+const vgood = { ...good, adapter: 'vitest' }
+test('vitest block: configs, tsconfig, timeout', () => {
+  const r = validateConfig({ ...vgood, vitest: { configs: [{ match: 'test/integration/**', config: 'vitest.config.db.ts' }], tsconfig: 'tsconfig.test.json', timeoutSeconds: 120 } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.equal(r.config.vitest.timeoutSeconds, 120)
+})
+test('vitest block: absent stays absent; only with adapter vitest', () => {
+  assert.equal(validateConfig(vgood).config.vitest, undefined)
+  const r = validateConfig({ ...good, vitest: {} })
+  assert.ok(r.errors.includes('vitest: only allowed with "adapter": "vitest"'))
+})
+test('vitest block: each wrong part is named', () => {
+  const r = validateConfig({ ...vgood, vitest: { configs: [{ match: '../x', config: 'a.ts' }, { match: 'test/', config: '/abs.ts' }, { match: 'x' }, 'no'], tsconfig: '', timeoutSeconds: 5, extra: 1 } })
+  assert.deepEqual(r.errors, [
+    'vitest.extra: unknown field (only "configs", "tsconfig" and "timeoutSeconds")',
+    'vitest.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.configs[1].config "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.configs[2].config undefined must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.configs[3]: must be an object with "match" and "config"',
+    'vitest.tsconfig "" must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.timeoutSeconds: must be a whole number from 10 to 3600',
+  ])
+})
+test('the schema documents the vitest block', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const v = schema.properties.vitest
+  assert.equal(v.type, 'object')
+  assert.equal(v.additionalProperties, false)
+  assert.deepEqual(Object.keys(v.properties).sort(), ['configs', 'timeoutSeconds', 'tsconfig'])
+})

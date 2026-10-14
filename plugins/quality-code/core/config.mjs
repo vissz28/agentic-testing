@@ -5,9 +5,11 @@ import { join } from 'node:path'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest'])
 const LANGS = new Set(['en', 'it'])
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
+const PATH_RULE = 'must be a relative path inside the project (no "..", not absolute, one line)'
+const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
 
 export const DEFAULTS = Object.freeze({
   languages: ['en', 'it'],
@@ -97,8 +99,6 @@ export function validateConfig(input) {
   else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
     e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
   if (c.boundaries !== undefined) {
-    const where = p => `must be a relative path inside the project (no "..", not absolute, one line)`
-    const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
     if (!isObj(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
     else {
       for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
@@ -107,7 +107,7 @@ export function validateConfig(input) {
         if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
         else f.forEach((r, i) => {
           if (!isObj(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
-          if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${where()}`)
+          if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
           if (r.why !== undefined && (typeof r.why !== 'string' || !r.why.trim() || /[\r\n]/.test(r.why))) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
           for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
         })
@@ -115,8 +115,26 @@ export function validateConfig(input) {
       const a = c.boundaries.allow
       if (a !== undefined) {
         if (!Array.isArray(a)) e.push('boundaries.allow: must be a list of path patterns')
-        else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${where()}`) })
+        else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
       }
+    }
+  }
+  if (c.vitest !== undefined) {
+    if (c.adapter !== 'vitest') e.push('vitest: only allowed with "adapter": "vitest"')
+    else if (!isObj(c.vitest)) e.push('vitest: must be an object')
+    else {
+      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig" and "timeoutSeconds")`)
+      const cf = c.vitest.configs
+      if (cf !== undefined) {
+        if (!Array.isArray(cf)) e.push('vitest.configs: must be a list of { "match", "config" }')
+        else cf.forEach((x, i) => {
+          if (!isObj(x)) { e.push(`vitest.configs[${i}]: must be an object with "match" and "config"`); return }
+          for (const f of ['match', 'config']) if (!pathOk(x[f])) e.push(`vitest.configs[${i}].${f} ${JSON.stringify(x[f])} ${PATH_RULE}`)
+        })
+      }
+      if (c.vitest.tsconfig !== undefined && !pathOk(c.vitest.tsconfig)) e.push(`vitest.tsconfig ${JSON.stringify(c.vitest.tsconfig)} ${PATH_RULE}`)
+      const t = c.vitest.timeoutSeconds
+      if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push('vitest.timeoutSeconds: must be a whole number from 10 to 3600')
     }
   }
   if (e.length) return { ok: false, errors: e }
