@@ -41,6 +41,10 @@ test('green: every step ran and passed; mutation used the step-5 baseline withou
   assert.equal(r.verdict, 'green')
   assert.deepEqual(r.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'mutation'])
   assert.equal(runs, 1)
+  const m = r.steps.find(x => x.check === 'mutation')
+  assert.equal(m.status, 'pass')
+  assert.ok(m.data.total >= 1)
+  assert.equal(m.data.killed, m.data.total)
 })
 test('tests red', async () => {
   const d = repo()
@@ -84,11 +88,51 @@ test('testsStep and decide', () => {
   assert.deepEqual(decide([s('honesty', 'fail'), s('tests', 'not_run')]), { verdict: 'checks_failed', decidedBy: 'honesty' })
   assert.deepEqual(decide([s('tests', 'pass')]), { verdict: 'green', decidedBy: null })
 })
-test('a throwing step is reported with its name', async () => {
+test('a throwing type-check is reported with its step name', async () => {
   const d = repo()
   await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { typeCheck: async () => { throw new Error('kaput') } })), e => e.step === 'types' && /kaput/.test(e.message))
 })
 test('a throwing flaky or mutation step is reported with its name', async () => {
   const d = repo()
   await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { runTests: async () => { throw new Error('boom') } })), e => e.step === 'tests' && /boom/.test(e.message))
+})
+test('a part 2 check that throws is reported with its step name', async () => {
+  const d = repo()
+  await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 'x' }, ctx(d)), e => e.step === 'flaky' && /runs must be/.test(e.message))
+})
+test('a requested spec with no results is never-ran: tests not_run, mutation skipped, not_verified', async () => {
+  const d = repo()
+  put(d, 'test/b.spec.ts', SPEC)
+  const r = await runPipeline({ specs: ['test/a.spec.ts', 'test/b.spec.ts'], key: 'ABC-1' }, ctx(d))
+  const t = r.steps.find(s => s.check === 'tests')
+  assert.equal(t.status, 'not_run')
+  assert.deepEqual(t.findings.map(f => [f.file, f.kind, f.detail]), [['test/b.spec.ts', 'never ran', 'test/b.spec.ts']])
+  const m = r.steps.find(s => s.check === 'mutation')
+  assert.equal(m.status, 'not_run')
+  assert.equal(m.summary, 'skipped: the tests did not run')
+  assert.equal(r.verdict, 'not_verified')
+})
+test('mutation waits for the tests: a broken file skips mutation even though the runner ran', async () => {
+  const d = repo()
+  let mutated = 0
+  const runTests = async a => {
+    if (a.testName) mutated++
+    return { ran: true, broken: [{ file: 'test/a.spec.ts', message: 'boom' }], tests: [] }
+  }
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests }))
+  assert.equal(r.steps.find(s => s.check === 'tests').status, 'not_run')
+  assert.equal(r.steps.find(s => s.check === 'mutation').summary, 'skipped: the tests did not run')
+  assert.equal(mutated, 0)
+})
+test('specs are normalized to root-relative once: ./ and absolute forms still match', async () => {
+  const d = repo()
+  const seen = []
+  const r0 = makeRunner(d)
+  const runTests = async a => { if (!a.testName) seen.push(a.files[0]); return r0(a) }
+  for (const spec of ['./test/a.spec.ts', join(d, 'test/a.spec.ts')]) {
+    const r = await runPipeline({ specs: [spec], key: 'ABC-1' }, ctx(d, { runTests }))
+    assert.equal(r.verdict, 'green')
+    assert.equal(r.steps.find(s => s.check === 'mutation').data.total >= 1, true)
+  }
+  assert.deepEqual(seen, ['test/a.spec.ts', 'test/a.spec.ts'])
 })

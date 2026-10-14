@@ -6,6 +6,7 @@ import * as honesty from '../checks/honesty.mjs'
 import * as mutation from '../checks/mutation.mjs'
 import { result } from '../checks/result.mjs'
 import * as suite from '../checks/suite-honesty.mjs'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { vitestRunner } from '../runners/vitest.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 
@@ -18,7 +19,13 @@ export function decide(steps) {
   return { verdict: 'green', decidedBy: null }
 }
 
-export function testsStep(run) {
+// One spelling per spec: root-relative, forward slashes, no leading './'.
+export function normalizeSpec(root, spec) {
+  const rel = isAbsolute(spec) ? relative(root, spec) : relative(root, resolve(root, spec))
+  return rel.split(sep).join('/')
+}
+
+export function testsStep(run, requested = []) {
   if (!run.ran) return result('tests', 'not_run', `could not run: ${run.error}`, [], { ran: false })
   const count = s => run.tests.filter(t => t.status === s).length
   const data = { ran: true, passed: count('passed'), failed: count('failed'), skipped: count('skipped') }
@@ -26,6 +33,10 @@ export function testsStep(run) {
     const b = run.broken[0]
     return result('tests', 'not_run', `${run.broken.length} file(s) never ran: ${b.file}: ${b.message}`, run.broken.map(x => ({ file: x.file, kind: 'never ran', detail: x.message })), data)
   }
+  // A requested spec with no result and not reported broken never ran (spec §5).
+  const seen = new Set([...run.tests.map(t => t.file), ...(run.broken ?? []).map(b => b.file)])
+  const missing = requested.filter(f => !seen.has(f))
+  if (missing.length) return result('tests', 'not_run', `${missing.length} file(s) never ran: ${missing[0]}`, missing.map(f => ({ file: f, kind: 'never ran', detail: f })), data)
   if (!data.passed && !data.failed) return result('tests', 'not_run', 'no tests ran', [], data)
   if (data.failed) {
     const failed = run.tests.filter(t => t.status === 'failed')
@@ -52,10 +63,11 @@ async function mutationStep(specs, key, run, ctx) {
   return result('mutation', 'pass', data.total ? `${data.killed}/${data.total} mutants killed` : 'no eligible assertions to mutate', findings, data)
 }
 
-export async function runPipeline({ specs, key = null, range = null, flakyRuns = null }, ctx) {
+export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null }, ctx) {
   const runTests = ctx.runTests ?? vitestRunner(ctx.root, ctx.config)
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
+  const specs = rawSpecs.map(f => normalizeSpec(ctx.root, f))
   // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
   const step = async (name, fn) => {
     try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
@@ -71,9 +83,9 @@ export async function runPipeline({ specs, key = null, range = null, flakyRuns =
   else if (types.status === 'not_run') steps.push(result('tests', 'not_run', 'skipped: the type-check could not run', [], { ran: false }))
   else {
     run = await step('tests', () => runTests({ files: specs }))
-    steps.push(testsStep(run))
+    steps.push(testsStep(run, specs))
   }
-  if (run?.ran) steps.push(await step('mutation', () => mutationStep(specs, key, run, c)))
+  if (steps.at(-1).status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) steps.push(await step('flaky', () => flaky.run({ specs, runs: flakyRuns }, c)))
   return { ...decide(steps), steps }
