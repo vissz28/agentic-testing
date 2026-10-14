@@ -40,7 +40,8 @@ test('green: every step ran and passed; mutation used the step-5 baseline withou
   const r0 = makeRunner(d)
   const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests: async a => { if (!a.testName) runs++; return r0(a) } }))
   assert.equal(r.verdict, 'green')
-  assert.deepEqual(r.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'mutation'])
+  assert.deepEqual(r.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'mutation', 'stryker'])
+  assert.equal(r.steps.at(-1).summary, 'not applicable: no target file')
   assert.equal(runs, 1)
   const m = r.steps.find(x => x.check === 'mutation')
   assert.equal(m.status, 'pass')
@@ -102,7 +103,7 @@ test('without the run marker boundary is not applicable and passes, even with ch
 test('flaky only when asked', async () => {
   const d = repo()
   const r = await runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 2 }, ctx(d))
-  assert.equal(r.steps.at(-1).check, 'flaky')
+  assert.deepEqual(r.steps.slice(-2).map(s => s.check), ['flaky', 'stryker'])
 })
 test('testsStep and decide', () => {
   assert.equal(testsStep({ ran: true, broken: [], tests: [] }).status, 'not_run')
@@ -221,4 +222,58 @@ test('specs are normalized to root-relative once: ./ and absolute forms still ma
     assert.equal(r.steps.find(s => s.check === 'mutation').data.total >= 1, true)
   }
   assert.deepEqual(seen, ['test/a.spec.ts', 'test/a.spec.ts'])
+})
+
+const TICKET = JSON.stringify({ key: 'ABC-1', summary: 'add', text: { description: '## Acceptance criteria\nGiven two numbers\nWhen I add 1 and 1\nThen the result is 2' } })
+const stryker = (r, calls = []) => async (root, o) => { calls.push(o); return r }
+
+test('expected runs after tests when a ticket is given; a missing value is checks_failed', async () => {
+  const d = repo()
+  put(d, 't.json', TICKET)
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', ticket: 't.json' }, ctx(d))
+  assert.deepEqual(r.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'expected', 'mutation', 'stryker'])
+  assert.equal(r.steps.find(s => s.check === 'expected').status, 'pass')
+  assert.equal(r.verdict, 'green')
+  put(d, 't.json', TICKET.replace('is 2', 'is 3'))
+  const f = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', ticket: 't.json' }, ctx(d))
+  assert.equal(f.verdict, 'checks_failed')
+  assert.equal(f.decidedBy, 'expected')
+})
+test('no ticket: no expected step', async () => {
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(repo()))
+  assert.ok(!r.steps.some(s => s.check === 'expected'))
+})
+test('stryker: over the bar passes, under it is checks_failed, with the target and the bar', async () => {
+  const d = repo()
+  put(d, 'src/add.ts', 'export const add = (a, b) => a + b\n')
+  const calls = []
+  const good = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker({ ran: true, score: 80, killed: 8, survived: 2, timeout: 0, noCoverage: 0 }, calls) }))
+  assert.equal(good.verdict, 'green')
+  assert.equal(calls[0].target, 'src/add.ts')
+  const s = good.steps.at(-1)
+  assert.equal(s.summary, '80% of code changes caught (bar 60%)')
+  assert.equal(s.data.applicable, true)
+  const bad = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { config: { ...config, vitest: { stryker: { threshold: 90 } } }, runStryker: stryker({ ran: true, score: 80, killed: 8, survived: 2, timeout: 0, noCoverage: 0 }) }))
+  assert.equal(bad.verdict, 'checks_failed')
+  assert.equal(bad.decidedBy, 'stryker')
+  assert.equal(bad.steps.at(-1).summary, '80% of code changes caught, the bar is 90%')
+})
+test('stryker: not installed is not applicable; an error or no mutants is not_run; red tests still run it; not run tests skip it', async () => {
+  const d = repo()
+  const go = (r, extra = {}) => runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker(r), ...extra }))
+  const na = await go({ ran: false, error: 'Stryker is not installed' })
+  assert.equal(na.verdict, 'green')
+  assert.equal(na.steps.at(-1).summary, 'not applicable: Stryker is not installed')
+  assert.equal(na.steps.at(-1).data.applicable, false)
+  const err = await go({ ran: false, error: 'took longer than 5s' })
+  assert.equal(err.verdict, 'not_verified')
+  assert.equal(err.steps.at(-1).summary, 'could not run: took longer than 5s')
+  const none = await go({ ran: true, score: null, killed: 0, survived: 0, timeout: 0, noCoverage: 0 })
+  assert.equal(none.steps.at(-1).status, 'not_run')
+  const calls = []
+  const red = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { red: true }), runStryker: stryker({ ran: true, score: 100, killed: 1, survived: 0, timeout: 0, noCoverage: 0 }, calls) }))
+  assert.equal(red.verdict, 'tests_red')
+  assert.equal(calls.length, 1)
+  const down = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { ran: false }), runStryker: stryker({ ran: true, score: 100 }) }))
+  assert.equal(down.steps.at(-1).summary, 'skipped: the tests did not run')
 })

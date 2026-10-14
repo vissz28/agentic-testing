@@ -2,13 +2,16 @@
 // verdict. Nothing here grades by opinion: every step is a script's result.
 import * as boundary from '../checks/boundary.mjs'
 import { runActive } from '../checks/boundary.mjs'
+import * as expected from '../checks/expected.mjs'
 import * as flaky from '../checks/flaky.mjs'
 import * as honesty from '../checks/honesty.mjs'
 import * as mutation from '../checks/mutation.mjs'
 import { result } from '../checks/result.mjs'
 import * as suite from '../checks/suite-honesty.mjs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { runStryker as realRunStryker } from '../runners/stryker.mjs'
 import { vitestRunner } from '../runners/vitest.mjs'
+import { strykerThreshold } from '../config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 
 export function decide(steps) {
@@ -74,7 +77,24 @@ async function mutationStep(specs, key, run, ctx, timeoutMs) {
   return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed`, findings, data)
 }
 
-export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null }, ctx) {
+/** Stryker over the target file: a pass that says "not applicable" when it has nothing to run on. */
+export async function strykerStep(target, tests, ctx, timeoutMs) {
+  const na = why => result('stryker', 'pass', `not applicable: ${why}`, [], { applicable: false, target })
+  if (!target) return na('no target file')
+  if (tests.status === 'not_run') return result('stryker', 'not_run', 'skipped: the tests did not run', [], { applicable: true, target })
+  const runStryker = ctx.runStryker ?? realRunStryker
+  const r = await runStryker(ctx.root, { target, timeoutMs })
+  if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
+  if (!r.ran) return result('stryker', 'not_run', `could not run: ${r.error}`, [], { applicable: true, target })
+  const threshold = strykerThreshold(ctx.config)
+  const data = { applicable: true, target, threshold, score: r.score, killed: r.killed, survived: r.survived, timeout: r.timeout, noCoverage: r.noCoverage }
+  if (r.score === null || r.score === undefined) return result('stryker', 'not_run', `Stryker found no code change to try in ${target}`, [], data)
+  if (r.score >= threshold) return result('stryker', 'pass', `${r.score}% of code changes caught (bar ${threshold}%)`, [], data)
+  return result('stryker', 'fail', `${r.score}% of code changes caught, the bar is ${threshold}%`,
+    [{ file: target, kind: 'code changes not caught', detail: `${r.survived ?? 0} survived, ${r.noCoverage ?? 0} not covered` }], data)
+}
+
+export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null, ticket = null, target = null }, ctx) {
   const runTests = ctx.runTests ?? vitestRunner(ctx.root, ctx.config)
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
@@ -99,7 +119,9 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
     run = await step('tests', () => runTests({ files: specs }))
     steps.push(testsStep(run, specs))
   }
-  if (steps.at(-1).status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs)))
+  const tests = steps.at(-1)
+  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket }, c)))
+  if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))
@@ -110,5 +132,6 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
   }
+  steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs)))
   return { ...decide(steps), steps }
 }

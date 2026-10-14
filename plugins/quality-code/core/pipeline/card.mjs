@@ -31,6 +31,11 @@ function whatToDo(outcome) {
     case 'suite-honesty': return `add a real expect(...) to ${quoted(fs)}, or mark it todo if the behaviour isn't known yet.`
     case 'types': return `fix the compile error: ${String(step.summary).split('\n')[0]}`
     case 'mutation': return `an assertion can't fail: bind the real expected value in ${quoted(fs)}.`
+    case 'expected': {
+      const f = fs.find(x => x.token) || {}
+      return `assert the ticket's expected value ${f.token} (from "${f.then}")`
+    }
+    case 'stryker': return `the tests miss changes in ${step.data?.target}: assert the values the code computes`
     case 'flaky': return `fix the non-determinism in ${quoted(fs)}, or skip them with a ticket.`
     case 'tests': {
       const f = fs.find(x => x.test) || fs[0] || {}
@@ -48,7 +53,7 @@ export function formatCard(outcome, { specs = [], key = null } = {}) {
   if (counts) lines.push('', `Tests     ${d.passed} passed · ${d.failed} failed · ${d.skipped || 0} to do`)
   if (outcome.steps.length) {
     if (!counts) lines.push('')
-    lines.push('Checks', ...outcome.steps.filter(x => !(x.check === 'boundary' && x.data?.applicable === false)).map(stepLine))
+    lines.push('Checks', ...outcome.steps.filter(x => x.data?.applicable !== false).map(stepLine))
   }
   const todo = whatToDo(outcome)
   if (todo) lines.push('', `What to do: ${todo}`)

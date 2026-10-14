@@ -121,7 +121,7 @@ test('--flaky runs the flaky step', () => {
   bins(d, [at('adds', 'passed')], { mutantReport: { title: 'adds', status: 'failed' } })
   const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1', '--flaky', '2', '--json'])
   assert.equal(r.status, 0, r.stderr)
-  assert.equal(JSON.parse(r.stdout).steps.at(-1).check, 'flaky')
+  assert.deepEqual(JSON.parse(r.stdout).steps.slice(-2).map(s => s.check), ['flaky', 'stryker'])
 })
 test('a crash: exit 2, "check <step> crashed: <message>"', async () => {
   const d = repo()
@@ -136,4 +136,49 @@ test('a crash: exit 2, "check <step> crashed: <message>"', async () => {
   } finally { process.stderr.write = w }
   assert.equal(code, 2)
   assert.deepEqual(errs, ['check types crashed: kaput\n'])
+})
+
+test('--ticket and --target: checked before anything runs, passed to the pipeline', async () => {
+  const d = repo()
+  put(d, 't.json', JSON.stringify({ key: 'ABC-1', text: { description: 'Then the sum is 2' } }))
+  put(d, 'bad.json', '{')
+  put(d, 'list.json', '[]')
+  put(d, 'src/add.ts', 'export const add = (a: number, b: number) => a + b\n')
+  const errs = []
+  const w = process.stderr.write
+  const seen = []
+  const runPipeline = async input => { seen.push(input); return { verdict: 'green', decidedBy: null, steps: [] } }
+  const out = process.stdout.write
+  process.stderr.write = m => { errs.push(String(m)); return true }
+  process.stdout.write = () => true
+  const go = args => main(['test/a.spec.ts', ...args], { CLAUDE_PROJECT_DIR: d }, d, { runPipeline })
+  try {
+    assert.equal(await go(['--ticket', '@missing.json']), 2)
+    assert.equal(await go(['--ticket', '@bad.json']), 2)
+    assert.equal(await go(['--ticket', '@list.json']), 2)
+    assert.equal(await go(['--ticket', '@']), 2)
+    assert.equal(await go(['--target', 'src/none.ts']), 2)
+    assert.equal(await go(['--target', '../outside.ts']), 2)
+    assert.equal(await go(['--target', 'test/a.spec.ts']), 2)
+    assert.equal(await go(['--target', 'src']), 2)
+    assert.equal(seen.length, 0)
+    assert.equal(await go(['--key', 'ABC-1', '--ticket', '@t.json', '--target', './src/add.ts']), 0)
+    assert.equal(await go(['--target', 'src/add.ts']), 0)
+  } finally {
+    process.stderr.write = w
+    process.stdout.write = out
+  }
+  assert.deepEqual(errs.map(e => e.trim()), [
+    '--ticket missing.json: file not found',
+    `--ticket bad.json: not valid JSON (${(() => { try { JSON.parse('{') } catch (e) { return e.message } })()})`,
+    '--ticket list.json: not a ticket object',
+    '--ticket needs a file, like --ticket @path/ticket.json',
+    '--target not found: src/none.ts',
+    '--target must be inside the project: ../outside.ts',
+    '--target test/a.spec.ts is one of the specs: name the code the tests check',
+    '--target not found: src',
+  ])
+  assert.equal(seen[0].ticket, join(d, 't.json'))
+  assert.equal(seen[0].target, 'src/add.ts')
+  assert.equal(seen[1].ticket, null)
 })

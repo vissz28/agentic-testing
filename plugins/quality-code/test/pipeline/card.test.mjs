@@ -73,3 +73,15 @@ test('not verified uses the step summary generically, including a never-ran file
   assert.ok(out.includes('What to do: tests could not run: 1 file(s) never ran: x.spec.ts: boom'))
   assert.ok(out.includes('  ⚠️ tests          not run: 1 file(s) never ran'))
 })
+
+test('what to do for expected and stryker; a not-applicable stryker line is hidden', () => {
+  const exp = s('expected', 'fail', '1 of 2 expected value(s) from the ticket not asserted', [{ kind: 'expected value not asserted', token: '1.234,50', then: 'the total is 1.234,50', detail: '1.234,50 (from "the total is 1.234,50")' }])
+  const out = formatCard({ verdict: 'checks_failed', decidedBy: 'expected', steps: [exp] })
+  assert.match(out, /What to do: assert the ticket's expected value 1\.234,50 \(from "the total is 1\.234,50"\)/)
+  assert.match(out, /❌ expected {7}1 of 2 expected value\(s\)/)
+  const st = s('stryker', 'fail', '40% of code changes caught, the bar is 60%', [{ file: 'src/price.ts', kind: 'code changes not caught' }], { applicable: true, target: 'src/price.ts' })
+  assert.match(formatCard({ verdict: 'checks_failed', decidedBy: 'stryker', steps: [st] }), /What to do: the tests miss changes in src\/price\.ts: assert the values the code computes/)
+  const na = s('stryker', 'pass', 'not applicable: no target file', [], { applicable: false })
+  assert.doesNotMatch(formatCard({ verdict: 'green', decidedBy: null, steps: [na] }).split('\n').slice(0, -1).join('\n'), /stryker/)
+  assert.match(formatCard({ verdict: 'green', decidedBy: null, steps: [{ ...na, summary: '80% of code changes caught (bar 60%)', data: { applicable: true } }] }), /✅ stryker/)
+})
