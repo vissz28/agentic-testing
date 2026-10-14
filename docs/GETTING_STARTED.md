@@ -54,6 +54,9 @@ repo's `.claude/settings.json`:
 
 ## 3. Set up the project (once per repo, by one person)
 
+Setup first shows a Connectors card: Jira must be connected; GitLab and Figma are optional and never
+stop you. Keys go in the plugin settings, never in the chat.
+
 ```
 /agentic-testing:setup
 ```
@@ -83,7 +86,17 @@ file by hand.
 
 ---
 
-## 4. Check a ticket
+## 4. Every day: start from your branch
+
+Check out your feature branch (named with the ticket key, for example `ABC-123-add-export`), then:
+
+```
+/agentic-testing:start
+```
+
+You confirm the repo card (branch, base, how many files changed), confirm the ticket key, and pick
+`1. Evaluate the ticket`. The rest of this section is what you then see. To check a ticket that has
+no branch yet, use `/agentic-testing:ticket-eval ABC-123`.
 
 ```
 /agentic-testing:ticket-eval ABC-123

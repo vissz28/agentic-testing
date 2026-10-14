@@ -42,11 +42,15 @@ config it writes:
 /agentic-testing:setup
 ```
 
-**3. Check a ticket.**
+**3. Every day, start from your feature branch.**
 
 ```
-/agentic-testing:ticket-eval ABC-123
+/agentic-testing:start
 ```
+
+It checks your connectors, shows the branch and what it changed, takes the ticket key from the
+branch name (`ABC-123-add-export`), and evaluates that ticket. To check any ticket directly:
+`/agentic-testing:ticket-eval ABC-123`.
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
 comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
@@ -73,6 +77,7 @@ other than English and Italian. See [Known limits](#known-limits).
 | Capability | How | Status |
 |---|---|---|
 | Guided setup for your repo and Jira project | `/agentic-testing:setup` | ✅ available |
+| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/agentic-testing:start` | ✅ available |
 | Readiness gate: score a ticket out of 100 | `/agentic-testing:ticket-eval <KEY>` | ✅ available |
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
@@ -157,6 +162,10 @@ commit it:
 ```
 /agentic-testing:setup
 ```
+
+Setup first checks the connectors (Jira required; GitLab and Figma optional) and shows what is
+connected, missing or broken, with the fix for each. Keys are set in the plugin settings, never typed
+in the chat.
 
 Setup detects the stack from `package.json` (Playwright or Vitest; if both, it asks which; if
 neither, it stops: this stack is not supported yet). Then it asks one thing per card, and you answer
@@ -502,9 +511,10 @@ agentic-testing/
 │  ├─ agentic-testing/
 │  │  ├─ .claude-plugin/plugin.json    manifest and personal settings
 │  │  ├─ .mcp.json                     Atlassian, Figma, GitLab connectors
-│  │  ├─ commands/                     setup.md, ticket-eval.md
+│  │  ├─ commands/                     setup.md, start.md, ticket-eval.md
 │  │  ├─ core/                         the scripts (no dependencies): config, languages, criteria,
-│  │  │                                rubrics, score, sanitize, fill, jira, cli, setup
+│  │  │                                rubrics, score, sanitize, fill, jira, cli, setup,
+│  │  │                                branch, connectors.md
 │  │  ├─ schema/                       agentic-testing.schema.json
 │  │  ├─ templates/                    standard Story and Bug templates
 │  │  └─ test/                         unit tests and the parity suite
