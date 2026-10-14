@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { EXIT, result } from '../../core/checks/result.mjs'
@@ -52,4 +52,12 @@ test('dialects', () => {
   assert.equal(p.suite.isCapture('ABC-1 — design-conformance capture'), true)
   assert.equal(v.suite.isCapture('ABC-1 — design-conformance capture'), false)
   assert.throws(() => dialectFor('jest'), /no dialect/)
+})
+test('git: a range starting with "-" is refused inside the helpers (§9 #21)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-rng-'))
+  g(d, 'init', '-q', '-b', 'main')
+  put(d, 'a.txt', 'a\n'); g(d, 'add', '-A'); g(d, 'commit', '-qm', 'init')
+  assert.deepEqual(specDiff(d, ['a.txt'], '--output=x'), { ok: false, error: 'range must not start with "-"' })
+  assert.deepEqual(changedPaths(d, '--output=x'), { ok: false, error: 'range must not start with "-"' })
+  assert.equal(existsSync(join(d, 'x')), false)
 })

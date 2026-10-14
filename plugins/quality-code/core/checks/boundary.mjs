@@ -28,8 +28,11 @@ export function defaultForbidden(root) {
   return [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }, ...CI_FILES.filter(p => existsSync(join(root, p))).map(path => ({ path }))]
 }
 
+const norm = p => String(p).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
+
 export function rulesFor(config, root) {
-  return { forbidden: config.boundaries?.forbidden ?? defaultForbidden(root), allow: config.boundaries?.allow ?? [] }
+  const forbidden = config.boundaries?.forbidden ?? defaultForbidden(root)
+  return { forbidden: forbidden.map(r => ({ ...r, path: norm(r.path) })), allow: (config.boundaries?.allow ?? []).map(norm) }
 }
 
 export function violation(relPath, rules) {

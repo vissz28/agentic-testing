@@ -10,15 +10,21 @@ function git(root, args) {
   }
 }
 
+const badRange = range => (range && String(range).startsWith('-') ? { ok: false, error: 'range must not start with "-"' } : null)
+
 /** Unified diff of the given paths, against HEAD or over a range like A...B. */
 export function specDiff(root, paths, range = null) {
+  const bad = badRange(range)
+  if (bad) return bad
   const r = git(root, ['diff', ...(range ? [range] : ['HEAD']), '--', ...paths])
   return r.ok ? { ok: true, diff: r.out } : r
 }
 
 /** Every path changed against HEAD (or over a range), plus untracked files; relative to root. */
 export function changedPaths(root, range = null) {
-  const d = git(root, ['diff', '--name-only', '--relative', '-z', ...(range ? [range] : ['HEAD'])])
+  const bad = badRange(range)
+  if (bad) return bad
+  const d = git(root, ['diff', '--name-only', '--no-renames', '--relative', '-z', ...(range ? [range] : ['HEAD'])])
   if (!d.ok) return d
   const u = git(root, ['ls-files', '--others', '--exclude-standard', '-z'])
   if (!u.ok) return u
