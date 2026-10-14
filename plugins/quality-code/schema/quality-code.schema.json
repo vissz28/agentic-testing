@@ -4,13 +4,13 @@
   "description": "Documentation of the rules enforced by core/config.mjs.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "adapter", "jira", "languages", "features"],
+  "required": ["version", "adapter", "jira"],
   "properties": {
     "version": { "const": 1 },
     "adapter": { "enum": ["playwright", "vitest"] },
     "jira": {
       "type": "object",
-      "required": ["site", "projects", "acceptanceCriteriaField"],
+      "required": ["site", "projects"],
       "properties": {
         "site": { "type": "string", "pattern": "^https://" },
         "projects": {

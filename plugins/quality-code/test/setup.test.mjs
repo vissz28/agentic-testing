@@ -65,16 +65,16 @@ test('config is written as given, 2-space with trailing newline', () => {
 test('gitignore: newline added before the line, content kept; custom ticketsDir used', () => {
   const d = repo({}); writeFileSync(join(d, '.gitignore'), 'node_modules')
   write(d, { ...cfg, ticketsDir: 'tix' }, {})
-  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n')
+  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n')
   const e = repo({}); writeFileSync(join(e, '.gitignore'), 'a\n')
   write(e, cfg, {})
-  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n`)
+  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n`)
 })
 test('gitignore: a trailing slash or backslashes in ticketsDir still give <dir>/*/raw.json', () => {
   for (const ticketsDir of ['tix/', 'tix\\']) {
     const d = repo({})
     assert.equal(write(d, { ...cfg, ticketsDir }, {}).ok, true)
-    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n', ticketsDir)
+    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n', ticketsDir)
     assert.equal(detect(d).gitignore, true, ticketsDir)
   }
 })
@@ -159,4 +159,25 @@ test('write never throws: a dangling symlink at a template path is an error, not
   assert.equal(c.status, 2)
   assert.match(c.stdout, /Bug\.md/)
   assert.equal(c.stderr, '')
+})
+
+test('detect: where the project lives, and its GitLab project from the origin remote', () => {
+  const d = repo({ devDependencies: { vitest: '1' } })
+  const g = (...a) => spawnSync('git', a, { cwd: d, encoding: 'utf8' })
+  assert.deepEqual(detect(d).here, { folder: d.split('/').pop(), repoTop: null, subfolder: null, gitlab: null })
+  g('init', '-q')
+  g('remote', 'add', 'origin', 'https://user:secret@gitlab.example.com/team/sub/app.git')
+  const h = detect(d).here
+  assert.equal(h.subfolder, null)
+  assert.deepEqual(h.gitlab, { host: 'gitlab.example.com', path: 'team/sub/app' })
+  g('remote', 'set-url', 'origin', 'git@gitlab.example.com:team/app.git')
+  assert.deepEqual(detect(d).here.gitlab, { host: 'gitlab.example.com', path: 'team/app' })
+  mkdirSync(join(d, 'web'))
+  writeFileSync(join(d, 'web/package.json'), '{}')
+  assert.equal(detect(join(d, 'web')).here.subfolder, 'web')
+})
+test('write git-ignores the local Jira field memory', () => {
+  const d = repo({})
+  write(d, cfg, {})
+  assert.ok(readFileSync(join(d, '.gitignore'), 'utf8').split('\n').includes('.claude/quality-code/jira-fields.json'))
 })

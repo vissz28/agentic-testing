@@ -149,3 +149,22 @@ test('the schema documents confluenceSpaces with the validator\'s pattern', () =
 })
 // An empty list would build "space in ()", which Confluence rejects; leave the field out for all spaces.
 bad({ confluenceSpaces: [] }, 'confluenceSpaces')
+
+test('the short setup config: only version, adapter and Jira site and projects', () => {
+  const r = validateConfig({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.deepEqual(r.config.languages, ['en', 'it'])
+  assert.deepEqual(r.config.features, [])
+  assert.equal('acceptanceCriteriaField' in r.config.jira, false)
+})
+test('given languages and features still win over the defaults', () => {
+  const r = validateConfig(good)
+  assert.deepEqual(r.config.languages, ['en'])
+  assert.deepEqual(r.config.features, [{ label: 'Orders', route: '/orders' }])
+  assert.equal(r.config.jira.acceptanceCriteriaField, null)
+})
+test('the schema requires only version, adapter and jira site and projects', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  assert.deepEqual(schema.required, ['version', 'adapter', 'jira'])
+  assert.deepEqual(schema.properties.jira.required, ['site', 'projects'])
+})

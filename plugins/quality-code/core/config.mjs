@@ -10,6 +10,8 @@ const LANGS = new Set(['en', 'it'])
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 
 export const DEFAULTS = Object.freeze({
+  languages: ['en', 'it'],
+  features: [],
   titlePrefixes: [],
   ticketsDir: '.claude/quality-code/tickets',
   redact: { customerId: '\\bU\\d{5,}\\b' },
@@ -31,22 +33,22 @@ export function validateConfig(input) {
   if (!['playwright', 'vitest'].includes(c.adapter)) e.push(`adapter: must be "playwright" or "vitest" (found ${JSON.stringify(c.adapter)})`)
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
   const j = isObj(c.jira) ? c.jira : {}
-  if (!isObj(c.jira)) e.push('jira: must be an object with site, projects and acceptanceCriteriaField')
+  if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
   else {
     if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
     if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
     else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits, like "ABC"`) })
-    if (!('acceptanceCriteriaField' in j) || !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
+    if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
       e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
     if (j.trackingProjects !== undefined) {
       if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
       else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits`) })
     }
   }
-  if (!Array.isArray(c.languages) || c.languages.length === 0) e.push('languages: must list at least one of "en", "it"')
-  else c.languages.forEach((l, i) => { if (!LANGS.has(l)) e.push(`languages[${i}] "${l}" is not supported (supported: en, it)`) })
-  if (!Array.isArray(c.features)) e.push('features: must be a list (it may be empty)')
-  else {
+  if (c.languages !== undefined && (!Array.isArray(c.languages) || c.languages.length === 0)) e.push('languages: must list at least one of "en", "it"')
+  else if (c.languages !== undefined) c.languages.forEach((l, i) => { if (!LANGS.has(l)) e.push(`languages[${i}] "${l}" is not supported (supported: en, it)`) })
+  if (c.features !== undefined && !Array.isArray(c.features)) e.push('features: must be a list (it may be empty)')
+  else if (c.features !== undefined) {
     const seen = new Set()
     c.features.forEach((f, i) => {
       if (!f || typeof f.label !== 'string' || !f.label.trim()) e.push(`features[${i}].label: must be a non-empty text`)
@@ -100,6 +102,8 @@ export function validateConfig(input) {
     config: {
       ...c,
       jira: { trackingProjects: [], ...j },
+      languages: c.languages ?? DEFAULTS.languages,
+      features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
       ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
       redact: c.redact ?? DEFAULTS.redact,

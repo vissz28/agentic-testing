@@ -1,8 +1,11 @@
 // Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and writes.
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from './config.mjs'
+import { FIELDS_REL } from './fields.mjs'
 
 const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
@@ -14,6 +17,30 @@ const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 
 function hasLine(path, line) {
   return existsSync(path) && readFileSync(path, 'utf8').split(/\r?\n/).some(l => l.trim() === line)
+}
+
+function gitOut(root, args) {
+  try {
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
+  } catch {
+    return null
+  }
+}
+
+/** { host, path } of a GitLab-style remote (https or scp form), credentials dropped; else null. */
+export function remoteProject(url) {
+  const u = stripCredentials(url)
+  if (!u) return null
+  const m = /^[a-z][a-z0-9+.-]*:\/\/([^/:]+)(?::\d+)?\/(.+?)(?:\.git)?\/?$/i.exec(u) || /^[^@\s/]+@([^:\s]+):(.+?)(?:\.git)?\/?$/.exec(u)
+  return m ? { host: m[1], path: m[2] } : null
+}
+
+/** Where the project lives: its folder, the git repo around it, and the origin's GitLab project. */
+function here(root) {
+  const top = gitOut(root, ['rev-parse', '--show-toplevel'])
+  if (!top) return { folder: basename(root), repoTop: null, subfolder: null, gitlab: null }
+  const prefix = gitOut(root, ['rev-parse', '--show-prefix'])
+  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, gitlab: remoteProject(gitOut(root, ['remote', 'get-url', 'origin'])) }
 }
 
 export function detect(root) {
@@ -38,7 +65,7 @@ export function detect(root) {
   if (existsSync(cp)) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
-  const result = { adapter, templates, existing, gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)) }
+  const result = { adapter, templates, existing, gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)), here: here(root) }
   if (existingError) result.existingError = existingError
   return result
 }
@@ -85,10 +112,10 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
     mkdirSync(join(root, dirname(CONFIG_REL)), { recursive: true })
     writeFileSync(configPath(root), `${JSON.stringify(out, null, 2)}\n`)
 
-    const line = gitignoreLine ?? rawLine(config.ticketsDir)
     const gi = join(root, '.gitignore')
     step = '.gitignore'
-    if (!hasLine(gi, line)) {
+    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL]) {
+      if (hasLine(gi, line)) continue
       const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
       writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
     }

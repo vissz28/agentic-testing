@@ -6,6 +6,7 @@ import { loadConfig, projectRoot } from './config.mjs'
 import { buildBrief, formatReport } from './score.mjs'
 import { formatRefuseComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
 import { sanitizeTicket } from './sanitize.mjs'
+import { resolveField, storeField } from './fields.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from './fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
@@ -42,6 +43,22 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   }
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
+  if (cmd === 'field') {
+    const [sub, project, value] = a._
+    if (sub === 'get' && project) {
+      const r = resolveField(root, config, project)
+      out(`FIELD_JSON:${JSON.stringify({ project, field: r.field ?? null, source: r.source })}`)
+      return 0
+    }
+    if (sub === 'set' && project && value) {
+      const r = storeField(root, project, value)
+      if (!r.ok) { err(r.error); return 2 }
+      out('ok')
+      return 0
+    }
+    err('usage: cli.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none>')
+    return 2
+  }
   if (!a.in) {
     err("usage: cli.mjs <score|refuse-comment|fill-menu|pick|add|jira-update|sanitize> --in '<json>'|@file [--ci] [--json]")
     return 2
