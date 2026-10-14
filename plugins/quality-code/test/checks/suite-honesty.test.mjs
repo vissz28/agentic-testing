@@ -71,3 +71,28 @@ test('grade --key works for playwright groups too', () => {
   assert.equal(grade([{ path: 'a', src }], { key: 'ABC-9' }, P).status, 'pass')
   assert.equal(grade([{ path: 'a', src }], {}, P).status, 'fail')
 })
+
+test('anchorRange: --key does not substring-match; ABC-1 does not match ABC-10', () => {
+  assert.equal(anchorRange("describe('ABC-10 — x', () => {})\n", 'ABC-1', V), null)
+  assert.notEqual(anchorRange("describe('ABC-10 — x', () => {})\ndescribe('ABC-1 — y', () => {})", 'ABC-1', V), null)
+  assert.notEqual(anchorRange("describe('Fix ABC-1: thing', () => {})", 'ABC-1', V), null)
+})
+
+test('grade --key: skips files without the block, not_run only when no file has it', () => {
+  const noBlock = "it('x', () => { expect(1).toBe(1) })"
+  const withBlock = "describe('ABC-9 — anchor', () => { it('y', () => { expect(2).toBe(2) }) })"
+  const twoFiles = [
+    { path: 'first.spec.ts', src: noBlock },
+    { path: 'second.spec.ts', src: withBlock }
+  ]
+  const r = grade(twoFiles, { key: 'ABC-9' }, V)
+  assert.equal(r.status, 'pass')
+  assert.equal(r.data.tests, 1)
+  const neither = [
+    { path: 'a.spec.ts', src: noBlock },
+    { path: 'b.spec.ts', src: noBlock }
+  ]
+  const miss = grade(neither, { key: 'ABC-9' }, V)
+  assert.equal(miss.status, 'not_run')
+  assert.match(miss.summary, /a\.spec\.ts.*b\.spec\.ts/)
+})

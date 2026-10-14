@@ -22,7 +22,8 @@ export function skippedGroupRanges(src, dialect) {
 /** [start, end) of the top-level group whose title holds the key, up to the next top-level group. */
 export function anchorRange(src, key, dialect) {
   const tops = groups(src, dialect)
-  const start = tops.find(t => t.title.includes(key))
+  const keyRe = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`)
+  const start = tops.find(t => keyRe.test(t.title))
   if (!start) return null
   const next = tops.find(t => t.idx > start.idx)
   return [start.idx, next ? next.idx : src.length]
@@ -54,11 +55,12 @@ export function grade(files, { key = null } = {}, dialect) {
   let notYet = 0
   let capture = 0
   const hollow = []
+  const missingFiles = []
   for (const { path, src } of files) {
     let tests = scoreSpec(src, dialect)
     if (key) {
       const r = anchorRange(src, key, dialect)
-      if (!r) return result('suite-honesty', 'not_run', `no ${key} block in ${path}`, [{ file: path, kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
+      if (!r) { missingFiles.push(path); continue }
       tests = tests.filter(t => t.idx >= r[0] && t.idx < r[1])
     }
     for (const t of tests) {
@@ -69,6 +71,9 @@ export function grade(files, { key = null } = {}, dialect) {
       if (!t.mod && t.expects >= 1) honest++
       if (!t.mod && t.expects === 0) hollow.push({ file: path, test: t.title })
     }
+  }
+  if (key && missingFiles.length === files.length) {
+    return result('suite-honesty', 'not_run', `no ${key} block in ${missingFiles.join(', ')}`, [{ file: missingFiles.join(', '), kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   }
   const percent = behavioral ? Math.round((honest / behavioral) * 100) : 100
   const data = { tests: behavioral, withAssertion: honest, hollow: hollow.length, todo: notYet, skipped, capture, percent }
