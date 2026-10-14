@@ -3,7 +3,10 @@
 // stdout?, sleepMs?, grandchild?, mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
-// and the report is written to the --outputFile path (or, for Stryker, the fileName its temp config file names).
+// and the report is written to the --outputFile path (or, for Stryker, the fileName its temp config file names,
+// or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright). With -g (a Playwright mutant run) and mutantReport,
+// the report is Playwright-shaped, for the file whose pattern is argv[1]. With recordEnv, each call's CI,
+// FORCE_COLOR, NO_COLOR and report path are appended as one JSON line to <dir>/.fake-<name>.env.
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -19,11 +22,21 @@ if (spec.grandchild) {
 }
 const cfg = args[0] === 'run' && /\\.mjs$/.test(args[1] || '') ? args[1] : ''
 const fromCfg = cfg ? JSON.parse((/^const fileName = (".*")$/m.exec(fs.readFileSync(cfg, 'utf8')) || [0, '""'])[1]) : ''
-const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || fromCfg
+const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || fromCfg || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME || ''
+if (spec.recordEnv) {
+  const e = process.env
+  fs.appendFileSync(path.join(dir, '.fake-${name}.env'), JSON.stringify({ CI: e.CI ?? null, FORCE_COLOR: e.FORCE_COLOR ?? null, NO_COLOR: e.NO_COLOR ?? null, report: out }) + '\\n')
+}
 const ci = args.indexOf('--config')
 let report = (spec.reportFor && spec.reportFor[ci >= 0 ? args[ci + 1] : 'default']) || spec.report
 if (args.includes('-t') && spec.mutantReport) {
   report = { testResults: [{ name: path.resolve(dir, args[1]), status: 'failed', message: '', assertionResults: [{ title: spec.mutantReport.title, status: spec.mutantReport.status, failureMessages: ['mutant'] }] }] }
+}
+if (args.includes('-g') && spec.mutantReport) {
+  const file = args[1].replace(/^\\(\\?:\\^\\|\\/\\)/, '').replace(/\\$$/, '').replace(/\\\\(.)/g, '$1')
+  const st = spec.mutantReport.status
+  const t = { projectName: '', expectedStatus: 'passed', status: st === 'passed' ? 'expected' : 'unexpected', results: [{ status: st, error: st === 'failed' ? { message: 'mutant' } : undefined }] }
+  report = { config: { rootDir: dir }, errors: [], suites: [{ title: file, file, specs: [{ title: spec.mutantReport.title, file, tags: [], tests: [t] }], suites: [] }] }
 }
 setTimeout(() => {
   if (out && report) fs.writeFileSync(out, JSON.stringify(report))
