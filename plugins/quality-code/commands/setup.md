@@ -1,29 +1,60 @@
 ---
-description: Set this repo up for quality code. Detects the test stack, asks about Jira, writes .claude/quality-code.json after you confirm, and proves it on one recent ticket.
+description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, writes .claude/quality-code.json after you confirm, and proves it on one recent ticket. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
+argument-hint: [advanced]
 ---
 
-Set up this repo for the quality-code plugin. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
+Set up this repo for the quality-code plugin. Setup asks only for the connections and where the project lives; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
 
 **Rules**
 
-- Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` line.
+- Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
 - Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). If none is connected, stop with one message: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.`
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.
 
 **Steps**
 
+If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
+
 0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. Go on to step 1 only when its card lets you continue.
-1. **Detect.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `templates`, `existing`, `gitignore`, and `existingError` when the old file is broken).
+1. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest).`
    - `adapter` is `both`: ask which one to use, as a numbered card (`1. playwright`, `2. vitest`), and wait.
+   - If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks.
+   - Show this card and end the turn (leave out `(subfolder …)` when `here.subfolder` is null; write `no GitLab remote` when `here.gitlab` is null):
+
+     ```
+     This project
+       Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
+       Stack    <adapter>
+       GitLab   <here.gitlab.path> on <here.gitlab.host>
+     1. Yes, this is it
+     2. Stop
+     ```
+
+     The GitLab project is read from the remote every time; it is not written to the config.
 2. **Jira.** Using the Atlassian connector:
-   - Call `getAccessibleAtlassianResources`, then confirm the site URL with the user (`1. Use <site>` / `2. A different site`). The site is an `https://` URL with no path.
+   - Call `getAccessibleAtlassianResources`, then confirm the site URL with the user (`1. Use <site>` / `2. A different site`). The site is an `https://` URL with no path. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
    - Call `getVisibleJiraProjects`. Show the projects as a numbered list; the user picks by number. Their keys become `jira.projects`.
-   - Call `getJiraProjectIssueTypesMetadata` for the first picked project to list its issue types, then `getJiraIssueTypeMetaWithFields` for the Story type (else the first type) with `requiredFieldsOnly` `false`, to read all its fields. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
-   - On a large project this result is very long (hundreds of thousands of characters) and is saved to a file. Never read that file whole. Search it for the field whose name matches `/acceptance criteria|criteri di accettazione/i` and take its key (it looks like `customfield_12345`), with `grep -n -i -E 'acceptance criteria|criteri di accettazione' <file>` or a one-line `node -e` that parses the file and prints the `key` and `name` of each matching field. Read only the matching lines.
-   - Exactly one match: propose it (`1. Use <name> (<key>)` / `2. None`). No match, or more than one: ask with a numbered card of the matches (if any), plus a last line `<n>. None`. `None` writes `null`.
-   - Ask once whether any other projects should be tracked (`jira.trackingProjects`, optional; skip on no).
-3. **Features.** In a Jira project shared by many teams, most recent tickets carry other teams' labels. Before counting, ask how to narrow the search, as a numbered card, and end the turn:
+   - Ask nothing else: no criteria field, labels, prefixes, languages or templates.
+3. **Preview.** Show the config as it will be written, then this card and end the turn:
+
+   ```
+   1. Write it
+   2. Change something
+   3. Cancel
+   ```
+
+   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
+   - **2:** ask which part to change, redo that step, show the preview again.
+   - **3:** stop. Nothing is written.
+4. **Prove it.** Find the newest ticket of the first project: `searchJiraIssuesUsingJql` with `project = <KEY> ORDER BY created DESC`, `maxResults` 1, fields `summary`. Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1 to 5 for that key; stop after the report (do not offer the refuse options; exit 1, refused, is a normal result here). This also finds and remembers the project's acceptance-criteria field. Then say: `Setup is done. Every day: /quality-code:start. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+
+## Advanced
+
+`/quality-code:setup advanced` adds the questions the short setup leaves to defaults. It needs a config: without one, run steps 0 to 3 first. Run `setup.mjs --detect` and start every step from the current config.
+
+A1. **Other projects to track.** Ask once whether any other projects should be tracked (`jira.trackingProjects`, optional; skip on no).
+A2. **Features.** In a Jira project shared by many teams, most recent tickets carry other teams' labels. Before counting, ask how to narrow the search, as a numbered card, and end the turn:
 
    ```
    1. All recent tickets of the project
@@ -45,9 +76,9 @@ Set up this repo for the quality-code plugin. You propose and ask; the scripts d
    - **Confluence spaces** (only for `playwright`). On a Confluence site shared by many teams, other teams' pages can rank first. Run ONE `searchConfluenceUsingCql` with `text ~ "<first proposed qaPlanSearch>" AND type = page` (escape `\` and `"` in the text first). List the distinct spaces of the hits (key and name) as a numbered card, plus a last line `<n>. All spaces`, and end the turn. The user may pick several numbers. The picked keys become `confluenceSpaces` (for example `["ABC"]`). `All spaces`, or no hits, leaves `confluenceSpaces` out: the QA-plan search then looks in all spaces.
    - **QA-plan check** (only for `playwright`). Run ONE `searchConfluenceUsingCql` per feature with its `qaPlanSearch`, scoped to the picked spaces: the CQL `/quality-code:ticket-eval` uses (`text ~ "<qaPlanSearch>" AND type = page`, plus `AND space in ("<K1>","<K2>")` when spaces were picked; escaped the same way). For the first feature with all spaces, reuse the hits of the spaces search. If a hit's title contains all the words of `qaPlanSearch` (ignoring case, matched the same way as in ticket-eval: a title word starts with each search word), keep the search text. If no hit's title contains all the words (for example the label is in one language and the page titles in another), show up to 5 hit titles as a numbered card, plus `<n>. Type other search words` and `<n>. No QA plan for this feature`, and end the turn. Picking a title proposes search words taken from that title (its feature words, for example `order history` from "QA plan - Order history"); the user confirms or edits them. Typed words replace the search text as they are. `No QA plan for this feature` removes its `qaPlanSearch`. Do not search again for that feature.
    - **Title prefixes** (only for `vitest`). In the summaries of the same narrowed search (after option 4, of one `project = <KEY> AND labels in ("<label>", …) ORDER BY created DESC` search with the kept labels, `maxResults` 100, fields `labels,summary`), count each bracket prefix matched by `^\[([^\]]+)\]` (for example `[API] …` counts `API`). Show them with their counts as a numbered list, plus a last line `<n>. None`; the user picks by number. The picks become `titlePrefixes`, in the order picked. `None` writes `"titlePrefixes": []`: no title prefix is asked for and it never scores. Left out, it defaults to `[]` (none). For `playwright`, leave it out.
-4. **Language and redaction.** Propose `["en"]`, adding `"it"` if the summaries from step 3 are in Italian or the user says the tickets are written in Italian (for example with "Criteri di accettazione" sections); when the summaries do not tell, ask once. Customer-id redaction stays on by default; ask once for optional extra patterns (name to regular expression). Whenever the proposal contains `redact`, it must always include `"customerId": "\\bU\\d{5,}\\b"` (written exactly so in JSON), because a `redact` in the config replaces the default. Leave it out only if the user explicitly turns customer-id redaction off; with no extra patterns and redaction left on, omit `redact` entirely.
-5. **Templates.** If `templates.bug` and `templates.story` are both found, say so and move on. If one is missing, offer the plugin's standard template for it (generic English: Story has a user story, context, Acceptance criteria with a Gherkin example and a plain-language example, and an environment section; Bug has steps to reproduce, expected, actual and environment). Ask `1. Add it / 2. Skip`. On a yes, read the file from `${CLAUDE_PLUGIN_ROOT}/templates/story.md` or `${CLAUDE_PLUGIN_ROOT}/templates/bug.md` and pass its exact text in the proposal as `templates.story` / `templates.bug`. Never draft or edit template text yourself. `setup.mjs --write` writes the file; you never do.
-6. **Preview.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out), then this card and end the turn:
+A3. **Language and redaction.** Start from the current languages (English and Italian unless the config says otherwise). Propose `["en"]`, adding `"it"`, if the summaries from A2 are in Italian or the user says the tickets are written in Italian (for example with "Criteri di accettazione" sections); when the summaries do not tell, ask once. Customer-id redaction stays on by default; ask once for optional extra patterns (name to regular expression). Whenever the proposal contains `redact`, it must always include `"customerId": "\\bU\\d{5,}\\b"` (written exactly so in JSON), because a `redact` in the config replaces the default. Leave it out only if the user explicitly turns customer-id redaction off; with no extra patterns and redaction left on, omit `redact` entirely.
+A4. **Templates.** If `templates.bug` and `templates.story` are both found, say so and move on. If one is missing, offer the plugin's standard template for it (generic English: Story has a user story, context, Acceptance criteria with a Gherkin example and a plain-language example, and an environment section; Bug has steps to reproduce, expected, actual and environment). Ask `1. Add it / 2. Skip`. On a yes, read the file from `${CLAUDE_PLUGIN_ROOT}/templates/story.md` or `${CLAUDE_PLUGIN_ROOT}/templates/bug.md` and pass its exact text in the proposal as `templates.story` / `templates.bug`. Never draft or edit template text yourself. `setup.mjs --write` writes the file; you never do.
+A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out), then this card and end the turn:
 
    ```
    1. Write it
@@ -55,7 +86,6 @@ Set up this repo for the quality-code plugin. You propose and ask; the scripts d
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config has `version: 1`, `adapter`, `jira { site, projects, acceptanceCriteriaField, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, and for `playwright` `confluenceSpaces` when spaces were picked). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 6 with a fix. On `ok`, go on.
+   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, and for `playwright` `confluenceSpaces` when spaces were picked). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
-7. **Prove it.** Take one recent ticket from step 3's search (the narrowed one, or after option 4 the search by the kept labels). Read it (`getJiraIssue`; fields `summary,issuetype,status,labels,description,<jira.acceptanceCriteriaField>,issuelinks`, using the field id you just wrote, left out when it is `null`; `responseContentFormat` `markdown`). Build the raw ticket JSON as in `/quality-code:ticket-eval` step 3, save it as `<ticketsDir>/<KEY>/raw.json`, run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" sanitize --in @<ticketsDir>/<KEY>/raw.json --out <ticketsDir>/<KEY>/ticket.json`, then `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" score --in @<ticketsDir>/<KEY>/ticket.json`. Show the report. Exit 1 (refused) is a normal result here: the gate is working. Say that setup is done.

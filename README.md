@@ -163,38 +163,35 @@ step an update needs, is in the [CHANGELOG](CHANGELOG.md).
 /quality-code:setup
 ```
 
-Setup first checks the connectors (Jira required; GitLab and Figma optional) and shows what is
-connected, missing or broken, with the fix for each. Keys are set in the plugin settings, never typed
-in the chat.
+Setup asks only for the connections and where the project lives, one card at a time; you answer by
+typing a number:
 
-Setup detects the stack from `package.json` (Playwright or Vitest; if both, it asks which; if
-neither, it stops: this stack is not supported yet). Then it asks one thing per card, and you answer
-by typing a number:
+1. **Connectors**: Jira (required), GitLab and Figma (optional), each by browser sign-in or token,
+   with the fix for anything missing. Keys go in the plugin settings, never in the chat.
+2. **This project**: the folder (and subfolder, in a larger repo), the stack found in
+   `package.json` (Playwright or Vitest; if both, you pick one) and the GitLab project of the
+   `origin` remote.
+3. **Jira**: the site and the project key(s) (`ABC`), picked from the projects you can see.
 
-1. **Jira**: the site (for example `https://example.atlassian.net`) and the project keys (`ABC`),
-   picked from the projects you can see.
-2. **Acceptance-criteria field**: the Jira field that holds the criteria, if your project has one
-   (found by its name, "Acceptance Criteria" or "Criteri di accettazione"); if there is no single
-   match, you pick it from a numbered list or choose none.
-3. **Other projects to track** (optional).
-4. **Feature labels**: picked from the labels on up to 100 recent tickets, with counts. In a project
-   shared by many teams, first narrow the search to a word in the title or one component, or type
-   your labels (each is checked to exist). For Playwright also the screen route of each one
-   (`/orders`), the text used to find its Confluence QA plan (the label with `_` and `-` as spaces),
-   and the Confluence space(s) to search, picked from the spaces that search finds, or all spaces.
-   Each feature's search is tried once; if no page title matches its words, you pick one of the
-   titles found, type other words, or choose no QA plan for it.
-5. **Title prefixes** (Vitest only): counted from the same tickets' titles (`[API] …`), or none.
-6. **Languages**: English, plus Italian if your tickets use Italian section names.
-7. **Redaction**: customer-id redaction is on by default; add extra patterns if you need them.
-8. **Templates**: if the repo has no Bug/Story issue templates, it offers the plugin's standard ones.
+It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
+written before you type `1`. Setup writes only `.claude/quality-code.json` and its `.gitignore`
+lines, then checks the newest ticket to prove it works.
 
-It then shows the whole config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
-written before you type `1`. Setup writes only `.claude/quality-code.json`, the templates you
-accepted, and one `.gitignore` line for the raw ticket copies. Finally it scores one recent ticket
-to prove the setup works.
+Everything else has a default:
 
-Run `/quality-code:setup` again any time to change a value; it starts from the current config.
+| Not asked | Default | How it is set |
+|---|---|---|
+| Acceptance-criteria field | found by its name ("Acceptance Criteria" / "Criteri di accettazione") the first time a ticket of the project is checked | remembered on your machine; asked only if the project has several such fields |
+| Languages | English and Italian | `/quality-code:setup advanced` |
+| Feature labels, routes, QA plans, Confluence spaces, title prefixes | none: those signals are not asked for, so the bar stays reachable | `/quality-code:setup advanced` |
+| Templates, extra redaction, projects to track | built-in templates offered, customer ids always hidden, none | `/quality-code:setup advanced` |
+
+**`/quality-code:setup advanced`** asks those questions too: labels picked from recent tickets (in a
+project shared by many teams, narrowed to a word in the title or a component first), routes and QA
+plans for Playwright, title prefixes for Vitest, languages, redaction and templates.
+
+Run `/quality-code:setup` again any time to change a value; it starts from the current config and
+keeps what it does not ask.
 
 ---
 
@@ -372,16 +369,21 @@ If the ticket has nothing to check at all, it asks you to add what should happen
 `/quality-code:setup` again rather than by hand. Every `ticket-eval` run checks it first and names
 any field that is wrong. A JSON schema ships with the plugin (`schema/quality-code.schema.json`).
 
+What `/quality-code:setup` writes:
+
 ```json
 {
   "version": 1,
   "adapter": "vitest",
-  "jira": {
-    "site": "https://example.atlassian.net",
-    "projects": ["ABC"],
-    "acceptanceCriteriaField": "customfield_10001",
-    "trackingProjects": []
-  },
+  "jira": { "site": "https://example.atlassian.net", "projects": ["ABC"] }
+}
+```
+
+After `/quality-code:setup advanced` it can also hold, for example:
+
+```json
+{
+  "jira": { "site": "https://example.atlassian.net", "projects": ["ABC"], "trackingProjects": ["OPS"] },
   "languages": ["en"],
   "features": [{ "label": "Orders" }, { "label": "Invoices" }],
   "titlePrefixes": ["API"]
@@ -394,10 +396,10 @@ any field that is wrong. A JSON schema ships with the plugin (`schema/quality-co
 | `adapter` | `playwright` or `vitest` | required |
 | `jira.site` | your Jira site, `https://…`, no path | required |
 | `jira.projects` | project keys whose tickets you check (`ABC`) | required |
-| `jira.acceptanceCriteriaField` | id of the criteria field, or `null` | required |
+| `jira.acceptanceCriteriaField` | id of the criteria field, or `null` for none. Leave it out to find it by name per project | found at ticket time |
 | `jira.trackingProjects` | other projects whose tickets may be linked | `[]` |
-| `languages` | `en`, `it`, or both | required |
-| `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | required |
+| `languages` | `en`, `it`, or both | both |
+| `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | `[]` |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |

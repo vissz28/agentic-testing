@@ -7,6 +7,29 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.3.2] - 2026-10-14
+
+### Changed
+
+- **Setup is short.** It asks only for the connectors, where the project lives (folder, stack, GitLab
+  project from the `origin` remote) and the Jira project. Everything else has a default.
+- **The acceptance-criteria field is found when a ticket is checked**, by its name, the first time a
+  ticket of that project is checked by `/quality-code:start` or `/quality-code:ticket-eval`. It is
+  remembered on your machine in `.claude/quality-code/jira-fields.json` (git-ignored). A field named
+  in the config still wins.
+- In the config, `languages` (default English and Italian), `features` (default none) and
+  `jira.acceptanceCriteriaField` are now optional.
+
+### Added
+
+- `/quality-code:setup advanced`: the questions the short setup leaves out (projects to track,
+  feature labels, routes, QA plans, Confluence spaces, title prefixes, languages, redaction,
+  templates).
+
+### Upgrade
+
+Nothing to do: existing configs keep working as they are.
+
 ## [0.3.1] - 2026-10-14
 
 ### Added

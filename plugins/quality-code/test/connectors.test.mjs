@@ -46,8 +46,8 @@ test('connector status is not written to the config', () => {
 test('tools are named by operation, never by an mcp__ name', () => {
   assert.doesNotMatch(doc, /mcp__/)
 })
-test('setup step 0 reads the connectors check before detecting', () => {
+test('setup step 0 reads the connectors check before the project card', () => {
   const s = step(setup, 0)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/connectors.md'))
-  assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n1. **Detect.**'))
+  assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n1. **This project.**'))
 })

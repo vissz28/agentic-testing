@@ -55,9 +55,6 @@ repo's `.claude/settings.json`:
 
 ## 3. Set up the project (once per repo, by one person)
 
-Setup first shows a Connectors card: Jira must be connected; GitLab and Figma are optional and never
-stop you. Keys go in the plugin settings, never in the chat.
-
 ```
 /quality-code:setup
 ```
@@ -66,24 +63,19 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 
 | Card | What you choose | Example |
 |---|---|---|
-| Stack | found from `package.json`; if the repo has both, you pick one | Playwright |
+| Connectors | Jira must be connected; GitLab and Figma are optional, by browser sign-in or token | ✅ Jira |
+| This project | confirm the folder, the stack (from `package.json`) and the GitLab project | `orders-app`, Vitest |
 | Jira | the site and your project key(s) | `ABC` |
-| Criteria field | the Jira field that holds acceptance criteria, or none | "Acceptance Criteria" |
-| Narrow the search | in a project shared with other teams: all tickets, a word in the title, a component, or type your labels | `component = Orders` |
-| Feature labels | the labels your team uses, picked from recent tickets | `Orders`, `Invoices` |
-| Routes (Playwright) | the screen of each label | `/orders` |
-| QA plans (Playwright) | the Confluence space and the search words for each feature's QA plan | space `ABC`, `order history` |
-| Title prefixes (Vitest) | prefixes your team puts in titles, or none | `[API]` |
-| Languages | English, plus Italian if your tickets use it | `en`, `it` |
-| Redaction | customer ids are always hidden; add your own patterns if needed | — |
-| Templates | if the repo has no Bug/Story templates, add the standard ones | yes |
 
-At the end you see the **whole config** and choose `1. Write it / 2. Change something / 3. Cancel`.
-Nothing is written before you type `1`. Setup then checks one recent ticket to show that it works.
+At the end you see the config and choose `1. Write it / 2. Change something / 3. Cancel`. Nothing
+is written before you type `1`. Setup then checks the newest ticket to show that it works; that
+check also finds your project's acceptance-criteria field and remembers it.
 
-**Then commit** `.claude/quality-code.json`, plus the templates and the `.gitignore` line if setup
-added them. To change anything later, run `/quality-code:setup` again rather than editing the
-file by hand.
+Want the extra points for feature labels, QA plans or title prefixes, or your own templates? Run
+`/quality-code:setup advanced`.
+
+**Then commit** `.claude/quality-code.json` and the `.gitignore` lines setup added. To change
+anything later, run `/quality-code:setup` again rather than editing the file by hand.
 
 ---
 

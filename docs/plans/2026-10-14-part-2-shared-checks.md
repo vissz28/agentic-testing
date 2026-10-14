@@ -2108,7 +2108,7 @@ git commit -m "test(checks): parity of the merged checks with both warehouse cop
 
 **Files:**
 - Modify: `core/setup.mjs` (`detect`, `write`)
-- Modify: `commands/setup.md` (step 5 and step 6)
+- Modify: `commands/setup.md` (Advanced: a new card after A4, and A5)
 - Test: `test/setup.test.mjs`, `test/setup-command.test.mjs` (append)
 
 **Interfaces:**
@@ -2133,7 +2133,7 @@ test('write adds the runtime gitignore lines once', () => {
   write(d, cfg, {})
   write(d, cfg, {})
   const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
-  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*'])
+  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*'])
 })
 test('write keeps boundaries', () => {
   const d = repo({})
@@ -2145,13 +2145,13 @@ test('write keeps boundaries', () => {
 Append to `test/setup-command.test.mjs`:
 
 ```js
-test('step 5: the boundaries card', () => {
-  const s = step(5)
+test('A4: the boundaries card (advanced setup; the short setup uses the defaults)', () => {
+  const s = step('A4')
   assert.match(s, /Paths a test run must never change/)
   for (const o of ['1. Keep this list', '2. Add a path', '3. Remove a path']) assert.ok(s.includes(o), o)
   assert.match(s, /specsBesideCode/)
   assert.ok(s.includes('src/**/*.spec.ts'))
-  assert.match(step(6), /boundaries/)
+  assert.match(step('A5'), /boundaries/)
 })
 ```
 
@@ -2203,12 +2203,12 @@ In `detect`, extend the result object:
   }
 ```
 
-In `write`, replace the gitignore block (from `const line = gitignoreLine ?? rawLine(config.ticketsDir)` to the closing `}` of `if (!hasLine(gi, line))`) with:
+In `write`, the gitignore loop already writes `[gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL]` (added in 0.3.2); extend its list so it reads:
 
 ```js
     const gi = join(root, '.gitignore')
     step = '.gitignore'
-    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), ...RUNTIME_GITIGNORE]) {
+    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL, ...RUNTIME_GITIGNORE]) {
       if (hasLine(gi, line)) continue
       const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
       writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
@@ -2218,7 +2218,7 @@ In `write`, replace the gitignore block (from `const line = gitignoreLine ?? raw
 
 - [ ] **Step 4: The card in `commands/setup.md`**
 
-At the end of step 5 (Templates), before the line that starts `6. **Preview.**`, add:
+At the end of A4 (Templates), before the line that starts `A5. **Preview and write.**`, add:
 
 ```markdown
    **Paths a test run must never change.** Show `boundaries` from the detect result as a numbered list (they exist in this repo: application code, environment files, the CI file), then this card and end the turn:
@@ -2232,7 +2232,7 @@ At the end of step 5 (Templates), before the line that starts `6. **Preview.**`,
    A path is a folder ending in `/` (`src/`), an exact file (`.env`) or a pattern with `*` / `**`. Repeat the card until the user keeps the list. For `vitest` with `specsBesideCode` true, also ask once: `Do your specs live next to the code (src/**/*.spec.ts)? 1. Yes / 2. No`; a yes adds `"allow": ["src/**/*.spec.ts"]`. Put the result in the proposal as `boundaries: { "forbidden": [{ "path": "<p>" }, …], "allow"?: [...] }`. An empty list leaves `boundaries` out (the plugin then uses its defaults). `dist/`, `node_modules/`, `.git/` and the config file are always protected; do not list them.
 ```
 
-In step 6 (Preview), in the sentence that lists what the config has, add `boundaries` when the user kept any path: change `and for \`playwright\` \`confluenceSpaces\` when spaces were picked)` to `for \`playwright\` \`confluenceSpaces\` when spaces were picked, and \`boundaries\` when any path was kept)`.
+In A5 (Preview and write), in the sentence that lists what the config has, add `boundaries` when the user kept any path: change `and for \`playwright\` \`confluenceSpaces\` when spaces were picked)` to `for \`playwright\` \`confluenceSpaces\` when spaces were picked, and \`boundaries\` when any path was kept)`.
 
 - [ ] **Step 5: Run to see them pass, then the suite**
 
@@ -2314,15 +2314,15 @@ In `CHANGELOG.md`, add a new section `## [0.4.0] - <today's date>` above `## [0.
   test that runs asserts something), `flaky` and `assertion-mutation` (every generated assertion can
   fail; any survivor fails the check). Run by hand with `core/checks/cli.mjs`; the test-writing
   pipeline uses them from part 4.
-- `boundaries` in `.claude/quality-code.json`, and a setup card that proposes them from your repo.
+- `boundaries` in `.claude/quality-code.json`, and a card in `/quality-code:setup advanced` that proposes them from your repo (the short setup uses the defaults).
 - A boundary hook that only acts while a test-writing run is active; outside a run Claude edits your
   code as usual.
 
 ### Upgrade
 
 Update the plugin before re-running setup: a config with `boundaries` is refused by 0.3.0. Re-run
-`/quality-code:setup` to get the boundaries card and the new `.gitignore` lines; without it the
-checks use the defaults.
+`/quality-code:setup advanced` to get the boundaries card and the new `.gitignore` lines; without
+it the checks use the defaults.
 ```
 
 Set `"version": "0.4.0"` in `plugins/quality-code/.claude-plugin/plugin.json`.
