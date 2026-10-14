@@ -21,7 +21,7 @@ const installed = () => assert.ok(existsSync(join(SAMPLE, 'node_modules/.bin/vit
 
 function pipeline(root, args) {
   const t0 = Date.now()
-  const r = spawnSync(process.execPath, [CLI, ...args, '--json'], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root }, encoding: 'utf8', timeout: LONG })
+  const r = spawnSync(process.execPath, [CLI, ...args, '--json'], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root, QC_NO_AUDIT: '1' }, encoding: 'utf8', timeout: LONG })
   const seconds = ((Date.now() - t0) / 1000).toFixed(1)
   const line = r.stdout.trim().split('\n').at(-1)
   let outcome = null

@@ -46,3 +46,7 @@ test('step 1: a stored or configured field skips the lookup; the answer is store
   assert.match(s, /with `--ci`, never ask/)
   assert.doesNotMatch(doc, /jira\.acceptanceCriteriaField/)
 })
+test('a posted comment and a pushed fill-in are logged by key for the KPI rollup', () => {
+  assert.ok(doc.includes('`The comment has been posted. Work has not started.`, then run `cli.mjs jira-posted <KEY> comment`'))
+  assert.ok(doc.includes('`The Jira ticket has been updated.`, and run `cli.mjs jira-posted <KEY> update`'))
+})

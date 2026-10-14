@@ -1,31 +1,39 @@
-// Entry point for the pipeline (Vitest and Playwright): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]
+// Entry point for the pipeline (Vitest and Playwright): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
+// --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
+// the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
 import { readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../checks/dialects/index.mjs'
 import { isProjectKey, projectKeys } from '../checks/keys.mjs'
+import { audit } from '../audit.mjs'
 import { loadConfig, projectRoot } from '../config.mjs'
+import { THRESHOLD } from '../score.mjs'
 import { formatCard } from './card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from './pipeline.mjs'
 
-const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]'
+const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 
 function parse(argv) {
-  const a = { json: false, specs: [] }
-  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target'])
+  const a = { json: false, noAudit: false, specs: [] }
+  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
       const v = argv[++i]
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
-      a[x.slice(2)] = v
+      a[x === '--incomplete-ticket' ? 'incomplete' : x.slice(2)] = v
     } else if (x === '--json') a.json = true
+    else if (x === '--no-audit') a.noAudit = true
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
   }
   if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
+  if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
+    throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
+  }
   return a
 }
 
@@ -65,6 +73,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (a.specs.some(s => normalizeSpec(root, resolve(root, s)) === target)) return err(`--target ${a.target} is one of the specs: name the code the tests check`)
   }
   const ctx = { config, dialect: dialectFor(config.adapter), root }
+  const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
+  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit })
+  if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
   let outcome
   try {
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target }, ctx)
@@ -72,8 +83,17 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
     return 2
   }
+  if (incompleteTicket) outcome = { ...outcome, incompleteTicket }
   const specs = [...new Set(a.specs.map(s => normalizeSpec(root, s)))]
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null })}\n`)
+  const tests = (outcome.steps || []).find(x => x.check === 'tests')?.data ?? {}
+  log('pipeline', {
+    key: a.key ?? null, verdict: outcome.verdict, decidedBy: outcome.decidedBy, adapter: config.adapter,
+    steps: outcome.steps || [],
+    counts: { specs: specs.length, passed: tests.passed, failed: tests.failed, skipped: tests.skipped },
+    incompleteTicket,
+  })
+  const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 

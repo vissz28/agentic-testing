@@ -45,9 +45,17 @@ function whatToDo(outcome) {
   }
 }
 
-export function formatCard(outcome, { specs = [], key = null } = {}) {
+/** The mark a run forced past the readiness gate carries ("continue anyway"). Red in a terminal. */
+export function riskLine({ score, bar }, color = false) {
+  const text = `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (${score}/${bar})`
+  return color ? `\x1b[31m${text}\x1b[0m` : text
+}
+
+export function formatCard(outcome, { specs = [], key = null, color = false } = {}) {
   const n = specs.length
-  const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${key ? ` · ticket ${key}` : ''}`, '', `Verdict: ${VERDICT[outcome.verdict]}`]
+  const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${key ? ` · ticket ${key}` : ''}`]
+  if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
+  lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data
   const counts = d && typeof d.passed === 'number' && typeof d.failed === 'number'
   if (counts) lines.push('', `Tests     ${d.passed} passed · ${d.failed} failed · ${d.skipped || 0} to do`)

@@ -65,16 +65,16 @@ test('config is written as given, 2-space with trailing newline', () => {
 test('gitignore: newline added before the line, content kept; custom ticketsDir used', () => {
   const d = repo({}); writeFileSync(join(d, '.gitignore'), 'node_modules')
   write(d, { ...cfg, ticketsDir: 'tix' }, {})
-  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n')
+  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n')
   const e = repo({}); writeFileSync(join(e, '.gitignore'), 'a\n')
   write(e, cfg, {})
-  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n`)
+  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n`)
 })
 test('gitignore: a trailing slash or backslashes in ticketsDir still give <dir>/*/raw.json', () => {
   for (const ticketsDir of ['tix/', 'tix\\']) {
     const d = repo({})
     assert.equal(write(d, { ...cfg, ticketsDir }, {}).ok, true)
-    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n', ticketsDir)
+    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n', ticketsDir)
     assert.equal(detect(d).gitignore, true, ticketsDir)
   }
 })
@@ -228,7 +228,15 @@ test('write adds the runtime gitignore lines once', () => {
   write(d, cfg, {})
   write(d, cfg, {})
   const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
-  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*'])
+  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/'])
+})
+test('the runtime gitignore lines keep the audit log, the boundary log and the run marker out of git', () => {
+  const d = repo({})
+  spawnSync('git', ['init', '-q'], { cwd: d })
+  write(d, cfg, {})
+  const files = ['.claude/quality-code/audit/gate.jsonl', '.claude/quality-code/audit/pipeline.jsonl', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/run.active']
+  const r = spawnSync('git', ['check-ignore', '--no-index', ...files], { cwd: d, encoding: 'utf8' })
+  assert.deepEqual(r.stdout.trim().split('\n'), files, r.stderr)
 })
 test('detect lists the root Vitest configs, sorted, and [] when there are none', () => {
   const d = repo({ devDependencies: { vitest: '1' } })

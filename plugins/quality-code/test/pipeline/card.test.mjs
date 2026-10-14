@@ -85,3 +85,25 @@ test('what to do for expected and stryker; a not-applicable stryker line is hidd
   assert.doesNotMatch(formatCard({ verdict: 'green', decidedBy: null, steps: [na] }).split('\n').slice(0, -1).join('\n'), /stryker/)
   assert.match(formatCard({ verdict: 'green', decidedBy: null, steps: [{ ...na, summary: '80% of code changes caught (bar 60%)', data: { applicable: true } }] }), /✅ stryker/)
 })
+
+const RISK = '🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (45/70)'
+test('continue anyway: the risk line is the first line after the title, for every verdict; the verdict is unchanged', () => {
+  for (const verdict of ['green', 'checks_failed', 'tests_red', 'not_verified']) {
+    const out = formatCard({ verdict, decidedBy: null, steps: base, incompleteTicket: { score: 45, bar: 70 } }, { specs: ['a.spec.ts'], key: 'ABC-1' })
+    const lines = out.split('\n')
+    assert.equal(lines[0], 'quality-code check · 1 spec file · ticket ABC-1')
+    assert.equal(lines[1], RISK, verdict)
+    assert.equal(lines[2], '')
+    assert.match(lines[3], /^Verdict: /)
+    const plain = formatCard({ verdict, decidedBy: null, steps: base }, { specs: ['a.spec.ts'], key: 'ABC-1' }).split('\n')
+    assert.deepEqual(lines.slice(3, -1), plain.slice(2, -1), 'the rest of the card is the same')
+  }
+})
+test('without incompleteTicket there is no risk line', () => {
+  assert.doesNotMatch(formatCard({ verdict: 'green', decidedBy: null, steps: base }, { specs: ['a.spec.ts'] }), /RISK/)
+})
+test('color: true makes the risk line red in a terminal; the default has no escape codes', () => {
+  const o = { verdict: 'green', decidedBy: null, steps: base, incompleteTicket: { score: 45, bar: 70 } }
+  assert.equal(formatCard(o, { specs: ['a.spec.ts'], color: true }).split('\n')[1], `\x1b[31m${RISK}\x1b[0m`)
+  assert.doesNotMatch(formatCard(o, { specs: ['a.spec.ts'] }), /\x1b/)
+})

@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { audit } from './audit.mjs'
 import { loadConfig, projectRoot } from './config.mjs'
 import { buildBrief, formatReport } from './score.mjs'
 import { formatRefuseComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
@@ -12,7 +13,7 @@ import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, example
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
 
-// --no-audit is accepted and ignored: today's skills still pass it.
+// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does).
 const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit'])
 
 function parseArgs(argv) {
@@ -43,6 +44,18 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   }
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
+  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
+  if (cmd === 'jira-posted') {
+    // Called after the connector posted a refuse comment or pushed a fill-in: the key and the kind only.
+    const [key, action] = a._
+    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || !['comment', 'update'].includes(action)) {
+      err('usage: cli.mjs jira-posted <KEY> comment|update')
+      return 2
+    }
+    log('jira', { key, action })
+    out('ok')
+    return 0
+  }
   if (cmd === 'field') {
     const [sub, project, value] = a._
     if (sub === 'get' && project) {
@@ -84,6 +97,10 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     case 'score': {
       if (mismatch && a.flags.has('--ci')) return 2
       const b = buildBrief(config, ticket)
+      log('gate', {
+        key: b.key, issuetype: b.issuetype, score: b.score, gate: b.gate, rubric: b.rubric, legacy: b.legacy,
+        missing: b.missing.map(m => m.key), filled: Array.isArray(ticket.filled) ? ticket.filled.length : 0,
+      })
       if (a.flags.has('--json')) out(JSON.stringify(b))
       else { out(formatReport(b)); out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`) }
       return b.gate === 'refuse' ? 1 : 0

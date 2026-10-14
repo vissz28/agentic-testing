@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -238,4 +238,78 @@ test('--ticket and --target: checked before anything runs, passed to the pipelin
   assert.equal(seen[0].ticket, join(d, 't.json'))
   assert.equal(seen[0].target, 'src/add.ts')
   assert.equal(seen[1].ticket, null)
+})
+
+// main() with a stub pipeline; returns the exit code, stdout, stderr and whether the stub ran.
+async function stubbed(d, args, env = {}) {
+  const outcome = {
+    verdict: 'tests_red', decidedBy: 'tests',
+    steps: [{ check: 'tests', status: 'fail', summary: '1 failed', findings: [{ file: 'test/a.spec.ts', test: 'adds', detail: 'Expected 2' }], data: { ran: true, passed: 1, failed: 1, skipped: 0 } }],
+  }
+  let ran = false
+  const o = [], e = []
+  const w = [process.stdout.write, process.stderr.write]
+  process.stdout.write = m => { o.push(String(m)); return true }
+  process.stderr.write = m => { e.push(String(m)); return true }
+  let code
+  try {
+    code = await main(['test/a.spec.ts', ...args], { CLAUDE_PROJECT_DIR: d, ...env }, d, { runPipeline: async () => { ran = true; return structuredClone(outcome) } })
+  } finally { [process.stdout.write, process.stderr.write] = w }
+  return { code, out: o.join(''), err: e.join(''), ran }
+}
+const auditLines = (d, kind) => readFileSync(join(d, '.claude/quality-code/audit', `${kind}.jsonl`), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+
+test('--incomplete-ticket: the outcome carries it, the card opens with the risk line, the verdict and exit are unchanged', async () => {
+  const d = repo()
+  const r = await stubbed(d, ['--key', 'ABC-1', '--incomplete-ticket', '45'])
+  assert.equal(r.code, 1, r.err)
+  const lines = r.out.trim().split('\n')
+  assert.equal(lines[1], '🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (45/70)')
+  assert.match(r.out, /Verdict: 🔴 tests red/)
+  const json = JSON.parse(lines.at(-1).slice('PIPELINE_JSON:'.length))
+  assert.deepEqual(json.incompleteTicket, { score: 45, bar: 70 })
+  assert.equal(json.verdict, 'tests_red')
+  const j = await stubbed(d, ['--incomplete-ticket', '0', '--json'])
+  assert.deepEqual(JSON.parse(j.out).incompleteTicket, { score: 0, bar: 70 })
+})
+test('--incomplete-ticket must be a whole number below the bar; refused before anything runs', async () => {
+  const d = repo()
+  for (const [v, msg] of [['abc', /whole number from 0 to 69/], ['4.5', /whole number/], ['07', /whole number/], ['70', /below the bar \(70\)/], ['99', /below the bar/], ['100', /whole number/], ['-1', /needs a value/]]) {
+    const r = await stubbed(d, ['--incomplete-ticket', v])
+    assert.equal(r.code, 2, v)
+    assert.match(r.err, msg, v)
+    assert.equal(r.ran, false, v)
+  }
+  assert.equal(existsSync(join(d, '.claude/quality-code/audit')), false, 'a refused run is not logged')
+})
+test('without --incomplete-ticket the outcome has no incompleteTicket field', async () => {
+  const r = await stubbed(repo(), ['--json'])
+  assert.equal('incompleteTicket' in JSON.parse(r.out), false)
+})
+test('audit: one pipeline line per run (statuses and counts, no findings), and an override line for a forced run', async () => {
+  const d = repo()
+  await stubbed(d, ['--key', 'ABC-1'])
+  await stubbed(d, ['--key', 'ABC-1', '--incomplete-ticket', '45'])
+  const p = auditLines(d, 'pipeline')
+  assert.equal(p.length, 2)
+  assert.deepEqual({ ...p[0], date: 'x' }, {
+    key: 'ABC-1', verdict: 'tests_red', decidedBy: 'tests', adapter: 'vitest',
+    steps: [{ check: 'tests', status: 'fail' }],
+    counts: { specs: 1, passed: 1, failed: 1, skipped: 0 },
+    incompleteTicket: null, date: 'x',
+  })
+  assert.deepEqual(p[1].incompleteTicket, { score: 45, bar: 70 })
+  assert.doesNotMatch(JSON.stringify(p), /a\.spec|Expected 2|adds/)
+  const o = auditLines(d, 'override')
+  assert.deepEqual(o.map(x => ({ ...x, date: 'x' })), [{ key: 'ABC-1', score: 45, bar: 70, date: 'x' }])
+})
+test('audit off: --no-audit or QC_NO_AUDIT=1 writes nothing; a failed append changes nothing', async () => {
+  const d = repo()
+  assert.equal((await stubbed(d, ['--no-audit', '--incomplete-ticket', '45'])).code, 1)
+  assert.equal((await stubbed(d, ['--incomplete-ticket', '45'], { QC_NO_AUDIT: '1' })).code, 1)
+  assert.equal(existsSync(join(d, '.claude/quality-code/audit')), false)
+  put(d, '.claude/quality-code/audit', 'a file, not a folder')
+  const r = await stubbed(d, ['--incomplete-ticket', '45'])
+  assert.equal(r.code, 1)
+  assert.equal(r.err, '')
 })

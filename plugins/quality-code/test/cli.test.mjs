@@ -55,10 +55,73 @@ test('config check: a lowercase jira.projects key exits 2 naming jira.projects[0
   assert.equal(r.status, 2)
   assert.match(r.stdout + r.stderr, /jira\.projects\[0\]/)
 })
-test('--no-audit is accepted and ignored; unknown flags exit 2', () => {
+test('--no-audit is accepted; unknown flags exit 2', () => {
   const d = proj()
   assert.equal(run(d, 'score', '--in', '@t.json', '--no-audit').status, 1)
   assert.equal(run(d, 'score', '--in', '@t.json', '--bogus').status, 2)
+})
+
+const AUDIT = '.claude/quality-code/audit'
+const auditLines = (d, kind) => readFileSync(join(d, AUDIT, `${kind}.jsonl`), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+const noAuditEnv = { ...process.env }
+delete noAuditEnv.QC_NO_AUDIT
+const runA = (d, env, ...argv) => spawnSync('node', [CLI, ...argv], { cwd: '/', env: { ...noAuditEnv, CLAUDE_PROJECT_DIR: d, ...env }, encoding: 'utf8' })
+
+test('score logs one gate line: key, type, score, gate, rubric, legacy, missing criteria keys, fill-ins; no ticket text', () => {
+  const d = proj()
+  assert.equal(runA(d, {}, 'score', '--in', '@t.json').status, 1)
+  assert.equal(runA(d, {}, 'score', '--in', '@t.json', '--json').status, 1)
+  const g = auditLines(d, 'gate')
+  assert.equal(g.length, 2)
+  assert.deepEqual(Object.keys(g[0]), ['key', 'issuetype', 'score', 'gate', 'rubric', 'legacy', 'missing', 'filled', 'date'])
+  assert.equal(g[0].key, 'DEMO-1')
+  assert.equal(g[0].issuetype, 'Bug')
+  assert.equal(g[0].gate, 'refuse')
+  assert.equal(g[0].rubric, 'vitest')
+  assert.equal(g[0].filled, 0)
+  assert.ok(Number.isInteger(g[0].score) && g[0].score < 70)
+  assert.ok(g[0].missing.includes('ac_present'))
+  assert.doesNotMatch(JSON.stringify(g), /Broken/)
+})
+test('a fill-in is counted on the next gate line', () => {
+  const d = proj()
+  assert.equal(runA(d, {}, 'add', '--in', '@t.json', 'environment', 'staging').status, 0)
+  runA(d, {}, 'score', '--in', '@t.json')
+  assert.equal(auditLines(d, 'gate')[0].filled, 1)
+})
+test('--no-audit and QC_NO_AUDIT=1 turn the gate log off; other commands log nothing', () => {
+  const d = proj()
+  runA(d, {}, 'score', '--in', '@t.json', '--no-audit')
+  runA(d, { QC_NO_AUDIT: '1' }, 'score', '--in', '@t.json')
+  runA(d, {}, 'refuse-comment', '--in', '@t.json')
+  runA(d, {}, 'fill-menu', '--in', '@t.json')
+  assert.equal(existsSync(join(d, AUDIT)), false)
+})
+test('a failed append never changes the result or the exit code', () => {
+  const d = proj()
+  mkdirSync(join(d, '.claude/quality-code'), { recursive: true })
+  writeFileSync(join(d, AUDIT), 'a file, not a folder')
+  const r = runA(d, {}, 'score', '--in', '@t.json')
+  assert.equal(r.status, 1)
+  assert.equal(r.stderr, '')
+  assert.match(r.stdout, /^TICKET_EVAL_JSON:/m)
+})
+test('jira-posted <KEY> comment|update logs what was sent to Jira (the key and the kind only)', () => {
+  const d = proj()
+  const a = runA(d, {}, 'jira-posted', 'DEMO-1', 'comment')
+  assert.equal(a.status, 0, a.stderr)
+  assert.equal(a.stdout, 'ok\n')
+  assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', 'update').status, 0)
+  assert.deepEqual(auditLines(d, 'jira').map(x => [x.key, x.action]), [['DEMO-1', 'comment'], ['DEMO-1', 'update']])
+  for (const bad of [['jira-posted'], ['jira-posted', 'DEMO-1'], ['jira-posted', 'demo 1', 'comment'], ['jira-posted', 'DEMO-1', 'delete']]) {
+    const r = runA(d, {}, ...bad)
+    assert.equal(r.status, 2, bad.join(' '))
+    assert.match(r.stderr, /usage: cli\.mjs jira-posted <KEY> comment\|update/)
+  }
+  assert.equal(auditLines(d, 'jira').length, 2)
+  const e = proj()
+  assert.equal(runA(e, { QC_NO_AUDIT: '1' }, 'jira-posted', 'DEMO-1', 'comment').stdout, 'ok\n')
+  assert.equal(existsSync(join(e, AUDIT)), false)
 })
 test('add rejection prints Not accepted and an Example line', () => {
   const r = run(proj(), 'add', '--in', '@t.json', 'ac_testable', 'it works as expected')
