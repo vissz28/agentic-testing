@@ -10,7 +10,7 @@ import { redact } from './sanitize.mjs'
 const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue)$/
 const TEST_NAME = /\.(spec|test)\.[^/]+$/
 const PW_CONFIGS = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mjs', 'playwright.config.cjs']
-const KEY = /(?<![A-Z0-9])([A-Z][A-Z0-9]+)-(\d+)(?!\d)/g
+const KEY = /(?<![A-Z0-9])([A-Z][A-Z0-9]+)[-_](\d+)(?!\d)/g
 
 /** The origin URL without any user:password@ part. */
 export function stripCredentials(url) {
@@ -85,7 +85,7 @@ const FALLBACK_BASES = ['develop', 'main', 'master']
 
 function git(root, args) {
   try {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).replace(/\n$/, '')
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
   } catch {
     return null
   }
@@ -111,7 +111,8 @@ export function detect(root, config, { base: baseFlag } = {}) {
 
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
   if (baseFlag) {
-    if (exists(baseFlag)) Object.assign(out, { base: baseFlag, baseSource: 'flag' })
+    const ref = exists(baseFlag) ? baseFlag : exists(`origin/${baseFlag}`) ? `origin/${baseFlag}` : null
+    if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
   } else {
     const originHead = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
     if (originHead && exists(originHead)) Object.assign(out, { base: originHead, baseSource: 'origin-head' })
@@ -125,7 +126,7 @@ export function detect(root, config, { base: baseFlag } = {}) {
 
   const files = new Map()
   if (out.base && out.head) {
-    out.onBase = rawBranch === out.base.replace(/^origin\//, '') || git(root, ['rev-parse', 'HEAD']) === git(root, ['rev-parse', out.base])
+    out.onBase = rawBranch === out.base.replace(/^origin\//, '')
     out.mergeBase = git(root, ['merge-base', out.base, 'HEAD'])
     if (out.mergeBase) {
       const [behind, ahead] = (git(root, ['rev-list', '--left-right', '--count', `${out.base}...HEAD`]) ?? '0 0').split(/\s+/).map(Number)
@@ -140,8 +141,12 @@ export function detect(root, config, { base: baseFlag } = {}) {
     for (const f of parseStatusZ(git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']))) files.set(f.path, { ...f, committed: false })
   }
 
+  // git prints paths from the repo top; a project in a subfolder keeps only its own files, relative to itself.
+  const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
   const dirs = config.adapter === 'playwright' ? playwrightTestDirs(root) : []
   out.files = [...files.values()]
+    .filter(f => f.path.startsWith(prefix))
+    .map(f => ({ ...f, path: f.path.slice(prefix.length) }))
     .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, config.adapter, dirs), committed: f.committed }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   for (const f of out.files) {

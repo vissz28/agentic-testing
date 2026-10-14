@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, statSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -261,4 +261,54 @@ test('CLI: usage errors exit 2; a --base that looks like an option is refused', 
   const r = run(d, '--detect', '--base', '--output=x')
   assert.equal(r.status, 2)
   assert.match(r.stderr, /base/)
+})
+
+test('review I1: a --base that exists only on origin resolves to origin/<name>', () => {
+  const d = repo()
+  const bare = mkdtempSync(join(tmpdir(), 'at-bare-'))
+  g(bare, 'init', '-q', '--bare')
+  g(d, 'remote', 'add', 'origin', bare)
+  g(d, 'branch', 'develop')
+  g(d, 'push', '-q', 'origin', 'develop')
+  g(d, 'branch', '-q', '-D', 'develop')
+  g(d, 'checkout', '-qb', 'DEMO-20-x')
+  const r = detect(d, cfg(), { base: 'develop' })
+  assert.equal(r.base, 'origin/develop')
+  assert.equal(r.baseSource, 'flag')
+})
+test('review I2: a new branch at the base commit with uncommitted work is not on the base', () => {
+  const d = repo()
+  g(d, 'checkout', '-qb', 'DEMO-21-new')
+  put(d, 'src/a.ts', 'edited\n')
+  const r = detect(d, cfg())
+  assert.equal(r.onBase, false)
+  assert.deepEqual(r.files.map(f => f.path), ['src/a.ts'])
+  assert.deepEqual(r.keys, ['DEMO-21'])
+})
+test('review I3: a key joined with _ is found and written with -', () => {
+  assert.deepEqual(keyCandidates(['DEMO_12_FIX', 'FEATURE/TRK_7'], ['DEMO', 'TRK']), ['DEMO-12', 'TRK-7'])
+  const d = repo()
+  g(d, 'checkout', '-qb', 'demo_12_fix')
+  assert.deepEqual(detect(d, cfg()).keys, ['DEMO-12'])
+})
+test('review I4: a project in a subfolder sees only its own files, relative to itself', () => {
+  const d = repo()
+  commit(d, 'web', { 'web/playwright.config.ts': "export default { testDir: './tests' }\n", 'api/y.ts': 'y\n' })
+  g(d, 'checkout', '-qb', 'DEMO-22-x')
+  commit(d, 'both', { 'web/tests/a.ts': 'a\n', 'api/y.ts': 'changed\n' })
+  put(d, 'api/z.ts', 'z\n')
+  const r = detect(join(d, 'web'), cfg({ adapter: 'playwright' }))
+  assert.deepEqual(r.files.map(f => [f.path, f.kind]), [['tests/a.ts', 'test']])
+  assert.deepEqual(r.counts, { code: 0, test: 1, other: 0, uncommitted: 0 })
+})
+test('review M1: detect does not rewrite the git index', () => {
+  const d = repo()
+  g(d, 'checkout', '-qb', 'DEMO-23-x')
+  const later = new Date(Date.now() + 60_000)
+  utimesSync(join(d, 'src/a.ts'), later, later)
+  const past = new Date(Date.now() - 3_600_000)
+  utimesSync(join(d, '.git/index'), past, past)
+  const before = statSync(join(d, '.git/index')).mtimeMs
+  detect(d, cfg())
+  assert.equal(statSync(join(d, '.git/index')).mtimeMs, before)
 })

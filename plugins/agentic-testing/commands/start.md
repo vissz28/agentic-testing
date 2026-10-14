@@ -29,7 +29,7 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
    - `isRepo` is false: `This folder is not a git repo.` then `1. Evaluate a ticket by key / 2. Stop`.
    - `detached` is true: `No branch is checked out (at <head>).` then `1. Evaluate a ticket by key / 2. Stop`.
    - `base` is null: `No base branch found.` then the `branches` as a numbered list. Run detect again with `--base <picked>`.
-   - `mergeBase` is null and `shallow` is true: say History is too short to compare. Run `git fetch --unshallow`, then start again. Then stop.
+   - `mergeBase` is null and `shallow` is true: show `History is too short to compare. Run git fetch --unshallow, then start again.` and stop. Do not run it yourself.
    - `mergeBase` is null: `This branch shares no history with <base>.` then `1. Pick another base / 2. Evaluate a ticket by key / 3. Stop`.
    - `onBase` is true, or `files` is empty: `No feature-branch changes against <base>.` then `1. Evaluate a ticket by key / 2. Pick another base / 3. Stop`.
    - Otherwise the repo card (leave out the `(origin: …)` part when `remote` is null, and the `+ … not committed yet` part when `counts.uncommitted` is 0):
