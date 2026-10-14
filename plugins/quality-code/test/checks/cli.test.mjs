@@ -1,11 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ENV } from './git-env.mjs'
+import { main, registerCheck } from '../../core/checks/cli.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../core/checks/cli.mjs')
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -95,4 +96,19 @@ test('boundary diff mode from the CLI', () => {
   const r = cli(d, ['boundary', '--json'])
   assert.equal(r.status, 1)
   assert.equal(json(r).findings[0].file, 'src/a.ts')
+})
+test('a crashing check exits 2 with crash message to stderr', async () => {
+  const d = repo()
+  registerCheck('boom', () => { throw new Error('kaput\nmore') }, 'none')
+  let captured = ''
+  const orig = process.stderr.write
+  try {
+    process.stderr.write = (s) => { captured += s; return true }
+    const code = await main(['boom'], { ...process.env, CLAUDE_PROJECT_DIR: d }, d)
+    assert.equal(code, 2)
+    assert.match(captured, /check boom crashed: kaput/)
+    assert.ok(!captured.includes('more'))
+  } finally {
+    process.stderr.write = orig
+  }
 })

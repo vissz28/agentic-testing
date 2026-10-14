@@ -86,7 +86,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   for (const s of a.specs) if (!existsSync(resolve(root, s))) return err(`spec not found: ${s}`)
   if (a.key && !isProjectKey(config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(config).join(', ')}`)
   const ctx = { config, dialect: dialectFor(config.adapter), root }
-  const r = await check.run({ specs: a.specs, range: a.range ?? null, key: a.key ?? null }, ctx)
+  let r
+  try {
+    r = await check.run({ specs: a.specs, range: a.range ?? null, key: a.key ?? null }, ctx)
+  } catch (e) {
+    const msg = e.message.split('\n')[0]
+    process.stderr.write(`check ${name} crashed: ${msg}\n`)
+    return 2
+  }
   if (a.flags.has('--json')) process.stdout.write(`${JSON.stringify(r)}\n`)
   else {
     const lines = [`${ICON[r.status]} ${r.check}: ${r.summary}`]
