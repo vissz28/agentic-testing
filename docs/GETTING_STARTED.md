@@ -5,8 +5,8 @@ tested and how to fix it when it is not, all inside Claude Code. It works for an
 Playwright (frontend) or Vitest (backend) repo.
 
 > **What it does today:** setup, the daily start from your feature branch, the readiness check,
-> the guided fill-in, the Jira comment / update and checking Vitest tests. Writing the tests themselves comes in a later
-> version; see the [CHANGELOG](../CHANGELOG.md) for what each version added.
+> the guided fill-in, the Jira comment / update, and checking and writing Vitest tests. Playwright
+> tests come in a later version; see the [CHANGELOG](../CHANGELOG.md) for what each version added.
 
 ---
 
@@ -32,12 +32,15 @@ Open Claude Code in your repo and type:
 /plugin install quality-code@quality-code
 ```
 
-When Claude Code asks for the plugin's settings:
+When Claude Code asks for the plugin's settings (all optional):
 
-- **Figma API key**: optional; leave it empty if you don't have one.
-- **GitLab MCP URL**: keep the default if you use TeamSystem's GitLab, otherwise enter yours.
+- **GitLab API URL**: keep the default if you use TeamSystem's GitLab, otherwise enter yours
+  (ending in `/api/v4`).
+- **GitLab Application ID** or **GitLab token**: one of them, to reach GitLab by browser sign-in or
+  by a `read_api` token. Leave both empty if you don't use GitLab yet.
+- **Figma API key**: leave it empty if you don't have one, or sign in to Figma in the browser instead.
 
-You can change both later from the `/plugin` menu.
+You can change them later from the `/plugin` menu. Secrets stay in the system keychain.
 
 **Tip for the team lead:** to offer the plugin to everyone who opens the repo, commit this in the
 repo's `.claude/settings.json`:
@@ -63,7 +66,7 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 
 | Card | What you choose | Example |
 |---|---|---|
-| Connectors | Jira must be connected; GitLab and Figma are optional, by browser sign-in or token | ✅ Jira |
+| Connectors | Jira must be connected; GitLab is optional, and so is Figma (Playwright projects only), by browser sign-in or token | ✅ Jira |
 | This project | confirm the folder, the stack (from `package.json`) and the GitLab project | `orders-app`, Vitest |
 | Jira | the site and your project key(s) | `ABC` |
 
@@ -73,7 +76,8 @@ is written before you type `1`. Setup does not check any ticket; the first ticke
 field and remembers it.
 
 Want the extra points for feature labels, QA plans or title prefixes, or your own templates? Run
-`/quality-code:setup advanced`.
+`/quality-code:setup advanced`. It also asks which paths a test run must never change and, for
+Vitest, which config runs which tests and the test folders that new tests go in.
 
 **Then commit** `.claude/quality-code.json` and the `.gitignore` lines setup added. To change
 anything later, run `/quality-code:setup` again rather than editing the file by hand.
@@ -89,8 +93,19 @@ Check out your feature branch (named with the ticket key, for example `ABC-123-a
 ```
 
 You confirm the repo card (branch, base, how many files changed), confirm the ticket key, and pick
-`1. Evaluate the ticket`. The rest of this section is what you then see. To check a ticket that has
-no branch yet, use `/quality-code:ticket-eval ABC-123`.
+what to do:
+
+```
+ABC-123 on ABC-123-add-export (5 files changed against origin/main)
+1. Evaluate the ticket
+2. Check the tests on this branch
+3. Write and check tests
+4. Stop
+```
+
+Option 2 shows only in a Vitest project whose branch has test files; without it, `Write and check
+tests` is option 2. The rest of this section is what you see after `1. Evaluate the ticket`. To check
+a ticket that has no branch yet, use `/quality-code:ticket-eval ABC-123`.
 
 ```
 /quality-code:ticket-eval ABC-123
@@ -138,8 +153,8 @@ Type the numbers you want to fill, for example: 1 3
 
 ### Option 3: continue anyway
 
-Only for developers who know the risk. Everything afterwards is marked
-`[RISK / NOT RECOMMENDED]`.
+Only for developers who know the risk. Nothing is posted, and the run stops with the
+`[RISK / NOT RECOMMENDED]` mark. No tests are written for a refused ticket.
 
 ---
 
@@ -159,13 +174,43 @@ tests and the checks. This can take a few minutes. You get one card with a verdi
 | Verdict | What to do |
 |---|---|
 | ✅ green | nothing: the tests pass and every check ran |
-| ❌ checks failed | read the "What to do" line: for example an assertion was removed, a test asserts nothing, or the code does not compile |
+| ❌ checks failed | read the "What to do" line: for example an assertion was removed, a test asserts nothing, an expected value from the ticket is not asserted, or the code does not compile |
 | ⚠️ not verified | something could not run (Vitest missing, a timeout). Fix what the card names and run it again. A spec of only snapshots is also not verified, because the check cannot show its assertions can fail |
 | 🔴 tests red | a test fails. Normal for a bug whose fix is not merged yet |
 
 The check never edits your tests or code and writes nothing into the repo, apart from Vitest's own
 cache and short-lived temporary copies of the spec that the mutation check makes next to it. If your
 repo has more than one Vitest config, `/quality-code:setup advanced` asks which config runs which tests.
+
+---
+
+## Writing tests (Vitest projects)
+
+To have the tests written from the ticket, run:
+
+```
+/quality-code:write ABC-123
+```
+
+Or pick `Write and check tests` in `/quality-code:start`. It goes like this:
+
+1. **The ticket is checked first.** A ticket below 70 gets the same refuse card as above. Fill it in
+   until it passes and writing goes on; otherwise nothing is written.
+2. **Which code?** It proposes the source file the ticket changes: `1. <path> / 2. <path> /
+   3. Another file / 4. Stop`. Add `--target src/pricing.ts` to skip this card.
+3. **The plan.** One line per scenario of the ticket, with the test folder it goes in:
+   `1. Write these tests / 2. Change the layers / 3. Stop`. The folders come from
+   `/quality-code:setup advanced`; by default it is `test/`.
+4. **The tests are written** in those folders only, with the real expected values from the ticket.
+   Your code is never changed.
+5. **The checks run**, as in `/quality-code:check`, plus two more: every expected value from the
+   ticket must be asserted, and, if the project has Stryker installed, the tests must catch enough
+   changes to the code. A fixable problem gets up to two rewrites of the tests; then you see the card.
+
+For a bug, `🔴 tests red` is normal: the card says the test should go green when the fix is merged.
+
+If you see `Another test-writing run is active.`, an earlier run did not finish: pick `1` to stop it
+and start yours.
 
 ---
 
@@ -210,6 +255,9 @@ What does **not** count:
 | `/quality-code:ticket-eval ABC-123 --refuse-comment` | prints the Jira comment without posting it |
 | `/quality-code:ticket-eval ABC-123 --json` | prints only the machine result |
 | `/quality-code:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
+| `/quality-code:check test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
+| `/quality-code:write ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
+| `/quality-code:write ABC-123 --layer unit` | writes only in the `unit` test folder |
 
 ---
 
