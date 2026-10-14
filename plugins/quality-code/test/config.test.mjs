@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath } from '../core/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold } from '../core/config.mjs'
 
 const good = {
   version: 1,
@@ -214,7 +214,7 @@ test('vitest block: absent stays absent; only with adapter vitest', () => {
 test('vitest block: each wrong part is named', () => {
   const r = validateConfig({ ...vgood, vitest: { configs: [{ match: '../x', config: 'a.ts' }, { match: 'test/', config: '/abs.ts' }, { match: 'x' }, 'no'], tsconfig: '', timeoutSeconds: 5, extra: 1 } })
   assert.deepEqual(r.errors, [
-    'vitest.extra: unknown field (only "configs", "tsconfig" and "timeoutSeconds")',
+    'vitest.extra: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")',
     'vitest.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'vitest.configs[1].config "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
     'vitest.configs[2].config undefined must be a relative path inside the project (no "..", not absolute, one line)',
@@ -240,7 +240,12 @@ test('the schema documents the vitest block', () => {
   const v = schema.properties.vitest
   assert.equal(v.type, 'object')
   assert.equal(v.additionalProperties, false)
-  assert.deepEqual(Object.keys(v.properties).sort(), ['configs', 'timeoutSeconds', 'tsconfig'])
+  assert.deepEqual(Object.keys(v.properties).sort(), ['configs', 'layers', 'stryker', 'timeoutSeconds', 'tsconfig'])
+  assert.equal(v.properties.layers.minItems, 1)
+  assert.equal(v.properties.layers.maxItems, 5)
+  assert.equal(v.properties.layers.items.properties.name.pattern, '^[a-z][a-z0-9-]{0,30}$')
+  assert.deepEqual(v.properties.layers.items.required, ['name', 'folder'])
+  assert.deepEqual(v.properties.stryker.properties.threshold, { type: 'integer', minimum: 0, maximum: 100, default: 60, description: v.properties.stryker.properties.threshold.description })
 })
 test('the schema gives the vitest paths the validator\'s pattern', () => {
   const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
@@ -250,4 +255,68 @@ test('the schema gives the vitest paths the validator\'s pattern', () => {
   assert.equal(v.configs.items.properties.config.pattern, v.tsconfig.pattern)
   for (const ok of ['tsconfig.test.json', 'test/integration/**', 'a/b/']) assert.ok(re.test(ok), ok)
   for (const bad of ['/abs', '../x', 'a/../b', 'C:\\x', 'a\nb', '']) assert.ok(!re.test(bad), JSON.stringify(bad))
+})
+
+test('vitest.layers and vitest.stryker: a valid block, and the defaults', () => {
+  const layers = [{ name: 'unit', folder: 'test/unit/', guide: 'docs/testing/unit.md' }, { name: 'integration-db', folder: 'test/integration/' }]
+  const r = validateConfig({ ...vgood, vitest: { layers, stryker: { threshold: 75 } } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.deepEqual(layersOf(r.config), layers)
+  assert.equal(strykerThreshold(r.config), 75)
+  const d = validateConfig(vgood).config
+  assert.deepEqual(layersOf(d), [{ name: 'unit', folder: 'test/' }])
+  assert.equal(strykerThreshold(d), 60)
+  assert.equal(strykerThreshold(validateConfig({ ...vgood, vitest: { stryker: {} } }).config), 60)
+  for (const t of [0, 100]) assert.equal(validateConfig({ ...vgood, vitest: { stryker: { threshold: t } } }).ok, true, String(t))
+})
+test('vitest.layers: not a list, empty, or more than 5', () => {
+  const msg = 'vitest.layers: must be a list of 1 to 5 { "name", "folder", "guide" }'
+  const six = Array.from({ length: 6 }, (_, i) => ({ name: `l${i}`, folder: `test/l${i}/` }))
+  for (const ls of [{}, 'test/', [], six]) assert.deepEqual(validateConfig({ ...vgood, vitest: { layers: ls } }).errors, [msg], JSON.stringify(ls))
+  const five = six.slice(0, 5)
+  assert.equal(validateConfig({ ...vgood, vitest: { layers: five } }).ok, true)
+})
+test('vitest.layers: each wrong part is named', () => {
+  assert.deepEqual(validateConfig({ ...vgood, vitest: { layers: ['x'] } }).errors, ['vitest.layers[0]: must be an object with "name", "folder" and an optional "guide"'])
+  const r = validateConfig({ ...vgood, vitest: { layers: [
+    { name: 'Unit', folder: 'test/a/' },
+    { name: 'unit', folder: 'test/b' },
+    { name: 'unit', folder: '../x/' },
+    { name: 'e2e', folder: 'test/e2e/', guide: 'docs/e2e.txt', extra: 1 },
+    { name: '1st', folder: '/abs/', guide: '../g.md' },
+  ] } })
+  assert.deepEqual(r.errors, [
+    'vitest.layers[0].name "Unit" must be lower-case letters, digits and "-", starting with a letter, like "unit"',
+    'vitest.layers[1].folder "test/b" must end with "/"',
+    'vitest.layers[2].name "unit" appears twice',
+    'vitest.layers[2].folder "../x/" must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.layers[3].extra: unknown field (only "name", "folder" and "guide")',
+    'vitest.layers[3].guide "docs/e2e.txt" must be a relative path to a .md file inside the project',
+    'vitest.layers[4].name "1st" must be lower-case letters, digits and "-", starting with a letter, like "unit"',
+    'vitest.layers[4].folder "/abs/" must be a relative path inside the project (no "..", not absolute, one line)',
+    'vitest.layers[4].guide "../g.md" must be a relative path to a .md file inside the project',
+  ])
+  const long = 'a'.repeat(32)
+  assert.ok(validateConfig({ ...vgood, vitest: { layers: [{ name: long, folder: 't/' }] } }).errors[0].startsWith(`vitest.layers[0].name "${long}"`))
+  assert.equal(validateConfig({ ...vgood, vitest: { layers: [{ name: 'a'.repeat(31), folder: 't/' }] } }).ok, true)
+})
+test('vitest.layers: a folder inside a forbidden boundary is refused, naming the rule', () => {
+  const r = validateConfig({ ...vgood, vitest: { layers: [{ name: 'unit', folder: 'src/__tests__/' }, { name: 'all', folder: 'src/' }] } })
+  assert.deepEqual(r.errors, [
+    'vitest.layers[0].folder "src/__tests__/" is inside the forbidden "src/"',
+    'vitest.layers[1].folder "src/" is inside the forbidden "src/"',
+  ])
+  const own = { forbidden: [{ path: 'lib/**' }] }
+  assert.deepEqual(validateConfig({ ...vgood, boundaries: own, vitest: { layers: [{ name: 'unit', folder: 'lib/tests/' }] } }).errors,
+    ['vitest.layers[0].folder "lib/tests/" is inside the forbidden "lib/**"'])
+  // The configured boundary replaces the default: src/ is then writable.
+  assert.equal(validateConfig({ ...vgood, boundaries: own, vitest: { layers: [{ name: 'unit', folder: 'src/__tests__/' }] } }).ok, true)
+  // An allow rule opens the folder again.
+  assert.equal(validateConfig({ ...vgood, boundaries: { allow: ['src/**/__tests__/**'] }, vitest: { layers: [{ name: 'unit', folder: 'src/a/__tests__/' }] } }).ok, true)
+})
+test('vitest.stryker: each wrong part is named', () => {
+  const msg = 'vitest.stryker.threshold: must be a whole number from 0 to 100'
+  for (const t of [-1, 101, 1.5, '60', null]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { threshold: t } } }).errors, [msg], String(t))
+  for (const v of ['x', 5, null, []]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: v } }).errors, ['vitest.stryker: must be an object with an optional "threshold"'], JSON.stringify(v))
+  assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bar: 1 } } }).errors, ['vitest.stryker.bar: unknown field (only "threshold")'])
 })
