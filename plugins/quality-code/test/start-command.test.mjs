@@ -48,12 +48,20 @@ test('step 3: key from the branch first, then the merge-request title, then comm
   assert.ok(s.includes('1. Use <KEY>'))
   assert.ok(s.includes('2. A different ticket'))
 })
-test('step 4: evaluate runs ticket-eval unchanged; the pipeline waits for part 4', () => {
+test('step 4: evaluate runs ticket-eval; option 2 checks the branch tests; writing waits for part 4b', () => {
   const s = step(4)
   assert.ok(s.includes('1. Evaluate the ticket'))
-  assert.ok(s.includes('2. Run the full pipeline (available with part 4)'))
+  assert.ok(s.includes('2. Check the tests on this branch'))
+  assert.ok(s.includes('3. Write and check tests (coming with part 4b)'))
+  assert.ok(s.includes('4. Stop'))
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md'))
-  assert.match(s, /Writing and grading tests for any project comes with part 4/)
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/check.md'))
+  assert.match(s, /`counts\.test` is more than 0/)
+  assert.match(s, /`vitest`/)
+  assert.match(s, /confirmed key/)
+  assert.ok(s.includes('2. Write and check tests (coming with part 4b)'))
+  assert.ok(s.includes('Writing tests for any project comes with part 4b.'))
+  assert.doesNotMatch(s, /full pipeline/)
 })
 test('the change never feeds the score, and no diff content is shown', () => {
   assert.match(doc, /never changes the score/)
