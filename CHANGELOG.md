@@ -7,6 +7,31 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.7.0] - 2026-10-14
+
+### Added
+
+- **Playwright projects in `/quality-code:check`** (and `/quality-code:start` option 2). The same
+  pipeline, card, verdicts and exit codes as Vitest: boundary, honesty, assertions, types, tests,
+  expected, mutation, flaky. No Stryker step for end-to-end tests; `--target` is refused.
+- The Playwright runner uses the project's own `node_modules/.bin/playwright test` with the JSON
+  report, retries off, and its output in a temp folder, so nothing lands in the repo. A test run in
+  several browser projects is one result. When every failing test hit a refused connection, the
+  verdict is `not verified` ("the app is not reachable"), never red.
+- **The `playwright` block** in `.claude/quality-code.json`: `configs`, `projects`, `tsconfig`,
+  `timeoutSeconds` (default 600).
+- The `expected` check also reads Playwright's web-first matchers (`toHaveText`, `toHaveURL`,
+  `toHaveCount`, …) in Playwright specs.
+
+### Changed
+
+- `/quality-code:write` says plainly that writing Playwright tests is not available yet (part 3b).
+- `core/pipeline/vitest.mjs` is now `core/pipeline/pipeline.mjs`.
+
+### Upgrade
+
+Update the plugin before adding a `playwright` block: 0.6.x refuses it.
+
 ## [0.6.0] - 2026-10-14
 
 ### Added

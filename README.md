@@ -84,9 +84,9 @@ other than English and Italian. See [Known limits](#known-limits).
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `core/checks/cli.mjs` | ✅ available (building blocks) |
-| Check the tests on your branch: run them and grade them | `/quality-code:check` (or `start`, option 2) | ✅ available (Vitest) |
+| Check the tests on your branch: run them and grade them | `/quality-code:check` (or `start`, option 2) | ✅ available (Vitest, Playwright) |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Vitest) |
-| Write and grade frontend tests, any Playwright app | — | 🚧 in progress (part 3) |
+| Write frontend tests from a ticket, any Playwright app | — | 📅 planned (part 3b); checking them is available above |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
 
 ## Who does what
@@ -528,6 +528,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions | `src/`, `.env`, `.env.*`, the CI file |
+| `playwright` | Playwright only: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Playwright config, every project, `tsconfig.json`, 600 |
 | `vitest` | Vitest only: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. Used only when the project has `node_modules/.bin/stryker` | `60` |
@@ -600,14 +601,17 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
 | `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
 | `Another test-writing run is active.` | A `/quality-code:write` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/core/checks/cli.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
-| `The Playwright pipeline comes with part 3.` | `/quality-code:check` and `/quality-code:write` work for Vitest projects only today. |
+| `Writing Playwright tests is not available yet` | `/quality-code:write` writes Vitest tests only; check your Playwright tests with `/quality-code:check`. |
+| A Playwright check says `the app is not reachable` | Start the app, or let your Playwright config's `webServer` start it, then run the check again. The verdict is `not verified`, never red. |
 
 ---
 
 ## Known limits
 
-- **Test writing is Vitest only.** `/quality-code:write` and `/quality-code:check` work for Vitest
-  projects; for Playwright they say the pipeline comes with part 3 and stop.
+- **Test writing is Vitest only.** `/quality-code:check` works for Vitest and Playwright projects;
+  `/quality-code:write` writes Vitest tests only (Playwright writing is part 3b).
+- **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
+  end-to-end tests.
 - **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, or without a target
   file, the Stryker step is "not applicable".
 - **Stacks:** Playwright and Vitest only. Other runners are possible later as new adapters.
@@ -625,7 +629,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config (no database, Prisma or Docker), the expected-values check, optional Stryker; proved end to end on [`examples/sample-service`](examples/sample-service) with a real Vitest and Stryker | ✅ **available** (4a checking in 0.5.0, 4b writing in 0.6.0) |
-| 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 🚧 in progress |
+| 3 | Playwright adapter | the pipeline for any Playwright app (3a), then writing Playwright tests from a ticket (3b) | 3a ✅ **available** (checking, 0.7.0); 3b 📅 next |
 | 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
 
 Parts are numbered by design order; the backend adapter (4) is built before the frontend one (3).
@@ -653,7 +657,13 @@ start command [spec](docs/specs/2026-10-14-start-command-design.md) ·
 part 4a [spec](docs/specs/2026-10-14-part-4a-vitest-pipeline-design.md) ·
 [plan](docs/plans/2026-10-14-part-4a-vitest-pipeline.md);
 part 4b [spec](docs/specs/2026-10-14-part-4b-write-tests-design.md) ·
-[plan](docs/plans/2026-10-14-part-4b-write-tests.md).
+[plan](docs/plans/2026-10-14-part-4b-write-tests.md);
+part 3 [spec](docs/specs/2026-10-14-part-3-playwright-design.md) ·
+[plan](docs/plans/2026-10-14-part-3-playwright.md);
+part 5 [spec](docs/specs/2026-10-14-part-5-rollout-design.md) ·
+[plan](docs/plans/2026-10-14-part-5-rollout.md);
+consumption [spec](docs/specs/2026-10-14-consumption-design.md) ·
+[plan](docs/plans/2026-10-14-consumption.md).
 
 ---
 
@@ -687,9 +697,9 @@ agentic-testing/
 │     │  ├─ checks/                    boundary, honesty, suite-honesty, expected, flaky, mutation,
 │     │  │                             the run marker (run) and their CLI
 │     │  ├─ guides/                    vitest-writing.md, the rules /quality-code:write follows
-│     │  ├─ runners/                   the Vitest and Stryker runners
+│     │  ├─ runners/                   the Vitest, Playwright and Stryker runners
 │     │  ├─ consumption/               reads Claude Code's local transcripts: usage and estimated cost
-│     │  └─ pipeline/                  the Vitest pipeline, its card and CLI
+│     │  └─ pipeline/                  one pipeline for Vitest and Playwright, its card and CLI
 │     ├─ schema/                       quality-code.schema.json
 │     ├─ templates/                    standard Story and Bug templates
 │     └─ test/                         unit tests and the parity suite
@@ -713,9 +723,9 @@ Diff mode (`boundary`, `honesty`) reads git, so it cannot see git-ignored files 
 
 `boundary`, `honesty`, `suite-honesty` run as they are; `expected` needs the ticket
 (`expected --ticket @<ticketsDir>/ABC-123/ticket.json --key ABC-123 <spec…>`); `flaky` and
-`mutation` need a test runner: the Vitest runner is there, the Playwright one comes with part 3.
+`mutation` need a test runner: both runners are there (Vitest and Playwright).
 `run start --key KEY`, `run stop` and `run status` open, close and show a test-writing run (`run
-start` exits `1` when a run is already active). The Vitest pipeline runs the checks in order:
+start` exits `1` when a run is already active). The pipeline runs the checks in order, picking the runner from `adapter` (Playwright has no Stryker step and refuses `--target`):
 `node <plugin>/core/pipeline/cli.mjs <spec…> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]`
 (exit `0` green, `1` checks failed or tests red, `2` usage or config error, `3` not verified).
 
