@@ -65,16 +65,16 @@ test('config is written as given, 2-space with trailing newline', () => {
 test('gitignore: newline added before the line, content kept; custom ticketsDir used', () => {
   const d = repo({}); writeFileSync(join(d, '.gitignore'), 'node_modules')
   write(d, { ...cfg, ticketsDir: 'tix' }, {})
-  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n')
+  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n')
   const e = repo({}); writeFileSync(join(e, '.gitignore'), 'a\n')
   write(e, cfg, {})
-  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n`)
+  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n`)
 })
 test('gitignore: a trailing slash or backslashes in ticketsDir still give <dir>/*/raw.json', () => {
   for (const ticketsDir of ['tix/', 'tix\\']) {
     const d = repo({})
     assert.equal(write(d, { ...cfg, ticketsDir }, {}).ok, true)
-    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n', ticketsDir)
+    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n', ticketsDir)
     assert.equal(detect(d).gitignore, true, ticketsDir)
   }
 })
@@ -180,4 +180,26 @@ test('write git-ignores the local Jira field memory', () => {
   const d = repo({})
   write(d, cfg, {})
   assert.ok(readFileSync(join(d, '.gitignore'), 'utf8').split('\n').includes('.claude/quality-code/jira-fields.json'))
+})
+
+test('detect lists the boundary candidates that exist, and specs next to the code', () => {
+  const d = repo({ devDependencies: { vitest: '1' } })
+  for (const p of ['src/a.ts', 'prisma/schema.prisma', '.env.local', '.gitlab-ci.yml', '.github/workflows/ci.yml']) { mkdirSync(join(d, p, '..'), { recursive: true }); writeFileSync(join(d, p), 'x') }
+  const r = detect(d)
+  assert.deepEqual(r.boundaries, ['src/', 'prisma/', '.env.*', '.gitlab-ci.yml', '.github/workflows/'])
+  assert.equal(r.specsBesideCode, false)
+  writeFileSync(join(d, 'src/a.spec.ts'), 'x')
+  assert.equal(detect(d).specsBesideCode, true)
+})
+test('write adds the runtime gitignore lines once', () => {
+  const d = repo({})
+  write(d, cfg, {})
+  write(d, cfg, {})
+  const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
+  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*'])
+})
+test('write keeps boundaries', () => {
+  const d = repo({})
+  assert.equal(write(d, { ...cfg, boundaries: { forbidden: [{ path: 'src/' }] } }, {}).ok, true)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).boundaries, { forbidden: [{ path: 'src/' }] })
 })

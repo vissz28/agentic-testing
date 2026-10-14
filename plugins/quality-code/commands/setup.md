@@ -78,7 +78,18 @@ A2. **Features.** In a Jira project shared by many teams, most recent tickets ca
    - **Title prefixes** (only for `vitest`). In the summaries of the same narrowed search (after option 4, of one `project = <KEY> AND labels in ("<label>", …) ORDER BY created DESC` search with the kept labels, `maxResults` 100, fields `labels,summary`), count each bracket prefix matched by `^\[([^\]]+)\]` (for example `[API] …` counts `API`). Show them with their counts as a numbered list, plus a last line `<n>. None`; the user picks by number. The picks become `titlePrefixes`, in the order picked. `None` writes `"titlePrefixes": []`: no title prefix is asked for and it never scores. Left out, it defaults to `[]` (none). For `playwright`, leave it out.
 A3. **Language and redaction.** Start from the current languages (English and Italian unless the config says otherwise). Propose `["en"]`, adding `"it"`, if the summaries from A2 are in Italian or the user says the tickets are written in Italian (for example with "Criteri di accettazione" sections); when the summaries do not tell, ask once. Customer-id redaction stays on by default; ask once for optional extra patterns (name to regular expression). Whenever the proposal contains `redact`, it must always include `"customerId": "\\bU\\d{5,}\\b"` (written exactly so in JSON), because a `redact` in the config replaces the default. Leave it out only if the user explicitly turns customer-id redaction off; with no extra patterns and redaction left on, omit `redact` entirely.
 A4. **Templates.** If `templates.bug` and `templates.story` are both found, say so and move on. If one is missing, offer the plugin's standard template for it (generic English: Story has a user story, context, Acceptance criteria with a Gherkin example and a plain-language example, and an environment section; Bug has steps to reproduce, expected, actual and environment). Ask `1. Add it / 2. Skip`. On a yes, read the file from `${CLAUDE_PLUGIN_ROOT}/templates/story.md` or `${CLAUDE_PLUGIN_ROOT}/templates/bug.md` and pass its exact text in the proposal as `templates.story` / `templates.bug`. Never draft or edit template text yourself. `setup.mjs --write` writes the file; you never do.
-A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out), then this card and end the turn:
+
+   **Paths a test run must never change.** Show `boundaries` from the detect result as a numbered list (they exist in this repo: application code, environment files, the CI file), then this card and end the turn:
+
+   ```
+   1. Keep this list
+   2. Add a path
+   3. Remove a path
+   ```
+
+   A path is a folder ending in `/` (`src/`), an exact file (`.env`) or a pattern with `*` / `**`. Repeat the card until the user keeps the list. For `vitest` with `specsBesideCode` true, also ask once: `Do your specs live next to the code (src/**/*.spec.ts)? 1. Yes / 2. No`; a yes adds `"allow": ["src/**/*.spec.ts"]`. Put the result in the proposal as `boundaries: { "forbidden": [{ "path": "<p>" }, …], "allow"?: [...] }`. An empty list leaves `boundaries` out (the plugin then uses its defaults). `dist/`, `node_modules/`, `.git/` and the config file are always protected; do not list them.
+
+A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out; and `boundaries` when any path was kept), then this card and end the turn:
 
    ```
    1. Write it
@@ -86,6 +97,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, and for `playwright` `confluenceSpaces` when spaces were picked). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, for `playwright` `confluenceSpaces` when spaces were picked, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.

@@ -84,3 +84,12 @@ test('advanced keeps the full questions and needs a config', () => {
   assert.match(step('A4'), /Templates/)
   assert.match(doc.slice(doc.indexOf('## Advanced')), /without one, run steps 0 to 3 first/)
 })
+
+test('A4: the boundaries card (advanced setup; the short setup uses the defaults)', () => {
+  const s = step('A4')
+  assert.match(s, /Paths a test run must never change/)
+  for (const o of ['1. Keep this list', '2. Add a path', '3. Remove a path']) assert.ok(s.includes(o), o)
+  assert.match(s, /specsBesideCode/)
+  assert.ok(s.includes('src/**/*.spec.ts'))
+  assert.match(step('A5'), /boundaries/)
+})

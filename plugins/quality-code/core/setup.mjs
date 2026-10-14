@@ -1,6 +1,6 @@
 // Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and writes.
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
@@ -11,7 +11,34 @@ const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
   story: ['.gitlab/issue_templates/Story.md', '.github/ISSUE_TEMPLATE/story.md'],
 }
+
+export const RUNTIME_GITIGNORE = ['.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*']
+
 const rawLine = ticketsDir => `${normaliseTicketsDir(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
+
+function boundaryCandidates(root) {
+  let names = []
+  try { names = readdirSync(root) } catch {}
+  const exists = p => existsSync(join(root, p.replace(/\/$/, '')))
+  // Order: code folders, environment files, CI files.
+  return [
+    ...['src/', 'prisma/', 'migrations/', 'dapr/'].filter(exists),
+    ...(exists('.env') ? ['.env'] : []),
+    ...(names.some(n => /^\.env\..+/.test(n)) ? ['.env.*'] : []),
+    ...['.gitlab-ci.yml', '.github/workflows/'].filter(exists),
+  ]
+}
+
+function hasSpecBesideCode(dir, budget = { n: 5000 }) {
+  let entries = []
+  try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return false }
+  for (const e of entries) {
+    if (--budget.n < 0) return false
+    if (e.isDirectory()) { if (e.name !== 'node_modules' && hasSpecBesideCode(join(dir, e.name), budget)) return true }
+    else if (/\.(spec|test)\.[cm]?[jt]sx?$/.test(e.name)) return true
+  }
+  return false
+}
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 
@@ -65,7 +92,13 @@ export function detect(root) {
   if (existsSync(cp)) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
-  const result = { adapter, templates, existing, gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)), here: here(root) }
+  const result = {
+    adapter, templates, existing,
+    gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
+    boundaries: boundaryCandidates(root),
+    specsBesideCode: hasSpecBesideCode(join(root, 'src')),
+    here: here(root)
+  }
   if (existingError) result.existingError = existingError
   return result
 }
@@ -114,7 +147,7 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
 
     const gi = join(root, '.gitignore')
     step = '.gitignore'
-    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL]) {
+    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL, ...RUNTIME_GITIGNORE]) {
       if (hasLine(gi, line)) continue
       const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
       writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
