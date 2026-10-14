@@ -37,15 +37,35 @@ function vitestConfigs(root) {
   return names.filter(n => VITEST_CONFIG.test(n)).sort()
 }
 
+const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
+
 function hasSpecBesideCode(dir, budget = { n: 5000 }) {
   let entries = []
   try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return false }
   for (const e of entries) {
     if (--budget.n < 0) return false
     if (e.isDirectory()) { if (e.name !== 'node_modules' && hasSpecBesideCode(join(dir, e.name), budget)) return true }
-    else if (/\.(spec|test)\.[cm]?[jt]sx?$/.test(e.name)) return true
+    else if (SPEC_FILE.test(e.name)) return true
   }
   return false
+}
+
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist'])
+
+/** The folders (first two path segments, ending in "/") that hold specs: sorted, at most 10. */
+function specFolders(root, budget = { n: 20000 }) {
+  const found = new Set()
+  const walk = (rel, depth) => {
+    let entries = []
+    try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      if (--budget.n < 0) return
+      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(rel ? `${rel}/${e.name}` : e.name, depth + 1) }
+      else if (depth > 0 && SPEC_FILE.test(e.name)) found.add(`${rel.split('/').slice(0, 2).join('/')}/`)
+    }
+  }
+  walk('', 0)
+  return [...found].sort().slice(0, 10)
 }
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
@@ -106,6 +126,7 @@ export function detect(root) {
     boundaries: boundaryCandidates(root),
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
+    specFolders: specFolders(root),
     here: here(root)
   }
   if (existingError) result.existingError = existingError

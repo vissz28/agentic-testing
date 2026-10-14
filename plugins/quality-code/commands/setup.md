@@ -93,6 +93,20 @@ A4. **Templates.** If `templates.bug` and `templates.story` are both found, say 
 
    **Which Vitest config runs which tests.** Only for `vitest`, and only when `vitestConfigs` from the detect result has more than one entry. Show the configs as a numbered list. For each config ask which folder or pattern it runs (`Which tests does <config> run? A folder ending in /, an exact path, or a * / ** pattern`). Put the answers in the proposal as `vitest: { configs: [{ match, config }, …] }`, where `match` is the folder or pattern and `config` is the config file. If `existing.vitest` is set (a rerun), show its `configs` first, keep the existing `vitest` block as it is (including `tsconfig` and `timeoutSeconds`) and offer only the changes. With one config or none, skip this card; the plugin then uses that config, or Vitest's defaults.
 
+   **Test folders.** Only for `vitest`. Propose the test layers from `specFolders` in the detect result (the folders that already hold specs): one layer per folder, named after its last segment (`test/unit/` becomes `unit`, `test/integration/` becomes `integration`), lower-case letters, digits and `-` only, starting with a letter, each name used once. With no `specFolders`, propose `[{ "name": "unit", "folder": "test/" }]`. Show the layers as a numbered list (`<name>   <folder>`), then this card and end the turn:
+
+   ```
+   1. Use these test folders
+   2. Change a test folder
+   3. Skip
+   ```
+
+   - **1:** put the list in the proposal as `vitest: { layers: [{ "name", "folder" }, …] }`, at most 5 layers.
+   - **2:** ask which layer to change, add or remove, and its name, its folder (relative, ending in `/`) and, optionally, a `guide` (a `.md` file with the team's own test conventions). Show the card again.
+   - **3:** leave `layers` out (the plugin then uses one `unit` layer in `test/`).
+
+   If `existing.vitest.layers` is set (a rerun), show it first and keep it; offer the detected folders only as additions. A layer folder inside a forbidden boundary (for example `src/`) is refused by `setup.mjs --write`; do not propose one. Keep the rest of the `vitest` block as it is.
+
 A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out; and `boundaries` when any path was kept), then this card and end the turn:
 
    ```
@@ -101,6 +115,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, for `playwright` `confluenceSpaces` when spaces were picked, `vitest` `configs` when the Vitest configs card was answered, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, for `playwright` `confluenceSpaces` when spaces were picked, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.

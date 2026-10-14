@@ -191,6 +191,38 @@ test('detect lists the boundary candidates that exist, and specs next to the cod
   writeFileSync(join(d, 'src/a.spec.ts'), 'x')
   assert.equal(detect(d).specsBesideCode, true)
 })
+const touch = (d, p) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), 'x') }
+test('specFolders: the first two segments of the folders that hold specs', () => {
+  const d = repo({})
+  assert.deepEqual(detect(d).specFolders, [])
+  touch(d, 'test/unit/a.spec.ts')
+  touch(d, 'test/unit/deep/more/b.test.ts')
+  touch(d, 'test/integration/c.test.mjs')
+  touch(d, 'test/unit/helper.ts')
+  touch(d, 'root.test.ts')
+  assert.deepEqual(detect(d).specFolders, ['test/integration/', 'test/unit/'])
+})
+test('specFolders: a spec directly in test/ gives test/', () => {
+  const d = repo({})
+  touch(d, 'test/a.test.ts')
+  touch(d, 'e2e/flows/b.spec.ts')
+  assert.deepEqual(detect(d).specFolders, ['e2e/flows/', 'test/'])
+})
+test('specFolders: node_modules, .git and dist are ignored', () => {
+  const d = repo({})
+  touch(d, 'node_modules/lib/test/a.test.js')
+  touch(d, 'packages/x/node_modules/y/b.spec.js')
+  touch(d, '.git/hooks/c.test.js')
+  touch(d, 'dist/test/d.test.js')
+  assert.deepEqual(detect(d).specFolders, [])
+})
+test('specFolders: sorted, at most 10', () => {
+  const d = repo({})
+  for (const n of [11, 3, 7, 1, 12, 5, 9, 2, 10, 4, 8, 6]) touch(d, `test/l${String(n).padStart(2, '0')}/a.test.ts`)
+  const f = detect(d).specFolders
+  assert.equal(f.length, 10)
+  assert.deepEqual(f, Array.from({ length: 10 }, (_, i) => `test/l${String(i + 1).padStart(2, '0')}/`))
+})
 test('write adds the runtime gitignore lines once', () => {
   const d = repo({})
   write(d, cfg, {})
