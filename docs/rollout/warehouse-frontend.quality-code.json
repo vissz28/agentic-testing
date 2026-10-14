@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "adapter": "playwright",
+  "jira": {
+    "site": "https://teamsystem.atlassian.net",
+    "projects": [
+      "FIC"
+    ],
+    "acceptanceCriteriaField": "customfield_11707",
+    "trackingProjects": [
+      "AGT"
+    ]
+  },
+  "languages": [
+    "en",
+    "it"
+  ],
+  "features": [
+    {
+      "label": "Giacenza_Prodotti",
+      "route": "/products-stock"
+    },
+    {
+      "label": "Lista_Movimenti_Magazzino",
+      "route": "/movements-list"
+    },
+    {
+      "label": "Report_Magazzino",
+      "route": "/warehouse-reports"
+    },
+    {
+      "label": "Importa_Giacenze",
+      "route": "/import-stock"
+    },
+    {
+      "label": "arrivi_merce_magazzino",
+      "route": "/goods-arrival"
+    },
+    {
+      "label": "Il_mio_magazzino",
+      "route": "/my-warehouse"
+    },
+    {
+      "label": "Minimum_stock",
+      "route": "/minimum-stock"
+    },
+    {
+      "label": "Spinta_warehouse",
+      "route": "/warehouse-push"
+    }
+  ],
+  "ticketTemplates": {
+    "bug": ".gitlab/issue_templates/Bug.md",
+    "story": ".gitlab/issue_templates/Story.md"
+  },
+  "messages": {
+    "ac_present": {
+      "title": "Acceptance criteria",
+      "missing": "We could not find acceptance criteria.",
+      "add": "You can copy this and adjust it to your case. Either format works. A short list under an \"Acceptance criteria\" heading, one result per line:\n\n## Acceptance criteria\n- The message \"Nessun movimento trovato\" is shown\n\nOr Given / When / Then, each at the start of its line:\n\nGiven the movement list has no rows for this filter\nWhen I filter by document 22\nThen the message is \"Nessun movimento trovato\"\n\nItalian works too: \"Criteri di accettazione\", or Dato / Quando / Allora.",
+      "question": "What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.",
+      "example": "The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \"Empty the warehouse first\" and no delete request is sent.",
+      "label": "acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description"
+    },
+    "ac_testable": {
+      "title": "Acceptance criteria: results must be specific",
+      "missing": "An acceptance criterion does not state a concrete result.",
+      "add": "Please avoid \"it works\" or \"as expected\". A number or the exact text on screen is enough, for example:\n\n- The grid shows exactly 5 rows\nThen the message is \"Nessun movimento trovato\"",
+      "question": "An acceptance criterion is vague. Write it again with something a test can see (a label, a row count, a toast), at least 150 characters, or as Given / When / Then.",
+      "example": "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.",
+      "label": "testable AC — each Then or AC item an observable assertion, not \"works correctly\""
+    },
+    "feature_label": {
+      "title": "Feature label",
+      "missing": "The ticket has no warehouse feature label, so we cannot tell which screen to open.",
+      "add": "Please add one of these existing labels (do not create a new one):\nGiacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze,\narrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse",
+      "question": "Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse",
+      "example": "Giacenza_Prodotti",
+      "label": "feature label (one of the 8 — routes the test to a screen)"
+    },
+    "qa_plan_found": {
+      "label": "a Confluence QA plan for the feature"
+    },
+    "steps": {
+      "title": "Steps to reproduce",
+      "missing": "There is no Steps to reproduce section (or user story).",
+      "add": "A short numbered list is enough. You can adapt this:\n\n## Steps to reproduce\n1. Open the movement list\n2. Filter by document 22\n3. Look at the rows that come back",
+      "question": "How do you reproduce it? One step per line.",
+      "example": "Open the products stock\nFilter by a code that does not exist\nLook at the empty grid",
+      "label": "steps to reproduce (Bug) or a user story (Story)"
+    },
+    "expected_defined": {
+      "title": "Expected and actual result",
+      "missing": "Expected and Actual are not both filled in.",
+      "add": "Please add both sections, for example:\n\n## Expected\nOnly document 22 is listed\n\n## Actual\nDocument 220 is listed as well",
+      "question": "What should you see, and what do you see now? Write: expected | actual",
+      "example": "The message \"Nessun dato\" is shown | The grid is blank",
+      "label": "clear expected behavior (or Expected vs Actual for a bug)"
+    },
+    "environment": {
+      "title": "Environment",
+      "missing": "There is no Environment section with Env: …",
+      "add": "Please add which environment you used (prod, staging or local):\n\n## Environment\nEnv: staging",
+      "question": "Which environment did you use (prod, staging or local)?",
+      "example": "staging",
+      "label": "environment / workspace context"
+    },
+    "story": {
+      "steps": {
+        "title": "User story",
+        "missing": "There is no User story line.",
+        "add": "One line is enough. You can adapt this:\n\n## User story\nAs a warehouse user, I want to filter the movement list by period so that I can find last month quickly.",
+        "question": "Who wants what, and why? One line.",
+        "example": "As a warehouse user, I want to filter the movement list by period so that I find last month quickly."
+      }
+    },
+    "templateLine": {
+      "bug": "The full Bug template is in the warehouse-frontend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.",
+      "story": "The full Story template is in the warehouse-frontend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue."
+    },
+    "refuseFallback": "Please add Steps to reproduce, Expected, Actual, and Given / When / Then.",
+    "jiraFillMark": "_Added during the /spec readiness check._"
+  },
+  "boundaries": {
+    "forbidden": [
+      {
+        "path": "src/",
+        "why": "src/ is application code. This harness generates tests, it never changes the code under test — a generator that can edit the app can make a red test green the wrong way (Quality Program §6)."
+      },
+      {
+        "path": ".gitlab-ci.yml",
+        "why": "the shared team pipeline. A change here lands on every merge request. Propose it in the e2e README instead and let a human wire it."
+      },
+      {
+        "path": ".env",
+        "why": ".env points at shared remote systems; the root CLAUDE.md warns that pointing local dev back at *-test.teamsystem.cloud writes to an environment other people use. Edit .env.example if you need to document a variable."
+      },
+      {
+        "path": ".env.*",
+        "why": "the same shared remote systems as .env, for each environment. Edit .env.example if you need to document a variable."
+      }
+    ]
+  }
+}

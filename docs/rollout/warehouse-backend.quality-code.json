@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "adapter": "vitest",
+  "jira": {
+    "site": "https://teamsystem.atlassian.net",
+    "projects": [
+      "FIC"
+    ],
+    "acceptanceCriteriaField": "customfield_11707",
+    "trackingProjects": [
+      "AGT"
+    ]
+  },
+  "languages": [
+    "en",
+    "it"
+  ],
+  "features": [
+    {
+      "label": "Lista_Movimenti_Magazzino"
+    },
+    {
+      "label": "Report_Magazzino"
+    },
+    {
+      "label": "Giacenza_Prodotti"
+    },
+    {
+      "label": "Importa_Giacenze"
+    },
+    {
+      "label": "arrivi_merce_magazzino"
+    },
+    {
+      "label": "Il_mio_magazzino"
+    },
+    {
+      "label": "Minimum_stock"
+    },
+    {
+      "label": "Spinta_warehouse"
+    }
+  ],
+  "titlePrefixes": [
+    "FE",
+    "BE",
+    "FS"
+  ],
+  "ticketTemplates": {
+    "bug": ".gitlab/issue_templates/Bug.md",
+    "story": ".gitlab/issue_templates/Story.md"
+  },
+  "messages": {
+    "ac_present": {
+      "title": "Acceptance criteria",
+      "missing": "We could not find acceptance criteria.",
+      "add": "You can copy this and adjust it to your case. Either format works. A short list under an \"Acceptance criteria\" heading, one result per line:\n\n## Acceptance criteria\n- The last cost is 0 after a movement with cost 0\n\nOr Given / When / Then, each at the start of its line:\n\nGiven a product with last cost = 50\nWhen I save a movement with cost = 0\nThen the last cost is 0\n\nItalian works too: \"Criteri di accettazione\", or Dato / Quando / Allora.",
+      "question": "What should be true when this is done? Plain sentences (at least 150 characters), or Given / When / Then.",
+      "example": "The last cost is 0 after a movement with cost 0. The KPI row for that product shows 0 as its last unit cost, and the previous value of 50 is not shown anymore.",
+      "label": "acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in customfield_11707 or the description"
+    },
+    "ac_testable": {
+      "title": "Acceptance criteria: results must be specific",
+      "missing": "An acceptance criterion does not state a concrete result.",
+      "add": "Please avoid \"it works\" or \"as expected\". A number or the exact text is enough, for example:\n\n- The last cost is 0\nThen the message is \"No data available with current filters\"",
+      "question": "An acceptance criterion is vague. Write it again with numbers or the exact text, at least 150 characters (or as Given / When / Then).",
+      "example": "The last cost is 0 after a movement with cost 0, and the KPI row shows 0 as the last unit cost. The previous value of 50 does not appear anywhere for that product.",
+      "label": "testable AC: each Then or AC item an observable assertion, not \"works correctly\""
+    },
+    "steps": {
+      "title": "Steps to reproduce",
+      "missing": "There is no Steps to reproduce section (or user story).",
+      "add": "A short numbered list is enough. You can adapt this:\n\n## Steps to reproduce\n1. Open the product\n2. Save a movement with cost = 0\n3. Check the last cost",
+      "question": "How do you reproduce it? One step per line.",
+      "example": "Open the product\nSave a movement with cost = 0\nCheck the last cost",
+      "label": "steps to reproduce (Bug) or a user story (Story)"
+    },
+    "expected_defined": {
+      "title": "Expected and actual result",
+      "missing": "Expected and Actual are not both filled in.",
+      "add": "Please add both sections, for example:\n\n## Expected\nThe last cost is 0\n\n## Actual\nThe last cost is still 50",
+      "question": "What should happen, and what happens now? Write: expected | actual",
+      "example": "The last cost is 0 | The last cost is still 50",
+      "label": "clear expected behaviour (Expected vs Actual, or AC present)"
+    },
+    "context": {
+      "title": "Summary",
+      "missing": "There is no Summary or Context section.",
+      "add": "A couple of sentences is enough, for example:\n\n## Summary\nWhen cost is 0, last cost is not updated. The previous value is kept.",
+      "question": "In one or two sentences, what is wrong?",
+      "example": "When cost is 0, last cost is not updated. The previous value is kept.",
+      "label": "a Context / Summary section"
+    },
+    "title_prefix": {
+      "title": "Title prefix",
+      "missing": "The title does not start with [FE], [BE] or [FS].",
+      "add": "Please start the title with [BE] (backend), [FE] (frontend) or [FS] (both).\nExample: [BE] last cost stays 50 when the movement cost is 0",
+      "question": "Is this backend, frontend or both? Type BE, FE or FS.",
+      "example": "BE",
+      "label": "title prefix [FE|BE|FS]",
+      "reject": "Type BE (backend), FE (frontend) or FS (both)."
+    },
+    "feature_label": {
+      "title": "Feature label",
+      "missing": "The ticket has no warehouse feature label.",
+      "add": "Please add one of these existing labels (do not create a new one):\nGiacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze,\narrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse",
+      "question": "Which feature is it? One of: Lista_Movimenti_Magazzino, Report_Magazzino, Giacenza_Prodotti, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse",
+      "example": "Giacenza_Prodotti",
+      "label": "a warehouse feature label (e.g. Giacenza_Prodotti)"
+    },
+    "environment": {
+      "title": "Environment",
+      "missing": "There is no Environment section with Env: …",
+      "add": "Please add which environment you used (prod, staging or local):\n\n## Environment\nEnv: local",
+      "question": "Which environment did you use (prod, staging or local)?",
+      "example": "staging",
+      "label": "environment / workspace context"
+    },
+    "story": {
+      "steps": {
+        "title": "User story",
+        "missing": "There is no User story line.",
+        "add": "One line is enough. You can adapt this:\n\n## User story\nAs a warehouse user, I want to filter the products stock by code so that I can find one product quickly.",
+        "question": "Who wants what, and why? One line.",
+        "example": "As a warehouse user, I want to filter the stock by code so that I find one product quickly."
+      },
+      "context": {
+        "title": "Context",
+        "missing": "There is no Context section.",
+        "add": "Two or three sentences is enough, for example:\n\n## Context\nFinding one product in the stock list means scrolling the whole page. Filtering by code would save that.",
+        "question": "In two or three sentences, why is this needed?",
+        "example": "Finding one product in the stock list means scrolling the whole page."
+      }
+    },
+    "templateLine": {
+      "bug": "The full Bug template is in the warehouse-backend repository (.gitlab/issue_templates/Bug.md). In GitLab, pick \"Bug\" from the template menu when you open a new issue.",
+      "story": "The full Story template is in the warehouse-backend repository (.gitlab/issue_templates/Story.md). In GitLab, pick \"Story\" from the template menu when you open a new issue."
+    },
+    "refuseFallback": "Please add Summary, Steps to reproduce, Expected, Actual, and Given / When / Then.",
+    "jiraFillMark": "_Added during the /spec readiness check._"
+  },
+  "boundaries": {
+    "forbidden": [
+      {
+        "path": "src/"
+      },
+      {
+        "path": "prisma/"
+      },
+      {
+        "path": "dapr/"
+      },
+      {
+        "path": ".gitlab-ci.yml"
+      },
+      {
+        "path": ".env"
+      },
+      {
+        "path": ".env.*"
+      }
+    ]
+  },
+  "vitest": {
+    "configs": [
+      {
+        "match": "**/*.e2e.spec.ts",
+        "config": "vitest.config.e2e.ts"
+      },
+      {
+        "match": "test/**",
+        "config": "vitest.config.db.ts"
+      }
+    ],
+    "layers": [
+      {
+        "name": "unit",
+        "folder": "test/unit/"
+      },
+      {
+        "name": "integration",
+        "folder": "test/integration/"
+      },
+      {
+        "name": "range",
+        "folder": "test/range/"
+      },
+      {
+        "name": "api",
+        "folder": "test/api/"
+      }
+    ]
+  }
+}
