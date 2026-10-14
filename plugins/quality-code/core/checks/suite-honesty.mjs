@@ -68,24 +68,28 @@ export function grade(files, { key = null } = {}, dialect) {
       if (t.mod === dialect.suite.notYet) notYet++
       if (t.mod === 'skip') skipped++
       behavioral++
-      if (!t.mod && t.expects >= 1) honest++
-      if (!t.mod && t.expects === 0) hollow.push({ file: path, test: t.title })
+      // Only skip and the not-yet marker are exempt; .only, .concurrent, .fails run, so they must assert.
+      const plain = t.mod !== 'skip' && t.mod !== dialect.suite.notYet
+      if (plain && t.expects >= 1) honest++
+      if (plain && t.expects === 0) hollow.push({ file: path, test: t.title })
     }
   }
   if (key && missingFiles.length === files.length) {
     return result('suite-honesty', 'not_run', `no ${key} block in ${missingFiles.join(', ')}`, [{ file: missingFiles.join(', '), kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   }
+  if (!behavioral) return result('suite-honesty', 'not_run', 'no test to grade', [{ kind: 'no test to grade', detail: 'no graded test in the given spec(s)' }])
+  const note = missingFiles.length ? ` (no ${key} block in ${missingFiles.join(', ')})` : ''
   const percent = behavioral ? Math.round((honest / behavioral) * 100) : 100
   const data = { tests: behavioral, withAssertion: honest, hollow: hollow.length, todo: notYet, skipped, capture, percent }
   if (hollow.length) {
-    return result('suite-honesty', 'fail', `${hollow.length} test(s) run but assert nothing`,
+    return result('suite-honesty', 'fail', `${hollow.length} test(s) run but assert nothing${note}`,
       hollow.map(h => ({ file: h.file, test: h.test, kind: 'hollow test', detail: 'runs but has no expect()' })), data)
   }
   if (behavioral > 0 && honest === 0) {
-    return result('suite-honesty', 'fail', `none of the ${behavioral} test(s) carries an assertion, so nothing here can fail`,
+    return result('suite-honesty', 'fail', `none of the ${behavioral} test(s) carries an assertion, so nothing here can fail${note}`,
       [{ kind: 'nothing asserts', detail: `${notYet} not written yet, ${skipped} skipped` }], data)
   }
-  return result('suite-honesty', 'pass', `${honest}/${behavioral} tests carry assertions (${percent}%)`, [], data)
+  return result('suite-honesty', 'pass', `${honest}/${behavioral} tests carry assertions (${percent}%)${note}`, [], data)
 }
 
 export function run({ specs, key = null }, ctx) {

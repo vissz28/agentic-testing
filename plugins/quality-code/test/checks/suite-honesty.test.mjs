@@ -96,3 +96,36 @@ test('grade --key: skips files without the block, not_run only when no file has 
   assert.equal(miss.status, 'not_run')
   assert.match(miss.summary, /a\.spec\.ts.*b\.spec\.ts/)
 })
+
+test('grade: every modifier but skip and the not-yet marker is graded as a plain test (§9 #20)', () => {
+  const hollow = grade([{ path: 'a', src: "it('ok', () => { expect(1).toBe(1) });it.concurrent('c', async () => { run() });it.only('o', () => {})" }], {}, V)
+  assert.equal(hollow.status, 'fail')
+  assert.deepEqual(hollow.findings.map(f => f.test), ['c', 'o'])
+  const honest = grade([{ path: 'a', src: "it.concurrent('c', async () => { expect(1).toBe(1) });it.fails('f', () => { expect(1).toBe(2) });it.only('o', () => { expect(1).toBe(1) })" }], {}, V)
+  assert.equal(honest.status, 'pass')
+  assert.equal(honest.data.withAssertion, 3)
+  const pw = grade([{ path: 'a', src: "test('a', () => { expect(1).toBe(1) });test.only('o', () => { run() })" }], {}, P)
+  assert.deepEqual(pw.findings.map(f => f.test), ['o'])
+})
+
+test('grade: no test to grade is not_run, not a pass (§9 #17)', () => {
+  const none = grade([{ path: 'a.spec.ts', src: 'const x = 1\n' }], {}, V)
+  assert.equal(none.status, 'not_run')
+  assert.match(none.summary, /no test to grade/)
+  const caps = grade([{ path: 'a', src: "test('ABC-1 — design-conformance capture', () => { shot() })" }], {}, P)
+  assert.equal(caps.status, 'not_run')
+  const keyed = grade([{ path: 'a', src: "describe('ABC-9', () => {})\n" }], { key: 'ABC-9' }, V)
+  assert.equal(keyed.status, 'not_run')
+})
+
+test('grade --key with several specs names the files that had no block', () => {
+  const a = "describe('ABC-1 — x', () => { it('in', () => { expect(1).toBe(1) }) })\n"
+  const b = "describe('OTHER', () => { it('in', () => { expect(1).toBe(1) }) })\n"
+  const ok = grade([{ path: 'a.spec.ts', src: a }, { path: 'b.spec.ts', src: b }], { key: 'ABC-1' }, V)
+  assert.equal(ok.status, 'pass')
+  assert.match(ok.summary, /\(no ABC-1 block in b\.spec\.ts\)$/)
+  const bad = grade([{ path: 'a.spec.ts', src: a.replace('expect(1).toBe(1)', 'run()') }, { path: 'b.spec.ts', src: b }], { key: 'ABC-1' }, V)
+  assert.equal(bad.status, 'fail')
+  assert.match(bad.summary, /\(no ABC-1 block in b\.spec\.ts\)$/)
+  assert.doesNotMatch(grade([{ path: 'a.spec.ts', src: a }], { key: 'ABC-1' }, V).summary, /no ABC-1 block/)
+})
