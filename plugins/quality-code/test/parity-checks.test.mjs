@@ -38,9 +38,9 @@ describe('boundary', () => {
     const v = violation(b.path, rules)
     // Ruling §9 (3): dist/ and node_modules/ are always forbidden; the old frontend guard did not know them.
     const expectForbidden = b.repo === 'fe' && /^(dist|node_modules)\//.test(b.path) ? true : b.forbidden
-    // FINDING (open): a bare `src` (no slash; git never reports a directory) was allowed by the old
-    // backend guard (startsWith('src/')) but is forbidden by the old frontend guard and by the merged
-    // one, since both configs share the rule `src/`. Not one of the §9 rulings: skipped, reported.
+    // Ruling §9 (12): a bare `src` (no slash) was allowed by the old backend guard (startsWith('src/'))
+    // but is forbidden by the old frontend guard and by the merged one. The merged behaviour wins, so
+    // the old backend answer is not compared.
     if (b.repo === 'be' && b.path === 'src') return
     assert.equal(Boolean(v), expectForbidden)
     if (b.why) assert.equal(v.why, b.why)

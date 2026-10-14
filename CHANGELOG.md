@@ -7,6 +7,27 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.4.0] - 2026-10-14
+
+### Added
+
+- Five deterministic checks for generated tests, one version for Vitest and Playwright, driven by
+  the config: `boundary` (no writes to application code, environment or CI files during a test
+  run), `honesty` (no removed assertion or test, no skip without a ticket), `suite-honesty` (every
+  test that runs asserts something), `flaky` and `assertion-mutation` (every generated assertion can
+  fail; any survivor fails the check). Run by hand with `core/checks/cli.mjs`; the test-writing
+  pipeline uses them from part 4.
+- `boundaries` in `.claude/quality-code.json`, and a card in `/quality-code:setup advanced` that
+  proposes them from your repo (the short setup uses the defaults).
+- A boundary hook that only acts while a test-writing run is active; outside a run Claude edits your
+  code as usual.
+
+### Upgrade
+
+Update the plugin before re-running setup: a config with `boundaries` is refused by 0.3.0. Re-run
+`/quality-code:setup advanced` to get the boundaries card and the new `.gitignore` lines; without
+it the checks use the defaults.
+
 ## [0.3.3] - 2026-10-14
 
 ### Changed

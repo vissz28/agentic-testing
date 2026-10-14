@@ -82,7 +82,7 @@ other than English and Italian. See [Known limits](#known-limits).
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
-| Deterministic checks on generated tests (honesty, assertions, mutation, boundaries, flakiness) | — | 🛠 in design (part 2) |
+| Deterministic checks on generated tests (honesty, assertions, mutation, boundaries, flakiness) | building blocks for the test-writing pipeline; run by hand with `core/checks/cli.mjs` | ✅ available (building blocks) |
 | Write and grade backend tests, any Node/TS + Vitest service | — | 📅 planned (part 4) |
 | Write and grade frontend tests, any Playwright app | — | 📅 planned (part 3) |
 
@@ -403,6 +403,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | `[]` |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
+| `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions | `src/`, `.env`, `.env.*`, the CI file |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
@@ -476,7 +477,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 ## Known limits
 
 - **No test writing yet.** Today the plugin covers setup, the readiness gate, the guided fill-in
-  and Jira. Test writing and the checks come in parts 2–4.
+  and Jira, plus the checks that grade generated tests. Test writing comes in parts 3–4.
 - **Stacks:** Playwright and Vitest only. Other runners are possible later as new adapters.
 - **Jira:** Jira Cloud through the Atlassian connector.
 - **Languages:** English and Italian keywords.
@@ -490,7 +491,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 | # | Part | What it brings | Status |
 |---|---|---|---|
 | 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
-| 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | 🛠 in design |
+| 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
 | 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
@@ -529,9 +530,11 @@ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
 │     ├─ commands/                     setup.md, start.md, ticket-eval.md
+│     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │     │                                rubrics, score, sanitize, fill, jira, cli, setup,
 │     │                                branch, connectors.md
+│     │  └─ checks/                    boundary, honesty, suite-honesty, flaky, mutation
 │     ├─ schema/                       quality-code.schema.json
 │     ├─ templates/                    standard Story and Bug templates
 │     └─ test/                         unit tests and the parity suite
@@ -542,6 +545,15 @@ quality-code/
 ```bash
 cd plugins/quality-code && npm test
 ```
+
+Run a check by hand (from a set-up repo):
+
+```bash
+node <plugin>/core/checks/cli.mjs honesty test/orders.spec.ts
+```
+
+`boundary`, `honesty`, `suite-honesty` run as they are; `flaky` and `mutation` need the test runner
+that the Vitest and Playwright adapters bring.
 
 ```bash
 claude plugin validate plugins/quality-code && claude plugin validate .

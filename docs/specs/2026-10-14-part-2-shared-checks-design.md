@@ -82,11 +82,13 @@ is checked against the same project list.
 
 ### 4.4 Setup
 
-One new card after "Templates": **Paths a test run must never change**. It lists the candidates that
+One new card after "Templates", in the advanced setup only (the short setup asks just the connectors,
+the project and the Jira project, and uses the defaults): **Paths a test run must never change**. It lists the candidates that
 exist in the repo (`src/`, `prisma/`, `migrations/`, `dapr/`, `.env` and `.env.*`, the CI file) with
 `1. Keep this list / 2. Add a path / 3. Remove a path`, and, for Vitest, one question: "Do specs live
 next to the code (`src/**/*.spec.ts`)?" whose yes adds that pattern to `allow`. Re-running setup on a
 part 1 config proposes these defaults; nothing is written before the usual `1. Write it`.
+The `.gitignore` lines setup writes include `mut-tmp-*` (the temporary specs of a mutation run).
 
 ## 5. Components
 
@@ -260,6 +262,23 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
    `.claude/quality-code/boundary.jsonl`, git-ignored.
 6. Results use one shape (§5.4) instead of each script's own `*_JSON` line; parity compares the
    verdicts and findings, not the printed text.
+7. `--key` naming a block that is not in the spec is `not_run` (§5.2) for both stacks. Today's backend
+   graded the whole file instead.
+8. The frontend's `HARNESS_BOUNDARY_OVERRIDE=1` is gone: the hook only acts during a run, and removing
+   `.claude/quality-code/run.active` lifts it.
+9. The runner contract (§5.3) carries an optional `broken: [{ file, message }]`; a green flaky run with
+   a file that never ran is `not_run`, as the backend's error verdict was.
+10. The dialect also carries each stack's honesty, suite-honesty and mutation rules (§5.1 lists the
+    syntax only), so both warehouse copies keep their exact verdicts.
+11. `--key` matches the whole key (not a substring) and, with several specs, files without the block
+    are skipped; `not_run` only when no file has it.
+12. A path equal to a forbidden folder (bare `src`) is forbidden for both stacks (the old backend guard
+    allowed it).
+13. assertion-mutation: when no mutant survives but some mutants ran no test, the result is `not_run`
+    ("<killed> of <total> mutants killed; <n> ran no test"), never pass.
+14. flaky: green requires every run to have executed (else `not_run`, "only N of M runs executed");
+    `runs` must be a whole number of at least 1.
+15. A check that crashes makes `core/checks/cli.mjs` exit 2 with "check <name> crashed: ..." on stderr.
 
 ## 10. Rollout
 
