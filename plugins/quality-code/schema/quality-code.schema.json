@@ -103,6 +103,17 @@
         "stryker": { "type": "object", "additionalProperties": false, "properties": { "threshold": { "type": "integer", "minimum": 0, "maximum": 100, "default": 60, "description": "Share of Stryker's code changes the tests must catch, in percent." } }, "description": "Used only when the project has node_modules/.bin/stryker." }
       }
     },
+    "playwright": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only with adapter playwright. How quality-code runs your Playwright specs.",
+      "properties": {
+        "configs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["match", "config"], "properties": { "match": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Spec path pattern: a prefix ending in /, an exact path, or a glob with * and **." }, "config": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Playwright config file for the specs that match." } } }, "description": "First match wins; none means Playwright's default config." },
+        "projects": { "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!-)(?!\\s*$)[^\\r\\n]+$" }, "description": "Playwright projects to run, for example [\"chromium\"]. Left out, every project of the config runs." },
+        "tsconfig": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one Playwright process may take." }
+      }
+    },
     "redact": {
       "type": "object",
       "default": { "customerId": "\\bU\\d{5,}\\b" },

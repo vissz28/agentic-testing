@@ -6,7 +6,7 @@ import { matches } from './checks/boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright'])
 const LANGS = new Set(['en', 'it'])
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 const PATH_RULE = 'must be a relative path inside the project (no "..", not absolute, one line)'
@@ -30,6 +30,23 @@ export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replac
 
 export const projectRoot = (env = process.env, cwd = process.cwd()) => env.CLAUDE_PROJECT_DIR || cwd
 export const configPath = root => join(root, CONFIG_REL)
+
+const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+/** The fields the vitest and playwright blocks share: configs, tsconfig, timeoutSeconds. */
+function runnerFields(b, name, e) {
+  const cf = b.configs
+  if (cf !== undefined) {
+    if (!Array.isArray(cf)) e.push(`${name}.configs: must be a list of { "match", "config" }`)
+    else cf.forEach((x, i) => {
+      if (!isObject(x)) { e.push(`${name}.configs[${i}]: must be an object with "match" and "config"`); return }
+      for (const f of ['match', 'config']) if (!pathOk(x[f])) e.push(`${name}.configs[${i}].${f} ${JSON.stringify(x[f])} ${PATH_RULE}`)
+    })
+  }
+  if (b.tsconfig !== undefined && !pathOk(b.tsconfig)) e.push(`${name}.tsconfig ${JSON.stringify(b.tsconfig)} ${PATH_RULE}`)
+  const t = b.timeoutSeconds
+  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+}
 
 export function validateConfig(input) {
   const e = []
@@ -128,17 +145,7 @@ export function validateConfig(input) {
     else if (!isObj(c.vitest)) e.push('vitest: must be an object')
     else {
       for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
-      const cf = c.vitest.configs
-      if (cf !== undefined) {
-        if (!Array.isArray(cf)) e.push('vitest.configs: must be a list of { "match", "config" }')
-        else cf.forEach((x, i) => {
-          if (!isObj(x)) { e.push(`vitest.configs[${i}]: must be an object with "match" and "config"`); return }
-          for (const f of ['match', 'config']) if (!pathOk(x[f])) e.push(`vitest.configs[${i}].${f} ${JSON.stringify(x[f])} ${PATH_RULE}`)
-        })
-      }
-      if (c.vitest.tsconfig !== undefined && !pathOk(c.vitest.tsconfig)) e.push(`vitest.tsconfig ${JSON.stringify(c.vitest.tsconfig)} ${PATH_RULE}`)
-      const t = c.vitest.timeoutSeconds
-      if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push('vitest.timeoutSeconds: must be a whole number from 10 to 3600')
+      runnerFields(c.vitest, 'vitest', e)
       const ls = c.vitest.layers
       if (ls !== undefined) {
         if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) e.push('vitest.layers: must be a list of 1 to 5 { "name", "folder", "guide" }')
@@ -174,6 +181,26 @@ export function validateConfig(input) {
       }
     }
   }
+  if (c.playwright !== undefined) {
+    if (c.adapter !== 'playwright') e.push('playwright: only allowed with "adapter": "playwright"')
+    else if (!isObj(c.playwright)) e.push('playwright: must be an object')
+    else {
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig" and "timeoutSeconds")`)
+      runnerFields(c.playwright, 'playwright', e)
+      const ps = c.playwright.projects
+      if (ps !== undefined) {
+        if (!Array.isArray(ps) || ps.length < 1 || ps.length > 10) e.push('playwright.projects: must be a list of 1 to 10 project names')
+        else {
+          const seen = new Set()
+          ps.forEach((p, i) => {
+            if (typeof p !== 'string' || !p.trim() || p.startsWith('-') || /[\r\n]/.test(p)) e.push(`playwright.projects[${i}] ${JSON.stringify(p)} must be a project name of your Playwright config: one line, not empty, not starting with "-"`)
+            else if (seen.has(p)) e.push(`playwright.projects[${i}] "${p}" appears twice`)
+            else seen.add(p)
+          })
+        }
+      }
+    }
+  }
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,
@@ -193,6 +220,15 @@ export function validateConfig(input) {
 
 /** The test folders a writing run may use: the configured layers, else one "unit" layer in test/. */
 export const layersOf = config => config?.vitest?.layers ?? DEFAULT_LAYERS
+
+/** The block of the configured adapter (vitest or playwright), or {} when there is none. */
+export const adapterOptions = config => {
+  const b = config?.adapter === 'vitest' || config?.adapter === 'playwright' ? config[config.adapter] : null
+  return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
+}
+
+/** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, 300 for Vitest. */
+export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : 300)
 
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD

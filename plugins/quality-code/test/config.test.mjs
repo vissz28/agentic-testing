@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold } from '../core/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf } from '../core/config.mjs'
 
 const good = {
   version: 1,
@@ -319,4 +319,64 @@ test('vitest.stryker: each wrong part is named', () => {
   for (const t of [-1, 101, 1.5, '60', null]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { threshold: t } } }).errors, [msg], String(t))
   for (const v of ['x', 5, null, []]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: v } }).errors, ['vitest.stryker: must be an object with an optional "threshold"'], JSON.stringify(v))
   assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bar: 1 } } }).errors, ['vitest.stryker.bar: unknown field (only "threshold")'])
+})
+
+test('playwright block: configs, projects, tsconfig, timeout', () => {
+  const r = validateConfig({ ...good, playwright: { configs: [{ match: 'e2e/admin/**', config: 'playwright.admin.config.ts' }], projects: ['chromium', 'Mobile Safari'], tsconfig: 'e2e/tsconfig.json', timeoutSeconds: 900 } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.deepEqual(r.config.playwright.projects, ['chromium', 'Mobile Safari'])
+})
+test('playwright block: absent stays absent; only with adapter playwright; not an object', () => {
+  assert.equal(validateConfig(good).config.playwright, undefined)
+  assert.ok(validateConfig({ ...vgood, playwright: {} }).errors.includes('playwright: only allowed with "adapter": "playwright"'))
+  for (const v of ['x', 5, null, ['a']]) assert.ok(validateConfig({ ...good, playwright: v }).errors.includes('playwright: must be an object'), JSON.stringify(v))
+  assert.ok(validateConfig({ ...good, vitest: {} }).errors.includes('vitest: only allowed with "adapter": "vitest"'))
+})
+test('playwright block: each wrong part is named', () => {
+  const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
+  assert.deepEqual(r.errors, [
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig" and "timeoutSeconds")',
+    'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
+    'playwright.configs[1]: must be an object with "match" and "config"',
+    'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
+    'playwright.timeoutSeconds: must be a whole number from 10 to 3600',
+  ])
+  assert.ok(validateConfig({ ...good, playwright: { configs: {} } }).errors.includes('playwright.configs: must be a list of { "match", "config" }'))
+  for (const t of [1.5, 3601, '60']) assert.ok(validateConfig({ ...good, playwright: { timeoutSeconds: t } }).errors.includes('playwright.timeoutSeconds: must be a whole number from 10 to 3600'), String(t))
+})
+test('playwright.projects: 1 to 10 one-line names, not starting with "-", no duplicates', () => {
+  const list = 'playwright.projects: must be a list of 1 to 10 project names'
+  const eleven = Array.from({ length: 11 }, (_, i) => `p${i}`)
+  for (const ps of [[], 'chromium', {}, eleven]) assert.deepEqual(validateConfig({ ...good, playwright: { projects: ps } }).errors, [list], JSON.stringify(ps))
+  assert.equal(validateConfig({ ...good, playwright: { projects: eleven.slice(1) } }).ok, true)
+  const bad = v => `playwright.projects[${v[0]}] ${JSON.stringify(v[1])} must be a project name of your Playwright config: one line, not empty, not starting with "-"`
+  const r = validateConfig({ ...good, playwright: { projects: ['chromium', 'chromium', '-x', 'a\nb', '', 3] } })
+  assert.deepEqual(r.errors, ['playwright.projects[1] "chromium" appears twice', ...[[2, '-x'], [3, 'a\nb'], [4, ''], [5, 3]].map(bad)])
+})
+test('adapterOptions and timeoutSecondsOf: the configured adapter\'s block, 600 s for Playwright, 300 s for Vitest', () => {
+  assert.deepEqual(adapterOptions({ adapter: 'playwright', playwright: { projects: ['a'] }, vitest: { tsconfig: 'x' } }), { projects: ['a'] })
+  assert.deepEqual(adapterOptions({ adapter: 'vitest', vitest: { tsconfig: 'x' } }), { tsconfig: 'x' })
+  assert.deepEqual(adapterOptions({ adapter: 'vitest' }), {})
+  assert.deepEqual(adapterOptions(null), {})
+  assert.equal(timeoutSecondsOf({ adapter: 'playwright' }), 600)
+  assert.equal(timeoutSecondsOf({ adapter: 'vitest' }), 300)
+  assert.equal(timeoutSecondsOf({ adapter: 'playwright', playwright: { timeoutSeconds: 42 } }), 42)
+  assert.equal(timeoutSecondsOf({ adapter: 'vitest', vitest: { timeoutSeconds: 42 }, playwright: { timeoutSeconds: 7 } }), 42)
+})
+test('the schema documents the playwright block with the validator\'s path pattern', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const p = schema.properties.playwright
+  assert.equal(p.type, 'object')
+  assert.equal(p.additionalProperties, false)
+  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'projects', 'timeoutSeconds', 'tsconfig'])
+  const path = schema.properties.vitest.properties.tsconfig.pattern
+  assert.equal(p.properties.tsconfig.pattern, path)
+  assert.equal(p.properties.configs.items.properties.match.pattern, path)
+  assert.equal(p.properties.configs.items.properties.config.pattern, path)
+  assert.equal(p.properties.projects.minItems, 1)
+  assert.equal(p.properties.projects.maxItems, 10)
+  assert.equal(p.properties.timeoutSeconds.default, 600)
+  const name = new RegExp(p.properties.projects.items.pattern)
+  for (const ok of ['chromium', 'Mobile Safari']) assert.ok(name.test(ok), ok)
+  for (const bad of ['-x', 'a\nb', '', '  ']) assert.ok(!name.test(bad), JSON.stringify(bad))
 })
