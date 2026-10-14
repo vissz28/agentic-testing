@@ -25,7 +25,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
    Then read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it, as the start command does. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score. The script scores; never write a test for a ticket it refuses.
-   - **Refused:** its refuse card and its flow, as written there. If that flow ends with the ticket passing (the guided fill-in and `1. Continue`), go on. Anything else (a comment posted, a cancel, a stop, or option 3, the developer override), stop: `Writing tests needs a ticket that passes the gate.` No run marker, no file written.
+   - **Refused:** its refuse card and its flow, as written there. If that flow ends with the ticket passing (the guided fill-in and `1. Continue`), go on. On option 3, the developer override, go on only when the ticket-eval flow lets it (the brief's `derivable` is at least 1): remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score, and say `The ticket is incomplete: the result carries the 🔴 [RISK / NOT RECOMMENDED] mark.` Anything else (a comment posted, a cancel, a stop), stop: `Writing tests needs a ticket that passes the gate, or option 3.` No run marker, no file written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`. Read from it the `summary`, the `issuetype`, the scenarios and the expected values. This file is the only copy of the ticket; never edit it.
    - **Playwright:** also keep the `route` and the `feature` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
 3. **Target.** What the tests check: a source file (Vitest) or a screen of the app (Playwright).
@@ -105,6 +105,8 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    - **Vitest:** `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --target '<target>'`
    - **Playwright:** first add this line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.` Then `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json`, with no `--target` (the pipeline refuses it for Playwright: there is no Stryker step).
 
+   After option 3 in step 2, add `--incomplete-ticket <score>` with the score remembered there: the card then opens with the 🔴 [RISK / NOT RECOMMENDED] line. Never pass it otherwise.
+
    Quote every spec path and the target in single quotes. Pass every spec this run wrote. Do not pass `--range` or `--json`. Read the verdict and the step that decided it from the `PIPELINE_JSON:` line, without showing it.
    - **Fixable** (`checks_failed` decided by `expected`, `assertions`, `mutation`, `stryker`, or `types` with the error in a spec): rewrite the tests only, as the card's "What to do" says, and run the same command again. At most 2 rewrites in all; after the second, take the card as it is.
    - **`boundary` or `honesty`:** undo that change once (restore the file or the test as it was) and run again. If it fails again, take the card as it is. On Playwright, an `honesty` failure about an anchor tag means a tag list was split over lines: put it back on the `test(` line.
@@ -112,7 +114,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    - **Exit 2** (a usage or config error, a missing target, a crash): run `run stop`, show its lines as they are and stop.
 
    Then run `node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run stop`.
-7. **Card.** Show the last card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. Then the spec paths written, one per line. For a **Bug** (the ticket's `issuetype`) whose card is `tests red` with a test that asserts the ticket's expected value, add one line:
+7. **Card.** Show the last card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. Keep the 🔴 [RISK / NOT RECOMMENDED] line; never drop or soften it. Then the spec paths written, one per line. For a **Bug** (the ticket's `issuetype`) whose card is `tests red` with a test that asserts the ticket's expected value, add one line:
 
    `This is the bug the ticket describes; it should go green when the fix is merged.`
 

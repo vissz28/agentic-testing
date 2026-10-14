@@ -45,6 +45,14 @@ test('step 2: the gate is ticket-eval steps 1–5 by reference; a refused ticket
   assert.match(s, /option 3/)
   assert.ok(s.includes('<ticketsDir>/<KEY>/ticket.json'))
 })
+test('option 3 writes tests marked incomplete, and only option 3 passes --incomplete-ticket', () => {
+  assert.ok(step(2).includes("derivable` is at least 1"))
+  assert.ok(step(2).includes('The ticket is incomplete: the result carries the 🔴 [RISK / NOT RECOMMENDED] mark.'))
+  assert.ok(step(2).includes('Writing tests needs a ticket that passes the gate, or option 3.'))
+  assert.ok(step(6).includes('`--incomplete-ticket <score>`'))
+  assert.ok(step(6).includes('Never pass it otherwise.'))
+  assert.ok(step(7).includes('never drop or soften it'))
+})
 test('step 3: the target card, even for one candidate; --target skips it', () => {
   const s = step(3)
   assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
