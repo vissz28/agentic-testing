@@ -125,9 +125,14 @@ test('runner: no report → the first stderr line, else a plain message; temp di
 test('runner: timeout → ran false, temp dir removed', async () => {
   const d = proj()
   fakeBin(d, 'stryker', { sleepMs: 5000, report: report('Killed') })
-  const r = await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 300 })
+  // Its own TMPDIR: the fake may be killed before it records its call, so the temp folder is checked directly.
+  const tmp = mkdtempSync(join(tmpdir(), 'qc-stryker-tmpdir-'))
+  const saved = process.env.TMPDIR
+  process.env.TMPDIR = tmp
+  let r
+  try { r = await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 300 }) } finally { process.env.TMPDIR = saved }
   assert.deepEqual(r, { ran: false, error: 'took longer than 300ms' })
-  assert.equal(existsSync(dirname(outOf(calls(d, 'stryker')[0]))), false)
+  assert.deepEqual(readdirSync(tmp), [])
   const s = proj()
   fakeBin(s, 'stryker', { sleepMs: 5000, report: report('Killed') })
   assert.equal((await runStryker(s, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 1500 })).error, 'took longer than 2s')
