@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -99,6 +99,22 @@ test('run: runner could not run → not_run; mutants that ran nothing are errors
   const e = await run({ spec: 'test/a.spec.ts' }, { root: d, dialect: V, runTests: flaky })
   assert.equal(e.status, 'not_run')
   assert.equal(e.data.errors, 1)
+})
+test('run: some killed and some that ran no test is not_run, never pass', async () => {
+  const d = spec()
+  let calls = 0
+  const runTests = async ({ files, testName }) => {
+    calls++
+    if (calls === 1) return { ran: true, tests: [{ title: 'adds', file: files[0], status: 'passed' }, { title: 'weak', file: files[0], status: 'passed' }] }
+    if (calls === 2) return { ran: true, tests: [{ title: testName, file: files[0], status: 'failed' }] }
+    return { ran: true, tests: [] }
+  }
+  const r = await run({ spec: 'test/a.spec.ts' }, { root: d, dialect: V, runTests })
+  assert.equal(r.status, 'not_run')
+  assert.match(r.summary, /1 of 2 mutants killed; 1 ran no test/)
+  assert.equal(r.data.killed, 1)
+  assert.equal(r.data.errors, 1)
+  assert.deepEqual(r.findings, [])
 })
 test('run: --max keeps the strongest; a missing --key block is not_run', async () => {
   const d = spec()

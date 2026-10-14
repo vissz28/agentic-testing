@@ -126,5 +126,6 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
     return result('mutation', 'fail', `${survivedList.length} of ${graded.length} mutant(s) survived: an assertion that cannot fail`,
       survivedList.map(o => ({ file: spec, test: o.title, kind: 'survived', detail: o.snippet })), data)
   }
+  if (errors) return result('mutation', 'not_run', `${killed} of ${graded.length + errors} mutants killed; ${errors} ran no test`, [], data)
   return result('mutation', 'pass', `${killed}/${graded.length} mutants killed`, [], data)
 }
