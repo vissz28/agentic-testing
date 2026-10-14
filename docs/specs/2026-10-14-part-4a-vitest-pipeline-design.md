@@ -60,7 +60,7 @@ file, status, message }], error?, broken? }`.
   in this project: run npm install"); the timeout is hit ("took longer than <n>s"); no report was
   written (the first non-empty line of Vitest's stderr, e.g. a config error or a database that is
   down).
-- The report file lives in the OS temp folder and is always deleted. Nothing is written into the repo.
+- The report file lives in the OS temp folder and is always deleted. Nothing is written into the repo, apart from the two exceptions in §13 (M6, M9).
 
 ## 5. The pipeline — `core/pipeline/vitest.mjs`
 
@@ -70,12 +70,12 @@ in tests).
 
 | # | Step (result `check` name) | Runs when | Notes |
 |---|---|---|---|
-| 1 | `boundary` | always | diff mode, `range` if given |
-| 2 | `honesty` | always | on `specs`, `range` if given |
+| 1 | `boundary` | always | diff mode. Applies only while a test-writing run is active (the run marker is present); otherwise `pass`, "not applicable: not a test-writing run" (§13, I6) |
+| 2 | `honesty` | always | on `specs`, `range` if given. With a range `A...B` it reads what is committed in that range, not the uncommitted changes; without one it reads the changes against HEAD |
 | 3 | `suite-honesty` | always | `key` if given |
 | 4 | `types` | always | `tsc --noEmit -p <tsconfig>` with `<root>/node_modules/.bin/tsc`; pass on exit 0; fail with the first error line; **not applicable** (status `pass`, summary "no TypeScript specs") when there is no tsconfig and no `.ts`/`.tsx`/`.mts`/`.cts` spec; `not_run` when there are TS specs but no tsconfig or no `tsc` |
 | 5 | `tests` | step 4 passed | the runner on `specs`; pass when every test passed, fail when any failed, not_run when it could not run, a file never ran, or no test ran |
-| 6 | `mutation` | step 5 ran | `baseline` = titles that passed in step 5 (no second run) |
+| 6 | `mutation` | step 5 ran | `baseline` = titles that passed in step 5 (no second run). Per spec. A spec with no passing test is skipped (a failing test already shows its assertions can fail). A spec with passing tests and no assertion mutation can check is `not_run` (§13, I9, M8) |
 | 7 | `flaky` | only with `flakyRuns` | on `specs` |
 
 Steps 1–3 always run. When step 4 fails, steps 5 and 6 are `not_run` ("skipped: the specs do not
@@ -132,14 +132,14 @@ comes from the first step that decided the verdict:
   with `--json`). Exit `0` green, `1` checks failed or tests red, `2` usage/config error or a crash,
   `3` not verified.
 - **`/quality-code:check [spec…] [--key KEY] [--flaky N]`** (new command). With specs: run them. With
-  none: run `core/branch.mjs --detect`, take the branch's files of kind `test`, and ask
+  none: run `core/branch.mjs --detect`, take the branch's files of kind `test` that are not deleted (status other than `D`), and ask
   `Check these <n> spec files? 1. Yes / 2. Pick some / 3. Stop`; the key is the branch's first key
-  (confirmed). Before running, post one line ("Running the checks: tests, assertions, types and
+  (confirmed). From the branch it passes `--range <base>...HEAD` (`base` from the detect output) and quotes every spec path. Before running, post one line ("Running the checks: tests, assertions, types and
   mutation; this can take a few minutes."). Then show the card verbatim without the machine line.
   Never edit tests, never retry.
 - **`/quality-code:start`** step 4 becomes:
   `1. Evaluate the ticket / 2. Check the tests on this branch / 3. Write and check tests (coming with
-  part 4b) / 4. Stop`. Option 2 is offered only when the branch has test files (`counts.test > 0`) and
+  part 4b) / 4. Stop`. Option 2 is offered only when the branch has at least one test file that is not deleted and
   `adapter` is `vitest`; it follows `/quality-code:check` with those files and the confirmed key.
   Option 3 says "Writing tests for any project comes with part 4b." and shows the card again.
 
@@ -190,3 +190,54 @@ sample service, the Playwright pipeline (part 3), the run marker around writing.
 3. The runner never writes into the project; its report file is deleted.
 4. `start` offers "Check the tests on this branch" only for Vitest projects with changed test files.
 5. All tests and both validations pass; no `AGT|FIC` in the new core folders.
+
+## 13. Rulings during the build
+
+Decided while building and reviewing 4a. Where one differs from an earlier section, this one wins.
+
+1. **The `-t` pattern is `(?:^| )<escaped title>$`**, not `^title$` as §4 says. Vitest matches `-t`
+   against the test's full name (its describe titles and its own title, joined by spaces), so a test
+   inside a `describe` would never match an anchored `^title$`. Mutation keeps only results whose
+   title is exactly the asked title, so a longer title that ends the same way does not count.
+2. **Mutation with several specs.** It runs once per spec, with that file's passing tests as the
+   baseline. With `--key`, a spec without the key block is skipped (as suite-honesty does); if every
+   spec is skipped, mutation is `not_run`. Results are summed; any survivor fails; otherwise any
+   `not_run` makes it `not_run`.
+3. **The Vitest-configs card** goes at the end of advanced setup step A4, after the boundaries card,
+   not as a new step, so A5 stays the preview step.
+4. **No real-Vitest end-to-end test in 4a.** §9's `QC_REAL_VITEST` test is deferred to 4b's sample
+   service: the plugin has no npm dependencies and no sample project yet. Cost if wrong: a drift in
+   Vitest's JSON report format is caught only in 4b. The fake `vitest` covers the report shapes, and
+   the final review checked the parsing and the `-t` pattern once against a real Vitest 5.
+5. **I6, boundary and the range.** Boundary applies only while a test-writing run is active (the run
+   marker is present); without one it is `pass`, "not applicable: not a test-writing run". It guards
+   Claude's writing runs, not a developer's own changes, so a hand-written change under `src/` is not
+   flagged by `/quality-code:check`. 4b writes the marker and uses its base. For honesty, the branch
+   flow passes `--range <base>...HEAD`, so a removal committed earlier on the branch is seen.
+   `A...B` is the diff from the merge base of A and B to B: it covers what is committed, not changes
+   that are not committed yet, and untracked specs are not read. With spec paths the user typed, no
+   range is passed and honesty reads the changes against HEAD, untracked specs included. The command
+   does not ask the user to commit or stash first: boundary no longer looks at the working tree in this
+   flow.
+6. **I7, deleted test files.** `branch.mjs` reports a deleted test file with status `D` and kind
+   `test`. The command leaves them out of the spec list, and `start` offers option 2 only when a test
+   file that is not deleted exists. A deleted spec is not run; the honesty range sees its removal only
+   for specs that are passed.
+7. **I9, a spec mutation cannot touch is not verified.** In the pipeline, mutation with passing tests
+   and no eligible assertion (snapshot-only, chai-style, `assert.*`, custom matchers, `it.each`,
+   helper expects) is `not_run`, so the verdict is `not_verified` (exit 3) with the reason on the card.
+   Part 2's standalone check keeps `pass` for the same case. A mixed spec with some eligible assertions
+   still passes.
+8. **M8, a spec with no passing test skips mutation**, like a spec with no anchor. A bug-reproduction
+   spec that only fails therefore gives `tests_red`, as §6 intends ("red is the expected result").
+9. **M6 and M9, the exceptions to "nothing is written into the repo".** Vitest's own cache in
+   `node_modules/.vite` (gitignored, not the team's tracked files), and the mutation check's temporary
+   spec copies `mut-tmp-*` next to the spec (part 2's accepted design: the original is never written,
+   and the copy is deleted on exit and on a signal). The type-check's build info and the Vitest report
+   go to the OS temp folder and are deleted.
+10. **Other review rulings.** The tests step is judged on the requested files only (Vitest's file
+    arguments are substring filters). Mutation and flaky use `vitest.timeoutSeconds`. A test that fails
+    every run does not make `--flaky` fail: red stays `tests_red`, and flaky is `not_run` when the tests
+    did not run. A symlinked project root is resolved before matching report paths. Duplicate spec paths
+    are run once. The mutation temp file keeps the spec's own name after its prefix, so a `*.test.ts`
+    include still matches and a `configs` entry that names the exact spec still applies.

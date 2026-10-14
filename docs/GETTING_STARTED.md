@@ -5,7 +5,7 @@ tested and how to fix it when it is not, all inside Claude Code. It works for an
 Playwright (frontend) or Vitest (backend) repo.
 
 > **What it does today:** setup, the daily start from your feature branch, the readiness check,
-> the guided fill-in and the Jira comment / update. Writing the tests themselves comes in a later
+> the guided fill-in, the Jira comment / update and checking Vitest tests. Writing the tests themselves comes in a later
 > version; see the [CHANGELOG](../CHANGELOG.md) for what each version added.
 
 ---
@@ -140,6 +140,32 @@ Type the numbers you want to fill, for example: 1 3
 
 Only for developers who know the risk. Everything afterwards is marked
 `[RISK / NOT RECOMMENDED]`.
+
+---
+
+## Checking tests (Vitest projects)
+
+Once your branch has test files, run:
+
+```
+/quality-code:check
+```
+
+Or pick `2. Check the tests on this branch` in `/quality-code:start`. You can also name the specs:
+`/quality-code:check test/orders.spec.ts`. It lists the test files your branch changed (deleted ones
+are left out) and asks `1. Yes / 2. Pick some / 3. Stop`, confirms the ticket key, then runs the
+tests and the checks. This can take a few minutes. You get one card with a verdict:
+
+| Verdict | What to do |
+|---|---|
+| ✅ green | nothing: the tests pass and every check ran |
+| ❌ checks failed | read the "What to do" line: for example an assertion was removed, a test asserts nothing, or the code does not compile |
+| ⚠️ not verified | something could not run (Vitest missing, a timeout). Fix what the card names and run it again. A spec of only snapshots is also not verified, because the check cannot show its assertions can fail |
+| 🔴 tests red | a test fails. Normal for a bug whose fix is not merged yet |
+
+The check never edits your tests or code and writes nothing into the repo, apart from Vitest's own
+cache and short-lived temporary copies of the spec that the mutation check makes next to it. If your
+repo has more than one Vitest config, `/quality-code:setup advanced` asks which config runs which tests.
 
 ---
 

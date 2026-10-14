@@ -7,6 +7,47 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.5.0] - 2026-10-14
+
+### Added
+
+- **`/quality-code:check`** runs and grades Vitest spec files in any Node/TypeScript project and
+  prints one plain card. Give it spec paths, or none to take the test files your branch changed
+  (deleted ones are left out). `--key` names the ticket, `--flaky N` also runs the tests N times.
+- **The Vitest pipeline** (`core/pipeline/cli.mjs`), always in this order: boundary, honesty,
+  assertions (suite-honesty), types (`tsc --noEmit`), tests, mutation, and flaky when asked. The
+  verdict is one of `green`, `checks failed`, `not verified` and `tests red`; a script decides it,
+  never the model. Anything that could not run makes the verdict `not verified`, never green. That
+  includes a spec whose assertions mutation cannot check (snapshot-only, chai-style or custom
+  matchers). A spec with failing tests and no passing one skips mutation, so a bug reproduction
+  gives `tests red`. Exit codes: `0` green, `1` checks failed or tests red, `2` usage or config error
+  (or a crash), `3` not verified.
+- **Option 2 in `/quality-code:start`**, "Check the tests on this branch", offered for Vitest
+  projects when the branch has a test file that is not deleted. The branch run reads everything
+  committed on the branch for removed assertions and tests.
+- **The `vitest` block** in `.claude/quality-code.json`: `configs` (which Vitest config runs which
+  specs), `tsconfig` and `timeoutSeconds` (10 to 3600, default 300), and a card in
+  `/quality-code:setup advanced` that asks about it when the repo has several `vitest.config.*` files.
+- Vitest runs the project's own `node_modules/.bin/vitest`, with the per-test JSON report and
+  retries off. The plugin still has no dependencies.
+
+### Changed
+
+- The boundary check inside the pipeline applies only while a test-writing run is active. With
+  `/quality-code:check` on your own work it reports "not applicable", so your own code changes never
+  fail it.
+
+### Upgrade
+
+Update the plugin before re-running setup: 0.4.x refuses a config with a `vitest` block.
+
+### Good to know
+
+- The checks write nothing into your repo, with two exceptions: Vitest's own cache in
+  `node_modules/.vite`, and the mutation check's temporary spec copies next to the spec, which it
+  deletes when it ends.
+- Playwright projects get the same command with part 3; today it says so and stops.
+
 ## [0.4.0] - 2026-10-14
 
 ### Added
