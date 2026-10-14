@@ -5,7 +5,7 @@ import { join } from 'node:path'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries'])
 const LANGS = new Set(['en', 'it'])
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 
@@ -96,6 +96,29 @@ export function validateConfig(input) {
   if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
   else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
     e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
+  if (c.boundaries !== undefined) {
+    const where = p => `must be a relative path inside the project (no "..", not absolute, one line)`
+    const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
+    if (!isObj(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
+    else {
+      for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
+      const f = c.boundaries.forbidden
+      if (f !== undefined) {
+        if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
+        else f.forEach((r, i) => {
+          if (!isObj(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
+          if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${where()}`)
+          if (r.why !== undefined && (typeof r.why !== 'string' || !r.why.trim() || /[\r\n]/.test(r.why))) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
+          for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
+        })
+      }
+      const a = c.boundaries.allow
+      if (a !== undefined) {
+        if (!Array.isArray(a)) e.push('boundaries.allow: must be a list of path patterns')
+        else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${where()}`) })
+      }
+    }
+  }
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,

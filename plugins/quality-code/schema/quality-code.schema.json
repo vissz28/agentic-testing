@@ -70,6 +70,27 @@
       "pattern": "^[^\\r\\n]+$",
       "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\" and a trailing \"/\" is dropped, so the .gitignore line is <dir>/*/raw.json."
     },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Paths a test-writing run may never write. Absent: src/, .env, .env.* and the detected CI file. dist/, node_modules/, .git/ and this config are always forbidden.",
+      "properties": {
+        "forbidden": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^(?!/)[^\\r\\n]+$", "description": "A prefix ending in / (src/), an exact file (.env), or a glob with * (one segment) and ** (any depth). Relative, no \"..\"." },
+              "why": { "type": "string", "pattern": "^[^\\r\\n]+$", "description": "One line shown when a write is refused." }
+            }
+          }
+        },
+        "allow": { "type": "array", "items": { "type": "string", "pattern": "^(?!/)[^\\r\\n]+$" }, "description": "Exceptions inside a forbidden path, for example src/**/*.spec.ts." }
+      }
+    },
     "redact": {
       "type": "object",
       "default": { "customerId": "\\bU\\d{5,}\\b" },

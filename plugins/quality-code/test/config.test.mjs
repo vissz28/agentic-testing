@@ -168,3 +168,34 @@ test('the schema requires only version, adapter and jira site and projects', () 
   assert.deepEqual(schema.required, ['version', 'adapter', 'jira'])
   assert.deepEqual(schema.properties.jira.required, ['site', 'projects'])
 })
+
+test('boundaries: forbidden rules with optional why, and allow patterns', () => {
+  const r = validateConfig({ ...good, boundaries: { forbidden: [{ path: 'src/' }, { path: '.env', why: 'shared systems' }], allow: ['src/**/*.spec.ts'] } })
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.config.boundaries.allow, ['src/**/*.spec.ts'])
+})
+test('boundaries: absent stays absent', () => {
+  assert.equal(validateConfig(good).config.boundaries, undefined)
+})
+test('boundaries: each wrong part is named', () => {
+  const r = validateConfig({ ...good, boundaries: { forbidden: [{ path: '../x' }, { path: '/abs' }, { path: 'ok/', why: '' }, { path: 'a', extra: 1 }], allow: ['a\nb'], other: [] } })
+  assert.deepEqual(r.errors, [
+    'boundaries.other: unknown field (only "forbidden" and "allow")',
+    'boundaries.forbidden[0].path "../x" must be a relative path inside the project (no "..", not absolute, one line)',
+    'boundaries.forbidden[1].path "/abs" must be a relative path inside the project (no "..", not absolute, one line)',
+    'boundaries.forbidden[2].why: must be one non-empty line',
+    'boundaries.forbidden[3].extra: unknown field (only "path" and "why")',
+    'boundaries.allow[0] "a\\nb" must be a relative path inside the project (no "..", not absolute, one line)',
+  ])
+})
+bad({ boundaries: [] }, 'boundaries')
+bad({ boundaries: { forbidden: [] } }, 'boundaries.forbidden')
+bad({ boundaries: { allow: 'src/' } }, 'boundaries.allow')
+test('the schema documents boundaries', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const b = schema.properties.boundaries
+  assert.equal(b.type, 'object')
+  assert.equal(b.additionalProperties, false)
+  assert.equal(b.properties.forbidden.minItems, 1)
+  assert.ok(!schema.required.includes('boundaries'))
+})
