@@ -1,6 +1,6 @@
 // Installs a fake executable at <dir>/node_modules/.bin/<name>. Its behaviour comes from
 // <dir>/.fake-<name>.json: { report?, reportFor?: { [config or 'default']: report }, exit?, stderr?,
-// stdout?, sleepMs?, grandchild?, mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
+// stdout?, sleepMs?, grandchild?, mkdir? (Stryker: create the sandbox its temp config names), mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
 // and the report is written to the --outputFile path (or, for Stryker, the fileName its temp config file names,
@@ -22,6 +22,10 @@ if (spec.grandchild) {
 }
 const cfg = args[0] === 'run' && /\\.mjs$/.test(args[1] || '') ? args[1] : ''
 const fromCfg = cfg ? JSON.parse((/^const fileName = (".*")$/m.exec(fs.readFileSync(cfg, 'utf8')) || [0, '""'])[1]) : ''
+if (cfg && spec.mkdir) {
+  const run = JSON.parse((/^const run = (.*)$/m.exec(fs.readFileSync(cfg, 'utf8')) || [0, '{}'])[1])
+  if (run.tempDirName) fs.mkdirSync(path.join(dir, run.tempDirName, 'sandbox'), { recursive: true })
+}
 const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || fromCfg || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME || ''
 if (spec.recordEnv) {
   const e = process.env

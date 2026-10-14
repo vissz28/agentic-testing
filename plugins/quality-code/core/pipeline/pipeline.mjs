@@ -86,12 +86,12 @@ async function mutationStep(specs, key, run, ctx, timeoutMs) {
 }
 
 /** Stryker over the target file: a pass that says "not applicable" when it has nothing to run on. */
-export async function strykerStep(target, tests, ctx, timeoutMs) {
+export async function strykerStep(target, tests, ctx, timeoutMs, specs = []) {
   const na = why => result('stryker', 'pass', `not applicable: ${why}`, [], { applicable: false, target })
   if (!target) return na('no target file')
   if (tests.status === 'not_run') return result('stryker', 'not_run', 'skipped: the tests did not run', [], { applicable: true, target })
   const runStryker = ctx.runStryker ?? realRunStryker
-  const r = await runStryker(ctx.root, { target, timeoutMs })
+  const r = await runStryker(ctx.root, { target, specs, timeoutMs })
   if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
   if (!r.ran) return result('stryker', 'not_run', `could not run: ${r.error}`, [], { applicable: true, target })
   const threshold = strykerThreshold(ctx.config)
@@ -142,6 +142,6 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
   }
-  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs)))
+  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs, specs)))
   return { ...decide(steps), steps }
 }

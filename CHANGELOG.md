@@ -7,6 +7,16 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.8.1] - 2026-10-15
+
+### Fixed
+
+- **The Stryker step works on real projects.** Before, Stryker's first test run failed in every
+  project, so the step was always "not run" and the verdict "not verified". Stryker now runs only the
+  specs being checked (a red bug spec elsewhere no longer stops it), and its sandbox lives inside the
+  project, where Vitest can find the tests. The sandbox is a `.stryker-tmp-qc-…` folder created for
+  the run and always removed, also after a timeout or a crash.
+
 ## [0.8.0] - 2026-10-14
 
 ### Added

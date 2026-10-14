@@ -252,6 +252,7 @@ test('stryker: over the bar passes, under it is checks_failed, with the target a
   const good = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker({ ran: true, score: 80, killed: 8, survived: 2, timeout: 0, noCoverage: 0 }, calls) }))
   assert.equal(good.verdict, 'green')
   assert.equal(calls[0].target, 'src/add.ts')
+  assert.deepEqual(calls[0].specs, ['test/a.spec.ts'], 'only the specs under test run under Stryker')
   const s = good.steps.at(-1)
   assert.equal(s.summary, '80% of code changes caught (bar 60%)')
   assert.equal(s.data.applicable, true)
