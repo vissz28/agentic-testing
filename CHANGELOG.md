@@ -7,6 +7,47 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.6.0] - 2026-10-14
+
+### Added
+
+- **`/quality-code:write <KEY> [--layer NAME] [--target PATH]`** writes Vitest tests from a ticket.
+  The readiness gate runs first: a refused ticket never gets a test. Then it asks which code the
+  ticket changes and which scenarios go in which test folder, writes the specs only in the test
+  folders (one `describe('<KEY> …')` block, one `it` per scenario, the ticket's real values), runs the
+  pipeline and shows the card. It rewrites the tests at most twice, never the application code. For
+  a Bug, a red test that asserts the ticket's expected value is the expected result.
+  `/quality-code:start` option 3 is now "Write and check tests".
+- **The `expected` check**: the numbers and quoted texts in the ticket's Then / Expected lines and
+  criteria must appear in an assertion inside the ticket's block. `1.234,5`, `1,234.5` and `1234.50`
+  are the same number. Values the ticket does not state are never required.
+- **Stryker in the pipeline**, after mutation, when you give `--target <file>` and the project has
+  `node_modules/.bin/stryker`: the share of code changes the tests catch must reach
+  `vitest.stryker.threshold` (default 60). Without Stryker or a target it is "not applicable", never
+  blocking.
+- **Pipeline options** `--ticket @file` (turns on `expected`) and `--target <path>`.
+- **`vitest.layers`** (the test folders a writing run may use; default `unit` in `test/`) and
+  **`vitest.stryker.threshold`** in `.claude/quality-code.json`, and a **Test folders** card in
+  `/quality-code:setup advanced` that proposes them from the folders that already hold specs.
+- **`core/checks/cli.mjs run start --key KEY | run stop | run status`**: the marker that turns the
+  boundary hook on while tests are written.
+- **`/quality-code:consumption`**: AI usage and estimated cost of the plugin's runs in this project,
+  from Claude Code's local transcripts (read-only, local, no prompt text). Groups by command, ticket,
+  day or model; API list prices dated on the card, `--prices` for your own.
+- **`examples/sample-service`**: a small pricing service with a story and a bug ticket that proves
+  the pipeline end to end with a real Vitest and Stryker (green, tests red, checks failed), run in CI.
+
+### Changed
+
+- A run marker is stale after **12 hours** (was 6), read from its start time.
+- `ticket-eval` refuse option 3 ("continue anyway") no longer leads to test writing: a refused
+  ticket stops there.
+
+### Upgrade
+
+Update the plugin before re-running setup: 0.5.x refuses a config with `vitest.layers` or
+`vitest.stryker`. Nothing else to do; existing configs keep working.
+
 ## [0.5.0] - 2026-10-14
 
 ### Added

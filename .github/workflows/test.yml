@@ -13,7 +13,7 @@ jobs:
       - name: no project values in core
         run: "! grep -rn -E 'FIC|teamsystem\\.atlassian|customfield_11707|Giacenza|Magazzino|warehouse' plugins/quality-code/core"
       - name: no project keys in the checks, runners and pipeline
-        run: "! grep -rn -E 'AGT|FIC' plugins/quality-code/core/checks plugins/quality-code/core/runners plugins/quality-code/core/pipeline"
+        run: "! grep -rn -E 'AGT|FIC' plugins/quality-code/core/checks plugins/quality-code/core/runners plugins/quality-code/core/pipeline plugins/quality-code/core/guides plugins/quality-code/core/consumption"
   e2e:
     runs-on: ubuntu-latest
     steps:

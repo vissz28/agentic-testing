@@ -258,6 +258,7 @@ What does **not** count:
 | `/quality-code:check test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
 | `/quality-code:write ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
 | `/quality-code:write ABC-123 --layer unit` | writes only in the `unit` test folder |
+| `/quality-code:consumption --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |
 
 ---
 

@@ -85,8 +85,9 @@ other than English and Italian. See [Known limits](#known-limits).
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `core/checks/cli.mjs` | ✅ available (building blocks) |
 | Check the tests on your branch: run them and grade them | `/quality-code:check` (or `start`, option 2) | ✅ available (Vitest) |
-| Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ built (Vitest), ships in 0.6.0 |
+| Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Vitest) |
 | Write and grade frontend tests, any Playwright app | — | 🚧 in progress (part 3) |
+| AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
 
 ## Who does what
 
@@ -107,6 +108,7 @@ other than English and Italian. See [Known limits](#known-limits).
 3. [Check a ticket](#check-a-ticket)
    - [Check your tests](#check-your-tests)
    - [Write tests from a ticket](#write-tests-from-a-ticket)
+   - [What do the runs cost?](#what-do-the-runs-cost)
 4. [The readiness gate](#the-readiness-gate)
 5. [When a ticket is refused](#when-a-ticket-is-refused)
 6. [The config file](#the-config-file)
@@ -336,6 +338,21 @@ is added: `This is the bug the ticket describes; it should go green when the fix
 forbidden paths, and only then does the boundary check run. The marker is removed at the end, on every
 way out. One older than 12 hours is ignored and replaced. By hand:
 `node <plugin>/core/checks/cli.mjs run start --key ABC-123`, `run stop`, `run status`.
+
+---
+
+### What do the runs cost?
+
+```
+/quality-code:consumption [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]
+```
+
+Reads Claude Code's local transcripts (`~/.claude/projects/…`) and shows the quality-code runs of
+this project: runs, tokens in, out and cache, and an estimated cost per command, ticket, day or
+model (default: the last 30 days, by command). An agent counts for the run that started it; usage
+outside quality-code is one separate line. Nothing is sent anywhere, and no prompt or answer text is
+shown. The cost is an estimate at API list prices (dated on the card); subscription plans are not
+billed this way. `--prices` takes your own rates.
 
 ---
 
@@ -607,7 +624,7 @@ Both GitLab connectors run in read-only mode: the plugin can never change anythi
 |---|---|---|---|
 | 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | ✅ **available** |
-| 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config (no database, Prisma or Docker), the expected-values check, optional Stryker; proved on a sample service in this repo (in progress) | 4a ✅ available (checking, 0.5.0); 4b ✅ built (writing), ships in 0.6.0 |
+| 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config (no database, Prisma or Docker), the expected-values check, optional Stryker; proved end to end on [`examples/sample-service`](examples/sample-service) with a real Vitest and Stryker | ✅ **available** (4a checking in 0.5.0, 4b writing in 0.6.0) |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 🚧 in progress |
 | 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
 
@@ -662,7 +679,7 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     check.md, setup.md, start.md, ticket-eval.md, write.md
+│     ├─ commands/                     check.md, consumption.md, setup.md, start.md, ticket-eval.md, write.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │     │                                rubrics, score, sanitize, fill, jira, fields, messages,
@@ -671,10 +688,12 @@ agentic-testing/
 │     │  │                             the run marker (run) and their CLI
 │     │  ├─ guides/                    vitest-writing.md, the rules /quality-code:write follows
 │     │  ├─ runners/                   the Vitest and Stryker runners
+│     │  ├─ consumption/               reads Claude Code's local transcripts: usage and estimated cost
 │     │  └─ pipeline/                  the Vitest pipeline, its card and CLI
 │     ├─ schema/                       quality-code.schema.json
 │     ├─ templates/                    standard Story and Bug templates
 │     └─ test/                         unit tests and the parity suite
+├─ examples/sample-service/          the end-to-end proof: a small pricing service, two tickets, their specs
 ├─ scripts/capture-parity.mjs          records the reference outputs the parity suite compares with
 └─ docs/                               getting started, specs, plans
 ```

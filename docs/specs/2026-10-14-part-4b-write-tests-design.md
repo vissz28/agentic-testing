@@ -187,3 +187,16 @@ README (writing tests, the config fields), Getting started (writing tests for a 
 3. The sample service gives `green` for its story, `tests_red` for its bug, `checks_failed` for a
    hollow spec, with a real Vitest.
 4. No project values in `core/`; all tests and validations pass.
+
+## 14. Rulings during the build
+
+| Point | Ruling |
+|---|---|
+| Stryker report path | Stryker has no `--jsonReporter.fileName` option: the runner writes a temporary config in the OS temp folder that loads the project's own Stryker config and only redirects the JSON report. Nothing is written into the project. Found by the end-to-end test. |
+| Kind of the target file | `branch.mjs` labels source files `code`, not `source`; `write` filters on `code`. |
+| `--target` given | the target card is skipped. |
+| `tests red` on a Story | not a fixable verdict: the card is shown as it is. |
+| A spec file that already exists | kept; `write` adds to it and never removes a test. |
+| Card answers inside a run | a numbered answer is part of the run (used by `/quality-code:consumption` to group usage). |
+| Sample versions | vitest 4.1 and TypeScript 6.0: Stryker's Vitest runner does not work yet with vitest 5 or TypeScript 7. |
+| Refuse option 3 | a refused ticket stops; what "continue anyway" should lead to is an open decision of part 5. |
