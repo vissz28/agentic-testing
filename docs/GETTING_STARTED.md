@@ -68,8 +68,9 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 | Jira | the site and your project key(s) | `ABC` |
 
 At the end you see the config and choose `1. Write it / 2. Change something / 3. Cancel`. Nothing
-is written before you type `1`. Setup then checks the newest ticket to show that it works; that
-check also finds your project's acceptance-criteria field and remembers it.
+is written before you type `1`. Setup does not check any ticket; the first ticket you check with
+`/quality-code:start` or `/quality-code:ticket-eval` also finds your project's acceptance-criteria
+field and remembers it.
 
 Want the extra points for feature labels, QA plans or title prefixes, or your own templates? Run
 `/quality-code:setup advanced`.

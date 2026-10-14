@@ -7,6 +7,14 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.3.3] - 2026-10-14
+
+### Changed
+
+- Setup only configures: it no longer checks a ticket at the end. Checking tickets is what
+  `/quality-code:start` and `/quality-code:ticket-eval` do; the first ticket checked there also finds
+  the project's acceptance-criteria field.
+
 ## [0.3.2] - 2026-10-14
 
 ### Changed
