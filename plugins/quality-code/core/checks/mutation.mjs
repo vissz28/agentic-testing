@@ -88,6 +88,7 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
     if (!b.ran) return result('mutation', 'not_run', `could not run the baseline: ${b.error ?? 'unknown error'}`)
     passed = b.tests.filter(t => t.status === 'passed').map(t => t.title)
   }
+  if (!passed.length) return result('mutation', 'not_run', 'baseline had no passing test')
   let mutants = planMutants(src, passed, { key, thorough }, ctx.dialect)
   if (mutants === null) return result('mutation', 'not_run', `no ${key} block in ${spec}`, [{ file: spec, kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   const rank = ctx.dialect.mutation.rank
@@ -103,9 +104,11 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   const outcomes = []
   try {
     for (const m of mutants) {
-      writeFileSync(tmp, applyMutant(src, m))
+      try { writeFileSync(tmp, applyMutant(src, m)) } catch (e) {
+        return result('mutation', 'not_run', `cannot write the temp mutant next to the spec: ${String(e?.message ?? e).split('\n')[0]}`)
+      }
       const r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs })
-      const executed = r.ran ? r.tests.filter(t => t.status === 'passed' || t.status === 'failed') : []
+      const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed')) : []
       if (!executed.length) outcomes.push({ ...m, error: true })
       else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
     }

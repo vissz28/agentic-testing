@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -152,4 +152,33 @@ test('SIGINT mid-run leaves the original spec byte-identical and no temp file', 
   await new Promise(done => child.on('exit', done))
   assert.equal(readFileSync(join(d, 'test/a.spec.ts'), 'utf8'), SPEC)
   assert.deepEqual(readdirSync(join(d, 'test')), ['a.spec.ts'])
+})
+test('run: a mutant is graded only on the test with exactly its title', async () => {
+  const d = spec("describe('ABC-1', () => { it('adds', () => { expect(add(1, 1)).toBeDefined() }) })\n")
+  const runTests = async ({ files, testName }) => ({
+    ran: true,
+    tests: [{ title: 'adds', file: files[0], status: 'passed' }, ...(testName === undefined ? [] : [{ title: 'adds twice', file: files[0], status: 'failed' }])],
+  })
+  const r = await run({ spec: 'test/a.spec.ts' }, { root: d, dialect: V, runTests })
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings.map(f => f.test), ['adds'])
+})
+test('run: a baseline with no passing test is not_run (§9 #19)', async () => {
+  const d = spec()
+  const red = await run({ spec: 'test/a.spec.ts' }, { root: d, dialect: V, runTests: fakeRunner(d, () => 'failed').runTests })
+  assert.equal(red.status, 'not_run')
+  assert.match(red.summary, /baseline had no passing test/)
+  const given = await run({ spec: 'test/a.spec.ts', baseline: [] }, { root: d, dialect: V, runTests: fakeRunner(d, verdict).runTests })
+  assert.equal(given.status, 'not_run')
+  assert.match(given.summary, /baseline had no passing test/)
+})
+test('run: a temp mutant that cannot be written is not_run, not a throw', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async () => {
+  const d = spec()
+  const { runTests } = fakeRunner(d, verdict)
+  chmodSync(join(d, 'test'), 0o555)
+  try {
+    const r = await run({ spec: 'test/a.spec.ts', baseline: ['adds'] }, { root: d, dialect: V, runTests })
+    assert.equal(r.status, 'not_run')
+    assert.match(r.summary, /cannot write the temp mutant/)
+  } finally { chmodSync(join(d, 'test'), 0o755) }
 })
