@@ -335,7 +335,7 @@ test('playwright block: absent stays absent; only with adapter playwright; not a
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
   assert.deepEqual(r.errors, [
-    'playwright.layers: unknown field (only "configs", "projects", "tsconfig" and "timeoutSeconds")',
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")',
     'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'playwright.configs[1]: must be an object with "match" and "config"',
     'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -368,8 +368,10 @@ test('the schema documents the playwright block with the validator\'s path patte
   const p = schema.properties.playwright
   assert.equal(p.type, 'object')
   assert.equal(p.additionalProperties, false)
-  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'projects', 'timeoutSeconds', 'tsconfig'])
+  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'timeoutSeconds', 'tsconfig'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
+  assert.equal(p.properties.folder.pattern, path)
+  assert.equal(p.properties.guide.pattern, path)
   assert.equal(p.properties.tsconfig.pattern, path)
   assert.equal(p.properties.configs.items.properties.match.pattern, path)
   assert.equal(p.properties.configs.items.properties.config.pattern, path)
@@ -430,4 +432,26 @@ test('the schema documents the seed block with the validator\'s path pattern', (
   assert.equal(s.properties.stubsFrom.pattern, path)
   assert.equal(s.properties.builders.minItems, 1)
   assert.equal(s.properties.builders.maxItems, 10)
+})
+
+test('playwright.folder and playwright.guide: a valid block', () => {
+  const r = validateConfig({ ...good, playwright: { folder: 'e2e/checkout/', guide: 'docs/testing/e2e.md' } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.equal(r.config.playwright.folder, 'e2e/checkout/')
+  assert.equal(r.config.playwright.guide, 'docs/testing/e2e.md')
+})
+test('playwright.folder and playwright.guide: each wrong part is named', () => {
+  const errs = pw => validateConfig({ ...good, playwright: pw }).errors
+  assert.deepEqual(errs({ folder: 'e2e' }), ['playwright.folder "e2e" must end with "/"'])
+  assert.deepEqual(errs({ folder: '../e2e/' }), ['playwright.folder "../e2e/" must be a relative path inside the project (no "..", not absolute, one line)'])
+  assert.deepEqual(errs({ folder: 5 }), ['playwright.folder 5 must be a relative path inside the project (no "..", not absolute, one line)'])
+  assert.deepEqual(errs({ guide: 'docs/e2e.txt' }), ['playwright.guide "docs/e2e.txt" must be a relative path to a .md file inside the project'])
+  assert.deepEqual(errs({ guide: '/abs.md' }), ['playwright.guide "/abs.md" must be a relative path to a .md file inside the project'])
+})
+test('playwright.folder: inside a forbidden boundary is refused, naming the rule; allow opens it', () => {
+  assert.deepEqual(validateConfig({ ...good, playwright: { folder: 'src/e2e/' } }).errors, ['playwright.folder "src/e2e/" is inside the forbidden "src/"'])
+  assert.deepEqual(validateConfig({ ...good, boundaries: { forbidden: [{ path: 'app/**' }] }, playwright: { folder: 'app/e2e/' } }).errors,
+    ['playwright.folder "app/e2e/" is inside the forbidden "app/**"'])
+  assert.equal(validateConfig({ ...good, boundaries: { allow: ['src/e2e/'] }, playwright: { folder: 'src/e2e/' } }).ok, true)
+  assert.equal(validateConfig({ ...good, boundaries: { forbidden: [{ path: 'lib/' }] }, playwright: { folder: 'src/e2e/' } }).ok, true)
 })

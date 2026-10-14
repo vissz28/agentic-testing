@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { audit } from './audit.mjs'
 import { loadConfig, projectRoot } from './config.mjs'
+import { e2eFolder, e2eFolderLine } from './e2e-folder.mjs'
 import { buildBrief, formatReport } from './score.mjs'
 import { formatRefuseComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
 import { sanitizeTicket } from './sanitize.mjs'
@@ -54,6 +55,13 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     }
     log('jira', { key, action })
     out('ok')
+    return 0
+  }
+  if (cmd === 'config' && a._[0] === 'e2e-folder') {
+    const r = e2eFolder(root, config)
+    if (!r.ok) { err(r.error); return 2 }
+    out(e2eFolderLine(r))
+    out(`E2E_FOLDER_JSON:${JSON.stringify(r)}`)
     return 0
   }
   if (cmd === 'field') {

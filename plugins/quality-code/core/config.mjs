@@ -48,6 +48,25 @@ function runnerFields(b, name, e) {
   if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
 }
 
+/** The rules a test folder is checked against: the configured boundaries, else the default ones. */
+function folderRules(c) {
+  // The default boundary when none is configured; the CI files never hold a folder of tests.
+  const forbidden = Array.isArray(c.boundaries?.forbidden) ? c.boundaries.forbidden.filter(r => isObject(r) && pathOk(r.path)) : [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }]
+  const allow = Array.isArray(c.boundaries?.allow) ? c.boundaries.allow.filter(pathOk) : []
+  return { forbidden, allow }
+}
+
+/** A folder a writing run writes in: relative, ending in "/", not inside a forbidden rule unless allowed. */
+function folderErrors(folder, name, rules, e) {
+  if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
+  if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
+  const f = folder.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
+  const rule = rules.allow.some(a => matches(a, f)) ? null : rules.forbidden.find(r => matches(r.path.replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''), f))
+  if (rule) e.push(`${name} "${folder}" is inside the forbidden "${rule.path}"`)
+}
+
+const guideOk = g => pathOk(g) && /\.md$/i.test(g)
+
 export function validateConfig(input) {
   const e = []
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
@@ -150,9 +169,7 @@ export function validateConfig(input) {
       if (ls !== undefined) {
         if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) e.push('vitest.layers: must be a list of 1 to 5 { "name", "folder", "guide" }')
         else {
-          // The default boundary when none is configured; the CI files never hold a folder of tests.
-          const forbidden = Array.isArray(c.boundaries?.forbidden) ? c.boundaries.forbidden.filter(r => isObj(r) && pathOk(r.path)) : [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }]
-          const allow = Array.isArray(c.boundaries?.allow) ? c.boundaries.allow.filter(pathOk) : []
+          const rules = folderRules(c)
           const seen = new Set()
           ls.forEach((l, i) => {
             if (!isObj(l)) { e.push(`vitest.layers[${i}]: must be an object with "name", "folder" and an optional "guide"`); return }
@@ -160,14 +177,8 @@ export function validateConfig(input) {
             if (typeof l.name !== 'string' || !LAYER_NAME.test(l.name)) e.push(`vitest.layers[${i}].name ${JSON.stringify(l.name)} must be lower-case letters, digits and "-", starting with a letter, like "unit"`)
             else if (seen.has(l.name)) e.push(`vitest.layers[${i}].name "${l.name}" appears twice`)
             else seen.add(l.name)
-            if (!pathOk(l.folder)) e.push(`vitest.layers[${i}].folder ${JSON.stringify(l.folder)} ${PATH_RULE}`)
-            else if (!l.folder.endsWith('/')) e.push(`vitest.layers[${i}].folder "${l.folder}" must end with "/"`)
-            else {
-              const f = l.folder.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
-              const rule = allow.some(a => matches(a, f)) ? null : forbidden.find(r => matches(r.path.replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''), f))
-              if (rule) e.push(`vitest.layers[${i}].folder "${l.folder}" is inside the forbidden "${rule.path}"`)
-            }
-            if (l.guide !== undefined && !(pathOk(l.guide) && /\.md$/i.test(l.guide))) e.push(`vitest.layers[${i}].guide ${JSON.stringify(l.guide)} must be a relative path to a .md file inside the project`)
+            folderErrors(l.folder, `vitest.layers[${i}].folder`, rules, e)
+            if (l.guide !== undefined && !guideOk(l.guide)) e.push(`vitest.layers[${i}].guide ${JSON.stringify(l.guide)} must be a relative path to a .md file inside the project`)
           })
         }
       }
@@ -185,8 +196,10 @@ export function validateConfig(input) {
     if (c.adapter !== 'playwright') e.push('playwright: only allowed with "adapter": "playwright"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig" and "timeoutSeconds")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")`)
       runnerFields(c.playwright, 'playwright', e)
+      if (c.playwright.folder !== undefined) folderErrors(c.playwright.folder, 'playwright.folder', folderRules(c), e)
+      if (c.playwright.guide !== undefined && !guideOk(c.playwright.guide)) e.push(`playwright.guide ${JSON.stringify(c.playwright.guide)} must be a relative path to a .md file inside the project`)
       const ps = c.playwright.projects
       if (ps !== undefined) {
         if (!Array.isArray(ps) || ps.length < 1 || ps.length > 10) e.push('playwright.projects: must be a list of 1 to 10 project names')
