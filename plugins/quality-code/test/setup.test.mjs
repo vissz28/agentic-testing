@@ -198,6 +198,12 @@ test('write adds the runtime gitignore lines once', () => {
   const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
   assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*'])
 })
+test('detect lists the root Vitest configs, sorted, and [] when there are none', () => {
+  const d = repo({ devDependencies: { vitest: '1' } })
+  assert.deepEqual(detect(d).vitestConfigs, [])
+  for (const f of ['vitest.e2e.config.mts', 'vitest.config.ts', 'vitest.config.db.ts', 'vite.config.ts', 'vitest.setup.ts', 'notvitest.config.ts']) writeFileSync(join(d, f), 'x')
+  assert.deepEqual(detect(d).vitestConfigs, ['vitest.config.db.ts', 'vitest.config.ts', 'vitest.e2e.config.mts'])
+})
 test('write keeps boundaries', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, boundaries: { forbidden: [{ path: 'src/' }] } }, {}).ok, true)

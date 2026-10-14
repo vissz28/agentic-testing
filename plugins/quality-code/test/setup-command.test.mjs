@@ -94,6 +94,20 @@ test('A4: the boundaries card (advanced setup; the short setup uses the defaults
   assert.ok(s.includes('src/**/*.spec.ts'))
   assert.match(step('A5'), /boundaries/)
 })
+test('A4: the Vitest configs card (only for vitest with more than one config)', () => {
+  const s = step('A4')
+  assert.match(s, /Which Vitest config runs which tests/)
+  assert.match(s, /vitestConfigs/)
+  assert.match(s, /more than one/)
+  assert.ok(s.includes('vitest: { configs: [{ match, config }'))
+  assert.match(s, /existing `vitest` block/)
+  assert.ok(s.indexOf('Which Vitest config runs which tests') > s.indexOf('Paths a test run must never change'))
+  assert.match(step('A5'), /`vitest`[^.]*configs|configs[^.]*`vitest`/)
+})
+test('the short setup does not mention Vitest configs', () => {
+  const short = doc.slice(0, doc.indexOf('## Advanced'))
+  assert.doesNotMatch(short, /vitestConfigs|Vitest config/i)
+})
 test('A4: a rerun keeps existing.boundaries and offers the candidates only as additions', () => {
   const s = step('A4')
   assert.match(s, /existing\.boundaries/)

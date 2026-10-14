@@ -29,6 +29,14 @@ function boundaryCandidates(root) {
   ]
 }
 
+const VITEST_CONFIG = /^vitest(\.[\w-]+)?\.config\.[cm]?[jt]s$|^vitest\.config(\.[\w-]+)?\.[cm]?[jt]s$/
+
+function vitestConfigs(root) {
+  let names = []
+  try { names = readdirSync(root) } catch {}
+  return names.filter(n => VITEST_CONFIG.test(n)).sort()
+}
+
 function hasSpecBesideCode(dir, budget = { n: 5000 }) {
   let entries = []
   try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return false }
@@ -96,6 +104,7 @@ export function detect(root) {
     adapter, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),
+    vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     here: here(root)
   }

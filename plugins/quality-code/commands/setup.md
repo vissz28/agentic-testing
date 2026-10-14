@@ -91,6 +91,8 @@ A4. **Templates.** If `templates.bug` and `templates.story` are both found, say 
 
    A path is a folder ending in `/` (`src/`), an exact file (`.env`) or a pattern with `*` / `**`. Repeat the card until the user keeps the list. For `vitest` with `specsBesideCode` true, also ask once: `Do your specs live next to the code (src/**/*.spec.ts)? 1. Yes / 2. No`; a yes adds `"allow": ["src/**/*.spec.ts"]`. Put the result in the proposal as `boundaries: { "forbidden": [{ "path": "<p>" }, …], "allow"?: [...] }`. An empty list leaves `boundaries` out (the plugin then uses its defaults). `dist/`, `node_modules/`, `.git/` and the config file are always protected; do not list them.
 
+   **Which Vitest config runs which tests.** Only for `vitest`, and only when `vitestConfigs` from the detect result has more than one entry. Show the configs as a numbered list. For each config ask which folder or pattern it runs (`Which tests does <config> run? A folder ending in /, an exact path, or a * / ** pattern`). Put the answers in the proposal as `vitest: { configs: [{ match, config }, …] }`, where `match` is the folder or pattern and `config` is the config file. If `existing.vitest` is set (a rerun), show its `configs` first, keep the existing `vitest` block as it is (including `tsconfig` and `timeoutSeconds`) and offer only the changes. With one config or none, skip this card; the plugin then uses that config, or Vitest's defaults.
+
 A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out; and `boundaries` when any path was kept), then this card and end the turn:
 
    ```
@@ -99,6 +101,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, for `playwright` `confluenceSpaces` when spaces were picked, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` `titlePrefixes`, for `playwright` `confluenceSpaces` when spaces were picked, `vitest` `configs` when the Vitest configs card was answered, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
