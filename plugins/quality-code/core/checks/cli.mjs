@@ -8,6 +8,7 @@ import * as boundary from './boundary.mjs'
 import { dialectFor } from './dialects/index.mjs'
 import * as honesty from './honesty.mjs'
 import { isProjectKey, projectKeys } from './keys.mjs'
+import * as mutation from './mutation.mjs'
 import { EXIT } from './result.mjs'
 import * as suite from './suite-honesty.mjs'
 
@@ -16,6 +17,7 @@ const CHECKS = {
   honesty: { run: honesty.run, specs: 'many' },
   'suite-honesty': { run: suite.run, specs: 'many' },
 }
+CHECKS.mutation = { run: mutation.run, specs: 'one' }
 const NEEDS_RUNNER = new Set(['flaky', 'mutation'])
 const USAGE = 'usage: cli.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | boundary --hook'
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
