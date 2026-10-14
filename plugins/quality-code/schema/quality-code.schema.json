@@ -96,8 +96,8 @@
       "additionalProperties": false,
       "description": "Only with adapter vitest. How quality-code runs your Vitest specs.",
       "properties": {
-        "configs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["match", "config"], "properties": { "match": { "type": "string", "description": "Spec path pattern: a prefix ending in /, an exact path, or a glob with * and **." }, "config": { "type": "string", "description": "Vitest config file for the specs that match." } } }, "description": "First match wins; none means Vitest's default config." },
-        "tsconfig": { "type": "string", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
+        "configs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["match", "config"], "properties": { "match": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Spec path pattern: a prefix ending in /, an exact path, or a glob with * and **." }, "config": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Vitest config file for the specs that match." } } }, "description": "First match wins; none means Vitest's default config." },
+        "tsconfig": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300 }
       }
     },

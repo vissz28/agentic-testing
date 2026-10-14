@@ -223,10 +223,31 @@ test('vitest block: each wrong part is named', () => {
     'vitest.timeoutSeconds: must be a whole number from 10 to 3600',
   ])
 })
+test('vitest block: not an object', () => {
+  for (const v of ['x', 5, null, ['a']]) assert.ok(validateConfig({ ...vgood, vitest: v }).errors.includes('vitest: must be an object'), JSON.stringify(v))
+})
+test('vitest.configs: not a list; an empty list is fine', () => {
+  assert.ok(validateConfig({ ...vgood, vitest: { configs: {} } }).errors.includes('vitest.configs: must be a list of { "match", "config" }'))
+  assert.equal(validateConfig({ ...vgood, vitest: { configs: [] } }).ok, true)
+})
+test('vitest.timeoutSeconds: whole numbers from 10 to 3600', () => {
+  const msg = 'vitest.timeoutSeconds: must be a whole number from 10 to 3600'
+  for (const t of [1.5, 3601, 9, '60', null]) assert.ok(validateConfig({ ...vgood, vitest: { timeoutSeconds: t } }).errors.includes(msg), String(t))
+  for (const t of [10, 3600]) assert.equal(validateConfig({ ...vgood, vitest: { timeoutSeconds: t } }).ok, true, String(t))
+})
 test('the schema documents the vitest block', () => {
   const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   const v = schema.properties.vitest
   assert.equal(v.type, 'object')
   assert.equal(v.additionalProperties, false)
   assert.deepEqual(Object.keys(v.properties).sort(), ['configs', 'timeoutSeconds', 'tsconfig'])
+})
+test('the schema gives the vitest paths the validator\'s pattern', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const v = schema.properties.vitest.properties
+  const re = new RegExp(v.tsconfig.pattern)
+  assert.equal(v.configs.items.properties.match.pattern, v.tsconfig.pattern)
+  assert.equal(v.configs.items.properties.config.pattern, v.tsconfig.pattern)
+  for (const ok of ['tsconfig.test.json', 'test/integration/**', 'a/b/']) assert.ok(re.test(ok), ok)
+  for (const bad of ['/abs', '../x', 'a/../b', 'C:\\x', 'a\nb', '']) assert.ok(!re.test(bad), JSON.stringify(bad))
 })

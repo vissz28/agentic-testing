@@ -17,7 +17,7 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 ## Steps
 
 1. **Project.** If `.claude/quality-code.json` has `adapter: playwright`, say `The Playwright pipeline comes with part 3. For now this command checks Vitest projects only.` (the script says the same: the Playwright pipeline comes with part 3) and stop.
-2. **Specs.** If `$ARGUMENTS` has spec paths, use them and go to step 3. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect` and read the `BRANCH_JSON:` line. Take the `files` whose `kind` is `test`. If there are none, say `No test files changed on this branch. Give the spec paths: /quality-code:check <spec…>` and stop. Otherwise show this card and end the turn:
+2. **Specs.** If `$ARGUMENTS` has spec paths, use them and go to step 3. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect` and read the `BRANCH_JSON:` line. Take the `files` whose `kind` is `test` and whose `status` is not `D` (a deleted test cannot run). Remember that the specs came from the branch. If there are none, say `No test files changed on this branch. Give the spec paths: /quality-code:check <spec…>` and stop. Otherwise show this card and end the turn:
 
    ```
    Check these <n> spec files?
@@ -34,7 +34,7 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 
    `Running the checks: tests, assertions, types and mutation; this can take a few minutes.`
 
-   `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" <spec…> [--key <KEY>] [--flaky <N>]`
+   `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' [--range <base>...HEAD] [--key <KEY>] [--flaky <N>]`
 
-   Pass `--flaky` only when `$ARGUMENTS` has it. Do not pass `--json`.
+   Quote every spec path in single quotes. Pass `--range <base>...HEAD` only when the specs came from the branch (step 2, or the start command's option 2), with `base` from the `BRANCH_JSON:` line (the field `base`, for example `origin/main`). Honesty then reads everything committed on the branch since it left the base, so an assertion or test removed in an earlier commit is caught. It does not read changes that are not committed yet; with specs the user typed, no range is passed and honesty reads the changes not committed yet. Pass `--flaky` only when `$ARGUMENTS` has it. Do not pass `--json`.
 5. **Card.** Show the card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. If the script exits with 2, show its lines as they are and stop.

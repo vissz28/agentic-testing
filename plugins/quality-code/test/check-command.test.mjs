@@ -13,6 +13,20 @@ test('no specs: detect the branch and offer its test files', () => {
   assert.ok(doc.includes('Check these <n> spec files?'))
   for (const t of ['1. Yes', '2. Pick some', '3. Stop']) assert.ok(doc.includes(t), t)
 })
+test('deleted test files are left out of the spec list', () => {
+  assert.match(doc, /`status` is not `D`/)
+})
+test('the branch run passes the base as the honesty range and says what it covers', () => {
+  assert.ok(doc.includes('--range <base>...HEAD'))
+  assert.match(doc, /`base` from the `BRANCH_JSON:` line/)
+  assert.match(doc, /committed on the branch/)
+  assert.match(doc, /not committed yet/)
+  assert.match(doc, /only when the specs came from the branch/)
+})
+test('spec paths are quoted in the shell command', () => {
+  assert.match(doc, /Quote every spec path in single quotes/)
+  assert.ok(doc.includes("'<spec>'"))
+})
 test('the key comes from the branch and is confirmed', () => {
   assert.match(doc, /keys\[0\]/)
   assert.match(doc, /confirm/i)

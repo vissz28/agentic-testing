@@ -57,9 +57,9 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
    4. Stop
    ```
 
-   Offer option 2 only when `counts.test` is more than 0 and the `adapter` in `.claude/quality-code.json` is `vitest`. Otherwise leave it out and the card shows `1. Evaluate the ticket / 2. Write and check tests (coming with part 4b) / 3. Stop`.
+   Offer option 2 only when `files` has at least one entry with `kind` `test` and `status` other than `D`, and the `adapter` in `.claude/quality-code.json` is `vitest`. Otherwise leave it out and the card shows `1. Evaluate the ticket / 2. Write and check tests (coming with part 4b) / 3. Stop`.
 
    - **1:** read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow it with `<KEY>` as `$ARGUMENTS`, no flags. After its result, add one line: `Branch <branch>: <files.length> files changed against <base> (<counts.code> code, <counts.test> tests, <counts.other> other).` The branch never changes the score.
-   - **Check the tests (2, when offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with the branch's files of kind `test` as the spec paths and `--key <KEY>` with the confirmed key. The key is already confirmed in step 3, so do not ask again. Show its card as it prints.
+   - **Check the tests (2, when offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with the branch's files of kind `test`, leaving out deleted ones (status `D`), as the spec paths and `--key <KEY>` with the confirmed key. The key is already confirmed in step 3, so do not ask again. Show its card as it prints.
    - **Write and check tests (3, or 2 when option 2 is not offered):** say `Writing tests for any project comes with part 4b.` and show the card again.
    - **Stop (last option):** stop.
