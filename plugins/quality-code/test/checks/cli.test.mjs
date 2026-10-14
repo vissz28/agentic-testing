@@ -66,8 +66,10 @@ test('flaky and mutation need a runner from the CLI', () => {
   for (const c of ['flaky', 'mutation']) {
     const r = cli(d, [c, 'test/a.spec.ts'])
     assert.equal(r.status, 2)
-    assert.match(r.stderr, /needs the test runner/)
+    assert.match(r.stderr, /needs the test runner: it runs in the pipeline, node core\/pipeline\/cli\.mjs <spec…>/)
+    assert.doesNotMatch(r.stderr, /coming in parts/)
   }
+  assert.match(cli(d, ['flaky', 'test/a.spec.ts']).stderr, /--flaky N/)
 })
 test('hook: silent allow without a run or without a config; deny JSON and a log line during a run', () => {
   const d = repo()

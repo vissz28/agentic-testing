@@ -117,7 +117,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const cfg = loadConfig(root)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
-  if (NEEDS_RUNNER.has(name)) return err(`${name} needs the test runner from the Vitest or Playwright adapter (coming in parts 3–4).`)
+  if (NEEDS_RUNNER.has(name)) return err(`${name} needs the test runner: it runs in the pipeline, node core/pipeline/cli.mjs <spec…>${name === 'flaky' ? ' --flaky N' : ''}`)
   const check = CHECKS[name]
   if (check.specs === 'many' && !a.specs.length) return err(`${name} needs at least one spec path. ${USAGE}`)
   for (const s of a.specs) if (!existsSync(resolve(root, s))) return err(`spec not found: ${s}`)
