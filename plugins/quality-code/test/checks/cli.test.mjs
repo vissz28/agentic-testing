@@ -112,3 +112,35 @@ test('a crashing check exits 2 with crash message to stderr', async () => {
     process.stderr.write = orig
   }
 })
+test('a check that throws a non-Error still exits 2', async () => {
+  const d = repo()
+  registerCheck('boom2', () => { throw 'x' }, 'none')
+  let captured = ''
+  const orig = process.stderr.write
+  try {
+    process.stderr.write = (s) => { captured += s; return true }
+    const code = await main(['boom2'], { ...process.env, CLAUDE_PROJECT_DIR: d }, d)
+    assert.equal(code, 2)
+    assert.match(captured, /check boom2 crashed: x/)
+  } finally {
+    process.stderr.write = orig
+  }
+})
+test('hook: a bad config, a non-string path and null/number payloads all allow silently', () => {
+  const d = repo()
+  put(d, '.claude/quality-code/run.active', '')
+  const deny = JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(d, 'src/a.ts') } })
+  const quiet = (input, why) => {
+    const r = cli(d, ['boundary', '--hook'], input)
+    assert.equal(r.status, 0, why)
+    assert.equal(r.stdout, '', why)
+  }
+  quiet(JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: 5 } }), 'non-string file_path')
+  quiet(JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: { a: 1 } } }), 'object file_path')
+  quiet('null', 'JSON null')
+  quiet('5', 'JSON number')
+  put(d, '.claude/quality-code.json', '{not json')
+  quiet(deny, 'config is not JSON')
+  put(d, '.claude/quality-code.json', JSON.stringify({ version: 1 }))
+  quiet(deny, 'config fails validation')
+})

@@ -94,7 +94,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   try {
     r = await check.run({ specs: a.specs, range: a.range ?? null, key: a.key ?? null }, ctx)
   } catch (e) {
-    const msg = e.message.split('\n')[0]
+    const msg = String(e?.message ?? e).split('\n')[0]
     process.stderr.write(`check ${name} crashed: ${msg}\n`)
     return 2
   }

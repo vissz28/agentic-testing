@@ -36,7 +36,7 @@ describe('boundary', () => {
     const rules = rulesFor(CONFIGS[b.repo], '/nonexistent')
     if (b.variant === 'mocked') rules.allow = ['src/**/*.spec.ts']
     const v = violation(b.path, rules)
-    // Ruling §9 (3): dist/ and node_modules/ are always forbidden; the old frontend guard did not know them.
+    // Ruling §9 (16): dist/ and node_modules/ are always forbidden; the old frontend guard did not know them.
     const expectForbidden = b.repo === 'fe' && /^(dist|node_modules)\//.test(b.path) ? true : b.forbidden
     // Ruling §9 (12): a bare `src` (no slash) was allowed by the old backend guard (startsWith('src/'))
     // but is forbidden by the old frontend guard and by the merged one. The merged behaviour wins, so
