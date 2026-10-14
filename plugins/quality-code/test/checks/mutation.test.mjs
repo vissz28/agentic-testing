@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFile
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { applyMutant, findExpectRanges, planMutants, run, sweepStale, tempSpecPath } from '../../core/checks/mutation.mjs'
+import { applyMutant, findExpectRanges, originalOf, planMutants, run, sweepStale, tempSpecPath } from '../../core/checks/mutation.mjs'
 import { dialectFor } from '../../core/checks/dialects/index.mjs'
 import { fakeRunner } from './fake-runner.mjs'
 
@@ -50,7 +50,13 @@ test('playwright: the frontend self-test', () => {
 test('temp spec is a sibling, never the original', () => {
   const tp = tempSpecPath('/x/src/a/kpi.service.spec.ts')
   assert.equal(dirname(tp), '/x/src/a')
-  assert.match(tp, /\/mut-tmp-\d+-[a-z0-9]+-[a-z0-9]+\.spec\.ts$/)
+  assert.match(tp, /\/mut-tmp-\d+-[a-z0-9]+-[a-z0-9]+-kpi\.service\.spec\.ts$/)
+})
+test('temp name keeps the original basename, so *.test.ts includes still match; originalOf maps it back', () => {
+  const tp = tempSpecPath('/x/test/orders.int.test.ts')
+  assert.ok(tp.endsWith('-orders.int.test.ts'))
+  assert.equal(originalOf(tp), '/x/test/orders.int.test.ts')
+  assert.equal(originalOf('test/a/orders.int.test.ts'), 'test/a/orders.int.test.ts')
 })
 
 const SPEC = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n  it('weak', () => { expect(add(1, 1)).toBeDefined() })\n})\n"
@@ -131,11 +137,11 @@ test('run: the runner gets the exact title, regex characters and all (review foc
 })
 test('sweepStale removes temp mutants of dead processes only', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-sweep-'))
-  writeFileSync(join(d, 'mut-tmp-999999-abc-def.spec.ts'), 'x')
-  writeFileSync(join(d, `mut-tmp-${process.pid}-abc-def.spec.ts`), 'x')
+  writeFileSync(join(d, 'mut-tmp-999999-abc-def-a.spec.ts'), 'x')
+  writeFileSync(join(d, `mut-tmp-${process.pid}-abc-def-a.spec.ts`), 'x')
   writeFileSync(join(d, 'a.spec.ts'), 'x')
   assert.equal(sweepStale(d), 1)
-  assert.deepEqual(readdirSync(d).sort(), ['a.spec.ts', `mut-tmp-${process.pid}-abc-def.spec.ts`])
+  assert.deepEqual(readdirSync(d).sort(), ['a.spec.ts', `mut-tmp-${process.pid}-abc-def-a.spec.ts`])
 })
 test('SIGINT mid-run leaves the original spec byte-identical and no temp file', async () => {
   const d = spec()

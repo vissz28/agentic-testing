@@ -1,10 +1,11 @@
 // The Vitest runner: runs specs with the project's own Vitest and reads its JSON report.
 // Implements the runner contract of the shared checks. Never writes into the project.
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { isAbsolute, join, relative } from 'node:path'
+import { isAbsolute, join, normalize, relative } from 'node:path'
 import { matches } from '../checks/boundary.mjs'
+import { originalOf } from '../checks/mutation.mjs'
 
 const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 
@@ -12,15 +13,21 @@ const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boole
 export const titlePattern = title => `(?:^| )${String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
 
 export function configFor(file, config) {
-  for (const c of config.vitest?.configs ?? []) if (matches(c.match, file)) return c.config
+  for (const c of config.vitest?.configs ?? []) if (matches(c.match, originalOf(file))) return c.config
   return null
 }
 
 export function parseReport(json, root) {
   const tests = []
   const broken = []
+  let base = root
+  try { base = realpathSync(root) } catch {}
+  const rel = name => {
+    const r = relative(base, name)
+    return r.startsWith('..') && base !== root ? relative(root, name) : r
+  }
   for (const tr of json?.testResults ?? []) {
-    const file = isAbsolute(tr.name ?? '') ? relative(root, tr.name) : String(tr.name ?? '')
+    const file = isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? '')
     const ars = tr.assertionResults ?? []
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {
@@ -89,8 +96,9 @@ export function vitestRunner(root, config) {
     for (const [c, fs] of groups) {
       const r = await runVitest(root, fs, { config: c, testName, timeoutMs: timeoutMs ?? defaultMs })
       if (!r.ran) return { ran: false, tests: [], error: r.error }
-      all.tests.push(...r.tests)
-      all.broken.push(...r.broken)
+      const want = new Set(fs.map(f => normalize(f)))
+      all.tests.push(...r.tests.filter(t => want.has(normalize(t.file))))
+      all.broken.push(...r.broken.filter(b => want.has(normalize(b.file))))
     }
     return all
   }

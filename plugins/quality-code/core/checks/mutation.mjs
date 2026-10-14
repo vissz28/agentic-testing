@@ -6,11 +6,15 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { result } from './result.mjs'
 import { anchorRange } from './suite-honesty.mjs'
 
-const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+\.spec\.ts$/
+const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/
 
+// The original basename is kept, so any suffix-based Vitest include (*.test.ts, *.spec.ts) still matches.
 export function tempSpecPath(specPath) {
-  return resolve(dirname(specPath), `mut-tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.spec.ts`)
+  return resolve(dirname(specPath), `mut-tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${basename(specPath)}`)
 }
+
+/** The original spec path of a mutant temp file (other paths come back unchanged). */
+export const originalOf = file => file.replace(/(^|\/)mut-tmp-\d+-[a-z0-9]+-[a-z0-9]+-/, '$1')
 
 /** { start, end } of each expect(...).matcher...; statement, nested parens and chains included. */
 export function findExpectRanges(src, dialect) {

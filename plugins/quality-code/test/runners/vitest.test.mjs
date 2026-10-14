@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { configFor, parseReport, titlePattern, vitestRunner } from '../../core/runners/vitest.mjs'
 import { calls, fakeBin } from './fake-bin.mjs'
 
@@ -113,22 +113,26 @@ test('runner: a timeout kills the whole process group, grandchildren included', 
 test('runner: a report that cannot be read leaks no temp dir and does not crash', async () => {
   const d = proj()
   fakeBin(d, 'vitest', { report: { testResults: [null] } })
-  const ours = () => readdirSync(tmpdir()).filter(n => n.startsWith('qc-vitest-'))
-  const before = new Set(ours())
   const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
   assert.equal(r.ran, false)
   assert.match(r.error, /could not read the Vitest report/)
-  assert.deepEqual(ours().filter(n => !before.has(n)), [])
+  const out = calls(d, 'vitest')[0].find(a => a.startsWith('--outputFile=')).slice(13)
+  assert.equal(existsSync(dirname(out)), false)
 })
 test('runner: a spawn that throws gives ran false and leaks no temp dir', async () => {
   const d = proj()
   fakeBin(d, 'vitest', { report: report(d, []) })
-  const ours = () => readdirSync(tmpdir()).filter(n => n.startsWith('qc-vitest-'))
-  const before = new Set(ours())
-  const r = await vitestRunner(d, cfg())({ files: ['a\0b.spec.ts'] })
-  assert.equal(r.ran, false)
-  assert.match(r.error, /could not start Vitest/)
-  assert.deepEqual(ours().filter(n => !before.has(n)), [])
+  const own = mkdtempSync(join(tmpdir(), 'qc-own-'))
+  const prev = process.env.TMPDIR
+  process.env.TMPDIR = own
+  try {
+    const r = await vitestRunner(d, cfg())({ files: ['a\0b.spec.ts'] })
+    assert.equal(r.ran, false)
+    assert.match(r.error, /could not start Vitest/)
+    assert.deepEqual(readdirSync(own), [])
+  } finally {
+    if (prev === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = prev
+  }
 })
 test('timeout message uses milliseconds below one second', async () => {
   const d = proj()
@@ -143,4 +147,30 @@ test('parseReport: a failed file whose tests did not fail (beforeAll error) is a
   assert.deepEqual(r.broken, [{ file: 'a.spec.ts', message: 'beforeAll blew up' }])
   const ok = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'm', tests: [t('x', 'failed', ['e'])] }]), d)
   assert.deepEqual(ok.broken, [])
+})
+test('configFor: an exact-match entry still applies to the spec\'s mutant temp file', () => {
+  const c = cfg({ configs: [{ match: 'test/orders.int.test.ts', config: 'db.ts' }] })
+  assert.equal(configFor('test/orders.int.test.ts', c), 'db.ts')
+  assert.equal(configFor('test/mut-tmp-123-abc-def-orders.int.test.ts', c), 'db.ts')
+  assert.equal(configFor('test/mut-tmp-123-abc-def-other.test.ts', c), null)
+})
+test('runner: only the requested files count; a substring match elsewhere is dropped', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { report: report(d, [
+    { file: 'test/a.test.ts', tests: [t('mine', 'passed')] },
+    { file: 'test/sub/test/a.test.ts', status: 'failed', message: 'boom', tests: [t('other', 'failed', ['x'])] },
+    { file: 'test/sub/test/b.test.ts', status: 'failed', message: 'broken' },
+  ]) })
+  const r = await vitestRunner(d, cfg())({ files: ['./test/a.test.ts'] })
+  assert.deepEqual(r.tests.map(x => x.title), ['mine'])
+  assert.deepEqual(r.broken, [])
+})
+test('runner: a symlinked project root still gives root-relative file names', async () => {
+  const real = realpathSync(proj())
+  const link = join(realpathSync(mkdtempSync(join(tmpdir(), 'qc-link-'))), 'p')
+  symlinkSync(real, link)
+  mkdirSync(join(real, 'test'))
+  fakeBin(real, 'vitest', { report: report(real, [{ file: 'test/a.test.ts', tests: [t('ok', 'passed')] }]) })
+  const r = await vitestRunner(link, cfg())({ files: ['test/a.test.ts'] })
+  assert.deepEqual(r.tests.map(x => x.file), ['test/a.test.ts'])
 })

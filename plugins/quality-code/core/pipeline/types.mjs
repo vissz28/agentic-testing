@@ -1,6 +1,7 @@
 // Type-check step: the project's own tsc, --noEmit, on its tsconfig.
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { result } from '../checks/result.mjs'
 
@@ -15,6 +16,7 @@ export function typeCheck(root, config, specs, { timeoutMs = (config.vitest?.tim
   const bin = join(root, 'node_modules/.bin/tsc')
   if (!existsSync(bin)) return Promise.resolve(result('types', 'not_run', 'TypeScript is not installed in this project: run npm install'))
   return new Promise(done => {
+    const tmp = mkdtempSync(join(tmpdir(), 'qc-tsc-'))
     let out = ''
     let timedOut = false
     let settled = false
@@ -23,11 +25,11 @@ export function typeCheck(root, config, specs, { timeoutMs = (config.vitest?.tim
       if (settled) return
       settled = true
       clearTimeout(timer)
-      done(r)
+      try { rmSync(tmp, { recursive: true, force: true }) } finally { done(r) }
     }
     let child
     try {
-      child = spawn(bin, ['--noEmit', '-p', tsconfig], { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      child = spawn(bin, ['--noEmit', '-p', tsconfig, '--incremental', '--tsBuildInfoFile', join(tmp, 'qc.tsbuildinfo')], { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
     } catch (e) {
       return finish(result('types', 'not_run', `could not start tsc: ${e.message}`))
     }

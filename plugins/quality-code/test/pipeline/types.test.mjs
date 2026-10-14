@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { typeCheck } from '../../core/pipeline/types.mjs'
 import { calls, fakeBin } from '../runners/fake-bin.mjs'
 
@@ -15,7 +15,18 @@ test('compiles: pass, and tsc gets --noEmit -p <tsconfig>', async () => {
   const r = await typeCheck(d, cfg, ['test/a.spec.ts'])
   assert.equal(r.status, 'pass')
   assert.equal(r.summary, 'compiles')
-  assert.deepEqual(calls(d, 'tsc')[0], ['--noEmit', '-p', 'tsconfig.json'])
+  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 4), ['--noEmit', '-p', 'tsconfig.json', '--incremental'])
+})
+test('tsc build info goes to a temp folder that is removed; the project is unchanged', async () => {
+  const d = proj()
+  fakeBin(d, 'tsc', { exit: 0 })
+  const before = readdirSync(d).sort()
+  await typeCheck(d, cfg, ['test/a.spec.ts'])
+  const argv = calls(d, 'tsc')[0]
+  const info = argv[argv.indexOf('--tsBuildInfoFile') + 1]
+  assert.ok(info.endsWith('qc.tsbuildinfo') && !info.startsWith(d))
+  assert.equal(existsSync(dirname(info)), false)
+  assert.deepEqual(readdirSync(d).sort(), before.concat(['.fake-tsc.calls']).sort())
 })
 test('errors on stdout: fail with the first error TS line (review focus 4)', async () => {
   const d = proj()
@@ -37,7 +48,7 @@ test('a configured tsconfig is used', async () => {
   writeFileSync(join(d, 'tsconfig.test.json'), '{}')
   fakeBin(d, 'tsc', { exit: 0 })
   await typeCheck(d, { ...cfg, vitest: { tsconfig: 'tsconfig.test.json' } }, ['a.spec.ts'])
-  assert.deepEqual(calls(d, 'tsc')[0], ['--noEmit', '-p', 'tsconfig.test.json'])
+  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 3), ['--noEmit', '-p', 'tsconfig.test.json'])
 })
 test('a hung tsc is killed with its process group and gives not_run promptly', async () => {
   const d = proj()
