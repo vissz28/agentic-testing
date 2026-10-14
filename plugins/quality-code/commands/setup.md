@@ -87,6 +87,8 @@ A4. **Templates.** If `templates.bug` and `templates.story` are both found, say 
    3. Remove a path
    ```
 
+   If `existing.boundaries` is set (a rerun), show it first and keep it as it is: every path, every `why` text and every `allow` pattern. Offer the paths detected in this repo only as additions the user may accept, never as a replacement list. If the user removes every forbidden path but keeps an `allow` list, write `boundaries: { "allow": [...] }` with no `forbidden` (the plugin then uses its default forbidden paths together with the `allow` list).
+
    A path is a folder ending in `/` (`src/`), an exact file (`.env`) or a pattern with `*` / `**`. Repeat the card until the user keeps the list. For `vitest` with `specsBesideCode` true, also ask once: `Do your specs live next to the code (src/**/*.spec.ts)? 1. Yes / 2. No`; a yes adds `"allow": ["src/**/*.spec.ts"]`. Put the result in the proposal as `boundaries: { "forbidden": [{ "path": "<p>" }, …], "allow"?: [...] }`. An empty list leaves `boundaries` out (the plugin then uses its defaults). `dist/`, `node_modules/`, `.git/` and the config file are always protected; do not list them.
 
 A5. **Preview and write.** Show the full config as it will be written (for `vitest` this includes `titlePrefixes`, even when it is `[]`; for `playwright` each feature's `qaPlanSearch` and `confluenceSpaces`, or `confluenceSpaces: all spaces` when it is left out; and `boundaries` when any path was kept), then this card and end the turn:

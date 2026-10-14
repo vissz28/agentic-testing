@@ -94,3 +94,11 @@ test('A4: the boundaries card (advanced setup; the short setup uses the defaults
   assert.ok(s.includes('src/**/*.spec.ts'))
   assert.match(step('A5'), /boundaries/)
 })
+test('A4: a rerun keeps existing.boundaries and offers the candidates only as additions', () => {
+  const s = step('A4')
+  assert.match(s, /existing\.boundaries/)
+  assert.match(s, /keep/i)
+  assert.match(s, /additions/)
+  assert.match(s, /`why`/)
+  assert.match(s, /`allow`/)
+})
