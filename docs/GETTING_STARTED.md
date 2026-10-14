@@ -4,8 +4,9 @@ A short guide for QA and developers. It shows how to check whether a Jira ticket
 tested and how to fix it when it is not, all inside Claude Code. It works for any team with a
 Playwright (frontend) or Vitest (backend) repo.
 
-> **What it does today (v0.2.0):** setup, the readiness check, the guided fill-in and the Jira
-> comment / update. Writing the tests themselves comes in a later version.
+> **What it does today:** setup, the daily start from your feature branch, the readiness check,
+> the guided fill-in and the Jira comment / update. Writing the tests themselves comes in a later
+> version; see the [CHANGELOG](../CHANGELOG.md) for what each version added.
 
 ---
 

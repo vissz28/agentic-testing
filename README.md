@@ -153,24 +153,8 @@ commit it:
 }
 ```
 
-**Update** with `/plugin update quality-code@quality-code`.
-
-### Upgrading from agentic-testing
-
-The plugin was called `agentic-testing` up to v0.2.1. From v0.3.0 it is `quality-code`, and the old
-name is not read any more. Once per person, then once per repo:
-
-```
-/plugin uninstall agentic-testing@agentic-testing
-/plugin marketplace remove agentic-testing
-/plugin marketplace add vissz28/agentic-testing
-/plugin install quality-code@quality-code
-```
-
-Then, in each repo that was set up, run `/quality-code:setup` (it writes `.claude/quality-code.json`),
-commit it, and delete `.claude/agentic-testing.json`, the old `.claude/agentic-testing/` folder and
-its `.gitignore` line. In a repo's `.claude/settings.json`, rename the `agentic-testing` marketplace
-key and `enabledPlugins` entry to `quality-code` as shown above.
+**Update** with `/plugin update quality-code@quality-code`. What changed in each version, and any
+step an update needs, is in the [CHANGELOG](CHANGELOG.md).
 
 ---
 
@@ -465,7 +449,7 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 | You see | Do this |
 |---|---|
 | `Run /quality-code:setup.` | The repo has no config yet, or a field is wrong. Run setup. |
-| `/agentic-testing:…` is unknown, or the old config is ignored | The plugin is now `quality-code`: see [Upgrading from agentic-testing](#upgrading-from-agentic-testing). |
+| A command or config file from an older version is not recognised | Follow the upgrade steps for your version in the [CHANGELOG](CHANGELOG.md). |
 | `jira.projects[0] … upper-case letters and digits` | Project keys are upper case: `ABC`, not `abc`. |
 | `This stack is not supported yet (v1: Playwright, Vitest).` | `package.json` has neither `@playwright/test` nor `vitest`. |
 | `Sign in to Atlassian when prompted…` | Connect the Atlassian connector with `/mcp`, or paste the ticket text. |
@@ -491,7 +475,7 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 
 | # | Part | What it brings | Status |
 |---|---|---|---|
-| 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available (v0.2.0)** |
+| 1 | Core + config | `/quality-code:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available** |
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | 🛠 in design |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
@@ -523,6 +507,7 @@ Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 
 ```
 quality-code/
+├─ CHANGELOG.md                       what changed in each version
 ├─ .claude-plugin/marketplace.json
 ├─ .github/workflows/test.yml          core tests, JSON check, no project values in core
 ├─ plugins/
@@ -555,7 +540,8 @@ claude plugin validate plugins/quality-code && claude plugin validate .
 - **Parity suite.** `test/parity/` runs the core with the warehouse configs against 116 real ticket
   fixtures and compares the output with what the original warehouse scripts printed. Differences
   are allowed only where the spec's §10 lists them.
-- **Release:** bump `version` in `plugins/quality-code/.claude-plugin/plugin.json`, then
+- **Release:** add the version's entry to [CHANGELOG.md](CHANGELOG.md), bump `version` in
+  `plugins/quality-code/.claude-plugin/plugin.json`, then
   `claude plugin tag plugins/quality-code`, then push. Users get it with `/plugin update`.
 
 ---

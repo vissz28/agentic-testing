@@ -1,0 +1,92 @@
+# Changelog
+
+What changed in each version of the `quality-code` plugin, newest first, and what you have to do
+when you update. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the
+plugin uses [semantic versioning](https://semver.org/) (before 1.0, a minor version can break
+things, and says so here).
+
+Update with `/plugin update quality-code@quality-code`.
+
+## [0.3.0] - 2026-10-14
+
+**Breaking: the plugin is renamed from `agentic-testing` to `quality-code`.** The old names are no
+longer read.
+
+### Changed
+
+- Plugin and marketplace: `agentic-testing` → `quality-code`. Install with
+  `/plugin install quality-code@quality-code`.
+- Commands: `/agentic-testing:setup`, `:start`, `:ticket-eval` → `/quality-code:setup`, `:start`,
+  `:ticket-eval`.
+- Team config: `.claude/agentic-testing.json` → `.claude/quality-code.json`.
+- Local ticket copies: `.claude/agentic-testing/tickets` → `.claude/quality-code/tickets`.
+- JSON schema: `schema/agentic-testing.schema.json` → `schema/quality-code.schema.json`.
+- The line added above a fill-in pushed to Jira now reads
+  `_Added during the quality-code readiness check._` (teams that set `messages.jiraFillMark` keep
+  their own text).
+
+### Not changed
+
+- The marketplace address is still `vissz28/agentic-testing`.
+- Scores, the 70-point bar, the rubrics and every other behaviour are the same as in 0.2.1.
+
+### Upgrade
+
+Once per person:
+
+```
+/plugin uninstall agentic-testing@agentic-testing
+/plugin marketplace remove agentic-testing
+/plugin marketplace add vissz28/agentic-testing
+/plugin install quality-code@quality-code
+```
+
+Then, in each repo that was set up:
+
+1. Run `/quality-code:setup`. It writes `.claude/quality-code.json`; commit it.
+2. Delete `.claude/agentic-testing.json`, the `.claude/agentic-testing/` folder and its
+   `.gitignore` line.
+3. In the repo's `.claude/settings.json`, rename the `agentic-testing` marketplace key and the
+   `enabledPlugins` entry to `quality-code` (the README's Install section shows the new block).
+
+## [0.2.1] - 2026-10-14
+
+### Added
+
+- `/agentic-testing:start`, the daily command: checks the connectors, shows the repo card (branch,
+  base branch, files changed, committed and not), takes the ticket key from the branch name (or the
+  merge request title, or the commit subjects), and evaluates that ticket. The changes never affect
+  the score. Running the full pipeline from it comes with the Vitest adapter.
+- Connectors check, the first step of both `start` and `setup`: Jira (required), GitLab and Figma
+  (optional, never blocking; Figma only for Playwright repos), with the fix for each. Keys are set
+  in the plugin settings, never typed in the chat.
+- `core/branch.mjs`: reads local git only (no network, no writes), redacts paths and commit
+  subjects, strips credentials from the remote URL, and works in a project inside a subfolder of a
+  larger repo. Base branch: the open merge request's target, else `origin/HEAD`, else `develop`,
+  `main` or `master`.
+
+### Documentation
+
+- README rewritten for every team: quick start, supported projects, capabilities, roles. The
+  warehouse pages moved to `docs/WAREHOUSE.md` and `docs/WAREHOUSE_USER_GUIDE.md`.
+
+## [0.2.0] - 2026-10-12
+
+First release of the reusable plugin (then called `agentic-testing`), for any Jira project and any
+repo with Playwright or Vitest.
+
+### Added
+
+- `/agentic-testing:setup`: detects the stack, asks about Jira (site, projects, criteria field,
+  feature labels, title prefixes, Confluence spaces, languages, redaction, templates) one numbered
+  card at a time, writes `.claude/agentic-testing.json` only after you confirm, and proves the setup
+  on one recent ticket.
+- `/agentic-testing:ticket-eval <KEY>`: the readiness gate. A script scores the ticket out of 100;
+  70 passes, for every team. Acceptance criteria count as Gherkin or as at least 150 characters of
+  plain language; vague results ("works correctly") lose points.
+- On a refused ticket: a Jira comment listing what to add (preview first), a guided fill-in where
+  the script decides whether each answer counts, and an optional push of the filled-in parts to
+  Jira (append only, preview first). `--ci` comments and fails without asking.
+- Redaction of customer ids, e-mails, UUIDs and your own patterns before anything is scored.
+- English and Italian ticket keywords.
+- A parity suite proving the same results as the original warehouse scripts on 116 real tickets.
