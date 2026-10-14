@@ -1,22 +1,95 @@
 # agentic-testing
 
-**From a Jira ticket to real, graded tests, inside Claude Code. For any team.**
+**Test-ready tickets and tests you can trust, inside Claude Code. One plugin for every team.**
 
-A Claude Code plugin that checks whether a Jira ticket is written well enough to test, helps fix
-it when it is not, and (in later parts) writes the tests from the ticket's acceptance criteria and
-grades them. It works with any Jira project and any repo that uses **Playwright** (frontend) or
-**Vitest** (backend). Everything that is specific to your team (Jira project, criteria field,
-feature labels, routes, languages, redaction) lives in one config file that a setup command writes
-for you.
+agentic-testing connects your Jira tickets to your test suite. It checks whether a ticket is clear
+enough to test, helps its author fill the gaps, and (as the [roadmap](#roadmap) lands) writes tests
+from the ticket's acceptance criteria and grades them. It works with any Jira project and any repo
+that uses **Playwright** (frontend) or **Vitest** (backend). What is specific to your team (Jira
+project, criteria field, feature labels, routes, languages, redaction) lives in one config file that
+a guided setup command writes for you. Your application code is never changed.
 
 > **The rule everything is built on:** the model reads, drafts and writes, but it **never grades**.
 > Every score and every pass/fail comes from a deterministic script. A green result is not the
 > model's opinion of its own work.
 
-| Plugin | For | Status |
+## At a glance
+
+| | |
+|---|---|
+| **Works with** | any Jira Cloud project; repos with `@playwright/test` or `vitest` on Node 18+ |
+| **Runs in** | Claude Code (terminal, desktop app, IDE extensions), and in CI with `--ci` |
+| **Onboarding** | one guided command per repo; nobody edits config by hand |
+| **Same for every team** | the 70-point readiness bar, the rubric per stack, the grading scripts |
+| **Ticket languages** | English and Italian |
+| **Data handling** | tickets are redacted locally before scoring; nothing is posted to Jira without a preview and a yes |
+
+---
+
+## Quick start
+
+**1. Install (once per person).** In Claude Code, inside your repo:
+
+```
+/plugin marketplace add vissz28/agentic-testing
+/plugin install agentic-testing@agentic-testing
+```
+
+**2. Set up the repo (once per repo, by one person).** Answer the numbered cards, then commit the
+config it writes:
+
+```
+/agentic-testing:setup
+```
+
+**3. Check a ticket.**
+
+```
+/agentic-testing:ticket-eval ABC-123
+```
+
+The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
+comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
+[Getting started](docs/GETTING_STARTED.md), a step-by-step walk-through for QA and developers.
+
+---
+
+## Is my project supported?
+
+| You need | You do not need |
+|---|---|
+| A Jira Cloud project you can read (and comment on, to post refuse comments) | A specific folder layout, branch model or CI system |
+| `@playwright/test` or `vitest` in `package.json` | A dedicated Jira field: criteria can live in the description |
+| Node 18 or newer | Feature labels or title prefixes: setup offers them, both are optional |
+| Claude Code with plugin support | Changes to your application code |
+
+**Not supported yet:** other test runners (Jest, Cypress, pytest, JUnit…) and ticket languages
+other than English and Italian. See [Known limits](#known-limits).
+
+---
+
+## What you can do today
+
+| Capability | How | Status |
 |---|---|---|
-| **`agentic-testing`** | any repo with Playwright or Vitest, any Jira project | **part 1 (v0.2.0):** setup, readiness gate, guided fill-in, Jira comment and push |
-| `warehouse-frontend`, `warehouse-backend` | the TeamSystem warehouse repos only | the original full pipeline (tests, XRay, checks); kept until part 5, see [Warehouse plugins](#warehouse-plugins-reference-implementation) |
+| Guided setup for your repo and Jira project | `/agentic-testing:setup` | ✅ available |
+| Readiness gate: score a ticket out of 100 | `/agentic-testing:ticket-eval <KEY>` | ✅ available |
+| Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
+| Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
+| Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
+| Deterministic checks on generated tests (honesty, assertions, mutation, boundaries, flakiness) | — | 🛠 in design (part 2) |
+| Write and grade backend tests, any Node/TS + Vitest service | — | 📅 planned (part 4) |
+| Write and grade frontend tests, any Playwright app | — | 📅 planned (part 3) |
+
+## Who does what
+
+| Role | Uses it to |
+|---|---|
+| **QA** | check a ticket before testing starts, fill the gaps with the author, (later) get tests written and graded |
+| **Developer** | check a ticket before picking it up; (later) get a regression test pinned to a bug |
+| **Product owner / ticket author** | read the Jira comment that says exactly what to add, with examples |
+| **Team lead** | run setup once and own `.claude/agentic-testing.json` in the repo |
+| **CI** | refuse untestable tickets automatically with `--ci` |
 
 ---
 
@@ -33,9 +106,9 @@ for you.
 9. [Troubleshooting](#troubleshooting)
 10. [Known limits](#known-limits)
 11. [Roadmap](#roadmap)
-12. [Developing the plugin](#developing-the-plugin)
-13. [Warehouse plugins (reference implementation)](#warehouse-plugins-reference-implementation)
-14. [History](#history)
+12. [Getting help](#getting-help)
+13. [Developing the plugin](#developing-the-plugin)
+14. [Other plugins in this marketplace](#other-plugins-in-this-marketplace)
 
 ---
 
@@ -278,7 +351,7 @@ real data. The ticket is re-read from Jira first and only appended to. `--ci` ne
 
 ### 3. Continue anyway
 
-For developers. In part 1 the run stops here with the `[RISK / NOT RECOMMENDED]` mark; once test
+For developers. Today the run stops here with the `[RISK / NOT RECOMMENDED]` mark; once test
 writing arrives (parts 3–4), the tests will be written and every result will open with that mark.
 If the ticket has nothing to check at all, it asks you to add what should happen first.
 
@@ -377,9 +450,10 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 
 ## Known limits
 
-- **Part 1 does not write tests yet.** It covers setup, the readiness gate, the guided fill-in and
-  Jira. Test writing and the checks come in parts 2–4.
-- **Stacks:** Playwright and Vitest only.
+- **No test writing yet.** Today the plugin covers setup, the readiness gate, the guided fill-in
+  and Jira. Test writing and the checks come in parts 2–4.
+- **Stacks:** Playwright and Vitest only. Other runners are possible later as new adapters.
+- **Jira:** Jira Cloud through the Atlassian connector.
 - **Languages:** English and Italian keywords.
 - **Placeholders:** a team's own template with `{{…}}` placeholders outside comments is not detected
   as unfilled; the plugin's own templates are safe.
@@ -390,11 +464,13 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 
 | # | Part | What it brings | Status |
 |---|---|---|---|
-| 1 | Core + config | `/agentic-testing:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | **built (v0.2.0)** |
-| 2 | Shared checks | honesty, assertion and mutation checks, boundary guard and flaky check, configured instead of hard-coded | planned |
-| 3 | Playwright adapter | frontend test writing and the pipeline for any app | planned |
-| 4 | Vitest adapter | backend test writing, layers and Stryker for any service | planned |
-| 5 | Sample project + rollout | a reference project, an onboarding page, the warehouse repos switched to this plugin | planned |
+| 1 | Core + config | `/agentic-testing:setup`, the readiness gate, guided fill-in and Jira push for any Jira project | ✅ **available (v0.2.0)** |
+| 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | 🛠 in design |
+| 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
+| 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
+| 5 | Rollout | onboarding page, the warehouse repos switched to this plugin, the legacy plugins removed | 📅 planned |
+
+Parts are numbered by design order; the backend adapter (4) is built before the frontend one (3).
 
 What stays the same for every team: the **70-point bar**, the rubric per stack, the
 **150-character** rule for plain-language criteria, the vague-word rules, and the rule that the
@@ -402,6 +478,17 @@ model never grades its own tests.
 
 Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 [part 1 plan](docs/plans/2026-10-12-part-1-core-config.md).
+
+---
+
+## Getting help
+
+- **Something is not working:** check [Troubleshooting](#troubleshooting) first.
+- **A bug, or a request for your stack or language:** open an issue in
+  [vissz28/agentic-testing](https://github.com/vissz28/agentic-testing/issues) with the command you ran,
+  the output, and your `.claude/agentic-testing.json` (it holds no secrets).
+- **A ticket scored lower than you expected:** run `ticket-eval` with `--json`; the output lists
+  every signal the rubric found and what is missing.
 
 ---
 
@@ -421,10 +508,10 @@ agentic-testing/
 │  │  ├─ schema/                       agentic-testing.schema.json
 │  │  ├─ templates/                    standard Story and Bug templates
 │  │  └─ test/                         unit tests and the parity suite
-│  ├─ warehouse-frontend/
-│  └─ warehouse-backend/
-├─ scripts/sync-from-repos.sh
-└─ docs/                               specs, plans, USER_GUIDE.md
+│  ├─ warehouse-frontend/              legacy, warehouse only; removed in part 5
+│  └─ warehouse-backend/               legacy, warehouse only; removed in part 5
+├─ scripts/sync-from-repos.sh          syncs the legacy plugins from the warehouse repos
+└─ docs/                               getting started, specs, plans, warehouse pages
 ```
 
 ```bash
@@ -445,53 +532,8 @@ claude plugin validate plugins/agentic-testing && claude plugin validate .
 
 ---
 
-## Warehouse plugins (reference implementation)
+## Other plugins in this marketplace
 
-`warehouse-frontend` and `warehouse-backend` are the original, warehouse-only version of this
-solution. They run the whole pipeline (readiness gate, test writing, deterministic checks, result
-card) using harness scripts that live in each warehouse repo under `.claude/harness/`. They stay as
-they are until part 5 moves the warehouse repos onto `agentic-testing`.
-
-| | `warehouse-frontend` | `warehouse-backend` |
-|---|---|---|
-| Install (in that repo) | `/plugin install warehouse-frontend@agentic-testing` | `/plugin install warehouse-backend@agentic-testing` |
-| Repo branch with the harness | `agentic-testing-fe`, or a branch merged from it | `agentic-testing-be` (or `agt-34-remove-audit-logs` until merged) |
-| Full run | `/warehouse-frontend:spec-frontend FIC-…` | `/warehouse-backend:spec FIC-…` |
-| Readiness check only | `/warehouse-frontend:ticket-eval FIC-…` | — |
-| One output only | `:playwright`, `:xray` | `:unit`, `:integration`, `:range` |
-| Test data | `:seed` (API stubs) | `:seed` (~25 rows per table into your local DB) |
-| It writes | a Playwright spec and an XRay case (CSV + Excel) | Vitest specs against a real Postgres (Docker required) |
-
-The checks after writing, all plain scripts with their own `--self-test`:
-
-| Check | What it catches |
-|---|---|
-| `boundary-guard` | a write to application code, the CI pipeline or `.env` |
-| `honesty-check` | a check or a whole test quietly deleted or skipped |
-| `suite-honesty` | a test with no assertion, or a run where everything was postponed |
-| `expected-check` (backend) | the test does not assert the values the criteria name |
-| type-check and the run | the spec does not compile, or fails |
-| `mutate-generated` | an assertion that cannot fail |
-| Stryker (backend bugs) | the fix is not really what the test pins |
-
-**Maintaining them.** Their skills and commands are copied from the two repos, which stay the source
-of truth:
-
-```bash
-scripts/sync-from-repos.sh
-```
-
-Then `claude plugin validate plugins/warehouse-frontend` (and the backend one), bump `version`, and
-push. The step-by-step guide for QA is in [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
-
----
-
-## History
-
-| Ticket | What |
-|---|---|
-| AGT-29 / AGT-30 | Plain-language acceptance criteria accepted next to Gherkin; 150-character minimum |
-| AGT-31 / AGT-32 | Guided fill-in on refuse, push to Jira, `[RISK / NOT RECOMMENDED]` flag |
-| AGT-33 | Frontend bar raised from 60 to 70 to match the backend |
-| AGT-34 | Accumulated audit logs removed |
-| AGT-28 | Reusable solution for any team: part 1 built (`agentic-testing` v0.2.0) |
+`warehouse-frontend` and `warehouse-backend` are the original pipeline, built for the TeamSystem
+warehouse repos only. Other teams do not need them. They are kept as a reference until part 5 moves
+the warehouse repos onto `agentic-testing`: see [docs/WAREHOUSE.md](docs/WAREHOUSE.md).
