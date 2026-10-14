@@ -212,3 +212,19 @@ Decided while building 3a. Where one differs from an earlier section, this one w
    every file of that run; `-g` sees the tags after the title; file arguments are unanchored regular
    expressions; `FORCE_COLOR` in the environment overrides `NO_COLOR` and puts colour codes into
    error messages.
+2. **The whole CLI against a real Playwright (by hand, not in CI).** In the same scratch project
+   (1.64.1, a git repo with `adapter: playwright`, `projects: ["a"]`): a spec with two passing tests
+   (one title with parentheses) gave `green` with 2/2 mutants killed and `--flaky 2` green, exit 0;
+   a spec calling a closed port gave `not verified` ("the app is not reachable: … ECONNREFUSED …"),
+   exit 3; a spec with a missing import next to a good one gave `not verified` ("1 file(s) never
+   ran"), exit 3. No `test-results/` folder and no `mut-tmp-*` file was left in the project. The
+   plugin keeps no npm dependency, so this stays a manual check, like 4a ruling 4.
+3. **Card text kept as 4a pinned it.** For a step that could not run, "What to do" reads `tests
+   could not run: could not run: <reason>`, with the words twice. It is 4a's text, pinned by its card
+   test; "card unchanged" (§6) keeps it. A later card change can drop the repeat for both adapters.
+4. **Standalone `flaky` and `mutation`** in `core/checks/cli.mjs` still need a runner and still
+   refuse, but the message now points at the pipeline (`node core/pipeline/cli.mjs <spec…>`, with
+   `--flaky N`) instead of "coming in parts 3–4".
+5. **Tags are not returned by the runner in 3a.** The JSON report has them (`spec.tags`, without the
+   `@`), but nothing in 3a uses them; 3b adds them to the runner result when the card learns anchors,
+   findings and edges.
