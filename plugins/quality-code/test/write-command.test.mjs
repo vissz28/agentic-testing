@@ -1,0 +1,125 @@
+// The write command is a prompt, not code: these pin its flow and its safety rules.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+
+const doc = readFileSync(new URL('../commands/write.md', import.meta.url), 'utf8')
+const guide = readFileSync(new URL('../core/guides/vitest-writing.md', import.meta.url), 'utf8')
+const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. **`) === -1 ? doc.indexOf('\n## Examples') : doc.indexOf(`\n${n + 1}. **`))
+const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
+
+test('frontmatter has a description and the argument hint', () => {
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\]\n---/)
+})
+test('steps come in order: check, ticket and gate, target, plan, write, check, card', () => {
+  const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Target.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Check.**', '\n7. **Card.**'].map(s => doc.indexOf(s))
+  assert.ok(at.every(i => i > 0), JSON.stringify(at))
+  assert.deepEqual([...at].sort((a, b) => a - b), at)
+})
+test('the rules: scripts grade, never edit application code, never weaken or delete a test', () => {
+  assert.match(doc, /Never edit application code/)
+  assert.match(doc, /[Nn]ever weaken or delete a test/)
+  assert.match(doc, /never say a test is good/)
+  assert.match(doc, /Never ask for a token/)
+  assert.doesNotMatch(doc, /mcp__/)
+})
+test('step 1: config check, Vitest only, layers from vitest.layers with the unit default, connectors with Jira', () => {
+  const s = step(1)
+  assert.ok(s.includes('cli.mjs" config check'))
+  assert.match(s, /the Playwright pipeline comes with part 3/)
+  assert.match(s, /`vitest`/)
+  assert.ok(s.includes('`vitest.layers`'))
+  assert.match(s, /one layer, `unit`, in `test\/`/)
+  assert.ok(s.includes('--layer NAME'))
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/connectors.md'))
+  assert.match(s, /Jira is required/)
+})
+test('step 2: the gate is ticket-eval steps 1–5 by reference; a refused ticket gets no marker and no file', () => {
+  const s = step(2)
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md'))
+  assert.match(s, /steps 1–5/)
+  assert.match(s, /refuse card/)
+  assert.match(s, /No run marker, no file written/)
+  assert.match(s, /option 3/)
+  assert.ok(s.includes('<ticketsDir>/<KEY>/ticket.json'))
+})
+test('step 3: the target card, even for one candidate; --target skips it', () => {
+  const s = step(3)
+  assert.ok(s.includes('Which code does this ticket change?\n   1. <path>\n   2. <path>\n   3. Another file\n   4. Stop'))
+  assert.match(s, /One clear candidate still gets the card/)
+  assert.ok(s.includes('--target PATH'))
+  assert.ok(s.includes('core/branch.mjs" --detect'))
+  assert.match(s, /not a spec/)
+})
+test('step 4: reads the generic guide and each layer guide, then the plan card', () => {
+  const s = step(4)
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md'))
+  assert.match(s, /`guide` of each layer/)
+  assert.ok(s.includes('1. Write these tests\n   2. Change the layers\n   3. Stop'))
+})
+test('step 5: run start before any file, the active-run card, the file naming and the describe block', () => {
+  const s = step(5)
+  assert.ok(s.includes(`${RUN} start --key <KEY>`))
+  assert.ok(s.indexOf('run start') < s.indexOf('<target basename>'))
+  assert.match(s, /before writing any file/)
+  assert.ok(s.includes('1. Stop the other run and start this one\n   2. Stop'))
+  assert.ok(s.includes(`${RUN} stop`))
+  assert.ok(s.includes('`<target basename>.<key lowercased>.spec.ts`'))
+  assert.match(s, /`\.spec\.js` when the project has no `tsconfig\.json`/)
+  assert.ok(s.includes("describe('<KEY> <summary>', …)"))
+  assert.match(s, /One `it` per scenario/)
+  assert.match(s, /real expected values from the ticket/)
+  assert.match(s, /it\.todo/)
+})
+test('step 6: one line, then the pipeline with every spec, the key, the ticket file and the target', () => {
+  const s = step(6)
+  assert.ok(s.includes('Running the checks'))
+  const cmd = s.slice(s.indexOf('`node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs"'))
+  assert.ok(s.indexOf('Running the checks') < s.indexOf('core/pipeline/cli.mjs"'))
+  assert.ok(cmd.startsWith("`node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' '<spec>'"))
+  for (const t of ['--key <KEY>', '--ticket @<ticketsDir>/<KEY>/ticket.json', "--target '<target>'"]) assert.ok(cmd.split('\n')[0].includes(t), t)
+  assert.match(s, /Pass every spec this run wrote/)
+  assert.match(s, /Quote every spec path and the target in single quotes/)
+})
+test('step 6: at most 2 rewrites of the tests for fixable fails; boundary and honesty undo once', () => {
+  const s = step(6)
+  for (const c of ['`expected`', '`assertions`', '`mutation`', '`stryker`', '`types`']) assert.ok(s.includes(c), c)
+  assert.match(s, /in a spec/)
+  assert.match(s, /rewrite the tests only/)
+  assert.match(s, /At most 2 rewrites/)
+  assert.match(s, /\*\*`boundary` or `honesty`:\*\* undo that change once/)
+  assert.ok(s.includes(`${RUN} stop`))
+  assert.match(s, /Exit 2[^\n]*run `run stop`/)
+})
+test('run stop on every exit path, and it is safe twice', () => {
+  assert.match(doc, /every way out of this command runs `node "\$\{CLAUDE_PLUGIN_ROOT\}\/core\/checks\/cli\.mjs" run stop` first/)
+  assert.match(doc, /safe to run twice/)
+})
+test('step 7: the last card verbatim without the machine line; the Bug line', () => {
+  const s = step(7)
+  assert.ok(s.includes('Show the last card exactly as printed'))
+  assert.match(s, /Drop the `PIPELINE_JSON:` line/)
+  assert.match(s, /\*\*Bug\*\*/)
+  assert.ok(s.includes('This is the bug the ticket describes; it should go green when the fix is merged.'))
+})
+test('examples use neutral keys', () => {
+  assert.doesNotMatch(doc, /AGT|FIC|warehouse|teamsystem/i)
+})
+
+test('the guide: arrange/act/assert, one behaviour per it, ticket values, no snapshots, I/O mocks only', () => {
+  assert.match(guide, /[Aa]rrange, act, assert/)
+  assert.match(guide, /One behaviour per `it`/)
+  assert.match(guide, /real expected values from the ticket/)
+  assert.match(guide, /No snapshot for values/)
+  assert.match(guide, /Mock only I\/O boundaries/)
+})
+test('the guide: deterministic time and random, no .only, it.todo for unknown behaviour', () => {
+  assert.ok(guide.includes('vi.useFakeTimers()'))
+  assert.ok(guide.includes('vi.setSystemTime('))
+  assert.match(guide, /seeded/)
+  assert.match(guide, /`\.only`/)
+  assert.match(guide, /`it\.todo\(/)
+})
+test('the guide carries no project values', () => {
+  assert.doesNotMatch(guide, /AGT|FIC|warehouse|teamsystem/i)
+})

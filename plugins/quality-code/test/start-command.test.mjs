@@ -48,11 +48,11 @@ test('step 3: key from the branch first, then the merge-request title, then comm
   assert.ok(s.includes('1. Use <KEY>'))
   assert.ok(s.includes('2. A different ticket'))
 })
-test('step 4: evaluate runs ticket-eval; option 2 checks the branch tests; writing waits for part 4b', () => {
+test('step 4: evaluate runs ticket-eval; option 2 checks the branch tests; option 3 writes them', () => {
   const s = step(4)
   assert.ok(s.includes('1. Evaluate the ticket'))
   assert.ok(s.includes('2. Check the tests on this branch'))
-  assert.ok(s.includes('3. Write and check tests (coming with part 4b)'))
+  assert.ok(s.includes('3. Write and check tests\n'))
   assert.ok(s.includes('4. Stop'))
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md'))
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/check.md'))
@@ -60,9 +60,16 @@ test('step 4: evaluate runs ticket-eval; option 2 checks the branch tests; writi
   assert.match(s, /leaving out deleted ones \(status `D`\)/)
   assert.match(s, /`vitest`/)
   assert.match(s, /confirmed key/)
-  assert.ok(s.includes('2. Write and check tests (coming with part 4b)'))
-  assert.ok(s.includes('Writing tests for any project comes with part 4b.'))
+  assert.ok(s.includes('2. Write and check tests / 3. Stop'))
   assert.doesNotMatch(s, /full pipeline/)
+})
+test('step 4: writing follows write.md with the confirmed key; no "coming with part 4b" left', () => {
+  const s = step(4)
+  const w = s.slice(s.indexOf('**Write and check tests'))
+  assert.ok(w.includes('${CLAUDE_PLUGIN_ROOT}/commands/write.md'))
+  assert.match(w, /confirmed key `<KEY>`/)
+  assert.match(w, /do not ask again/)
+  assert.doesNotMatch(doc, /part 4b/)
 })
 test('the change never feeds the score, and no diff content is shown', () => {
   assert.match(doc, /never changes the score/)
