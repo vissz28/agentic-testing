@@ -55,7 +55,8 @@ branch name (`ABC-123-add-export`). Then you pick: evaluate that ticket, check t
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
 comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
-[Getting started](docs/GETTING_STARTED.md), a step-by-step walk-through for QA and developers.
+[Getting started](docs/GETTING_STARTED.md), a step-by-step walk-through for QA and developers. Bringing
+a whole team on board: [Onboarding](docs/ONBOARDING.md), one page with a team lead's checklist.
 
 ---
 
