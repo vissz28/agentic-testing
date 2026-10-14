@@ -130,7 +130,11 @@ test('runner: timeout → ran false, temp dir removed', async () => {
   const saved = process.env.TMPDIR
   process.env.TMPDIR = tmp
   let r
-  try { r = await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 300 }) } finally { process.env.TMPDIR = saved }
+  try { r = await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 300 }) } finally {
+    // Unset on Linux: assigning undefined would set the string "undefined".
+    if (saved === undefined) delete process.env.TMPDIR
+    else process.env.TMPDIR = saved
+  }
   assert.deepEqual(r, { ran: false, error: 'took longer than 300ms' })
   assert.deepEqual(readdirSync(tmp), [])
   const s = proj()
