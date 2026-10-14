@@ -26,7 +26,8 @@ test('the rules: scripts grade, never edit application code, never weaken or del
 test('step 1: config check, Vitest only, layers from vitest.layers with the unit default, connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes('cli.mjs" config check'))
-  assert.match(s, /the Playwright pipeline comes with part 3/)
+  assert.ok(s.includes('Writing Playwright tests is not available yet: this command writes Vitest tests only. To check the Playwright tests you already have, run /quality-code:check.'))
+  assert.doesNotMatch(doc, /part 3/)
   assert.match(s, /`vitest`/)
   assert.ok(s.includes('`vitest.layers`'))
   assert.match(s, /one layer, `unit`, in `test\/`/)

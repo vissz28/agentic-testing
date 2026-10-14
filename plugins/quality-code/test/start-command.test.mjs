@@ -61,6 +61,12 @@ test('step 4: evaluate runs ticket-eval; option 2 checks the branch tests; optio
   assert.match(s, /`vitest`/)
   assert.match(s, /confirmed key/)
   assert.ok(s.includes('2. Write and check tests / 3. Stop'))
+  assert.match(s, /it works for both adapters, `vitest` and `playwright`/)
+  assert.match(s, /Offer option 3 only when the `adapter` in `.claude\/quality-code.json` is `vitest`/)
+  assert.match(s, /number the rest in order/)
+  assert.ok(s.includes('`1. Evaluate the ticket / 2. Check the tests on this branch / 3. Stop`'))
+  assert.ok(s.includes('`1. Evaluate the ticket / 2. Stop`'))
+  assert.doesNotMatch(doc, /part 3/)
   assert.doesNotMatch(s, /full pipeline/)
 })
 test('step 4: writing follows write.md with the confirmed key; no "coming with part 4b" left', () => {

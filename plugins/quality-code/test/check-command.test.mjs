@@ -45,8 +45,13 @@ test('commands never grade, edit tests or retry', () => {
   assert.match(doc, /Never edit tests/)
   assert.match(doc, /never retry/)
 })
-test('Playwright projects wait for part 3', () => {
-  assert.ok(doc.includes('the Playwright pipeline comes with part 3'))
+test('Vitest and Playwright projects run the same pipeline; Playwright gets the line about the app', () => {
+  assert.doesNotMatch(doc, /part 3/)
+  assert.doesNotMatch(doc, /Vitest projects only/)
+  assert.match(doc, /^description: Check Vitest or Playwright spec files/m)
+  assert.match(doc, /Both `vitest` and `playwright` projects are checked the same way/)
+  assert.ok(doc.includes('The tests open the app: your Playwright config starts it (its webServer), or it must already be running.'))
+  assert.ok(doc.indexOf('The tests open the app') < doc.indexOf('core/pipeline/cli.mjs"'))
 })
 test('no token in the chat; no mcp tools', () => {
   assert.match(doc, /Never ask for a token/)
