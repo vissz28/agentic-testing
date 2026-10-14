@@ -4,23 +4,13 @@
     "name": "Elvis Zefaj"
   },
   "metadata": {
-    "description": "quality-code: from a Jira ticket to tests you can trust, for any team (setup, daily start from the feature branch, readiness gate, guided fill-in, Jira comment and push). Also holds the legacy warehouse frontend and backend plugins."
+    "description": "quality-code: from a Jira ticket to tests you can trust, for any team (setup, daily start from the feature branch, readiness gate, guided fill-in, Jira comment and push)."
   },
   "plugins": [
     {
       "name": "quality-code",
       "source": "./plugins/quality-code",
       "description": "Reusable ticket-to-test harness for any project: setup, readiness gate, guided fill-in, Jira comment and push (Playwright or Vitest)."
-    },
-    {
-      "name": "warehouse-frontend",
-      "source": "./plugins/warehouse-frontend",
-      "description": "Playwright tests + XRay case from a FIC Jira ticket, for warehouse-frontend."
-    },
-    {
-      "name": "warehouse-backend",
-      "source": "./plugins/warehouse-backend",
-      "description": "Live-database Vitest tests from a FIC Jira ticket, for warehouse-backend."
     }
   ]
 }

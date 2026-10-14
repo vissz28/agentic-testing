@@ -113,7 +113,6 @@ other than English and Italian. See [Known limits](#known-limits).
 11. [Roadmap](#roadmap)
 12. [Getting help](#getting-help)
 13. [Developing the plugin](#developing-the-plugin)
-14. [Other plugins in this marketplace](#other-plugins-in-this-marketplace)
 
 ---
 
@@ -479,7 +478,7 @@ Personal settings and secrets are asked when the plugin is enabled and can be ch
 | 2 | Shared checks | honesty, assertion, mutation, boundary and flaky checks, one version for both stacks, driven by the config | 🛠 in design |
 | 4 | Vitest adapter | backend test writing for any Node/TS + Vitest service: test layers declared in the config, an optional database, optional Stryker; proved on a sample service in this repo | 📅 next, after part 2 |
 | 3 | Playwright adapter | frontend test writing and the pipeline for any Playwright app | 📅 planned |
-| 5 | Rollout | onboarding page, the warehouse repos switched to this plugin, the legacy plugins removed | 📅 planned |
+| 5 | Rollout | onboarding page, the first teams (warehouse included) switched to this plugin | 📅 planned |
 
 Parts are numbered by design order; the backend adapter (4) is built before the frontend one (3).
 
@@ -507,24 +506,22 @@ Details: [part 1 spec](docs/specs/2026-10-12-part-1-core-config-design.md) ·
 
 ```
 quality-code/
-├─ CHANGELOG.md                       what changed in each version
+├─ CHANGELOG.md                      what changed in each version
 ├─ .claude-plugin/marketplace.json
 ├─ .github/workflows/test.yml          core tests, JSON check, no project values in core
 ├─ plugins/
-│  ├─ quality-code/
-│  │  ├─ .claude-plugin/plugin.json    manifest and personal settings
-│  │  ├─ .mcp.json                     Atlassian, Figma, GitLab connectors
-│  │  ├─ commands/                     setup.md, start.md, ticket-eval.md
-│  │  ├─ core/                         the scripts (no dependencies): config, languages, criteria,
-│  │  │                                rubrics, score, sanitize, fill, jira, cli, setup,
-│  │  │                                branch, connectors.md
-│  │  ├─ schema/                       quality-code.schema.json
-│  │  ├─ templates/                    standard Story and Bug templates
-│  │  └─ test/                         unit tests and the parity suite
-│  ├─ warehouse-frontend/              legacy, warehouse only; removed in part 5
-│  └─ warehouse-backend/               legacy, warehouse only; removed in part 5
-├─ scripts/sync-from-repos.sh          syncs the legacy plugins from the warehouse repos
-└─ docs/                               getting started, specs, plans, warehouse pages
+│  └─ quality-code/
+│     ├─ .claude-plugin/plugin.json    manifest and personal settings
+│     ├─ .mcp.json                     Atlassian, Figma, GitLab connectors
+│     ├─ commands/                     setup.md, start.md, ticket-eval.md
+│     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
+│     │                                rubrics, score, sanitize, fill, jira, cli, setup,
+│     │                                branch, connectors.md
+│     ├─ schema/                       quality-code.schema.json
+│     ├─ templates/                    standard Story and Bug templates
+│     └─ test/                         unit tests and the parity suite
+├─ scripts/capture-parity.mjs          records the reference outputs the parity suite compares with
+└─ docs/                               getting started, specs, plans
 ```
 
 ```bash
@@ -544,10 +541,3 @@ claude plugin validate plugins/quality-code && claude plugin validate .
   `plugins/quality-code/.claude-plugin/plugin.json`, then
   `claude plugin tag plugins/quality-code`, then push. Users get it with `/plugin update`.
 
----
-
-## Other plugins in this marketplace
-
-`warehouse-frontend` and `warehouse-backend` are the original pipeline, built for the TeamSystem
-warehouse repos only. Other teams do not need them. They are kept as a reference until part 5 moves
-the warehouse repos onto `quality-code`: see [docs/WAREHOUSE.md](docs/WAREHOUSE.md).

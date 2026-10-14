@@ -7,6 +7,14 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [Unreleased]
+
+### Removed
+
+- The marketplace no longer carries the `warehouse-frontend` and `warehouse-backend` plugins:
+  `quality-code` is the one plugin for every team. Teams that used them install `quality-code`
+  instead.
+
 ## [0.3.0] - 2026-10-14
 
 **Breaking: the plugin is renamed from `agentic-testing` to `quality-code`.** The old names are no
@@ -68,7 +76,7 @@ Then, in each repo that was set up:
 ### Documentation
 
 - README rewritten for every team: quick start, supported projects, capabilities, roles. The
-  warehouse pages moved to `docs/WAREHOUSE.md` and `docs/WAREHOUSE_USER_GUIDE.md`.
+  warehouse-only pages moved out of the README.
 
 ## [0.2.0] - 2026-10-12
 

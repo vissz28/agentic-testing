@@ -19,7 +19,7 @@ part 2 is shared with the Playwright adapter, so both dialects are covered here.
 | **2** | **Shared checks** (this spec) | boundary, honesty, suite-honesty, flaky and mutation checks in the plugin |
 | 4 | Vitest adapter | conductor, Vitest runner, layers from config, `expected-check`, Stryker, a DB-less sample service |
 | 3 | Playwright adapter | conductor, Playwright runner, XRay |
-| 5 | Rollout | warehouse repos switched, legacy plugins removed |
+| 5 | Rollout | first teams, warehouse included, switched to the plugin |
 
 ## 2. Decisions already taken
 
@@ -270,7 +270,8 @@ node core/checks/cli.mjs mutation <spec> [--key KEY] [--baseline FILE] [--max N]
 - **README:** the capability row for the checks moves to "available (building blocks)", the roadmap
   row for part 2 to available, the config table gains `boundaries`, the Developing section documents
   `core/checks/cli.mjs`.
-- **Warehouse:** nothing changes. The legacy plugins and the repos' harness stay as they are.
+- **Warehouse:** nothing changes in the warehouse repos; their own harness stays as it is. (The
+  `warehouse-*` plugins were removed from the marketplace on 2026-10-14.)
 
 ## 11. Out of scope for part 2
 
@@ -291,4 +292,4 @@ stacks other than Vitest and Playwright.
    config without `boundaries` still validates and uses the adapter defaults.
 6. CI is green: unit tests, parity, the no-project-values and no-customer-id guards,
    `claude plugin validate`.
-7. Neither warehouse repo, nor the legacy plugins, changed.
+7. Neither warehouse repo changed.
