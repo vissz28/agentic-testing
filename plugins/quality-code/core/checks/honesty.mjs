@@ -12,6 +12,23 @@ function testTitle(line) {
   return /\b(?:test|it)(?:\.\w+)?\s*\(\s*(['"`])(.+?)\1/.exec(line)?.[2] ?? null
 }
 
+/** The path of a `+++` header: drop the b/ prefix and a trailing tab; unquote what git quoted. */
+function headerPath(rest) {
+  let p = rest.replace(/\t.*$/, '')
+  if (p.startsWith('"') && p.endsWith('"') && p.length > 1) {
+    const bytes = []
+    const esc = { n: 10, t: 9, '"': 34, '\\': 92 }
+    const inner = p.slice(1, -1)
+    for (let i = 0; i < inner.length; i++) {
+      if (inner[i] !== '\\') { bytes.push(...Buffer.from(inner[i])); continue }
+      const oct = /^[0-7]{3}/.exec(inner.slice(i + 1))
+      if (oct) { bytes.push(parseInt(oct[0], 8)); i += 3 } else if (inner[i + 1] in esc) { bytes.push(esc[inner[++i]]) } else bytes.push(92)
+    }
+    p = Buffer.from(bytes).toString('utf8')
+  }
+  return p.replace(/^b\//, '')
+}
+
 export function scanDiff(diff, dialect, keySrc) {
   const h = dialect.honesty
   const tracked = new RegExp(`\\b${keySrc}\\b`)
@@ -21,7 +38,7 @@ export function scanDiff(diff, dialect, keySrc) {
   const addedLines = new Map()
   let file = null
   for (const raw of String(diff).split('\n')) {
-    if (raw.startsWith('+++ b/')) { file = raw.slice(6); continue }
+    if (raw.startsWith('+++ b/') || raw.startsWith('+++ "b/')) { file = headerPath(raw.slice(4)); continue }
     if (raw.startsWith('+++') || raw.startsWith('---') || raw.startsWith('@@')) continue
     if (raw.startsWith('-')) {
       const body = raw.slice(1)

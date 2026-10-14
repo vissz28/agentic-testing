@@ -1,6 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { scanDiff } from '../../core/checks/honesty.mjs'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { run, scanDiff } from '../../core/checks/honesty.mjs'
+import { ENV } from './git-env.mjs'
 import { dialectFor } from '../../core/checks/dialects/index.mjs'
 
 const KEYS = '(?:FIC|AGT)-\\d+'
@@ -53,4 +58,33 @@ test('tracked keys come from the config, not from fixed projects', () => {
 })
 test('violations carry no internal title field', () => {
   assert.deepEqual(Object.keys(be("-it('t', () => {}")[0]).sort(), ['file', 'kind', 'line'])
+})
+
+const repo = () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-h-'))
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV, encoding: 'utf8' })
+  const put = (p, t) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), t) }
+  g('init', '-q', '-b', 'main'); put('README.md', 'x\n'); g('add', '-A'); g('commit', '-qm', 'i')
+  return { d, g, put }
+}
+const ctx = d => ({ root: d, config: { jira: { projects: ['ABC'] }, adapter: 'vitest' }, dialect: dialectFor('vitest') })
+
+test('an untracked spec is read, not skipped (§9 #18)', () => {
+  const { d, put } = repo()
+  put('test/new.spec.ts', "it.skip('x', () => {})\n")
+  const r = run({ specs: ['test/new.spec.ts'] }, ctx(d))
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings.map(f => [f.file, f.kind]), [['test/new.spec.ts', 'test newly skipped']])
+  put('test/ok.spec.ts', "it.skip('x (ABC-1)', () => {})\n")
+  assert.equal(run({ specs: ['test/ok.spec.ts'] }, ctx(d)).status, 'pass')
+})
+test('diff headers: a trailing tab and quoted non-ASCII names give the right file', () => {
+  const { d, g, put } = repo()
+  put('test/my file.spec.ts', "it('a', () => { expect(1).toBe(1) })\n")
+  put('test/café.spec.ts', "it('a', () => { expect(1).toBe(1) })\n")
+  g('add', '-A'); g('commit', '-qm', 'two')
+  put('test/my file.spec.ts', "it.skip('a', () => {})\n")
+  put('test/café.spec.ts', "it.skip('a', () => {})\n")
+  const r = run({ specs: ['test/my file.spec.ts', 'test/café.spec.ts'] }, ctx(d))
+  assert.deepEqual([...new Set(r.findings.map(f => f.file))].sort(), ['test/café.spec.ts', 'test/my file.spec.ts'])
 })
