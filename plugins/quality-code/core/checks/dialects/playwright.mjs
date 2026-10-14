@@ -57,6 +57,11 @@ function plan({ src, passedTitles, range, blocks, expects }) {
   return mutants
 }
 
+// Web-first matchers whose arguments hold the values a ticket expects (the expected check reads them).
+export const expected = {
+  matchers: ['toHaveText', 'toContainText', 'toHaveValue', 'toHaveValues', 'toHaveCount', 'toHaveURL', 'toHaveTitle', 'toHaveAttribute', 'toHaveAccessibleName', 'toHaveAccessibleDescription', 'toHaveJSProperty', 'toHaveCSS', 'toHaveId', 'toHaveClass'],
+}
+
 export const mutation = {
   expectRe: /\bawait\s+expect\s*\(/,
   testRe: /\btest(?:\.(skip|fixme|only))?\s*\(\s*(['"`])(.*?)\2/,

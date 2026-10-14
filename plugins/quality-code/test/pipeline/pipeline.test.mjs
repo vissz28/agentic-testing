@@ -4,7 +4,9 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { decide, runPipeline, testsStep } from '../../core/pipeline/vitest.mjs'
+import { ADAPTERS, decide, runPipeline, testsStep } from '../../core/pipeline/pipeline.mjs'
+import { playwrightRunner } from '../../core/runners/playwright.mjs'
+import { vitestRunner } from '../../core/runners/vitest.mjs'
 import { dialectFor } from '../../core/checks/dialects/index.mjs'
 import { result } from '../../core/checks/result.mjs'
 import { RUN_MARKER } from '../../core/checks/boundary.mjs'
@@ -276,4 +278,62 @@ test('stryker: not installed is not applicable; an error or no mutants is not_ru
   assert.equal(calls.length, 1)
   const down = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { ran: false }), runStryker: stryker({ ran: true, score: 100 }) }))
   assert.equal(down.steps.at(-1).summary, 'skipped: the tests did not run')
+})
+
+// Playwright: the same steps with the Playwright dialect and runner, and no Stryker step.
+const pwConfig = { adapter: 'playwright', jira: { projects: ['ABC'] } }
+const PW_SPEC = "test.describe('ABC-1 — anchor', () => {\n  test('shows', async ({ page }) => {\n    await expect(page.getByText('Saved')).toBeVisible()\n  })\n})\n"
+function pwRunner(root, opts = {}) {
+  return async ({ files, testName }) => {
+    if (opts.ran === false) return { ran: false, tests: [], error: 'the app is not reachable: net::ERR_CONNECTION_REFUSED' }
+    const src = readFileSync(join(root, files[0]), 'utf8')
+    const status = opts.red ? 'failed' : testName && src !== PW_SPEC ? 'failed' : 'passed'
+    return { ran: true, broken: [], tests: [{ title: 'shows', file: files[0], status, message: status === 'failed' ? 'Timed out' : '' }] }
+  }
+}
+const pwCtx = (d, extra = {}) => ({ config: pwConfig, dialect: dialectFor('playwright'), root: d, runTests: pwRunner(d), typeCheck: ok, ...extra })
+
+test('playwright: green with the Playwright dialect; every flip killed; no stryker step, even with a target', async () => {
+  const d = repo(PW_SPEC)
+  const timeouts = []
+  const r0 = pwRunner(d)
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', flakyRuns: 2, target: 'src/x.ts' }, pwCtx(d, { runTests: async a => { timeouts.push(a.timeoutMs); return r0(a) } }))
+  assert.equal(r.verdict, 'green', JSON.stringify(r.steps))
+  assert.deepEqual(r.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'mutation', 'flaky'])
+  const m = r.steps.find(s => s.check === 'mutation')
+  assert.equal(m.data.total, 2)
+  assert.equal(m.data.killed, 2)
+  assert.deepEqual([...new Set(timeouts.filter(t => t !== undefined))], [600_000])
+})
+test('playwright: red, checks failed and not verified', async () => {
+  const d = repo(PW_SPEC)
+  assert.equal((await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, pwCtx(d, { runTests: pwRunner(d, { red: true }) }))).verdict, 'tests_red')
+  const down = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, pwCtx(d, { runTests: pwRunner(d, { ran: false }) }))
+  assert.equal(down.verdict, 'not_verified')
+  assert.equal(down.steps.find(s => s.check === 'tests').summary, 'could not run: the app is not reachable: net::ERR_CONNECTION_REFUSED')
+  const h = repo("test.describe('ABC-1 — anchor', () => {\n  test('shows', async ({ page }) => {\n    await page.goto('/')\n  })\n})\n")
+  const hollow = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, pwCtx(h, { runTests: pwRunner(h) }))
+  assert.equal(hollow.verdict, 'checks_failed')
+  assert.equal(hollow.decidedBy, 'suite-honesty')
+})
+test('playwright: a design capture test is neither graded nor mutated', async () => {
+  const spec = `${PW_SPEC}test('ABC-1 — design-conformance capture', async ({ page }) => { await page.screenshot({ path: 'x.png' }) })\n`
+  const d = repo(spec)
+  const runner = async ({ files, testName }) => {
+    const src = readFileSync(join(d, files[0]), 'utf8')
+    const status = testName && src !== spec ? 'failed' : 'passed'
+    return { ran: true, broken: [], tests: [{ title: 'shows', file: files[0], status, message: '' }, { title: 'ABC-1 — design-conformance capture', file: files[0], status: 'passed', message: '' }] }
+  }
+  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, pwCtx(d, { runTests: runner }))
+  assert.equal(r.verdict, 'green', JSON.stringify(r.steps))
+  assert.equal(r.steps.find(s => s.check === 'suite-honesty').data.capture, 1)
+  assert.equal(r.steps.find(s => s.check === 'mutation').data.total, 2)
+})
+test('the adapter picks the runner; an unknown adapter is a crash', async () => {
+  assert.equal(ADAPTERS.playwright.runner, playwrightRunner)
+  assert.equal(ADAPTERS.playwright.stryker, false)
+  assert.equal(ADAPTERS.vitest.runner, vitestRunner)
+  assert.equal(ADAPTERS.vitest.stryker, true)
+  const d = repo()
+  await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { config: { ...config, adapter: 'jest' } })), /no pipeline for adapter "jest"/)
 })

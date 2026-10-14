@@ -1,14 +1,15 @@
-// Type-check step: the project's own tsc, --noEmit, on its tsconfig.
+// Type-check step: the project's own tsc, --noEmit, on the tsconfig of the vitest or playwright block.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { result } from '../checks/result.mjs'
+import { adapterOptions, timeoutSecondsOf } from '../config.mjs'
 
 const TS = /\.(ts|tsx|mts|cts)$/
 
-export function typeCheck(root, config, specs, { timeoutMs = (config.vitest?.timeoutSeconds ?? 300) * 1000 } = {}) {
-  const tsconfig = config.vitest?.tsconfig ?? 'tsconfig.json'
+export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}) {
+  const tsconfig = adapterOptions(config).tsconfig ?? 'tsconfig.json'
   const hasTs = specs.some(s => TS.test(s))
   const has = existsSync(join(root, tsconfig))
   if (!has && !hasTs) return Promise.resolve(result('types', 'pass', 'no TypeScript specs: nothing to type-check', [], { applicable: false }))

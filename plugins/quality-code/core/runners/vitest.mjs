@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { matches } from '../checks/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
+import { timeoutSecondsOf } from '../config.mjs'
 
 const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 
@@ -85,7 +86,7 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
 }
 
 export function vitestRunner(root, config) {
-  const defaultMs = (config.vitest?.timeoutSeconds ?? 300) * 1000
+  const defaultMs = timeoutSecondsOf(config) * 1000
   return async ({ files, testName, timeoutMs }) => {
     const groups = new Map()
     for (const f of files) {

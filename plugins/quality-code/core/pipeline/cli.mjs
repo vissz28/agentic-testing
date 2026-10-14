@@ -1,4 +1,4 @@
-// Entry point for the Vitest pipeline: node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]
+// Entry point for the pipeline (Vitest and Playwright): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 import { readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -7,7 +7,7 @@ import { dialectFor } from '../checks/dialects/index.mjs'
 import { isProjectKey, projectKeys } from '../checks/keys.mjs'
 import { loadConfig, projectRoot } from '../config.mjs'
 import { formatCard } from './card.mjs'
-import { normalizeSpec, runPipeline as realRunPipeline } from './vitest.mjs'
+import { normalizeSpec, runPipeline as realRunPipeline } from './pipeline.mjs'
 
 const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -40,7 +40,6 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const cfg = loadConfig(root)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
-  if (config.adapter === 'playwright') return err('the Playwright pipeline comes with part 3')
   for (const s of a.specs) {
     const rel = normalizeSpec(root, resolve(root, s))
     if (rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/')) return err(`spec must be inside the project: ${s}`)
@@ -58,6 +57,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
   }
   let target = null
+  if (a.target !== undefined && config.adapter === 'playwright') return err('--target runs Stryker, which is for Vitest projects: leave it out for Playwright specs')
   if (a.target !== undefined) {
     target = normalizeSpec(root, resolve(root, a.target))
     if (!inside(target)) return err(`--target must be inside the project: ${a.target}`)

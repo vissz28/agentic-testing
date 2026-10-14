@@ -1,5 +1,6 @@
-// The Vitest pipeline: the shared checks, the type-check and the tests in a fixed order, then one
-// verdict. Nothing here grades by opinion: every step is a script's result.
+// The pipeline for both adapters: the shared checks, the type-check and the tests in a fixed order,
+// then one verdict. The adapter picks the runner (Vitest or Playwright) and whether Stryker runs.
+// Nothing here grades by opinion: every step is a script's result.
 import * as boundary from '../checks/boundary.mjs'
 import { runActive } from '../checks/boundary.mjs'
 import * as expected from '../checks/expected.mjs'
@@ -10,9 +11,16 @@ import { result } from '../checks/result.mjs'
 import * as suite from '../checks/suite-honesty.mjs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { runStryker as realRunStryker } from '../runners/stryker.mjs'
+import { playwrightRunner } from '../runners/playwright.mjs'
 import { vitestRunner } from '../runners/vitest.mjs'
-import { strykerThreshold } from '../config.mjs'
+import { strykerThreshold, timeoutSecondsOf } from '../config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
+
+// Stryker mutates source code under unit tests; it does not run e2e tests.
+export const ADAPTERS = Object.freeze({
+  vitest: Object.freeze({ runner: vitestRunner, stryker: true }),
+  playwright: Object.freeze({ runner: playwrightRunner, stryker: false }),
+})
 
 export function decide(steps) {
   const failed = steps.find(s => s.status === 'fail' && s.check !== 'tests')
@@ -95,11 +103,13 @@ export async function strykerStep(target, tests, ctx, timeoutMs) {
 }
 
 export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null, ticket = null, target = null }, ctx) {
-  const runTests = ctx.runTests ?? vitestRunner(ctx.root, ctx.config)
+  const adapter = ADAPTERS[ctx.config.adapter]
+  if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
+  const runTests = ctx.runTests ?? adapter.runner(ctx.root, ctx.config)
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
   const specs = [...new Set(rawSpecs.map(f => normalizeSpec(ctx.root, f)))]
-  const timeoutMs = (ctx.config.vitest?.timeoutSeconds ?? 300) * 1000
+  const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
   // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
   const step = async (name, fn) => {
     try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
@@ -132,6 +142,6 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
   }
-  steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs)))
+  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs)))
   return { ...decide(steps), steps }
 }

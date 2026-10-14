@@ -152,3 +152,11 @@ test('run: not_run without a block, a key, or a readable ticket', () => {
     assert.match(r.summary, /^cannot read the ticket file: /)
   }
 })
+test('surface: Playwright web-first matchers count for the Playwright dialect only', () => {
+  const src = "test.describe('ABC-7 cart', () => {\n  test('total', async ({ page }) => {\n    await expect(page.getByTestId('total')).toHaveText('12,50 €')\n    await expect(page).toHaveURL('/cart/42')\n    await expect(rows).toHaveCount(3)\n  })\n})\n"
+  const s = surface(src, 'ABC-7', dialectFor('playwright'))
+  for (const v of ["'12,50 €'", "'/cart/42'", '3', "page.getByTestId('total')"]) assert.ok(s.includes(v), v)
+  const vt = surface(src.replace("test.describe('ABC-7 cart'", "describe('ABC-7 cart'"), 'ABC-7', V)
+  assert.ok(!vt.includes("'12,50 €'"))
+  assert.ok(vt.includes("page.getByTestId('total')"))
+})

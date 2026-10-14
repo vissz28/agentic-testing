@@ -12,7 +12,8 @@ const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}
 // A number that is not part of a word, a key (ABC-12) or a version (1.2.3).
 const NUMBER = /(?<![\w.,\-−])[+\-−]?\d+(?:[.,]\d+)*(?![\w]|[.,]\d)/g
 const MATCHERS = ['expect', 'toBe', 'toEqual', 'toStrictEqual', 'toContain', 'toMatchObject', 'toHaveProperty', 'toThrow']
-const CALL = new RegExp(`(?:\\bexpect|\\.(?:${MATCHERS.slice(1).join('|')}))\\s*\\(`, 'g')
+// A dialect may add its own matchers (Playwright's web-first ones: toHaveText, toHaveValue, …).
+const callRe = dialect => new RegExp(`(?:\\bexpect|\\.(?:${[...MATCHERS.slice(1), ...(dialect?.expected?.matchers ?? [])].join('|')}))\\s*\\(`, 'g')
 
 /**
  * Every value a written number may mean, as canonical decimal text: "1.234,5", "1,234.5" and
@@ -115,7 +116,7 @@ export function surface(specSrc, key, dialect) {
   if (!range) return null
   const block = specSrc.slice(range[0], range[1])
   const parts = []
-  for (const m of block.matchAll(CALL)) {
+  for (const m of block.matchAll(callRe(dialect))) {
     const open = m.index + m[0].length - 1
     parts.push(block.slice(open + 1, closeParen(block, open) - 1))
   }

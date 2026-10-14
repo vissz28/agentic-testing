@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { main } from '../../core/pipeline/cli.mjs'
 import { ENV } from '../checks/git-env.mjs'
-import { fakeBin } from '../runners/fake-bin.mjs'
+import { calls, fakeBin } from '../runners/fake-bin.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../core/pipeline/cli.mjs')
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -88,11 +88,68 @@ test('a failing check: exit 1', () => {
   bins(d, [at('hollow', 'passed')])
   assert.equal(run(d, ['test/a.spec.ts']).status, 1)
 })
-test('adapter playwright: exit 2 and the part 3 message', () => {
-  const d = repo({ adapter: 'playwright' })
+// Playwright through the CLI, with a fake playwright writing a Playwright-shaped report.
+const PW = "test.describe('ABC-1 — anchor', () => {\n  test('shows', async ({ page }) => {\n    await expect(page.getByText('Saved')).toBeVisible()\n  })\n})\n"
+const pwTest = (title, status, message = '') => ({ title, file: 'test/a.spec.ts', tags: [], tests: [{ projectName: 'chromium', expectedStatus: 'passed', status: status === 'passed' ? 'expected' : 'unexpected', results: [{ status, ...(message ? { error: { message } } : {}) }] }] })
+const pwReport = (d, specs, errors = []) => ({ config: { rootDir: d }, errors, suites: specs.length ? [{ title: 'test/a.spec.ts', file: 'test/a.spec.ts', specs, suites: [] }] : [] })
+const pwBins = (d, specs, extra = {}) => {
+  fakeBin(d, 'tsc', { exit: 0 })
+  fakeBin(d, 'playwright', { report: pwReport(d, specs), ...extra })
+}
+test('playwright: green, exit 0; the fake playwright got the file pattern; no stryker step', () => {
+  const d = repo({ adapter: 'playwright', spec: PW })
+  pwBins(d, [pwTest('shows', 'passed')], { mutantReport: { title: 'shows', status: 'failed' } })
+  const r = run(d, ['test/a.spec.ts', '--key', 'ABC-1', '--json'])
+  assert.equal(r.status, 0, r.stderr + r.stdout)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.verdict, 'green')
+  assert.deepEqual(out.steps.map(s => s.check), ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'mutation'])
+  assert.equal(out.steps.find(s => s.check === 'mutation').data.killed, 2)
+  assert.equal(calls(d, 'playwright')[0][1], '(?:^|/)test/a\\.spec\\.ts$')
+  const card = run(d, ['test/a.spec.ts', '--key', 'ABC-1'])
+  assert.match(card.stdout, /^quality-code check · 1 spec file · ticket ABC-1/)
+  assert.match(card.stdout, /Tests {5}1 passed · 0 failed · 0 to do/)
+})
+test('playwright: a red test is exit 1; a mutant that survives is exit 1', () => {
+  const d = repo({ adapter: 'playwright', spec: PW })
+  pwBins(d, [pwTest('shows', 'failed', 'Error: expect(locator).toBeVisible() failed')])
   const r = run(d, ['test/a.spec.ts'])
+  assert.equal(r.status, 1, r.stderr + r.stdout)
+  assert.match(r.stdout, /Verdict: 🔴 tests red/)
+  assert.match(r.stdout, /What to do: 'shows': Error: expect\(locator\)\.toBeVisible\(\) failed/)
+  const s = repo({ adapter: 'playwright', spec: PW })
+  pwBins(s, [pwTest('shows', 'passed')], { mutantReport: { title: 'shows', status: 'passed' } })
+  const m = run(s, ['test/a.spec.ts', '--key', 'ABC-1'])
+  assert.equal(m.status, 1, m.stderr + m.stdout)
+  assert.match(m.stdout, /Verdict: ❌ checks failed/)
+  assert.match(m.stdout, /mutation\s+2 of 2 mutant\(s\) survived/)
+})
+test('playwright: a spec that does not load, the app down, Playwright missing: not verified, exit 3', () => {
+  const d = repo({ adapter: 'playwright', spec: PW })
+  fakeBin(d, 'tsc', { exit: 0 })
+  fakeBin(d, 'playwright', { exit: 1, report: pwReport(d, [], [{ message: "Error: Cannot find module './x'", location: { file: join(d, 'test/a.spec.ts') } }]) })
+  const broken = run(d, ['test/a.spec.ts'])
+  assert.equal(broken.status, 3, broken.stderr + broken.stdout)
+  assert.match(broken.stdout, /tests\s+not run: 1 file\(s\) never ran: test\/a\.spec\.ts: Error: Cannot find module '\.\/x'/)
+  const down = repo({ adapter: 'playwright', spec: PW })
+  pwBins(down, [pwTest('shows', 'failed', 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/')])
+  const r = run(down, ['test/a.spec.ts'])
+  assert.equal(r.status, 3, r.stderr + r.stdout)
+  assert.match(r.stdout, /What to do: tests could not run: could not run: the app is not reachable: Error: page\.goto: net::ERR_CONNECTION_REFUSED/)
+  const none = repo({ adapter: 'playwright', spec: PW })
+  fakeBin(none, 'tsc', { exit: 0 })
+  const m = run(none, ['test/a.spec.ts'])
+  assert.equal(m.status, 3, m.stderr + m.stdout)
+  assert.match(m.stdout, /Playwright is not installed in this project: run npm install/)
+})
+test('playwright: --target is refused before anything runs', () => {
+  const d = repo({ adapter: 'playwright', spec: PW })
+  put(d, 'src/app.ts', 'export {}\n')
+  pwBins(d, [pwTest('shows', 'passed')])
+  const r = run(d, ['test/a.spec.ts', '--target', 'src/app.ts'])
   assert.equal(r.status, 2)
-  assert.match(r.stderr, /the Playwright pipeline comes with part 3/)
+  assert.match(r.stderr, /--target runs Stryker, which is for Vitest projects: leave it out for Playwright specs/)
+  assert.deepEqual(calls(d, 'playwright'), [])
 })
 test('usage and config errors: exit 2', () => {
   const d = repo()

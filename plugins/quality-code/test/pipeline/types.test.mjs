@@ -59,3 +59,13 @@ test('a hung tsc is killed with its process group and gives not_run promptly', a
   assert.match(r.summary, /took longer than/)
   assert.ok(Date.now() - t0 < 5000)
 })
+test('Playwright: playwright.tsconfig is used; the vitest block is not read', async () => {
+  const d = proj(false)
+  writeFileSync(join(d, 'e2e.tsconfig.json'), '{}')
+  fakeBin(d, 'tsc', { exit: 0 })
+  const r = await typeCheck(d, { adapter: 'playwright', jira: { projects: ['ABC'] }, playwright: { tsconfig: 'e2e.tsconfig.json' }, vitest: { tsconfig: 'no.json' } }, ['e2e/a.spec.ts'])
+  assert.equal(r.status, 'pass')
+  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 3), ['--noEmit', '-p', 'e2e.tsconfig.json'])
+  const p = await typeCheck(proj(false), { adapter: 'playwright', jira: { projects: ['ABC'] } }, ['e2e/a.spec.ts'])
+  assert.deepEqual([p.status, p.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
+})
