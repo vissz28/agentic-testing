@@ -22,7 +22,7 @@ export function parseReport(json, root) {
   for (const tr of json?.testResults ?? []) {
     const file = isAbsolute(tr.name ?? '') ? relative(root, tr.name) : String(tr.name ?? '')
     const ars = tr.assertionResults ?? []
-    if (!ars.length && tr.status === 'failed') { broken.push({ file, message: firstLine(tr.message) }); continue }
+    if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {
       const status = a.status === 'passed' ? 'passed' : a.status === 'failed' ? 'failed' : 'skipped'
       tests.push({ title: a.title, file, status, message: status === 'failed' ? firstLine(a.failureMessages?.[0]) : '' })
@@ -43,23 +43,36 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
     let stderr = ''
     let timedOut = false
     let settled = false
-    const child = spawn(bin, args, { cwd: root, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
-    child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL') }, timeoutMs)
+    let timer = null
     const finish = r => {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      rmSync(dir, { recursive: true, force: true })
-      done(r)
+      try { rmSync(dir, { recursive: true, force: true }) } finally { done(r) }
     }
+    let child
+    try {
+      child = spawn(bin, args, { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+    } catch (e) {
+      return finish({ ran: false, error: `could not start Vitest: ${e.message}` })
+    }
+    child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
+    timer = setTimeout(() => {
+      timedOut = true
+      try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch {} }
+      finish({ ran: false, error: `took longer than ${timeoutMs < 1000 ? `${timeoutMs}ms` : `${Math.round(timeoutMs / 1000)}s`}` })
+    }, timeoutMs)
     child.on('error', e => finish({ ran: false, error: `could not start Vitest: ${e.message}` }))
     child.on('close', () => {
-      if (timedOut) return finish({ ran: false, error: `took longer than ${Math.round(timeoutMs / 1000)}s` })
-      let json = null
-      try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
-      if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Vitest wrote no report' })
-      finish({ ran: true, ...parseReport(json, root) })
+      if (timedOut) return
+      try {
+        let json = null
+        try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
+        if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Vitest wrote no report' })
+        finish({ ran: true, ...parseReport(json, root) })
+      } catch (e) {
+        finish({ ran: false, error: `could not read the Vitest report: ${e.message}` })
+      }
     })
   })
 }

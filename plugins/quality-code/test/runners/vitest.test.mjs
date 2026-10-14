@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { configFor, parseReport, titlePattern, vitestRunner } from '../../core/runners/vitest.mjs'
@@ -90,6 +90,57 @@ test('runner: one process per config, results merged (review focus 3)', async ()
 test('runner: the default timeout comes from vitest.timeoutSeconds', async () => {
   const d = proj()
   fakeBin(d, 'vitest', { sleepMs: 3000, report: report(d, []) })
-  const r = await vitestRunner(d, cfg({ timeoutSeconds: 10 }))({ files: ['a.spec.ts'], timeoutMs: undefined })
-  assert.equal(r.ran, true)
+  const r = await vitestRunner(d, cfg({ timeoutSeconds: 0.2 }))({ files: ['a.spec.ts'], timeoutMs: undefined })
+  assert.equal(r.ran, false)
+  assert.equal(r.error, 'took longer than 200ms')
+})
+test('runner: a timeout kills the whole process group, grandchildren included', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { grandchild: true, sleepMs: 5000, report: report(d, []) })
+  const pidFile = join(d, '.fake-vitest.grandchild')
+  let pid
+  try {
+    const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'], timeoutMs: 800 })
+    assert.equal(r.ran, false)
+    assert.match(r.error, /took longer than/)
+    pid = Number(readFileSync(pidFile, 'utf8'))
+    await new Promise(res => setTimeout(res, 800))
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
+  } finally {
+    try { if (pid) process.kill(pid, 'SIGKILL') } catch {}
+  }
+})
+test('runner: a report that cannot be read leaks no temp dir and does not crash', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { report: { testResults: [null] } })
+  const ours = () => readdirSync(tmpdir()).filter(n => n.startsWith('qc-vitest-'))
+  const before = new Set(ours())
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
+  assert.equal(r.ran, false)
+  assert.match(r.error, /could not read the Vitest report/)
+  assert.deepEqual(ours().filter(n => !before.has(n)), [])
+})
+test('runner: a spawn that throws gives ran false and leaks no temp dir', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { report: report(d, []) })
+  const ours = () => readdirSync(tmpdir()).filter(n => n.startsWith('qc-vitest-'))
+  const before = new Set(ours())
+  const r = await vitestRunner(d, cfg())({ files: ['a\0b.spec.ts'] })
+  assert.equal(r.ran, false)
+  assert.match(r.error, /could not start Vitest/)
+  assert.deepEqual(ours().filter(n => !before.has(n)), [])
+})
+test('timeout message uses milliseconds below one second', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { sleepMs: 3000, report: report(d, []) })
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'], timeoutMs: 300 })
+  assert.equal(r.error, 'took longer than 300ms')
+})
+test('parseReport: a failed file whose tests did not fail (beforeAll error) is also broken, keeping its tests', () => {
+  const d = '/p'
+  const r = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'beforeAll blew up\n at x', tests: [t('x', 'skipped')] }]), d)
+  assert.deepEqual(r.tests, [{ title: 'x', file: 'a.spec.ts', status: 'skipped', message: '' }])
+  assert.deepEqual(r.broken, [{ file: 'a.spec.ts', message: 'beforeAll blew up' }])
+  const ok = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'm', tests: [t('x', 'failed', ['e'])] }]), d)
+  assert.deepEqual(ok.broken, [])
 })
