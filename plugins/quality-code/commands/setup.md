@@ -1,9 +1,9 @@
 ---
-description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, writes .claude/quality-code.json after you confirm, and proves it on one recent ticket. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
+description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:start and /quality-code:ticket-eval. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
 argument-hint: [advanced]
 ---
 
-Set up this repo for the quality-code plugin. Setup asks only for the connections and where the project lives; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
+Set up this repo for the quality-code plugin. Setup asks only for the connections and where the project lives; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
 
 **Rules**
 
@@ -47,7 +47,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
-4. **Prove it.** Find the newest ticket of the first project: `searchJiraIssuesUsingJql` with `project = <KEY> ORDER BY created DESC`, `maxResults` 1, fields `summary`. Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1 to 5 for that key; stop after the report (do not offer the refuse options; exit 1, refused, is a normal result here). This also finds and remembers the project's acceptance-criteria field. Then say: `Setup is done. Every day: /quality-code:start. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
 
 ## Advanced
 

@@ -73,9 +73,10 @@ test('the short setup asks only for connectors, the project here and the Jira pr
   for (const w of ['getJiraIssueTypeMetaWithFields', 'labels,summary', 'titlePrefixes', 'searchConfluenceUsingCql', 'Templates.']) assert.ok(!short.includes(w), w)
   assert.ok(step(3).includes('jira { site, projects }'))
   assert.match(step(3), /keep every other field of `existing` unchanged/)
-  assert.ok(step(4).includes('commands/ticket-eval.md'))
-  assert.match(step(4), /remembers the project's acceptance-criteria field/)
-  assert.ok(step(4).includes('/quality-code:setup advanced'))
+  assert.ok(step(4).startsWith('4. **Done.**'))
+  assert.match(step(4), /Do not read, score or comment on any ticket/)
+  assert.doesNotMatch(step(4), /ticket-eval\.md|searchJiraIssuesUsingJql|getJiraIssue/)
+  for (const c of ['/quality-code:start', '/quality-code:ticket-eval <KEY>', '/quality-code:setup advanced']) assert.ok(step(4).includes(c), c)
 })
 test('advanced keeps the full questions and needs a config', () => {
   assert.match(doc, /If `\$ARGUMENTS` contains `advanced`, go to \*\*Advanced\*\*/)

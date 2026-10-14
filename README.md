@@ -175,7 +175,8 @@ typing a number:
 
 It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
 written before you type `1`. Setup writes only `.claude/quality-code.json` and its `.gitignore`
-lines, then checks the newest ticket to prove it works.
+lines. It does not check any ticket: that is what `/quality-code:start` and
+`/quality-code:ticket-eval` do.
 
 Everything else has a default:
 
