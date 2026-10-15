@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality code",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "From a Jira ticket to graded tests, for any project. A short setup (connectors, the project, the Jira project), a daily start from your feature branch, the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push, and a check that runs and grades Vitest spec files.",
   "author": {
     "name": "Elvis Zefaj"

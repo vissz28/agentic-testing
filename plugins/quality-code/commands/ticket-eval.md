@@ -74,7 +74,9 @@ Option 3 is always shown with that red tag, word for word. Chat cannot color tex
 
 - **1:** do not post yet. Run `cli.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
 - **2:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
-- **3:** developer override. Post nothing. Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete and the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, then stop; callers that build on this command decide what to do with that.
+- **3:** developer override. Post nothing. Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete and the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, and remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score. Then:
+  - When `write` sent you here, go back to it: it goes on with the incomplete score.
+  - Otherwise (this command on its own, or `start`), go straight on to writing the tests: read `${CLAUDE_PLUGIN_ROOT}/commands/write.md` and follow it with `<KEY>` as `$ARGUMENTS` and the incomplete score. The ticket is already saved, sanitized and scored, so do not run the gate again, and the connectors were already checked: skip both. The tests it writes and their card carry the 🔴 mark.
 
 ## Send-preview (after refuse option 1)
 

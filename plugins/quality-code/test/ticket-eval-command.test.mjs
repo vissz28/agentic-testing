@@ -50,3 +50,26 @@ test('a posted comment and a pushed fill-in are logged by key for the KPI rollup
   assert.ok(doc.includes('`The comment has been posted. Work has not started.`, then run `cli.mjs jira-posted <KEY> comment`'))
   assert.ok(doc.includes('`The Jira ticket has been updated.`, and run `cli.mjs jira-posted <KEY> update`'))
 })
+
+// The refuse card's option 3, the developer override.
+const write = readFileSync(new URL('../commands/write.md', import.meta.url), 'utf8')
+const three = doc.slice(doc.indexOf('\n- **3:** developer override'), doc.indexOf('\n## Send-preview'))
+
+test('option 3 is shown word for word with the red tag', () => {
+  assert.ok(doc.includes('3. 🔴 **[RISK / NOT RECOMMENDED]** Continue anyway (developers only). The user story is not complete.'))
+})
+test('option 3 continues: on its own it goes straight on to writing the tests, marked incomplete', () => {
+  assert.doesNotMatch(three, /then stop; callers that build on this command decide/)
+  assert.ok(three.includes('${CLAUDE_PLUGIN_ROOT}/commands/write.md'))
+  assert.match(three, /incomplete score/)
+  assert.match(three, /do not run the gate again/)
+  assert.match(three, /When `write` sent you here, go back to it/)
+})
+test('option 3 still needs something to check, and --ci never takes it', () => {
+  assert.ok(three.includes('There is nothing to check yet — paste what should happen, or stop.'))
+  assert.match(doc, /It never takes 3/)
+})
+test('write accepts the hand-off from ticket-eval option 3 without scoring again', () => {
+  assert.match(write, /Coming from ticket-eval's option 3/)
+  assert.match(write, /skip this step/)
+})

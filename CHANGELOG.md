@@ -7,6 +7,16 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.10.1] - 2026-10-15
+
+### Fixed
+
+- **"Continue anyway" (refuse option 3) now continues.** From `/quality-code:ticket-eval` or
+  `/quality-code:start`, picking it goes straight on to writing the tests for that ticket, marked
+  🔴 [RISK / NOT RECOMMENDED] with the ticket's score, without running the gate again. Before, it
+  only printed the warning and stopped. It still needs something to check in the ticket, and `--ci`
+  never takes it.
+
 ## [0.10.0] - 2026-10-15
 
 ### Changed
