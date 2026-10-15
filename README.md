@@ -594,15 +594,17 @@ enough; the other stays disconnected.
 and show, for each one that is missing, exactly these steps. Figma is on that card only for
 Playwright projects.
 
-**Personal settings.** Asked when the plugin is enabled, changed later from the `/plugin` menu
-(quality-code, configure). Secrets are kept in the system keychain, never in a repo and never typed
-in the chat.
+**Personal settings.** The connectors card asks in the chat for what is not secret (your Jira
+email, your GitLab address and username or email) and saves it for you. Tokens are set only from the
+`/plugin` menu (quality-code, configure): they are kept in the system keychain, never in a repo and
+never typed in the chat. Every setting can be changed there later.
 
 | Setting | For | Notes |
 |---|---|---|
 | `gitlab_api_url` | both GitLab ways | your GitLab's API address, ending in `/api/v4`, no `/` at the end. Default: TeamSystem's GitLab (`https://biosphere.teamsystem.com/api/v4`) |
 | `gitlab_token` (secret) | GitLab token | a personal access token with only the `read_api` scope |
-| `gitlab_username` | both GitLab ways | your GitLab username, without `@`. The connectors check confirms the signed-in account is yours and shows it on the card |
+| `gitlab_username` | both GitLab ways | your GitLab username (without `@`) or email. The connectors check confirms the signed-in account is yours and shows it on the card |
+| `jira_email` | Jira | the email of your Atlassian account. The connectors check confirms Jira is signed in with it and shows it on the card |
 | `figma_api_key` (secret) | Figma token | a Figma personal access token |
 
 The plugin only ever calls GitLab's read operations. The token connector also runs in read-only mode, and its token has only the `read_api` scope.

@@ -7,6 +7,28 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.10.0] - 2026-10-15
+
+### Changed
+
+- **The connectors card asks in the chat, and saves for you, everything that is not secret:** your
+  Jira email, your GitLab address (checked to be a GitLab) and your GitLab username or email. Only
+  tokens still go through `/plugin`, where they are hidden and kept in the keychain. A token pasted
+  in the chat is never used or saved; the card asks you to revoke it.
+- **Each connector line shows who is signed in:** `Jira <email> on <site>`, `GitLab <username> on
+  <host>`, and the Figma account. Jira and GitLab warn when the account is not the one you set, and
+  Jira warns when the account cannot see the project's site.
+
+### Added
+
+- `jira_email` in the plugin settings; `gitlab_username` also accepts an email.
+- `core/connector-settings.mjs`, which saves those values where Claude Code keeps plugin options.
+
+### Upgrade
+
+After `/plugin update`, run `/quality-code:start` or `/quality-code:setup` and pick "Fix one first"
+for any connector that is not ✅: the card asks what it needs.
+
 ## [0.9.0] - 2026-10-15
 
 ### Changed

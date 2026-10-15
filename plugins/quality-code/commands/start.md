@@ -24,7 +24,7 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
    ```
 
    On `1`, read `${CLAUDE_PLUGIN_ROOT}/commands/setup.md` and follow it. When setup is done, continue at step 2 (setup has just checked the connectors). On `2`, stop.
-1. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. The `gitlab_username` from the plugin settings is `${user_config.gitlab_username}` (empty when not set). Go on only when its card lets you continue.
+1. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on only when its card lets you continue.
 2. **Repo.** If GitLab is connected, look for an open merge request whose source branch is the current branch (`git branch --show-current`). If there is exactly one, its target branch is the base: remember the merge request's title for step 3 and pass `--base <target branch>`. A `--base` in `$ARGUMENTS` wins over it. Run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect [--base <name>]` and read the `BRANCH_JSON:` line. Then the first case that applies, each as a card, ending the turn:
    - `isRepo` is false: `This folder is not a git repo.` then `1. Evaluate a ticket by key / 2. Stop`.
    - `detached` is true: `No branch is checked out (at <head>).` then `1. Evaluate a ticket by key / 2. Stop`.

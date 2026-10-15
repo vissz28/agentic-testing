@@ -32,11 +32,12 @@ test('no connector runs an unpinned package', () => {
   for (const [name, s] of Object.entries(mcp)) for (const a of s.args ?? []) assert.doesNotMatch(a, /@latest$|^[a-z@][^@]*[^@\d]$/, `${name}: ${a}`)
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
-  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username'])
+  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email'])
   assert.equal(settings.figma_api_key.sensitive, true)
   assert.equal(settings.gitlab_token.sensitive, true)
   assert.notEqual(settings.gitlab_api_url.sensitive, true)
   assert.notEqual(settings.gitlab_username.sensitive, true)
+  assert.notEqual(settings.jira_email.sensitive, true)
   assert.equal(settings.gitlab_api_url.default, 'https://biosphere.teamsystem.com/api/v4')
   const used = JSON.stringify(mcp).match(/\$\{user_config\.(\w+)\}/g).map(s => s.slice(14, -1))
   for (const u of used) assert.ok(settings[u], u)

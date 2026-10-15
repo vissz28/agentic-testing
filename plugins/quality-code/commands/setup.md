@@ -15,7 +15,7 @@ Set up this repo for the quality-code plugin. Setup asks only for the connection
 
 If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
-0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. The `gitlab_username` from the plugin settings is `${user_config.gitlab_username}` (empty when not set). Go on to step 1 only when its card lets you continue.
+0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on to step 1 only when its card lets you continue.
 1. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest).`
    - `adapter` is `both`: ask which one to use, as a numbered card (`1. playwright`, `2. vitest`), and wait.

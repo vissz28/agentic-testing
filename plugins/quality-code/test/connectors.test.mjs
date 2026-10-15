@@ -11,6 +11,7 @@ test('Jira is checked with getAccessibleAtlassianResources and blocks', () => {
   assert.match(doc, /getAccessibleAtlassianResources/)
   assert.ok(doc.includes('Jira is required. Type /mcp, choose atlassian-rovo and sign in'))
   assert.ok(doc.includes('1. Check again'))
+  assert.ok(doc.includes('2. Set my Jira email'))
   assert.match(doc, /Never go past this card without Jira/)
 })
 test('GitLab and Figma never block', () => {
@@ -64,6 +65,32 @@ test('the GitLab username is confirmed against who is signed in, and shown on th
 test('every command that checks connectors hands over the GitLab username from the settings', () => {
   for (const c of ['setup', 'start', 'seed', 'write']) {
     const t = readFileSync(new URL(`../commands/${c}.md`, import.meta.url), 'utf8')
-    assert.ok(t.includes('`${user_config.gitlab_username}`'), c)
+    for (const k of ['jira_email', 'gitlab_username', 'gitlab_api_url']) assert.ok(t.includes(`\`\${user_config.${k}}\``), `${c} ${k}`)
   }
+})
+test('only what is not secret is asked in the chat, and saved by the script, never by hand', () => {
+  assert.match(doc, /Only what is not secret: your Jira email, your GitLab address, your GitLab username or email/)
+  assert.match(doc, /never by editing a settings file yourself/)
+  for (const c of ['--jira-save', '--gitlab-check', '--gitlab-save']) assert.ok(doc.includes(`core/connector-settings.mjs" ${c}`), c)
+  assert.match(doc, /A token is set only in the `\/plugin` dialog/)
+})
+test('a pasted token is never used, repeated or saved', () => {
+  assert.ok(doc.includes("Please don't paste tokens here. Revoke that one and set a new one from /plugin."))
+  assert.match(doc, /do not use it, do not repeat it and do not save it/)
+})
+test('Jira shows the signed-in email on the site and warns on another account or a site it cannot see', () => {
+  assert.match(doc, /atlassianUserInfo/)
+  assert.ok(doc.includes('✅ Jira (Atlassian)   <email> on <site host>'))
+  assert.match(doc, /signed in as <actual>, not <jira_email>/)
+  assert.match(doc, /this account cannot see <site host>/)
+})
+test('after saving, the fixes say to reload plugins before reconnecting', () => {
+  assert.equal((doc.match(/\/reload-plugins/g) ?? []).length, 3)
+})
+test('the token way asks the address, checks it is a GitLab, asks the user, and leaves only the token to /plugin', () => {
+  const g = doc.slice(doc.indexOf('**GitLab fix.**'), doc.indexOf('**Figma fix.**'))
+  const order = ['Your GitLab address?', '--gitlab-check', 'Your GitLab username or email?', '--gitlab-save', 'set `gitlab_token`']
+  const at = order.map(x => g.indexOf(x))
+  assert.ok(at.every(i => i >= 0), JSON.stringify(at))
+  assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
