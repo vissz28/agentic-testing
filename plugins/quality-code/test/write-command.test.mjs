@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\]\n---/)
   assert.match(doc, /^description: Write Vitest or Playwright tests/m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card', () => {
@@ -53,19 +53,30 @@ test('option 3 writes tests marked incomplete, and only option 3 passes --incomp
   assert.ok(step(6).includes('Never pass it otherwise.'))
   assert.ok(step(7).includes('never drop or soften it'))
 })
-test('step 3: the target card, even for one candidate; --target skips it', () => {
+test('step 3: the target comes from the branch diff and the ticket, with no card when it is clear', () => {
   const s = step(3)
-  assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
-  assert.match(s, /One clear candidate still gets the card/)
   assert.ok(s.includes('--target PATH'))
   assert.ok(s.includes('core/branch.mjs" --detect'))
   assert.match(s, /not a spec/)
+  assert.match(s, /pick it yourself and do not stop/)
+  assert.ok(s.includes('Target: <path> (changed on this branch'))
+  assert.doesNotMatch(s, /One clear candidate still gets the card/)
+  // The card only when it cannot be told, or with --ask.
+  assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
+  assert.match(s, /only when no changed code file matches the ticket, when two match equally well, or with `--ask`/)
+})
+test('step 3: a target chosen once is saved for the ticket and reused without asking', () => {
+  const s = step(3)
+  assert.ok(s.includes('<ticketsDir>/<KEY>/target'))
+  assert.match(s, /reuse it without asking/)
 })
 test('step 4: reads the generic guide and each layer guide, then the plan card', () => {
   const s = step(4)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md'))
   assert.match(s, /`guide` of each layer/)
   assert.ok(s.includes('1. Write these tests\n     2. Change the layers\n     3. Stop'))
+  assert.match(s, /show the plan as information and go on to step 5 without stopping/)
+  assert.match(s, /Only with `--ask`/)
 })
 test('step 5: run start before any file, the active-run card, the file naming and the describe block', () => {
   const s = step(5)

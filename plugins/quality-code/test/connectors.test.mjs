@@ -94,3 +94,8 @@ test('the token way asks the address, checks it is a GitLab, asks the user, and 
   assert.ok(at.every(i => i >= 0), JSON.stringify(at))
   assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
+test('all connectors ✅: one line and go on, no card; optional ones missing never stop the command', () => {
+  assert.ok(doc.includes('Connectors: ✅ Jira <email> on <site host> · ✅ GitLab <username> on <host>'))
+  assert.match(doc, /Every service ✅: show only that line and go on, with no card/)
+  assert.match(doc, /Only Jira not ✅ stops the command/)
+})

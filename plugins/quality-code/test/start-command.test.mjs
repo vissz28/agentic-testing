@@ -41,8 +41,9 @@ test('step 2: branch script, merge-request base, and every git situation has its
     '1. Evaluate a ticket by key',
   ]) assert.ok(s.includes(t), t)
 })
-test('step 3: key from the branch first, then the merge-request title, then commits; always confirmed', () => {
+test('step 3: key from the branch first, then the merge-request title, then commits; confirmed only when not in the branch name', () => {
   const s = step(3)
+  assert.match(s, /in the branch name, use it without a card/)
   assert.match(s, /appears in the branch name/)
   assert.match(s, /merge request title/)
   assert.ok(s.includes('1. Use <KEY>'))

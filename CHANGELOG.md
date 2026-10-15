@@ -7,6 +7,19 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [0.11.0] - 2026-10-15
+
+### Changed
+
+- **`/quality-code:write` runs straight through.** It finds the target from your branch's diff and
+  the ticket and says `Target: <path>` instead of asking; it asks only when no changed file matches
+  the ticket or two match equally well. The plan is shown as information and writing goes on. A
+  target chosen once is remembered for the ticket. `--ask` brings back both cards.
+- **Steps already settled are not asked again.** `start` uses the ticket key from the branch name
+  without a card, and when every connector is ✅, `start`, `write` and `seed` show one line instead
+  of the connectors card. An optional connector that is not ✅ is noted on that line and never stops
+  them; fix it with `/quality-code:setup`, which still shows the card.
+
 ## [0.10.1] - 2026-10-15
 
 ### Fixed

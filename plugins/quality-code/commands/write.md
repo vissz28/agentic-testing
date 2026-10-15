@@ -1,6 +1,6 @@
 ---
 description: Write Vitest or Playwright tests for a Jira ticket that passes the readiness gate, in the team's test folders, then check them with the pipeline and show its card.
-argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras]
+argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--ask]
 ---
 
 Writes tests from a ticket. You write the tests; the scripts gate the ticket and grade the tests. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
@@ -29,7 +29,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`. Read from it the `summary`, the `issuetype`, the scenarios and the expected values. This file is the only copy of the ticket; never edit it.
    - **Playwright:** also keep the `route` and the `feature` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
 3. **Target.** What the tests check: a source file (Vitest) or a screen of the app (Playwright).
-   - **Vitest:** a `--target PATH` in `$ARGUMENTS` is used as it is: it must be an existing file that is not a spec; otherwise say so and stop. Without one, propose the source file the ticket's behaviour lives in, from the ticket, the branch (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`, the `files` of kind `code` whose `status` is not `D`) and a search of the code for the ticket's terms. Show up to two candidates, best first, in this card and end the turn. One clear candidate still gets the card.
+   - **Vitest:** a `--target PATH` in `$ARGUMENTS` is used as it is: it must be an existing file that is not a spec; otherwise say so and stop. Without one, and when `<ticketsDir>/<KEY>/target` exists (a target chosen in an earlier run of this ticket) and still names an existing file that is not a spec, reuse it without asking. Otherwise find the source file the ticket's behaviour lives in, from the ticket, the branch (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`, the `files` of kind `code` whose `status` is not `D`) and a search of the code for the ticket's terms. When one file is clearly the best (it changed on this branch and it holds what the ticket's scenarios describe), pick it yourself and do not stop: say one line, `Target: <path> (changed on this branch, <what it holds, in a few words>)`, and go on. Show this card only when no changed code file matches the ticket, when two match equally well, or with `--ask`, up to two candidates, best first, and end the turn:
 
      ```
      Which code does this ticket change?
@@ -39,7 +39,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
      4. Stop
      ```
 
-     Paths are fine here: a developer reads this card. On `3`, ask `Which file? Type its path from the project root.` and check it exists and is not a spec. On `4`, stop.
+     Paths are fine here: a developer reads this card. On `3`, ask `Which file? Type its path from the project root.` and check it exists and is not a spec. On `4`, stop. Whichever way the target was found, write its path, one line, to `<ticketsDir>/<KEY>/target`, so the next run of this ticket does not ask again.
    - **Playwright:** a `--route PATH` in `$ARGUMENTS` is used as it is: it must start with `/` and be one line; otherwise say `--route must be a path in the app starting with /, like /orders` and stop. Without one, the `route` from step 2 (the configured feature whose label is on the ticket) is used, with no card. With neither, show this card, one line per entry of `features` that has a `route`, then `Another screen` and `Stop`, and end the turn:
 
      ```
@@ -52,7 +52,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
      On `Another screen`, ask `Which screen? Type its path in the app, for example /orders.` and check it starts with `/`. On `Stop`, stop.
 4. **Plan.**
-   - **Vitest:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md`, then the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise). Show this card and end the turn:
+   - **Vitest:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md`, then the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise). By default, show the plan as information and go on to step 5 without stopping: the lines of the card below without its numbered options, under `Writing these tests:`. Only with `--ask`, show the whole card and end the turn:
 
      ```
      Tests for <KEY>, against <target>
@@ -64,7 +64,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
      ```
 
      On `2`, ask which scenario goes in which layer (the layer names only), then show the plan card again. On `3`, stop.
-   - **Playwright:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/playwright-writing.md`, then `playwright.guide` when it is set (the team's own rules on top of it; they win where they differ). Read at most two specs already in the e2e folder, the closest to the screen, for their imports, fixtures, login and stub shapes. To find the real roles, labels and texts the screen shows, you may read the branch's changed files of kind `code` for that screen (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`); never show them in the chat. Give each scenario one line. Then, unless `$ARGUMENTS` has `--no-extras`, pick at most 3 extra probes from the guide's list that apply to this screen and that the guide lets you assert. Show this card and end the turn:
+   - **Playwright:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/playwright-writing.md`, then `playwright.guide` when it is set (the team's own rules on top of it; they win where they differ). Read at most two specs already in the e2e folder, the closest to the screen, for their imports, fixtures, login and stub shapes. To find the real roles, labels and texts the screen shows, you may read the branch's changed files of kind `code` for that screen (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`); never show them in the chat. Give each scenario one line. Then, unless `$ARGUMENTS` has `--no-extras`, pick at most 3 extra probes from the guide's list that apply to this screen and that the guide lets you assert. By default, show the plan as information and go on to step 5 without stopping, as for Vitest. Only with `--ask`, show this card and end the turn:
 
      ```
      Tests for <KEY>, on <route>

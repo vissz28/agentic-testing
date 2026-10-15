@@ -319,12 +319,16 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
 branch has no test files to check).
 
 1. **Gate.** The ticket is read and scored as in `ticket-eval`. A refused ticket gets the refuse card
-   and its flow; if the guided fill-in makes it pass, writing goes on. Anything else stops, the
-   developer override included: a refused ticket never gets a test.
-2. **Target.** `Which code does this ticket change?` with up to two source files, best first, plus
-   `3. Another file / 4. Stop`. `--target src/pricing.ts` skips this card.
-3. **Plan.** One line per scenario of the ticket, with the test folder (layer) it goes in, then
-   `1. Write these tests / 2. Change the layers / 3. Stop`. `--layer unit` keeps one layer only.
+   and its flow; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",
+   also goes on, and every result is marked 🔴 [RISK / NOT RECOMMENDED]. Anything else stops.
+2. **Target.** Found from your branch's diff and the ticket: the changed source file that holds what
+   the scenarios describe. When one file is clearly it, the command says `Target: <path>` and goes
+   on; it asks `Which code does this ticket change?` only when no changed file matches or two match
+   equally well. The choice is remembered for the ticket, so the next run does not ask again.
+   `--target src/pricing.ts` names it yourself.
+3. **Plan.** One line per scenario of the ticket, with the test folder (layer) it goes in, shown as
+   information; writing goes straight on. `--layer unit` keeps one layer only. `--ask` stops at the
+   target and the plan for you to choose, as a card each.
 4. **Write.** One spec per layer, named `<target>.<key>.spec.ts` (for example
    `pricing.abc-123.spec.ts`), all tests in one `describe('ABC-123 <summary>', …)` block, the real
    expected values from the ticket inside `expect(...)`. A behaviour the ticket does not pin down

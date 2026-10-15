@@ -24,6 +24,14 @@ A connector whose tools are missing, that asks to sign in, or whose call errors 
 - **GitLab.** Compare `gitlab_username` (a username, with or without `@`, or an email) with the username and the email the current-user call returned, ignoring case. Same, or no `gitlab_username`: the line shows `<username> on <host>`. Different: ⚠️ `signed in as <actual>, not <gitlab_username>`. A token that belongs to <actual>, not <gitlab_username> is never used silently.
 - **Figma.** Show the handle or email the current-user call returned. Nothing to compare.
 
+**When everything is set up, say so in one line.** Every service ✅: show only that line and go on, with no card:
+
+```
+Connectors: ✅ Jira <email> on <site host> · ✅ GitLab <username> on <host>
+```
+
+(plus `· ✅ Figma <account>` when Figma is on the card). From `start`, `write` and `seed`, an optional service that is not ✅ does not stop either: add it to the line as `· ⚠️ GitLab <one-line reason> (fix: /quality-code:setup)` and go on. Only Jira not ✅ stops the command (the Jira card below). `setup` is where connectors are fixed: there, whenever a service is not ✅, show the card.
+
 **The card.** Show it and end the turn:
 
 ```
