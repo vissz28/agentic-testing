@@ -110,7 +110,10 @@ test('flaky only when asked', async () => {
 test('testsStep and decide', () => {
   assert.equal(testsStep({ ran: true, broken: [], tests: [] }).status, 'not_run')
   assert.equal(testsStep({ ran: true, broken: [{ file: 'b', message: 'm' }], tests: [{ title: 'x', file: 'a', status: 'passed' }] }).status, 'not_run')
-  assert.deepEqual(testsStep({ ran: true, broken: [], tests: [{ title: 'x', file: 'a', status: 'passed' }, { title: 'y', file: 'a', status: 'skipped' }] }).data, { ran: true, passed: 1, failed: 0, skipped: 1 })
+  assert.deepEqual(testsStep({ ran: true, broken: [], tests: [{ title: 'x', file: 'a', status: 'passed' }, { title: 'y', file: 'a', status: 'skipped' }] }).data,
+    { ran: true, passed: 1, failed: 0, skipped: 1, list: [{ title: 'x', file: 'a', status: 'passed' }, { title: 'y', file: 'a', status: 'skipped' }] })
+  const many = Array.from({ length: 41 }, (_, i) => ({ title: `t${i}`, file: 'a', status: 'passed' }))
+  assert.equal(testsStep({ ran: true, broken: [], tests: many }).data.list, undefined, 'a long suite keeps only its counts')
   const s = (check, status) => ({ check, status })
   assert.deepEqual(decide([s('tests', 'fail'), s('mutation', 'not_run')]), { verdict: 'not_verified', decidedBy: 'mutation' })
   assert.deepEqual(decide([s('tests', 'fail'), s('mutation', 'pass')]), { verdict: 'tests_red', decidedBy: 'tests' })

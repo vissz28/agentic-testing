@@ -39,17 +39,29 @@ test('only keys, numbers and fixed words are kept: ticket text, paths and unknow
   audit(d, 'gate', { key: 'customer Mario Rossi', issuetype: 'Bug <script>', score: 'high', gate: 'maybe', rubric: '../x', legacy: 'yes', missing: ['ac_present', 'Then it works for user 12345'], filled: -1, summary: 'secret text', path: '/etc/passwd' }, { env: {}, now: NOW })
   assert.deepEqual(lines(d, 'gate'), [{ key: null, issuetype: null, score: null, gate: null, rubric: null, legacy: false, missing: ['ac_present'], filled: 0, date: '2026-10-14T09:00:00.000Z' }])
 })
-test('a pipeline entry: statuses and counts only, never findings or paths', () => {
+test('a pipeline entry: statuses, counts, each step\'s numbers and the run flags; never findings or paths', () => {
   const d = dir()
   audit(d, 'pipeline', {
     key: 'ABC-2', verdict: 'checks_failed', decidedBy: 'suite-honesty', adapter: 'vitest',
-    steps: [{ check: 'tests', status: 'pass', summary: 'x', findings: [{ file: '/home/u/a.spec.ts' }] }, { check: 'suite-honesty', status: 'fail' }],
+    steps: [
+      { check: 'tests', status: 'pass', summary: 'x', findings: [{ file: '/home/u/a.spec.ts' }], data: { passed: 8, list: [{ title: 'secret' }], ran: true } },
+      { check: 'suite-honesty', status: 'fail', data: { percent: 75, tests: 4, hollow: 1 } },
+      { check: 'mutation', status: 'pass', data: { killed: 3, total: 3, score: 100, survivors: ['expect(x)'] } },
+      { check: 'stryker', status: 'pass', data: { score: 83.33, threshold: 60, target: 'src/a.ts' } },
+    ],
     counts: { specs: 2, passed: 8, failed: 0, skipped: 1, extra: 'no' },
     incompleteTicket: { score: 45, bar: 70 },
+    flags: { ticket: true, target: 'yes', flaky: 3, extra: true },
   }, { env: {}, now: NOW })
   assert.deepEqual(lines(d, 'pipeline'), [{
     key: 'ABC-2', verdict: 'checks_failed', decidedBy: 'suite-honesty', adapter: 'vitest',
-    steps: [{ check: 'tests', status: 'pass' }, { check: 'suite-honesty', status: 'fail' }],
+    steps: [
+      { check: 'tests', status: 'pass', passed: 8 },
+      { check: 'suite-honesty', status: 'fail', percent: 75, tests: 4, hollow: 1 },
+      { check: 'mutation', status: 'pass', killed: 3, total: 3, score: 100 },
+      { check: 'stryker', status: 'pass', score: 83, threshold: 60 },
+    ],
+    flags: { ticket: true, expected: false, target: false, range: false, flaky: 3 },
     counts: { specs: 2, passed: 8, failed: 0, skipped: 1 },
     incompleteTicket: { score: 45, bar: 70 },
     date: '2026-10-14T09:00:00.000Z',

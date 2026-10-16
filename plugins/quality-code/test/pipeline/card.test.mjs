@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatCard } from '../../core/pipeline/card.mjs'
+import { formatCard, formatRunLog } from '../../core/pipeline/card.mjs'
 
 const s = (check, status, summary, findings = [], data = {}) => ({ check, status, summary, findings, data })
 const base = [
@@ -106,4 +106,50 @@ test('color: true makes the risk line red in a terminal; the default has no esca
   const o = { verdict: 'green', decidedBy: null, steps: base, incompleteTicket: { score: 45, bar: 70 } }
   assert.equal(formatCard(o, { specs: ['a.spec.ts'], color: true }).split('\n')[1], `\x1b[31m${RISK}\x1b[0m`)
   assert.doesNotMatch(formatCard(o, { specs: ['a.spec.ts'] }), /\x1b/)
+})
+
+const listed = list => ({ verdict: list.some(t => t.status === 'failed') ? 'tests_red' : 'green', decidedBy: 'tests', steps: [
+  { check: 'tests', status: list.some(t => t.status === 'failed') ? 'fail' : 'pass', summary: 's', findings: list.filter(t => t.status === 'failed').map(t => ({ test: t.title, detail: t.message })), data: { ran: true, passed: list.filter(t => t.status === 'passed').length, failed: list.filter(t => t.status === 'failed').length, skipped: 0, list } },
+] })
+
+test('card: one line per test; the ticket\'s tests first, the extra probes after, a red one says why', () => {
+  const card = formatCard(listed([
+    { title: 'shows the total', status: 'passed' },
+    { title: 'applies the discount', status: 'failed', message: 'Expected "€ 108,00", received "€ 120,00"' },
+    { title: 'Extra: a long product name', status: 'passed' },
+  ]), { specs: ['e2e/a.spec.ts'], key: 'ABC-1' })
+  assert.ok(card.includes([
+    'Tests     2 passed · 1 failed · 0 to do',
+    '  From the ticket',
+    '    ✓ shows the total',
+    '    ✗ applies the discount: Expected "€ 108,00", received "€ 120,00"',
+    '  Extra (not in the ticket)',
+    '    ✓ Extra: a long product name',
+  ].join('\n')), card)
+  const plain = formatCard(listed([{ title: 'adds', status: 'passed' }]), { specs: ['a.spec.ts'] })
+  assert.ok(plain.includes('Tests     1 passed · 0 failed · 0 to do\n  ✓ adds'), 'no extra probe: no headings')
+})
+
+test('card: a red run on a ticket Jira calls finished says the bug is still there; the log line', () => {
+  const red = listed([{ title: 'rounds', status: 'failed', message: 'Expected 0.23' }])
+  assert.match(formatCard(red, { jiraStatus: 'Test OK' }), /\nJira says Test OK\. This branch still has the bug\.\n/)
+  assert.doesNotMatch(formatCard(red, { jiraStatus: 'In Progress' }), /Jira says/)
+  assert.doesNotMatch(formatCard(listed([{ title: 'rounds', status: 'passed' }]), { jiraStatus: 'Done' }), /Jira says/)
+  assert.match(formatCard(red, { log: '.claude/quality-code/tickets/ABC-1/run.md' }), /\n\nFull details: \.claude\/quality-code\/tickets\/ABC-1\/run\.md\nPIPELINE_JSON:/)
+})
+
+test('run log: verdict in words, the tests table, every check with its numbers and findings, the re-run line', () => {
+  const outcome = { verdict: 'checks_failed', decidedBy: 'mutation', steps: [
+    listed([{ title: 'adds | sums', status: 'passed' }]).steps[0],
+    { check: 'mutation', status: 'fail', summary: '1 of 2 mutant(s) survived', findings: [{ file: 'a.spec.ts', test: 'adds', kind: 'survived', detail: 'expect(x).toBeDefined()' }], data: { killed: 1, survived: 1, total: 2, survivors: ['expect(x).toBeDefined()'] } },
+  ] }
+  const log = formatRunLog(outcome, { specs: ['a.spec.ts'], key: 'ABC-1', jiraStatus: 'In Progress', date: new Date('2026-10-16T10:00:00Z') })
+  assert.ok(log.startsWith('# ABC-1: ❌ checks failed\n'))
+  assert.ok(log.includes('- **Jira status:** In Progress'))
+  assert.ok(log.includes('- **Verdict:** a check found a problem with the tests themselves; fix the tests, not the code.'))
+  assert.ok(log.includes('| adds \\| sums | passed |  |'), 'a | in a title is escaped')
+  assert.ok(log.includes('### ❌ mutation\n\n1 of 2 mutant(s) survived\n\nkilled: 1 · survived: 1 · total: 2 · survivors: expect(x).toBeDefined()'))
+  assert.ok(log.includes("- a.spec.ts › 'adds' [survived]: expect(x).toBeDefined()"))
+  assert.ok(log.includes('## What to do'))
+  assert.ok(log.includes('`/quality-code:check a.spec.ts --key ABC-1`'))
 })

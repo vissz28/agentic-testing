@@ -294,7 +294,8 @@ test('audit: one pipeline line per run (statuses and counts, no findings), and a
   assert.equal(p.length, 2)
   assert.deepEqual({ ...p[0], date: 'x' }, {
     key: 'ABC-1', verdict: 'tests_red', decidedBy: 'tests', adapter: 'vitest',
-    steps: [{ check: 'tests', status: 'fail' }],
+    steps: [{ check: 'tests', status: 'fail', passed: 1, failed: 1, skipped: 0 }],
+    flags: { ticket: false, expected: false, target: false, range: false, flaky: null },
     counts: { specs: 1, passed: 1, failed: 1, skipped: 0 },
     incompleteTicket: null, date: 'x',
   })
@@ -333,6 +334,22 @@ test('--expected: a JSON list of pinned values, passed to the pipeline; it needs
   assert.match(bad.err, /must be a list of values/)
   const missing = await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--ticket', '@t.json', '--expected', '@nope.json'], env, d, { runPipeline }))
   assert.match(missing.err, /--expected @nope.json: file not found/)
+})
+
+test('with a key, the developer log is written next to the ticket and the card links it; off with the audit log', async () => {
+  const d = repo()
+  const r = await stubbed(d, ['--key', 'ABC-1'])
+  const log = join(d, '.claude/quality-code/tickets/ABC-1/run.md')
+  assert.ok(existsSync(log))
+  assert.match(readFileSync(log, 'utf8'), /^# ABC-1: 🔴 tests red\n/)
+  assert.match(r.out, /\nFull details: \.claude\/quality-code\/tickets\/ABC-1\/run\.md\n/)
+  const off = repo()
+  const r2 = await stubbed(off, ['--key', 'ABC-1'], { QC_NO_AUDIT: '1' })
+  assert.equal(existsSync(join(off, '.claude/quality-code/tickets/ABC-1/run.md')), false)
+  assert.doesNotMatch(r2.out, /Full details/)
+  const noKey = repo()
+  await stubbed(noKey, [])
+  assert.equal(existsSync(join(noKey, '.claude/quality-code/tickets')), false)
 })
 
 test('fullstack through the CLI: each spec to its runner, one verdict, the card names both runners', () => {

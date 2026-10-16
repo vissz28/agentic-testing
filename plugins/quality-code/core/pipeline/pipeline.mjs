@@ -48,6 +48,8 @@ export function testsStep(run, requested = [], key = null) {
   const count = s => tests.filter(t => t.status === s).length
   const data = { ran: true, passed: count('passed'), failed: count('failed'), skipped: count('skipped'), ...(others ? { otherTickets: others } : {}) }
   const outside = others ? ` (${others} test(s) outside the ${key} block not counted)` : ''
+  // Each test once, for the card's list and the developer log; a long suite keeps only its counts.
+  if (tests.length <= LIST_MAX) data.list = tests.map(t => ({ title: t.title, file: t.file, status: t.status, ...(t.message ? { message: t.message } : {}) }))
   if ((run.broken ?? []).length) {
     const b = run.broken[0]
     return result('tests', 'not_run', `${run.broken.length} file(s) never ran: ${b.file}: ${b.message}`, run.broken.map(x => ({ file: x.file, kind: 'never ran', detail: x.message })), data)
@@ -143,6 +145,7 @@ export async function runPipeline(opts, ctx) {
 }
 
 const withVerdict = steps => ({ ...decide(steps), steps })
+const LIST_MAX = 40
 
 const ORDER = ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'expected', 'mutation', 'flaky', 'stryker']
 const rank = { fail: 2, not_run: 1, pass: 0 }

@@ -22,6 +22,14 @@ const words = a => (Array.isArray(a) ? a.map(word).filter(Boolean) : [])
 const score = v => (num(v) !== null && v <= 100 ? v : null)
 const scored = o => (o && typeof o === 'object' ? { score: score(o.score), bar: score(o.bar) } : null)
 
+// The numbers a step keeps in the log, so the quality numbers can be rebuilt later. Never a name or a path.
+const STEP_NUMBERS = ['passed', 'failed', 'skipped', 'otherTickets', 'killed', 'survived', 'errors', 'total', 'score', 'threshold',
+  'tokens', 'asserted', 'percent', 'tests', 'withAssertion', 'hollow', 'todo', 'removedAssertions', 'removedTests', 'newSkips', 'untaggedAnchors', 'noCoverage']
+const stepNumbers = data => Object.fromEntries(STEP_NUMBERS
+  .filter(k => typeof data?.[k] === 'number' && Number.isFinite(data[k]) && data[k] >= 0)
+  .map(k => [k, Math.round(data[k])]))
+const FLAGS = ['ticket', 'expected', 'target', 'range']
+
 const SHAPE = {
   gate: e => ({
     key: key(e.key), issuetype: typeof e.issuetype === 'string' && LABEL.test(e.issuetype) ? e.issuetype : null,
@@ -30,7 +38,8 @@ const SHAPE = {
   }),
   pipeline: e => ({
     key: key(e.key), verdict: word(e.verdict), decidedBy: word(e.decidedBy), adapter: word(e.adapter),
-    steps: Array.isArray(e.steps) ? e.steps.map(s => ({ check: word(s?.check), status: word(s?.status) })) : [],
+    steps: Array.isArray(e.steps) ? e.steps.map(s => ({ check: word(s?.check), status: word(s?.status), ...stepNumbers(s?.data) })) : [],
+    flags: { ...Object.fromEntries(FLAGS.map(f => [f, e.flags?.[f] === true])), flaky: num(e.flags?.flaky) },
     counts: { specs: num(e.counts?.specs), passed: num(e.counts?.passed), failed: num(e.counts?.failed), skipped: num(e.counts?.skipped) },
     incompleteTicket: scored(e.incompleteTicket),
   }),

@@ -2,15 +2,15 @@
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
-import { readFileSync, statSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../checks/dialects/index.mjs'
 import { isProjectKey, projectKeys } from '../checks/keys.mjs'
-import { audit } from '../audit.mjs'
+import { audit, auditOff } from '../audit.mjs'
 import { loadConfig, projectRoot } from '../config.mjs'
 import { THRESHOLD } from '../score.mjs'
-import { formatCard } from './card.mjs'
+import { formatCard, formatRunLog } from './card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from './pipeline.mjs'
 import { isFullstack } from '../stack.mjs'
 
@@ -57,6 +57,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (a.key && !isProjectKey(config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(config).join(', ')}`)
   const inside = rel => !(rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/'))
   let ticket = null
+  let jiraStatus = null
   if (a.ticket !== undefined) {
     const t = a.ticket.replace(/^@/, '')
     if (!t) return err('--ticket needs a file, like --ticket @path/ticket.json')
@@ -64,6 +65,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     let obj
     try { obj = JSON.parse(readFileSync(ticket, 'utf8')) } catch (e) { return err(`--ticket ${t}: ${isFile(ticket) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
+    jiraStatus = typeof obj.status === 'string' ? obj.status : null
   }
   // --expected: the values the writer says its tests pin, as a JSON list; the check keeps only those the ticket's expected text holds.
   let candidates = []
@@ -104,9 +106,20 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     steps: outcome.steps || [],
     counts: { specs: specs.length, passed: tests.passed, failed: tests.failed, skipped: tests.skipped },
     incompleteTicket,
+    flags: { ticket: Boolean(ticket), expected: candidates.length > 0, target: Boolean(target), range: Boolean(a.range), flaky: a.flaky ? Number(a.flaky) : null },
   })
+  // The developer log, next to the ticket's other files: local like the audit log, and off with it.
+  let logPath = null
+  if (a.key && !auditOff(env, a.noAudit)) {
+    const rel = `${config.ticketsDir}/${a.key}/run.md`
+    try {
+      mkdirSync(dirname(resolve(root, rel)), { recursive: true })
+      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus }))
+      logPath = rel
+    } catch {}
+  }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color })}\n`)
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, log: logPath })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 
