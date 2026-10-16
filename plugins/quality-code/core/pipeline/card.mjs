@@ -33,6 +33,8 @@ function whatToDo(outcome) {
     case 'mutation': return `an assertion can't fail: bind the real expected value in ${quoted(fs)}.`
     case 'expected': {
       const f = fs.find(x => x.token) || {}
+      if (f.actual) return `the test asserts ${f.actual}, the wrong result the ticket reports: assert the expected ${f.token} (from "${f.then}")`
+      if (f.kind === 'field not asserted') return `assert on the field the ticket names, ${f.token} (from "${f.then}"), not on another one`
       return `assert the ticket's expected value ${f.token} (from "${f.then}")`
     }
     case 'stryker': return `the tests miss changes in ${step.data?.target}: assert the values the code computes`

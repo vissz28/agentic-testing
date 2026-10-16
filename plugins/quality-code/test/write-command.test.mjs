@@ -218,7 +218,7 @@ test('playwright step 6: the app line, the pipeline with the spec, key and ticke
   const p = s.slice(s.indexOf('**Playwright:**'), s.indexOf('Quote every spec path'))
   assert.ok(p.includes('The tests open the app: your Playwright config starts it (its webServer), or it must already be running.'))
   const cmd = p.slice(p.indexOf('`node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs"')).split('`')[1]
-  assert.equal(cmd, "node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json")
+  assert.equal(cmd, "node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --expected @<ticketsDir>/<KEY>/expected.json")
   assert.match(p, /with no `--target`/)
   assert.match(s, /a tag list was split over lines/)
 })
@@ -311,8 +311,16 @@ test('fullstack: the side picks the parts; every flag is allowed; one run with b
   assert.match(two, /`backend` takes the Vitest parts of steps 3 to 5, `frontend` the Playwright parts, `fullstack` both/)
   const six = step(6)
   const fs = six.slice(six.indexOf('**Fullstack:**'), six.indexOf('After option 3'))
-  assert.ok(fs.includes("`node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json`"))
+  assert.ok(fs.includes("`node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --expected @<ticketsDir>/<KEY>/expected.json`"))
   assert.match(fs, /plus `--target '<target>'` when there is a Vitest part/)
   assert.match(fs, /the value check reads the specs of both sides together/)
   assert.ok(doc.includes('`/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack'))
+})
+
+test('step 5 saves the pinned values; step 6 passes them to the check', () => {
+  const five = step(5)
+  assert.match(five, /\*\*Pinned values:\*\* once the specs are written, save the ticket's expected values the tests assert/)
+  assert.ok(five.includes('`<ticketsDir>/<KEY>/expected.json`'))
+  assert.match(five, /never list a value the ticket does not give/)
+  assert.equal(step(6).split('--expected @<ticketsDir>/<KEY>/expected.json').length - 1, 3, 'Vitest, Playwright and fullstack')
 })

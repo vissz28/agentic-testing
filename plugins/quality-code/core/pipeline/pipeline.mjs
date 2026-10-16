@@ -137,7 +137,7 @@ export async function runPipeline(opts, ctx) {
   }
   if (groups.length > 1 && opts.ticket) {
     const dialectOf = p => dialectFor(adapterOfSpec(ctx.config, ctx.root, p))
-    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket }, { ...ctx, dialectOf }))] })
+    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [] }, { ...ctx, dialectOf }))] })
   }
   return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.adapter) }
 }
@@ -181,7 +181,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null }, ctx, { boundary: withBoundary = true } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [] }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runTests = ctx.runTests ?? adapter.runner(ctx.root, ctx.config)
@@ -206,7 +206,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     steps.push(testsStep(run, specs, key))
   }
   const tests = steps.at(-1)
-  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket }, c)))
+  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates }, c)))
   if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {

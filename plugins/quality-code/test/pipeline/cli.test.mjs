@@ -314,6 +314,27 @@ test('audit off: --no-audit or QC_NO_AUDIT=1 writes nothing; a failed append cha
   assert.equal(r.err, '')
 })
 
+test('--expected: a JSON list of pinned values, passed to the pipeline; it needs --ticket', async () => {
+  const d = repo()
+  put(d, 't.json', JSON.stringify({ key: 'ABC-1', summary: 'add', text: { description: 'Then the result is 2' } }))
+  put(d, 'pins.json', JSON.stringify(['2', 'result']))
+  put(d, 'obj.json', JSON.stringify({ expected: [2] }))
+  put(d, 'bad.json', JSON.stringify([{ a: 1 }]))
+  const seen = []
+  const runPipeline = async opts => { seen.push(opts.candidates); return { verdict: 'green', decidedBy: null, steps: [] } }
+  const env = { ...ENV, CLAUDE_PROJECT_DIR: d, QC_NO_AUDIT: '1' }
+  const quiet = async fn => { const w = process.stdout.write; const e = process.stderr.write; const err = []; process.stdout.write = () => true; process.stderr.write = s => { err.push(String(s)); return true }; try { return { code: await fn(), err: err.join('') } } finally { process.stdout.write = w; process.stderr.write = e } }
+  assert.equal((await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--ticket', '@t.json', '--expected', '@pins.json'], env, d, { runPipeline }))).code, 0)
+  assert.equal((await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--ticket', '@t.json', '--expected', '@obj.json'], env, d, { runPipeline }))).code, 0)
+  assert.deepEqual(seen, [['2', 'result'], ['2']])
+  const noTicket = await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--expected', '@pins.json'], env, d, { runPipeline }))
+  assert.deepEqual([noTicket.code, noTicket.err.trim()], [2, '--expected needs --ticket: the values are checked against the ticket'])
+  const bad = await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--ticket', '@t.json', '--expected', '@bad.json'], env, d, { runPipeline }))
+  assert.match(bad.err, /must be a list of values/)
+  const missing = await quiet(() => main(['test/a.spec.ts', '--key', 'ABC-1', '--ticket', '@t.json', '--expected', '@nope.json'], env, d, { runPipeline }))
+  assert.match(missing.err, /--expected @nope.json: file not found/)
+})
+
 test('fullstack through the CLI: each spec to its runner, one verdict, the card names both runners', () => {
   const d = repo({ adapter: 'fullstack' })
   put(d, 'e2e/b.spec.ts', PW)

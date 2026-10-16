@@ -160,3 +160,58 @@ test('surface: Playwright web-first matchers count for the Playwright dialect on
   assert.ok(!vt.includes("'12,50 €'"))
   assert.ok(vt.includes("page.getByTestId('total')"))
 })
+
+test('run: a negated matcher and a commented-out expect assert nothing', () => {
+  const t = JSON.stringify(ticket('## Acceptance criteria\nGiven a cart\nWhen I check out\nThen the total is 80'))
+  const not = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(total()).not.toBe(80) })") })
+  assert.deepEqual(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, not).data.missing, ['80'])
+  const commented = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => {\n    // expect(total()).toBe(80)\n    /* expect(total()).toBe(80) */\n    expect(total()).toBeDefined()\n  })") })
+  assert.deepEqual(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, commented).data.missing, ['80'])
+  const kept = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(note()).toBe('// not a comment'); expect(total()).toBe(80) })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, kept).status, 'pass', 'a // inside a string is not a comment')
+})
+
+test('run: a field the ticket names must be read in a Vitest assertion; a negated one is not asked for', () => {
+  const t = JSON.stringify(ticket('## Acceptance criteria\nGiven a stock row\nWhen the KPI is computed\nThen the KPI reads unit_cost, not unit_price, and shows 80'))
+  const wrong = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(row.unitPrice).toBe(80) })") })
+  const r = run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, wrong)
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.data.missing, ['unit_cost'])
+  assert.equal(r.findings[0].kind, 'field not asserted')
+  const right = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(row.unitCost).toBe(80) })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, right).status, 'pass', 'unit_cost and unitCost are the same field')
+  // An e2e spec asserts what the screen shows, so the field name is not asked for there.
+  const e2e = proj({ 't.json': t, 'e2e/a.spec.ts': "test.describe('ABC-7 Pricing', () => {\n  test('a', async ({ page }) => { await expect(page.getByRole('cell')).toHaveText('80') })\n})\n" })
+  assert.equal(run({ specs: ['e2e/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, { ...e2e, dialect: dialectFor('playwright') }).status, 'pass')
+})
+
+test('run: a bug test that asserts the reported wrong result says so', () => {
+  const t = JSON.stringify(ticket('## Steps to reproduce\n1. Open the KPI\n## Expected result\nThe value is 80\n## Actual result\nThe value is 150'))
+  const ctx = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(kpi()).toBe(150) })") })
+  const r = run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, ctx)
+  assert.equal(r.status, 'fail')
+  assert.equal(r.summary, 'asserts 150, the wrong result the ticket reports, not the expected value')
+  assert.deepEqual([r.findings[0].kind, r.findings[0].token, r.findings[0].actual], ['asserts the actual result', '80', '150'])
+  const inline = JSON.stringify(ticket('## Acceptance criteria\nGiven the KPI\nWhen I open it\nThen it shows 80\n\nToday it shows 150 instead of 80.'))
+  const r2 = run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, { ...ctx, root: proj({ 't.json': inline, 'test/a.spec.ts': spec("  it('a', () => { expect(kpi()).toBe(150) })") }).root })
+  assert.equal(r2.findings[0].kind, 'asserts the actual result')
+})
+
+test('run: the values the model pins count only when the ticket\'s expected text holds them', () => {
+  const t = JSON.stringify(ticket('## Acceptance criteria\nGiven no movements\nWhen I filter by an unknown customer\nThen the grid shows Nessun movimento trovato'))
+  const without = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(grid()).toBeTruthy() })") })
+  const r = run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json', candidates: ['Nessun movimento trovato', 'invented text', '99'] }, without)
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.data.missing, ['Nessun movimento trovato'])
+  assert.deepEqual(r.data.ignored, ['invented text', '99'])
+  const pinned = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(grid()).toBe('Nessun movimento trovato') })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json', candidates: ['Nessun movimento trovato'] }, pinned).status, 'pass')
+})
+
+test('run: toBeCloseTo, comparisons and toHaveLength pin values too (FIC-13436 asserts toBeCloseTo(58.86, 2))', () => {
+  const t = JSON.stringify(ticket('## Acceptance criteria\nGiven the movements\nWhen the history is rebuilt\nThen the reconstructed stock ends at 58.86 and there are 3 rows'))
+  const ctx = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(stock()).toBeCloseTo(58.86, 2); expect(rows()).toHaveLength(3) })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, ctx).status, 'pass')
+  const neg = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(stock()).not.toBeCloseTo(58.86, 2); expect(rows()).toHaveLength(3) })") })
+  assert.deepEqual(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, neg).data.missing, ['58.86'])
+})

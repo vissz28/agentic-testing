@@ -10,6 +10,9 @@ export const honesty = {
   anchorTags: false,
 }
 
+// The value check: a field the ticket names must be read in an assertion (unit tests read fields).
+export const expected = { fieldNames: true }
+
 export const suite = {
   testRe: /\b(?:it|test)(?:\.(skip|todo|only|concurrent|fails))?\s*\(\s*(['"`])(.*?)\2/g,
   notYet: 'todo',

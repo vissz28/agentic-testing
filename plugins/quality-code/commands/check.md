@@ -32,11 +32,13 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 3. **Key.** A `--key` in `$ARGUMENTS` is used as it is. Otherwise propose `keys[0]` from the branch detect (run it if step 2 did not) and confirm it: `1. Use <KEY>` / `2. A different ticket` / `3. No ticket`, then end the turn. With no key at all, ask `Which ticket? Type its key, for example ABC-123, or say none.` Pass `--key <KEY>` only when there is one.
 4. **Run.** Say this one line, then run:
 
-   `Running the checks: tests, assertions, types and mutation; this can take a few minutes.`
+   `Running the checks: tests, assertions, types and mutation; this can take a few minutes.` (with `--ticket`, say `tests, assertions, types, expected values and mutation`)
 
    For `playwright`, and for `fullstack` when a spec is in the e2e folder, add this second line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.`
 
-   `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' [--range <base>...HEAD] [--key <KEY>] [--flaky <N>]`
+   `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' [--range <base>...HEAD] [--key <KEY>] [--ticket @<ticketsDir>/<KEY>/ticket.json] [--expected @<ticketsDir>/<KEY>/expected.json] [--target '<target>'] [--flaky <N>]`
+
+   With a key, look in `<ticketsDir>/<KEY>/` (`ticketsDir` from the config, default `.claude/quality-code/tickets`), where `write` and `ticket-eval` saved the ticket: when `ticket.json` is there, pass `--ticket @<ticketsDir>/<KEY>/ticket.json` (the value check then runs too), and `--expected @<ticketsDir>/<KEY>/expected.json` when that file is there; when `target` is there and names an existing file that is not one of the specs, and the adapter is `vitest` or `fullstack`, pass `--target '<that path>'` (Stryker then runs on it). Never pass `--target` on a `playwright` project. Missing files: leave the flag out; do not read the ticket from Jira here.
 
    Quote every spec path in single quotes. Pass `--range <base>...HEAD` only when the specs came from the branch (step 2, or the start command's option 2), with `base` from the `BRANCH_JSON:` line (the field `base`, for example `origin/main`). Honesty then reads everything committed on the branch since it left the base, so an assertion or test removed in an earlier commit is caught. It does not read changes that are not committed yet; with specs the user typed, no range is passed and honesty reads the changes not committed yet. Pass `--flaky` only when `$ARGUMENTS` has it. Do not pass `--json`.
 5. **Card.** Show the card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. If the script exits with 2, show its lines as they are and stop.

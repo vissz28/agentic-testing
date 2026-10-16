@@ -62,3 +62,12 @@ test('no token in the chat; no mcp tools', () => {
 test('examples use neutral keys', () => {
   assert.doesNotMatch(doc, /AGT|FIC|warehouse/i)
 })
+
+test('with a key, the saved ticket and target are passed, so the value check and Stryker run', () => {
+  assert.ok(doc.includes("[--ticket @<ticketsDir>/<KEY>/ticket.json] [--expected @<ticketsDir>/<KEY>/expected.json] [--target '<target>']"))
+  assert.match(doc, /and `--expected @<ticketsDir>\/<KEY>\/expected\.json` when that file is there/)
+  assert.match(doc, /when `ticket\.json` is there, pass `--ticket @<ticketsDir>\/<KEY>\/ticket\.json`/)
+  assert.match(doc, /when `target` is there and names an existing file that is not one of the specs, and the adapter is `vitest` or `fullstack`, pass `--target/)
+  assert.match(doc, /Never pass `--target` on a `playwright` project/)
+  assert.match(doc, /do not read the ticket from Jira here/)
+})

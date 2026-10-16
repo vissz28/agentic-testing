@@ -35,6 +35,10 @@ export function buildVocabulary(langs) {
     expectedQuestion: new RegExp(`(?:${m('expectedQuestion')})\\s*[:*]?\\s*(.*)$`, 'gim'),
     expectedSection: new RegExp(`^(?:#{1,6}\\s*|\\*\\*\\s*)(?:${m('expectedSection')})\\b[^\\n]*$`, 'gim'),
     insteadOf: new RegExp(`(?:${m('insteadOf')})\\s+([+\\u2212-]?\\d+(?:[.,]\\d+)?)`, 'gi'),
+    // The wrong result a bug reports: its Actual section, and the number before "instead of".
+    actualSection: new RegExp(`^(?:#{1,6}\\s*|\\*\\*\\s*)(?:${m('actualHeading')})\\b[^\\n]*$`, 'gim'),
+    beforeInsteadOf: new RegExp(`([+\\u2212-]?\\d+(?:[.,]\\d+)?)\\s+(?:${m('insteadOf')})\\b`, 'gi'),
+    negatedWord: new RegExp(`\\b(?:${alt(['not', 'non', ...merge(langs, 'insteadOf')])})\\s+[\\w.-]+`, 'gi'),
     listOrStep: new RegExp(`^(?:[-*•]\\s|\\d+[.)]\\s|(?:${alt(['scenario', ...merge(langs, 'steps'), ...merge(langs, 'continuation')])})\\b)`, 'i'),
   }
 }

@@ -1,4 +1,4 @@
-// Entry point for the pipeline (Vitest, Playwright, or both): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
+// Entry point for the pipeline (Vitest, Playwright, or both): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
@@ -14,12 +14,12 @@ import { formatCard } from './card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from './pipeline.mjs'
 import { isFullstack } from '../stack.mjs'
 
-const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
+const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 
 function parse(argv) {
   const a = { json: false, noAudit: false, specs: [] }
-  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket'])
+  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
@@ -65,6 +65,17 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     try { obj = JSON.parse(readFileSync(ticket, 'utf8')) } catch (e) { return err(`--ticket ${t}: ${isFile(ticket) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
   }
+  // --expected: the values the writer says its tests pin, as a JSON list; the check keeps only those the ticket's expected text holds.
+  let candidates = []
+  if (a.expected !== undefined) {
+    if (!ticket) return err('--expected needs --ticket: the values are checked against the ticket')
+    const f = resolve(root, a.expected.replace(/^@/, ''))
+    let obj
+    try { obj = JSON.parse(readFileSync(f, 'utf8')) } catch (e) { return err(`--expected ${a.expected}: ${isFile(f) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
+    const list = Array.isArray(obj) ? obj : obj?.expected ?? obj?.candidates
+    if (!Array.isArray(list) || list.some(x => typeof x !== 'string' && typeof x !== 'number')) return err(`--expected ${a.expected}: must be a list of values, like ["80", "unit_cost"]`)
+    candidates = list.map(String)
+  }
   let target = null
   if (a.target !== undefined && config.adapter === 'playwright') return err('--target runs Stryker, which is for Vitest projects: leave it out for Playwright specs')
   if (a.target !== undefined) {
@@ -80,7 +91,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
   let outcome
   try {
-    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target }, ctx)
+    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates }, ctx)
   } catch (e) {
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
     return 2
