@@ -1,5 +1,5 @@
 ---
-description: Check Vitest or Playwright spec files with the pipeline: tests, assertions, types and mutation. Shows the verdict card the script prints.
+description: Check Vitest or Playwright spec files (or both, on a fullstack project) with the pipeline: tests, assertions, types and mutation. Shows the verdict card the script prints.
 argument-hint: [spec…] [--key KEY] [--flaky N]
 ---
 
@@ -16,7 +16,7 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 
 ## Steps
 
-1. **Project.** Read `adapter` in `.claude/quality-code.json`. Both `vitest` and `playwright` projects are checked the same way; the script picks the test runner. Remember the adapter for step 4.
+1. **Project.** Read `adapter` in `.claude/quality-code.json`. `vitest`, `playwright` and `fullstack` projects are checked the same way; the script picks the test runner (on a fullstack project, per spec: the e2e folder's specs run under Playwright, the others under Vitest, and the card shows both runners). Remember the adapter for step 4.
 2. **Specs.** If `$ARGUMENTS` has spec paths, use them and go to step 3. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect` and read the `BRANCH_JSON:` line. Take the `files` whose `kind` is `test` and whose `status` is not `D` (a deleted test cannot run). Remember that the specs came from the branch. If there are none, say `No test files changed on this branch. Give the spec paths: /quality-code:check <spec…>` and stop. Otherwise show this card and end the turn:
 
    ```
@@ -34,7 +34,7 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 
    `Running the checks: tests, assertions, types and mutation; this can take a few minutes.`
 
-   For `playwright`, add this second line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.`
+   For `playwright`, and for `fullstack` when a spec is in the e2e folder, add this second line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.`
 
    `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' [--range <base>...HEAD] [--key <KEY>] [--flaky <N>]`
 

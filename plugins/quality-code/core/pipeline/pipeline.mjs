@@ -15,6 +15,8 @@ import { playwrightRunner } from '../runners/playwright.mjs'
 import { vitestRunner } from '../runners/vitest.mjs'
 import { strykerThreshold, timeoutSecondsOf } from '../config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
+import { dialectFor } from '../checks/dialects/index.mjs'
+import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../stack.mjs'
 
 // Stryker mutates source code under unit tests; it does not run e2e tests.
 export const ADAPTERS = Object.freeze({
@@ -104,22 +106,87 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = []) {
     [{ file: target, kind: 'code changes not caught', detail: `${r.survived ?? 0} survived, ${r.noCoverage ?? 0} not covered` }], data)
 }
 
-export async function runPipeline({ specs: rawSpecs, key = null, range = null, flakyRuns = null, ticket = null, target = null }, ctx) {
+// A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
+const step = async (name, fn) => {
+  try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
+}
+
+export async function runPipeline(opts, ctx) {
+  const specs = [...new Set(opts.specs.map(f => normalizeSpec(ctx.root, f)))]
+  if (!isFullstack(ctx.config)) return withVerdict(await runSide({ ...opts, specs }, ctx))
+  const groups = specsByAdapter(ctx.config, ctx.root, specs)
+  const sideCtx = adapter => ({
+    ...ctx,
+    config: asAdapter(ctx.config, adapter),
+    dialect: dialectFor(adapter),
+    runTests: ctx.runners?.[adapter] ?? ctx.runTests,
+    typeCheck: ctx.typeChecks?.[adapter] ?? ctx.typeCheck,
+  })
+  const parts = []
+  for (const [adapter, list] of groups) {
+    // Only Vitest has a Stryker step; the value check reads every side at once (below).
+    const own = { ...opts, specs: list, target: adapter === 'vitest' ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket }
+    parts.push({ adapter, steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
+  }
+  if (groups.length > 1 && opts.ticket) {
+    const dialectOf = p => dialectFor(adapterOfSpec(ctx.config, ctx.root, p))
+    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket }, { ...ctx, dialectOf }))] })
+  }
+  return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.adapter) }
+}
+
+const withVerdict = steps => ({ ...decide(steps), steps })
+
+const ORDER = ['boundary', 'honesty', 'suite-honesty', 'types', 'tests', 'expected', 'mutation', 'flaky', 'stryker']
+const rank = { fail: 2, not_run: 1, pass: 0 }
+
+/** Data of one check across sides: counts add up, lists join, the rest is the first side's. */
+function mergeData(datas) {
+  const out = {}
+  for (const d of datas) for (const [k, v] of Object.entries(d ?? {})) {
+    if (typeof v === 'number' && typeof out[k] === 'number') out[k] += v
+    else if (Array.isArray(v) && Array.isArray(out[k])) out[k] = [...out[k], ...v]
+    else if (!(k in out)) out[k] = v
+  }
+  if (datas.some(d => d?.applicable !== undefined)) out.applicable = datas.some(d => d?.applicable !== false)
+  return out
+}
+
+// A spec is named by its runner, not its side: a frontend repo's Vitest unit tests are no backend.
+const RUNNER = { vitest: 'Vitest', playwright: 'Playwright' }
+
+/** One step per check from the runners of a fullstack run, each summary and finding named by its runner. */
+export function mergeSides(parts) {
+  const steps = []
+  for (const check of ORDER) {
+    const have = parts.flatMap(p => p.steps.filter(s => s.check === check).map(s => ({ side: RUNNER[p.adapter] ?? null, s })))
+    if (!have.length) continue
+    const named = (side, text) => (side ? `${side}: ${text}` : text)
+    const status = have.map(h => h.s.status).reduce((a, b) => (rank[b] > rank[a] ? b : a))
+    steps.push({
+      check,
+      status,
+      summary: have.map(h => named(h.side, h.s.summary)).join('; '),
+      findings: have.flatMap(h => (h.s.findings ?? []).map(f => (h.side ? { ...f, runner: h.side } : f))),
+      data: mergeData(have.map(h => h.s.data)),
+    })
+  }
+  return steps
+}
+
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runTests = ctx.runTests ?? adapter.runner(ctx.root, ctx.config)
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
-  const specs = [...new Set(rawSpecs.map(f => normalizeSpec(ctx.root, f)))]
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
-  // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
-  const step = async (name, fn) => {
-    try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
-  }
   const steps = []
   // Boundary guards a test-writing run: without the run marker there is nothing it can judge.
-  if (runActive(ctx.root)) steps.push(await step('boundary', () => boundary.run({ range }, c)))
-  else steps.push(result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
+  if (withBoundary) {
+    steps.push(runActive(ctx.root) ? await step('boundary', () => boundary.run({ range }, c))
+      : result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
+  }
   steps.push(await step('honesty', () => honesty.run({ specs, range }, c)))
   steps.push(await step('suite-honesty', () => suite.run({ specs, key }, c)))
   const types = await step('types', () => typeCheck(specs))
@@ -145,5 +212,5 @@ export async function runPipeline({ specs: rawSpecs, key = null, range = null, f
     }
   }
   if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs, specs)))
-  return { ...decide(steps), steps }
+  return steps
 }

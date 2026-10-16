@@ -6,8 +6,9 @@ import { matches } from './checks/boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides'])
 const LANGS = new Set(['en', 'it'])
+const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 const PATH_RULE = 'must be a relative path inside the project (no "..", not absolute, one line)'
 const LAYER_NAME = /^[a-z][a-z0-9-]{0,30}$/
@@ -72,7 +73,8 @@ export function validateConfig(input) {
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
   for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
   if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
-  if (!['playwright', 'vitest'].includes(c.adapter)) e.push(`adapter: must be "playwright" or "vitest" (found ${JSON.stringify(c.adapter)})`)
+  if (!ADAPTERS.includes(c.adapter)) e.push(`adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found ${JSON.stringify(c.adapter)})`)
+  const uses = a => c.adapter === a || c.adapter === 'fullstack'
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
   const j = isObj(c.jira) ? c.jira : {}
   if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
@@ -160,7 +162,7 @@ export function validateConfig(input) {
     }
   }
   if (c.vitest !== undefined) {
-    if (c.adapter !== 'vitest') e.push('vitest: only allowed with "adapter": "vitest"')
+    if (!uses('vitest')) e.push('vitest: only allowed with "adapter": "vitest" or "fullstack"')
     else if (!isObj(c.vitest)) e.push('vitest: must be an object')
     else {
       for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
@@ -193,7 +195,7 @@ export function validateConfig(input) {
     }
   }
   if (c.playwright !== undefined) {
-    if (c.adapter !== 'playwright') e.push('playwright: only allowed with "adapter": "playwright"')
+    if (!uses('playwright')) e.push('playwright: only allowed with "adapter": "playwright" or "fullstack"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
       for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")`)
@@ -220,7 +222,7 @@ export function validateConfig(input) {
       const s = c.seed
       for (const k of Object.keys(s)) if (!['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only "builders", "dataset" and "stubsFrom")`)
       if (s.builders !== undefined) {
-        if (c.adapter !== 'vitest') e.push('seed.builders: only allowed with "adapter": "vitest" (Playwright seeds with route stubs, see seed.stubsFrom)')
+        if (!uses('vitest')) e.push('seed.builders: only allowed with "adapter": "vitest" or "fullstack" (Playwright seeds with route stubs, see seed.stubsFrom)')
         else if (!Array.isArray(s.builders) || s.builders.length < 1 || s.builders.length > 10) e.push('seed.builders: must be a list of 1 to 10 files that hold the seed builders')
         else {
           const seen = new Set()
@@ -234,10 +236,18 @@ export function validateConfig(input) {
       }
       if (s.dataset !== undefined && !(pathOk(s.dataset) && /\.md$/i.test(s.dataset))) e.push(`seed.dataset ${JSON.stringify(s.dataset)} must be a relative path to a .md file inside the project`)
       if (s.stubsFrom !== undefined) {
-        if (c.adapter !== 'playwright') e.push('seed.stubsFrom: only allowed with "adapter": "playwright" (Vitest seeds with builder calls, see seed.builders)')
+        if (!uses('playwright')) e.push('seed.stubsFrom: only allowed with "adapter": "playwright" or "fullstack" (Vitest seeds with builder calls, see seed.builders)')
         else if (!pathOk(s.stubsFrom)) e.push(`seed.stubsFrom ${JSON.stringify(s.stubsFrom)} ${PATH_RULE}`)
         else if (!s.stubsFrom.endsWith('/')) e.push(`seed.stubsFrom "${s.stubsFrom}" must be a folder ending with "/"`)
       }
+    }
+  }
+  if (c.sides !== undefined) {
+    if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
+    else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
+    else for (const [k, v] of Object.entries(c.sides)) {
+      if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend" and "fullstack")`)
+      else if (!Array.isArray(v) || v.some(m => typeof m !== 'string' || !m.trim() || /[\[\]\r\n]/.test(m))) e.push(`sides.${k}: must be a list of title prefixes or labels, like ["FE"] (no brackets)`)
     }
   }
   if (e.length) return { ok: false, errors: e }

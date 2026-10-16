@@ -142,7 +142,8 @@ export function run({ specs, key = null, ticket = null }, ctx) {
   } catch (e) {
     return result('expected', 'not_run', `cannot read the ticket file: ${String(e.message).split('\n')[0]}`)
   }
-  const surfaces = specs.map(p => surface(readFileSync(resolve(ctx.root, p), 'utf8'), key, ctx.dialect))
+  // A fullstack run reads each spec in its own dialect (ctx.dialectOf).
+  const surfaces = specs.map(p => surface(readFileSync(resolve(ctx.root, p), 'utf8'), key, ctx.dialectOf?.(p) ?? ctx.dialect))
   if (surfaces.every(s => s === null)) {
     return result('expected', 'not_run', `no ${key} block in ${specs.join(', ')}`, [{ file: specs.join(', '), kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   }

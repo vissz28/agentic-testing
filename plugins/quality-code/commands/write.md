@@ -1,11 +1,11 @@
 ---
-description: Write Vitest or Playwright tests for a Jira ticket that passes the readiness gate, in the team's test folders, then check them with the pipeline and show its card.
+description: Write Vitest or Playwright tests (or both, on a fullstack project) for a Jira ticket that passes the readiness gate, in the team's test folders, then check them with the pipeline and show its card.
 argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--ask]
 ---
 
 Writes tests from a ticket. You write the tests; the scripts gate the ticket and grade the tests. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
-The steps are the same for both adapters. Where a **Vitest** project (unit tests against a source file) and a **Playwright** project (e2e tests against a screen of the app) differ, the step says so.
+The steps are the same for both adapters. Where a **Vitest** project (unit tests against a source file) and a **Playwright** project (e2e tests against a screen of the app) differ, the step says so. A **fullstack** project (`adapter: fullstack`) has both: a backend ticket takes the Vitest parts of each step, a frontend ticket the Playwright parts, and a fullstack ticket both, the Vitest part first. Its specs are checked together, in one run (step 6).
 
 ## Rules
 
@@ -19,14 +19,16 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
 ## Steps
 
-1. **Check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /quality-code:write <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `.claude/quality-code.json`: its `adapter` is `vitest` or `playwright`, and `ticketsDir` (default `.claude/quality-code/tickets`).
+1. **Check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /quality-code:write <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `.claude/quality-code.json`: its `adapter` is `vitest`, `playwright` or `fullstack`, and `ticketsDir` (default `.claude/quality-code/tickets`).
    - **Vitest:** `--route` and `--no-extras` are for Playwright projects: if `$ARGUMENTS` has one, say `--route and --no-extras are for Playwright projects. Use --layer NAME or --target PATH here.` and stop. Read the layers from `vitest.layers`; with no `vitest.layers`, there is one layer, `unit`, in `test/`. A `--layer NAME` in `$ARGUMENTS` keeps only that layer; a name that is not a layer: `No layer <NAME>. The layers are <names>.` and stop.
    - **Playwright:** `--layer` and `--target` are for Vitest projects: if `$ARGUMENTS` has one, say `--layer and --target are for Vitest projects. Use --route PATH to name the screen.` and stop. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config e2e-folder` and read the `E2E_FOLDER_JSON:` line: its `folder` is the e2e folder, where the spec goes. If it exits with 2, show its lines and stop. Read `playwright.guide` and `features` too.
+   - **Fullstack:** every flag is allowed: `--layer` and `--target` for the backend part, `--route` and `--no-extras` for the frontend part. Read the layers as for Vitest and the e2e folder, `playwright.guide` and `features` as for Playwright.
 
    Then read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Coming from ticket-eval's option 3 (it handed you the key and the incomplete score; `<ticketsDir>/<KEY>/ticket.json` is saved): skip this step and go on as after option 3 below, with that score. Otherwise, read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score. The script scores; never write a test for a ticket it refuses.
    - **Refused:** its refuse card and its flow, as written there. If that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card), go on. On option 3, the developer override, go on only when the ticket-eval flow lets it (the brief's `derivable` is at least 1): remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score, and say `The ticket is incomplete: the result carries the 🔴 [RISK / NOT RECOMMENDED] mark.` Anything else (a comment posted, a cancel, a stop), stop: `Writing tests needs a ticket that passes the gate, or option 3.` No run marker, no file written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`. Read from it the `summary`, the `issuetype`, the scenarios and the expected values. This file is the only copy of the ticket; never edit it.
+   - **Fullstack:** the side is the `side` of the last `TICKET_EVAL_JSON:` line (ticket-eval asked for it when the ticket did not say): `backend` takes the Vitest parts of steps 3 to 5, `frontend` the Playwright parts, `fullstack` both. Say it in one line: `Side: <side> (<Vitest tests | Playwright tests | Vitest and Playwright tests>)`.
    - **Playwright:** also keep the `route` and the `feature` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
 3. **Target.** What the tests check: a source file (Vitest) or a screen of the app (Playwright).
    - **Vitest:** a `--target PATH` in `$ARGUMENTS` is used as it is: it must be an existing file that is not a spec; otherwise say so and stop. Without one, and when `<ticketsDir>/<KEY>/target` exists (a target chosen in an earlier run of this ticket) and still names an existing file that is not a spec, reuse it without asking. Otherwise find the source file the ticket's behaviour lives in, from the ticket, the branch (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`, the `files` of kind `code` whose `status` is not `D`) and a search of the code for the ticket's terms. When one file is clearly the best (it changed on this branch and it holds what the ticket's scenarios describe), pick it yourself and do not stop: say one line, `Target: <path> (changed on this branch, <what it holds, in a few words>)`, and go on. Show this card only when no changed code file matches the ticket, when two match equally well, or with `--ask`, up to two candidates, best first, and end the turn:
@@ -104,6 +106,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
    - **Vitest:** `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --target '<target>'`
    - **Playwright:** first add this line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.` Then `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json`, with no `--target` (the pipeline refuses it for Playwright: there is no Stryker step).
+   - **Fullstack:** one run with every spec this run wrote, of both parts: `node "${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json`, plus `--target '<target>'` when there is a Vitest part (Stryker checks the backend target). When there is a Playwright part, add the app line above first. The pipeline sends each spec to its own runner and the card shows both runners; the value check reads the specs of both sides together, so each value of the ticket may be asserted on either side.
 
    After option 3 in step 2, add `--incomplete-ticket <score>` with the score remembered there: the card then opens with the 🔴 [RISK / NOT RECOMMENDED] line. Never pass it otherwise.
 
@@ -143,3 +146,4 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 - `/quality-code:write ABC-123 --target src/pricing.ts`: Vitest, skip the target card
 - `/quality-code:write ABC-123 --route /orders/new`: Playwright, test this screen
 - `/quality-code:write ABC-123 --no-extras`: Playwright, only the ticket's scenarios
+- `/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack, a backend target and a screen

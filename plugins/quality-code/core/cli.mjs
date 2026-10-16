@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { audit } from './audit.mjs'
 import { loadConfig, projectRoot } from './config.mjs'
 import { e2eFolder, e2eFolderLine } from './e2e-folder.mjs'
-import { buildBrief, formatReport } from './score.mjs'
+import { buildBrief, formatReport, sideFor } from './score.mjs'
+import { isFullstack, SIDES, ticketSide } from './stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
 import { sanitizeTicket } from './sanitize.mjs'
 import { resolveField, storeField } from './fields.mjs'
@@ -81,7 +82,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     return 2
   }
   if (!a.in) {
-    err("usage: cli.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|jira-update|sanitize> --in '<json>'|@file [--ci] [--json]")
+    err("usage: cli.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -150,6 +151,21 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       const after = r.brief ?? buildBrief(config, ticket)
       out(`FILL_JSON:${JSON.stringify({ ok: r.ok, reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
       return r.ok ? 0 : 1
+    }
+    case 'side': {
+      // Fullstack projects: which side a ticket gets tests on. With a side, it is saved in the ticket file.
+      if (!isFullstack(config)) { err(`side is for fullstack projects: this one is ${config.adapter}`); return 2 }
+      const [value] = a._
+      if (value === undefined) {
+        const side = sideFor(config, ticket)
+        out(`SIDE_JSON:${JSON.stringify({ side, source: ticket.side ? 'set' : side ? 'ticket' : null })}`)
+        return 0
+      }
+      if (!SIDES.includes(value)) { err(`side must be one of ${SIDES.join(', ')}, not "${value}"`); return 2 }
+      if (!inPath) { err('side needs --in @<ticket.json> to save the side'); return 2 }
+      try { writeFileSync(inPath, JSON.stringify({ ...ticket, side: value })) } catch (e) { err(`side: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      out(`ok: ${ticket.key ?? 'the ticket'} gets ${value} tests${ticketSide(config, ticket) && ticketSide(config, ticket) !== value ? ` (its title or labels say ${ticketSide(config, ticket)})` : ''}`)
+      return 0
     }
     case 'jira-update': {
       const u = jiraUpdate(config, ticket)

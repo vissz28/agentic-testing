@@ -301,3 +301,18 @@ test('step 8: after option 3 only, the script writes the risk note; it is posted
 test('a fill-in that passes still goes on to writing, with or without the Jira update', () => {
   assert.ok(step(2).includes('the guided fill-in, then `1` or `2` on its Jira update card'))
 })
+
+test('fullstack: the side picks the parts; every flag is allowed; one run with both sides', () => {
+  assert.match(doc, /A \*\*fullstack\*\* project \(`adapter: fullstack`\) has both: a backend ticket takes the Vitest parts of each step, a frontend ticket the Playwright parts, and a fullstack ticket both, the Vitest part first/)
+  assert.match(step(1), /its `adapter` is `vitest`, `playwright` or `fullstack`/)
+  assert.match(step(1), /\*\*Fullstack:\*\* every flag is allowed: `--layer` and `--target` for the backend part, `--route` and `--no-extras` for the frontend part/)
+  const two = step(2)
+  assert.match(two, /\*\*Fullstack:\*\* the side is the `side` of the last `TICKET_EVAL_JSON:` line/)
+  assert.match(two, /`backend` takes the Vitest parts of steps 3 to 5, `frontend` the Playwright parts, `fullstack` both/)
+  const six = step(6)
+  const fs = six.slice(six.indexOf('**Fullstack:**'), six.indexOf('After option 3'))
+  assert.ok(fs.includes("`node \"${CLAUDE_PLUGIN_ROOT}/core/pipeline/cli.mjs\" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json`"))
+  assert.match(fs, /plus `--target '<target>'` when there is a Vitest part/)
+  assert.match(fs, /the value check reads the specs of both sides together/)
+  assert.ok(doc.includes('`/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack'))
+})

@@ -130,3 +130,9 @@ test('the guide carries no project values', () => {
   assert.doesNotMatch(guide, /AGT|FIC|Giacenza|Magazzino/)
   assert.doesNotMatch(guide, /warehouse|teamsystem/i)
 })
+
+test('fullstack: the ticket side picks builders, stubs or both', () => {
+  assert.match(step(1), /`fullstack` with either or both, by the ticket's side/)
+  assert.match(step(4), /On a `fullstack` project, first find the ticket's side as ticket-eval's step 4b does/)
+  assert.match(step(4), /`backend` takes the `vitest` parts below, `frontend` the `playwright` parts, `fullstack` both, builders first/)
+})

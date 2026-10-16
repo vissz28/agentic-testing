@@ -209,7 +209,7 @@ test('vitest block: configs, tsconfig, timeout', () => {
 test('vitest block: absent stays absent; only with adapter vitest', () => {
   assert.equal(validateConfig(vgood).config.vitest, undefined)
   const r = validateConfig({ ...good, vitest: {} })
-  assert.ok(r.errors.includes('vitest: only allowed with "adapter": "vitest"'))
+  assert.ok(r.errors.includes('vitest: only allowed with "adapter": "vitest" or "fullstack"'))
 })
 test('vitest block: each wrong part is named', () => {
   const r = validateConfig({ ...vgood, vitest: { configs: [{ match: '../x', config: 'a.ts' }, { match: 'test/', config: '/abs.ts' }, { match: 'x' }, 'no'], tsconfig: '', timeoutSeconds: 5, extra: 1 } })
@@ -328,9 +328,9 @@ test('playwright block: configs, projects, tsconfig, timeout', () => {
 })
 test('playwright block: absent stays absent; only with adapter playwright; not an object', () => {
   assert.equal(validateConfig(good).config.playwright, undefined)
-  assert.ok(validateConfig({ ...vgood, playwright: {} }).errors.includes('playwright: only allowed with "adapter": "playwright"'))
+  assert.ok(validateConfig({ ...vgood, playwright: {} }).errors.includes('playwright: only allowed with "adapter": "playwright" or "fullstack"'))
   for (const v of ['x', 5, null, ['a']]) assert.ok(validateConfig({ ...good, playwright: v }).errors.includes('playwright: must be an object'), JSON.stringify(v))
-  assert.ok(validateConfig({ ...good, vitest: {} }).errors.includes('vitest: only allowed with "adapter": "vitest"'))
+  assert.ok(validateConfig({ ...good, vitest: {} }).errors.includes('vitest: only allowed with "adapter": "vitest" or "fullstack"'))
 })
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
@@ -396,9 +396,21 @@ test('seed block: absent gives the defaults; a valid block for each adapter', ()
 })
 test('seed block: builders only with vitest, stubsFrom only with playwright', () => {
   assert.deepEqual(validateConfig({ ...good, seed: { builders: ['test/seed.ts'] } }).errors,
-    ['seed.builders: only allowed with "adapter": "vitest" (Playwright seeds with route stubs, see seed.stubsFrom)'])
+    ['seed.builders: only allowed with "adapter": "vitest" or "fullstack" (Playwright seeds with route stubs, see seed.stubsFrom)'])
   assert.deepEqual(validateConfig({ ...vgood, seed: { stubsFrom: 'e2e/' } }).errors,
-    ['seed.stubsFrom: only allowed with "adapter": "playwright" (Vitest seeds with builder calls, see seed.builders)'])
+    ['seed.stubsFrom: only allowed with "adapter": "playwright" or "fullstack" (Vitest seeds with builder calls, see seed.builders)'])
+})
+test('fullstack: both blocks, both seed kinds and sides are allowed; sides only on fullstack', () => {
+  const fs = { ...good, adapter: 'fullstack' }
+  const r = validateConfig({ ...fs, vitest: { tsconfig: 'tsconfig.json' }, playwright: { folder: 'e2e/' }, seed: { builders: ['test/seed.ts'], stubsFrom: 'e2e/mocks/' }, sides: { frontend: ['FE', 'web'], backend: ['BE'] } })
+  assert.equal(r.ok, true, r.errors?.join(' | '))
+  assert.deepEqual(validateConfig({ ...good, sides: { frontend: ['FE'] } }).errors, ['sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)'])
+  assert.deepEqual(validateConfig({ ...fs, sides: { mobile: ['MO'], backend: ['[BE]'], frontend: 'FE' } }).errors, [
+    'sides.mobile: unknown field (only "frontend", "backend" and "fullstack")',
+    'sides.backend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
+    'sides.frontend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
+  ])
+  assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found "jest")'])
 })
 test('seed block: each wrong part is named', () => {
   for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset" and "stubsFrom"'], JSON.stringify(v))

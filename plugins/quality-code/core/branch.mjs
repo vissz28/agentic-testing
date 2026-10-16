@@ -6,6 +6,7 @@ import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from './config.mjs'
 import { redact } from './sanitize.mjs'
+import { adaptersOf } from './stack.mjs'
 
 const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue)$/
 const TEST_NAME = /\.(spec|test)\.[^/]+$/
@@ -143,11 +144,12 @@ export function detect(root, config, { base: baseFlag } = {}) {
 
   // git prints paths from the repo top; a project in a subfolder keeps only its own files, relative to itself.
   const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
-  const dirs = config.adapter === 'playwright' ? playwrightTestDirs(root) : []
+  const playwright = adaptersOf(config).includes('playwright')
+  const dirs = playwright ? playwrightTestDirs(root) : []
   out.files = [...files.values()]
     .filter(f => f.path.startsWith(prefix))
     .map(f => ({ ...f, path: f.path.slice(prefix.length) }))
-    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, config.adapter, dirs), committed: f.committed }))
+    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, playwright ? 'playwright' : config.adapter, dirs), committed: f.committed }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   for (const f of out.files) {
     out.counts[f.kind]++

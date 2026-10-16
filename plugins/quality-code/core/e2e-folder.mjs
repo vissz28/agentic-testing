@@ -38,7 +38,7 @@ export function readTestDir(root) {
 
 /** → { ok: true, folder, source: 'config' | 'testDir' | 'default', configFile? } | { ok: false, error } */
 export function e2eFolder(root, config) {
-  if (config?.adapter !== 'playwright') return { ok: false, error: `the e2e folder is for Playwright projects: this project uses ${config?.adapter}` }
+  if (config?.adapter !== 'playwright' && config?.adapter !== 'fullstack') return { ok: false, error: `the e2e folder is for Playwright projects: this project uses ${config?.adapter}` }
   let out
   if (config.playwright?.folder) out = { ok: true, folder: config.playwright.folder, source: 'config' }
   else {

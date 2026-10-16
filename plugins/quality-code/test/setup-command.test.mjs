@@ -133,3 +133,11 @@ test('the short setup does not mention test folders', () => {
   const short = doc.slice(0, doc.indexOf('## Advanced'))
   assert.doesNotMatch(short, /specFolders|Test folders|layers/)
 })
+
+test('fullstack: a repo with both asks what the project is; sides, Playwright configs in a subfolder', () => {
+  assert.ok(doc.includes('This repo has both Vitest and Playwright.\n     1. Fullstack: backend tests with Vitest, frontend tests with Playwright\n     2. Frontend only: Playwright\n     3. Backend only: Vitest'))
+  assert.match(doc, /`1` gives `adapter: "fullstack"`, `2` `"playwright"`, `3` `"vitest"`/)
+  assert.match(doc, /\*\*Ticket sides\*\* \(only for `fullstack`\)/)
+  assert.match(doc, /For `fullstack`, leave out the e2e folder/)
+  assert.match(doc, /the path the app's router uses \(for example `\/productsStock`\), not a folder name/)
+})

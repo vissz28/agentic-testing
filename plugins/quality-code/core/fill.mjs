@@ -5,6 +5,7 @@ import { buildVocabulary } from './languages/index.mjs'
 import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
 import { buildBrief, rubricFor, scoreTicket } from './score.mjs'
+import { asAdapter, isFullstack } from './stack.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
@@ -41,7 +42,8 @@ function credit(signals, keys) {
 
 /** The numbered list QA picks from: the refuse comment's gaps, each with the points it would really add. */
 export function fillMenu(config, brief) {
-  const rubric = rubricFor(config)
+  // On a fullstack project the brief says which side's rubric decided it.
+  const rubric = { playwright, vitest }[brief.rubric] ?? rubricFor(config)
   const kind = templateFor(brief.issuetype)
   const msgs = messagesFor(config, kind)
   const keys = new Set(brief.missing.map(m => m.key))
@@ -106,7 +108,7 @@ export function formatPick(pick) {
 
 /** The example shown after a rejected answer: only for a key the rubric lets the author type in. */
 export function exampleFor(config, ticket, key) {
-  const rubric = rubricFor(config)
+  const rubric = rubricFor(config, ticket)
   if (key === 'qa_plan_found' || !Object.hasOwn(rubric.weights, key)) return undefined
   return messagesFor(config, templateFor(ticket.issuetype))[key]?.example
 }
@@ -116,7 +118,7 @@ export function exampleFor(config, ticket, key) {
  * returns the untouched input and the reason, so nothing half-written reaches the file.
  */
 export function applyAnswer(config, ticket, key, answer) {
-  const rubric = rubricFor(config)
+  const rubric = rubricFor(config, ticket)
   const why = REASONS[rubric.id]
   const v = buildVocabulary(config.languages)
   const text = String(answer ?? '').trim()
@@ -203,7 +205,9 @@ export function applyAnswer(config, ticket, key, answer) {
   }
   next.text.description = desc
   const brief = buildBrief(config, next)
-  const credited = key === 'ac_present' ? brief.signals.ac_present && brief.signals.ac_testable : brief.signals[key]
+  // Credited by the rubric it was asked for: on a fullstack project the other side's may decide now.
+  const { signals } = isFullstack(config) ? buildBrief(asAdapter(config, rubric.id), next) : brief
+  const credited = key === 'ac_present' ? signals.ac_present && signals.ac_testable : signals[key]
   if (!credited) return reject('The answer was added, but the check still does not count it. Try the example form.')
   next.filled = [...(ticket.filled ?? []), entry]
   return { ok: true, input: next, brief }

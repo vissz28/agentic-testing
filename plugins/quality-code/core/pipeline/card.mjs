@@ -7,7 +7,7 @@ const quoted = findings => findings.filter(f => f.test).map(f => `'${f.test}'`).
 
 function stepLine(step) {
   let text = step.summary
-  if (step.status === 'not_run') text = `not run: ${text.replace(/^skipped: /, '')}`
+  if (step.status === 'not_run') text = `not run: ${text.replace(/(^|: )skipped: /g, '$1')}`
   else if (step.status === 'fail') {
     const f = (step.findings || []).find(x => x.test)
     if (f) text += `: ${f.file ? `${f.file} › ` : ''}'${f.test}'`
@@ -53,7 +53,8 @@ export function riskLine({ score, bar }, color = false) {
 
 export function formatCard(outcome, { specs = [], key = null, color = false } = {}) {
   const n = specs.length
-  const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${key ? ` · ticket ${key}` : ''}`]
+  const sides = outcome.runners?.length ? ` · ${outcome.runners.map(r => ({ vitest: 'Vitest', playwright: 'Playwright' })[r] ?? r).join(' + ')}` : ''
+  const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data

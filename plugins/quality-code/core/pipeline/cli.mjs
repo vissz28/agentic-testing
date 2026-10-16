@@ -1,4 +1,4 @@
-// Entry point for the pipeline (Vitest and Playwright): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
+// Entry point for the pipeline (Vitest, Playwright, or both): node core/pipeline/cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
@@ -12,6 +12,7 @@ import { loadConfig, projectRoot } from '../config.mjs'
 import { THRESHOLD } from '../score.mjs'
 import { formatCard } from './card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from './pipeline.mjs'
+import { isFullstack } from '../stack.mjs'
 
 const USAGE = 'usage: cli.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -72,7 +73,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (!isFile(resolve(root, target))) return err(`--target not found: ${a.target}`)
     if (a.specs.some(s => normalizeSpec(root, resolve(root, s)) === target)) return err(`--target ${a.target} is one of the specs: name the code the tests check`)
   }
-  const ctx = { config, dialect: dialectFor(config.adapter), root }
+  // A fullstack run picks the dialect per spec.
+  const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(config.adapter), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit })
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })

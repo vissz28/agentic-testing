@@ -57,7 +57,7 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
    4. Stop
    ```
 
-   Offer option 2 only when `files` has at least one entry with `kind` `test` and `status` other than `D`. Options 2 and 3 work for both adapters, `vitest` and `playwright`: the scripts pick the test runner, and `write.md` writes unit tests for Vitest and e2e tests for Playwright. Leave out an option that is not offered and number the rest in order: without option 2 the card shows `1. Evaluate the ticket / 2. Write and check tests / 3. Stop`.
+   Offer option 2 only when `files` has at least one entry with `kind` `test` and `status` other than `D`. Options 2 and 3 work for every adapter, `vitest`, `playwright` and `fullstack`: the scripts pick the test runner (on a fullstack project, per spec), and `write.md` writes unit tests for Vitest, e2e tests for Playwright, and both for a fullstack ticket. Leave out an option that is not offered and number the rest in order: without option 2 the card shows `1. Evaluate the ticket / 2. Write and check tests / 3. Stop`.
 
    - **1:** read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow it with `<KEY>` as `$ARGUMENTS`, no flags. After its result, add one line: `Branch <branch>: <files.length> files changed against <base> (<counts.code> code, <counts.test> tests, <counts.other> other).` The branch never changes the score.
    - **Check the tests (2, when offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with the branch's files of kind `test`, leaving out deleted ones (status `D`), as the spec paths and `--key <KEY>` with the confirmed key. The key is already confirmed in step 3, so do not ask again. Show its card as it prints.

@@ -313,3 +313,23 @@ test('audit off: --no-audit or QC_NO_AUDIT=1 writes nothing; a failed append cha
   assert.equal(r.code, 1)
   assert.equal(r.err, '')
 })
+
+test('fullstack through the CLI: each spec to its runner, one verdict, the card names both runners', () => {
+  const d = repo({ adapter: 'fullstack' })
+  put(d, 'e2e/b.spec.ts', PW)
+  fakeBin(d, 'tsc', { exit: 0 })
+  fakeBin(d, 'vitest', { report: report(d, [at('adds', 'passed')]), mutantReport: { title: 'adds', status: 'failed' } })
+  const pwSpec = { ...pwTest('shows', 'passed'), file: 'e2e/b.spec.ts' }
+  fakeBin(d, 'playwright', { report: { config: { rootDir: d }, errors: [], suites: [{ title: 'e2e/b.spec.ts', file: 'e2e/b.spec.ts', specs: [pwSpec], suites: [] }] }, mutantReport: { title: 'shows', status: 'failed' } })
+  const r = run(d, ['test/a.spec.ts', 'e2e/b.spec.ts', '--key', 'ABC-1', '--json'])
+  assert.equal(r.status, 0, r.stderr + r.stdout)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.verdict, 'green', JSON.stringify(out.steps.map(s => [s.check, s.status, s.summary])))
+  assert.deepEqual(out.runners, ['vitest', 'playwright'])
+  const tests = out.steps.find(s => s.check === 'tests')
+  assert.deepEqual([tests.data.passed, tests.summary], [2, 'Vitest: 1 passed; Playwright: 1 passed'])
+  assert.ok(calls(d, 'vitest').every(a => a.includes('test/a.spec.ts') || a.some(x => /mut-tmp/.test(x))), 'Vitest ran only the Vitest spec')
+  assert.equal(calls(d, 'playwright')[0][1], '(?:^|/)e2e/b\\.spec\\.ts$')
+  const card = run(d, ['test/a.spec.ts', 'e2e/b.spec.ts', '--key', 'ABC-1'])
+  assert.match(card.stdout, /^quality-code check · 2 spec files · Vitest \+ Playwright · ticket ABC-1/)
+})
