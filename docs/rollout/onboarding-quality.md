@@ -31,12 +31,17 @@ Use the **old** harness and **quality-code** side by side. Write the results dow
 request description (step 6).
 
 1. **Gate, 20 recent tickets.** For each: old `ticket-eval <KEY>` and `/quality-code:ticket-eval <KEY>`.
-   Score and pass/refuse must match. Known, deliberate difference: none for the gate (the 116-ticket
-   replay suite proves it); a mismatch is a finding, stop and report it on AGT-85.
+   Score and pass/refuse must match. Known, deliberate difference: on the backend, a bare `warehouse`
+   label no longer counts as a feature label (5 points less, spec §10 #2; the replay suite pins it).
+   Any other mismatch is a finding: stop and report it on AGT-85.
 2. **Checks, the specs of one recent branch.** Old check vs `/quality-code:check <specs>`. Verdicts
    must match, except the differences the specs record as deliberate: the mutation bar is fixed at
    100%, one exit-code scheme (0 green, 1 checks failed or tests red, 2 usage, 3 not verified), and
-   on the frontend a red `@anchor` test is `tests red` (exit 1), not exit 0.
+   on the frontend a red `@anchor` test is `tests red` (exit 1), not exit 0. Also deliberate:
+   `.env.example` may be edited (the old backend guard refused it); the expected-values check reads
+   every spec of the ticket together (the old backend graded each file alone), has no Italian/English
+   rule and no warehouse-specific `hollow_target` check; with `--key`, another ticket's test in the
+   same file does not count.
 3. **Writing, one real ticket.** Backend: `/quality-code:write <KEY>`. Frontend:
    `/quality-code:write <KEY> --route <route>`. A developer reads the specs it wrote.
 
@@ -61,6 +66,24 @@ mut-tmp-*
 ```
 
 (the first line follows `ticketsDir`; setup writes the exact one).
+
+**Move the team guides** the config points at, before step 3 deletes the old skills (they are the
+old harness's writing rules, read by `write` and `seed` on top of the plugin's own):
+
+```bash
+mkdir -p .claude/quality-code/guides
+# backend
+git mv .claude/skills/spec/layers.md .claude/quality-code/guides/layers.md
+git mv .claude/skills/spec/seed.md .claude/quality-code/guides/seed.md
+# frontend
+git mv .claude/skills/spec-frontend/seed.md .claude/quality-code/guides/seed.md
+cp <path-to>/agentic-testing/docs/rollout/guides/warehouse-frontend-playwright.md .claude/quality-code/guides/playwright.md
+```
+
+The frontend seed guide still names screens by their old folder names (`/products-stock`); the app's
+routes are the ones in the config's `features` (`/productsStock`). The backend's `test/qa-plans/` stays
+where it is: `qaPlans` points at it. The backend Bug template says the bar is 60%; the gate's bar is 70:
+fix the template's line in the same merge request.
 
 ## 3. Remove the old harness
 

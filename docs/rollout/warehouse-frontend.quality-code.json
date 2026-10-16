@@ -18,35 +18,41 @@
   "features": [
     {
       "label": "Giacenza_Prodotti",
-      "route": "/products-stock"
+      "route": "/productsStock",
+      "qaPlanSearch": "Giacenza prodotti"
     },
     {
       "label": "Lista_Movimenti_Magazzino",
-      "route": "/movements-list"
+      "route": "/movementsList",
+      "qaPlanSearch": "Lista movimenti"
     },
     {
       "label": "Report_Magazzino",
-      "route": "/warehouse-reports"
+      "route": "/warehouseReports",
+      "qaPlanSearch": "Report magazzino"
     },
     {
       "label": "Importa_Giacenze",
-      "route": "/import-stock"
+      "route": "/importStock",
+      "qaPlanSearch": "Importa giacenze"
     },
     {
       "label": "arrivi_merce_magazzino",
-      "route": "/goods-arrival"
+      "route": "/movementsList",
+      "qaPlanSearch": "Arrivi merce"
     },
     {
       "label": "Il_mio_magazzino",
-      "route": "/my-warehouse"
+      "qaPlanSearch": "Il mio magazzino"
     },
     {
       "label": "Minimum_stock",
-      "route": "/minimum-stock"
+      "route": "/productsStock",
+      "qaPlanSearch": "Scorta minima"
     },
     {
       "label": "Spinta_warehouse",
-      "route": "/warehouse-push"
+      "qaPlanSearch": "Spinta magazzino"
     }
   ],
   "ticketTemplates": {
@@ -152,6 +158,11 @@
       "chromium"
     ],
     "folder": "e2e/tests/",
-    "tsconfig": "e2e/tsconfig.json"
+    "tsconfig": "e2e/tsconfig.json",
+    "guide": ".claude/quality-code/guides/playwright.md"
+  },
+  "seed": {
+    "stubsFrom": "e2e/tests/",
+    "guide": ".claude/quality-code/guides/seed.md"
   }
 }

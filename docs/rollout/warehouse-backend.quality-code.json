@@ -142,22 +142,28 @@
   "boundaries": {
     "forbidden": [
       {
-        "path": "src/"
+        "path": "src/",
+        "why": "application code: a test run writes tests, it never changes the code under test."
       },
       {
-        "path": "prisma/"
+        "path": "prisma/",
+        "why": "the database schema and migrations: a test run never changes them."
       },
       {
-        "path": "dapr/"
+        "path": "dapr/",
+        "why": "the Dapr components hold the real message-bus connection; a test run never changes them."
       },
       {
-        "path": ".gitlab-ci.yml"
+        "path": ".gitlab-ci.yml",
+        "why": "the CI pipeline: a person changes it, in a merge request."
       },
       {
-        "path": ".env"
+        "path": ".env",
+        "why": "the local environment: database and service addresses a test run must not change."
       },
       {
-        "path": ".env.*"
+        "path": ".env.*",
+        "why": "the same settings for each environment. Edit .env.example if you need to document a variable."
       }
     ]
   },
@@ -169,6 +175,10 @@
         "config": "vitest.config.e2e.ts"
       },
       {
+        "match": "test/repro/**",
+        "config": "vitest.config.repro.ts"
+      },
+      {
         "match": "test/**",
         "config": "vitest.config.db.ts"
       }
@@ -176,20 +186,36 @@
     "layers": [
       {
         "name": "unit",
-        "folder": "test/unit/"
+        "folder": "test/unit/",
+        "guide": ".claude/quality-code/guides/layers.md"
       },
       {
         "name": "integration",
-        "folder": "test/integration/"
+        "folder": "test/integration/",
+        "guide": ".claude/quality-code/guides/layers.md"
       },
       {
         "name": "range",
-        "folder": "test/range/"
+        "folder": "test/range/",
+        "guide": ".claude/quality-code/guides/layers.md"
       },
       {
         "name": "api",
-        "folder": "test/api/"
+        "folder": "test/api/",
+        "guide": ".claude/quality-code/guides/layers.md"
+      },
+      {
+        "name": "repro",
+        "folder": "test/repro/",
+        "guide": ".claude/quality-code/guides/layers.md"
       }
     ]
-  }
+  },
+  "seed": {
+    "builders": [
+      "test/helpers/seed.ts"
+    ],
+    "guide": ".claude/quality-code/guides/seed.md"
+  },
+  "qaPlans": "test/qa-plans/"
 }
