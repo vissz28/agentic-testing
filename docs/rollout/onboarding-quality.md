@@ -69,7 +69,7 @@ old harness used (from the old plugins and the parity capture):
 
 | Path | Backend | Frontend | What it was |
 |---|---|---|---|
-| `.claude/harness/` | ✔ | ✔ | scorer, sanitizer, pipeline, checks, `kpi.mjs`, evals |
+| `.claude/harness/` | ✔ | ✔ | scorer, sanitizer, pipeline, checks, `kpi.mjs`, evals; **keep the scripts CI runs** (below) |
 | `.claude/harness/qa-plans/`, `warehouse-testcases.csv` | | ✔ | QA-plan cases; **keep a copy** if the team still reads them |
 | `.claude/boundary-guard.mjs` | ✔ | ✔ | the old write guard (now `quality-code`'s hook) |
 | `.claude/skills/spec/`, `.claude/skills/check/` | ✔ | | the old `/spec` and check skills |
@@ -80,11 +80,20 @@ old harness used (from the old plugins and the parity capture):
 | `.claude/seed-cache/` | ✔ | | old seed cache |
 | `.claude/TICKET_TEMPLATE.md` | ✔ | ✔ | keep if `.gitlab/issue_templates/` does not have the same text |
 
+**Keep what CI runs.** quality-code runs inside Claude Code, not in CI, so the old scripts a CI job
+calls must stay at the same path, or that job breaks. They use only Node's own modules, so they run
+without the rest of the harness. In warehouse these are `honesty-check.mjs` and `suite-honesty.mjs`
+(both repos, `test-quality` job) and `anchor-report.mjs` (frontend, `e2e-anchors` job). To drop
+one, a person removes its CI job first, in this same merge request.
+
 ```bash
-# 1. see what exists
+# 1. see what exists, and what CI runs
 git ls-files .claude | sort
-# 2. remove, one path at a time, only what you recognise from the table
-git rm -r .claude/harness .claude/boundary-guard.mjs
+git grep -n "\.claude/" -- .gitlab-ci.yml
+# 2. remove, one path at a time, only what you recognise from the table;
+#    in .claude/harness/, everything but the scripts CI runs
+git ls-files .claude/harness | grep -vE '/(honesty-check|suite-honesty|anchor-report)\.mjs$' | xargs git rm -q
+git rm .claude/boundary-guard.mjs
 # … and the rest of the table that exists in this repo
 ```
 
@@ -117,8 +126,11 @@ this same merge request.
 ## 5. Check the switch
 
 ```bash
-git grep -n "\.claude/harness\|boundary-guard" -- . ':!*.md'   # nothing left
+git grep -n "\.claude/harness\|boundary-guard" -- . ':!*.md'   # only the CI lines of the kept scripts
 ```
+
+A `.claude/boundary-guard.mjs` line left in `.gitlab-ci.yml` (the backend lists it in
+`.spec-file-paths`) no longer matches anything: a person removes it.
 
 In Claude Code, in the repo:
 1. `/quality-code:start`: the repo card, the branch, the ticket.

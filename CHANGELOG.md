@@ -18,6 +18,9 @@ Update with `/plugin update quality-code@quality-code`.
   Stryker ran on the red spec, could not start (its first run must be all green) and decided the
   verdict. Stryker is now "not applicable" when the tests are red. The DEMO-2 end-to-end test passes
   `--target` too, so it catches this.
+- **The switch guide keeps the old scripts CI runs.** It deleted all of `.claude/harness/`, which
+  breaks the `test-quality` and `e2e-anchors` jobs in both warehouse repos. `honesty-check.mjs`,
+  `suite-honesty.mjs` and `anchor-report.mjs` now stay.
 
 ## [0.11.0] - 2026-10-15
 
