@@ -1,21 +1,41 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { typeCheck } from '../../core/pipeline/types.mjs'
+import { readTsc, scopedTsconfig, typeCheck } from '../../core/pipeline/types.mjs'
 import { calls, fakeBin } from '../runners/fake-bin.mjs'
 
 const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] } }
 const proj = (tsconfig = true) => { const d = mkdtempSync(join(tmpdir(), 'qc-tsc-')); if (tsconfig) writeFileSync(join(d, 'tsconfig.json'), '{}'); return d }
 
-test('compiles: pass, and tsc gets --noEmit -p <tsconfig>', async () => {
+const SCOPED = /^\.qc-tsconfig-[0-9a-f]{8}\.json$/
+test('compiles: pass, and tsc gets --noEmit -p <a scoped tsconfig next to the project one>', async () => {
   const d = proj()
   fakeBin(d, 'tsc', { exit: 0 })
   const r = await typeCheck(d, cfg, ['test/a.spec.ts'])
   assert.equal(r.status, 'pass')
   assert.equal(r.summary, 'compiles')
-  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 4), ['--noEmit', '-p', 'tsconfig.json', '--incremental'])
+  const argv = calls(d, 'tsc')[0]
+  assert.deepEqual([argv[0], argv[1], argv[3]], ['--noEmit', '-p', '--incremental'])
+  assert.match(argv[2], SCOPED)
+  assert.deepEqual(argv.slice(-2), ['--pretty', 'false'])
+})
+test('the scoped tsconfig extends the project one and adds the specs; include and exclude are inherited', () => {
+  assert.deepEqual(scopedTsconfig('e2e/tsconfig.json', ['e2e/a.spec.ts']), { extends: './tsconfig.json', compilerOptions: { composite: false }, files: ['a.spec.ts'] })
+  assert.deepEqual(scopedTsconfig('tsconfig.db.json', ['test/unit/a.spec.ts']).files, ['test/unit/a.spec.ts'], 'relative to the tsconfig, never absolute')
+})
+test('only errors in a spec fail; errors elsewhere pass; tsc that never checked is not_run', () => {
+  const specs = ['test/a.spec.ts']
+  const f = readTsc('src/x.ts(1,1): error TS2322: no\ntest/a.spec.ts(3,7): error TS2322: bad\n', 2, specs)
+  assert.deepEqual([f.status, f.summary, f.findings[0].file], ['fail', 'test/a.spec.ts(3,7): error TS2322: bad', 'test/a.spec.ts'])
+  const other = readTsc('src/x.ts(1,1): error TS2322: no\nsrc/y.ts(2,2): error TS6133: unused\n', 2, specs)
+  assert.deepEqual([other.status, other.summary], ['pass', 'compiles; 2 error(s) in other files, not in the specs'])
+  assert.equal(readTsc("error TS5058: The specified path does not exist: 'x.json'.\n", 1, specs).status, 'not_run')
+  assert.equal(readTsc("tsconfig.json(2,3): error TS5023: Unknown compiler option 'x'.\n", 1, specs).status, 'not_run')
+  assert.deepEqual([readTsc('', 1, specs).status, readTsc('', 1, specs).summary], ['not_run', 'tsc exited with 1: no output'])
+  assert.equal(readTsc('src/x.ts(1,1): error TS2322: no\n', 2, specs, true).status, 'not_run', 'a cut-off output may have lost a spec error')
+  assert.equal(readTsc('test/a.spec.ts(1,1): error TS2322: bad\n', 2, specs, true).status, 'fail')
 })
 test('tsc build info goes to a temp folder that is removed; the project is unchanged', async () => {
   const d = proj()
@@ -35,9 +55,11 @@ test('errors on stdout: fail with the first error TS line (review focus 4)', asy
   assert.equal(r.status, 'fail')
   assert.equal(r.summary, 'test/a.spec.ts(3,7): error TS2322: Type string is not number.')
 })
-test('not applicable without tsconfig and TS specs; not_run with TS specs but no tsconfig or no tsc', async () => {
-  const a = await typeCheck(proj(false), cfg, ['test/a.spec.js'])
-  assert.deepEqual([a.status, a.summary, a.data.applicable], ['pass', 'no TypeScript specs: nothing to type-check', false])
+test('not applicable without TS specs; not_run with TS specs but no tsconfig or no tsc', async () => {
+  for (const d of [proj(false), proj()]) {
+    const a = await typeCheck(d, cfg, ['test/a.spec.js'])
+    assert.deepEqual([a.status, a.summary, a.data.applicable], ['pass', 'no TypeScript specs: nothing to type-check', false])
+  }
   const b = await typeCheck(proj(false), cfg, ['test/a.spec.ts'])
   assert.deepEqual([b.status, b.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
   const c = await typeCheck(proj(), cfg, ['test/a.spec.ts'])
@@ -48,7 +70,15 @@ test('a configured tsconfig is used', async () => {
   writeFileSync(join(d, 'tsconfig.test.json'), '{}')
   fakeBin(d, 'tsc', { exit: 0 })
   await typeCheck(d, { ...cfg, vitest: { tsconfig: 'tsconfig.test.json' } }, ['a.spec.ts'])
-  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 3), ['--noEmit', '-p', 'tsconfig.test.json'])
+  assert.match(calls(d, 'tsc')[0][2], SCOPED)
+  const e = proj(false)
+  mkdirSync(join(e, 'e2e'))
+  writeFileSync(join(e, 'e2e/tsconfig.json'), '{}')
+  fakeBin(e, 'tsc', { exit: 0 })
+  await typeCheck(e, { ...cfg, vitest: { tsconfig: 'e2e/tsconfig.json' } }, ['e2e/a.spec.ts'])
+  const p = calls(e, 'tsc')[0][2]
+  assert.ok(p.startsWith('e2e/') && SCOPED.test(p.slice(4)), `next to the configured tsconfig: ${p}`)
+  assert.deepEqual(readdirSync(join(e, 'e2e')), ['tsconfig.json'], 'the scoped tsconfig is removed')
 })
 test('a hung tsc is killed with its process group and gives not_run promptly', async () => {
   const d = proj()
@@ -65,7 +95,7 @@ test('Playwright: playwright.tsconfig is used; the vitest block is not read', as
   fakeBin(d, 'tsc', { exit: 0 })
   const r = await typeCheck(d, { adapter: 'playwright', jira: { projects: ['ABC'] }, playwright: { tsconfig: 'e2e.tsconfig.json' }, vitest: { tsconfig: 'no.json' } }, ['e2e/a.spec.ts'])
   assert.equal(r.status, 'pass')
-  assert.deepEqual(calls(d, 'tsc')[0].slice(0, 3), ['--noEmit', '-p', 'e2e.tsconfig.json'])
+  assert.match(calls(d, 'tsc')[0][2], SCOPED)
   const p = await typeCheck(proj(false), { adapter: 'playwright', jira: { projects: ['ABC'] } }, ['e2e/a.spec.ts'])
   assert.deepEqual([p.status, p.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
 })

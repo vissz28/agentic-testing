@@ -140,5 +140,8 @@
         "why": "the same shared remote systems as .env, for each environment. Edit .env.example if you need to document a variable."
       }
     ]
+  },
+  "playwright": {
+    "tsconfig": "e2e/tsconfig.json"
   }
 }

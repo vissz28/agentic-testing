@@ -162,6 +162,7 @@
     ]
   },
   "vitest": {
+    "tsconfig": "tsconfig.db.json",
     "configs": [
       {
         "match": "**/*.e2e.spec.ts",

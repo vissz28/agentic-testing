@@ -24,6 +24,12 @@ Update with `/plugin update quality-code@quality-code`.
 - **On Playwright, only red tests get `@anchor` / `@finding`.** `write` tagged every test, and a
   merge gate that skips those tags (the warehouse frontend's `e2e-frontend`) then never ran any of
   them. Tests are now written untagged; after the last run, only the red ones get their tag.
+- **The type check grades the specs, and only the specs.** It ran `tsc` on the whole project, so one
+  error anywhere failed every run, and a spec the tsconfig's `include` leaves out was never checked
+  (both warehouse repos leave their specs out). `tsc` now runs on the project's tsconfig plus the
+  specs; only an error in a spec fails, and a tsconfig `tsc` cannot read is "not verified". The
+  rollout configs set `vitest.tsconfig: tsconfig.db.json` (backend) and `playwright.tsconfig:
+  e2e/tsconfig.json` (frontend).
 
 ## [0.11.0] - 2026-10-15
 

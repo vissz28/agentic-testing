@@ -4,11 +4,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ENV } from '../checks/git-env.mjs'
+import { typeCheck } from '../../core/pipeline/types.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLI = join(HERE, '../../core/pipeline/cli.mjs')
@@ -115,6 +116,36 @@ test('a hollow DEMO-1 spec fails the checks', { skip, timeout: LONG }, t => {
     const e = r.step('expected')
     assert.equal(e.status, 'fail')
     assert.ok(e.data.missing.includes('13.50'), e.summary)
+  } finally {
+    rmSync(copy, { recursive: true, force: true })
+  }
+})
+
+test('tsc checks a spec its tsconfig leaves out, and grades only the specs', { skip, timeout: LONG }, async () => {
+  installed()
+  const copy = mkdtempSync(join(tmpdir(), 'qc-e2e-tsc-'))
+  try {
+    cpSync(SAMPLE, copy, { recursive: true, filter: src => relative(SAMPLE, src).split(sep)[0] !== 'node_modules' })
+    symlinkSync(join(SAMPLE, 'node_modules'), join(copy, 'node_modules'), 'dir')
+    const ts = JSON.parse(readFileSync(join(copy, 'tsconfig.json'), 'utf8'))
+    writeFileSync(join(copy, 'tsconfig.json'), JSON.stringify({ ...ts, include: ['src'] }))
+    const cfg = { adapter: 'vitest', jira: { projects: ['DEMO'] } }
+    const spec = 'test/unit/pricing.demo-1.spec.ts'
+    const check = () => typeCheck(copy, cfg, [spec])
+    assert.equal((await check()).summary, 'compiles')
+    const src = readFileSync(join(copy, spec), 'utf8')
+    appendFileSync(join(copy, spec), '\nconst bad: number = "x"\n')
+    const red = await check()
+    assert.equal(red.status, 'fail', red.summary)
+    assert.ok(red.summary.startsWith(`${spec}(`), red.summary)
+    writeFileSync(join(copy, spec), src)
+    // One error in a file the spec imports, one in a file only the tsconfig's include brings in.
+    appendFileSync(join(copy, 'src/pricing.ts'), '\nexport const oops: number = "x"\n')
+    writeFileSync(join(copy, 'src/other.ts'), 'export const n: number = "y"\n')
+    assert.equal((await check()).summary, 'compiles; 2 error(s) in other files, not in the specs')
+    writeFileSync(join(copy, 'tsconfig.json'), JSON.stringify({ ...ts, compilerOptions: { ...ts.compilerOptions, notAnOption: true } }))
+    assert.equal((await check()).status, 'not_run')
+    assert.deepEqual(readdirSync(copy).filter(f => f.startsWith('.qc-')), [])
   } finally {
     rmSync(copy, { recursive: true, force: true })
   }

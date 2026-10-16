@@ -266,7 +266,9 @@ The steps, always in this order:
 2. **honesty**: no assertion or test removed, no skip without a ticket. From the branch flow it reads
    everything committed on the branch; with spec paths you give, it reads your uncommitted changes.
 3. **assertions**: every test that runs asserts something.
-4. **types**: `tsc --noEmit` with the project's `tsconfig`.
+4. **types**: `tsc --noEmit` with the project's `tsconfig` plus the specs, so a spec its `include`
+   leaves out is still checked. Only an error in a spec fails; errors elsewhere in the project are
+   counted but not graded. Pick the `tsconfig` whose options (path aliases, types) fit the specs.
 5. **tests**: Vitest, with the project's own install and, per spec, the config you map in `vitest.configs`.
 6. **expected**: only with `--ticket` (used by `/quality-code:write`): every concrete number and quoted
    text in the ticket's Then / Expected lines is asserted in the ticket's block.
