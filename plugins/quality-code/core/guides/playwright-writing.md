@@ -10,9 +10,13 @@ fixtures and login, never invent new ones.
 - One spec file per ticket, all its tests inside one `test.describe('<KEY> <summary>', { tag:
   '@<KEY>' }, () => { … })` block, written at the start of a line (not indented).
 - **One behaviour per test.** If a title needs "and", it is two tests.
-- A test from the ticket's scenarios is named after the scenario, in plain words, and carries
-  `{ tag: ['@anchor', '@<KEY>'] }`. An extra probe (see below) is named `Extra: <what it probes>`
-  and carries `{ tag: ['@finding', '@<KEY>'] }`.
+- A test from the ticket's scenarios is named after the scenario, in plain words. An extra probe
+  (see below) is named `Extra: <what it probes>`. Neither gets a tag of its own when written: the
+  describe's `@<KEY>` covers them.
+- **Only a red test gets a tag**, added after the checks ran: `{ tag: ['@anchor', '@<KEY>'] }` on a
+  red scenario test, `{ tag: ['@finding', '@<KEY>'] }` on a red extra probe. A merge gate that skips
+  `@anchor` and `@finding` then knows the test is red on purpose. Never tag a test that passes: the
+  tag hides it from the gate.
 - **Keep the tag list on the `test(` line**, never split over lines: the honesty check reads one
   line at a time and fails an `@anchor` or `@finding` whose `@<KEY>` is on another line. If a
   formatter would wrap it, shorten the title.
@@ -24,7 +28,7 @@ fixtures and login, never invent new ones.
 import { test, expect } from '@playwright/test'
 
 test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
-  test('an order of two items shows the total', { tag: ['@anchor', '@ABC-123'] }, async ({ page }) => {
+  test('an order of two items shows the total', async ({ page }) => {
     await page.goto('/orders/new')
 
     await page.getByRole('button', { name: 'Add item' }).click()
@@ -32,6 +36,7 @@ test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
     await expect(page.getByRole('cell', { name: 'Total' })).toHaveText('€ 24,50')
   })
 
+  // Came out red on the checks, so it got its tag after the run.
   test('Extra: a product name longer than the column', { tag: ['@finding', '@ABC-123'] }, async ({ page }) => {
     await page.goto('/orders/new')
 

@@ -353,9 +353,10 @@ way out. One older than 12 hours is ignored and replaced. By hand:
 
 On a Playwright project, `write` takes the screen from `--route`, else from the configured feature
 whose label is on the ticket (`features[].route`), else asks. It plans the ticket's scenarios plus up
-to 3 extra probes (`Extra: …`, tagged `@finding`; `--no-extras` leaves them out), writes
-`<e2e folder>/<screen>.<key>.spec.ts` with `@anchor` and the ticket key on each test from the ticket,
-and runs the checks. The app must be running, or started by your config's `webServer`. The e2e
+to 3 extra probes (`Extra: …`; `--no-extras` leaves them out), writes
+`<e2e folder>/<screen>.<key>.spec.ts` under the ticket key's tag, and runs the checks. Only the tests
+that come out red then get a tag, `@anchor` (from the ticket) or `@finding` (an extra probe), so a
+merge gate that skips those tags still runs every test that passes. The app must be running, or started by your config's `webServer`. The e2e
 folder is `playwright.folder`, else your Playwright config's `testDir` when it is a plain string,
 else `e2e/` (`node <plugin>/core/cli.mjs config e2e-folder` shows which and why).
 

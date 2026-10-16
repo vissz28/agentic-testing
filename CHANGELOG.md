@@ -21,6 +21,9 @@ Update with `/plugin update quality-code@quality-code`.
 - **The switch guide keeps the old scripts CI runs.** It deleted all of `.claude/harness/`, which
   breaks the `test-quality` and `e2e-anchors` jobs in both warehouse repos. `honesty-check.mjs`,
   `suite-honesty.mjs` and `anchor-report.mjs` now stay.
+- **On Playwright, only red tests get `@anchor` / `@finding`.** `write` tagged every test, and a
+  merge gate that skips those tags (the warehouse frontend's `e2e-frontend`) then never ran any of
+  them. Tests are now written untagged; after the last run, only the red ones get their tag.
 
 ## [0.11.0] - 2026-10-15
 
