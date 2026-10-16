@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 const doc = readFileSync(new URL('../commands/check.md', import.meta.url), 'utf8')
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals\n---/)
 })
 test('no specs: detect the branch and offer its test files', () => {
   assert.ok(doc.includes('core/branch.mjs" --detect'))
@@ -70,4 +70,9 @@ test('with a key, the saved ticket and target are passed, so the value check and
   assert.match(doc, /when `target` is there and names an existing file that is not one of the specs, and the adapter is `vitest` or `fullstack`, pass `--target/)
   assert.match(doc, /Never pass `--target` on a `playwright` project/)
   assert.match(doc, /do not read the ticket from Jira here/)
+})
+
+test('--evals runs only the frozen evals script', () => {
+  assert.match(doc, /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals/)
+  assert.ok(doc.includes('run only `node "${CLAUDE_PLUGIN_ROOT}/core/evals.mjs"`'))
 })

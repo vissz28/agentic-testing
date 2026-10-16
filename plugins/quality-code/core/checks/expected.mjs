@@ -226,7 +226,8 @@ export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) 
   if (!key) return result('expected', 'not_run', 'no ticket key to find the block')
   let t
   try {
-    t = JSON.parse(readFileSync(resolve(ctx.root, ticket ?? ''), 'utf8'))
+    // The ticket file's path, or the ticket itself (a frozen eval's).
+    t = ticket && typeof ticket === 'object' ? ticket : JSON.parse(readFileSync(resolve(ctx.root, ticket ?? ''), 'utf8'))
     if (!t || typeof t !== 'object') throw new Error('not a ticket object')
   } catch (e) {
     return result('expected', 'not_run', `cannot read the ticket file: ${String(e.message).split('\n')[0]}`)

@@ -1,6 +1,6 @@
 ---
 description: Check Vitest or Playwright spec files (or both, on a fullstack project) with the pipeline: tests, assertions, types and mutation. Shows the verdict card the script prints.
-argument-hint: [spec…] [--key KEY] [--flaky N]
+argument-hint: [spec…] [--key KEY] [--flaky N] | --evals
 ---
 
 Runs the pipeline on spec files. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
@@ -18,6 +18,7 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 
 ## Steps
 
+0. **Evals.** With `--evals` in `$ARGUMENTS`, run only `node "${CLAUDE_PLUGIN_ROOT}/core/evals.mjs"` (the frozen evals in `.claude/quality-code/evals/`: each ticket's committed specs must keep saying what its fixture pins), show its lines as printed and stop. Exit 3 means there is no fixture yet: say so in one line.
 1. **Project.** Read `adapter` in `.claude/quality-code.json`. `vitest`, `playwright` and `fullstack` projects are checked the same way; the script picks the test runner (on a fullstack project, per spec: the e2e folder's specs run under Playwright, the others under Vitest, and the card shows both runners). Remember the adapter for step 4.
 2. **Specs.** If `$ARGUMENTS` has spec paths, use them and go to step 3. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect` and read the `BRANCH_JSON:` line. Take the `files` whose `kind` is `test` and whose `status` is not `D` (a deleted test cannot run). Remember that the specs came from the branch. If there are none, say `No test files changed on this branch. Give the spec paths: /quality-code:check <spec…>` and stop. Otherwise show this card and end the turn:
 
