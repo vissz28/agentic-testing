@@ -72,6 +72,15 @@ test('the card, exactly', async () => {
     'Decided by  mutation 2 · tests 1 · types 1',
     'Boundary    2 writes blocked',
     '',
+    'Quality (the Quality Program numbers this repo can show)',
+    '  —  Traceability    no data  target 100%  no project config to find the specs',
+    '  ⚠️ Completeness    65       target 95    mean readiness score of 5 ticket(s)',
+    '  —  Suite honesty   no data  target 100%  no project config to find the specs',
+    '  —  Gate integrity  no data  target 100%  no run logged with its gates yet',
+    '  —  Adoption        67%                   2 of 3 ready ticket(s) have a pipeline run (few tickets: a fact, not yet a rate)',
+    '  —  Coverage        no data  target 80%   no coverage/coverage-summary.json (the suite is never run here)',
+    '  —  Mutation kill   no data               no run had assertions to mutate yet',
+    '',
     'AI cost: /quality-code:consumption --since 2026-09-15 --until 2026-10-14',
   ])
   assert.match(lines.at(-1), /^KPI_JSON:\{/)
@@ -151,4 +160,30 @@ test('the script runs from the command line', () => {
   const none = spawnSync(process.execPath, [CLI], { cwd: '/', env: { ...process.env, CLAUDE_PROJECT_DIR: project() }, encoding: 'utf8' })
   assert.equal(none.status, 3)
   assert.equal(spawnSync(process.execPath, [CLI, '--bogus'], { encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root } }).status, 2)
+})
+
+test('quality: traceability and suite honesty from the specs, gate integrity, mutation mean and coverage', async () => {
+  const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const root = project({
+    '.claude/quality-code.json': JSON.stringify(cfg),
+    'test/a.abc-1.spec.ts': "describe('ABC-1 Pricing', () => {\n  it('adds', () => { expect(1).toBe(1) })\n})\n",
+    'test/b.spec.ts': "describe('helpers', () => {\n  it('hollow', () => { run() })\n})\n",
+    'test/abc-7.spec.ts': "it('ABC-7-1 adds', () => { expect(1).toBe(1) })\n",
+    'coverage/coverage-summary.json': JSON.stringify({ total: { lines: { pct: 83.4 } } }),
+    [`${A}gate.jsonl`]: [gate('ABC-1', 2, 90)],
+    [`${A}pipeline.jsonl`]: [
+      pipe('ABC-1', 3, 'green', null, { flags: { ticket: true }, steps: [{ check: 'mutation', status: 'pass', killed: 4, total: 4, score: 100 }] }),
+      pipe('ABC-1', 4, 'green', null, { flags: { ticket: false }, steps: [{ check: 'mutation', status: 'fail', killed: 1, total: 2, score: 50 }] }),
+      pipe('ABC-1', 5, 'green', null),
+    ],
+  })
+  const q = kpiJson((await run([], root)).out).quality
+  // The key in a describe, in a test title or in the file name links a spec to its ticket.
+  assert.deepEqual(q.traceability, { pct: 67, traced: 2, specs: 3 })
+  assert.deepEqual(q.suiteHonesty, { pct: 67, honest: 2, tests: 3 })
+  assert.deepEqual(q.gateIntegrity, { pct: 50, full: 1, runs: 2, relaxed: 1 }, 'a run logged before flags existed is left out')
+  assert.deepEqual(q.mutation, { mean: 75, runs: 2 })
+  assert.deepEqual(q.coverage, { pct: 83, file: 'coverage/coverage-summary.json' })
+  assert.deepEqual(q.adoption, { pct: 100, checked: 1, ready: 1 })
+  assert.match((await run([], root)).out, /\n  ✅ Coverage        83%      target 80%   lines, from coverage\/coverage-summary\.json\n/)
 })

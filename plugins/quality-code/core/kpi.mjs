@@ -6,7 +6,8 @@ import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { AUDIT_DIR, KINDS, readAudit, readJsonl } from './audit.mjs'
 import { BOUNDARY_LOG } from './checks/boundary.mjs'
-import { projectRoot } from './config.mjs'
+import { loadConfig, projectRoot } from './config.mjs'
+import { formatQuality, qualityKpi, readCoverage, scanSpecs } from './quality-kpi.mjs'
 import { parsePeriod } from './consumption/report.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
@@ -49,7 +50,7 @@ const countBy = (list, f) => list.reduce((m, x) => { const k = f(x); if (k !== n
 const ranked = m => [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
 
 /** The report object behind the card and KPI_JSON. */
-export function buildKpi(events, { period, project }) {
+export function buildKpi(events, { period, project, scan = null, coverage = null }) {
   const at = e => Date.parse(e.date ?? e.ts)
   const inPeriod = e => { const t = at(e); return t >= period.since && t < period.until }
   const pick = k => (events[k] ?? []).filter(inPeriod).sort((a, b) => at(a) - at(b))
@@ -94,6 +95,7 @@ export function buildKpi(events, { period, project }) {
     forced: { runs: overrides.length, tickets: [...new Set(overrides.map(o => o.key).filter(Boolean))].sort() },
     pipeline: { runs: runs.length, verdicts, decidedBy: ranked(countBy(runs, r => r.decidedBy)).map(([check, n]) => ({ check, runs: n })) },
     boundary: { blocked: blocked.length },
+    quality: qualityKpi({ finals, runs, scan, coverage }),
     consumption: `/quality-code:consumption --since ${since} --until ${until}`,
   }
 }
@@ -122,6 +124,7 @@ export function formatKpiCard(r) {
     if (p.decidedBy.length) lines.push(row('Decided by', p.decidedBy.map(d => `${d.check} ${d.runs}`).join(' · ')))
   }
   lines.push(row('Boundary', r.boundary.blocked ? `${plural(r.boundary.blocked, 'write')} blocked` : 'no write blocked'))
+  if (r.quality) lines.push('', ...formatQuality(r.quality))
   lines.push('', `AI cost: ${r.consumption}`)
   lines.push(`KPI_JSON:${JSON.stringify(r)}`)
   return lines.join('\n')
@@ -139,7 +142,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     stdout(`No quality-code audit data yet for ${root}.\nLooked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.\n`)
     return 3
   }
-  const report = buildKpi(events, { period, project: basename(root) })
+  // The spec files are read for traceability and suite honesty; without a config there is nothing to find them by.
+  const cfg = loadConfig(root)
+  const report = buildKpi(events, { period, project: basename(root), scan: cfg.ok ? scanSpecs(root, cfg.config) : null, coverage: readCoverage(root) })
   stdout(`${a.json ? JSON.stringify(report) : formatKpiCard(report)}\n`)
   return 0
 }

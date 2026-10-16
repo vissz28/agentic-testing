@@ -1,5 +1,5 @@
 ---
-description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, read from the local audit log. Read-only; sends nothing anywhere.
+description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate), read from the local audit log and the spec files. Read-only; sends nothing anywhere.
 argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs":*)
 ---
