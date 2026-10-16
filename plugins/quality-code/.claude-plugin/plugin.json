@@ -10,8 +10,8 @@
     "gitlab_api_url": {
       "type": "string",
       "title": "GitLab API URL",
-      "description": "Your GitLab's API address, ending in /api/v4 (no / at the end). Browser sign-in uses GitLab's own MCP server at this address + /mcp; the token way uses it too. The default is TeamSystem's GitLab.",
-      "default": "https://biosphere.teamsystem.com/api/v4"
+      "description": "Your GitLab's API address, ending in /api/v4 (no / at the end). Browser sign-in uses GitLab's own MCP server at this address + /mcp; the token way uses it too. The default is gitlab.com; set your own for a self-hosted GitLab (the connectors card asks for it).",
+      "default": "https://gitlab.com/api/v4"
     },
     "gitlab_token": {
       "type": "string",

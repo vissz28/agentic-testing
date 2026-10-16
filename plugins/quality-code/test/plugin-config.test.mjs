@@ -38,7 +38,8 @@ test('settings: tokens are secret, the rest are not; every setting a connector u
   assert.notEqual(settings.gitlab_api_url.sensitive, true)
   assert.notEqual(settings.gitlab_username.sensitive, true)
   assert.notEqual(settings.jira_email.sensitive, true)
-  assert.equal(settings.gitlab_api_url.default, 'https://biosphere.teamsystem.com/api/v4')
+  // A generic default, never one team's GitLab; a self-hosted GitLab is set per user.
+  assert.equal(settings.gitlab_api_url.default, 'https://gitlab.com/api/v4')
   const used = JSON.stringify(mcp).match(/\$\{user_config\.(\w+)\}/g).map(s => s.slice(14, -1))
   for (const u of used) assert.ok(settings[u], u)
 })

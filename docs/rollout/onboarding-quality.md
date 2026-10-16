@@ -18,7 +18,9 @@ Nothing here is automatic: read each list before you delete anything.
    /plugin install quality-code@quality-code
    ```
    `/plugin` must show `quality-code` **0.8.0 or later**. An older version refuses parts of the config.
-2. Jira connected: `/quality-code:start` shows ✅ Jira.
+2. Jira connected: `/quality-code:start` shows ✅ Jira. In `/plugin`, set `gitlab_api_url` to TeamSystem's
+   GitLab, `https://biosphere.teamsystem.com/api/v4` (the default is gitlab.com; the connectors card
+   also asks for the address).
 3. A clean checkout of the repo's main development branch, then the branch above:
    ```bash
    git switch develop && git pull
