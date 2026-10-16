@@ -249,3 +249,16 @@ test('write keeps boundaries', () => {
   assert.equal(write(d, { ...cfg, boundaries: { forbidden: [{ path: 'src/' }] } }, {}).ok, true)
   assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).boundaries, { forbidden: [{ path: 'src/' }] })
 })
+
+test('detect: Playwright configs at the root or up to two folders down, with the folder their testDir gives', () => {
+  const d = repo({ devDependencies: { vitest: '1', '@playwright/test': '1' } })
+  mkdirSync(join(d, 'e2e'))
+  writeFileSync(join(d, 'e2e/playwright.config.ts'), "export default { testDir: './tests' }\n")
+  mkdirSync(join(d, 'node_modules/x'), { recursive: true })
+  writeFileSync(join(d, 'node_modules/x/playwright.config.ts'), "export default { testDir: 'nope' }\n")
+  const r = detect(d)
+  assert.equal(r.adapter, 'both')
+  assert.deepEqual(r.playwrightConfigs, [{ config: 'e2e/playwright.config.ts', folder: 'e2e/tests/' }])
+  writeFileSync(join(d, 'playwright.config.ts'), 'export default { testDir: path.join(__dirname, "t") }\n')
+  assert.deepEqual(detect(d).playwrightConfigs.map(c => [c.config, c.folder]), [['playwright.config.ts', null], ['e2e/playwright.config.ts', 'e2e/tests/']])
+})

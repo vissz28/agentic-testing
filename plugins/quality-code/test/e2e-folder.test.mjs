@@ -107,3 +107,15 @@ test('cli config e2e-folder: errors on stderr, exit 2', () => {
   assert.equal(r.status, 2)
   assert.match(r.stderr, /Run \/quality-code:setup/)
 })
+
+test('a config in a subfolder: its testDir is relative to it; one named in playwright.configs comes first', () => {
+  const d = dir()
+  mkdirSync(join(d, 'e2e'))
+  writeFileSync(join(d, 'e2e/playwright.config.ts'), "export default { testDir: './tests' }\n")
+  assert.deepEqual(readTestDir(d, ['e2e/playwright.config.ts']), { value: 'e2e/tests/', file: 'e2e/playwright.config.ts' })
+  assert.equal(readTestDir(d), null, 'Playwright itself looks only at the root')
+  const configs = [{ match: 'e2e/**', config: 'e2e/playwright.config.ts' }]
+  assert.deepEqual(e2eFolder(d, { ...base, playwright: { configs } }), { ok: true, folder: 'e2e/tests/', source: 'testDir', configFile: 'e2e/playwright.config.ts' })
+  assert.equal(e2eFolder(d, { ...base, adapter: 'fullstack', playwright: { configs } }).folder, 'e2e/tests/', 'fullstack projects have an e2e folder too')
+  assert.equal(e2eFolder(d, { ...base, adapter: 'vitest' }).ok, false)
+})

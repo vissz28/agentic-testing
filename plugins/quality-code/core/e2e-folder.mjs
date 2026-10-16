@@ -2,7 +2,7 @@
 // project's default Playwright config when it is one plain string, else e2e/. The config is read as
 // text, never run.
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { ALWAYS, matches, rulesFor } from './checks/boundary.mjs'
 
 // Playwright's own lookup order for its default config file.
@@ -20,9 +20,13 @@ function normFolder(raw) {
   return `${s}/`
 }
 
-/** { value, file } when the first Playwright config there is sets testDir to one literal; else null. */
-export function readTestDir(root) {
-  for (const file of CONFIG_FILES) {
+/**
+ * { value, file } when the first Playwright config there is sets testDir to one literal; else null.
+ * `files` are tried in order: by default Playwright's own names at the root. A testDir is relative to
+ * its config file, so a config in e2e/ with testDir './tests' gives e2e/tests/.
+ */
+export function readTestDir(root, files = CONFIG_FILES) {
+  for (const file of files) {
     let src
     try { src = readFileSync(join(root, file), 'utf8') } catch { continue }
     const text = stripComments(src)
@@ -30,7 +34,7 @@ export function readTestDir(root) {
     const literals = [...text.matchAll(/\btestDir\s*:\s*(['"`])([^'"`\n]*)\1/g)].map(m => m[2])
     // A computed value (path.join, a template with ${…}) cannot be read without running the file.
     if (!all || literals.length !== all || literals.some(v => v.includes('${'))) return null
-    const values = [...new Set(literals.map(normFolder))]
+    const values = [...new Set(literals.map(v => normFolder(dirname(file) === '.' ? v : `${dirname(file)}/${v.replace(/^(?:\.\/)+/, '')}`)))]
     return values.length === 1 && values[0] ? { value: values[0], file } : null
   }
   return null
@@ -42,7 +46,8 @@ export function e2eFolder(root, config) {
   let out
   if (config.playwright?.folder) out = { ok: true, folder: config.playwright.folder, source: 'config' }
   else {
-    const t = readTestDir(root)
+    // A config named in playwright.configs comes first: Playwright does not find one outside the root.
+    const t = readTestDir(root, [...new Set([...(config.playwright?.configs ?? []).map(c => c.config), ...CONFIG_FILES])])
     out = t ? { ok: true, folder: t.value, source: 'testDir', configFile: t.file } : { ok: true, folder: DEFAULT_E2E_FOLDER, source: 'default' }
   }
   const f = out.folder.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')

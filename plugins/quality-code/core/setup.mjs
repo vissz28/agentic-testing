@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from './config.mjs'
 import { FIELDS_REL } from './fields.mjs'
+import { CONFIG_FILES, readTestDir } from './e2e-folder.mjs'
 
 const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
@@ -68,6 +69,26 @@ function specFolders(root, budget = { n: 20000 }) {
   return [...found].sort().slice(0, 10)
 }
 
+/**
+ * Playwright config files at the root or up to two folders down (Playwright finds only the root one by
+ * itself), each with the test folder its testDir gives, or null when it cannot be read.
+ */
+function playwrightConfigs(root) {
+  const names = new Set(CONFIG_FILES)
+  const found = []
+  const walk = (rel, depth) => {
+    let entries = []
+    try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const p = rel ? `${rel}/${e.name}` : e.name
+      if (e.isDirectory()) { if (depth < 2 && !SKIP_DIRS.has(e.name) && !e.name.startsWith('.')) walk(p, depth + 1) }
+      else if (names.has(e.name)) found.push({ config: p, folder: readTestDir(root, [p])?.value ?? null })
+    }
+  }
+  walk('', 0)
+  return found.sort((a, b) => a.config.split('/').length - b.config.split('/').length || (a.config < b.config ? -1 : 1)).slice(0, 5)
+}
+
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 
 function hasLine(path, line) {
@@ -127,6 +148,7 @@ export function detect(root) {
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     specFolders: specFolders(root),
+    playwrightConfigs: playwrightConfigs(root),
     here: here(root)
   }
   if (existingError) result.existingError = existingError
