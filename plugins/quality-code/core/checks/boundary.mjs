@@ -11,6 +11,8 @@ export const RUN_MARKER = '.claude/quality-code/run.active'
 export const BOUNDARY_LOG = '.claude/quality-code/boundary.jsonl'
 export const STALE_MS = 12 * 3600 * 1000
 const CI_FILES = ['.gitlab-ci.yml', '.github/workflows/']
+// Committed examples of an env file, with no real values: a pattern like .env.* never forbids them.
+const ENV_TEMPLATE = /(?:^|\/)\.env\.(?:example|sample|template)$/
 
 const globRe = pattern => new RegExp(`^${pattern
   .split(/(\*\*\/|\*\*|\*)/)
@@ -40,7 +42,7 @@ export function violation(relPath, rules) {
   if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
   if (ALWAYS.some(a => matches(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
-  const rule = rules.forbidden.find(r => matches(r.path, p))
+  const rule = rules.forbidden.find(r => matches(r.path, p) && !(r.path.includes('*') && ENV_TEMPLATE.test(p)))
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
 

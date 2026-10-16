@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { validateConfig, layersOf } from '../core/config.mjs'
 import { configFor } from '../core/runners/playwright.mjs'
+import { rulesFor, violation } from '../core/checks/boundary.mjs'
 
 const DIR = new URL('../../../docs/rollout/', import.meta.url)
 const load = f => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'))
@@ -40,4 +41,12 @@ test('the frontend config runs Playwright as npm run e2e does', () => {
   assert.deepEqual(c.playwright.projects, ['chromium'])
   // The root tsconfig.json is the app's (composite, src only); e2e/ has its own.
   assert.equal(c.playwright.tsconfig, 'e2e/tsconfig.json')
+})
+
+test('both configs block the env files but let .env.example through, as their reasons say', () => {
+  for (const f of ['warehouse-backend.quality-code.json', 'warehouse-frontend.quality-code.json']) {
+    const rules = rulesFor(validateConfig(load(f)).config, '/nowhere')
+    assert.ok(violation('.env', rules) && violation('.env.local', rules), f)
+    assert.equal(violation('.env.example', rules), null, f)
+  }
 })

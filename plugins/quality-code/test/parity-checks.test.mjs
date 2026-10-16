@@ -37,7 +37,11 @@ describe('boundary', () => {
     if (b.variant === 'mocked') rules.allow = ['src/**/*.spec.ts']
     const v = violation(b.path, rules)
     // Ruling §9 (16): dist/ and node_modules/ are always forbidden; the old frontend guard did not know them.
-    const expectForbidden = b.repo === 'fe' && /^(dist|node_modules)\//.test(b.path) ? true : b.forbidden
+    // The old backend guard forbade every .env.* (startsWith('.env.')), .env.example included; the old
+    // frontend guard allowed .env.example, which documents and points nowhere. The merged one follows
+    // the frontend: a pattern never forbids an env template (CHANGELOG, Unreleased).
+    const expectForbidden = b.repo === 'fe' && /^(dist|node_modules)\//.test(b.path) ? true
+      : b.repo === 'be' && b.path === '.env.example' ? false : b.forbidden
     // Ruling §9 (12): a bare `src` (no slash) was allowed by the old backend guard (startsWith('src/'))
     // but is forbidden by the old frontend guard and by the merged one. The merged behaviour wins, so
     // the old backend answer is not compared.

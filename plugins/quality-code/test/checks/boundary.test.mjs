@@ -31,6 +31,14 @@ test('violation: always-forbidden paths win over allow; allow wins over forbidde
   assert.ok(violation('src\\win.ts', rules))
   assert.deepEqual(ALWAYS, ['dist/', 'node_modules/', '.git/', '.claude/quality-code.json'])
 })
+test('an env template is not caught by a .env.* pattern, only by a rule that names it', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-b-'))
+  const defaults = rulesFor({}, d)
+  for (const p of ['.env.example', '.env.sample', '.env.template', 'apps/web/.env.example']) assert.equal(violation(p, defaults), null, p)
+  for (const p of ['.env', '.env.local', '.env.production', '.env.example.local']) assert.ok(violation(p, defaults), p)
+  assert.ok(violation('apps/web/.env.example', { forbidden: [{ path: 'apps/' }], allow: [] }), 'a folder rule still covers it')
+  assert.ok(violation('.env.example', { forbidden: [{ path: '.env.*' }, { path: '.env.example' }], allow: [] }), 'named exactly, it stays forbidden')
+})
 test('defaults: src/, .env, .env.* and the CI file that exists', () => {
   const d = dir()
   assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '.env', '.env.*'])

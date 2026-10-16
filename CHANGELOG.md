@@ -35,6 +35,10 @@ Update with `/plugin update quality-code@quality-code`.
   doesn't exist". The runner now sets it when `node_modules/playwright-core/.local-browsers` exists.
   The frontend rollout config gets its `playwright` block: `e2e/playwright.config.ts`, specs in
   `e2e/tests/`, project `chromium`.
+- **A test run may edit `.env.example`.** The `.env.*` rule (the default, and in both rollout configs)
+  also matched `.env.example`, while its own message said to edit `.env.example`. A pattern with `*`
+  now never forbids `.env.example`, `.env.sample` or `.env.template`; a rule that names one exactly
+  still does.
 
 ## [0.11.0] - 2026-10-15
 
