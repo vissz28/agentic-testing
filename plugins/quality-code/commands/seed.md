@@ -9,6 +9,8 @@ Writes the data setup for a ticket, and nothing else. It is the data-only siblin
 
 - **Data only.** No `it`, `test`, `describe` or `expect`, no pipeline run, no score. The block is data a test will use.
 - **Never invent.** Call only builder functions that the builder files export. Copy a response shape only from an existing stub. Take values only from the ticket or the dataset document. Anything else is a gap you name, never a guess.
+- **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
+- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **Never write to a database.** The block seeds when the tests run, against the test database the project's test setup provides. Never run a seed, never connect to a database, least of all a developer's own.
 - **Never edit application code.** With `--path`, write only that one spec file, and only its setup. Builder files, fixtures, the dataset document, source files and config stay as they are. If the boundary hook denies a write, show its reason and print the block instead.
 - **Never ask for a token**, key or password in the chat, and never show one.

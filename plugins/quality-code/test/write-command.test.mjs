@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\] \[--dry-run\] \[--ci\]\n---/)
   assert.match(doc, /^description: Write Vitest or Playwright tests/m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card, risk note', () => {
@@ -74,7 +74,11 @@ test('step 4: reads the generic guide and each layer guide, then the plan card',
   const s = step(4)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md'))
   assert.match(s, /`guide` of each layer/)
-  assert.ok(s.includes('1. Write these tests\n     2. Change the layers\n     3. Stop'))
+  assert.ok(s.includes('1. Write these tests\n     2. Change the layers\n     3. No, I\'ll type the right result\n     4. Stop'))
+  // The read-back: each scenario says what it checks, and a wrong result goes to the ticket, never into a test.
+  assert.match(s, /under it the result it checks, as a plain sentence from the ticket's Then/)
+  assert.ok(s.includes('`cli.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`'))
+  assert.match(s, /Never write a result into a test that the ticket file does not hold/)
   assert.match(s, /show the plan as information and go on to step 5 without stopping/)
   assert.match(s, /Only with `--ask`/)
 })
@@ -191,7 +195,7 @@ test('playwright step 4: the plugin guide, the team guide, two existing specs, t
   assert.match(s, /never show them in the chat/)
   assert.match(s, /at most 3 extra probes/)
   assert.ok(s.includes('`--no-extras`'))
-  assert.ok(s.includes('Tests for <KEY>, on <route>\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n     1. Write these tests\n     2. Leave out the extras\n     3. Stop'))
+  assert.ok(s.includes('Tests for <KEY>, on <route>\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n     1. Write these tests\n     2. Leave out the extras\n     3. No, I\'ll type the right result\n     4. Stop'))
   assert.match(s, /With no extra probe, leave out the `Extra \(not in the ticket\)` lines and option 2, and number the rest in order/)
 })
 test('playwright step 5: run start first (shared), the file name, the describe and test tags, web-first values, fixme', () => {
@@ -323,4 +327,16 @@ test('step 5 saves the pinned values; step 6 passes them to the check', () => {
   assert.ok(five.includes('`<ticketsDir>/<KEY>/expected.json`'))
   assert.match(five, /never list a value the ticket does not give/)
   assert.equal(step(6).split('--expected @<ticketsDir>/<KEY>/expected.json').length - 1, 3, 'Vitest, Playwright and fullstack')
+})
+
+test('replies and language; --dry-run and --ci; the card after the run never weakens a test', () => {
+  assert.match(doc, /\*\*Replies\.\*\* Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option/)
+  assert.match(doc, /\*\*Language\.\*\* Talk in the language of the user's messages; before they write one, in the ticket's language/)
+  const one = step(1)
+  assert.match(one, /\*\*`--dry-run`:\*\* go through steps 1 to 4 as usual, show the plan card .* and stop: no run marker, no file written, nothing posted/)
+  assert.match(one, /\*\*`--ci`:\*\* never ask: a card that needs an answer stops the command instead/)
+  const nine = doc.slice(doc.indexOf('9. **After the card.**'), doc.indexOf('\n## Examples'))
+  assert.ok(nine.includes('1. Done\n   2. That\'s not what I see in the app\n   3. Another ticket'))
+  assert.match(nine, /Not with `--ci`/)
+  assert.match(nine, /\*\*Never weaken or change a test to match what the app does\.\*\*/)
 })

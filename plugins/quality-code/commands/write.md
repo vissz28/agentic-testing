@@ -1,6 +1,6 @@
 ---
 description: Write Vitest or Playwright tests (or both, on a fullstack project) for a Jira ticket that passes the readiness gate, in the team's test folders, then check them with the pipeline and show its card.
-argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--ask]
+argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--ask] [--dry-run] [--ci]
 ---
 
 Writes tests from a ticket. You write the tests; the scripts gate the ticket and grade the tests. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
@@ -11,6 +11,8 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
 - **The scripts decide.** `cli.mjs` scores the ticket; the pipeline grades the tests. Never compute, change or soften a score, a verdict or a count, and never say a test is good yourself.
 - **Never edit application code.** Write only spec files, only in the layer folders (Vitest) or the e2e folder (Playwright). Source files, config and other tests stay as they are. If the boundary hook denies a write, read its reason and write in a test folder instead.
+- **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
+- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **Never weaken or delete a test** to make a check pass: no removed `expect`, no looser matcher, no `.skip`, no deleted `it` or `test`.
 - **Never ask for a token**, key or password in the chat, and never show one.
 - Refer to Jira tools by operation name on the Atlassian connector.
@@ -23,6 +25,8 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    - **Vitest:** `--route` and `--no-extras` are for Playwright projects: if `$ARGUMENTS` has one, say `--route and --no-extras are for Playwright projects. Use --layer NAME or --target PATH here.` and stop. Read the layers from `vitest.layers`; with no `vitest.layers`, there is one layer, `unit`, in `test/`. A `--layer NAME` in `$ARGUMENTS` keeps only that layer; a name that is not a layer: `No layer <NAME>. The layers are <names>.` and stop.
    - **Playwright:** `--layer` and `--target` are for Vitest projects: if `$ARGUMENTS` has one, say `--layer and --target are for Vitest projects. Use --route PATH to name the screen.` and stop. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config e2e-folder` and read the `E2E_FOLDER_JSON:` line: its `folder` is the e2e folder, where the spec goes. If it exits with 2, show its lines and stop. Read `playwright.guide` and `features` too.
    - **Fullstack:** every flag is allowed: `--layer` and `--target` for the backend part, `--route` and `--no-extras` for the frontend part. Read the layers as for Vitest and the e2e folder, `playwright.guide` and `features` as for Playwright.
+
+   - **`--dry-run`:** go through steps 1 to 4 as usual, show the plan card (step 4's, with its options left out) and stop: no run marker, no file written, nothing posted. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and every Jira post is left out. Both may be given with any other flag.
 
    Then read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Coming from ticket-eval's option 3 (it handed you the key and the incomplete score; `<ticketsDir>/<KEY>/ticket.json` is saved): skip this step and go on as after option 3 below, with that score. Otherwise, read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score. The script scores; never write a test for a ticket it refuses.
@@ -54,7 +58,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
      On `Another screen`, ask `Which screen? Type its path in the app, for example /orders.` and check it starts with `/`. On `Stop`, stop.
 4. **Plan.**
-   - **Vitest:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md`, then the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise). By default, show the plan as information and go on to step 5 without stopping: the lines of the card below without its numbered options, under `Writing these tests:`. Only with `--ask`, show the whole card and end the turn:
+   - **Vitest:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md`, then the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise), and under it the result it checks, as a plain sentence from the ticket's Then (`We check: the total is 108.00`). By default, show the plan as information and go on to step 5 without stopping: the lines of the card below without its numbered options, under `Writing these tests:`. Only with `--ask`, show the whole card and end the turn:
 
      ```
      Tests for <KEY>, against <target>
@@ -62,11 +66,12 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
        <layer>   <scenario, in a few words>
      1. Write these tests
      2. Change the layers
-     3. Stop
+     3. No, I'll type the right result
+     4. Stop
      ```
 
-     On `2`, ask which scenario goes in which layer (the layer names only), then show the plan card again. On `3`, stop.
-   - **Playwright:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/playwright-writing.md`, then `playwright.guide` when it is set (the team's own rules on top of it; they win where they differ). Read at most two specs already in the e2e folder, the closest to the screen, for their imports, fixtures, login and stub shapes. To find the real roles, labels and texts the screen shows, you may read the branch's changed files of kind `code` for that screen (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`); never show them in the chat. Give each scenario one line. Then, unless `$ARGUMENTS` has `--no-extras`, pick at most 3 extra probes from the guide's list that apply to this screen and that the guide lets you assert. By default, show the plan as information and go on to step 5 without stopping, as for Vitest. Only with `--ask`, show this card and end the turn:
+     On `2`, ask which scenario goes in which layer (the layer names only), then show the plan card again. On `3`, ask `What should the result be?` and add the answer to the ticket as ticket-eval's guided fill-in does (`cli.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`; its Jira update card follows when it is accepted), then show the plan again with the new result. Never write a result into a test that the ticket file does not hold. On `4`, stop.
+   - **Playwright:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/playwright-writing.md`, then `playwright.guide` when it is set (the team's own rules on top of it; they win where they differ). Read at most two specs already in the e2e folder, the closest to the screen, for their imports, fixtures, login and stub shapes. To find the real roles, labels and texts the screen shows, you may read the branch's changed files of kind `code` for that screen (`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`); never show them in the chat. Give each scenario one line, with the result it checks as a plain sentence from the ticket's Then (`We check: the grid shows Nessun movimento trovato`). Then, unless `$ARGUMENTS` has `--no-extras`, pick at most 3 extra probes from the guide's list that apply to this screen and that the guide lets you assert. By default, show the plan as information and go on to step 5 without stopping, as for Vitest. Only with `--ask`, show this card and end the turn:
 
      ```
      Tests for <KEY>, on <route>
@@ -76,10 +81,11 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
          <probe, in a few words>
      1. Write these tests
      2. Leave out the extras
-     3. Stop
+     3. No, I'll type the right result
+     4. Stop
      ```
 
-     With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order. On `Leave out the extras`, drop them and show the plan card again. On `Stop`, stop.
+     With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order. On `Leave out the extras`, drop them and show the plan card again. On `No, I'll type the right result`, do as for Vitest. On `Stop`, stop.
 5. **Write.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run start --key <KEY>` before writing any file. If it exits with an error because a run is already active, show its line, then this card and end the turn:
 
    ```
@@ -139,6 +145,17 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
    - **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the note verbatim. If an existing comment contains `Logged by quality-code: tests were written on an incomplete ticket.` (the same as `RISK_COMMENT_FOOTER` in the plugin's `core/jira.mjs`), update that comment instead of adding a second one. If no add-comment tool is available, show the text and say `Copy this onto the ticket.` On success: `The note has been posted on the ticket.`, then run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" jira-posted <KEY> risk` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not post the note on Jira.`
    - **2:** `The note was not posted.`
+9. **After the card.** Not with `--ci`. Show this card and end the turn:
+
+   ```
+   1. Done
+   2. That's not what I see in the app
+   3. Another ticket
+   ```
+
+   - **1:** stop.
+   - **2:** ask `What do you see in the app?` and wait. Then say which it is, in one or two sentences, without changing any test: the app shows something the ticket did not ask for, so a red test there is a finding to show the ticket's author (the test stays as it is); or the ticket's expected result is wrong, so the ticket is fixed first (refuse option 2 of ticket-eval adds the right result to the ticket and offers the Jira update), and then `/quality-code:write <KEY>` runs again. **Never weaken or change a test to match what the app does.**
+   - **3:** ask for the key and run this command again with it.
 
 ## Examples
 
@@ -148,3 +165,5 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 - `/quality-code:write ABC-123 --route /orders/new`: Playwright, test this screen
 - `/quality-code:write ABC-123 --no-extras`: Playwright, only the ticket's scenarios
 - `/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack, a backend target and a screen
+- `/quality-code:write ABC-123 --dry-run`: the gate and the plan, then stop; nothing is written
+- `/quality-code:write ABC-123 --ci`: no questions; stops where it would have to ask

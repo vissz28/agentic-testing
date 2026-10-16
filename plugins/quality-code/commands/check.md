@@ -9,6 +9,8 @@ Runs the pipeline on spec files. You ask and relay; the script runs and grades. 
 
 - **The script decides.** `cli.mjs` runs and grades. Never compute, change or soften a verdict, a count or a score yourself.
 - **Never edit tests**, source files or config, and never retry. If the card shows a problem, show it and stop.
+- **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
+- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **One run per request.** If the user wants another run, they ask again.
 - **Never read or show file contents or diffs.** Use only paths, kinds, counts and keys from `BRANCH_JSON`.
 - **Never ask for a token**, key or password in the chat.
