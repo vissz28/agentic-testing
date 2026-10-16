@@ -191,6 +191,25 @@ test('runner: a report that cannot be read leaks no temp folder', async () => {
   assert.match(r.error, /could not read the Playwright report/)
   assert.equal(existsSync(dirname(envOf(d)[0].report)), false)
 })
+test('runner: browsers in node_modules get PLAYWRIGHT_BROWSERS_PATH=0; otherwise, or when set, it is left alone', async () => {
+  const prev = process.env.PLAYWRIGHT_BROWSERS_PATH
+  const ok = d => fakeBin(d, 'playwright', { recordEnv: true, report: report(d, [fileSuite('a.spec.ts', [spec('ok', 'a.spec.ts', [pt('expected')])])]) })
+  const run = async d => { await playwrightRunner(d, cfg())({ files: ['a.spec.ts'] }); return envOf(d).at(-1).PLAYWRIGHT_BROWSERS_PATH }
+  try {
+    delete process.env.PLAYWRIGHT_BROWSERS_PATH
+    const local = proj()
+    mkdirSync(join(local, 'node_modules/playwright-core/.local-browsers'), { recursive: true })
+    ok(local)
+    assert.equal(await run(local), '0')
+    const shared = proj()
+    ok(shared)
+    assert.equal(await run(shared), null)
+    process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/browsers'
+    assert.equal(await run(local), '/opt/browsers')
+  } finally {
+    if (prev === undefined) delete process.env.PLAYWRIGHT_BROWSERS_PATH; else process.env.PLAYWRIGHT_BROWSERS_PATH = prev
+  }
+})
 test('runner: one process per config, results merged; only the requested files count', async () => {
   const d = proj()
   fakeBin(d, 'playwright', { reportFor: {

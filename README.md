@@ -358,7 +358,9 @@ whose label is on the ticket (`features[].route`), else asks. It plans the ticke
 to 3 extra probes (`Extra: …`; `--no-extras` leaves them out), writes
 `<e2e folder>/<screen>.<key>.spec.ts` under the ticket key's tag, and runs the checks. Only the tests
 that come out red then get a tag, `@anchor` (from the ticket) or `@finding` (an extra probe), so a
-merge gate that skips those tags still runs every test that passes. The app must be running, or started by your config's `webServer`. The e2e
+merge gate that skips those tags still runs every test that passes. The app must be running, or started by your config's `webServer`.
+Browsers installed into `node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`) are found without setup: the runner sets
+that variable when `node_modules/playwright-core/.local-browsers` exists and you have not set it yourself. The e2e
 folder is `playwright.folder`, else your Playwright config's `testDir` when it is a plain string,
 else `e2e/` (`node <plugin>/core/cli.mjs config e2e-folder` shows which and why).
 

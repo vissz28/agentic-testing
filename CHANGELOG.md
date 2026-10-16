@@ -30,6 +30,11 @@ Update with `/plugin update quality-code@quality-code`.
   specs; only an error in a spec fails, and a tsconfig `tsc` cannot read is "not verified". The
   rollout configs set `vitest.tsconfig: tsconfig.db.json` (backend) and `playwright.tsconfig:
   e2e/tsconfig.json` (frontend).
+- **Playwright finds browsers installed into `node_modules`.** A project whose npm script sets
+  `PLAYWRIGHT_BROWSERS_PATH=0` keeps its browsers there, and every test failed with "Executable
+  doesn't exist". The runner now sets it when `node_modules/playwright-core/.local-browsers` exists.
+  The frontend rollout config gets its `playwright` block: `e2e/playwright.config.ts`, specs in
+  `e2e/tests/`, project `chromium`.
 
 ## [0.11.0] - 2026-10-15
 

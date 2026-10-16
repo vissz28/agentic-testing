@@ -13,6 +13,7 @@ const ESC = /[.*+?^${}()|[\]\\]/g
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g
 const firstLine = s => String(s ?? '').replace(ANSI, '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
+const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 
 /** Playwright reads a file argument as a regular expression over the path: anchor it to whole segments. */
 export const filePattern = file => `(?:^|/)${String(file).split('\\').join('/').replace(ESC, '\\$&')}$`
@@ -94,6 +95,8 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
     // CI is left as it is: Playwright configs often read it to stop reusing a running dev server.
     const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out }
     delete env.FORCE_COLOR
+    // Browsers installed with PLAYWRIGHT_BROWSERS_PATH=0 live in node_modules, where only that setting finds them.
+    if (env.PLAYWRIGHT_BROWSERS_PATH === undefined && existsSync(join(root, LOCAL_BROWSERS))) env.PLAYWRIGHT_BROWSERS_PATH = '0'
     let stderr = ''
     let timedOut = false
     let settled = false

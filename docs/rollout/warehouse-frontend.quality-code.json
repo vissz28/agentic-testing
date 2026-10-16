@@ -142,6 +142,16 @@
     ]
   },
   "playwright": {
+    "configs": [
+      {
+        "match": "e2e/**",
+        "config": "e2e/playwright.config.ts"
+      }
+    ],
+    "projects": [
+      "chromium"
+    ],
+    "folder": "e2e/tests/",
     "tsconfig": "e2e/tsconfig.json"
   }
 }

@@ -6,7 +6,7 @@
 // and the report is written to the --outputFile path (or, for Stryker, the fileName its temp config file names,
 // or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright). With -g (a Playwright mutant run) and mutantReport,
 // the report is Playwright-shaped, for the file whose pattern is argv[1]. With recordEnv, each call's CI,
-// FORCE_COLOR, NO_COLOR and report path are appended as one JSON line to <dir>/.fake-<name>.env.
+// FORCE_COLOR, NO_COLOR, PLAYWRIGHT_BROWSERS_PATH and report path are appended as one JSON line to <dir>/.fake-<name>.env.
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -29,7 +29,7 @@ if (cfg && spec.mkdir) {
 const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || fromCfg || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME || ''
 if (spec.recordEnv) {
   const e = process.env
-  fs.appendFileSync(path.join(dir, '.fake-${name}.env'), JSON.stringify({ CI: e.CI ?? null, FORCE_COLOR: e.FORCE_COLOR ?? null, NO_COLOR: e.NO_COLOR ?? null, report: out }) + '\\n')
+  fs.appendFileSync(path.join(dir, '.fake-${name}.env'), JSON.stringify({ CI: e.CI ?? null, FORCE_COLOR: e.FORCE_COLOR ?? null, NO_COLOR: e.NO_COLOR ?? null, PLAYWRIGHT_BROWSERS_PATH: e.PLAYWRIGHT_BROWSERS_PATH ?? null, report: out }) + '\\n')
 }
 const ci = args.indexOf('--config')
 let report = (spec.reportFor && spec.reportFor[ci >= 0 ? args[ci + 1] : 'default']) || spec.report

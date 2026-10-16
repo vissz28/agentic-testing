@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { validateConfig, layersOf } from '../core/config.mjs'
+import { configFor } from '../core/runners/playwright.mjs'
 
 const DIR = new URL('../../../docs/rollout/', import.meta.url)
 const load = f => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'))
@@ -30,7 +31,13 @@ test('the frontend config forbids .env.* like the backend', () => {
   assert.ok(c.boundaries.forbidden.some(r => r.path === '.env.*'))
 })
 
-test('the frontend config type-checks the e2e specs with their own tsconfig', () => {
+test('the frontend config runs Playwright as npm run e2e does', () => {
+  const c = validateConfig(load('warehouse-frontend.quality-code.json')).config
+  // The config is not at the root, where Playwright looks; its testDir is ./tests, next to it.
+  assert.equal(configFor('e2e/tests/orders.fic-1.spec.ts', c), 'e2e/playwright.config.ts')
+  assert.equal(c.playwright.folder, 'e2e/tests/')
+  // CI's blocking job runs --project=chromium; "visual" is the screenshot suite.
+  assert.deepEqual(c.playwright.projects, ['chromium'])
   // The root tsconfig.json is the app's (composite, src only); e2e/ has its own.
-  assert.equal(load('warehouse-frontend.quality-code.json').playwright.tsconfig, 'e2e/tsconfig.json')
+  assert.equal(c.playwright.tsconfig, 'e2e/tsconfig.json')
 })
