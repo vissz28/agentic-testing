@@ -4,7 +4,7 @@ import { validateConfig } from '../core/config.mjs'
 import { buildBrief, formatReport } from '../core/score.mjs'
 import { naturalLength } from '../core/criteria.mjs'
 import { messagesFor } from '../core/messages.mjs'
-import { formatRefuseComment, templateLine, browseUrl, jiraUpdate, formatJiraUpdate, isRefuseComment, REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK } from '../core/jira.mjs'
+import { formatRefuseComment, formatRiskComment, templateLine, browseUrl, jiraUpdate, formatJiraUpdate, isRefuseComment, REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK, RISK_COMMENT_FOOTER } from '../core/jira.mjs'
 
 const base = { version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders' }] }
 const cfg = (patch = {}) => validateConfig({ ...base, ...patch }).config
@@ -99,4 +99,22 @@ test('the fallback body comes from messages.refuseFallback', () => {
   assert.match(out, /\n\nX\n\n/)
   assert.doesNotMatch(out, /Please add Steps to reproduce/)
   assert.match(formatRefuseComment(cfg(), brief), /Please add Steps to reproduce, Expected, Actual, and Given \/ When \/ Then\./)
+})
+test('the risk note: the score against the bar, the red mark, what the author can still add, its footer', () => {
+  const c = cfg()
+  const b = buildBrief(c, bare)
+  const note = formatRiskComment(c, b)
+  assert.ok(note.startsWith(`Tests were written for this ticket although it is not complete: it has ${b.score} of the 70 points it needs.\n`))
+  assert.match(note, /🔴 \[RISK \/ NOT RECOMMENDED\]/)
+  assert.match(note, /Still missing:\n- Acceptance criteria\n/)
+  // one fix, named once: no vague-Then line while the criteria are missing
+  assert.doesNotMatch(note, /results must be specific/)
+  assert.ok(note.endsWith(`\n\n${RISK_COMMENT_FOOTER}`))
+  assert.ok(!isRefuseComment(note), 'a re-run must not mistake it for the refuse comment')
+  assert.doesNotMatch(note, /warehouse|magazzino/i)
+})
+test('the risk note on a story never lists a section the story template does not carry', () => {
+  const c = cfg()
+  const note = formatRiskComment(c, buildBrief(c, { ...bare, issuetype: 'Story' }))
+  assert.doesNotMatch(note, /Environment|Expected and actual/)
 })

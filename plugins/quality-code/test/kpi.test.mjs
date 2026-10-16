@@ -41,7 +41,7 @@ const FULL = {
     pipe('ABC-4', 6, 'not_verified', 'types', { incompleteTicket: { score: 20, bar: 70 } }),
     pipe('ABC-2', 7, 'green', null, { incompleteTicket: { score: 55, bar: 70 } }),
   ],
-  [`${A}jira.jsonl`]: [{ key: 'ABC-2', action: 'comment', date: day(3) }, { key: 'ABC-4', action: 'comment', date: day(5) }, { key: 'ABC-1', action: 'update', date: day(2) }],
+  [`${A}jira.jsonl`]: [{ key: 'ABC-2', action: 'comment', date: day(3) }, { key: 'ABC-4', action: 'comment', date: day(5) }, { key: 'ABC-1', action: 'update', date: day(2) }, { key: 'ABC-2', action: 'risk', date: day(7) }],
   [`${A}override.jsonl`]: [{ key: 'ABC-4', score: 20, bar: 70, date: day(6) }, { key: 'ABC-2', score: 55, bar: 70, date: day(7) }],
   '.claude/quality-code/boundary.jsonl': [{ ts: day(4), path: 'src/a.ts' }, { ts: day(6), path: 'src/b.ts' }, { ts: '2026-01-01T00:00:00.000Z', path: 'x' }],
 }
@@ -66,7 +66,7 @@ test('the card, exactly', async () => {
     'Scores      0-29: 1 · 30-49: 0 · 50-69: 1 · 70-89: 2 · 90-100: 1',
     'Missing     acceptance criteria 3 · steps to reproduce 3 · testable AC 1',
     'Filled in   1 refused ticket filled in here, then passed',
-    'Jira        2 comments posted · 1 ticket updated',
+    'Jira        2 comments posted · 1 ticket updated · 1 risk note',
     'Forced      2 runs past the gate (continue anyway): ABC-2, ABC-4',
     'Pipeline    6 runs · 2 green · 2 checks failed · 1 tests red · 1 not verified',
     'Decided by  mutation 2 · tests 1 · types 1',
@@ -85,7 +85,7 @@ test('the report object behind the card', async () => {
     missing: [{ key: 'ac_present', label: 'acceptance criteria', tickets: 3 }, { key: 'steps', label: 'steps to reproduce', tickets: 3 }, { key: 'ac_testable', label: 'testable AC', tickets: 1 }],
     filledThenPassed: 1,
   })
-  assert.deepEqual(j.jira, { comments: 2, updates: 1 })
+  assert.deepEqual(j.jira, { comments: 2, updates: 1, risks: 1 })
   assert.deepEqual(j.forced, { runs: 2, tickets: ['ABC-2', 'ABC-4'] })
   assert.deepEqual(j.pipeline, { runs: 6, verdicts: { green: 2, checks_failed: 2, tests_red: 1, not_verified: 1 }, decidedBy: [{ check: 'mutation', runs: 2 }, { check: 'tests', runs: 1 }, { check: 'types', runs: 1 }] })
   assert.deepEqual(j.boundary, { blocked: 2 })
@@ -140,7 +140,7 @@ test('a gate without a key counts as its own ticket; unknown criteria keep their
 test('loadEvents reads every kind and the boundary log, and says where it looked', () => {
   const root = project(FULL)
   const e = loadEvents(root)
-  assert.deepEqual([e.gate.length, e.pipeline.length, e.jira.length, e.override.length, e.boundary.length], [8, 6, 3, 2, 3])
+  assert.deepEqual([e.gate.length, e.pipeline.length, e.jira.length, e.override.length, e.boundary.length], [8, 6, 4, 2, 3])
   assert.deepEqual(e.looked, [`${join(root, '.claude/quality-code/audit')}/`, join(root, '.claude/quality-code/boundary.jsonl')])
 })
 test('the script runs from the command line', () => {

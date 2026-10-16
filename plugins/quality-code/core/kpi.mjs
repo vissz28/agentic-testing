@@ -90,7 +90,7 @@ export function buildKpi(events, { period, project }) {
       missing: [...missing.values()].sort((a, b) => b.tickets - a.tickets || (a.key < b.key ? -1 : 1)).slice(0, 3),
       filledThenPassed,
     },
-    jira: { comments: jira.filter(j => j.action === 'comment').length, updates: jira.filter(j => j.action === 'update').length },
+    jira: { comments: jira.filter(j => j.action === 'comment').length, updates: jira.filter(j => j.action === 'update').length, risks: jira.filter(j => j.action === 'risk').length },
     forced: { runs: overrides.length, tickets: [...new Set(overrides.map(o => o.key).filter(Boolean))].sort() },
     pipeline: { runs: runs.length, verdicts, decidedBy: ranked(countBy(runs, r => r.decidedBy)).map(([check, n]) => ({ check, runs: n })) },
     boundary: { blocked: blocked.length },
@@ -112,7 +112,7 @@ export function formatKpiCard(r) {
     if (g.filledThenPassed) lines.push(row('Filled in', `${plural(g.filledThenPassed, 'refused ticket')} filled in here, then passed`))
   }
   const j = r.jira
-  lines.push(row('Jira', j.comments || j.updates ? `${plural(j.comments, 'comment')} posted · ${plural(j.updates, 'ticket')} updated` : 'nothing posted'))
+  lines.push(row('Jira', j.comments || j.updates || j.risks ? `${plural(j.comments, 'comment')} posted · ${plural(j.updates, 'ticket')} updated${j.risks ? ` · ${plural(j.risks, 'risk note')}` : ''}` : 'nothing posted'))
   const f = r.forced
   lines.push(row('Forced', f.runs ? `${plural(f.runs, 'run')} past the gate (continue anyway)${f.tickets.length ? `: ${f.tickets.join(', ')}` : ''}` : 'none'))
   const p = r.pipeline

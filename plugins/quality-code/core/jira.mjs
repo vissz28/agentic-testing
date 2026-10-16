@@ -40,13 +40,12 @@ export function templateLine(config, issuetype) {
 
 export const browseUrl = (config, key) => `${config.jira.site}/browse/${key}`
 
-/** The Jira comment body. Posted verbatim, never rewritten. */
-export function formatRefuseComment(config, brief) {
+/** The gaps a ticket author can fix, in the brief's order. */
+function authorGaps(brief) {
   const kind = templateFor(brief.issuetype)
-  const msgs = messagesFor(config, kind)
   const items = brief.missing || []
   const keys = new Set(items.map(m => m.key))
-  const shown = items.filter(
+  return items.filter(
     m =>
       // a missing QA plan is on us, not on the ticket author
       m.key !== 'qa_plan_found' &&
@@ -55,6 +54,13 @@ export function formatRefuseComment(config, brief) {
       // and never ask for a section the ticket's own template does not carry
       !(kind === 'story' && NOT_ON_STORY.has(m.key)),
   )
+}
+
+/** The Jira comment body. Posted verbatim, never rewritten. */
+export function formatRefuseComment(config, brief) {
+  const kind = templateFor(brief.issuetype)
+  const msgs = messagesFor(config, kind)
+  const shown = authorGaps(brief)
   const body = shown
     .map((m, i) => {
       const block = msgs[m.key]
@@ -72,6 +78,23 @@ export function formatRefuseComment(config, brief) {
     '',
     ...(line ? [line, ''] : []),
     REFUSE_COMMENT_FOOTER,
+  ].join('\n')
+}
+
+/** Marks the note left when tests are written past the gate, so a re-run edits it. */
+export const RISK_COMMENT_FOOTER = 'Logged by quality-code: tests were written on an incomplete ticket.'
+
+/** The Jira note after refuse option 3: tests were written anyway. Posted verbatim, never rewritten. */
+export function formatRiskComment(config, brief) {
+  const msgs = messagesFor(config, templateFor(brief.issuetype))
+  const gaps = authorGaps(brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
+  return [
+    `Tests were written for this ticket although it is not complete: it has ${brief.score} of the ${brief.threshold} points it needs.`,
+    '',
+    '🔴 [RISK / NOT RECOMMENDED] The tests check what the ticket says today. Until the missing parts are added, they may check the wrong thing.',
+    ...(gaps.length ? ['', 'Still missing:', ...gaps] : []),
+    '',
+    RISK_COMMENT_FOOTER,
   ].join('\n')
 }
 

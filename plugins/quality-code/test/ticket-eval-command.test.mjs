@@ -73,3 +73,13 @@ test('write accepts the hand-off from ticket-eval option 3 without scoring again
   assert.match(write, /Coming from ticket-eval's option 3/)
   assert.match(write, /skip this step/)
 })
+test('option 2: a fill-in that passes goes straight to the Jira update preview, still behind a yes', () => {
+  const end = doc.slice(doc.indexOf('After the last item, re-run'), doc.indexOf('\n## Examples'))
+  assert.match(end, /`pass` with at least one answer accepted: what was typed goes to Jira next/)
+  assert.ok(end.indexOf('cli.mjs jira-update') < end.indexOf('1. Update the Jira ticket'), 'the preview comes before the card')
+  assert.match(end, /\*\*1:\*\* only now write to Jira/)
+  assert.doesNotMatch(doc, /Also add what you typed/)
+})
+test('option 3 posts nothing itself: write offers the risk note at its end', () => {
+  assert.match(three, /Post nothing now \(`write` offers the risk note at its end\)/)
+})

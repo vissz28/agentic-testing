@@ -25,7 +25,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
    Then read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Coming from ticket-eval's option 3 (it handed you the key and the incomplete score; `<ticketsDir>/<KEY>/ticket.json` is saved): skip this step and go on as after option 3 below, with that score. Otherwise, read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score. The script scores; never write a test for a ticket it refuses.
-   - **Refused:** its refuse card and its flow, as written there. If that flow ends with the ticket passing (the guided fill-in and `1. Continue`), go on. On option 3, the developer override, go on only when the ticket-eval flow lets it (the brief's `derivable` is at least 1): remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score, and say `The ticket is incomplete: the result carries the 🔴 [RISK / NOT RECOMMENDED] mark.` Anything else (a comment posted, a cancel, a stop), stop: `Writing tests needs a ticket that passes the gate, or option 3.` No run marker, no file written.
+   - **Refused:** its refuse card and its flow, as written there. If that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card), go on. On option 3, the developer override, go on only when the ticket-eval flow lets it (the brief's `derivable` is at least 1): remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score, and say `The ticket is incomplete: the result carries the 🔴 [RISK / NOT RECOMMENDED] mark.` Anything else (a comment posted, a cancel, a stop), stop: `Writing tests needs a ticket that passes the gate, or option 3.` No run marker, no file written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`. Read from it the `summary`, the `issuetype`, the scenarios and the expected values. This file is the only copy of the ticket; never edit it.
    - **Playwright:** also keep the `route` and the `feature` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
 3. **Target.** What the tests check: a source file (Vitest) or a screen of the app (Playwright).
@@ -122,6 +122,19 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    On Playwright, also add one line in these two cases:
    - The card is `tests red` and the test it names starts with `Extra:`: `A red extra test is a case the ticket does not cover: show it to the ticket's author. Do not change the test to make it pass.`
    - The card is `not verified` because the app is not reachable: `Start the app (or check the webServer in your Playwright config), then run /quality-code:check with the spec path above.`
+8. **Risk note on Jira.** Only after option 3 in step 2 (the run had `--incomplete-ticket`), and only when step 7 showed a card. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" risk-comment --in @<ticketsDir>/<KEY>/ticket.json`; never write the note yourself. Show it as printed, then this card and end the turn:
+
+   ```
+   Note for the Jira ticket (not posted yet):
+
+   <the note>
+
+   1. Post this note to Jira
+   2. Do not post
+   ```
+
+   - **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the note verbatim. If an existing comment contains `Logged by quality-code: tests were written on an incomplete ticket.` (the same as `RISK_COMMENT_FOOTER` in the plugin's `core/jira.mjs`), update that comment instead of adding a second one. If no add-comment tool is available, show the text and say `Copy this onto the ticket.` On success: `The note has been posted on the ticket.`, then run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" jira-posted <KEY> risk` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not post the note on Jira.`
+   - **2:** `The note was not posted.`
 
 ## Examples
 

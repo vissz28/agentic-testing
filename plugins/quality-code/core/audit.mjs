@@ -34,7 +34,7 @@ const SHAPE = {
     counts: { specs: num(e.counts?.specs), passed: num(e.counts?.passed), failed: num(e.counts?.failed), skipped: num(e.counts?.skipped) },
     incompleteTicket: scored(e.incompleteTicket),
   }),
-  jira: e => ({ key: key(e.key), action: oneOf(['comment', 'update'])(e.action) }),
+  jira: e => ({ key: key(e.key), action: oneOf(['comment', 'update', 'risk'])(e.action) }),
   override: e => ({ key: key(e.key), score: score(e.score), bar: score(e.bar) }),
 }
 

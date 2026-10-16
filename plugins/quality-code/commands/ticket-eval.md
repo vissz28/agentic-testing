@@ -74,7 +74,7 @@ Option 3 is always shown with that red tag, word for word. Chat cannot color tex
 
 - **1:** do not post yet. Run `cli.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
 - **2:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
-- **3:** developer override. Post nothing. Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete and the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, and remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score. Then:
+- **3:** developer override. Post nothing now (`write` offers the risk note at its end). Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete, the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, and a note saying so is offered for the Jira ticket once the tests are written. Remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score. Then:
   - When `write` sent you here, go back to it: it goes on with the incomplete score.
   - Otherwise (this command on its own, or `start`), go straight on to writing the tests: read `${CLAUDE_PLUGIN_ROOT}/commands/write.md` and follow it with `<KEY>` as `$ARGUMENTS` and the incomplete score. The ticket is already saved, sanitized and scored, so do not run the gate again, and the connectors were already checked: skip both. The tests it writes and their card carry the 🔴 mark.
 
@@ -116,27 +116,17 @@ Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as pr
 
    Then `cli.mjs add --in @<ticket.json> <key> -- "<their answer, verbatim>"` (the `--` keeps an answer that starts with `--` from being read as a flag). Show its line. `Accepted.`: next item. `Not accepted:`: show it and ask again; after 2 rejections on one item, move on. `skip`: move on. Plain acceptance criteria need at least 150 characters, or Gherkin steps; the script says so when an answer is too short. Only `add` writes `ticket.json`, and only when the answer counts. Never edit it yourself and never send answers to Jira on this path.
 
-After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass`: show this card (skip it if nothing was accepted; `--ci` never shows it):
+After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass` with nothing accepted: the ticket is ready; stop. `pass` with at least one answer accepted: what was typed goes to Jira next, so the ticket itself carries it. Say `The ticket now has <score> points (the bar is <threshold>).`, run `cli.mjs jira-update --in @<ticketsDir>/<KEY>/ticket.json`, show its preview as printed, then this card and end the turn (`--ci` never gets here):
 
 ```
-The ticket now has <score> points (the bar is <threshold>).
-
-1. Continue
-2. Also add what you typed to the Jira ticket (I'll show it first)
-3. Stop
+1. Update the Jira ticket
+2. Do not update, just continue
+3. Cancel
 ```
 
-- **1:** the ticket is ready; stop.
-- **2:** run `cli.mjs jira-update --in @<ticketsDir>/<KEY>/ticket.json`. Show its preview as printed, then this card and end the turn:
-
-  ```
-  1. Update the Jira ticket
-  2. Do not update, just continue
-  3. Cancel
-  ```
-
-  **1:** only now write to Jira. Fetch the ticket fresh with `getJiraIssue` (fields `description,labels,summary`, `responseContentFormat` `markdown`), then one `editJiraIssue` (`contentFormat` `markdown`) that sets only what `JIRA_UPDATE_JSON` names: `description` = the fresh description + a blank line + `append`; `labels` = the fresh labels plus `labelsAdd`; `summary` = `[<titlePrefix>] ` + the fresh summary without its old `[..]` prefix, only when `titlePrefix` is set. Append only. Never send the text from disk, never rewrite or reorder what is on the ticket. Then one sentence: `The Jira ticket has been updated.`, and run `cli.mjs jira-posted <KEY> update` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not update the Jira ticket.` **2:** continue, nothing sent. **3:** stop, nothing sent.
-- **3:** stop.
+- **1:** only now write to Jira. Fetch the ticket fresh with `getJiraIssue` (fields `description,labels,summary`, `responseContentFormat` `markdown`), then one `editJiraIssue` (`contentFormat` `markdown`) that sets only what `JIRA_UPDATE_JSON` names: `description` = the fresh description + a blank line + `append`; `labels` = the fresh labels plus `labelsAdd`; `summary` = `[<titlePrefix>] ` + the fresh summary without its old `[..]` prefix, only when `titlePrefix` is set. Append only. Never send the text from disk, never rewrite or reorder what is on the ticket. Then one sentence: `The Jira ticket has been updated.`, and run `cli.mjs jira-posted <KEY> update` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not update the Jira ticket.` Either way, the ticket is ready; stop.
+- **2:** nothing sent. The ticket is ready; stop.
+- **3:** stop, nothing sent.
 
 ## Examples
 

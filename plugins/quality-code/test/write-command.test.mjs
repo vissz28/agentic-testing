@@ -12,8 +12,8 @@ test('frontmatter has a description and the argument hint', () => {
   assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\]\n---/)
   assert.match(doc, /^description: Write Vitest or Playwright tests/m)
 })
-test('steps come in order: check, ticket and gate, target, plan, write, check, card', () => {
-  const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Target.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Check.**', '\n7. **Card.**'].map(s => doc.indexOf(s))
+test('steps come in order: check, ticket and gate, target, plan, write, check, card, risk note', () => {
+  const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Target.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Check.**', '\n7. **Card.**', '\n8. **Risk note on Jira.**'].map(s => doc.indexOf(s))
   assert.ok(at.every(i => i > 0), JSON.stringify(at))
   assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
@@ -287,4 +287,17 @@ test('playwright guide: its example passes the honesty rule and carries no proje
   assert.ok(!ex.includes('waitForTimeout'))
   assert.doesNotMatch(pguide, /AGT|FIC/)
   assert.doesNotMatch(pguide, /warehouse|teamsystem|Giacenza|Magazzino/i)
+})
+test('step 8: after option 3 only, the script writes the risk note; it is posted on a yes and logged', async () => {
+  const { RISK_COMMENT_FOOTER } = await import('../core/jira.mjs')
+  const s = step(8)
+  assert.match(s, /Only after option 3 in step 2 \(the run had `--incomplete-ticket`\), and only when step 7 showed a card/)
+  assert.ok(s.includes('core/cli.mjs" risk-comment --in @<ticketsDir>/<KEY>/ticket.json`; never write the note yourself'))
+  assert.ok(s.includes('Note for the Jira ticket (not posted yet):'))
+  assert.ok(s.includes('1. Post this note to Jira') && s.includes('2. Do not post'))
+  assert.ok(s.includes(RISK_COMMENT_FOOTER), 'the update-in-place marker matches the script')
+  assert.ok(s.includes('core/cli.mjs" jira-posted <KEY> risk'))
+})
+test('a fill-in that passes still goes on to writing, with or without the Jira update', () => {
+  assert.ok(step(2).includes('the guided fill-in, then `1` or `2` on its Jira update card'))
 })

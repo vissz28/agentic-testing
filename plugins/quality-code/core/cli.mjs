@@ -6,7 +6,7 @@ import { audit } from './audit.mjs'
 import { loadConfig, projectRoot } from './config.mjs'
 import { e2eFolder, e2eFolderLine } from './e2e-folder.mjs'
 import { buildBrief, formatReport } from './score.mjs'
-import { formatRefuseComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
+import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from './jira.mjs'
 import { sanitizeTicket } from './sanitize.mjs'
 import { resolveField, storeField } from './fields.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from './fill.mjs'
@@ -47,10 +47,10 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
   if (cmd === 'jira-posted') {
-    // Called after the connector posted a refuse comment or pushed a fill-in: the key and the kind only.
+    // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
     const [key, action] = a._
-    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || !['comment', 'update'].includes(action)) {
-      err('usage: cli.mjs jira-posted <KEY> comment|update')
+    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || !['comment', 'update', 'risk'].includes(action)) {
+      err('usage: cli.mjs jira-posted <KEY> comment|update|risk')
       return 2
     }
     log('jira', { key, action })
@@ -81,7 +81,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     return 2
   }
   if (!a.in) {
-    err("usage: cli.mjs <score|refuse-comment|fill-menu|pick|add|jira-update|sanitize> --in '<json>'|@file [--ci] [--json]")
+    err("usage: cli.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|jira-update|sanitize> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -117,6 +117,10 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       const b = buildBrief(config, ticket)
       out(formatRefuseComment(config, b))
       return b.gate === 'refuse' ? 1 : 0
+    }
+    case 'risk-comment': {
+      out(formatRiskComment(config, buildBrief(config, ticket)))
+      return 0
     }
     case 'fill-menu': {
       const m = fillMenu(config, buildBrief(config, ticket))

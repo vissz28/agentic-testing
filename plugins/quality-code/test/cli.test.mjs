@@ -106,19 +106,20 @@ test('a failed append never changes the result or the exit code', () => {
   assert.equal(r.stderr, '')
   assert.match(r.stdout, /^TICKET_EVAL_JSON:/m)
 })
-test('jira-posted <KEY> comment|update logs what was sent to Jira (the key and the kind only)', () => {
+test('jira-posted <KEY> comment|update|risk logs what was sent to Jira (the key and the kind only)', () => {
   const d = proj()
   const a = runA(d, {}, 'jira-posted', 'DEMO-1', 'comment')
   assert.equal(a.status, 0, a.stderr)
   assert.equal(a.stdout, 'ok\n')
   assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', 'update').status, 0)
-  assert.deepEqual(auditLines(d, 'jira').map(x => [x.key, x.action]), [['DEMO-1', 'comment'], ['DEMO-1', 'update']])
+  assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', 'risk').status, 0)
+  assert.deepEqual(auditLines(d, 'jira').map(x => [x.key, x.action]), [['DEMO-1', 'comment'], ['DEMO-1', 'update'], ['DEMO-1', 'risk']])
   for (const bad of [['jira-posted'], ['jira-posted', 'DEMO-1'], ['jira-posted', 'demo 1', 'comment'], ['jira-posted', 'DEMO-1', 'delete']]) {
     const r = runA(d, {}, ...bad)
     assert.equal(r.status, 2, bad.join(' '))
-    assert.match(r.stderr, /usage: cli\.mjs jira-posted <KEY> comment\|update/)
+    assert.match(r.stderr, /usage: cli\.mjs jira-posted <KEY> comment\|update\|risk/)
   }
-  assert.equal(auditLines(d, 'jira').length, 2)
+  assert.equal(auditLines(d, 'jira').length, 3)
   const e = proj()
   assert.equal(runA(e, { QC_NO_AUDIT: '1' }, 'jira-posted', 'DEMO-1', 'comment').stdout, 'ok\n')
   assert.equal(existsSync(join(e, AUDIT)), false)
@@ -134,7 +135,7 @@ test('add with an inline ticket exits 2', () => {
   const r = run(proj(), 'add', '--in', '{"key":"DEMO-1"}', 'environment', 'x')
   assert.equal(r.status, 2)
 })
-test('fill-menu, pick, jira-update, refuse-comment', () => {
+test('fill-menu, pick, jira-update, refuse-comment, risk-comment', () => {
   const d = proj()
   const m = run(d, 'fill-menu', '--in', '@t.json')
   assert.equal(m.status, 0)
@@ -145,6 +146,10 @@ test('fill-menu, pick, jira-update, refuse-comment', () => {
   assert.equal(j.status, 0)
   assert.match(j.stdout, /^JIRA_UPDATE_JSON:/m)
   assert.equal(run(d, 'refuse-comment', '--in', '@t.json').status, 1)
+  const r = run(d, 'risk-comment', '--in', '@t.json')
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /^Tests were written for this ticket although it is not complete: it has \d+ of the 70 points it needs\.$/m)
+  assert.match(r.stdout, /Logged by quality-code: tests were written on an incomplete ticket\.\n$/)
 })
 test('sanitize writes --out and deletes an @file input; missing --out exits 2', () => {
   const d = proj()
