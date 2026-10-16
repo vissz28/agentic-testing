@@ -161,9 +161,61 @@ export function detect(root, config, { base: baseFlag } = {}) {
   return out
 }
 
-const USAGE = 'usage: branch.mjs --detect [--base <branch>]'
+const I18N = /(?:^|\/)i18n\/[^/]+\.json$|(?:^|\/)locales?\/[^/]+\.json$/
+const MAX_COMMITS = 20
+
+/**
+ * What a ticket's change touched once it is merged, when the current branch no longer shows it: the
+ * diff of the merge commit whose source branch carries the key, else the files of the commits that
+ * name it (at most 20). Read-only and offline: nothing is fetched. Translation files count as code,
+ * since they hold the texts a screen shows.
+ */
+export function merged(root, config, key) {
+  const out = { key, found: null, commit: null, files: [], counts: { code: 0, test: 0, other: 0 } }
+  if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
+  const own = new RegExp(`(?<![A-Za-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`, 'i')
+  const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
+  const playwright = adaptersOf(config).includes('playwright')
+  const dirs = playwright ? playwrightTestDirs(root) : []
+  const take = list => {
+    const seen = new Map()
+    for (const f of list) if (f.path?.startsWith(prefix)) seen.set(f.path.slice(prefix.length), f.status)
+    out.files = [...seen].sort(([a], [b]) => (a < b ? -1 : 1)).map(([path, status]) => {
+      const kind = I18N.test(path) ? 'code' : kindOf(path, playwright ? 'playwright' : config.adapter, dirs)
+      out.counts[kind]++
+      return { path, status, kind }
+    })
+  }
+  const merges = (git(root, ['log', '--all', '--merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
+  // "Merge branch 'ABC-12-total' into 'develop'": the ticket's branch is the source, not a sync into it.
+  const merge = merges.map(l => l.split('\t')).find(([, s]) => own.test(/^merge (?:branch|remote-tracking branch) '([^']+)'/i.exec(s)?.[1] ?? ''))
+  if (merge) {
+    out.found = 'merge'
+    out.commit = merge[0].slice(0, 7)
+    take(parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', `${merge[0]}^1`, `${merge[0]}^2`])))
+    return out
+  }
+  const commits = (git(root, ['log', '--all', '--no-merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
+    .map(l => l.split('\t')).filter(([, s]) => own.test(s)).slice(0, MAX_COMMITS)
+  if (!commits.length) return out
+  out.found = 'commits'
+  out.commit = commits[0][0].slice(0, 7)
+  take(commits.flatMap(([sha]) => parseNameStatusZ(git(root, ['show', '--name-status', '-z', '-M', '--format=', sha]))))
+  return out
+}
+
+const USAGE = 'usage: branch.mjs --detect [--base <branch>] | --merged <KEY>'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
+  if (argv[0] === '--merged') {
+    const key = argv[1]
+    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
+    const root = projectRoot(env, cwd)
+    const c = loadConfig(root)
+    if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }
+    process.stdout.write(`MERGED_JSON:${JSON.stringify(merged(root, c.config, key))}\n`)
+    return 0
+  }
   if (argv[0] !== '--detect') { process.stderr.write(`${USAGE}\n`); return 2 }
   const opts = {}
   for (let i = 1; i < argv.length; i++) {

@@ -340,3 +340,10 @@ test('replies and language; --dry-run and --ci; the card after the run never wea
   assert.match(nine, /Not with `--ci`/)
   assert.match(nine, /\*\*Never weaken or change a test to match what the app does\.\*\*/)
 })
+
+test('step 3 and 4: a merged ticket\'s change comes from branch.mjs --merged when the branch shows none', () => {
+  assert.ok(step(3).includes('`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --merged <KEY>`'))
+  assert.match(step(3), /When the branch shows no changed code file \(for example on the base branch, after the ticket was merged\)/)
+  assert.match(step(4), /or `--merged <KEY>` when the branch shows none: translation files count as code there/)
+  assert.ok(doc.includes('`MERGED_JSON:`'))
+})
