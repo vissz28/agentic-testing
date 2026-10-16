@@ -7,6 +7,14 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [Unreleased]
+
+### Fixed
+
+- **The plugin's Bug template can pass the gate.** It had no Acceptance criteria section, so a Bug
+  filled in completely scored 55 (Vitest) or 40 (Playwright) and was always refused. It now has one,
+  with a Gherkin and a plain-language example.
+
 ## [0.11.0] - 2026-10-15
 
 ### Changed

@@ -30,6 +30,7 @@ test('headings are recognised by the en vocabulary', async () => {
   assert.ok(hasHeading(v, story, v.environmentHeading))
   assert.ok(hasHeading(v, story, v.contextHeadingBE))
   for (const h of ['stepsHeading', 'expectedHeading', 'actualHeading', 'environmentHeading']) assert.ok(hasHeading(v, bug, v[h]), h)
+  assert.ok(bug.split('\n').some(l => v.acHeading.test(l)))
 })
 
 for (const adapter of ['playwright', 'vitest']) {
@@ -38,9 +39,10 @@ for (const adapter of ['playwright', 'vitest']) {
     for (const k of ['ac_present', 'ac_testable', 'steps', 'expected_defined', 'environment']) assert.equal(signal(b, k), true, k)
     assert.equal(b.legacy, false)
   })
-  test(`filled bug scores steps, expected and environment on ${adapter}`, () => {
+  test(`filled bug scores its signals and passes on ${adapter}`, () => {
     const b = buildBrief(cfg(adapter), ticket('Bug', fill(read('bug'))))
-    for (const k of ['steps', 'expected_defined', 'environment']) assert.equal(signal(b, k), true, k)
+    for (const k of ['ac_present', 'ac_testable', 'steps', 'expected_defined', 'environment']) assert.equal(signal(b, k), true, k)
+    assert.equal(b.gate, 'pass', `scored ${b.score}`)
   })
 }
 
@@ -59,12 +61,14 @@ for (const adapter of ['playwright', 'vitest']) {
 // Spec §10 #7: a team that types the commented Gherkin example without the dashes (as the hint
 // says to) and leaves the rest unfilled must still be refused.
 for (const adapter of ['playwright', 'vitest']) {
-  test(`the story template with the commented example undashed is refused on ${adapter}`, () => {
-    const story = read('story').replace(/<!--[\s\S]*?-->/, c => c.replace(/^- /gm, ''))
-    assert.match(story, /^Then the grid shows exactly 5 rows$/m, 'the example is undashed')
-    const b = buildBrief(cfg(adapter), ticket('Story', story))
-    assert.ok(b.score < 70, `scored ${b.score}`)
-    assert.equal(b.gate, 'refuse')
-    assert.equal(signal(b, 'ac_present'), false)
-  })
+  for (const [name, type, then] of [['story', 'Story', 'Then the grid shows exactly 5 rows'], ['bug', 'Bug', 'Then the total is 108.00']]) {
+    test(`the ${name} template with the commented example undashed is refused on ${adapter}`, () => {
+      const tpl = read(name).replace(/<!--[\s\S]*?-->/, c => c.replace(/^- /gm, ''))
+      assert.match(tpl, new RegExp(`^${then}$`, 'm'), 'the example is undashed')
+      const b = buildBrief(cfg(adapter), ticket(type, tpl))
+      assert.ok(b.score < 70, `scored ${b.score}`)
+      assert.equal(b.gate, 'refuse')
+      assert.equal(signal(b, 'ac_present'), false)
+    })
+  }
 }
