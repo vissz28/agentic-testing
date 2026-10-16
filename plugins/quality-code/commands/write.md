@@ -57,7 +57,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
      ```
 
      On `Another screen`, ask `Which screen? Type its path in the app, for example /orders.` and check it starts with `/`. On `Stop`, stop.
-4. **Plan.**
+4. **Plan.** When the config has `qaPlans` (a folder) and `<qaPlans><feature label>.md` exists for the ticket's feature label, read it first: a person wrote its rules for that feature, so they are extra things the tests must respect. The ticket's Then wins where they disagree; say the clash in one line under the plan. Never edit that file.
    - **Vitest:** read `${CLAUDE_PLUGIN_ROOT}/core/guides/vitest-writing.md`, then the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise), and under it the result it checks, as a plain sentence from the ticket's Then (`We check: the total is 108.00`). By default, show the plan as information and go on to step 5 without stopping: the lines of the card below without its numbered options, under `Writing these tests:`. Only with `--ask`, show the whole card and end the turn:
 
      ```

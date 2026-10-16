@@ -6,7 +6,7 @@ import { matches } from './checks/boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -217,10 +217,11 @@ export function validateConfig(input) {
     }
   }
   if (c.seed !== undefined) {
-    if (!isObj(c.seed)) e.push('seed: must be an object with optional "builders", "dataset" and "stubsFrom"')
+    if (!isObj(c.seed)) e.push('seed: must be an object with optional "builders", "dataset", "stubsFrom" and "guide"')
     else {
       const s = c.seed
-      for (const k of Object.keys(s)) if (!['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only "builders", "dataset" and "stubsFrom")`)
+      for (const k of Object.keys(s)) if (!['builders', 'dataset', 'stubsFrom', 'guide'].includes(k)) e.push(`seed.${k}: unknown field (only "builders", "dataset", "stubsFrom" and "guide")`)
+      if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
       if (s.builders !== undefined) {
         if (!uses('vitest')) e.push('seed.builders: only allowed with "adapter": "vitest" or "fullstack" (Playwright seeds with route stubs, see seed.stubsFrom)')
         else if (!Array.isArray(s.builders) || s.builders.length < 1 || s.builders.length > 10) e.push('seed.builders: must be a list of 1 to 10 files that hold the seed builders')
@@ -242,6 +243,8 @@ export function validateConfig(input) {
       }
     }
   }
+  // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
+  if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
   if (c.sides !== undefined) {
     if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
     else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
@@ -282,7 +285,7 @@ export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds 
 /** The seed block with its defaults: no builder files, no dataset, no stub folder. */
 export const seedOf = config => {
   const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
-  return { builders: s.builders ?? [], dataset: s.dataset ?? null, stubsFrom: s.stubsFrom ?? null }
+  return { builders: s.builders ?? [], dataset: s.dataset ?? null, stubsFrom: s.stubsFrom ?? null, guide: s.guide ?? null }
 }
 
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */

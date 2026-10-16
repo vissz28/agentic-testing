@@ -341,6 +341,14 @@ test('replies and language; --dry-run and --ci; the card after the run never wea
   assert.match(nine, /\*\*Never weaken or change a test to match what the app does\.\*\*/)
 })
 
+test('step 4 reads the feature\'s QA plan file when qaPlans is set; the ticket wins a clash', () => {
+  const s = step(4)
+  assert.match(s, /When the config has `qaPlans` \(a folder\) and `<qaPlans><feature label>\.md` exists/)
+  assert.match(s, /The ticket's Then wins where they disagree; say the clash in one line under the plan\. Never edit that file\./)
+  assert.match(pguide, /no raw translation key shows instead of a text/)
+  assert.ok(pguide.includes('toHaveCount(0)'))
+})
+
 test('step 3 and 4: a merged ticket\'s change comes from branch.mjs --merged when the branch shows none', () => {
   assert.ok(step(3).includes('`node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --merged <KEY>`'))
   assert.match(step(3), /When the branch shows no changed code file \(for example on the base branch, after the ticket was merged\)/)

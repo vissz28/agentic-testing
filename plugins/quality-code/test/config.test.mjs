@@ -384,11 +384,11 @@ test('the schema documents the playwright block with the validator\'s path patte
 })
 
 test('seed block: absent gives the defaults; a valid block for each adapter', () => {
-  assert.deepEqual(seedOf(validateConfig(vgood).config), { builders: [], dataset: null, stubsFrom: null })
-  assert.deepEqual(seedOf(null), { builders: [], dataset: null, stubsFrom: null })
+  assert.deepEqual(seedOf(validateConfig(vgood).config), { builders: [], dataset: null, stubsFrom: null, guide: null })
+  assert.deepEqual(seedOf(null), { builders: [], dataset: null, stubsFrom: null, guide: null })
   const v = validateConfig({ ...vgood, seed: { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md' } })
   assert.equal(v.ok, true, v.errors?.join(' | '))
-  assert.deepEqual(seedOf(v.config), { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md', stubsFrom: null })
+  assert.deepEqual(seedOf(v.config), { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md', stubsFrom: null, guide: null })
   const p = validateConfig({ ...good, seed: { stubsFrom: 'e2e/tests/', dataset: 'docs/testing/dataset.md' } })
   assert.equal(p.ok, true, p.errors?.join(' | '))
   assert.equal(seedOf(p.config).stubsFrom, 'e2e/tests/')
@@ -413,13 +413,13 @@ test('fullstack: both blocks, both seed kinds and sides are allowed; sides only 
   assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found "jest")'])
 })
 test('seed block: each wrong part is named', () => {
-  for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset" and "stubsFrom"'], JSON.stringify(v))
+  for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset", "stubsFrom" and "guide"'], JSON.stringify(v))
   const list = 'seed.builders: must be a list of 1 to 10 files that hold the seed builders'
   const eleven = Array.from({ length: 11 }, (_, i) => `t/s${i}.ts`)
   for (const b of [[], 'test/seed.ts', {}, eleven]) assert.deepEqual(validateConfig({ ...vgood, seed: { builders: b } }).errors, [list], JSON.stringify(b))
   const r = validateConfig({ ...vgood, seed: { builders: ['a.ts', 'a.ts', '../x.ts', '/abs.ts', 'test/helpers/', 3], dataset: 'docs/data.json', extra: 1 } })
   assert.deepEqual(r.errors, [
-    'seed.extra: unknown field (only "builders", "dataset" and "stubsFrom")',
+    'seed.extra: unknown field (only "builders", "dataset", "stubsFrom" and "guide")',
     'seed.builders[1] "a.ts" appears twice',
     'seed.builders[2] "../x.ts" must be a relative path inside the project (no "..", not absolute, one line)',
     'seed.builders[3] "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -437,11 +437,12 @@ test('the schema documents the seed block with the validator\'s path pattern', (
   assert.equal(s.type, 'object')
   assert.equal(s.additionalProperties, false)
   assert.equal(s.required, undefined)
-  assert.deepEqual(Object.keys(s.properties).sort(), ['builders', 'dataset', 'stubsFrom'])
+  assert.deepEqual(Object.keys(s.properties).sort(), ['builders', 'dataset', 'guide', 'stubsFrom'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
   assert.equal(s.properties.builders.items.pattern, path)
   assert.equal(s.properties.dataset.pattern, path)
   assert.equal(s.properties.stubsFrom.pattern, path)
+  assert.equal(s.properties.guide.pattern, path)
   assert.equal(s.properties.builders.minItems, 1)
   assert.equal(s.properties.builders.maxItems, 10)
 })
@@ -466,4 +467,19 @@ test('playwright.folder: inside a forbidden boundary is refused, naming the rule
     ['playwright.folder "app/e2e/" is inside the forbidden "app/**"'])
   assert.equal(validateConfig({ ...good, boundaries: { allow: ['src/e2e/'] }, playwright: { folder: 'src/e2e/' } }).ok, true)
   assert.equal(validateConfig({ ...good, boundaries: { forbidden: [{ path: 'lib/' }] }, playwright: { folder: 'src/e2e/' } }).ok, true)
+})
+
+test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
+  assert.equal(validateConfig({ ...vgood, seed: { guide: '.claude/quality-code/guides/seed.md' } }).ok, true)
+  assert.deepEqual(validateConfig({ ...vgood, seed: { guide: 'seed.txt' } }).errors, ['seed.guide "seed.txt" must be a relative path to a .md file inside the project'])
+  assert.equal(validateConfig({ ...vgood, qaPlans: 'test/qa-plans/' }).ok, true)
+  for (const q of ['test/qa-plans', '../plans/', 5]) assert.deepEqual(validateConfig({ ...vgood, qaPlans: q }).errors, [`qaPlans ${JSON.stringify(q)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`], String(q))
+})
+
+test('the schema knows every top-level field the validator takes, fullstack included', () => {
+  const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'fullstack'])
+  for (const f of ['sides', 'qaPlans']) assert.ok(schema.properties[f], f)
+  assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack'])
+  assert.equal(schema.properties.qaPlans.pattern, schema.properties.vitest.properties.tsconfig.pattern)
 })

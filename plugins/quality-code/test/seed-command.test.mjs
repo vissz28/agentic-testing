@@ -136,3 +136,7 @@ test('fullstack: the ticket side picks builders, stubs or both', () => {
   assert.match(step(4), /On a `fullstack` project, first find the ticket's side as ticket-eval's step 4b does/)
   assert.match(step(4), /`backend` takes the `vitest` parts below, `frontend` the `playwright` parts, `fullstack` both, builders first/)
 })
+
+test('step 4 reads seed.guide on top of the plugin guide', () => {
+  assert.match(step(4), /then `seed\.guide` when it is set: the team's own seeding rules, on top of it \(they win where they differ\)/)
+})

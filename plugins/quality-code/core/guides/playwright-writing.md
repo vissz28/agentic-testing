@@ -121,7 +121,9 @@ What a probe asserts, in this order:
 
 1. A concrete value from the ticket, the branch's code or the app's own translation files.
 2. Otherwise, that the screen still works: an element a ticket scenario names is still visible and
-   usable.
+   usable, and no raw translation key shows instead of a text (for an app whose keys look like
+   `NoDataFiltersMessage`: `await expect(page.getByText(/^[A-Z][A-Za-z]+Message$/)).toHaveCount(0)`;
+   use the key shape of your app's translation files).
 3. Otherwise, do not write the probe. Never invent an expected value.
 
 A red extra test is a case the ticket does not cover: report it, never loosen it to make it pass.
