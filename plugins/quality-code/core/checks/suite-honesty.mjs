@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { result } from './result.mjs'
+import { keyPattern } from './keys.mjs'
 
 /** Top-level groups (column 0): { idx, mod, title }. */
 export function groups(src, dialect) {
@@ -22,7 +23,7 @@ export function skippedGroupRanges(src, dialect) {
 /** [start, end) of the top-level group whose title holds the key, up to the next top-level group. */
 export function anchorRange(src, key, dialect) {
   const tops = groups(src, dialect)
-  const keyRe = new RegExp(`(?<![A-Za-z0-9-])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`)
+  const keyRe = keyPattern(key)
   const start = tops.find(t => keyRe.test(t.title))
   if (!start) return null
   const next = tops.find(t => t.idx > start.idx)

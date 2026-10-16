@@ -78,3 +78,20 @@ test('runs must be a whole number >= 1', async () => {
   assert.equal(r.status, 'pass')
   assert.equal(runnerStr.calls.length, 2)
 })
+
+test('same-named tests in different groups stay apart; with a key, only its block counts', async () => {
+  const at = (path, status) => ({ title: 'shows the total', path, file: 'a.spec.ts', status })
+  // ABC-1's test passes every run; a namesake in ABC-2's block flips.
+  const script = i => ({ ran: true, tests: [at(['ABC-1 Orders'], 'passed'), at(['ABC-2 Old'], i % 2 ? 'failed' : 'passed')] })
+  const all = await run({ specs: ['a.spec.ts'], runs: 4 }, { runTests: runner(script).runTests })
+  assert.deepEqual(all.data.tests.map(t => [t.title, t.verdict]), [['a.spec.ts > ABC-1 Orders > shows the total', 'green'], ['a.spec.ts > ABC-2 Old > shows the total', 'flaky']])
+  const own = await run({ specs: ['a.spec.ts'], runs: 4, key: 'ABC-1' }, { runTests: runner(script).runTests })
+  assert.equal(own.status, 'pass', own.summary)
+})
+
+test('a flaky or real test names its first failure', async () => {
+  const s = i => ({ ran: true, tests: [{ title: 'a', file: 'a.spec.ts', status: i % 2 ? 'failed' : 'passed', message: i % 2 ? `Timeout ${i}` : '' }] })
+  const r = await run({ specs: ['a.spec.ts'], runs: 4 }, { runTests: runner(s).runTests })
+  assert.equal(r.findings[0].detail, '2 pass / 2 fail; first failure: Timeout 1')
+  assert.equal(r.data.tests[0].message, 'Timeout 1')
+})

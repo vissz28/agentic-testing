@@ -341,3 +341,33 @@ test('the adapter picks the runner; an unknown adapter is a crash', async () => 
   const d = repo()
   await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { config: { ...config, adapter: 'jest' } })), /no pipeline for adapter "jest"/)
 })
+
+// Two tickets in one file: ABC-1's block and another ticket's red test.
+test('key scoping: another ticket\'s red test in the same file does not decide; it is named on the card', async () => {
+  const d = repo()
+  const other = { title: 'old bug', path: ['ABC-2 other'], file: 'test/a.spec.ts', status: 'failed', message: 'Expected 3' }
+  const runTests = async a => {
+    const r = await makeRunner(d)(a)
+    return { ...r, tests: [...r.tests.map(t => ({ ...t, path: ['ABC-1 — anchor'] })), ...(a.testName ? [] : [other])] }
+  }
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests }))
+  assert.equal(r.verdict, 'green')
+  const t = r.steps.find(s => s.check === 'tests')
+  assert.equal(t.summary, '1 passed (1 test(s) outside the ABC-1 block not counted)')
+  assert.equal(t.data.otherTickets, 1)
+  // Without a key, every test counts.
+  const all = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { runTests }))
+  assert.equal(all.verdict, 'tests_red')
+})
+test('key scoping: a namesake failing in another block does not kill the mutant', async () => {
+  const d = repo()
+  // The key's test keeps passing on every mutant (it survives); a same-named test elsewhere fails.
+  const runTests = async ({ files, testName }) => ({ ran: true, broken: [], tests: [
+    { title: 'adds', path: ['ABC-1 — anchor'], file: files[0], status: 'passed', message: '' },
+    ...(testName ? [{ title: 'adds', path: ['ABC-9 elsewhere'], file: files[0], status: 'failed', message: 'x' }] : []),
+  ] })
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests }))
+  const m = r.steps.find(s => s.check === 'mutation')
+  assert.equal(m.status, 'fail', m.summary)
+  assert.equal(m.data.killed, 0)
+})

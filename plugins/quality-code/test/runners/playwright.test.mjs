@@ -6,6 +6,9 @@ import { dirname, join } from 'node:path'
 import { configFor, filePattern, parseReport, playwrightRunner, titlePattern } from '../../core/runners/playwright.mjs'
 import { calls, fakeBin } from './fake-bin.mjs'
 
+// The describe path each result carries is checked on its own (below); these compare the rest.
+const bare = x => JSON.parse(JSON.stringify(x, (k, v) => (k === 'path' ? undefined : v)))
+
 const cfg = (playwright = undefined) => ({ adapter: 'playwright', jira: { projects: ['ABC'] }, ...(playwright ? { playwright } : {}) })
 const proj = () => mkdtempSync(join(tmpdir(), 'qc-pw-'))
 // A Playwright test entry (one per project) and a spec, as the JSON reporter writes them.
@@ -55,7 +58,7 @@ test('parseReport: statuses, nested describes, the rootDir join, colour codes st
     spec('slow', 'one.spec.ts', [pt('unexpected', { result: 'timedOut' })]),
     spec('flaky', 'one.spec.ts', [pt('flaky', { message: 'first try failed' })]),
   ], suites: [{ title: 'inner', specs: [spec('deep', 'one.spec.ts', [pt('expected')])] }] }])]), '/p')
-  assert.deepEqual(r.tests, [
+  assert.deepEqual(bare(r.tests), [
     { title: 'top', file: 'e2e/one.spec.ts', status: 'passed', message: '' },
     { title: 'ok', file: 'e2e/one.spec.ts', status: 'passed', message: '' },
     { title: 'bad', file: 'e2e/one.spec.ts', status: 'failed', message: 'expect(received).toBe(expected)' },
@@ -65,6 +68,8 @@ test('parseReport: statuses, nested describes, the rootDir join, colour codes st
     { title: 'flaky', file: 'e2e/one.spec.ts', status: 'failed', message: 'first try failed' },
     { title: 'deep', file: 'e2e/one.spec.ts', status: 'passed', message: '' },
   ])
+  // Each result keeps its describe titles, outermost first: the key block is path[0].
+  assert.deepEqual(r.tests.map(t => t.path), [[], ...Array(6).fill(['ABC-1 orders']), ['ABC-1 orders', 'inner']])
   assert.deepEqual(r.broken, [])
   assert.equal(r.error, undefined)
 })
@@ -77,7 +82,7 @@ test('parseReport: one result per test across projects; failed wins and names it
     spec('one fails', f, [pt('unexpected', { project: 'firefox', message: 'Error: nope' })]),
     spec('skipped in one', f, [pt('skipped', { project: 'chromium', expectedStatus: 'skipped' }), pt('expected', { project: 'firefox' })]),
   ])]), '/p')
-  assert.deepEqual(r.tests, [
+  assert.deepEqual(bare(r.tests), [
     { title: 'both pass', file: 'e2e/a.spec.ts', status: 'passed', message: '' },
     { title: 'one fails', file: 'e2e/a.spec.ts', status: 'failed', message: '[firefox] Error: nope' },
     { title: 'skipped in one', file: 'e2e/a.spec.ts', status: 'passed', message: '' },
@@ -121,7 +126,7 @@ test('runner: argv, environment, report parsed, temp folder deleted, nothing wri
   } finally {
     for (const [k, v] of Object.entries(prev)) if (v === undefined) delete process.env[k]; else process.env[k] = v
   }
-  assert.deepEqual(r, { ran: true, tests: [{ title: 'ok', file: 'e2e/my a.spec.ts', status: 'passed', message: '' }], broken: [] })
+  assert.deepEqual(bare(r), { ran: true, tests: [{ title: 'ok', file: 'e2e/my a.spec.ts', status: 'passed', message: '' }], broken: [] })
   const [argv] = calls(d, 'playwright')
   assert.deepEqual(argv.slice(0, 4), ['test', filePattern('e2e/my a.spec.ts'), '--reporter=json', '--retries=0'])
   const output = argv[argv.indexOf('--output') + 1]
@@ -139,7 +144,7 @@ test('runner: a non-zero exit with a report is still read; projects are passed',
   const d = proj()
   fakeBin(d, 'playwright', { exit: 1, report: report(d, [fileSuite('a.spec.ts', [spec('bad', 'a.spec.ts', [pt('unexpected', { message: 'boom' })])])]) })
   const r = await playwrightRunner(d, cfg({ projects: ['chromium', 'Mobile Safari'] }))({ files: ['a.spec.ts'] })
-  assert.deepEqual(r.tests, [{ title: 'bad', file: 'a.spec.ts', status: 'failed', message: 'boom' }])
+  assert.deepEqual(bare(r.tests), [{ title: 'bad', file: 'a.spec.ts', status: 'failed', message: 'boom' }])
   const [argv] = calls(d, 'playwright')
   assert.deepEqual(argv.filter((a, i) => argv[i - 1] === '--project'), ['chromium', 'Mobile Safari'])
 })
@@ -237,7 +242,7 @@ test('runner: a Playwright mutant run reports the asked title for the temp file'
   const d = proj()
   fakeBin(d, 'playwright', { report: report(d, []), mutantReport: { title: 'adds', status: 'failed' } })
   const r = await playwrightRunner(d, cfg())({ files: ['e2e/mut-tmp-1-ab-cd-a.spec.ts'], testName: 'adds' })
-  assert.deepEqual(r, { ran: true, tests: [{ title: 'adds', file: 'e2e/mut-tmp-1-ab-cd-a.spec.ts', status: 'failed', message: 'mutant' }], broken: [] })
+  assert.deepEqual(bare(r), { ran: true, tests: [{ title: 'adds', file: 'e2e/mut-tmp-1-ab-cd-a.spec.ts', status: 'failed', message: 'mutant' }], broken: [] })
 })
 test('runner: a symlinked project root still gives root-relative file names', async () => {
   const real = realpathSync(proj())

@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from
 import { basename, dirname, join, resolve } from 'node:path'
 import { result } from './result.mjs'
 import { anchorRange } from './suite-honesty.mjs'
+import { inKeyBlock } from './keys.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/
 
@@ -112,7 +113,9 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
         return result('mutation', 'not_run', `cannot write the temp mutant next to the spec: ${String(e?.message ?? e).split('\n')[0]}`)
       }
       const r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs })
-      const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed')) : []
+      // A namesake in another ticket's block never kills this one's mutant. A result with no describe path
+      // is taken as it is: it cannot be in another block.
+      const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || !t.path?.length || inKeyBlock(t, key))) : []
       if (!executed.length) outcomes.push({ ...m, error: true })
       else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
     }

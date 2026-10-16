@@ -50,7 +50,7 @@ export function parseReport(json, root) {
     for (const spec of suite.specs ?? []) {
       const file = fileOf(spec.file ?? suite.file)
       const id = `${file}\0${[...path, spec.title].join('\0')}`
-      const row = merged.get(id) ?? { title: spec.title, file, runs: [] }
+      const row = merged.get(id) ?? { title: spec.title, path, file, runs: [] }
       for (const t of spec.tests ?? []) {
         const last = (t.results ?? []).at(-1) ?? {}
         const status = statusOf(t)
@@ -62,12 +62,12 @@ export function parseReport(json, root) {
     for (const s of suite.suites ?? []) walk(s, [...path, s.title])
   }
   for (const s of json?.suites ?? []) walk(s, [])
-  const tests = [...merged.values()].map(({ title, file, runs }) => {
+  const tests = [...merged.values()].map(({ title, path, file, runs }) => {
     const several = new Set(runs.map(r => r.project)).size > 1
     const failed = runs.find(r => r.status === 'failed')
     const status = failed ? 'failed' : runs.some(r => r.status === 'passed') ? 'passed' : 'skipped'
     const message = failed ? `${several && failed.project ? `[${failed.project}] ` : ''}${failed.message}` : ''
-    return { title, file, status, message }
+    return { title, path, file, status, message }
   })
   const broken = []
   let error

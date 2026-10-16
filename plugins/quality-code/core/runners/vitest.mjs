@@ -33,7 +33,7 @@ export function parseReport(json, root) {
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {
       const status = a.status === 'passed' ? 'passed' : a.status === 'failed' ? 'failed' : 'skipped'
-      tests.push({ title: a.title, file, status, message: status === 'failed' ? firstLine(a.failureMessages?.[0]) : '' })
+      tests.push({ title: a.title, path: a.ancestorTitles ?? [], file, status, message: status === 'failed' ? firstLine(a.failureMessages?.[0]) : '' })
     }
   }
   return { tests, broken }

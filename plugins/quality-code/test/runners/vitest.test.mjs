@@ -6,6 +6,9 @@ import { dirname, join } from 'node:path'
 import { configFor, parseReport, titlePattern, vitestRunner } from '../../core/runners/vitest.mjs'
 import { calls, fakeBin } from './fake-bin.mjs'
 
+// The describe path each result carries is checked on its own (below); these compare the rest.
+const bare = x => JSON.parse(JSON.stringify(x, (k, v) => (k === 'path' ? undefined : v)))
+
 const cfg = (vitest = undefined) => ({ adapter: 'vitest', jira: { projects: ['ABC'] }, ...(vitest ? { vitest } : {}) })
 const proj = () => mkdtempSync(join(tmpdir(), 'qc-run-'))
 const report = (d, files) => ({ testResults: files.map(f => ({ name: join(d, f.file), status: f.status ?? 'passed', message: f.message ?? '', assertionResults: f.tests ?? [] })) })
@@ -31,7 +34,7 @@ test('parseReport: statuses, first failure line, broken files, paths relative to
     { file: 'test/a.spec.ts', tests: [t('ok', 'passed'), t('bad', 'failed', ['Expected 1\n  at x']), t('later', 'todo'), t('off', 'skipped'), t('p', 'pending')] },
     { file: 'test/my b.spec.ts', status: 'failed', message: 'Cannot find module x\n stack' },
   ]), d)
-  assert.deepEqual(r.tests, [
+  assert.deepEqual(bare(r.tests), [
     { title: 'ok', file: 'test/a.spec.ts', status: 'passed', message: '' },
     { title: 'bad', file: 'test/a.spec.ts', status: 'failed', message: 'Expected 1' },
     { title: 'later', file: 'test/a.spec.ts', status: 'skipped', message: '' },
@@ -45,7 +48,7 @@ test('runner: argv, report parsed, temp report deleted, nothing written in the p
   fakeBin(d, 'vitest', { report: report(d, [{ file: 'test/my a.spec.ts', tests: [t('ok', 'passed')] }]) })
   const before = readdirSync(d).sort()
   const r = await vitestRunner(d, cfg())({ files: ['test/my a.spec.ts'], testName: 'ok', timeoutMs: 10000 })
-  assert.deepEqual(r, { ran: true, tests: [{ title: 'ok', file: 'test/my a.spec.ts', status: 'passed', message: '' }], broken: [] })
+  assert.deepEqual(bare(r), { ran: true, tests: [{ title: 'ok', file: 'test/my a.spec.ts', status: 'passed', message: '' }], broken: [] })
   const [argv] = calls(d, 'vitest')
   assert.deepEqual(argv.slice(0, 3), ['run', 'test/my a.spec.ts', '--reporter=json'])
   const out = argv.find(a => a.startsWith('--outputFile=')).slice(13)
@@ -143,7 +146,7 @@ test('timeout message uses milliseconds below one second', async () => {
 test('parseReport: a failed file whose tests did not fail (beforeAll error) is also broken, keeping its tests', () => {
   const d = '/p'
   const r = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'beforeAll blew up\n at x', tests: [t('x', 'skipped')] }]), d)
-  assert.deepEqual(r.tests, [{ title: 'x', file: 'a.spec.ts', status: 'skipped', message: '' }])
+  assert.deepEqual(bare(r.tests), [{ title: 'x', file: 'a.spec.ts', status: 'skipped', message: '' }])
   assert.deepEqual(r.broken, [{ file: 'a.spec.ts', message: 'beforeAll blew up' }])
   const ok = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'm', tests: [t('x', 'failed', ['e'])] }]), d)
   assert.deepEqual(ok.broken, [])
@@ -173,4 +176,12 @@ test('runner: a symlinked project root still gives root-relative file names', as
   fakeBin(real, 'vitest', { report: report(real, [{ file: 'test/a.test.ts', tests: [t('ok', 'passed')] }]) })
   const r = await vitestRunner(link, cfg())({ files: ['test/a.test.ts'] })
   assert.deepEqual(r.tests.map(x => x.file), ['test/a.test.ts'])
+})
+
+test('parseReport: each result keeps its describe titles, outermost first', () => {
+  const r = parseReport({ testResults: [{ name: '/p/a.spec.ts', status: 'passed', assertionResults: [
+    { title: 'adds', ancestorTitles: ['ABC-1 Pricing', 'totals'], status: 'passed' },
+    { title: 'loose', status: 'passed' },
+  ] }] }, '/p')
+  assert.deepEqual(r.tests.map(t => t.path), [['ABC-1 Pricing', 'totals'], []])
 })
