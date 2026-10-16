@@ -9,6 +9,65 @@ Update with `/plugin update quality-code@quality-code`.
 
 ## [Unreleased]
 
+### Added
+
+- **Fullstack projects: one plugin for frontend and backend.** `"adapter": "fullstack"` runs Vitest
+  and Playwright in one repo: the e2e folder's specs under Playwright, every other spec under Vitest,
+  in one check run with one verdict (the card names both runners; the expected-values check reads both
+  sides together). A ticket is frontend, backend or fullstack from its title prefix or labels
+  (`[FE]`, `[BE]`, `[FS]` by default, `sides` in the config), scored with its side's rubric (a
+  fullstack or unmarked ticket with both; the lower decides) and written with its side's tests.
+  ticket-eval asks the side of an unmarked ticket once; `cli.mjs side` saves it with the ticket.
+  `/quality-code:setup` offers fullstack when a repo has both runners.
+- `/quality-code:ticket`: find tickets by key, number, words or filters (`assignee:me`, `status:`,
+  `label:`, `epic:`), show one in short, and suggest what its author could add. Read-only on Jira.
+- **Frozen evals**: `/quality-code:check --evals` (`core/evals.mjs`) checks chosen tickets' committed
+  specs against `.claude/quality-code/evals/<KEY>/expected.json` (and a frozen ticket in
+  `input.json`). Reads the old backend and frontend fixtures as they are.
+- **Quality Program numbers on `/quality-code:kpi`**: traceability, completeness, suite honesty,
+  gate integrity, adoption, coverage and the mean mutation kill rate, each against its target.
+- The card lists each test (the ticket's, then the extras) with a red one's reason; a red run on a
+  ticket Jira calls finished says the bug is still there; with a key, a developer log is written to
+  `<ticketsDir>/<KEY>/run.md` and linked from the card.
+- `branch.mjs --merged <KEY>`: a merged ticket's change, from its merge commit (or the commits that
+  name it), used by `write` when the branch shows no change.
+- `write`: each planned scenario says what it checks; `--ask` offers "No, I'll type the right result"
+  (added to the ticket, never only to a test); `--dry-run` and `--ci`; a closing card with "That's not
+  what I see in the app", which never weakens a test. Every command reads `sì`, `ok`, `va bene`,
+  `stop`, `basta`, and answers in the user's (or the ticket's) language.
+- `--expected @file` on the pipeline: the values the writer says its tests pin, grounded in the
+  ticket; `write` saves them in `<ticketsDir>/<KEY>/expected.json` and `/check` reuses them.
+- `seed.guide` (the team's seeding rules) and `qaPlans` (a folder of `<feature label>.md` QA plans
+  `write` reads as extra rules) in the config.
+- `/quality-code:setup` finds a Playwright config up to two folders down; the e2e folder comes from a
+  configured config's `testDir`.
+- `cli.mjs risk-comment --in @ticket.json`, and `jira-posted <KEY> risk`.
+
+### Changed
+
+- **The expected-values check is closer to the old backend one.** A negated matcher or a
+  commented-out `expect` asserts nothing; a field the Then names (`unit_cost`) must be read in a
+  Vitest assertion; a bug test that asserts the reported wrong result is named as such;
+  `toBeCloseTo`, the comparisons and `toHaveLength` pin values too.
+- **The ticket key scopes a check.** Another ticket's test in the same file no longer decides the
+  verdict, a namesake in another block never kills a mutant, and the flaky check keeps same-named
+  tests in different groups apart and names a flaky test's first failure.
+- `/quality-code:check` passes the ticket, the pinned values and the target `write` saved, so the
+  expected-values and Stryker steps run there too.
+- The audit log keeps each step's numbers (mutation, Stryker, honesty, expected values) and the
+  run's flags, so the Quality Program numbers can be rebuilt.
+- `gitlab_api_url` defaults to `https://gitlab.com/api/v4`, not one team's GitLab.
+- Rollout configs: the frontend's features use the app's routes and carry their QA-plan search
+  words, its Playwright and seed guides are set; the backend's layers read the old layers guide, with
+  the seed builders, a `test/repro/` layer, the QA-plan folder and a reason on every boundary. The
+  switch guide moves the old guides into `.claude/quality-code/guides/`.
+
+- **Every way past a refused ticket now leaves a trace on Jira**, each after a preview and a yes.
+  Option 2: when the filled-in ticket passes, the preview of what goes to Jira comes straight away
+  (no more "also add what you typed?" card). Option 3: once the tests are written, `write` shows a
+  risk note (the score against the bar, the 🔴 mark, what is still missing) and posts it on a yes; a
+  re-run updates the same note. `/quality-code:kpi` counts risk notes on its Jira line.
+
 ### Fixed
 
 - **The plugin's Bug template can pass the gate.** It had no Acceptance criteria section, so a Bug

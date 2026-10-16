@@ -67,7 +67,7 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 | Card | What you choose | Example |
 |---|---|---|
 | Connectors | Jira must be connected; GitLab is optional, and so is Figma (Playwright projects only), by browser sign-in or token | ✅ Jira |
-| This project | confirm the folder, the stack (from `package.json`) and the GitLab project | `orders-app`, Vitest |
+| This project | confirm the folder, the stack (from `package.json`) and the GitLab project. A repo with both Vitest and Playwright is asked: fullstack, frontend only or backend only | `orders-app`, Vitest |
 | Jira | the site and your project key(s) | `ABC` |
 
 At the end you see the config and choose `1. Write it / 2. Change something / 3. Cancel`. Nothing
@@ -148,18 +148,20 @@ Type the numbers you want to fill, for example: 1 3
 1. Type the numbers, for example `1 2`. It tells you whether that is enough to reach 70.
 2. Answer one question per item, or type `skip`.
 3. **The script decides whether an answer counts.** If it doesn't, you see why and can try again.
-4. When the ticket passes, you can **add what you typed to the real Jira ticket**. You see a preview
-   first. Your text is only appended, and nothing already on the ticket changes.
+4. When the ticket passes, **what you typed goes to the real Jira ticket** next. You see a preview
+   first and confirm it (or skip it). Your text is only appended, and nothing already on the ticket
+   changes.
 
 ### Option 3: continue anyway
 
-Only for developers who know the risk. Nothing is posted. If you came from `/quality-code:write`,
-the tests are still written, but the result card opens with `🔴 [RISK / NOT RECOMMENDED] Ticket
-incomplete` and the override is recorded.
+Only for developers who know the risk. The tests are still written, but the result card opens with
+`🔴 [RISK / NOT RECOMMENDED] Ticket incomplete` and the override is recorded. At the end you see a
+short note for the Jira ticket saying tests were written on an incomplete ticket; it is posted only
+when you confirm.
 
 ---
 
-## Checking tests (Vitest and Playwright projects)
+## Checking tests (Vitest, Playwright and fullstack projects)
 
 Once your branch has test files, run:
 
@@ -182,10 +184,14 @@ tests and the checks. This can take a few minutes. You get one card with a verdi
 The check never edits your tests or code and writes nothing into the repo, apart from Vitest's own
 cache and short-lived temporary copies of the spec that the mutation check makes next to it. If your
 repo has more than one Vitest config, `/quality-code:setup advanced` asks which config runs which tests.
+On a fullstack project the specs of the e2e folder run under Playwright and the others under Vitest,
+in the same run. With a ticket key, only that ticket's tests count: another ticket's red test in the
+same file does not change your verdict. The card lists each test, and with a key a longer log is
+written next to the ticket (`Full details:` on the card).
 
 ---
 
-## Writing tests (Vitest and Playwright projects)
+## Writing tests (Vitest, Playwright and fullstack projects)
 
 To have the tests written from the ticket, run:
 
@@ -199,9 +205,11 @@ Or pick `Write and check tests` in `/quality-code:start`. It goes like this:
    until it passes and writing goes on; otherwise nothing is written.
 2. **Which code?** It proposes the source file the ticket changes: `1. <path> / 2. <path> /
    3. Another file / 4. Stop`. Add `--target src/pricing.ts` to skip this card.
-3. **The plan.** One line per scenario of the ticket, with the test folder it goes in:
-   `1. Write these tests / 2. Change the layers / 3. Stop`. The folders come from
-   `/quality-code:setup advanced`; by default it is `test/`.
+3. **The plan.** One line per scenario of the ticket, with the test folder it goes in and what it
+   checks (`We check: the total is 108.00`). The folders come from `/quality-code:setup advanced`; by
+   default it is `test/`. With `--ask` you choose: `1. Write these tests / 2. Change the layers /
+   3. No, I'll type the right result / 4. Stop`. A result you type is added to the ticket, never only
+   to a test.
 4. **The tests are written** in those folders only, with the real expected values from the ticket.
    Your code is never changed.
 5. **The checks run**, as in `/quality-code:check`, plus two more: every expected value from the
@@ -209,6 +217,12 @@ Or pick `Write and check tests` in `/quality-code:start`. It goes like this:
    changes to the code. A fixable problem gets up to two rewrites of the tests; then you see the card.
 
 For a bug, `🔴 tests red` is normal: the card says the test should go green when the fix is merged.
+At the end you get `1. Done / 2. That's not what I see in the app / 3. Another ticket`: tell it what
+you see, and it says whether that is a finding for the ticket's author or a ticket to fix first. It
+never changes a test to match the app.
+
+On a fullstack project the ticket's side decides what is written: `[FE]` gets Playwright tests of a
+screen, `[BE]` Vitest tests of the code, `[FS]` both. A ticket with no mark gets one question first.
 
 If you see `Another test-writing run is active.`, an earlier run did not finish: pick `1` to stop it
 and start yours.
@@ -260,8 +274,11 @@ What does **not** count:
 | `/quality-code:write ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
 | `/quality-code:write ABC-123 --layer unit` | writes only in the `unit` test folder |
 | `/quality-code:write ABC-123 --route /orders` | Playwright: writes the tests for the `/orders` screen |
+| `/quality-code:write ABC-123 --dry-run` | checks the ticket and shows the plan, then stops: nothing is written |
+| `/quality-code:ticket ABC-123` | the ticket in short, with suggestions for its author (nothing is posted) |
+| `/quality-code:check --evals` | the frozen evals: chosen tickets' specs must keep pinning what they pin |
 | `/quality-code:seed ABC-123` | writes only the test data the ticket needs |
-| `/quality-code:kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days |
+| `/quality-code:kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days, and the Quality Program numbers |
 | `/quality-code:consumption --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |
 
 ---
