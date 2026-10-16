@@ -261,7 +261,7 @@ test('stryker: over the bar passes, under it is checks_failed, with the target a
   assert.equal(bad.decidedBy, 'stryker')
   assert.equal(bad.steps.at(-1).summary, '80% of code changes caught, the bar is 90%')
 })
-test('stryker: not installed is not applicable; an error or no mutants is not_run; red tests still run it; not run tests skip it', async () => {
+test('stryker: not installed is not applicable; an error or no mutants is not_run; red tests skip it as not applicable; not run tests skip it', async () => {
   const d = repo()
   const go = (r, extra = {}) => runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker(r), ...extra }))
   const na = await go({ ran: false, error: 'Stryker is not installed' })
@@ -274,9 +274,12 @@ test('stryker: not installed is not applicable; an error or no mutants is not_ru
   const none = await go({ ran: true, score: null, killed: 0, survived: 0, timeout: 0, noCoverage: 0 })
   assert.equal(none.steps.at(-1).status, 'not_run')
   const calls = []
-  const red = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { red: true }), runStryker: stryker({ ran: true, score: 100, killed: 1, survived: 0, timeout: 0, noCoverage: 0 }, calls) }))
+  // Real Stryker refuses a red first run; were it called, this verdict would be not_verified.
+  const red = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { red: true }), runStryker: stryker({ ran: false, error: 'There were failed tests in the initial test run.' }, calls) }))
   assert.equal(red.verdict, 'tests_red')
-  assert.equal(calls.length, 1)
+  assert.equal(calls.length, 0)
+  assert.equal(red.steps.at(-1).summary, 'not applicable: the tests are red (see tests)')
+  assert.equal(red.steps.at(-1).data.applicable, false)
   const down = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runTests: makeRunner(d, { ran: false }), runStryker: stryker({ ran: true, score: 100 }) }))
   assert.equal(down.steps.at(-1).summary, 'skipped: the tests did not run')
 })

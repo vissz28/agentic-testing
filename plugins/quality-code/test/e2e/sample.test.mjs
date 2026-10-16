@@ -54,7 +54,8 @@ test('the story DEMO-1 is green, Stryker included', { skip, timeout: LONG }, t =
 
 test('the bug DEMO-2 is red: the rounding bug is real', { skip, timeout: LONG }, t => {
   installed()
-  const r = pipeline(SAMPLE, ['test/unit/vat.demo-2.spec.ts', '--key', 'DEMO-2', '--ticket', '@tickets/DEMO-2.json'])
+  // With --target, as write passes it: Stryker cannot start on a red run, so it must not decide the verdict.
+  const r = pipeline(SAMPLE, ['test/unit/vat.demo-2.spec.ts', '--key', 'DEMO-2', '--ticket', '@tickets/DEMO-2.json', '--target', 'src/vat.ts'])
   t.diagnostic(r.card)
   assert.equal(r.outcome.verdict, 'tests_red', r.card)
   assert.equal(r.outcome.decidedBy, 'tests')
@@ -63,6 +64,7 @@ test('the bug DEMO-2 is red: the rounding bug is real', { skip, timeout: LONG },
   assert.deepEqual({ passed: tests.data.passed, failed: tests.data.failed }, { passed: 1, failed: 3 })
   assert.deepEqual(tests.findings.map(f => f.test).sort(), ['half a cent rounds up', 'half a cent rounds up at the reduced rate', 'the gross total includes the rounded VAT'])
   assert.equal(r.step('expected').status, 'pass')
+  assert.equal(r.step('stryker').data.applicable, false, r.step('stryker').summary)
   noTempSpecs(SAMPLE)
 })
 

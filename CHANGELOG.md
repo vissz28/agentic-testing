@@ -14,6 +14,10 @@ Update with `/plugin update quality-code@quality-code`.
 - **The plugin's Bug template can pass the gate.** It had no Acceptance criteria section, so a Bug
   filled in completely scored 55 (Vitest) or 40 (Playwright) and was always refused. It now has one,
   with a Gherkin and a plain-language example.
+- **A red Bug test ends as 🔴 tests red, not ⚠️ not verified.** `write` passes `--target`, so
+  Stryker ran on the red spec, could not start (its first run must be all green) and decided the
+  verdict. Stryker is now "not applicable" when the tests are red. The DEMO-2 end-to-end test passes
+  `--target` too, so it catches this.
 
 ## [0.11.0] - 2026-10-15
 

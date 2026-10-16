@@ -272,8 +272,9 @@ The steps, always in this order:
    text in the ticket's Then / Expected lines is asserted in the ticket's block.
 7. **mutation**: each assertion is broken on purpose and the test must fail.
 8. **flaky**: only with `--flaky`.
-9. **stryker**: only with `--target` (used by `/quality-code:write`) and when the project has
-   `node_modules/.bin/stryker`. Stryker changes the target code and the tests must catch at least
+9. **stryker**: only with `--target` (used by `/quality-code:write`), when the project has
+   `node_modules/.bin/stryker`, and when the tests are not red (Stryker needs a green first run;
+   red tests already show they can fail). Stryker changes the target code and the tests must catch at least
    `vitest.stryker.threshold` percent of the changes (default 60). Otherwise it is "not applicable"
    and left off the card.
 
@@ -656,8 +657,8 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
   one e2e folder per project (`playwright.folder`).
 - **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
   end-to-end tests.
-- **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, or without a target
-  file, the Stryker step is "not applicable".
+- **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, without a target
+  file, or when the tests are red, the Stryker step is "not applicable".
 - **Stacks:** Playwright and Vitest only. Other runners are possible later as new adapters.
 - **Jira:** Jira Cloud through the Atlassian connector.
 - **Languages:** English and Italian keywords.

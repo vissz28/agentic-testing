@@ -90,6 +90,8 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = []) {
   const na = why => result('stryker', 'pass', `not applicable: ${why}`, [], { applicable: false, target })
   if (!target) return na('no target file')
   if (tests.status === 'not_run') return result('stryker', 'not_run', 'skipped: the tests did not run', [], { applicable: true, target })
+  // Stryker's first run must be all green: a red bug spec cannot start it, and the red tests already show they can fail.
+  if (tests.status === 'fail') return na('the tests are red (see tests)')
   const runStryker = ctx.runStryker ?? realRunStryker
   const r = await runStryker(ctx.root, { target, specs, timeoutMs })
   if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
