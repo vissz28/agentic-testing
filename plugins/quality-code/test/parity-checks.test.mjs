@@ -39,7 +39,7 @@ describe('boundary', () => {
     // Ruling §9 (16): dist/ and node_modules/ are always forbidden; the old frontend guard did not know them.
     // The old backend guard forbade every .env.* (startsWith('.env.')), .env.example included; the old
     // frontend guard allowed .env.example, which documents and points nowhere. The merged one follows
-    // the frontend: a pattern never forbids an env template (CHANGELOG, Unreleased).
+    // the frontend: a pattern never forbids an env template (CHANGELOG, 0.12.0).
     const expectForbidden = b.repo === 'fe' && /^(dist|node_modules)\//.test(b.path) ? true
       : b.repo === 'be' && b.path === '.env.example' ? false : b.forbidden
     // Ruling §9 (12): a bare `src` (no slash) was allowed by the old backend guard (startsWith('src/'))

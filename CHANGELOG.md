@@ -7,7 +7,7 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
-## [Unreleased]
+## [0.12.0] - 2026-10-16
 
 ### Added
 
