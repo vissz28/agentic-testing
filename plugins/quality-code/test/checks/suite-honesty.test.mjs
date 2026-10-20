@@ -129,3 +129,12 @@ test('grade --key with several specs names the files that had no block', () => {
   assert.match(bad.summary, /\(no ABC-1 block in b\.spec\.ts\)$/)
   assert.doesNotMatch(grade([{ path: 'a.spec.ts', src: a }], { key: 'ABC-1' }, V).summary, /no ABC-1 block/)
 })
+
+test('with a key and no block for it, the top-level tests named with the key are graded (older specs)', () => {
+  const src = "test('ABC-1-1 shows the total', async ({ page }) => { await expect(page.getByText('1')).toBeVisible() })\ntest('ABC-1-2 hollow', async () => {})\ntest('ABC-12-1 other ticket', async () => {})\n"
+  const r = grade([{ path: 'e2e/a.spec.ts', src }], { key: 'ABC-1' }, dialectFor('playwright'))
+  assert.equal(r.status, 'fail')
+  assert.equal(r.data.tests, 2, 'ABC-12 is another ticket')
+  assert.deepEqual(r.findings.map(f => f.test), ['ABC-1-2 hollow'])
+  assert.equal(grade([{ path: 'e2e/a.spec.ts', src }], { key: 'ABC-9' }, dialectFor('playwright')).status, 'not_run')
+})

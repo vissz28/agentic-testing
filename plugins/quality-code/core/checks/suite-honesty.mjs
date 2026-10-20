@@ -60,9 +60,11 @@ export function grade(files, { key = null } = {}, dialect) {
   for (const { path, src } of files) {
     let tests = scoreSpec(src, dialect)
     if (key) {
+      // The key's block, else (older specs: test('ABC-1-1 …') at the top level) the tests named with the key.
       const r = anchorRange(src, key, dialect)
-      if (!r) { missingFiles.push(path); continue }
-      tests = tests.filter(t => t.idx >= r[0] && t.idx < r[1])
+      const named = r ? [] : tests.filter(t => keyPattern(key).test(t.title))
+      if (!r && !named.length) { missingFiles.push(path); continue }
+      tests = r ? tests.filter(t => t.idx >= r[0] && t.idx < r[1]) : named
     }
     for (const t of tests) {
       if (t.capture) { capture++; continue }
