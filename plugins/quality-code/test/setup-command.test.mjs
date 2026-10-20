@@ -140,5 +140,6 @@ test('fullstack: a repo with both asks what the project is; sides, Playwright co
   assert.match(doc, /\*\*Ticket sides\*\* \(only for `fullstack`\)/)
   assert.match(doc, /\*\*Where Playwright runs\.\*\* Only for `playwright` and `fullstack`, and only when `playwrightConfigs`/)
   assert.match(doc, /For `fullstack`, leave out the e2e folder/)
+  assert.ok(doc.includes('With no config at all (`playwrightConfigs` is empty), say once and go on: `No Playwright config found. The tests need one with a baseURL, and a webServer or the app already running: npm init playwright@latest creates it.`'))
   assert.match(doc, /the path the app's router uses \(for example `\/productsStock`\), not a folder name/)
 })
