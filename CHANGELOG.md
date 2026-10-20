@@ -7,6 +7,23 @@ things, and says so here).
 
 Update with `/plugin update quality-code@quality-code`.
 
+## [Unreleased]
+
+### Added
+
+- **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
+  adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
+  cases alone, with no test. `core/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
+  ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
+  project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
+  names. The same rows the old in-repo harness wrote: its CSV is read as it is.
+- `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
+  linked to that ticket (with an `xray` block).
+
+### Upgrading
+
+- Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
+
 ## [0.12.0] - 2026-10-16
 
 ### Added

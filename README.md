@@ -66,6 +66,7 @@ a whole team on board: [Onboarding](docs/ONBOARDING.md), one page with a team le
 |---|---|
 | A Jira Cloud project you can read (and comment on, to post refuse comments) | A specific folder layout, branch model or CI system |
 | `@playwright/test` or `vitest` in `package.json`, or both (a fullstack repo) | A dedicated Jira field: criteria can live in the description |
+| For Playwright: a Playwright config with a `baseURL`, and a `webServer` or the app already running (`npm init playwright@latest` creates one). An app behind a login also needs a fixture that signs in, used by your specs: `write` copies it from them | Existing specs: on a project with none, `write` uses plain `@playwright/test` |
 | Node 18 or newer | Feature labels or title prefixes: setup offers them, both are optional |
 | Claude Code with plugin support | Changes to your application code |
 
@@ -119,6 +120,7 @@ Playwright test).
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Vitest) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Playwright) |
 | Write only the test data a ticket needs: seed builder calls (Vitest) or route stubs (Playwright) | `/quality-code:seed <KEY> [--path <spec>]` | ✅ available |
+| XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
 | How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:kpi` | ✅ available |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
 
@@ -455,6 +457,24 @@ from a stub you already have (`seed.stubsFrom`). With `seed.dataset`, a document
 ids and values come first, and `seed.guide` adds the team's own seeding rules. It prints the block,
 or puts it into an existing spec's setup with `--path`. It never invents a builder, a shape or a value, and never writes to a database.
 
+### XRay test cases
+
+With an `xray` block in the config (Playwright and fullstack projects), each Playwright test `write`
+writes also becomes an XRay test case, and `/quality-code:xray ABC-123` writes the cases alone, with
+no test (QA's cases before the tests exist). A case is the test's steps in plain words (action, data,
+expected result), named after its test (`Automated: <test name>` in its Description) and linked to
+the ticket. `core/xray.mjs` appends the cases to `xray.csv`, the record of every case, numbered per
+ticket (TC ID), and skips a case that is already there. Then it writes the ticket's `case.csv`, and
+`case.xlsx` when the project has `exceljs` installed, in `<xray.folder><KEY>/`, for QA to import
+(Xray: Test Repository, Import, Excel or CSV). One row per step, the metadata on the first row, and
+`Test Type` `Cucumber`. `xray.headers` renames the columns to match your import mapping, and
+`/quality-code:xray --sync` rewrites the per-ticket files from the CSV. An eval fixture with a
+`requirement` also checks, with `check --evals`, that each of its tests has a case linked to that ticket.
+
+```json
+"xray": { "csv": "qa/xray-cases.csv", "folder": "qa/tickets/", "headers": { "ticket": "Linked Issues" } }
+```
+
 ### What the plugin did here: `/quality-code:kpi`
 
 ```
@@ -657,6 +677,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `version` | always `1` | required |
 | `adapter` | `playwright` (frontend), `vitest` (backend) or `fullstack` (both) | required |
 | `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
+| `xray` | Playwright and fullstack: XRay test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
 | `jira.site` | your Jira site, `https://…`, no path | required |
 | `jira.projects` | project keys whose tickets you check (`ABC`) | required |
@@ -671,7 +692,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `seed` | optional: `builders` (Vitest: the files with your seed builders), `dataset` (a `.md` documenting a known test dataset), `stubsFrom` (Playwright: the folder whose specs hold your route stubs), `guide` (a `.md` with your own seeding rules) | none |
 | `vitest` | Vitest and fullstack: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
-| `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. Used only when the project has `node_modules/.bin/stryker` | `60` |
+| `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
@@ -752,8 +773,9 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 
 ## Known limits
 
-- **Playwright writing covers behaviour only.** No design (Figma) captures and no XRay rows yet;
-  one e2e folder per project (`playwright.folder`).
+- **Playwright writing covers behaviour only.** No design (Figma) captures yet; one e2e folder per
+  project (`playwright.folder`).
+- **XRay test cases are files to import.** Nothing is sent to Xray, and only Playwright tests get one.
 - **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
   end-to-end tests.
 - **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, without a target
@@ -762,7 +784,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 - **Not ported from the old warehouse harnesses, on purpose:** grading each spec file alone in the
   expected-values check (the plugin splits a ticket's scenarios across layers, and across sides on a
   fullstack ticket), its Italian/English rule and its warehouse-specific `hollow_target` check; reading
-  QA's `.xlsx` cases and the export-only `--qa-only` (both belong with XRay rows, not scheduled);
+  QA's `.xlsx` cases and the export-only `--qa-only` (not scheduled);
   scoping Stryker to the ticket key (the plugin writes one spec file per ticket, so another ticket's
   test is rarely in it).
 - **Jira:** Jira Cloud through the Atlassian connector.
@@ -793,7 +815,7 @@ items, not promises:
 
 - reading merge-request links from the Jira development panel (a merged ticket's change is found
   from its merge commit instead);
-- design (Figma) captures and XRay rows for Playwright tests.
+- design (Figma) captures for Playwright tests.
 
 Seeding, the audit log with `/quality-code:kpi`, and what option 3 leads to were decided on 14 Oct
 and ship in 0.8.0 (see the part 5 spec, §8).
@@ -846,11 +868,11 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, start.md, ticket-eval.md, write.md
+│     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, start.md, ticket-eval.md, write.md, xray.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
 │     │                                rubrics, score, sanitize, fill, jira, fields, messages,
-│     │                                cli, setup, branch, connectors.md
+│     │                                cli, setup, branch, xray, connectors.md
 │     │  ├─ checks/                    boundary, honesty, suite-honesty, expected, flaky, mutation,
 │     │  │                             the run marker (run) and their CLI
 │     │  ├─ guides/                    vitest-writing.md, the rules /quality-code:write follows
