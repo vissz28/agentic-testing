@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { parseStrykerReport, projectStrykerConfig, runStryker, strykerConfigSource } from '../../core/runners/stryker.mjs'
+import { linkedFolders, parseStrykerReport, projectStrykerConfig, runStryker, strykerConfigSource, vitestConfigSource } from '../../core/runners/stryker.mjs'
+import { execFileSync } from 'node:child_process'
 import { calls, fakeBin } from './fake-bin.mjs'
 
 const proj = () => mkdtempSync(join(tmpdir(), 'qc-stryker-run-'))
@@ -17,15 +18,15 @@ const outOf = argv => join(dirname(argv[1]), 'mutation.json')
 
 test('parseStrykerReport: counts per status, score over killed, survived, timeout and no coverage', () => {
   const r = parseStrykerReport(report('Killed', 'Killed', 'Killed', 'Survived', 'Timeout', 'NoCoverage', 'CompileError', 'RuntimeError', 'Ignored', 'Pending'))
-  assert.deepEqual(r, { killed: 3, survived: 1, timeout: 1, noCoverage: 1, score: 50 })
+  assert.deepEqual(r, { killed: 3, survived: 1, timeout: 1, noCoverage: 1, untested: 0, score: 66.7 }, 'a timeout is caught, as in Stryker\'s own score')
   assert.equal(parseStrykerReport(report('Killed', 'Killed', 'Survived')).score, 66.7)
 })
 test('parseStrykerReport: mutants across files add up', () => {
   const json = { files: { 'a.ts': { mutants: [{ status: 'Killed' }] }, 'b.ts': { mutants: [{ status: 'Survived' }, { status: 'Killed' }, { status: 'Killed' }] } } }
-  assert.deepEqual(parseStrykerReport(json), { killed: 3, survived: 1, timeout: 0, noCoverage: 0, score: 75 })
+  assert.deepEqual(parseStrykerReport(json), { killed: 3, survived: 1, timeout: 0, noCoverage: 0, untested: 0, score: 75 })
 })
 test('parseStrykerReport: zero counted mutants gives a null score', () => {
-  const zero = { killed: 0, survived: 0, timeout: 0, noCoverage: 0, score: null }
+  const zero = { killed: 0, survived: 0, timeout: 0, noCoverage: 0, untested: 0, score: null }
   assert.deepEqual(parseStrykerReport(report()), zero)
   assert.deepEqual(parseStrykerReport(report('CompileError', 'Ignored')), zero)
   assert.deepEqual(parseStrykerReport({}), zero)
@@ -36,7 +37,7 @@ test('runner: argv, cwd, score read from the report, temp dir removed, nothing w
   fakeBin(d, 'stryker', { report: report('Killed', 'Survived', 'Killed', 'NoCoverage') })
   const before = readdirSync(d).sort()
   const r = await runStryker(d, { target: 'src/my a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000 })
-  assert.deepEqual(r, { ran: true, killed: 2, survived: 1, timeout: 0, noCoverage: 1, score: 50 })
+  assert.deepEqual(r, { ran: true, killed: 2, survived: 1, timeout: 0, noCoverage: 1, untested: 0, score: 50 })
   const [argv] = calls(d, 'stryker')
   const out = outOf(argv)
   const tmp = dirname(out)
@@ -101,7 +102,7 @@ test('config: a JS config is imported, and Stryker\'s own name order picks the f
 test('runner: zero mutants → ran with a null score', async () => {
   const d = proj()
   fakeBin(d, 'stryker', { report: report() })
-  assert.deepEqual(await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000 }), { ran: true, killed: 0, survived: 0, timeout: 0, noCoverage: 0, score: null })
+  assert.deepEqual(await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000 }), { ran: true, killed: 0, survived: 0, timeout: 0, noCoverage: 0, untested: 0, score: null })
 })
 test('runner: a non-zero exit with a report is still read', async () => {
   const d = proj()
@@ -163,4 +164,56 @@ test('runner: a spawn that throws gives ran false and leaks no temp dir', async 
   } finally {
     if (prev === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = prev
   }
+})
+
+test('config: the specs\' Vitest config and the folders to leave out of the sandbox; the team\'s own config wins', async () => {
+  const d = proj()
+  const dir = mkdtempSync(join(tmpdir(), 'qc-stryker-cfg-'))
+  const f = join(dir, 'stryker.config.mjs')
+  writeFileSync(join(d, 'stryker.config.json'), JSON.stringify({ ignorePatterns: ['/media'] }))
+  writeFileSync(f, strykerConfigSource(d, '/o.json', { vitestConfig: 'vitest.config.db.ts', ignore: ['/.claude/skills/x'] }))
+  assert.deepEqual((await import(pathToFileURL(f).href)).default, { vitest: { configFile: 'vitest.config.db.ts' }, ignorePatterns: ['/media', '/.claude/skills/x'], jsonReporter: { fileName: '/o.json' } })
+  const g = join(dir, 'own.mjs')
+  writeFileSync(join(d, 'stryker.config.json'), JSON.stringify({ vitest: { configFile: 'vitest.mine.ts' } }))
+  writeFileSync(g, strykerConfigSource(d, '/o.json', { vitestConfig: 'vitest.config.db.ts' }))
+  assert.deepEqual((await import(pathToFileURL(g).href)).default.vitest, { configFile: 'vitest.mine.ts' })
+})
+test('linkedFolders: the tracked symlinks to folders, not to files, not untracked ones', () => {
+  const d = proj()
+  execFileSync('git', ['init', '-q'], { cwd: d })
+  mkdirSync(join(d, 'real'))
+  writeFileSync(join(d, 'file.txt'), 'x')
+  symlinkSync('real', join(d, 'dirlink'))
+  symlinkSync('file.txt', join(d, 'filelink'))
+  execFileSync('git', ['add', 'dirlink', 'filelink', 'file.txt'], { cwd: d })
+  symlinkSync('real', join(d, 'untracked'))
+  assert.deepEqual(linkedFolders(d), ['/dirlink'])
+  assert.deepEqual(linkedFolders(proj()), [])
+})
+test('runner: no report → the line that names the error, not Node\'s stack frame', async () => {
+  const d = proj()
+  fakeBin(d, 'stryker', { exit: 1, stderr: 'node:internal/process/promises:394\n    triggerUncaughtException(err, true)\n\nError: ENOTSUP: operation not supported on socket, copyfile \'a\' -> \'b\'\n  at x' })
+  assert.deepEqual(await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000 }), { ran: false, error: "Error: ENOTSUP: operation not supported on socket, copyfile 'a' -> 'b'" })
+})
+
+test('parseStrykerReport: a survivor no test ran against is untested', () => {
+  const json = { files: { 'a.ts': { mutants: [{ status: 'Survived', testsCompleted: 0 }, { status: 'Survived', testsCompleted: 2 }, { status: 'Survived' }] } } }
+  assert.equal(parseStrykerReport(json).untested, 1)
+})
+test('vitestConfigSource: the specs\' config with only the specs, the key as a name filter; a function config is called', () => {
+  assert.equal(vitestConfigSource('vitest.config.db.ts', ['test/a.spec.ts'], 'ABC-1.2'),
+    'import own from "./vitest.config.db.ts"\nconst scoped = base => ({ ...base, test: { ...base.test, include: ["test/a.spec.ts"], testNamePattern: "ABC-1\\\\.2" } })\nexport default typeof own === \'function\' ? env => Promise.resolve(own(env)).then(scoped) : scoped(own)\n')
+  assert.equal(vitestConfigSource(null, ['t.spec.ts'], null), 'export default { test: { include: ["t.spec.ts"] } }\n')
+})
+test('runner: Stryker runs a scoped Vitest config next to the project\'s, removed afterwards', async () => {
+  const d = proj()
+  writeFileSync(join(d, 'vitest.config.ts'), 'export default {}\n')
+  fakeBin(d, 'stryker', { report: report('Killed') })
+  const r = await runStryker(d, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000, key: 'ABC-1' })
+  assert.equal(r.ran, true)
+  assert.deepEqual(readdirSync(d).filter(n => n.startsWith('mut-tmp-')), [], 'the scoped config is removed')
+  const d2 = proj()
+  fakeBin(d2, 'stryker', { report: report('Killed') })
+  await runStryker(d2, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000, vitestConfig: 'vitest.config.db.ts' })
+  assert.deepEqual(readdirSync(d2).filter(n => n.startsWith('mut-tmp-')), [])
 })

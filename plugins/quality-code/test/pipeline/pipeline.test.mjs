@@ -256,6 +256,7 @@ test('stryker: over the bar passes, under it is checks_failed, with the target a
   assert.equal(good.verdict, 'green')
   assert.equal(calls[0].target, 'src/add.ts')
   assert.deepEqual(calls[0].specs, ['test/a.spec.ts'], 'only the specs under test run under Stryker')
+  assert.equal(calls[0].vitestConfig, null, 'no vitest.configs: Stryker finds the project\'s own Vitest config')
   const s = good.steps.at(-1)
   assert.equal(s.summary, '80% of code changes caught (bar 60%)')
   assert.equal(s.data.applicable, true)
@@ -373,4 +374,30 @@ test('key scoping: a namesake failing in another block does not kill the mutant'
   const m = r.steps.find(s => s.check === 'mutation')
   assert.equal(m.status, 'fail', m.summary)
   assert.equal(m.data.killed, 0)
+})
+
+test('stryker: runs under the specs\' own Vitest config (vitest.configs), with the specs that share it', async () => {
+  const d = repo()
+  put(d, 'src/add.ts', 'export const add = (a, b) => a + b\n')
+  put(d, 'test/b.spec.ts', SPEC)
+  put(d, 'other/c.spec.ts', SPEC)
+  const calls = []
+  const vitest = { configs: [{ match: 'test/**', config: 'vitest.config.db.ts' }, { match: 'other/**', config: 'vitest.other.ts' }] }
+  // Every file passes, and a mutant (a testName, a changed file) fails: killed.
+  const runTests = async ({ files, testName }) => ({ ran: true, broken: [], tests: files.map(f => ({ title: 'adds', file: f, status: testName && readFileSync(join(d, f), 'utf8') !== SPEC ? 'failed' : 'passed', message: '' })) })
+  const r = await runPipeline({ specs: ['test/a.spec.ts', 'other/c.spec.ts', 'test/b.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { config: { ...config, vitest }, runTests, runStryker: stryker({ ran: true, score: 100, killed: 1, survived: 0, timeout: 0, noCoverage: 0 }, calls) }))
+  assert.equal(r.verdict, 'green', JSON.stringify(r.steps.map(x => x.summary)))
+  assert.equal(calls[0].vitestConfig, 'vitest.config.db.ts')
+  assert.deepEqual(calls[0].specs, ['test/a.spec.ts', 'test/b.spec.ts'])
+})
+
+test('stryker: survivors no test ran against are no verdict; the key reaches the runner', async () => {
+  const d = repo()
+  put(d, 'src/add.ts', 'export const add = (a, b) => a + b\n')
+  const calls = []
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker({ ran: true, score: 0, killed: 0, survived: 5, timeout: 0, noCoverage: 2, untested: 5 }, calls) }))
+  assert.equal(calls[0].key, 'ABC-1')
+  const s = r.steps.at(-1)
+  assert.equal(s.status, 'not_run')
+  assert.equal(s.summary, 'Stryker ran no test against the 5 code change(s) it made')
 })

@@ -13,8 +13,8 @@ import * as suite from '../checks/suite-honesty.mjs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { runStryker as realRunStryker } from '../runners/stryker.mjs'
 import { playwrightRunner } from '../runners/playwright.mjs'
-import { vitestRunner } from '../runners/vitest.mjs'
-import { strykerThreshold, timeoutSecondsOf } from '../config.mjs'
+import { configFor, vitestRunner } from '../runners/vitest.mjs'
+import { strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 import { dialectFor } from '../checks/dialects/index.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../stack.mjs'
@@ -95,18 +95,22 @@ async function mutationStep(specs, key, run, ctx, timeoutMs) {
 }
 
 /** Stryker over the target file: a pass that says "not applicable" when it has nothing to run on. */
-export async function strykerStep(target, tests, ctx, timeoutMs, specs = []) {
+export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key = null) {
   const na = why => result('stryker', 'pass', `not applicable: ${why}`, [], { applicable: false, target })
   if (!target) return na('no target file')
   if (tests.status === 'not_run') return result('stryker', 'not_run', 'skipped: the tests did not run', [], { applicable: true, target })
   // Stryker's first run must be all green: a red bug spec cannot start it, and the red tests already show they can fail.
   if (tests.status === 'fail') return na('the tests are red (see tests)')
-  // ponytail: Stryker runs every test of the spec files; a red test of another ticket in them stops its
-  // first run (not verified). Scope it with a temp Vitest config's testNamePattern if that comes up.
   const runStryker = ctx.runStryker ?? realRunStryker
-  const r = await runStryker(ctx.root, { target, specs, timeoutMs })
+  // One Vitest config per Stryker run: the first spec's (vitest.configs), with the specs that share it.
+  // ponytail: specs under two configs mutate against the first group only; one run per config if that bites.
+  const vitestConfig = configFor(specs[0] ?? '', ctx.config ?? {})
+  const own = specs.filter(s => configFor(s, ctx.config ?? {}) === vitestConfig)
+  const r = await runStryker(ctx.root, { target, specs: own, timeoutMs, vitestConfig, key })
   if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
   if (!r.ran) return result('stryker', 'not_run', `could not run: ${r.error}`, [], { applicable: true, target })
+  // A survivor no test ran against is no verdict: Stryker found no test to run for it.
+  if (!r.killed && !r.timeout && r.survived && r.untested === r.survived) return result('stryker', 'not_run', `Stryker ran no test against the ${r.survived} code change(s) it made`, [], { applicable: true, target, untested: r.untested })
   const threshold = strykerThreshold(ctx.config)
   const data = { applicable: true, target, threshold, score: r.score, killed: r.killed, survived: r.survived, timeout: r.timeout, noCoverage: r.noCoverage }
   if (r.score === null || r.score === undefined) return result('stryker', 'not_run', `Stryker found no code change to try in ${target}`, [], data)
@@ -221,6 +225,6 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
   }
-  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, timeoutMs, specs)))
+  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key)))
   return steps
 }
