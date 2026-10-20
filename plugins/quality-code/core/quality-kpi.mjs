@@ -1,4 +1,4 @@
-// The Quality Program numbers (its §9) a repo can show by itself, as the old warehouse kpi.mjs did:
+// The Quality Program numbers (its §9) a repo can show by itself, as the old in-repo kpi.mjs did:
 // traceability, completeness of the tickets, suite honesty, gate integrity, adoption, coverage and the
 // mutation kill rate. Each is a number or "no data", never a made-up 100%.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -53,7 +53,7 @@ export function scanSpecs(root, config) {
     let src
     try { src = readFileSync(join(root, s.path), 'utf8') } catch { continue }
     const d = dialectFor(s.adapter)
-    // Linked to a ticket: its key in a group's or a test's title, or in the file name (FIC-11947.spec.ts).
+    // Linked to a ticket: its key in a group's or a test's title, or in the file name (ABC-123.spec.ts).
     const titles = [...src.matchAll(new RegExp(d.groupRe.source, 'gm')), ...src.matchAll(new RegExp(d.suite.testRe.source, 'g'))].map(m => m[3] ?? '')
     if ([...titles, s.path.split('/').at(-1)].some(t => key.test(t.toUpperCase()))) traced++
     if (!byAdapter.has(s.adapter)) byAdapter.set(s.adapter, [])
@@ -89,7 +89,9 @@ export function qualityKpi({ finals, runs, scan, coverage }) {
   const relaxed = known.filter(r => r.incompleteTicket || !r.flags.ticket)
   const ready = finals.filter(g => g.gate === 'pass' && g.key)
   const ran = new Set(runs.map(r => r.key).filter(Boolean))
-  const mutation = runs.map(r => (r.steps ?? []).find(s => s.check === 'mutation')).filter(s => s && s.total > 0 && typeof s.score === 'number')
+  // The pipeline logs the mutation counts (killed of total), not a score.
+  const killRate = s => (typeof s?.score === 'number' ? s.score : s?.total > 0 && typeof s.killed === 'number' ? (100 * s.killed) / s.total : null)
+  const mutation = runs.map(r => killRate((r.steps ?? []).find(s => s.check === 'mutation'))).filter(v => v !== null)
   return {
     traceability: scan ? { pct: pct(scan.traced, scan.specs), traced: scan.traced, specs: scan.specs } : null,
     completeness: { mean: scored.length ? Math.round(scored.reduce((n, g) => n + g.score, 0) / scored.length) : null, tickets: scored.length },
@@ -97,7 +99,7 @@ export function qualityKpi({ finals, runs, scan, coverage }) {
     gateIntegrity: { pct: pct(known.length - relaxed.length, known.length), full: known.length - relaxed.length, runs: known.length, relaxed: relaxed.length },
     adoption: { pct: pct(ready.filter(g => ran.has(g.key)).length, ready.length), checked: ready.filter(g => ran.has(g.key)).length, ready: ready.length },
     coverage,
-    mutation: { mean: mutation.length ? Math.round(mutation.reduce((n, s) => n + s.score, 0) / mutation.length) : null, runs: mutation.length },
+    mutation: { mean: mutation.length ? Math.round(mutation.reduce((n, v) => n + v, 0) / mutation.length) : null, runs: mutation.length },
     targets: TARGETS,
   }
 }

@@ -187,3 +187,9 @@ test('quality: traceability and suite honesty from the specs, gate integrity, mu
   assert.deepEqual(q.adoption, { pct: 100, checked: 1, ready: 1 })
   assert.match((await run([], root)).out, /\n  ✅ Coverage        83%      target 80%   lines, from coverage\/coverage-summary\.json\n/)
 })
+
+test('mutation kill rate: from the logged counts, as the pipeline writes them (no score field)', async () => {
+  const { qualityKpi } = await import('../core/quality-kpi.mjs')
+  const q = qualityKpi({ finals: [], runs: [{ steps: [{ check: 'mutation', status: 'pass', killed: 6, survived: 0, errors: 0, total: 6 }] }, { steps: [{ check: 'mutation', status: 'fail', killed: 1, total: 2 }] }, { steps: [{ check: 'mutation', status: 'not_run' }] }], scan: null, coverage: null })
+  assert.deepEqual(q.mutation, { mean: 75, runs: 2 })
+})
