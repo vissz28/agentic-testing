@@ -317,8 +317,8 @@ test('vitest.layers: a folder inside a forbidden boundary is refused, naming the
 test('vitest.stryker: each wrong part is named', () => {
   const msg = 'vitest.stryker.threshold: must be a whole number from 0 to 100'
   for (const t of [-1, 101, 1.5, '60', null]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { threshold: t } } }).errors, [msg], String(t))
-  for (const v of ['x', 5, null, []]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: v } }).errors, ['vitest.stryker: must be an object with an optional "threshold"'], JSON.stringify(v))
-  assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bar: 1 } } }).errors, ['vitest.stryker.bar: unknown field (only "threshold")'])
+  for (const v of ['x', 5, null, []]) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: v } }).errors, ['vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"'], JSON.stringify(v))
+  assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bar: 1 } } }).errors, ['vitest.stryker.bar: unknown field (only "threshold" and "timeoutSeconds")'])
 })
 
 test('playwright block: configs, projects, tsconfig, timeout', () => {
@@ -479,7 +479,34 @@ test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
 test('the schema knows every top-level field the validator takes, fullstack included', () => {
   const schema = JSON.parse(readFileSync(new URL('../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'fullstack'])
-  for (const f of ['sides', 'qaPlans']) assert.ok(schema.properties[f], f)
+  for (const f of ['sides', 'qaPlans', 'xray']) assert.ok(schema.properties[f], f)
+  assert.equal(schema.properties.xray.properties.csv.pattern, schema.properties.qaPlans.pattern)
   assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack'])
   assert.equal(schema.properties.qaPlans.pattern, schema.properties.vitest.properties.tsconfig.pattern)
+})
+
+test('xray: Playwright or fullstack only, a .csv, a folder outside the boundaries, known columns with distinct headers', () => {
+  const x = { csv: 'qa/cases.csv' }
+  assert.equal(validateConfig({ ...good, xray: x }).ok, true)
+  assert.equal(validateConfig({ ...good, adapter: 'fullstack', xray: { ...x, folder: 'e2e/tickets/', headers: { action: 'Azione', data: 'Dati' } } }).ok, true)
+  assert.deepEqual(validateConfig({ ...vgood, xray: x }).errors, ['xray: only allowed with "adapter": "playwright" or "fullstack" (XRay test cases are written for Playwright tests)'])
+  assert.deepEqual(validateConfig({ ...good, xray: [] }).errors, ['xray: must be an object with "csv" and optional "folder" and "headers"'])
+  assert.deepEqual(validateConfig({ ...good, xray: { csv: 'cases.xlsx', more: 1 } }).errors, ['xray.more: unknown field (only "csv", "folder" and "headers")', 'xray.csv "cases.xlsx" must be a relative path to a .csv file inside the project'])
+  assert.deepEqual(validateConfig({ ...good, xray: { csv: '../cases.csv' } }).errors, ['xray.csv "../cases.csv" must be a relative path to a .csv file inside the project'])
+  assert.deepEqual(validateConfig({ ...good, xray: { ...x, folder: 'src/tickets/' } }).errors, ['xray.folder "src/tickets/" is inside the forbidden "src/"'])
+  assert.deepEqual(validateConfig({ ...good, xray: { ...x, folder: 'tickets' } }).errors, ['xray.folder "tickets" must end with "/"'])
+  assert.deepEqual(validateConfig({ ...good, xray: { ...x, headers: { bad: 'B', action: 'a,b', ticket: 'Summary' } } }).errors, [
+    'xray.headers.bad: unknown column (only tcid, summary, description, step, action, expected, label, priority, component, ticket, epic, testType, data)',
+    'xray.headers.action: must be one line of text, without commas or quotes',
+    'xray.headers: two columns have the same header',
+  ])
+})
+
+test('vitest.stryker.timeoutSeconds: 60 to 7200, default 1800', async () => {
+  const { strykerTimeoutSeconds } = await import('../core/config.mjs')
+  assert.equal(strykerTimeoutSeconds({}), 1800)
+  assert.equal(strykerTimeoutSeconds({ vitest: { stryker: { timeoutSeconds: 600 } } }), 600)
+  assert.equal(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: 600 } } }).ok, true)
+  for (const t of [59, 7201, 1.5, '600']) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: t } } }).errors, ['vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200'], String(t))
+  assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bad: 1 } } }).errors, ['vitest.stryker.bad: unknown field (only "threshold" and "timeoutSeconds")'])
 })

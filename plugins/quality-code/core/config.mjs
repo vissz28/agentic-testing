@@ -6,7 +6,7 @@ import { matches } from './checks/boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -14,6 +14,12 @@ const PATH_RULE = 'must be a relative path inside the project (no "..", not abso
 const LAYER_NAME = /^[a-z][a-z0-9-]{0,30}$/
 export const DEFAULT_LAYERS = Object.freeze([Object.freeze({ name: 'unit', folder: 'test/' })])
 export const DEFAULT_STRYKER_THRESHOLD = 60
+// Stryker reruns the tests once per code change: minutes on a database-backed suite, so not the tests' limit.
+export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
+// The XRay CSV's columns in order, with their default header; "data" is no column: it is the word
+// before a step's data in the action cell. A team's importer mapping may want other headers.
+export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
+export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
 const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
 
 export const DEFAULTS = Object.freeze({
@@ -186,10 +192,11 @@ export function validateConfig(input) {
       }
       const st = c.vitest.stryker
       if (st !== undefined) {
-        if (!isObj(st)) e.push('vitest.stryker: must be an object with an optional "threshold"')
+        if (!isObj(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
         else {
-          for (const k of Object.keys(st)) if (k !== 'threshold') e.push(`vitest.stryker.${k}: unknown field (only "threshold")`)
+          for (const k of Object.keys(st)) if (k !== 'threshold' && k !== 'timeoutSeconds') e.push(`vitest.stryker.${k}: unknown field (only "threshold" and "timeoutSeconds")`)
           if (st.threshold !== undefined && !(Number.isInteger(st.threshold) && st.threshold >= 0 && st.threshold <= 100)) e.push('vitest.stryker.threshold: must be a whole number from 0 to 100')
+          if (st.timeoutSeconds !== undefined && !(Number.isInteger(st.timeoutSeconds) && st.timeoutSeconds >= 60 && st.timeoutSeconds <= 7200)) e.push('vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200')
         }
       }
     }
@@ -245,6 +252,27 @@ export function validateConfig(input) {
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
+  if (c.xray !== undefined) {
+    if (!uses('playwright')) e.push('xray: only allowed with "adapter": "playwright" or "fullstack" (XRay test cases are written for Playwright tests)')
+    else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
+    else {
+      const x = c.xray
+      for (const k of Object.keys(x)) if (!['csv', 'folder', 'headers'].includes(k)) e.push(`xray.${k}: unknown field (only "csv", "folder" and "headers")`)
+      if (!(pathOk(x.csv) && /\.csv$/i.test(x.csv))) e.push(`xray.csv ${JSON.stringify(x.csv)} must be a relative path to a .csv file inside the project`)
+      if (x.folder !== undefined) folderErrors(x.folder, 'xray.folder', folderRules(c), e)
+      if (x.headers !== undefined) {
+        if (!isObj(x.headers)) e.push('xray.headers: must be an object of column to header text')
+        else {
+          for (const [k, v] of Object.entries(x.headers)) {
+            if (!Object.hasOwn(XRAY_HEADERS, k)) e.push(`xray.headers.${k}: unknown column (only ${Object.keys(XRAY_HEADERS).join(', ')})`)
+            else if (typeof v !== 'string' || !v.trim() || /[\r\n,"]/.test(v)) e.push(`xray.headers.${k}: must be one line of text, without commas or quotes`)
+          }
+          const texts = XRAY_COLUMNS.map(k => x.headers[k] ?? XRAY_HEADERS[k])
+          if (new Set(texts).size !== texts.length) e.push('xray.headers: two columns have the same header')
+        }
+      }
+    }
+  }
   if (c.sides !== undefined) {
     if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
     else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
@@ -288,8 +316,18 @@ export const seedOf = config => {
   return { builders: s.builders ?? [], dataset: s.dataset ?? null, stubsFrom: s.stubsFrom ?? null, guide: s.guide ?? null }
 }
 
+/** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
+export const xrayOf = config => {
+  const x = config?.xray
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null
+  return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
+}
+
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD
+
+/** Seconds one Stryker run may take. */
+export const strykerTimeoutSeconds = config => config?.vitest?.stryker?.timeoutSeconds ?? DEFAULT_STRYKER_TIMEOUT_SECONDS
 
 export function loadConfig(root) {
   const p = configPath(root)
