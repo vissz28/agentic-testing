@@ -3,18 +3,20 @@
 // a regenerated test or an edited guide that softens one shows up. node core/evals.mjs [folder] [--json]
 // A fixture is <folder>/<KEY>/expected.json, plus input.json with the frozen ticket (optional):
 //   expected.json  { minSpecs?, spec?, specMustMatch?: [re], specMustNotMatch?: [re], mustContain?: [text],
-//                    tests?: [{ key, mustContain?: [text] }] }   (the old backend and frontend shapes)
+//                    tests?: [{ key, mustContain?: [text] }], requirement?: KEY }   (the old backend and frontend shapes)
+//                  with requirement and an xray block, each test's XRay case must link that ticket
 //   input.json     { ticket: {…} | "<json>", candidates?: [value] }: the value check must pass on the specs
 // Exit 0 every fixture holds, 1 one drifted, 2 usage or config error, 3 no fixture.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { loadConfig, projectRoot } from './config.mjs'
+import { loadConfig, projectRoot, xrayOf } from './config.mjs'
 import { dialectFor } from './checks/dialects/index.mjs'
 import { keyPattern } from './checks/keys.mjs'
 import * as expected from './checks/expected.mjs'
 import { projectSpecs } from './quality-kpi.mjs'
 import { adapterOfSpec } from './stack.mjs'
+import { readCases } from './xray.mjs'
 
 export const EVALS_DIR = '.claude/quality-code/evals'
 const read = p => JSON.parse(readFileSync(p, 'utf8'))
@@ -37,6 +39,15 @@ export function checkFixture(root, config, dir, key) {
   for (const t of list(want.tests)) {
     if (t.key && !src.includes(t.key)) { problems.push(`test ${t.key} is gone`); continue }
     for (const s of list(t.mustContain)) if (!src.includes(s)) problems.push(`${t.key ?? 'a test'} no longer says ${JSON.stringify(s)}`)
+  }
+  const x = xrayOf(config)
+  if (want.requirement && x) {
+    const cases = readCases(root, x)
+    for (const t of list(want.tests).filter(t => t.key)) {
+      const hit = cases.find(c => c.key === t.key)
+      if (!hit) problems.push(`${x.csv} has no XRay case for ${t.key}`)
+      else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its XRay case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)
+    }
   }
   const input = existsSync(join(dir, 'input.json')) ? read(join(dir, 'input.json')) : null
   if (input?.ticket && specs.length) {

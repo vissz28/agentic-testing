@@ -5,6 +5,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { main, runEvals } from '../core/evals.mjs'
+import { XRAY_HEADERS } from '../core/config.mjs'
+import { buildRows, headerRow, toLine } from '../core/xray.mjs'
 
 const cfg = { version: 1, adapter: 'fullstack', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
 function project(files) {
@@ -57,4 +59,17 @@ test('cli: exit 0 when every fixture holds, 1 on drift, 3 with none', () => {
   assert.equal(r.code, 1)
   assert.match(r.out, /EVAL DRIFT: 1 of 1 fixture\(s\) failed/)
   assert.equal(quiet(project({})).code, 3)
+})
+
+test('with requirement and an xray block, each test needs its XRay case, linked to that ticket', () => {
+  const xcfg = { ...cfg, xray: { csv: 'qa/cases.csv' } }
+  const row = (key, ticket) => buildRows({ key, summary: 's', ticket, steps: [{ action: 'a' }] }, 1, XRAY_HEADERS)
+  const d = project({
+    '.claude/quality-code.json': JSON.stringify(xcfg),
+    'e2e/empty.spec.ts': `${FE}test('ABC-2-2 shows it in English', async () => {})\n`,
+    'qa/cases.csv': `${[headerRow(XRAY_HEADERS), ...row('ABC-2-1', 'ABC-2'), ...row('ABC-2-2', 'ABC-9')].map(toLine).join('\n')}\n`,
+    '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', requirement: 'ABC-2', tests: [{ key: 'ABC-2-1' }, { key: 'ABC-2-2' }, { key: 'ABC-2-3' }] },
+  })
+  assert.deepEqual(runEvals(d, xcfg)[0].problems, ['test ABC-2-3 is gone', 'ABC-2-2: its XRay case links ABC-9, not ABC-2', 'qa/cases.csv has no XRay case for ABC-2-3'])
+  assert.deepEqual(runEvals(d, cfg)[0].problems, ['test ABC-2-3 is gone'], 'no xray block: no link check')
 })
