@@ -9,7 +9,8 @@ import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
-import { resolveField, storeField } from '../lib/ticket/fields.mjs'
+import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
+import { projectKeys } from '../lib/base/keys.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from '../lib/ticket/fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
@@ -34,6 +35,11 @@ function parseArgs(argv) {
 }
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
+  // A crash is an error (2), never a refuse (1): the commands read exit 1 as "the ticket is too thin".
+  try { return run(argv, env, cwd) } catch (e) { err(`ticket.mjs: ${e.message}`); return 2 }
+}
+
+function run(argv, env, cwd) {
   const [cmd, ...rest] = argv
   let a
   try { a = parseArgs(rest) } catch (e) { err(e.message); return 2 }
@@ -78,7 +84,16 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       out('ok')
       return 0
     }
-    err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none>')
+    if (sub === 'find' && project?.startsWith('@')) {
+      // project is the saved field-metadata file here: the fields whose name is the criteria heading.
+      let text
+      try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { err(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const r = findFields(config, text)
+      if (!r.ok) { err(r.error); return 2 }
+      out(`FIELD_MATCHES_JSON:${JSON.stringify({ matches: r.matches })}`)
+      return 0
+    }
+    err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none> | field find @<metadata file>')
     return 2
   }
   if (!a.in) {
@@ -88,10 +103,15 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { err(`--in is not readable JSON: ${e.message}`); return 2 }
-  if (!ticket || typeof ticket !== 'object') { err('--in must be a JSON object'); return 2 }
-  const project = String(ticket.key ?? '').split('-')[0]
-  const mismatch = Boolean(ticket.key) && !config.jira.projects.includes(project)
-  if (mismatch) out(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: config.jira.projects })}`)
+  if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { err('--in must be a JSON object'); return 2 }
+  // Lists the connector or the model may hand over as one value: a single label, a single scenario.
+  for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
+  const project = String(ticket.key ?? '').replace(/-\d+$/, '')
+  // A tracking project's keys belong to the project too (start proposes them).
+  const keys = projectKeys(config)
+  const mismatch = Boolean(ticket.key) && !keys.includes(project)
+  // With --json, stdout is the JSON alone: the mismatch line goes to stderr.
+  if (mismatch) (a.flags.has('--json') ? err : out)(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: keys })}`)
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { err('sanitize needs --out <path>'); return 2 }
@@ -104,7 +124,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       return 0
     }
     case 'score': {
-      if (mismatch && a.flags.has('--ci')) return 2
+      if (mismatch && a.flags.has('--ci')) { err(`${ticket.key} is not a ticket of this project's Jira projects (${keys.join(', ')})`); return 2 }
       const b = buildBrief(config, ticket)
       log('gate', {
         key: b.key, issuetype: b.issuetype, score: b.score, gate: b.gate, rubric: b.rubric, legacy: b.legacy,
@@ -130,7 +150,8 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       return 0
     }
     case 'pick': {
-      const nums = String(a._[0] ?? '').split(/[\s,]+/).filter(Boolean)
+      // `pick 1 3` and `pick "1 3"` alike.
+      const nums = a._.join(' ').split(/[\s,]+/).filter(Boolean)
       const p = projectPick(fillMenu(config, buildBrief(config, ticket)), nums)
       out(formatPick(p))
       out(`FILL_JSON:${JSON.stringify(p)}`)

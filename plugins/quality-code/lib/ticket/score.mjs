@@ -20,18 +20,29 @@ export function rubricFor(config, ticket = null) {
 /** The side a ticket is scored for on a fullstack project: the one set with `ticket.mjs side`, else its marks. */
 export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ticket)
 
-/** Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true. */
-export function scoreTicket(rubric, signals = {}) {
+/**
+ * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true. The
+ * keys the config can never credit (`omitted`) are left out, and the rest is scaled to 100: a
+ * project with no features is not capped below the bar.
+ */
+export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   let score = 0
+  let total = 0
   const missing = []
   for (const [key, [weight, label]] of Object.entries(rubric.weights)) {
     const credited =
       key === 'ac_testable' ? !!signals.ac_testable && !!signals.ac_present : !!signals[key]
+    if (omitted.has(key)) {
+      if (!credited) missing.push({ key, weight, label })
+      continue
+    }
+    total += weight
     if (credited) score += weight
     else missing.push({ key, weight, label })
   }
   missing.sort((a, b) => b.weight - a.weight)
-  return { score: Math.max(0, Math.min(100, score)), missing }
+  const scaled = total ? Math.round((score * 100) / total) : 0
+  return { score: Math.max(0, Math.min(100, scaled)), missing }
 }
 
 /** Below the threshold is refuse: a readable Then does not save a thin ticket. */
@@ -57,11 +68,11 @@ export function buildBrief(config, ticket) {
 function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
-  const { score, missing } = scoreTicket(rubric, signals)
+  const omitted = rubric.omitted?.(config) ?? new Set()
+  const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)
   const feature = rubric.feature(config, ticket)
-  const omitted = rubric.omitted?.(config) ?? new Set()
   const labels = rubric.labels?.(config) ?? {}
   const flags = [...(ticket.flags || [])]
   if (legacy) flags.unshift(rubric.legacyFlag(THRESHOLD))

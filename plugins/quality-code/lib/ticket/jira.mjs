@@ -30,7 +30,7 @@ export function isRefuseComment(text) {
 
 /** The closing line: the configured one, a pointer to the template file, or nothing. */
 export function templateLine(config, issuetype) {
-  const kind = templateFor(issuetype)
+  const kind = templateFor(issuetype, config)
   const custom = config.messages?.templateLine?.[kind]
   if (typeof custom === 'string') return custom
   const path = config.ticketTemplates?.[kind]
@@ -41,8 +41,8 @@ export function templateLine(config, issuetype) {
 export const browseUrl = (config, key) => `${config.jira.site}/browse/${key}`
 
 /** The gaps a ticket author can fix, in the brief's order. */
-function authorGaps(brief) {
-  const kind = templateFor(brief.issuetype)
+function authorGaps(config, brief) {
+  const kind = templateFor(brief.issuetype, config)
   const items = brief.missing || []
   const keys = new Set(items.map(m => m.key))
   return items.filter(
@@ -58,9 +58,9 @@ function authorGaps(brief) {
 
 /** The Jira comment body. Posted verbatim, never rewritten. */
 export function formatRefuseComment(config, brief) {
-  const kind = templateFor(brief.issuetype)
+  const kind = templateFor(brief.issuetype, config)
   const msgs = messagesFor(config, kind)
-  const shown = authorGaps(brief)
+  const shown = authorGaps(config, brief)
   const body = shown
     .map((m, i) => {
       const block = msgs[m.key]
@@ -86,8 +86,8 @@ export const RISK_COMMENT_FOOTER = 'Logged by quality-code: tests were written o
 
 /** The Jira note after refuse option 3: tests were written anyway. Posted verbatim, never rewritten. */
 export function formatRiskComment(config, brief) {
-  const msgs = messagesFor(config, templateFor(brief.issuetype))
-  const gaps = authorGaps(brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
+  const msgs = messagesFor(config, templateFor(brief.issuetype, config))
+  const gaps = authorGaps(config, brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
   return [
     `Tests were written for this ticket although it is not complete: it has ${brief.score} of the ${brief.threshold} points it needs.`,
     '',

@@ -1,5 +1,5 @@
 import { countDerivable, hasHeading } from '../criteria.mjs'
-import { acSignals, envSignal, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, envSignal, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Playwright stack, sums to 100. Routes a test to a screen, so a feature
 // label and a QA plan carry weight.
@@ -70,9 +70,15 @@ export default {
   weights,
   deriveSignals,
   derivable: (v, ticket) => countDerivable(v, [...(ticket.scenarios || []), ...(ticket.qaPlan?.scenarios || [])]),
-  feature: (config, ticket) => ticket.feature ?? (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
+  feature: (config, ticket) => ticket.feature ?? featureOf(config, ticket.labels),
   briefExtras,
-  omitted: omittedKeys,
+  // A team without Confluence ("confluence": false) never has a QA plan to find: it is left out of
+  // the score rather than costing every ticket 15 points it can never earn.
+  omitted: config => {
+    const keys = omittedKeys(config)
+    if (config.confluence === false) keys.add('qa_plan_found')
+    return keys
+  },
   legacyFlag: threshold => `legacy / unstructured — no template structure. Refused until the ticket meets the ${threshold}% bar.`,
   formatReport,
 }

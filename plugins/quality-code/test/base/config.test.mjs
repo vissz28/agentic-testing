@@ -159,9 +159,15 @@ bad({ confluenceSpaces: [] }, 'confluenceSpaces')
 test('the short setup config: only version, adapter and Jira site and projects', () => {
   const r = validateConfig({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
-  assert.deepEqual(r.config.languages, ['en', 'it'])
+  assert.deepEqual(r.config.languages, ['en'], 'Italian is opt-in: its "e" step word read English text')
   assert.deepEqual(r.config.features, [])
   assert.equal('acceptanceCriteriaField' in r.config.jira, false)
+})
+test('jira.bugTypes is a non-empty list of names; confluence is a boolean', () => {
+  const ok = validateConfig({ ...good, jira: { ...good.jira, bugTypes: ['Defect'] }, confluence: false })
+  assert.equal(ok.ok, true, ok.errors?.join(' | '))
+  for (const bugTypes of [[], 'Bug', [''], [3]]) assert.match(validateConfig({ ...good, jira: { ...good.jira, bugTypes } }).errors.join(' '), /jira.bugTypes/)
+  assert.match(validateConfig({ ...good, confluence: 'no' }).errors.join(' '), /confluence: must be true or false/)
 })
 test('given languages and features still win over the defaults', () => {
   const r = validateConfig(good)

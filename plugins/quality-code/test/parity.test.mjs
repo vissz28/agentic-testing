@@ -10,6 +10,12 @@
 // same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
 // One hand edit, spec §10 #8 (harvested free text is redacted): in expected/sanitize.json the
 // untouched-fields scenario `then` reads "shows U######" where today's script kept the id.
+// Bug fixes after the capture, also hand edits of expected/sanitize.json (today's script has the bugs):
+//   adf-paragraphs-lists-breaks-marks  ADF blocks are one per line and a block's text runs join as
+//     written; before, "Customer \nU######\n sees 150" and "…acme-corp.itws <uuid>openfilter" glued
+//     blocks together, so a UUID inside a list item was never redacted.
+//   plain-all-fields, uuid-versions  each distinct UUID of a ticket gets its own placeholder
+//     (…0001, …0002) instead of one for all, so "workspace A is not workspace B" survives.
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'

@@ -102,3 +102,41 @@ for (const adapter of ['playwright', 'vitest']) {
     assert.ok(!fillMenu(c, b).items.some(i => i.key === 'feature_label'))
   })
 }
+
+const story = description => ({ key: 'DEMO-9', issuetype: 'Story', labels: [], text: { description } })
+const FULL = '## User story\nAs a buyer I want the total\n\n## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00\n\n## Environment\nStaging, Chrome 120'
+test('criteria a config can never credit are left out and the rest is scaled to 100', () => {
+  const noFeatures = { ...cfg('playwright'), features: [] }
+  assert.equal(buildBrief(noFeatures, story(FULL)).score, 82, '70 of the 85 a project without features can earn')
+  const b = buildBrief({ ...noFeatures, confluence: false }, story(FULL))
+  assert.equal(b.score, 100)
+  assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
+  assert.equal(buildBrief(cfg('playwright'), story(FULL)).score, 70, 'with features and Confluence nothing changes')
+})
+test('bold or bulleted Gherkin counts; a vague But line is not testable; e.g. is no step', () => {
+  const p = cfg('playwright')
+  for (const d of ['**Given** an order at 40.00\n**When** I open it\n**Then** the total is 108.00', '- Given an order at 40.00\n- When I open it\n- Then the total is 108.00']) {
+    assert.equal(buildBrief(p, story(d)).signals.ac_present, true, d)
+  }
+  const vague = buildBrief(p, story('Given an order\nWhen I open it\nThen the total is 108.00\nBut the page works correctly'))
+  assert.equal(vague.signals.ac_testable, false)
+})
+test('feature labels match in any case and report the configured label', () => {
+  const b = buildBrief(cfg('playwright'), { ...story(FULL), labels: ['orders'] })
+  assert.equal(b.signals.feature_label, true)
+  assert.equal(b.feature, 'Orders')
+  assert.equal(b.route, '/orders')
+})
+test('an Environment heading with any line under it counts; "## Contextual menu" is no Context heading', () => {
+  const v = cfg('vitest')
+  assert.equal(buildBrief(v, story('## Environment\nStaging, Chrome 120 on Windows 11')).signals.environment, true)
+  assert.equal(buildBrief(v, story('## Environment\n\n## Notes')).signals.environment, false)
+  assert.equal(buildBrief(v, story('## Contextual menu\nopens on right click')).signals.context, false)
+})
+test('a Defect is a bug; jira.bugTypes names them exactly', () => {
+  const v = cfg('vitest')
+  assert.match(formatRefuseComment(v, buildBrief(v, { ...story('x'), issuetype: 'Defect' })), /Steps to reproduce/)
+  const custom = { ...v, jira: { ...v.jira, bugTypes: ['Anomaly'] } }
+  assert.match(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'anomaly' })), /Steps to reproduce/)
+  assert.doesNotMatch(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'Bug' })), /Steps to reproduce/)
+})

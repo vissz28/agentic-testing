@@ -1,5 +1,5 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, envSignal, escapeRegExp, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, envSignal, escapeRegExp, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
@@ -63,7 +63,7 @@ export default {
   deriveSignals,
   derivable: (v, ticket) =>
     countDerivableFromText(v, [ticket.summary, ticket.text?.description, ticket.text?.acField].filter(Boolean).join('\n')),
-  feature: (config, ticket) => (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
+  feature: (config, ticket) => featureOf(config, ticket.labels),
   briefExtras: () => ({}),
   omitted: config => {
     const keys = omittedKeys(config)
