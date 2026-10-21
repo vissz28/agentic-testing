@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/base/stack.mjs'
+import { PLAIN } from '../lib/base/git.mjs'
 
 const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue)$/
 const TEST_NAME = /\.(spec|test)\.[^/]+$/
@@ -88,7 +89,7 @@ const FALLBACK_BASES = ['develop', 'main', 'master']
 
 function git(root, args) {
   try {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
+    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
   } catch {
     return null
   }

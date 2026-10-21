@@ -7,6 +7,7 @@ import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { CONFIG_FILES, readTestDir } from '../lib/base/e2e-folder.mjs'
+import { PLAIN } from '../lib/base/git.mjs'
 
 const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
@@ -97,7 +98,7 @@ function hasLine(path, line) {
 
 function gitOut(root, args) {
   try {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
+    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
   } catch {
     return null
   }

@@ -1,9 +1,13 @@
 // The only git calls the checks make. Read-only; never takes the index lock.
 import { execFileSync } from 'node:child_process'
 
+// The user's git config must not change what the checks read: a colored or external diff hides
+// every removed expect from the honesty check, a quoted path misses the boundary rules.
+export const PLAIN = ['-c', 'color.ui=never', '-c', 'color.diff=never', '-c', 'core.quotePath=false']
+
 function git(root, args, okCodes = []) {
   try {
-    const out = execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
+    const out = execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
     return { ok: true, out }
   } catch (err) {
     if (okCodes.includes(err.status)) return { ok: true, out: String(err.stdout ?? '') }
@@ -17,14 +21,14 @@ const badRange = range => (range && String(range).startsWith('-') ? { ok: false,
 export function specDiff(root, paths, range = null) {
   const bad = badRange(range)
   if (bad) return bad
-  const r = git(root, ['diff', ...(range ? [range] : ['HEAD']), '--', ...paths])
+  const r = git(root, ['diff', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', ...(range ? [range] : ['HEAD']), '--', ...paths])
   if (!r.ok) return r
   let diff = r.out
   if (!range) {
     // An untracked spec has no diff against HEAD: read it as all added lines (exit 1 means "differs").
     for (const p of paths) {
       if (git(root, ['ls-files', '--error-unmatch', '--', p]).ok) continue
-      const n = git(root, ['diff', '--no-index', '--', '/dev/null', p], [1])
+      const n = git(root, ['diff', '--no-index', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', '--', '/dev/null', p], [1])
       if (n.ok) diff += n.out
     }
   }

@@ -88,3 +88,13 @@ test('diff headers: a trailing tab and quoted non-ASCII names give the right fil
   const r = run({ specs: ['test/my file.spec.ts', 'test/café.spec.ts'] }, ctx(d))
   assert.deepEqual([...new Set(r.findings.map(f => f.file))].sort(), ['test/café.spec.ts', 'test/my file.spec.ts'])
 })
+test("the user's git config cannot hide a removed expect: color, an external diff, no prefix", () => {
+  const { d, g, put } = repo()
+  put('test/a.spec.ts', "it('a', () => {\n  expect(1).toBe(1)\n})\n")
+  g('add', '-A'); g('commit', '-qm', 'spec')
+  put('test/a.spec.ts', "it('a', () => {\n})\n")
+  for (const [k, v] of [['color.ui', 'always'], ['color.diff', 'always'], ['diff.external', 'true'], ['diff.noprefix', 'true']]) g('config', k, v)
+  const r = run({ specs: ['test/a.spec.ts'] }, ctx(d))
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings.map(f => f.kind), ['assertion removed'])
+})
