@@ -20,4 +20,5 @@ export default {
   expectedQuestion: ['qual è il comportamento atteso\\??'],
   expectedSection: ['risultato atteso'],
   insteadOf: ['invece di'],
+  headings: { ac: 'Criteri di accettazione', userStory: 'Storia utente', steps: 'Passi per riprodurre', expected: 'Risultato atteso', actual: 'Risultato effettivo', context: 'Contesto', summary: 'Sommario', environment: 'Ambiente' },
 }

@@ -20,4 +20,5 @@ export default {
   expectedQuestion: ['what is the expected behavio(?:u)?r\\??'],
   expectedSection: ['expected'],
   insteadOf: ['instead of'],
+  headings: { ac: 'Acceptance criteria', userStory: 'User story', steps: 'Steps to reproduce', expected: 'Expected', actual: 'Actual', context: 'Context', summary: 'Summary', environment: 'Environment' },
 }

@@ -16,8 +16,26 @@ test('criteria headings', () => {
   no(v.acHeading, '## Actual')
 })
 test('section end', () => {
-  for (const s of ['## Notes', '**Expected**', 'Expected result', 'Steps to reproduce', 'Risultato atteso', 'Short label:']) yes(v.sectionEnd, s)
+  for (const s of ['## Notes', '**Expected**', 'Expected result', 'Expected result:', 'Steps to reproduce', 'Risultato atteso', 'h2. Notes']) yes(v.sectionEnd, s)
   no(v.sectionEnd, 'The total is 150.')
+  // Deliberate difference from the old scorers: a label line that names no section is a criterion.
+  no(v.sectionEnd, 'Short label:')
+  no(v.sectionEnd, 'The order grid shows these columns:')
+})
+test('step words end at a space, ":" or ",": e.g. and E-mail are no Italian "e" step', () => {
+  for (const s of ['e.g. 3 items', 'E-mail is sent', 'E2E only']) no(v.continuation, s)
+  for (const s of ['E funziona', 'And: x', 'Then, the total']) assert.ok(v.continuation.test(s) || v.thenStep.test(s), s)
+})
+test('criteria headings with symbols or a note on a heading line, and Jira wiki h2.', () => {
+  for (const s of ['## ✅ Acceptance criteria', '## Acceptance Criteria (AC)', '### Acceptance criteria / Definition of done', 'h2. Acceptance criteria', '**Acceptance criteria**:']) yes(v.acHeading, s)
+  for (const s of ['## AC changes', 'Acceptance criteria: the total is 80', 'Acceptance criteria are below']) no(v.acHeading, s)
+})
+test('a long run of blank lines stays linear', () => {
+  const text = `Given a\n${'\n'.repeat(50000)}Then b`
+  const t = Date.now()
+  text.match(v.gherkinStepAll)
+  v.thenLine.test(text)
+  assert.ok(Date.now() - t < 500, `${Date.now() - t} ms`)
 })
 test('vague words', () => {
   for (const s of ['it works correctly', 'working correctly', 'as expected', 'is fine', 'funziona correttamente', 'come previsto', 'come atteso']) yes(v.vague, s)
@@ -73,11 +91,11 @@ test('equivalence: thenLineCapture captures the rest of the line', () => {
   assert.equal('x\nAllora ok'.match(v.thenLineCapture)[1], ' ok')
   assert.equal('Given x'.match(v.thenLineCapture), null)
 })
-test('equivalence: thenAndLines selects then/allora/and lines', () => {
-  const text = 'Given a\nThen b\nAnd c\nAllora d\nBut e\nE f\nandroid'
-  const src = /^\s*(?:then|allora|and)\b.*/gim
-  assert.deepEqual(text.match(v.thenAndLines), text.match(src))
-  assert.deepEqual(text.match(v.thenAndLines), ['Then b', 'And c', 'Allora d'])
+test('thenAndLines selects then/allora and every continuation (but, e, ma too)', () => {
+  const text = 'Given a\nThen b\nAnd c\nAllora d\nBut e\nE f\nandroid\ne.g. g'
+  // Deliberate difference from the old scorers, which read only then/allora/and: a vague But or E
+  // line made the criteria pass as testable.
+  assert.deepEqual(text.match(v.thenAndLines), ['Then b', 'And c', 'Allora d', 'But e', 'E f'])
 })
 same('acHeading', /^\s*(?:#{1,6}\s*)?(?:\*\*\s*)?(?:acceptance\s+criteria|criteri\s+di\s+accettazione|AC)\b\s*:?\s*(?:\*\*)?\s*:?\s*$/i, v.acHeading, [
   ['## Acceptance criteria', true], ['**Criteri di accettazione:**', true], ['AC:', true], ['ac', true],
@@ -96,7 +114,7 @@ same('continuation', /^\s*(?:and|but|e|ma)\b\s*(.*)$/i, v.continuation, [
   ['And x', true], ['But y', true], ['E z', true], ['ma w', true], ['Then x', false], ['Android', false], ['era', false],
 ])
 same('sectionEnd', /^\s*(?:#{1,6}\s|\*\*[^*]+\*\*\s*:?\s*$|[^\s:][^:]{0,40}:\s*$|(?:summary|context|contesto|sommario|steps to reproduce|passi per riprodurre|expected(?: result| behaviou?r)?|actual(?: result)?|risultato atteso|risultato effettivo|comportamento attuale|environment|ambiente|notes?|impact|impatto|user story|storia utente|out of scope|fuori ambito)\s*$)/i, v.sectionEnd, [
-  ['## Notes', true], ['**Expected**', true], ['Risultato atteso', true], ['Fuori ambito', true], ['Short label:', true],
+  ['## Notes', true], ['**Expected**', true], ['Risultato atteso', true], ['Fuori ambito', true],
   ['The total is 150.', false], ['Notes about this', false],
 ])
 same('vague', /\b(works?\s+correctly|working\s+correctly|as\s+expected|is\s+fine|funziona\s+correttamente|come\s+previsto|come\s+atteso)\b/i, v.vague, [
