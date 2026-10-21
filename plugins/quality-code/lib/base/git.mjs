@@ -15,13 +15,19 @@ function git(root, args, okCodes = []) {
   }
 }
 
+/** HEAD, or git's empty tree in a repo with no commit yet: there every line of a file reads as added. */
+function head(root) {
+  if (git(root, ['rev-parse', '--verify', '--quiet', 'HEAD']).ok) return 'HEAD'
+  try { return execFileSync('git', ['hash-object', '-t', 'tree', '--stdin'], { cwd: root, input: '', encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() } catch { return 'HEAD' }
+}
+
 const badRange = range => (range && String(range).startsWith('-') ? { ok: false, error: 'range must not start with "-"' } : null)
 
 /** Unified diff of the given paths, against HEAD or over a range like A...B. */
 export function specDiff(root, paths, range = null) {
   const bad = badRange(range)
   if (bad) return bad
-  const r = git(root, ['diff', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', ...(range ? [range] : ['HEAD']), '--', ...paths])
+  const r = git(root, ['diff', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', range ?? head(root), '--', ...paths])
   if (!r.ok) return r
   let diff = r.out
   if (!range) {
@@ -39,7 +45,7 @@ export function specDiff(root, paths, range = null) {
 export function changedPaths(root, range = null) {
   const bad = badRange(range)
   if (bad) return bad
-  const d = git(root, ['diff', '--name-only', '--no-renames', '--relative', '-z', ...(range ? [range] : ['HEAD'])])
+  const d = git(root, ['diff', '--name-only', '--no-renames', '--relative', '-z', range ?? head(root)])
   if (!d.ok) return d
   const u = git(root, ['ls-files', '--others', '--exclude-standard', '-z'])
   if (!u.ok) return u

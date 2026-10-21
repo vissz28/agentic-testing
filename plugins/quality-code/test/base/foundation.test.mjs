@@ -40,6 +40,17 @@ test('git: spec diff against HEAD and changed paths with spaces and untracked fi
   assert.equal(specDiff(d, ['x'], 'nope...HEAD').ok, false)
   assert.equal(changedPaths(mkdtempSync(join(tmpdir(), 'qc-nogit-'))).ok, false)
 })
+test('git: a repo with no commit yet diffs against the empty tree, so every spec line is added', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-unborn-'))
+  g(d, 'init', '-q', '-b', 'main')
+  put(d, 'test/a.spec.ts', "it.skip('a', () => {})\n")
+  g(d, 'add', 'test/a.spec.ts')
+  put(d, 'src/b.ts', 'x\n')
+  const sd = specDiff(d, ['test/a.spec.ts'])
+  assert.equal(sd.ok, true, sd.error)
+  assert.match(sd.diff, /^\+it\.skip\('a'/m)
+  assert.deepEqual(changedPaths(d).paths.sort(), ['src/b.ts', 'test/a.spec.ts'])
+})
 test('dialects', () => {
   const v = dialectFor('vitest')
   const p = dialectFor('playwright')
