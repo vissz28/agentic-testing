@@ -146,7 +146,7 @@ And in `CLAUDE.md`, replace every line that points at the old harness (`.claude/
 
 In `.gitlab-ci.yml`, replace the job that ran `node .claude/harness/score-ticket.mjs …` with the
 `quality-code` gate, `/quality-code:ticket-eval <KEY> --ci` (no questions; a refused ticket gets the
-Jira comment and the job fails; see the README, "Gate tickets in CI"). `.gitlab-ci.yml` is outside what a test run may change: a person edits it, in
+Jira comment and the job fails; see the Guide, "Gate tickets in CI"). `.gitlab-ci.yml` is outside what a test run may change: a person edits it, in
 this same merge request.
 
 ## 5. Check the switch

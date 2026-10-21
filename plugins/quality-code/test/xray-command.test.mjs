@@ -29,7 +29,7 @@ test('the rules: the script writes the files, never invent, no tokens, no spec a
 test('step 1: --sync runs only the script; config check; no xray block stops; connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes(`${XRAY} sync`))
-  assert.ok(s.includes('`XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (README, "XRay test cases").`'))
+  assert.ok(s.includes('`XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (docs/GUIDE.md, "XRay test cases").`'))
   assert.ok(s.includes('config check'))
   assert.ok(s.includes('core/connectors.md'))
   assert.match(s, /Jira is required/)

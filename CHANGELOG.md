@@ -43,6 +43,9 @@ Update with `/plugin update quality-code@teamsystem`.
 - **The marketplace is now `teamsystem`:** install and update with `quality-code@teamsystem`. The
   plugin's own README has a **Try it** section with example requests, shown with the plugin.
 
+- **A short README:** overview, features, installation, quick start and links. The full reference
+  moved, unchanged, to `docs/GUIDE.md`.
+
 ### Upgrading
 
 - **Once per person**, because the marketplace was renamed: `/plugin uninstall quality-code@quality-code`,
@@ -50,8 +53,8 @@ Update with `/plugin update quality-code@teamsystem`.
   `/plugin install quality-code@teamsystem`. Your plugin settings are kept under the new id only if
   you set them again (`/plugin`, quality-code, configure). In repos whose `.claude/settings.json`
   lists the marketplace, rename its key to `teamsystem` and the `enabledPlugins` entry to
-  `quality-code@teamsystem` (the README's Install section shows the block).
-- Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
+  `quality-code@teamsystem` (the README's Installation section shows the block).
+- Nothing to do. To get XRay test cases, add an `xray` block (Guide, "XRay test cases").
 
 ## [0.12.0] - 2026-10-16
 

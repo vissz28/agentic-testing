@@ -300,4 +300,4 @@ What does **not** count:
 - **Nothing reaches Jira without a preview and your yes.**
 - **Customer data is hidden** in the local ticket copy before scoring (customer ids, e-mails, UUIDs).
 - **The bar is 70 for every team** and cannot be changed.
-- More detail is in the [README](../README.md).
+- More detail is in the [Guide](GUIDE.md).

@@ -1,7 +1,7 @@
 # Onboarding a team to quality-code
 
 One page, about 15 minutes, from nothing to a first gated ticket. For the details of any step, the
-[README](../README.md) and [Getting started](GETTING_STARTED.md) have more.
+The [Guide](GUIDE.md) and [Getting started](GETTING_STARTED.md) have more.
 
 ## Before you start
 
@@ -35,10 +35,10 @@ Answer the numbered cards: the stack, the Jira site and project, the acceptance-
 writes `.claude/quality-code.json` only after you confirm, then proves the setup on one recent
 ticket. Commit the config and the `.gitignore` lines it adds. Run `/quality-code:setup advanced` later
 for forbidden paths and, for Vitest, which config runs which tests and the test folders. A
-Playwright project sets its `playwright` block by hand for now (see the README's config table).
+Playwright project sets its `playwright` block by hand for now (see the config table in the [Guide](GUIDE.md#the-config-file)).
 
 To offer the plugin to everyone who opens the repo, commit the `.claude/settings.json` block shown in
-the README's Install section.
+the README's Installation section.
 
 ## 3. The first ticket
 

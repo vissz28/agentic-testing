@@ -214,7 +214,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const c = loadConfig(root)
   if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
   const x = xrayOf(c.config)
-  if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (README, "XRay test cases").\n'); return 2 }
+  if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (docs/GUIDE.md, "XRay test cases").\n'); return 2 }
   try {
     if (cmd === 'sync') { stdout(`${(await sync(root, x, arg ?? null)).join('\n')}\n`); return 0 }
     let input
