@@ -1,6 +1,6 @@
 # Writing Vitest tests from a ticket
 
-The generic rules `/quality-code:write` always follows. A layer's own `guide` (set in
+The generic rules `/quality-code:spec` always follows. A layer's own `guide` (set in
 `vitest.layers`) adds the team's conventions on top of these and wins where they differ.
 
 ## Shape

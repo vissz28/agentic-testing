@@ -4,7 +4,7 @@ argument-hint: <KEY> [--path <spec>]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
-Writes the data setup for a ticket, and nothing else. It is the data-only sibling of `/quality-code:write`: same ticket reading, no test, no checks. You write the data from the ticket and the project's own builders or stubs; nothing is invented. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Writes the data setup for a ticket, and nothing else. It is the data-only sibling of `/quality-code:spec`, for QA: same ticket reading, no test, no checks. You write the data from the ticket and the project's own builders or stubs; nothing is invented. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 

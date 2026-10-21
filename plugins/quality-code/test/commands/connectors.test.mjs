@@ -63,7 +63,7 @@ test('the GitLab username is confirmed against who is signed in, and shown on th
   assert.match(doc, /belongs to <actual>, not <gitlab_username>/)
 })
 test('every command that checks connectors hands over the GitLab username from the settings', () => {
-  for (const c of ['setup', 'start', 'seed', 'write']) {
+  for (const c of ['setup', 'spec', 'seed']) {
     const t = readFileSync(new URL(`../../commands/${c}.md`, import.meta.url), 'utf8')
     for (const k of ['jira_email', 'gitlab_username', 'gitlab_api_url']) assert.ok(t.includes(`\`\${user_config.${k}}\``), `${c} ${k}`)
   }
@@ -114,6 +114,6 @@ test('every Rovo operation the commands use has its claude.ai connector name, or
 test('which connectors: GitLab only for a GitLab remote, Figma for playwright and fullstack; every caller listed', () => {
   assert.match(doc, /GitLab when `here\.gitlab` is set .* or `gitlab_api_url` is: otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
   assert.match(doc, /Figma only when the adapter is `playwright` or `fullstack`/)
-  assert.match(doc, /From `start`, `write`, `seed` and `xray`, an optional service/)
-  for (const c of ['setup', 'start', 'write', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
+  assert.match(doc, /From `spec`, `seed` and `xray`, an optional service/)
+  for (const c of ['setup', 'spec', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
 })

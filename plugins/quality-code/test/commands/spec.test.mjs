@@ -1,16 +1,16 @@
-// The write command is a prompt, not code: these pin its flow and its safety rules.
+// The spec command is a prompt, not code: these pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/write.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
 const guide = readFileSync(new URL('../../guides/vitest-writing.md', import.meta.url), 'utf8')
 const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. **`) === -1 ? doc.indexOf('\n## Examples') : doc.indexOf(`\n${n + 1}. **`))
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\] \[--dry-run\] \[--ci\]\n(?:[a-z-]+: .+\n)*---/)
-  assert.match(doc, /^description: Write Vitest or Playwright tests/m)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[KEY\] \[--gate-only\] \[--base BRANCH\] \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--yes\] \[--dry-run\] \[--ci\]\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^description: Take a Jira ticket to checked tests, for developers and QA\./m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card, risk note', () => {
   const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Target.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Check.**', '\n7. **Card.**', '\n8. **Risk note on Jira.**'].map(s => doc.indexOf(s))
@@ -63,7 +63,8 @@ test('step 3: the target comes from the branch diff and the ticket, with no card
   assert.doesNotMatch(s, /One clear candidate still gets the card/)
   // The card only when it cannot be told, or with --ask.
   assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
-  assert.match(s, /only when no changed code file matches the ticket, when two match equally well, or with `--ask`/)
+  assert.match(s, /only when no changed code file matches the ticket, or when two match equally well/)
+  assert.doesNotMatch(doc, /--ask/)
 })
 test('step 3: a target chosen once is saved for the ticket and reused without asking', () => {
   const s = step(3)
@@ -79,8 +80,8 @@ test('step 4: reads the generic guide and each layer guide, then the plan card',
   assert.match(s, /under it the result it checks, as a plain sentence from the ticket's Then/)
   assert.ok(s.includes('`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`'))
   assert.match(s, /Never write a result into a test that the ticket file does not hold/)
-  assert.match(s, /show the plan as information and go on to step 5 without stopping/)
-  assert.match(s, /Only with `--ask`/)
+  assert.match(s, /Show this card and end the turn: it is the second of the three questions/)
+  assert.match(s, /With `--yes` or `--ci`, show it as information instead/)
 })
 test('step 5: run start before any file, the active-run card, the file naming and the describe block', () => {
   const s = step(5)
@@ -252,8 +253,8 @@ test('playwright step 7: the extra line and the app line', () => {
   assert.match(s, /app is not reachable/)
 })
 test('examples cover --route and --no-extras', () => {
-  assert.ok(doc.includes('`/quality-code:write ABC-123 --route /orders/new`'))
-  assert.ok(doc.includes('`/quality-code:write ABC-123 --no-extras`'))
+  assert.ok(doc.includes('`/quality-code:spec ABC-123 --route /orders/new`'))
+  assert.ok(doc.includes('`/quality-code:spec ABC-123 --no-extras`'))
 })
 
 test('playwright guide: shape and tags on the test line', () => {
@@ -325,7 +326,7 @@ test('fullstack: the side picks the parts; every flag is allowed; one run with b
   assert.ok(fs.includes("`node \"${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs\" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --expected @<ticketsDir>/<KEY>/expected.json`"))
   assert.match(fs, /plus `--target '<target>'` when there is a Vitest part/)
   assert.match(fs, /the value check reads the specs of both sides together/)
-  assert.ok(doc.includes('`/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack'))
+  assert.ok(doc.includes('`/quality-code:spec ABC-123 --target src/pricing.ts --route /orders`: fullstack'))
 })
 
 test('step 5 saves the pinned values; step 6 passes them to the check', () => {
@@ -376,4 +377,61 @@ test('examples are neutral: no project text or key shape from one app', () => {
     assert.ok(!doc.includes(t), `write.md: ${t}`)
     assert.ok(!pguide.includes(t), `playwright-writing.md: ${t}`)
   }
+})
+
+// One command for developers and QA: three questions at most, the ticket of the branch when no key is given.
+test('three questions at most: the gate only when refused, the plan, the read-back', () => {
+  assert.match(doc, /A person is asked three times at most: at the gate, only when the ticket is refused; at the plan; and at the read-back after the card\. Everything else runs without stopping\./)
+  assert.match(step(2), /the first of the three questions/)
+  assert.match(step(4), /the second of the three questions/)
+  assert.match(step(9), /the last of the three questions/)
+})
+test('step 1: no config offers setup and comes back; --gate-only is the gate alone', () => {
+  const s = step(1)
+  assert.ok(s.includes('This repo is not set up yet.\n   1. Run setup now\n   2. Stop'))
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/setup.md'))
+  assert.match(s, /when it is done, come back here/)
+  assert.match(s, /\*\*`--gate-only`:\*\* the gate alone, no test: read `\$\{CLAUDE_PLUGIN_ROOT\}\/commands\/ticket-eval\.md`/)
+  assert.match(s, /`\/quality-code:ticket-eval` is the same/)
+})
+test('step 1: with no key, the ticket of the branch: from its name with no card, else the merge request, else the commits', () => {
+  const s = step(1).slice(step(1).indexOf('**The ticket.**'))
+  assert.ok(s.includes('bin/branch.mjs" --detect'))
+  assert.match(s, /open merge request whose source branch is its `branch`/)
+  assert.match(s, /its target branch is the base/)
+  assert.match(s, /`keys\[0\]` when it appears in the branch name, ignoring case: say `Ticket: <KEY> \(from the branch <branch>\)` and go on, with no card/)
+  assert.ok(s.indexOf("merge request's title") < s.indexOf('from the branch\'s commit messages'))
+  assert.match(s, /more than one candidate and none in the branch name/)
+  for (const t of ['`isRepo` false', '`detached`', '`onBase`', '`mergeBase` null', 'git fetch --unshallow', '`base` null']) assert.ok(s.includes(t), t)
+  assert.ok(s.includes('Which ticket? Type its key, for example ABC-123.'))
+  assert.match(s, /`--ci` never asks: it stops with `--ci needs a key, or a branch named after the ticket\.`/)
+  assert.doesNotMatch(s, /git branch --show-current/)
+})
+test('step 2: the band decides: ready goes on, borderline goes on with the risk mark, refused gets the card', () => {
+  const s = step(2)
+  assert.match(s, /Read `band` from the last `GATE_JSON:` line \(ticket-eval's step 5 runs `score --next`\)/)
+  assert.match(s, /\*\*ready:\*\* say the report's first line and go on/)
+  assert.match(s, /\*\*borderline\*\* \(up to 10 points under the bar, with something to check\): do not stop/)
+  assert.match(s, /`To pass:` line/)
+  assert.match(s, /Remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score, as after option 3/)
+  assert.match(step(6), /After option 3 in step 2, or a borderline ticket, add `--incomplete-ticket <score>`/)
+  assert.match(step(8), /Only after option 3 in step 2/, 'a borderline ticket gets no risk-note question')
+})
+test('step 4: tests already on the branch can be checked instead of writing new ones', () => {
+  const s = step(4)
+  assert.match(s, /`Only check the tests already on this branch`/)
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/check.md'))
+  assert.match(s, /kind `test`, status other than `D`/)
+})
+test('write and start are aliases of spec', () => {
+  const w = readFileSync(new URL('../../commands/write.md', import.meta.url), 'utf8')
+  const st = readFileSync(new URL('../../commands/start.md', import.meta.url), 'utf8')
+  for (const t of [w, st]) {
+    assert.ok(t.includes('${CLAUDE_PLUGIN_ROOT}/commands/spec.md'))
+    assert.match(t, /Run each plugin script exactly as written/)
+    assert.ok(t.split('\n').length < 12, 'an alias, not a second copy of the flow')
+  }
+  assert.match(w, /a key is required/)
+  assert.match(st, /never a key/)
+  assert.match(st, /Tip: \/quality-code:spec does this now\./)
 })

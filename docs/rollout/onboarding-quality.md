@@ -18,7 +18,7 @@ Nothing here is automatic: read each list before you delete anything.
    /plugin install quality-code@quality-code
    ```
    `/plugin` must show `quality-code` **0.8.0 or later**. An older version refuses parts of the config.
-2. Jira connected: `/quality-code:start` shows ✅ Jira. In `/plugin`, set `gitlab_api_url` to TeamSystem's
+2. Jira connected: `/quality-code:spec` shows ✅ Jira. In `/plugin`, set `gitlab_api_url` to TeamSystem's
    GitLab, `https://biosphere.teamsystem.com/api/v4` (the default is gitlab.com; the connectors card
    also asks for the address).
 3. A clean checkout of the repo's main development branch, then the branch above:
@@ -44,8 +44,8 @@ request description (step 6).
    every spec of the ticket together (the old backend graded each file alone), has no Italian/English
    rule and no warehouse-specific `hollow_target` check; with `--key`, another ticket's test in the
    same file does not count.
-3. **Writing, one real ticket.** Backend: `/quality-code:write <KEY>`. Frontend:
-   `/quality-code:write <KEY> --route <route>`. A developer reads the specs it wrote.
+3. **Writing, one real ticket.** Backend: `/quality-code:spec <KEY>`. Frontend:
+   `/quality-code:spec <KEY> --route <route>`. A developer reads the specs it wrote.
 
 To do step 1 with the old harness still present, do it **before** step 3 removes it.
 
@@ -139,7 +139,7 @@ Add, so everyone who opens the repo is offered the plugin:
 ```
 
 And in `CLAUDE.md`, replace every line that points at the old harness (`.claude/harness/…`, `/spec`,
-`/playwright`, `/unit`, …) with the new commands: `/quality-code:start`, `ticket-eval`, `check`,
+`/playwright`, `/unit`, …) with the new commands: `/quality-code:spec`, `ticket-eval`, `check`,
 `write`, `seed`, `kpi`.
 
 ## 4. CI ticket gate (if the repo has one)
@@ -159,7 +159,7 @@ A `.claude/boundary-guard.mjs` line left in `.gitlab-ci.yml` (the backend lists 
 `.spec-file-paths`) no longer matches anything: a person removes it.
 
 In Claude Code, in the repo:
-1. `/quality-code:start`: the repo card, the branch, the ticket.
+1. `/quality-code:spec`: the ticket from the branch, the gate, the plan.
 2. `/quality-code:ticket-eval <a recent KEY>`: same score as in step 1.
 3. `/quality-code:check` on the branch's specs: the card.
 4. `/quality-code:kpi`: shows the runs you just did.
@@ -187,7 +187,7 @@ How to install: /plugin marketplace add vissz28/agentic-testing, then
 ## 7. After the merge
 
 - Comment on AGT-86 with the merge request link; on AGT-85 with the proofs.
-- Tell the team: install or update the plugin (step 0), run `/quality-code:start` on their branch.
+- Tell the team: install or update the plugin (step 0), run `/quality-code:spec` on their branch.
 - Pilot (AGT-87): one sprint; every surprise is an issue with the ticket key and the card.
 
 ## If something goes wrong

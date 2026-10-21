@@ -42,19 +42,22 @@ config it writes:
 /quality-code:setup
 ```
 
-**3. Every day, start from your feature branch.**
+**3. Every day, from your feature branch, one command.**
 
 ```
-/quality-code:start
+/quality-code:spec
 ```
 
-It checks your connectors, shows the branch and what it changed, and takes the ticket key from the
-branch name (`ABC-123-add-export`). Then you pick: evaluate that ticket, check the tests on the branch,
-or write and check tests for it. To check any ticket directly:
-`/quality-code:ticket-eval ABC-123`. To write tests for one: `/quality-code:write ABC-123`.
+It takes the ticket key from the branch name (`ABC-123-add-export`), scores the ticket, shows the plan,
+writes the tests and checks them. It asks you three times at most: at the gate only when the ticket is
+not workable, at the plan, and after the result. For any ticket: `/quality-code:spec ABC-123`. For the
+score alone: `/quality-code:spec ABC-123 --gate-only` (or `/quality-code:ticket-eval ABC-123`).
+`/quality-code:start` and `/quality-code:write` still work: they are the same command.
 
-The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
-comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
+The result is a score out of 100. At 70 or more the ticket is ready to test. From 60 to 69, with
+something to check, it goes on and every result is marked 🔴 [RISK / NOT RECOMMENDED]. Below that it
+stops and leads with the cheapest fix (`To pass: add Expected result (→ 78 points)`): fill in the gaps
+on the spot in one reply, post a comment on Jira listing what is missing, or continue anyway. New to it? Start with
 [Getting started](docs/GETTING_STARTED.md), a step-by-step walk-through for QA and developers. Bringing
 a whole team on board: [Onboarding](docs/ONBOARDING.md), one page with a team lead's checklist.
 
@@ -107,8 +110,8 @@ Playwright test).
 | Capability | How | Status |
 |---|---|---|
 | Guided setup for your repo and Jira project | `/quality-code:setup` | ✅ available |
-| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/quality-code:start` | ✅ available |
-| Readiness gate: score a ticket out of 100 | `/quality-code:ticket-eval <KEY>` | ✅ available |
+| From your feature branch to checked tests: the ticket from the branch name, gate, plan, write, check | `/quality-code:spec` (`start` and `write` are the same) | ✅ available |
+| Readiness gate: score a ticket out of 100 | `/quality-code:spec <KEY> --gate-only` or `/quality-code:ticket-eval <KEY>` | ✅ available |
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
@@ -117,8 +120,8 @@ Playwright test).
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:check --evals` | ✅ available |
-| Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Vitest) |
-| Write frontend tests from a ticket, any Playwright app | `/quality-code:write <KEY>` (or `start`, option 3) | ✅ available (Playwright) |
+| Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (Vitest) |
+| Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
 | Write only the test data a ticket needs: seed builder calls (Vitest) or route stubs (Playwright) | `/quality-code:seed <KEY> [--path <spec>]` | ✅ available |
 | XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
 | How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:kpi` | ✅ available |
@@ -217,8 +220,7 @@ typing a number:
 
 It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
 written before you type `1`. Setup writes only `.claude/quality-code.json` and its `.gitignore`
-lines. It does not check any ticket: that is what `/quality-code:start` and
-`/quality-code:ticket-eval` do.
+lines. It does not check any ticket: that is what `/quality-code:spec` does.
 
 Everything else has a default:
 
@@ -234,7 +236,7 @@ Everything else has a default:
 project shared by many teams, narrowed to a word in the title or a component first), routes and QA
 plans for Playwright, title prefixes for Vitest, languages, redaction, templates, the paths a test run
 must never change and, for Vitest, which config runs which tests and the test folders
-`/quality-code:write` writes in.
+`/quality-code:spec` writes in.
 
 Run `/quality-code:setup` again any time to change a value; it starts from the current config and
 keeps what it does not ask.
@@ -294,8 +296,8 @@ a script builds the verdict, the model only relays it.
 ```
 
 With no spec paths it takes the test files your branch changed against its base (deleted files are
-left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:start` offers the same as
-option 2 when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
+left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:spec` offers the same on its plan
+card (`Only check the tests already on this branch`) when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
 test that changes its result, naming its first failure. With a ticket key, only that ticket's block
 counts: another ticket's red test in the same file does not decide the verdict (the card says how
 many it left out), a namesake elsewhere never kills a mutant, and the ticket and target `write` saved
@@ -314,7 +316,7 @@ The steps, always in this order:
    counted but not graded. Pick the `tsconfig` whose options (path aliases, types) fit the specs.
 5. **tests**: Vitest or Playwright, with the project's own install and, per spec, the config you map
    in `vitest.configs` or `playwright.configs`.
-6. **expected**: only with `--ticket` (used by `/quality-code:write`): every concrete number and quoted
+6. **expected**: only with `--ticket` (used by `/quality-code:spec`): every concrete number and quoted
    text in the ticket's Then / Expected lines is asserted in the ticket's block. A negated matcher
    (`.not.toBe(80)`) or a commented-out `expect` asserts nothing. In a Vitest spec, a field the Then
    names (`unit_cost`, also written `unitCost`) must be read in an assertion; "not unit_price" is not
@@ -323,7 +325,7 @@ The steps, always in this order:
    its tests pin, kept only when the ticket's expected text holds them.
 7. **mutation**: each assertion is broken on purpose and the test must fail.
 8. **flaky**: only with `--flaky`.
-9. **stryker**: only with `--target` (used by `/quality-code:write`), when the project has
+9. **stryker**: only with `--target` (used by `/quality-code:spec`), when the project has
    `node_modules/.bin/stryker`, and when the tests are not red (Stryker needs a green first run;
    red tests already show they can fail). Stryker changes the target code and the tests must catch at least
    `vitest.stryker.threshold` percent of the changes (default 60). Otherwise it is "not applicable"
@@ -380,19 +382,24 @@ in `node_modules/.vite` and the mutation check's temporary spec copies, deleted 
 
 ## Write tests from a ticket
 
-For Vitest and Playwright projects. `/quality-code:write` writes tests from a ticket that passes the readiness gate,
-then the pipeline grades them. Claude writes; the scripts gate and grade.
+For Vitest and Playwright projects, for developers and QA. `/quality-code:spec` writes tests from a
+ticket that passes the readiness gate, then the pipeline grades them. Claude writes; the scripts gate
+and grade.
 
 ```
-/quality-code:write ABC-123
+/quality-code:spec ABC-123
 ```
 
-`/quality-code:start` offers the same as `Write and check tests` (option 3, or option 2 when the
-branch has no test files to check).
+With no key it takes the ticket of your feature branch: from the branch name with no question, else
+from the merge request's title or the branch's commits. A person is asked three times at most: the
+gate (only when refused), the plan, and the read-back after the card.
 
-1. **Gate.** The ticket is read and scored as in `ticket-eval`. A refused ticket gets the refuse card
-   and its flow; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",
-   also goes on, and every result is marked 🔴 [RISK / NOT RECOMMENDED]. Anything else stops.
+1. **Gate.** The ticket is read and scored as in `ticket-eval`. Ready: it goes on. Borderline (60 to
+   69, with something to check): it goes on, and every result is marked 🔴 [RISK / NOT RECOMMENDED].
+   Refused: the refuse card, led by the cheapest fix; its fill-in takes every answer in one reply and
+   may suggest text from the merge request or the commits for you to accept. If the fill-in makes it
+   pass, writing goes on. Option 3, "Continue anyway", also goes on, marked 🔴. Anything else stops.
+   Answers you typed in an earlier run that never reached Jira are offered again.
 2. **Target.** Found from your branch's diff and the ticket: the changed source file that holds what
    the scenarios describe. On a branch with no change (after the merge), from the ticket's merge
    commit instead (`branch.mjs --merged <KEY>`: the merge whose source branch carries the key, else
@@ -401,10 +408,10 @@ branch has no test files to check).
    equally well. The choice is remembered for the ticket, so the next run does not ask again.
    `--target src/pricing.ts` names it yourself.
 3. **Plan.** One line per scenario of the ticket, with the test folder (layer) it goes in and the
-   result it checks in plain words (`We check: the total is 108.00`), shown as information; writing
-   goes straight on. `--layer unit` keeps one layer only. `--ask` stops at the target and the plan for
-   you to choose, as a card each; the plan card also has `No, I'll type the right result`, which adds
-   it to the ticket (and offers the Jira update), never into a test alone. With `qaPlans`, the
+   result it checks in plain words (`We check: the total is 108.00`), as a card you confirm (`--yes`
+   skips it). `--layer unit` keeps one layer only. The plan card also has `No, I'll type the right
+   result`, which adds it to the ticket (and offers the Jira update), never into a test alone, and, on
+   a branch that already has tests for the ticket, `Only check the tests already on this branch`. With `qaPlans`, the
    feature's QA plan file is read first as extra rules; the ticket wins a clash. `--dry-run` stops
    after the plan, writing nothing; `--ci` never asks and stops where it would have to.
 4. **Write.** One spec per layer, named `<target>.<key>.spec.ts` (for example
@@ -634,7 +641,7 @@ real data. The ticket is re-read from Jira first and only appended to. `--ci` ne
 
 ### 3. Continue anyway
 
-For developers. Inside `/quality-code:write`, the tests are still written and checked, but the card
+For developers. Inside `/quality-code:spec`, the tests are still written and checked, but the card
 opens with `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/70)` and the override is recorded in
 the audit log (`/quality-code:kpi` counts these forced runs). The verdict is not changed by the mark.
 If the ticket has nothing to check at all, it asks you to add what should happen first.
@@ -694,7 +701,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `playwright` | Playwright and fullstack: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600), `folder` (where `write` puts new specs, ending in `/`, not in a forbidden boundary), `guide` (a `.md` with your e2e conventions), `ungradedTitles` (a regular expression: tests whose title matches are neither graded nor mutated, like design captures), `redTags` (`{ "scenario", "extra" }`: the tags `write` puts on red tests for a merge gate that skips them; `null` for none) | default Playwright config, every project, `tsconfig.json`, 600; folder: your config's `testDir` when it is a plain string, else `e2e/`; no guide; every test graded; `@anchor` and `@finding` |
 | `seed` | optional: `builders` (Vitest: the files with your seed builders), `dataset` (a `.md` documenting a known test dataset), `stubsFrom` (Playwright: the folder whose specs hold your route stubs), `guide` (a `.md` with your own seeding rules) | none |
 | `vitest` | Vitest and fullstack: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
-| `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
+| `vitest.layers` | the test folders `/quality-code:spec` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when Stryker is installed for the project (a monorepo's hoisted `node_modules` counts) | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
@@ -720,7 +727,7 @@ enough; the other stays disconnected.
 | GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | like Jira: `/mcp`, choose `gitlab`, sign in. Nothing to create or set: it is GitLab's own MCP server at `<gitlab_api_url>/mcp` (your GitLab admin must have it switched on, GitLab 19.5 or later) | set `gitlab_token` and `gitlab_username`, then `/mcp`, reconnect `gitlab-token` |
 | Figma (`figma`, `figma-token`) | design comparison (later parts) | `/mcp`, choose `figma`, sign in | set `figma_api_key`, then `/mcp`, reconnect `figma-token` |
 
-`/quality-code:setup`, `/quality-code:start` and `/quality-code:write` check the connectors first
+`/quality-code:setup` and `/quality-code:spec` check the connectors first
 and show, for each one that is missing, exactly these steps. Figma is on that card only for
 Playwright projects.
 
@@ -768,7 +775,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 | `marketplace add` fails | Make sure `git clone https://github.com/vissz28/agentic-testing` works on its own. |
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
 | `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
-| `Another test-writing run is active.` | A `/quality-code:write` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/bin/checks.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
+| `Another test-writing run is active.` | A `/quality-code:spec` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/bin/checks.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
 | `the e2e folder "…" is inside the forbidden "…"` | Your Playwright `testDir` is in a folder tests must not write. Set `playwright.folder` to a test folder, or allow it in `boundaries.allow`. |
 | `honesty: anchor tag without a ticket tag` | A tag list was split over lines; keep `{ tag: ['@anchor', '@KEY'] }` on the `test(` line. |
 | `No quality-code audit data yet` | Gate a ticket or run a check first; the audit log is local to your machine. |
@@ -875,7 +882,7 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, start.md, ticket-eval.md, write.md, xray.md
+│     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, spec.md (start.md and write.md: aliases), ticket-eval.md, xray.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ bin/                          the only scripts the commands and the hook run (no dependencies):
 │     │                                ticket (gate), pipeline (/check), checks (one check, the run

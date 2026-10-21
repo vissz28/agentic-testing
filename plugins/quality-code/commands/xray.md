@@ -24,7 +24,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 
    Then read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score.
-   - **Refused:** its refuse card and its flow, as written there. Go on only when that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card). Option 3, a comment posted, a cancel or a stop: stop, `XRay test cases need a ticket that passes the gate.` Nothing written.
+   - **Refused:** its refuse card and its flow, as written there. Go on only when that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card). Option 3 (continue anyway), a comment posted, a cancel or a stop: stop, `XRay test cases need a ticket that passes the gate.` Nothing written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`, the only copy of the ticket; never edit it. Keep the `feature` and the `route` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
    - **Fullstack:** a ticket whose `side` (the last `TICKET_EVAL_JSON:` line) is `backend` gets no XRay test cases: say `XRay test cases are written for frontend tickets (Playwright tests).` and stop.
 3. **Screen.** A `--route PATH` in `$ARGUMENTS` is used as it is: it must start with `/` and be one line; otherwise say `--route must be a path in the app starting with /, like /orders` and stop. Without one, the `route` from step 2 is used, with no card. With neither, show `/quality-code:write`'s screen card (its step 3, Playwright) and do as it says.
@@ -50,7 +50,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
      "feature": "<the feature label>", "steps": [{ "action": "…", "data": "…", "expected": "…" }] }
    ```
 
-   - **key:** the Playwright test's name: the scenario's name for a scenario, `Extra: <what it probes>` for an extra probe, as `/quality-code:write` names them. It links the case to its test.
+   - **key:** the Playwright test's name: the scenario's name for a scenario, `Extra: <what it probes>` for an extra probe, as `/quality-code:spec` names them. It links the case to its test.
    - **steps:** from the scenario's Gherkin, in order: each `Given` and `When` is an `action`, each `Then` the `expected` of the step before it. The first step opens the screen (`Open <route>`). `data` holds the values the step types or picks, only when there are any. An extra probe's steps are what it probes and the result the guide lets it expect.
    - **Leave out** what you do not know: `description`, `label`, `priority`, `epic`. `testType` is `Cucumber` unless the case has no Gherkin behind it (`Generic`).
 

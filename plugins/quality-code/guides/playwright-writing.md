@@ -1,6 +1,6 @@
 # Writing Playwright tests from a ticket
 
-The generic rules `/quality-code:write` always follows on a Playwright project. The team's own guide
+The generic rules `/quality-code:spec` always follows on a Playwright project. The team's own guide
 (set in `playwright.guide`) adds its conventions on top of these (fixtures, login, which APIs to
 stub) and wins where they differ. So do the specs already in the e2e folder: copy their imports,
 fixtures and login, never invent new ones.

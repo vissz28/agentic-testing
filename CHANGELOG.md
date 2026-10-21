@@ -11,6 +11,20 @@ Update with `/plugin update quality-code@quality-code`.
 
 ### Added
 
+- **`/quality-code:spec`: one command from ticket to checked tests**, for developers and QA. It runs
+  the gate, the plan, the writing, the checks and the read-back, and asks a person three times at
+  most: at the gate only when the ticket is refused, at the plan, and after the card. With no key it
+  takes the ticket of your branch: from the branch name with no question, else the merge request's
+  title or the commits. `--gate-only` is the gate alone (as `ticket-eval`); `--yes` skips the plan
+  question. On a branch that already has tests for the ticket, the plan card can just check them.
+- **A gate that only stops when it must.** A borderline ticket (60 to 69, with something to check)
+  goes on, with every result marked 🔴 [RISK / NOT RECOMMENDED]. A refused ticket's card leads with
+  the cheapest way over the bar (`To pass: add Expected result (→ 78 points)`). The fill-in asks every
+  picked question in one card and takes the answers in one reply, can suggest text from the merge
+  request or the branch's commits for you to accept, and still lets the script accept or refuse each
+  answer. Answers typed in an earlier run that never reached Jira are offered again. New script
+  calls: `ticket.mjs score --next` (the band and the cheapest fix) and `ticket.mjs saved <KEY>`.
+
 - **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
   adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
   cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
@@ -87,6 +101,13 @@ Update with `/plugin update quality-code@quality-code`.
 
 ### Changed
 
+- **`/quality-code:start` and `/quality-code:write` are now `/quality-code:spec`**, kept under their
+  old names. `start` no longer ends on an action card: the plan card carries the choice.
+- **The plan is a question.** `spec` (and `write`) show the plan card and wait; `--yes` goes straight
+  on. `--ask` is gone.
+- **The refuse card's order:** `1` fills it in here, `2` posts a comment on Jira, `3` continues anyway,
+  `4` stops. `--ci` still comments (now option 2).
+
 - **Cheaper and faster commands.** Each command now picks its model and effort for the turn it
   starts in: Haiku with low effort for `kpi`, `consumption` and `check`; Sonnet for `setup`,
   `start`, `ticket` and `ticket-eval`; your own model for `write`, `seed` and `xray`. Measured on
@@ -114,6 +135,8 @@ Update with `/plugin update quality-code@quality-code`.
   out, as before, add `"ungradedTitles": "conformance|capture"` to the `playwright` block.
 - A spec whose passing tests assert only with snapshots or a matcher mutation cannot flip now ends
   "not verified" instead of green: give those tests a value assertion.
+- **`--ask` is gone** and the refuse card's numbers changed (`1` is now "fill it in here"): drop
+  `--ask` from saved commands, and read the card before typing a number from habit.
 - If a CI job or script of yours runs a plugin script by path, change it: `core/cli.mjs` →
   `bin/ticket.mjs`, `core/pipeline/cli.mjs` → `bin/pipeline.mjs`, `core/checks/cli.mjs` →
   `bin/checks.mjs`, `core/consumption/cli.mjs` → `bin/consumption.mjs`, and `core/<name>.mjs` →

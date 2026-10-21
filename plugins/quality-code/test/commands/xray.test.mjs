@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const doc = readFileSync(new URL('../../commands/xray.md', import.meta.url), 'utf8')
-const write = readFileSync(new URL('../../commands/write.md', import.meta.url), 'utf8')
+const write = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
 const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. **`) === -1 ? doc.indexOf('\n## Examples') : doc.indexOf(`\n${n + 1}. **`))
 const XRAY = 'node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs"'
 

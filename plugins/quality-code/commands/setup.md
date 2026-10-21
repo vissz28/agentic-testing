@@ -1,5 +1,5 @@
 ---
-description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:start and /quality-code:ticket-eval. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
+description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:spec. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
 argument-hint: [advanced]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
@@ -59,7 +59,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    - **1:** build the proposal `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
-4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
 
 ## Advanced
 

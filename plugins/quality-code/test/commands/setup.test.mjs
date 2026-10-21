@@ -76,7 +76,7 @@ test('the short setup asks only for connectors, the project here and the Jira pr
   assert.ok(step(4).startsWith('4. **Done.**'))
   assert.match(step(4), /Do not read, score or comment on any ticket/)
   assert.doesNotMatch(step(4), /ticket-eval\.md|searchJiraIssuesUsingJql|getJiraIssue/)
-  for (const c of ['/quality-code:start', '/quality-code:ticket-eval <KEY>', '/quality-code:setup advanced']) assert.ok(step(4).includes(c), c)
+  for (const c of ['/quality-code:spec.', '/quality-code:spec <KEY>', '--gate-only', '/quality-code:setup advanced']) assert.ok(step(4).includes(c), c)
 })
 test('advanced keeps the full questions and needs a config', () => {
   assert.match(doc, /If `\$ARGUMENTS` contains `advanced`, go to \*\*Advanced\*\*/)

@@ -1,6 +1,6 @@
 # Connectors check
 
-Shared by `/quality-code:setup` (step 0), `/quality-code:start` (step 1), and `/quality-code:write`, `/quality-code:seed` and `/quality-code:xray` (their step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
+Shared by `/quality-code:setup` (step 0), and `/quality-code:spec`, `/quality-code:seed` and `/quality-code:xray` (their step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
 
 **What may be asked in the chat.** Only what is not secret: your Jira email, your GitLab address, your GitLab username or email. Save them with `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs"` (below), never by editing a settings file yourself. A token is set only in the `/plugin` dialog (quality-code, configure), which hides it and stores it in the keychain. If the user pastes a token in the chat anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 
@@ -30,7 +30,7 @@ A connector whose tools are missing, that asks to sign in, or whose call errors 
 Connectors: ✅ Jira <email> on <site host> · ✅ GitLab <username> on <host>
 ```
 
-(the GitLab part only when GitLab is on the card, plus `· ✅ Figma <account>` when Figma is). From `start`, `write`, `seed` and `xray`, an optional service that is not ✅ does not stop either: add it to the line as `· ⚠️ GitLab <one-line reason> (fix: /quality-code:setup)` and go on. Only Jira not ✅ stops the command (the Jira card below). `setup` is where connectors are fixed: there, whenever a service is not ✅, show the card.
+(the GitLab part only when GitLab is on the card, plus `· ✅ Figma <account>` when Figma is). From `spec`, `seed` and `xray`, an optional service that is not ✅ does not stop either: add it to the line as `· ⚠️ GitLab <one-line reason> (fix: /quality-code:setup)` and go on. Only Jira not ✅ stops the command (the Jira card below). `setup` is where connectors are fixed: there, whenever a service is not ✅, show the card.
 
 **The card.** Show it and end the turn:
 
