@@ -1,9 +1,9 @@
 // Entry point for every check: node bin/checks.mjs <check> [args] [--json]
 // Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import * as boundary from '../lib/base/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../lib/base/stack.mjs'
@@ -57,9 +57,12 @@ function parse(argv) {
   return a
 }
 
-async function hook(root, stdin) {
+async function hook(sessionRoot, stdin) {
   let payload = {}
   try { payload = JSON.parse(stdin || '{}') } catch { return 0 }
+  // The project the file is in (a package of a monorepo with its own config), else the session's.
+  const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
+  const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
   const c = loadConfig(root)
   const d = boundary.hookDecision(payload, { root, config: c.ok ? c.config : null })
   if (d.decision !== 'deny') return 0

@@ -92,6 +92,14 @@ test('hook: silent allow without a run or without a config; deny JSON and a log 
   assert.equal(r.status, 0)
   assert.equal(r.stdout, '')
 })
+test('hook: a file in a package with its own config is judged by that package, from a session at the monorepo root', () => {
+  const top = mkdtempSync(join(tmpdir(), 'qc-mono-'))
+  put(top, 'packages/api/.claude/quality-code.json', JSON.stringify(CFG))
+  put(top, 'packages/api/.claude/quality-code/run.active', '')
+  const r = cli(top, ['boundary', '--hook'], JSON.stringify({ tool_name: 'Write', tool_input: { file_path: join(top, 'packages/api/src/a.ts') } }))
+  assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'deny')
+  assert.equal(cli(top, ['boundary', '--hook'], JSON.stringify({ tool_name: 'Write', tool_input: { file_path: join(top, 'packages/api/test/a.spec.ts') } })).stdout, '')
+})
 test('boundary diff mode from the CLI', () => {
   const d = repo()
   put(d, 'src/a.ts')

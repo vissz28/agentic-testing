@@ -69,7 +69,13 @@ test('loadConfig names a JSON syntax error', () => {
   assert.match(r.errors[0], /not valid JSON/)
 })
 
-test('projectRoot prefers CLAUDE_PROJECT_DIR, else cwd', () => {
+test('projectRoot: CLAUDE_PROJECT_DIR with the config, else the nearest config up from cwd, else CLAUDE_PROJECT_DIR or cwd', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-root-'))
+  mkdirSync(join(d, 'app/.claude'), { recursive: true }); writeFileSync(join(d, 'app/.claude/quality-code.json'), '{}')
+  mkdirSync(join(d, 'app/src/deep'), { recursive: true })
+  assert.equal(projectRoot({}, join(d, 'app/src/deep')), join(d, 'app'), 'a script run from a subfolder')
+  assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: d }, join(d, 'app/src')), join(d, 'app'), 'a monorepo session, a package with its own config')
+  assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: join(d, 'app') }, d), join(d, 'app'))
   assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: '/p' }, '/c'), '/p')
   assert.equal(projectRoot({}, '/c'), '/c')
   assert.equal(configPath('/p'), '/p/.claude/quality-code.json')
@@ -509,4 +515,15 @@ test('vitest.stryker.timeoutSeconds: 60 to 7200, default 1800', async () => {
   assert.equal(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: 600 } } }).ok, true)
   for (const t of [59, 7201, 1.5, '600']) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: t } } }).errors, ['vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200'], String(t))
   assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bad: 1 } } }).errors, ['vitest.stryker.bad: unknown field (only "threshold" and "timeoutSeconds")'])
+})
+
+test('$schema is accepted; git.base; ticketsDir stays inside and drops ./; jira.site may end in / or have a path', () => {
+  const b = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net/', projects: ['ABC'] } }
+  const r = validateConfig({ ...b, $schema: './node_modules/x/schema.json', git: { base: 'develop' }, ticketsDir: './qa/tickets' })
+  assert.equal(r.ok, true, r.errors?.join('\n'))
+  assert.equal(r.config.jira.site, 'https://x.atlassian.net')
+  assert.equal(r.config.ticketsDir, 'qa/tickets')
+  for (const t of ['../outside', '/etc/x', 'C:/x']) assert.match(validateConfig({ ...b, ticketsDir: t }).errors.join(), /ticketsDir .* must be a relative path inside the project/, t)
+  assert.equal(validateConfig({ ...b, jira: { site: 'https://jira.example.com/jira', projects: ['ABC'] } }).ok, true)
+  assert.deepEqual(validateConfig({ ...b, git: { base: '-x', other: 1 } }).errors, ['git.other: unknown field (only "base")', 'git.base "-x" must be a branch name, like "develop"'])
 })

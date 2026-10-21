@@ -6,13 +6,14 @@
   "additionalProperties": false,
   "required": ["version", "adapter", "jira"],
   "properties": {
+    "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
     "version": { "const": 1 },
     "adapter": { "enum": ["playwright", "vitest", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest: a backend project (tests of the code). fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under Vitest." },
     "jira": {
       "type": "object",
       "required": ["site", "projects"],
       "properties": {
-        "site": { "type": "string", "pattern": "^https://" },
+        "site": { "type": "string", "pattern": "^https://[^/\\s]+(/\\S*)?$", "description": "Your Jira site, like https://example.atlassian.net. A trailing \"/\" is dropped." },
         "projects": {
           "type": "array",
           "minItems": 1,
@@ -67,8 +68,16 @@
     "ticketsDir": {
       "type": "string",
       "default": ".claude/quality-code/tickets",
-      "pattern": "^[^\\r\\n]+$",
-      "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\" and a trailing \"/\" is dropped, so the .gitignore line is <dir>/*/raw.json."
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$",
+      "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\", a leading \"./\" and a trailing \"/\" are dropped, so the .gitignore line is <dir>/*/raw.json."
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base": { "type": "string", "pattern": "^[^-\\s~^:?*\\[\\\\][^\\s~^:?*\\[\\\\]*$", "description": "The branch feature branches start from when origin/HEAD is not it (gitflow: \"develop\"). /quality-code:start reads the changes against it; --base and a merge request's target still win." }
+      },
+      "description": "Optional git settings."
     },
     "boundaries": {
       "type": "object",

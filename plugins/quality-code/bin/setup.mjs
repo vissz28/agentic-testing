@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from '../lib/base/config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { CONFIG_FILES, readTestDir } from '../lib/base/e2e-folder.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
@@ -212,7 +212,8 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
 }
 
 function main(argv) {
-  const root = projectRoot()
+  // Where the user set up: not a parent folder's project, which projectRoot would find.
+  const root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
   if (argv[0] === '--detect') {
     process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root))}\n`)
     return 0
