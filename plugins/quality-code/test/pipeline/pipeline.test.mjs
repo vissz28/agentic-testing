@@ -179,6 +179,23 @@ test('a genuinely flaky test is still a flaky failure', async () => {
   assert.equal(r.steps.find(s => s.check === 'flaky').status, 'fail')
   assert.equal(r.verdict, 'checks_failed')
 })
+test('flaky counts the tests step\'s own run: passed there, failed every re-run is flaky, not "fails every run"', async () => {
+  const d = repo()
+  let n = 0
+  const r0 = makeRunner(d)
+  const runTests = async a => {
+    const r = await r0(a)
+    if (a.testName) return r
+    return ++n === 1 ? r : { ...r, tests: r.tests.map(t => ({ ...t, status: 'failed', message: 'x' })) }
+  }
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], flakyRuns: 3 }, ctx(d, { runTests }))
+  assert.equal(r.steps.find(s => s.check === 'tests').status, 'pass')
+  const f = r.steps.find(s => s.check === 'flaky')
+  assert.equal(f.status, 'fail', f.summary)
+  assert.match(f.summary, /^flaky:/)
+  assert.equal(f.data.executed, 3, 'the seed is not counted as a re-run')
+  assert.notEqual(r.verdict, 'green')
+})
 test('specs are de-duplicated after normalization', async () => {
   const d = repo()
   const seen = []
@@ -332,9 +349,11 @@ test('playwright: a design capture test is neither graded nor mutated', async ()
     const status = testName && src !== spec ? 'failed' : 'passed'
     return { ran: true, broken: [], tests: [{ title: 'shows', file: files[0], status, message: '' }, { title: 'ABC-1 — design-conformance capture', file: files[0], status: 'passed', message: '' }] }
   }
-  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, pwCtx(d, { runTests: runner }))
+  const r = await runPipeline({ specs: ['test/a.spec.ts'] }, pwCtx(d, { runTests: runner, config: { ...pwConfig, playwright: { ungradedTitles: 'conformance|capture' } } }))
   assert.equal(r.verdict, 'green', JSON.stringify(r.steps))
   assert.equal(r.steps.find(s => s.check === 'suite-honesty').data.capture, 1)
+  const graded = await runPipeline({ specs: ['test/a.spec.ts'] }, pwCtx(d, { runTests: runner }))
+  assert.equal(graded.decidedBy, 'suite-honesty', 'without playwright.ungradedTitles the capture must assert like any test')
   assert.equal(r.steps.find(s => s.check === 'mutation').data.total, 2)
 })
 test('the adapter picks the runner; an unknown adapter is a crash', async () => {

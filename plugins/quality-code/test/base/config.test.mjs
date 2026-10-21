@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf } from '../../lib/base/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf, redTagsOf, doneStatusesOf } from '../../lib/base/config.mjs'
 
 const good = {
   version: 1,
@@ -347,7 +347,7 @@ test('playwright block: absent stays absent; only with adapter playwright; not a
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
   assert.deepEqual(r.errors, [
-    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")',
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")',
     'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'playwright.configs[1]: must be an object with "match" and "config"',
     'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -375,12 +375,28 @@ test('adapterOptions and timeoutSecondsOf: the configured adapter\'s block, 600 
   assert.equal(timeoutSecondsOf({ adapter: 'playwright', playwright: { timeoutSeconds: 42 } }), 42)
   assert.equal(timeoutSecondsOf({ adapter: 'vitest', vitest: { timeoutSeconds: 42 }, playwright: { timeoutSeconds: 7 } }), 42)
 })
+test('playwright.ungradedTitles, playwright.redTags and jira.doneStatuses: checked, with today\'s defaults', () => {
+  const pw = playwright => validateConfig({ ...good, playwright })
+  assert.equal(pw({ ungradedTitles: 'conformance|capture' }).ok, true)
+  for (const u of ['', '(', 'a|', 5]) assert.ok(pw({ ungradedTitles: u }).errors.some(e => e.startsWith('playwright.ungradedTitles:')), JSON.stringify(u))
+  assert.equal(pw({ redTags: null }).ok, true)
+  assert.equal(pw({ redTags: { scenario: '@red' } }).ok, true)
+  for (const rt of ['@x', { scenario: 'red' }, { other: '@x' }]) assert.equal(pw({ redTags: rt }).ok, false, JSON.stringify(rt))
+  assert.deepEqual(redTagsOf({}), ['@anchor', '@finding'])
+  assert.deepEqual(redTagsOf({ playwright: { redTags: { scenario: '@red' } } }), ['@red', '@finding'])
+  assert.deepEqual(redTagsOf({ playwright: { redTags: null } }), [])
+  const jira = doneStatuses => validateConfig({ ...good, jira: { ...good.jira, doneStatuses } })
+  assert.equal(jira(['Released']).ok, true)
+  for (const d of ['Done', [''], [3]]) assert.ok(jira(d).errors.includes('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]'), JSON.stringify(d))
+  assert.ok(doneStatusesOf({}).includes('Done'))
+  assert.deepEqual(doneStatusesOf(jira(['Released']).config), ['Released'])
+})
 test('the schema documents the playwright block with the validator\'s path pattern', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   const p = schema.properties.playwright
   assert.equal(p.type, 'object')
   assert.equal(p.additionalProperties, false)
-  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'timeoutSeconds', 'tsconfig'])
+  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'redTags', 'timeoutSeconds', 'tsconfig', 'ungradedTitles'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
   assert.equal(p.properties.folder.pattern, path)
   assert.equal(p.properties.guide.pattern, path)

@@ -16,7 +16,8 @@ export function overall(verdicts) {
   return 'green'
 }
 
-export async function run({ specs, testName, runs = 5, timeoutMs = 300_000, key = null }, ctx) {
+/** seed: the pipeline's own tests run, counted like a re-run: a test that passed there and fails every re-run is flaky. */
+export async function run({ specs, testName, runs = 5, timeoutMs = 300_000, key = null, seed = null }, ctx) {
   const n = Number(runs)
   if (!Number.isInteger(n) || n < 1) throw new Error('runs must be a whole number of at least 1')
   const perTest = new Map()
@@ -24,12 +25,12 @@ export async function run({ specs, testName, runs = 5, timeoutMs = 300_000, key 
   let executed = 0
   let couldNotRun = 0
   let lastError = ''
-  for (let i = 0; i < n; i++) {
-    const r = await ctx.runTests({ files: specs, testName, timeoutMs })
+  for (let i = seed?.ran ? -1 : 0; i < n; i++) {
+    const r = i < 0 ? seed : await ctx.runTests({ files: specs, testName, timeoutMs })
     if (!r.ran) { couldNotRun++; lastError = r.error || lastError; continue }
     const ranTests = ownTests((r.tests ?? []).filter(t => t.status === 'passed' || t.status === 'failed'), key)
     if (!ranTests.length) continue
-    executed++
+    if (i >= 0) executed++
     for (const t of ranTests) {
       // The describe titles keep same-named tests in different groups apart.
       const name = `${t.file} > ${[...(t.path ?? []), t.title].join(' > ')}`

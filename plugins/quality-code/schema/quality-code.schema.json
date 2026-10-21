@@ -32,6 +32,12 @@
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 },
           "description": "Issue type names (any case) written to the Bug template. Absent: any type whose name contains bug, defect, incident, problem, anomal or difett."
+        },
+        "doneStatuses": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": ["Test OK", "Done", "Ready for test", "Closed", "Resolved", "Chiuso", "Risolto"],
+          "description": "Jira statuses that mean the work is finished (any case). A red /quality-code:check on a ticket in one of them warns that the bug is still on the branch."
         }
       }
     },
@@ -130,7 +136,16 @@
         "tsconfig": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one Playwright process may take." },
         "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where /quality-code:write puts new Playwright specs, ending in /. Must be inside your Playwright config's testDir and not inside a forbidden boundary. Default: the default config's testDir when it is a plain string, else e2e/." },
-        "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's Playwright conventions (fixtures, login, which APIs to stub), read on top of the plugin's writing guide." }
+        "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's Playwright conventions (fixtures, login, which APIs to stub), read on top of the plugin's writing guide." },
+        "ungradedTitles": { "type": "string", "minLength": 1, "description": "Optional regular expression (any case) for the titles of tests that never assert, such as screenshot captures (\"conformance|capture\"). They are neither graded nor mutated. Left out, every test is graded." },
+        "redTags": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "object", "additionalProperties": false, "properties": { "scenario": { "type": "string", "pattern": "^@[\\w-]+$" }, "extra": { "type": "string", "pattern": "^@[\\w-]+$" } } }
+          ],
+          "default": { "scenario": "@anchor", "extra": "@finding" },
+          "description": "The tags /quality-code:write puts on red Playwright tests (a ticket scenario's, an extra probe's), which a merge gate can skip. null: red tests get no tag."
+        }
       }
     },
     "seed": {

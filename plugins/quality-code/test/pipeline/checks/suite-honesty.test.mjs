@@ -5,6 +5,7 @@ import { dialectFor } from '../../../lib/base/dialects/index.mjs'
 
 const V = dialectFor('vitest')
 const P = dialectFor('playwright')
+const CAPTURE = /conformance|capture/i
 
 test('vitest: the backend self-test', () => {
   const t = scoreSpec("it('a', () => { expect(x).toBe(1) });it.skip('b', () => { expect(y).toBe(2) });it.todo('c');test('d', () => { doThing() })", V)
@@ -26,7 +27,7 @@ test('vitest: the backend self-test', () => {
 })
 
 test('playwright: the frontend self-test', () => {
-  const t = scoreSpec("test('a', () => { expect(x).toBe(1) });test.skip('b', () => { expect(y).toBe(2) });test('c capture', () => { page.screenshot() });test.fixme('d', () => {});test('e', () => { page.goto('/x') })", P)
+  const t = scoreSpec("test('a', () => { expect(x).toBe(1) });test.skip('b', () => { expect(y).toBe(2) });test('c capture', () => { page.screenshot() });test.fixme('d', () => {});test('e', () => { page.goto('/x') })", P, CAPTURE)
   assert.equal(t.length, 5)
   assert.ok(t[0].expects === 1 && !t[0].capture && !t[0].mod)
   assert.equal(t[1].mod, 'skip')
@@ -52,8 +53,10 @@ test('grade: nothing asserting at all fails; one todo next to a real test passes
 })
 
 test('grade: capture tests are left out (playwright)', () => {
-  const r = grade([{ path: 'a', src: "test('ABC-1 — design-conformance capture', () => { shot() });test('b', () => { expect(1).toBe(1) })" }], {}, P)
+  const src = "test('ABC-1 — design-conformance capture', () => { shot() });test('b', () => { expect(1).toBe(1) })"
+  const r = grade([{ path: 'a', src }], { ungraded: CAPTURE }, P)
   assert.equal(r.status, 'pass')
+  assert.equal(grade([{ path: 'a', src }], {}, P).status, 'fail', 'without playwright.ungradedTitles a capture is graded like any test')
   assert.equal(r.data.capture, 1)
   assert.equal(r.data.tests, 1)
 })
@@ -112,7 +115,7 @@ test('grade: no test to grade is not_run, not a pass (§9 #17)', () => {
   const none = grade([{ path: 'a.spec.ts', src: 'const x = 1\n' }], {}, V)
   assert.equal(none.status, 'not_run')
   assert.match(none.summary, /no test to grade/)
-  const caps = grade([{ path: 'a', src: "test('ABC-1 — design-conformance capture', () => { shot() })" }], {}, P)
+  const caps = grade([{ path: 'a', src: "test('ABC-1 — design-conformance capture', () => { shot() })" }], { ungraded: CAPTURE }, P)
   assert.equal(caps.status, 'not_run')
   const keyed = grade([{ path: 'a', src: "describe('ABC-9', () => {})\n" }], { key: 'ABC-9' }, V)
   assert.equal(keyed.status, 'not_run')
@@ -137,4 +140,39 @@ test('with a key and no block for it, the top-level tests named with the key are
   assert.equal(r.data.tests, 2, 'ABC-12 is another ticket')
   assert.deepEqual(r.findings.map(f => f.test), ['ABC-1-2 hollow'])
   assert.equal(grade([{ path: 'e2e/a.spec.ts', src }], { key: 'ABC-9' }, dialectFor('playwright')).status, 'not_run')
+})
+
+test('an assertion ends in a matcher call: a bare expect(x), an uncalled .toBeTruthy or expect( in a string asserts nothing', () => {
+  const hollow = src => grade([{ path: 'a', src }], {}, V).findings.map(f => f.test)
+  assert.deepEqual(hollow("it('bare', () => { expect(vat(0, 22)) })"), ['bare'])
+  assert.deepEqual(hollow("it('uncalled', () => { expect(vat(1, 22) > 0).toBeTruthy })"), ['uncalled'])
+  assert.deepEqual(hollow("it('string', () => { const note = 'expect(vat).toBe(1)'; run(note) })"), ['string'])
+  assert.deepEqual(hollow("it('a', () => { expect(x).not.toBe(1) });it('b', async () => { await expect(p).resolves.toBe(2) })"), [])
+})
+
+test('expect.soft, expect.poll and assert calls are assertions', () => {
+  assert.equal(grade([{ path: 'a', src: "test('s', async () => { await expect.soft(page.getByText('a')).toBeVisible() })" }], {}, P).status, 'pass')
+  assert.equal(grade([{ path: 'a', src: "test('p', async () => { await expect.poll(() => n()).toBe(3) })" }], {}, P).status, 'pass')
+  assert.equal(grade([{ path: 'a', src: "it('a', () => { assert.equal(total(), 3) });it('b', () => { assert(ok()) })" }], {}, V).status, 'pass')
+})
+
+test('it.each / test.each / .for are tests of their own: graded, and their expects are never the test before', () => {
+  const t = scoreSpec("it('one', () => { expect(a).toBe(1) })\nit.each([[1, 2], [3, 4]])('adds %i', (a, b) => { expect(a + 1).toBe(b) })\ntest.for([1])('hollow %i', () => { run() })\nit.skip.each([1])('later %i', () => {})", V)
+  assert.deepEqual(t.map(x => [x.title, x.mod, x.expects]), [['one', null, 1], ['adds %i', 'each', 1], ['hollow %i', 'each', 0], ['later %i', 'skip', 0]])
+  assert.deepEqual(grade([{ path: 'a', src: "it.each([1])('hollow %i', () => { run() })" }], {}, V).findings.map(f => f.test), ['hollow %i'])
+})
+
+test('a regex .test(\'literal\') is no test declaration', () => {
+  const t = scoreSpec("it('valid email', () => { expect(EMAIL_RE.test('a@b.co')).toBe(true) })", V)
+  assert.deepEqual(t.map(x => [x.title, x.expects]), [['valid email', 1]])
+})
+
+test('groups: describe.concurrent/.sequential, suite( and test.describe.serial/.fixme hold a ticket block', () => {
+  for (const g of ['describe.concurrent', 'describe.sequential', 'suite', 'describe.skip.concurrent']) {
+    assert.ok(anchorRange(`${g}('ABC-1 x', () => {\n  it('a', () => { expect(1).toBe(1) })\n})\n`, 'ABC-1', V), g)
+  }
+  for (const g of ['test.describe.serial', 'test.describe.parallel', 'test.describe.fixme']) {
+    assert.ok(anchorRange(`${g}('ABC-1 x', () => {})\n`, 'ABC-1', P), g)
+  }
+  assert.deepEqual(skippedGroupRanges("describe.skip.concurrent('ABC-1', () => {})\ndescribe('B', () => {})\n", V).length, 1)
 })

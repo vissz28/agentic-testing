@@ -1,3 +1,4 @@
+import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
@@ -62,9 +63,9 @@ function testLines(list) {
   return [...(own.length ? ['  From the ticket', ...own.map(t => row(t, '    '))] : []), '  Extra (not in the ticket)', ...extra.map(t => row(t, '    '))]
 }
 
-// A ticket Jira calls finished while its tests are red: the bug is still on this branch.
-const FINISHED = /^(?:test ok|done|ready for test|closed|resolved|chiuso|risolto)$/i
-export const finishedButRed = (outcome, status) => outcome.verdict === 'tests_red' && FINISHED.test(String(status ?? '').trim())
+// A ticket Jira calls finished (jira.doneStatuses) while its tests are red: the bug is still on this branch.
+export const finishedButRed = (outcome, status, done = DEFAULT_DONE_STATUSES) =>
+  outcome.verdict === 'tests_red' && done.some(d => d.trim().toLowerCase() === String(status ?? '').trim().toLowerCase())
 
 /** The mark a run forced past the readiness gate carries ("continue anyway"). Red in a terminal. */
 export function riskLine({ score, bar }, color = false) {
@@ -72,13 +73,13 @@ export function riskLine({ score, bar }, color = false) {
   return color ? `\x1b[31m${text}\x1b[0m` : text
 }
 
-export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, log = null } = {}) {
+export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
   const n = specs.length
   const sides = outcome.runners?.length ? ` · ${outcome.runners.map(r => ({ vitest: 'Vitest', playwright: 'Playwright' })[r] ?? r).join(' + ')}` : ''
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
-  if (finishedButRed(outcome, jiraStatus)) lines.push(`Jira says ${String(jiraStatus).trim()}. This branch still has the bug.`)
+  if (finishedButRed(outcome, jiraStatus, doneStatuses)) lines.push(`Jira says ${String(jiraStatus).trim()}. This branch still has the bug.`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data
   const counts = d && typeof d.passed === 'number' && typeof d.failed === 'number'
   if (counts) lines.push('', `Tests     ${d.passed} passed · ${d.failed} failed · ${d.skipped || 0} to do`, ...testLines(d.list))
@@ -101,7 +102,7 @@ const VERDICT_TEXT = {
 }
 
 /** The developer log: everything the card says, with every finding and number, for a person to read later. */
-export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, date = new Date() } = {}) {
+export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date() } = {}) {
   const md = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']
   if (outcome.incompleteTicket) out.push(riskLine(outcome.incompleteTicket), '')
@@ -109,7 +110,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
   out.push(`- **Verdict:** ${VERDICT_TEXT[outcome.verdict] ?? outcome.verdict}`)
-  if (finishedButRed(outcome, jiraStatus)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
+  if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
   const t = outcome.steps.find(x => x.check === 'tests')?.data
   if (Array.isArray(t?.list) && t.list.length) {
     out.push('', '## Tests', '', '| Test | Result | Why |', '|---|---|---|')

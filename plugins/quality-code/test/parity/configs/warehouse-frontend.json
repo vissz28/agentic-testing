@@ -1,6 +1,7 @@
 {
   "version": 1,
   "adapter": "playwright",
+  "playwright": { "ungradedTitles": "conformance|capture" },
   "jira": {
     "site": "https://teamsystem.atlassian.net",
     "projects": [

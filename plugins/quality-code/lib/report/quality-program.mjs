@@ -3,7 +3,7 @@
 // mutation kill rate. Each is a number or "no data", never a made-up 100%.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { layersOf } from '../base/config.mjs'
+import { layersOf, ungradedTitlesOf } from '../base/config.mjs'
 import { e2eFolder } from '../base/e2e-folder.mjs'
 import { dialectFor } from '../base/dialects/index.mjs'
 import { keySource } from '../base/keys.mjs'
@@ -62,7 +62,7 @@ export function scanSpecs(root, config) {
   let tests = 0
   let honest = 0
   for (const [adapter, files] of byAdapter) {
-    const r = grade(files, {}, dialectFor(adapter))
+    const r = grade(files, { ungraded: ungradedTitlesOf(config, dialectFor(adapter)) }, dialectFor(adapter))
     tests += r.data?.tests ?? 0
     honest += r.data?.withAssertion ?? 0
   }

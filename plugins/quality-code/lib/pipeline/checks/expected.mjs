@@ -145,9 +145,10 @@ export function stripCodeComments(src) {
 /**
  * The argument text of every assertion call inside the key block; null when there is no block. A
  * commented-out call is not read, nor the argument of a negated matcher: .not.toBe(80) does not
- * assert 80.
+ * assert 80. actual: false reads expect(...) itself only when its matcher takes no argument
+ * (expect(getByText('80')).toBeVisible()): in expect(total([80])).toBeGreaterThan(0), 80 is an input.
  */
-export function surface(specSrc, key, dialect) {
+export function surface(specSrc, key, dialect, { actual = true } = {}) {
   const range = anchorRange(specSrc, key, dialect)
   if (!range) return null
   const block = stripCodeComments(specSrc.slice(range[0], range[1]))
@@ -155,7 +156,9 @@ export function surface(specSrc, key, dialect) {
   for (const m of block.matchAll(callRe(dialect))) {
     const open = m.index + m[0].length - 1
     if (m[0].startsWith('.') && /\.not\s*$/.test(block.slice(Math.max(0, m.index - 12), m.index))) continue
-    parts.push(block.slice(open + 1, closeParen(block, open) - 1))
+    const close = closeParen(block, open)
+    if (!actual && !m[0].startsWith('.') && !/^(?:\s*\.\s*(?:not|resolves|rejects))*\s*\.\s*\w+\s*\(\s*\)/.test(block.slice(close))) continue
+    parts.push(block.slice(open + 1, close - 1))
   }
   return parts.join('\n')
 }
@@ -234,7 +237,12 @@ export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) 
   }
   // A fullstack run reads each spec in its own dialect (ctx.dialectOf).
   const dialectOf = p => ctx.dialectOf?.(p) ?? ctx.dialect
-  const surfaces = specs.map(p => ({ dialect: dialectOf(p), text: surface(readFileSync(resolve(ctx.root, p), 'utf8'), key, dialectOf(p)) }))
+  // Values count where the test pins them (Vitest: the matcher's argument); a field is read anywhere in the assertion.
+  const surfaces = specs.map(p => {
+    const src = readFileSync(resolve(ctx.root, p), 'utf8')
+    const d = dialectOf(p)
+    return { dialect: d, text: surface(src, key, d, { actual: Boolean(d?.expected?.readsActual) }), fieldText: surface(src, key, d) }
+  })
   if (surfaces.every(s => s.text === null)) {
     return result('expected', 'not_run', `no ${key} block in ${specs.join(', ')}`, [{ file: specs.join(', '), kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   }
@@ -249,7 +257,7 @@ export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) 
   const tokens = [...ticketTokens, ...kept.filter(x => x.kind !== 'field' || fieldSpecs.length)]
   const extra = ignored.length ? { ignored } : {}
   if (!tokens.length) return result('expected', 'pass', 'no concrete expected values in the ticket', [], { tokens: 0, asserted: 0, ...extra })
-  const fieldText = fieldSpecs.map(s => s.text).join('\n')
+  const fieldText = fieldSpecs.map(s => s.fieldText).join('\n')
   const missing = tokens.filter(x => !asserted(x, x.kind === 'field' ? fieldText : all))
   const data = { tokens: tokens.length, asserted: tokens.length - missing.length, missing: missing.map(x => x.token), ...extra }
   if (!missing.length) return result('expected', 'pass', `all ${tokens.length} expected value(s) from the ticket are asserted`, [], data)

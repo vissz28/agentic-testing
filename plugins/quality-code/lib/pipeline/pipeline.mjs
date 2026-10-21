@@ -219,8 +219,8 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))
     else {
-      const f = await step('flaky', () => flaky.run({ specs, runs: flakyRuns, timeoutMs, key }, c))
-      // Tests that fail every run are the tests step's red result, not a flaky failure.
+      const f = await step('flaky', () => flaky.run({ specs, runs: flakyRuns, timeoutMs, key, seed: run }, c))
+      // Tests that fail every run (the tests step's run included) are the tests step's red result, not a flaky failure.
       steps.push(f.status === 'fail' && !f.findings.some(x => x.kind === 'flaky')
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
