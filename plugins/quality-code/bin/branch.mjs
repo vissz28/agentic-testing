@@ -1,17 +1,16 @@
 // Local git facts for /quality-code:start: the branch, its base, what changed, and ticket keys.
 // Read-only and offline. Never reads diff contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/base/stack.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
+import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 
-const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue)$/
+const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test)\.[^/]+$/
-const PW_CONFIGS = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mjs', 'playwright.config.cjs']
 
 /** The origin URL without any user:password@ part. */
 export function stripCredentials(url) {
@@ -35,15 +34,10 @@ export function keyCandidates(texts, projects) {
   return out
 }
 
-/** Playwright test folders: testDir from the config when it is a plain string, else e2e/ and tests/. */
-export function playwrightTestDirs(root) {
-  for (const name of PW_CONFIGS) {
-    const p = join(root, name)
-    if (!existsSync(p)) continue
-    const m = readFileSync(p, 'utf8').match(/testDir\s*:\s*['"`]([^'"`$]+)['"`]/)
-    if (m) return [m[1].replace(/^\.\//, '').replace(/\/?$/, '/')]
-  }
-  return ['e2e/', 'tests/']
+/** Playwright test folders: the e2e folder write uses (playwright.folder, else testDir), else e2e/ and tests/. */
+export function playwrightTestDirs(root, config) {
+  const f = e2eFolder(root, config)
+  return f.ok && f.source !== 'default' ? [f.folder] : ['e2e/', 'tests/']
 }
 
 export function kindOf(path, adapter, testDirs = []) {
@@ -85,7 +79,8 @@ export function parseNameStatusZ(out) {
   return files
 }
 
-const FALLBACK_BASES = ['develop', 'main', 'master']
+// After origin/HEAD and init.defaultBranch; gitflow teams set git.base to their develop.
+const FALLBACK_BASES = ['main', 'master', 'develop']
 
 function git(root, args) {
   try {
@@ -114,15 +109,19 @@ export function detect(root, config, { base: baseFlag } = {}) {
     .split('\n').filter(b => b && b !== 'origin' && b !== 'origin/HEAD')
 
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
+  const local = name => (exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null)
+  const configured = config.git?.base
   if (baseFlag) {
-    const ref = exists(baseFlag) ? baseFlag : exists(`origin/${baseFlag}`) ? `origin/${baseFlag}` : null
+    const ref = local(baseFlag)
     if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
-  } else {
+  } else if (configured && local(configured)) Object.assign(out, { base: local(configured), baseSource: 'config' })
+  else {
     const originHead = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
     if (originHead && exists(originHead)) Object.assign(out, { base: originHead, baseSource: 'origin-head' })
     else {
-      for (const name of FALLBACK_BASES) {
-        const ref = exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null
+      const preferred = git(root, ['config', '--get', 'init.defaultBranch'])
+      for (const name of [...new Set([preferred, ...FALLBACK_BASES].filter(Boolean))]) {
+        const ref = local(name)
         if (ref) { Object.assign(out, { base: ref, baseSource: 'fallback' }); break }
       }
     }
@@ -141,14 +140,13 @@ export function detect(root, config, { base: baseFlag } = {}) {
       out.mergeBase = out.mergeBase.slice(0, 7)
     }
   }
-  if (out.mergeBase || !out.base) {
-    for (const f of parseStatusZ(git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']))) files.set(f.path, { ...f, committed: false })
-  }
+  // Uncommitted work counts even with no merge base (a shallow CI clone, an orphan branch).
+  for (const f of parseStatusZ(git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']))) files.set(f.path, { ...f, committed: false })
 
   // git prints paths from the repo top; a project in a subfolder keeps only its own files, relative to itself.
   const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
   const playwright = adaptersOf(config).includes('playwright')
-  const dirs = playwright ? playwrightTestDirs(root) : []
+  const dirs = playwright ? playwrightTestDirs(root, config) : []
   out.files = [...files.values()]
     .filter(f => f.path.startsWith(prefix))
     .map(f => ({ ...f, path: f.path.slice(prefix.length) }))
@@ -179,7 +177,7 @@ export function merged(root, config, key) {
   const own = new RegExp(`(?<![A-Za-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`, 'i')
   const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
   const playwright = adaptersOf(config).includes('playwright')
-  const dirs = playwright ? playwrightTestDirs(root) : []
+  const dirs = playwright ? playwrightTestDirs(root, config) : []
   const take = list => {
     const seen = new Map()
     for (const f of list) if (f.path?.startsWith(prefix)) seen.set(f.path.slice(prefix.length), f.status)
@@ -189,16 +187,21 @@ export function merged(root, config, key) {
       return { path, status, kind }
     })
   }
-  const merges = (git(root, ['log', '--all', '--merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
-  // "Merge branch 'ABC-12-total' into 'develop'": the ticket's branch is the source, not a sync into it.
-  const merge = merges.map(l => l.split('\t')).find(([, s]) => own.test(/^merge (?:branch|remote-tracking branch) '([^']+)'/i.exec(s)?.[1] ?? ''))
+  // Branches, remotes and tags: --all would also read refs/stash, whose "index on ABC-12-x" is no change.
+  const refs = ['--branches', '--remotes', '--tags']
+  const merges = (git(root, ['log', ...refs, '--merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
+  // The ticket's branch is the source, not a sync into it: "Merge branch 'ABC-12-total' into 'develop'"
+  // (GitLab, git), "Merge pull request #7 from acme/ABC-12-total" (GitHub), "Merged in ABC-12-total (pull request #7)" (Bitbucket).
+  const source = s => (/^merge (?:branch|remote-tracking branch) '([^']+)'/i.exec(s) ?? /^merge pull request #\d+ from [^/\s]+\/(\S+)/i.exec(s) ?? /^merged in (\S+) \(pull request #\d+\)/i.exec(s))?.[1] ?? ''
+  const merge = merges.map(l => l.split('\t')).find(([, s]) => own.test(source(s)))
   if (merge) {
     out.found = 'merge'
     out.commit = merge[0].slice(0, 7)
-    take(parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', `${merge[0]}^1`, `${merge[0]}^2`])))
+    // Three dots: what the branch changed since it forked, not main's later work as deletions.
+    take(parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', `${merge[0]}^1...${merge[0]}^2`])))
     return out
   }
-  const commits = (git(root, ['log', '--all', '--no-merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
+  const commits = (git(root, ['log', ...refs, '--no-merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
     .map(l => l.split('\t')).filter(([, s]) => own.test(s)).slice(0, MAX_COMMITS)
   if (!commits.length) return out
   out.found = 'commits'
