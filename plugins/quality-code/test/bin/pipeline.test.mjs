@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -140,7 +140,7 @@ test('playwright: a spec that does not load, the app down, Playwright missing: n
   fakeBin(none, 'tsc', { exit: 0 })
   const m = run(none, ['test/a.spec.ts'])
   assert.equal(m.status, 3, m.stderr + m.stdout)
-  assert.match(m.stdout, /Playwright is not installed in this project: run npm install/)
+  assert.match(m.stdout, /Playwright is not installed in this project/)
 })
 test('playwright: --target is refused before anything runs', () => {
   const d = repo({ adapter: 'playwright', spec: PW })
@@ -370,4 +370,19 @@ test('fullstack through the CLI: each spec to its runner, one verdict, the card 
   assert.equal(calls(d, 'playwright')[0][1], '(?:^|/)e2e/b\\.spec\\.ts$')
   const card = run(d, ['test/a.spec.ts', 'e2e/b.spec.ts', '--key', 'ABC-1'])
   assert.match(card.stdout, /^quality-code check · 2 spec files · Vitest \+ Playwright · ticket ABC-1/)
+})
+test('a killed run stops its tools with their workers and leaves no temp file in the project', async () => {
+  const d = repo()
+  fakeBin(d, 'tsc', { exit: 0, sleepMs: 30000, grandchild: true })
+  fakeBin(d, 'vitest', { report: report(d, [at('adds', 'passed')]) })
+  const child = spawn(process.execPath, [CLI, 'test/a.spec.ts'], { cwd: d, env: { ...ENV, CLAUDE_PROJECT_DIR: d }, stdio: 'ignore' })
+  const gcFile = join(d, '.fake-tsc.grandchild')
+  for (let i = 0; i < 200 && !existsSync(gcFile); i++) await new Promise(r => setTimeout(r, 50))
+  assert.ok(existsSync(gcFile), 'tsc started')
+  assert.equal(readdirSync(d).filter(n => n.startsWith('mut-tmp-qc-tsconfig-')).length, 1)
+  child.kill('SIGTERM')
+  assert.equal(await new Promise(r => child.on('exit', r)), 130)
+  assert.deepEqual(readdirSync(d).filter(n => n.startsWith('mut-tmp-')), [])
+  await new Promise(r => setTimeout(r, 200))
+  assert.throws(() => process.kill(Number(readFileSync(gcFile, 'utf8')), 0), "the tool's own child is gone too")
 })

@@ -2,11 +2,14 @@
 // plus the specs, so a spec its include leaves out is still checked. Only an error in a spec fails.
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, relative } from 'node:path'
+import { basename, dirname, join, posix, relative } from 'node:path'
 import { result } from '../base/result.mjs'
 import { adapterOptions, timeoutSecondsOf } from '../base/config.mjs'
+import { matches } from '../base/boundary.mjs'
+import { stripCodeComments } from './checks/expected.mjs'
+import { kill, toolScript, track } from './runners/tool.mjs'
 
 const TS = /\.(ts|tsx|mts|cts)$/
 const CAP = 1 << 20
@@ -20,6 +23,37 @@ const CAP = 1 << 20
  */
 export function scopedTsconfig(tsconfig, specs) {
   return { extends: `./${basename(tsconfig)}`, compilerOptions: { composite: false }, files: specs.map(s => relative(dirname(tsconfig), s)) }
+}
+
+const readTsconfig = (root, p) => {
+  // ponytail: comments and trailing commas only; a "," before "]" inside a string value would be dropped.
+  try { return JSON.parse(stripCodeComments(readFileSync(join(root, p), 'utf8')).replace(/,(\s*[}\]])/g, '$1')) } catch { return null }
+}
+// A tsconfig include entry: a glob, or a file or a folder (everything under it).
+const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${entry.replace(/\/+$/, '')}/`, path))
+
+/**
+ * The tsconfig to extend. A solution-style one (no files of its own, only references, as in the Vite
+ * templates) checks nothing and has no compiler options: the referenced one whose include covers the
+ * most specs is the one the project's own build checks them with.
+ */
+export function ownTsconfig(root, tsconfig, specs) {
+  const base = readTsconfig(root, tsconfig)
+  if (!base?.references?.length || !(base.files?.length === 0 || base.include?.length === 0)) return tsconfig
+  const slash = p => p.replace(/\\/g, '/')
+  let best = tsconfig
+  let most = 0
+  for (const r of base.references) {
+    let p = posix.join(posix.dirname(slash(tsconfig)), slash(String(r?.path ?? '')))
+    if (!p.endsWith('.json')) p = posix.join(p, 'tsconfig.json')
+    const include = readTsconfig(root, p)?.include ?? ['**/*']
+    const n = specs.filter(s => {
+      const rel = posix.relative(posix.dirname(p), slash(s))
+      return !rel.startsWith('../') && include.some(e => covers(String(e).replace(/^\.\//, ''), rel))
+    }).length
+    if (n > most) { best = p; most = n }
+  }
+  return best
 }
 
 /** tsc's output, graded for the specs alone: errors elsewhere in the project are not the specs' to fix. */
@@ -38,24 +72,28 @@ export function readTsc(out, code, specs, truncated = false) {
 }
 
 export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}) {
-  const tsconfig = adapterOptions(config).tsconfig ?? 'tsconfig.json'
+  const configured = adapterOptions(config).tsconfig ?? 'tsconfig.json'
   const tsSpecs = specs.filter(s => TS.test(s))
   if (!tsSpecs.length) return Promise.resolve(result('types', 'pass', 'no TypeScript specs: nothing to type-check', [], { applicable: false }))
-  if (!existsSync(join(root, tsconfig))) return Promise.resolve(result('types', 'not_run', `no ${tsconfig}: cannot type-check the TypeScript specs`))
-  const bin = join(root, 'node_modules/.bin/tsc')
-  if (!existsSync(bin)) return Promise.resolve(result('types', 'not_run', 'TypeScript is not installed in this project: run npm install'))
+  if (!existsSync(join(root, configured))) return Promise.resolve(result('types', 'not_run', `no ${configured}: cannot type-check the TypeScript specs`))
+  const bin = toolScript(root, ['typescript'], 'tsc')
+  if (!bin) return Promise.resolve(result('types', 'not_run', 'TypeScript is not installed in this project'))
+  const tsconfig = ownTsconfig(root, configured, tsSpecs)
   return new Promise(done => {
     const tmp = mkdtempSync(join(tmpdir(), 'qc-tsc-'))
-    const scoped = join(dirname(tsconfig), `.qc-tsconfig-${randomBytes(4).toString('hex')}.json`)
+    // mut-tmp-*: the name setup already git-ignores, so a killed run leaves nothing to commit.
+    const scoped = join(dirname(tsconfig), `mut-tmp-qc-tsconfig-${randomBytes(4).toString('hex')}.json`)
     let out = ''
     let truncated = false
     let timedOut = false
     let settled = false
     let timer = null
+    let untrack = () => {}
     const finish = r => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      untrack()
       try {
         rmSync(tmp, { recursive: true, force: true })
         rmSync(join(root, scoped), { force: true })
@@ -64,7 +102,8 @@ export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(co
     let child
     try {
       writeFileSync(join(root, scoped), JSON.stringify(scopedTsconfig(tsconfig, tsSpecs)))
-      child = spawn(bin, ['--noEmit', '-p', scoped, '--incremental', '--tsBuildInfoFile', join(tmp, 'qc.tsbuildinfo'), '--pretty', 'false'], { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      child = spawn(process.execPath, [bin, '--noEmit', '-p', scoped, '--incremental', '--tsBuildInfoFile', join(tmp, 'qc.tsbuildinfo'), '--pretty', 'false'], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      untrack = track(child, [tmp, join(root, scoped)])
     } catch (e) {
       return finish(result('types', 'not_run', `could not start tsc: ${e.message}`))
     }
@@ -73,7 +112,7 @@ export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(co
     child.stderr.on('data', keep)
     timer = setTimeout(() => {
       timedOut = true
-      try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch {} }
+      kill(child)
       finish(result('types', 'not_run', `took longer than ${timeoutMs < 1000 ? `${timeoutMs}ms` : `${Math.round(timeoutMs / 1000)}s`}`))
     }, timeoutMs)
     child.on('error', e => finish(result('types', 'not_run', `could not start tsc: ${e.message}`)))

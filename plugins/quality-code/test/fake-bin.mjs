@@ -1,4 +1,5 @@
-// Installs a fake executable at <dir>/node_modules/.bin/<name>. Its behaviour comes from
+// Installs a fake tool: the package that has the bin <name> (vitest, playwright, stryker, tsc), in
+// <dir>/node_modules, as the runners look for it. Its behaviour comes from
 // <dir>/.fake-<name>.json: { report?, reportFor?: { [config or 'default']: report }, exit?, stderr?,
 // stdout?, sleepMs?, grandchild?, mkdir? (Stryker: create the sandbox its temp config names), mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
@@ -7,7 +8,7 @@
 // or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright). With -g (a Playwright mutant run) and mutantReport,
 // the report is Playwright-shaped, for the file whose pattern is argv[1]. With recordEnv, each call's CI,
 // FORCE_COLOR, NO_COLOR, PLAYWRIGHT_BROWSERS_PATH and report path are appended as one JSON line to <dir>/.fake-<name>.env.
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const script = name => `#!/usr/bin/env node
@@ -50,11 +51,14 @@ setTimeout(() => {
 }, spec.sleepMs ?? 0)
 `
 
+const PACKAGE = { vitest: 'vitest', playwright: '@playwright/test', stryker: '@stryker-mutator/core', tsc: 'typescript' }
+
 export function fakeBin(dir, name, behaviour) {
-  mkdirSync(join(dir, 'node_modules/.bin'), { recursive: true })
-  const p = join(dir, 'node_modules/.bin', name)
+  const pkg = join(dir, 'node_modules', PACKAGE[name])
+  mkdirSync(pkg, { recursive: true })
+  writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: PACKAGE[name], bin: { [name]: 'fake.cjs' } }))
+  const p = join(pkg, 'fake.cjs')
   writeFileSync(p, script(name))
-  chmodSync(p, 0o755)
   writeFileSync(join(dir, `.fake-${name}.json`), JSON.stringify(behaviour))
   return p
 }

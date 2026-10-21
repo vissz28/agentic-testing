@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { readTsc, scopedTsconfig, typeCheck } from '../../lib/pipeline/types.mjs'
+import { ownTsconfig, readTsc, scopedTsconfig, typeCheck } from '../../lib/pipeline/types.mjs'
 import { calls, fakeBin } from '../fake-bin.mjs'
 
 const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] } }
 const proj = (tsconfig = true) => { const d = mkdtempSync(join(tmpdir(), 'qc-tsc-')); if (tsconfig) writeFileSync(join(d, 'tsconfig.json'), '{}'); return d }
 
-const SCOPED = /^\.qc-tsconfig-[0-9a-f]{8}\.json$/
+const SCOPED = /^mut-tmp-qc-tsconfig-[0-9a-f]{8}\.json$/
 test('compiles: pass, and tsc gets --noEmit -p <a scoped tsconfig next to the project one>', async () => {
   const d = proj()
   fakeBin(d, 'tsc', { exit: 0 })
@@ -63,7 +63,21 @@ test('not applicable without TS specs; not_run with TS specs but no tsconfig or 
   const b = await typeCheck(proj(false), cfg, ['test/a.spec.ts'])
   assert.deepEqual([b.status, b.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
   const c = await typeCheck(proj(), cfg, ['test/a.spec.ts'])
-  assert.deepEqual([c.status, c.summary], ['not_run', 'TypeScript is not installed in this project: run npm install'])
+  assert.deepEqual([c.status, c.summary], ['not_run', 'TypeScript is not installed in this project'])
+})
+test('a solution-style tsconfig (only references) is not extended: the referenced one whose include covers the specs is', async () => {
+  const d = proj(false)
+  writeFileSync(join(d, 'tsconfig.json'), '{\n  // the Vite template\n  "files": [],\n  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" },],\n}\n')
+  writeFileSync(join(d, 'tsconfig.app.json'), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } }, "include": ["src"] }')
+  writeFileSync(join(d, 'tsconfig.node.json'), '{ "include": ["vite.config.ts"] }')
+  assert.equal(ownTsconfig(d, 'tsconfig.json', ['src/btn.test.tsx']), 'tsconfig.app.json')
+  assert.equal(ownTsconfig(d, 'tsconfig.json', ['vite.config.ts']), 'tsconfig.node.json')
+  assert.equal(ownTsconfig(d, 'tsconfig.json', ['e2e/a.spec.ts']), 'tsconfig.json', 'no reference covers it: the configured one')
+  fakeBin(d, 'tsc', { exit: 0 })
+  await typeCheck(d, cfg, ['src/btn.test.tsx'])
+  assert.match(calls(d, 'tsc')[0][2], SCOPED)
+  writeFileSync(join(d, 'tsconfig.json'), '{ "compilerOptions": {}, "references": [{ "path": "./tsconfig.app.json" }] }')
+  assert.equal(ownTsconfig(d, 'tsconfig.json', ['src/btn.test.tsx']), 'tsconfig.json', 'a tsconfig with files of its own is kept')
 })
 test('a configured tsconfig is used', async () => {
   const d = proj(false)

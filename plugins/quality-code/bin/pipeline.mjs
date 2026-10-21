@@ -13,6 +13,7 @@ import { THRESHOLD } from '../lib/ticket/score.mjs'
 import { formatCard, formatRunLog } from '../lib/pipeline/card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/pipeline.mjs'
 import { isFullstack } from '../lib/base/stack.mjs'
+import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -123,4 +124,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return EXIT[outcome.verdict] ?? 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  // A killed run (Ctrl-C, a tool call's timeout) stops the tools it started, their workers too, and
+  // removes their temp files from the project. The mutation step's own handler, when one is set, exits.
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { stopAll(); if (process.listenerCount(sig) === 1) process.exit(130) })
+  process.exitCode = await main()
+}
