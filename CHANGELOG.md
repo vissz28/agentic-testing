@@ -33,6 +33,12 @@ Update with `/plugin update quality-code@quality-code`.
   `dist/` and `node_modules/` are guarded at any depth. Tools run with Node itself, so Windows
   works. Solution-style tsconfigs, `vite.config.*` with a test block, lcov coverage, Bedrock and
   Vertex model ids, and the claude.ai Atlassian connector's operation names are understood.
+  Svelte, Astro, `.mts`/`.cts` and `.html` files count as code changes; setup also proposes `app/`,
+  `lib/`, `server/`, `pages/`, `components/` and `packages/*/src/` as paths a test run must not
+  change, and guards the Jenkins, Azure, Bitbucket and CircleCI files.
+- **`ticket.mjs field find @<file>`** finds the acceptance-criteria field in Jira's field list by
+  the configured languages' heading, so `ticket-eval` no longer greps a large file with a call that
+  was never pre-approved.
 
 ### Fixed
 
@@ -62,6 +68,22 @@ Update with `/plugin update quality-code@quality-code`.
   folder name is left out; a hand-written XRay case keeps its number; DDE payloads starting with `-`
   are quoted; evals pick the requirement's own case.
 - **A killed run cleans up.** Ctrl-C or a timeout stops the test tools and removes their temp files.
+- **A repo with no commit yet** is checked against the empty tree, instead of the honesty and
+  boundary checks never running.
+- **The commands.**
+  - `write` rewrote nothing when the assertions check failed (it looked for a step named
+    `assertions`); it now rewrites, also for a passing test mutation cannot check.
+  - `kpi`'s "AI cost of the same days" option could not run; it now runs the consumption script.
+  - `start` no longer runs an unapproved `git branch` call.
+  - `setup` writes its proposal inline, with no temp file and no permission prompt.
+  - `--dry-run` on `write` and `xray` says what it still does: the ticket is saved, nothing goes
+    to Jira, a refused ticket ends the run.
+  - `ticket-eval`'s score rule no longer contradicts itself, and a refuse comment's exit 1 is
+    expected, not an error.
+  - Figma is checked for fullstack repos too, `xray` no longer stops on an optional connector, and
+    examples no longer use warehouse strings.
+- `pick 1 2` works without quotes; a `sides` block that sets only some sides keeps the others'
+  default marks; `jira.site` may end in `/`.
 
 ### Changed
 
@@ -73,13 +95,19 @@ Update with `/plugin update quality-code@quality-code`.
 - **No permission prompts for the plugin's own scripts.** Every command pre-approves its scripts
   (`kpi` and `consumption` only their own) and runs them exactly as written. Before, an added
   `echo` made a call miss its pre-approval and cost a prompt and an extra turn.
+- **Base branch order.** With no `--base` and no merge request, the base is `git.base` when set,
+  else the remote's default branch, else `init.defaultBranch`, `main`, `master`, and `develop`
+  last (it used to be tried first).
+- **Setup** says up front that Jira must be an Atlassian Cloud site and stops on a Server or Data
+  Center one; its card shows the remote of any host (GitLab, GitHub, Bitbucket).
 - **New folder layout.** `core/` is gone. The scripts the commands and the hook run are in `bin/`,
   the modules they use in `lib/` (`base`, `ticket`, `pipeline`, `report`), the guides in `guides/`.
   `core/quality-kpi.mjs` is now `lib/report/quality-program.mjs`. No behaviour change.
 
 ### Upgrading
 
-- Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
+- Nothing to do for most projects. To get XRay test cases, add an `xray` block (README, "XRay test
+  cases").
 - **`languages` now defaults to `["en"]`.** A config without `languages` used to read English and
   Italian; add `"languages": ["en", "it"]` to keep both.
 - **Design-capture tests** (titles with "capture" or "conformance") are graded now. To keep them
