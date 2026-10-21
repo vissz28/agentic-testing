@@ -78,7 +78,7 @@ test('the card, exactly', async () => {
     '  —  Suite honesty   no data  target 100%  no project config to find the specs',
     '  —  Gate integrity  no data  target 100%  no run logged with its gates yet',
     '  —  Adoption        67%                   2 of 3 ready ticket(s) have a pipeline run (few tickets: a fact, not yet a rate)',
-    '  —  Coverage        no data  target 80%   no coverage/coverage-summary.json (the suite is never run here)',
+    '  —  Coverage        no data  target 80%   no coverage/coverage-summary.json or coverage/lcov.info (the suite is never run here)',
     '  —  Mutation kill   no data               no run had assertions to mutate yet',
     '',
     'AI cost: /quality-code:consumption --since 2026-09-15 --until 2026-10-14',
@@ -192,4 +192,11 @@ test('mutation kill rate: from the logged counts, as the pipeline writes them (n
   const { qualityKpi } = await import('../../lib/report/quality-program.mjs')
   const q = qualityKpi({ finals: [], runs: [{ steps: [{ check: 'mutation', status: 'pass', killed: 6, survived: 0, errors: 0, total: 6 }] }, { steps: [{ check: 'mutation', status: 'fail', killed: 1, total: 2 }] }, { steps: [{ check: 'mutation', status: 'not_run' }] }], scan: null, coverage: null })
   assert.deepEqual(q.mutation, { mean: 75, runs: 2 })
+})
+
+test('coverage: an lcov report counts when there is no Istanbul summary', async () => {
+  const { readCoverage } = await import('../../lib/report/quality-program.mjs')
+  const root = project({ 'coverage/lcov.info': 'SF:a.ts\nLF:10\nLH:9\nend_of_record\nSF:b.ts\nLF:10\nLH:6\nend_of_record\n' })
+  assert.deepEqual(readCoverage(root), { pct: 75, file: 'coverage/lcov.info' })
+  assert.equal(readCoverage(project({})), null)
 })

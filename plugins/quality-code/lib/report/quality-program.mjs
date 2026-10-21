@@ -69,15 +69,19 @@ export function scanSpecs(root, config) {
   return { specs: specs.length, traced, tests, honest }
 }
 
-/** total.lines.pct of an Istanbul coverage summary, when the project has one. */
+/** Line coverage from an Istanbul summary, else from an lcov report (most runners' default), when the project has one. */
 export function readCoverage(root) {
-  for (const p of ['coverage/coverage-summary.json']) {
-    if (!existsSync(join(root, p))) continue
-    try {
-      const v = JSON.parse(readFileSync(join(root, p), 'utf8'))?.total?.lines?.pct
-      if (typeof v === 'number') return { pct: Math.round(v), file: p }
-    } catch {}
-  }
+  const p = 'coverage/coverage-summary.json'
+  try {
+    const v = JSON.parse(readFileSync(join(root, p), 'utf8'))?.total?.lines?.pct
+    if (typeof v === 'number') return { pct: Math.round(v), file: p }
+  } catch {}
+  const l = 'coverage/lcov.info'
+  try {
+    const sum = re => [...readFileSync(join(root, l), 'utf8').matchAll(re)].reduce((n, m) => n + Number(m[1]), 0)
+    const found = sum(/^LF:(\d+)/gm)
+    if (found) return { pct: Math.round((100 * sum(/^LH:(\d+)/gm)) / found), file: l }
+  } catch {}
   return null
 }
 
@@ -119,7 +123,7 @@ export function formatQuality(q) {
     line('Suite honesty', q.suiteHonesty?.pct, t.suiteHonesty, q.suiteHonesty ? `${q.suiteHonesty.honest} of ${q.suiteHonesty.tests} tests assert something` : 'no project config to find the specs'),
     line('Gate integrity', q.gateIntegrity.pct, t.gateIntegrity, q.gateIntegrity.runs ? `${q.gateIntegrity.full} of ${q.gateIntegrity.runs} runs with every gate${q.gateIntegrity.relaxed ? ` (${q.gateIntegrity.relaxed} forced or without the ticket)` : ''}` : 'no run logged with its gates yet'),
     line('Adoption', q.adoption.pct, t.adoption, q.adoption.ready ? `${q.adoption.checked} of ${q.adoption.ready} ready ticket(s) have a pipeline run${q.adoption.ready < 10 ? ' (few tickets: a fact, not yet a rate)' : ''}` : 'no ticket passed the gate'),
-    line('Coverage', q.coverage?.pct, t.coverage, q.coverage ? `lines, from ${q.coverage.file}` : 'no coverage/coverage-summary.json (the suite is never run here)'),
+    line('Coverage', q.coverage?.pct, t.coverage, q.coverage ? `lines, from ${q.coverage.file}` : 'no coverage/coverage-summary.json or coverage/lcov.info (the suite is never run here)'),
     line('Mutation kill', q.mutation.mean, null, q.mutation.runs ? `mean over ${q.mutation.runs} run(s)` : 'no run had assertions to mutate yet'),
   ]
 }

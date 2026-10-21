@@ -26,8 +26,8 @@ export const PRICES = Object.freeze({
 
 const FIELDS = ['input', 'output', 'cacheWrite5m', 'cacheWrite1h', 'cacheRead']
 
-/** The model id as priced: no [1m] style suffix, no -YYYYMMDD snapshot date. */
-export const baseModel = model => String(model ?? '').replace(/\[[^\]]*\]$/, '').replace(/-\d{8}$/, '')
+/** The model id as priced: no [1m] style suffix, no Bedrock/Vertex wrapping (us.anthropic.…-v1:0, …@20250101), no -YYYYMMDD snapshot date. */
+export const baseModel = model => String(model ?? '').replace(/\[[^\]]*\]$/, '').replace(/^(?:[a-z]+\.)?anthropic\./, '').replace(/-v\d+(?::\d+)?$/, '').replace(/@\d{8}$/, '').replace(/-\d{8}$/, '')
 
 export function priceFor(model, prices = PRICES) {
   return prices[model] ?? prices[baseModel(model)] ?? null
