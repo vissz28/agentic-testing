@@ -13,7 +13,7 @@ Update with `/plugin update quality-code@quality-code`.
 
 - **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
   adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
-  cases alone, with no test. `core/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
+  cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
   ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
   project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
   names. The same rows the old in-repo harness wrote: its CSV is read as it is.
@@ -34,10 +34,17 @@ Update with `/plugin update quality-code@quality-code`.
 - **No permission prompts for the plugin's own scripts.** Every command pre-approves its scripts
   (`kpi` and `consumption` only their own) and runs them exactly as written. Before, an added
   `echo` made a call miss its pre-approval and cost a prompt and an extra turn.
+- **New folder layout.** `core/` is gone. The scripts the commands and the hook run are in `bin/`,
+  the modules they use in `lib/` (`base`, `ticket`, `pipeline`, `report`), the guides in `guides/`.
+  `core/quality-kpi.mjs` is now `lib/report/quality-program.mjs`. No behaviour change.
 
 ### Upgrading
 
 - Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
+- If a CI job or script of yours runs a plugin script by path, change it: `core/cli.mjs` →
+  `bin/ticket.mjs`, `core/pipeline/cli.mjs` → `bin/pipeline.mjs`, `core/checks/cli.mjs` →
+  `bin/checks.mjs`, `core/consumption/cli.mjs` → `bin/consumption.mjs`, and `core/<name>.mjs` →
+  `bin/<name>.mjs` for `kpi`, `setup`, `branch`, `xray`, `evals` and `connector-settings`.
 
 ## [0.12.0] - 2026-10-16
 

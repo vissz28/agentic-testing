@@ -1,7 +1,7 @@
 ---
 description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:start and /quality-code:ticket-eval. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
 argument-hint: [advanced]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
@@ -9,7 +9,7 @@ Set up this repo for the quality-code plugin. Setup asks only for the connection
 
 **Rules**
 
-- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
 - Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). If none is connected, stop with one message: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.`
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.
@@ -18,8 +18,8 @@ Set up this repo for the quality-code plugin. Setup asks only for the connection
 
 If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
-0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/core/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on to step 1 only when its card lets you continue.
-1. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
+0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on to step 1 only when its card lets you continue.
+1. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest, or both).`
    - `adapter` is `both` (the repo has Vitest and Playwright): ask what the project is, as this card, and end the turn:
 
@@ -56,7 +56,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
+   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
 4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
@@ -130,6 +130,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/core/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
