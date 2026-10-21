@@ -90,3 +90,8 @@ test('no token in the chat; tools by operation name', () => {
 test('examples use neutral keys', () => {
   assert.doesNotMatch(doc, /FIC|warehouse/i)
 })
+test('the branch name comes from BRANCH_JSON, not from a git call the command cannot run', () => {
+  assert.ok(!doc.includes('git branch --show-current'))
+  assert.match(doc, /open merge request whose source branch is its `branch`/)
+  assert.match(doc, /run detect again with `--base <target branch>`/)
+})

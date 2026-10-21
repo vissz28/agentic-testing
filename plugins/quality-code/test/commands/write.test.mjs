@@ -108,7 +108,7 @@ test('step 6: one line, then the pipeline with every spec, the key, the ticket f
 })
 test('step 6: at most 2 rewrites of the tests for fixable fails; boundary and honesty undo once', () => {
   const s = step(6)
-  for (const c of ['`expected`', '`assertions`', '`mutation`', '`stryker`', '`types`']) assert.ok(s.includes(c), c)
+  for (const c of ['`expected`', '`suite-honesty`', '`mutation`', '`stryker`', '`types`']) assert.ok(s.includes(c), c)
   // The types step fails only on an error in a spec, so every types fail is the tests' to fix.
   assert.doesNotMatch(s, /outside a spec/)
   assert.match(s, /rewrite the tests only/)
@@ -333,7 +333,9 @@ test('replies and language; --dry-run and --ci; the card after the run never wea
   assert.match(doc, /\*\*Replies\.\*\* Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option/)
   assert.match(doc, /\*\*Language\.\*\* Talk in the language of the user's messages; before they write one, in the ticket's language/)
   const one = step(1)
-  assert.match(one, /\*\*`--dry-run`:\*\* go through steps 1 to 4 as usual, show the plan card .* and stop: no run marker, no file written, nothing posted/)
+  assert.match(one, /\*\*`--dry-run`:\*\* go through steps 1 to 4 as usual, show the plan card .* and stop: no run marker, no test written, no `target` saved, nothing posted\. The gate still saves the sanitized ticket/)
+  assert.match(one, /A refused ticket ends the dry run at the gate's report: no refuse card, so no comment, fill-in or Jira update/)
+  assert.ok(doc.includes('to `<ticketsDir>/<KEY>/target` (not with `--dry-run`)'))
   assert.match(one, /\*\*`--ci`:\*\* never ask: a card that needs an answer stops the command instead/)
   const nine = doc.slice(doc.indexOf('9. **After the card.**'), doc.indexOf('\n## Examples'))
   assert.ok(nine.includes('1. Done\n   2. That\'s not what I see in the app\n   3. Another ticket'))
@@ -354,4 +356,17 @@ test('step 3 and 4: a merged ticket\'s change comes from branch.mjs --merged whe
   assert.match(step(3), /When the branch shows no changed code file \(for example on the base branch, after the ticket was merged\)/)
   assert.match(step(4), /or `--merged <KEY>` when the branch shows none: translation files count as code there/)
   assert.ok(doc.includes('`MERGED_JSON:`'))
+})
+test('the fixable steps are the pipeline step names: suite-honesty, not the card label "assertions"', () => {
+  const s = step(6)
+  assert.ok(s.includes('`checks_failed` decided by `expected`, `suite-honesty`, `mutation`, `stryker`, or `types`'))
+  assert.ok(!s.includes('`assertions`'))
+  assert.ok(s.includes('or `checks_failed` decided by `flaky`): take the card as it is'))
+  assert.ok(s.includes('update that comment instead of adding a second one (as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says)') || doc.includes('as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says'))
+})
+test('examples are neutral: no project text or key shape from one app', () => {
+  for (const t of ['Nessun movimento trovato', 'NoDataFiltersMessage']) {
+    assert.ok(!doc.includes(t), `write.md: ${t}`)
+    assert.ok(!pguide.includes(t), `playwright-writing.md: ${t}`)
+  }
 })

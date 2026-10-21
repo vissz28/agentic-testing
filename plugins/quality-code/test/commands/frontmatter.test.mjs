@@ -24,8 +24,8 @@ test('simple commands run on Haiku with low effort, the gate on Sonnet, writing 
     assert.equal(fields.effort, MODEL[c] === 'haiku' ? 'low' : undefined, `${c} effort`)
   }
 })
-// kpi and consumption may run only their own script; the rest any of the plugin's scripts, nothing else.
-const OWN = { kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*)', consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)' }
+// kpi and consumption may run only their own script (kpi also consumption's, for its option 1); the rest any of the plugin's scripts, nothing else.
+const OWN = { kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)', consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)' }
 test('every command pre-approves only the plugin\'s own scripts', () => {
   for (const c of commands) assert.equal(front(c).fields['allowed-tools'], OWN[c] ?? SCRIPTS, c)
 })

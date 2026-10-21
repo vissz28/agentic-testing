@@ -10,9 +10,9 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
+- **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
 - **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket-eval`; never say a score here.
-- Redact customer ids (`\bU\d{5,}\b`, plus the config's `redact` patterns) in everything you show.
+- Redact in everything you show: the config's `redact` patterns (without a `redact` in the config, the default customer id `\bU\d{5,}\b`; a `redact` in the config replaces it), e-mails and UUIDs.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language.
 - When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`). Every key you show is a link: `[KEY](<jira.site>/browse/KEY)`.

@@ -20,7 +20,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 ## Steps
 
 1. **Check.** With `--sync` in `$ARGUMENTS`, run only `node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs" sync` (add the key when one follows `--sync`): it rewrites the per-ticket files from the CSV. Show its lines and stop. Otherwise the first `[A-Z][A-Z0-9_]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /quality-code:xray <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `.claude/quality-code.json`: `ticketsDir` (default `.claude/quality-code/tickets`), `features` and the `xray` block. No `xray` block: say `XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (README, "XRay test cases").` and stop.
-   - **`--dry-run`:** go through steps 1 to 4 and show the plan card without its numbered options, then stop: nothing written. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and step 4 writes without the card.
+   - **`--dry-run`:** go through steps 1 to 4 and show the plan card without its numbered options, then stop: no case written, nothing posted. The gate still saves the sanitized ticket (`<ticketsDir>/<KEY>/ticket.json`). A refused ticket ends the dry run at the gate's report: no refuse card, so no comment, fill-in or Jira update. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and step 4 writes without the card.
 
    Then read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score.
@@ -62,5 +62,5 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 - `/quality-code:xray ABC-123`: gate the ticket, plan the cases, write them for QA
 - `/quality-code:xray ABC-123 --no-extras`: only the ticket's scenarios
 - `/quality-code:xray ABC-123 --route /orders/new`: cases for this screen
-- `/quality-code:xray ABC-123 --dry-run`: the gate and the plan, then stop; nothing is written
+- `/quality-code:xray ABC-123 --dry-run`: the gate and the plan, then stop; no case is written and nothing is posted
 - `/quality-code:xray --sync ABC-123`: rewrite the ticket's case.csv and case.xlsx from the CSV
