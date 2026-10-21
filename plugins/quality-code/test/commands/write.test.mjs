@@ -226,11 +226,18 @@ test('playwright step 6: the app line, the pipeline with the spec, key and ticke
   assert.match(p, /with no `--target`/)
   assert.match(s, /a tag list was split over lines/)
 })
+test('a passing test that mutation cannot check is fixable: not_verified decided by mutation with not mutated findings', () => {
+  assert.match(doc, /`not_verified` decided by `mutation` with `not mutated` findings/)
+  assert.match(doc, /any other `not_verified`/)
+})
+
 test('playwright step 6: only the red tests get a tag, after the last run, on the test line', () => {
   const s = step(6)
   const b = s.slice(s.indexOf('**Playwright, red tests:**'), s.indexOf('**Exit 2**'))
-  assert.ok(b.includes("`{ tag: ['@anchor', '@<KEY>'] }` for a scenario test"))
-  assert.ok(b.includes("`{ tag: ['@finding', '@<KEY>'] }` for an `Extra:` test"))
+  assert.ok(b.includes("`{ tag: ['<scenario tag>', '@<KEY>'] }` for a scenario test"))
+  assert.ok(b.includes("`{ tag: ['<extra tag>', '@<KEY>'] }` for an `Extra:` test"))
+  assert.match(b, /`playwright\.redTags` \(`scenario` and `extra`; by default `@anchor` and `@finding`\)/)
+  assert.match(b, /set to `null`, tag nothing/)
   assert.match(b, /when the last run's `tests` step failed/)
   assert.match(b, /Keep each tag list on its `test\(` line/)
   assert.match(b, /Never tag a test that passed/)
