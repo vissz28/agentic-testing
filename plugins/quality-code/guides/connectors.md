@@ -76,6 +76,18 @@ Connectors
 
 The plugin only ever calls GitLab's read operations.
 
+**Atlassian operation names.** The commands name each Jira and Confluence operation as the plugin's `atlassian-rovo` connector does. The Atlassian connector of claude.ai has other names for some of them; use whichever the connection in this session offers:
+
+| Commands say | On the claude.ai Atlassian connector |
+|---|---|
+| `getJiraIssue`, `editJiraIssue`, `searchJiraIssuesUsingJql`, `getAccessibleAtlassianResources`, `atlassianUserInfo` | the same names |
+| `addCommentToJiraIssue` | `addOrEditJiraIssueComment` |
+| `searchConfluenceUsingCql` | `searchConfluence` (pass the same CQL) |
+| reading a Confluence page | `getConfluenceContent` |
+| `getVisibleJiraProjects`, `getJiraProjectIssueTypesMetadata`, `getJiraIssueTypeMetaWithFields`, `listJiraIssueRemoteIssueLinks`, `lookupJiraAccountId` | find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
+
+**Updating a comment.** Where a command says to update an existing comment instead of adding a second one, use `addOrEditJiraIssueComment` with that comment's id. When the connection offers no way to edit a comment (only an add), add a new one.
+
 **Figma fix.** Two ways; ask which first (`1. Browser sign-in / 2. Token`) and end the turn.
 
 1. **Browser sign-in.** Type /mcp, choose `figma` and sign in in the browser.

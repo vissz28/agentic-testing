@@ -11,7 +11,7 @@ Set up this repo for the quality-code plugin. Setup asks only for the connection
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
-- Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). If none is connected, stop with one message: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.`
+- Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. If none is connected, step 0's Jira card (in `connectors.md`) says what to do.
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.
 
 **Steps**

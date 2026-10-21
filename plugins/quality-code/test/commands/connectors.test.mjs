@@ -99,3 +99,15 @@ test('all connectors ✅: one line and go on, no card; optional ones missing nev
   assert.match(doc, /Every service ✅: show only that line and go on, with no card/)
   assert.match(doc, /Only Jira not ✅ stops the command/)
 })
+test('every Rovo operation the commands use has its claude.ai connector name, or discover', () => {
+  for (const [rovo, other] of [['addCommentToJiraIssue', 'addOrEditJiraIssueComment'], ['searchConfluenceUsingCql', 'searchConfluence'], ['reading a Confluence page', 'getConfluenceContent']]) {
+    assert.match(doc, new RegExp(`\\| \`?${rovo}\`? \\| \`${other}\``), rovo)
+  }
+  for (const op of ['getVisibleJiraProjects', 'getJiraProjectIssueTypesMetadata', 'getJiraIssueTypeMetaWithFields', 'listJiraIssueRemoteIssueLinks', 'lookupJiraAccountId']) assert.ok(doc.includes(`\`${op}\``), op)
+  assert.match(doc, /find the operation with `discover`.*`executeRead`/)
+  assert.match(doc, /\*\*Updating a comment\.\*\* .*`addOrEditJiraIssueComment` with that comment's id/)
+  for (const c of ['setup', 'ticket-eval', 'ticket']) {
+    const t = readFileSync(new URL(`../../commands/${c}.md`, import.meta.url), 'utf8')
+    assert.ok(t.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'), c)
+  }
+})

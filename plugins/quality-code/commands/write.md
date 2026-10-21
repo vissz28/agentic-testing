@@ -121,9 +121,9 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    After option 3 in step 2, add `--incomplete-ticket <score>` with the score remembered there: the card then opens with the 🔴 [RISK / NOT RECOMMENDED] line. Never pass it otherwise.
 
    Quote every spec path and the target in single quotes. Pass every spec this run wrote. Do not pass `--range` or `--json`. Read the verdict and the step that decided it from the `PIPELINE_JSON:` line, without showing it.
-   - **Fixable** (`checks_failed` decided by `expected`, `assertions`, `mutation`, `stryker`, or `types`): rewrite the tests only, as the card's "What to do" says, and run the same command again. At most 2 rewrites in all; after the second, take the card as it is.
+   - **Fixable** (`checks_failed` decided by `expected`, `suite-honesty`, `mutation`, `stryker`, or `types`; the card calls `suite-honesty` "assertions"): rewrite the tests only, as the card's "What to do" says, and run the same command again. At most 2 rewrites in all; after the second, take the card as it is.
    - **`boundary` or `honesty`:** undo that change once (restore the file or the test as it was) and run again. If it fails again, take the card as it is. On Playwright, an `honesty` failure about an anchor tag means a tag list was split over lines: put it back on the `test(` line.
-   - **Anything else** (`green`, `tests_red`, `not_verified`): take the card as it is.
+   - **Anything else** (`green`, `tests_red`, `not_verified`, or `checks_failed` decided by `flaky`): take the card as it is.
    - **Playwright, red tests:** when the last run's `tests` step failed, tag each failed test its findings list (in `PIPELINE_JSON:`), on its `test(` line: `{ tag: ['@anchor', '@<KEY>'] }` for a scenario test, `{ tag: ['@finding', '@<KEY>'] }` for an `Extra:` test. Keep each tag list on its `test(` line. The tag tells a merge gate that skips `@anchor` and `@finding` that the test is red on purpose until the feature or the fix lands. Never tag a test that passed: the tag would hide it from the gate. Change nothing else, and do not run the checks again.
    - **Exit 2** (a usage or config error, a missing target, a crash): run `run stop`, show its lines as they are and stop.
 
@@ -146,7 +146,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    2. Do not post
    ```
 
-   - **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the note verbatim. If an existing comment contains `Logged by quality-code: tests were written on an incomplete ticket.` (the same as `RISK_COMMENT_FOOTER` in the plugin's `lib/ticket/jira.mjs`), update that comment instead of adding a second one. If no add-comment tool is available, show the text and say `Copy this onto the ticket.` On success: `The note has been posted on the ticket.`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <KEY> risk` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not post the note on Jira.`
+   - **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the note verbatim. If an existing comment contains `Logged by quality-code: tests were written on an incomplete ticket.` (the same as `RISK_COMMENT_FOOTER` in the plugin's `lib/ticket/jira.mjs`), update that comment instead of adding a second one (as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says). If no add-comment tool is available, show the text and say `Copy this onto the ticket.` On success: `The note has been posted on the ticket.`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <KEY> risk` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not post the note on Jira.`
    - **2:** `The note was not posted.`
 9. **After the card.** Not with `--ci`. Show this card and end the turn:
 

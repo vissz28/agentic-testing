@@ -143,3 +143,7 @@ test('fullstack: a repo with both asks what the project is; sides, Playwright co
   assert.ok(doc.includes('With no config at all (`playwrightConfigs` is empty), say once and go on: `No Playwright config found. The tests need one with a baseURL, and a webServer or the app already running: npm init playwright@latest creates it.`'))
   assert.match(doc, /the path the app's router uses \(for example `\/productsStock`\), not a folder name/)
 })
+test('no Atlassian connection: setup defers to the Jira card, it has no ticket to paste', () => {
+  assert.ok(!doc.includes('Or paste the ticket text'))
+  assert.match(doc, /If none is connected, step 0's Jira card \(in `connectors\.md`\) says what to do/)
+})
