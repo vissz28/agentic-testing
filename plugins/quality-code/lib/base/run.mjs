@@ -3,7 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { RUN_MARKER, readRunMarker } from './boundary.mjs'
+import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
 
 /** HEAD of the repository at root, or null when it is not a git repo or has no commit. */
 export function gitHead(root) {
@@ -24,7 +24,8 @@ export function startRun(root, key, now = Date.now()) {
     return { ok: false, error: `a run for ${who} is active: finish it or run 'run stop'` }
   }
   if (cur) rmSync(p, { force: true })
-  const marker = { key, startedAt: new Date(now).toISOString(), base: gitHead(root) }
+  // dirty: what was already changed before the run, so the boundary check does not count it.
+  const marker = { key, startedAt: new Date(now).toISOString(), base: gitHead(root), dirty: snapshot(root) }
   mkdirSync(dirname(p), { recursive: true })
   try {
     writeFileSync(p, `${JSON.stringify(marker)}\n`, { flag: 'wx' })

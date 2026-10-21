@@ -1,12 +1,12 @@
 // Find, load and validate the team config. The only module that knows where it lives.
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { matches } from './boundary.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray'])
+const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -32,10 +32,29 @@ export const DEFAULTS = Object.freeze({
   ticketTemplates: { bug: null, story: null },
 })
 
-/** ticketsDir as every caller uses it: "/" separators, no trailing "/". */
-export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/\/+$/, '')
+/** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
+export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
-export const projectRoot = (env = process.env, cwd = process.cwd()) => env.CLAUDE_PROJECT_DIR || cwd
+const hasConfig = dir => existsSync(join(dir, CONFIG_REL))
+
+/** The nearest folder at or above dir that holds the config, or null. */
+export function findRoot(dir) {
+  for (let d = resolve(dir); ; d = dirname(d)) {
+    if (hasConfig(d)) return d
+    if (dirname(d) === d) return null
+  }
+}
+
+/**
+ * The project: CLAUDE_PROJECT_DIR when it holds the config, else the nearest folder up from cwd that
+ * does (a script run from src/, a package of a monorepo); with no config anywhere, CLAUDE_PROJECT_DIR
+ * or cwd, where setup writes it.
+ */
+export function projectRoot(env = process.env, cwd = process.cwd()) {
+  const dir = env.CLAUDE_PROJECT_DIR
+  if (dir && hasConfig(dir)) return dir
+  return findRoot(cwd) ?? (dir || cwd)
+}
 export const configPath = root => join(root, CONFIG_REL)
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -85,7 +104,7 @@ export function validateConfig(input) {
   const j = isObj(c.jira) ? c.jira : {}
   if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
   else {
-    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
+    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
     if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
     else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
     if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
@@ -126,6 +145,16 @@ export function validateConfig(input) {
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
+    else if (!pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
+  }
+  // The branch a feature branch starts from, when origin/HEAD is not it (gitflow: develop).
+  if (c.git !== undefined) {
+    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
+    else {
+      for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
+      const b = c.git.base
+      if (b !== undefined && (typeof b !== 'string' || !b.trim() || b.startsWith('-') || /[\s~^:?*[\\]/.test(b))) e.push(`git.base ${JSON.stringify(b)} must be a branch name, like "develop"`)
+    }
   }
   if (c.ticketTemplates !== undefined) {
     if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
@@ -286,7 +315,8 @@ export function validateConfig(input) {
     ok: true,
     config: {
       ...c,
-      jira: { trackingProjects: [], ...j },
+      // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
+      jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
       languages: c.languages ?? DEFAULTS.languages,
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,

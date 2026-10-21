@@ -71,7 +71,7 @@ test('e2eFolder: a folder inside a forbidden boundary is refused, naming the rul
   assert.deepEqual(e2eFolder(d, base), { ok: false, error: msg('src/e2e/', 'src/') })
   assert.deepEqual(e2eFolder(dir(), { ...base, boundaries: { forbidden: [{ path: 'e2e/**' }] } }), { ok: false, error: msg('e2e/', 'e2e/**') })
   assert.equal(e2eFolder(d, { ...base, boundaries: { allow: ['src/e2e/'] } }).ok, true)
-  assert.deepEqual(e2eFolder(dir(), { ...base, playwright: { folder: 'node_modules/x/' } }), { ok: false, error: 'the e2e folder "node_modules/x/" is inside "node_modules/", which a test run never writes: set playwright.folder' })
+  assert.deepEqual(e2eFolder(dir(), { ...base, playwright: { folder: 'node_modules/x/' } }), { ok: false, error: 'the e2e folder "node_modules/x/" is inside "**/node_modules/", which a test run never writes: set playwright.folder' })
 })
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname

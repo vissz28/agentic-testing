@@ -47,3 +47,25 @@ test('no merge of the ticket\'s own branch: the commits that name it; nothing fo
   assert.deepEqual([none.found, none.files], [null, []], 'ABC-1 is not ABC-12 or ABC-13')
   assert.equal(merged(mkdtempSync(join(tmpdir(), 'qc-nogit-')), config, 'ABC-12').found, null)
 })
+
+test('a merge is diffed from where the branch forked: main\'s later work is no deletion', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-merged-'))
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV, encoding: 'utf8' })
+  const put = (p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
+  g('init', '-q', '-b', 'main'); put('README.md', 'x'); g('add', '-A'); g('commit', '-qm', 'init')
+  g('checkout', '-qb', 'ABC-12-vat'); put('src/vat.ts', '1'); g('add', '-A'); g('commit', '-qm', 'vat')
+  g('checkout', '-q', 'main'); put('src/unrelated.ts', '1'); g('add', '-A'); g('commit', '-qm', 'other work')
+  g('merge', '--no-ff', '-q', '-m', 'Merge pull request #7 from acme/ABC-12-vat', 'ABC-12-vat')
+  const r = merged(d, config, 'ABC-12')
+  assert.equal(r.found, 'merge', 'a GitHub merge subject names the source branch too')
+  assert.deepEqual(r.files.map(f => `${f.path} ${f.status}`), ['src/vat.ts A'])
+})
+
+test('a stash is no change of the ticket', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-merged-'))
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV, encoding: 'utf8' })
+  const put = (p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
+  g('init', '-q', '-b', 'main'); put('README.md', 'x'); g('add', '-A'); g('commit', '-qm', 'init')
+  g('checkout', '-qb', 'ABC-40-x'); put('src/staged.ts', '1'); g('add', '-A'); g('stash', '-q')
+  assert.deepEqual([merged(d, config, 'ABC-40').found, merged(d, config, 'ABC-40').files], [null, []])
+})

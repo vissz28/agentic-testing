@@ -4,15 +4,18 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from '../lib/base/config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { CONFIG_FILES, readTestDir } from '../lib/base/e2e-folder.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
+import { CI_FILES } from '../lib/base/boundary.mjs'
 
+// Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
-  bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md'],
-  story: ['.gitlab/issue_templates/Story.md', '.github/ISSUE_TEMPLATE/story.md'],
+  bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md', '.github/ISSUE_TEMPLATE/bug_report.md'],
+  story: ['.gitlab/issue_templates/Story.md', '.github/ISSUE_TEMPLATE/story.md', '.github/ISSUE_TEMPLATE/feature_request.md'],
 }
+const TEMPLATE_HOME = { gitlab: { bug: '.gitlab/issue_templates/Bug.md', story: '.gitlab/issue_templates/Story.md' }, github: { bug: '.github/ISSUE_TEMPLATE/bug.md', story: '.github/ISSUE_TEMPLATE/story.md' } }
 
 export const RUNTIME_GITIGNORE = ['.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/']
 
@@ -22,21 +25,27 @@ function boundaryCandidates(root) {
   let names = []
   try { names = readdirSync(root) } catch {}
   const exists = p => existsSync(join(root, p.replace(/\/$/, '')))
+  // A workspace monorepo's packages each have their code folder.
+  const workspaceSrc = top => { try { return readdirSync(join(root, top)).some(n => existsSync(join(root, top, n, 'src'))) } catch { return false } }
   // Order: code folders, environment files, CI files.
   return [
-    ...['src/', 'prisma/', 'migrations/', 'dapr/'].filter(exists),
+    ...['src/', 'app/', 'lib/', 'server/', 'pages/', 'components/', 'prisma/', 'migrations/'].filter(exists),
+    ...['packages', 'apps'].filter(workspaceSrc).map(t => `${t}/*/src/`),
     ...(exists('.env') ? ['.env'] : []),
     ...(names.some(n => /^\.env\..+/.test(n)) ? ['.env.*'] : []),
-    ...['.gitlab-ci.yml', '.github/workflows/'].filter(exists),
+    ...CI_FILES.filter(exists),
   ]
 }
 
 const VITEST_CONFIG = /^vitest(\.[\w-]+)?\.config\.[cm]?[jt]s$|^vitest\.config(\.[\w-]+)?\.[cm]?[jt]s$/
+const VITE_CONFIG = /^vite\.config\.[cm]?[jt]s$/
 
+/** Vitest config files at the root: vitest.config.*, and a vite.config.* that holds a test block. */
 function vitestConfigs(root) {
   let names = []
   try { names = readdirSync(root) } catch {}
-  return names.filter(n => VITEST_CONFIG.test(n)).sort()
+  const viteWithTests = n => { try { return /\btest\s*:/.test(readFileSync(join(root, n), 'utf8')) } catch { return false } }
+  return names.filter(n => VITEST_CONFIG.test(n) || (VITE_CONFIG.test(n) && viteWithTests(n))).sort()
 }
 
 const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
@@ -104,7 +113,7 @@ function gitOut(root, args) {
   }
 }
 
-/** { host, path } of a GitLab-style remote (https or scp form), credentials dropped; else null. */
+/** { host, path } of a remote (https or scp form), credentials dropped; else null. */
 export function remoteProject(url) {
   const u = stripCredentials(url)
   if (!u) return null
@@ -112,12 +121,26 @@ export function remoteProject(url) {
   return m ? { host: m[1], path: m[2] } : null
 }
 
-/** Where the project lives: its folder, the git repo around it, and the origin's GitLab project. */
+/** github, bitbucket, or gitlab for any other host (GitLab is the one usually self-hosted under its own name). */
+export const hostKind = host => (/github/i.test(host) ? 'github' : /bitbucket/i.test(host) ? 'bitbucket' : 'gitlab')
+
+/**
+ * Where the project lives: its folder, the git repo around it, and the origin's project: remote
+ * for any host, gitlab only when the host is a GitLab (the GitLab connector looks it up).
+ */
 function here(root) {
   const top = gitOut(root, ['rev-parse', '--show-toplevel'])
-  if (!top) return { folder: basename(root), repoTop: null, subfolder: null, gitlab: null }
+  if (!top) return { folder: basename(root), repoTop: null, subfolder: null, remote: null, gitlab: null }
   const prefix = gitOut(root, ['rev-parse', '--show-prefix'])
-  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, gitlab: remoteProject(gitOut(root, ['remote', 'get-url', 'origin'])) }
+  const p = remoteProject(gitOut(root, ['remote', 'get-url', 'origin']))
+  const remote = p && { ...p, kind: hostKind(p.host) }
+  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: remote?.kind === 'gitlab' ? p : null }
+}
+
+/** The host whose issue-template folder new templates go to: the remote's, else the folder the repo already has. */
+function templateHost(root, remote) {
+  if (remote) return remote.kind === 'gitlab' ? 'gitlab' : 'github'
+  return existsSync(join(root, '.github')) && !existsSync(join(root, '.gitlab')) ? 'github' : 'gitlab'
 }
 
 export function detect(root) {
@@ -174,12 +197,13 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
   if (gitignoreLine !== undefined && typeof gitignoreLine !== 'string') errors.push('gitignoreLine: must be text')
   if (errors.length) return { ok: false, errors }
 
-  const found = detect(root).templates
+  const { templates: found, here: h } = detect(root)
+  const home = TEMPLATE_HOME[templateHost(root, h.remote)]
   const toWrite = []
   const paths = { bug: found.bug, story: found.story }
   for (const kind of ['bug', 'story']) {
     if (typeof templates?.[kind] !== 'string' || found[kind]) continue
-    const p = TEMPLATE_CANDIDATES[kind][0]
+    const p = home[kind]
     paths[kind] = p
     toWrite.push([p, templates[kind]])
   }
@@ -212,16 +236,19 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
 }
 
 function main(argv) {
-  const root = projectRoot()
+  // Where the user set up: not a parent folder's project, which projectRoot would find.
+  const root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
   if (argv[0] === '--detect') {
     process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root))}\n`)
     return 0
   }
   if (argv[0] === '--write' && argv[1]) {
+    // The proposal inline ('{"config": …}') or from a file (@proposal.json).
+    const inline = argv[1].trimStart().startsWith('{')
     const ref = argv[1].startsWith('@') ? argv[1].slice(1) : argv[1]
     let proposal
-    try { proposal = readJson(resolve(root, ref)) } catch (err) {
-      process.stdout.write(`proposal: cannot read ${ref} (${err.message})\n`)
+    try { proposal = inline ? JSON.parse(argv[1]) : readJson(resolve(root, ref)) } catch (err) {
+      process.stdout.write(`proposal: cannot read ${inline ? 'the inline JSON' : ref} (${err.message})\n`)
       return 2
     }
     const r = write(root, proposal?.config, { templates: proposal?.templates })
@@ -229,7 +256,7 @@ function main(argv) {
     process.stdout.write('ok\n')
     return 0
   }
-  process.stdout.write('usage: setup.mjs --detect | --write @proposal.json\n')
+  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json\n")
   return 2
 }
 
