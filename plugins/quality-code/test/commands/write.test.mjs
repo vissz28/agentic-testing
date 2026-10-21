@@ -364,3 +364,9 @@ test('the fixable steps are the pipeline step names: suite-honesty, not the card
   assert.ok(s.includes('or `checks_failed` decided by `flaky`): take the card as it is'))
   assert.ok(s.includes('update that comment instead of adding a second one (as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says)') || doc.includes('as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says'))
 })
+test('examples are neutral: no project text or key shape from one app', () => {
+  for (const t of ['Nessun movimento trovato', 'NoDataFiltersMessage']) {
+    assert.ok(!doc.includes(t), `write.md: ${t}`)
+    assert.ok(!pguide.includes(t), `playwright-writing.md: ${t}`)
+  }
+})

@@ -111,3 +111,9 @@ test('every Rovo operation the commands use has its claude.ai connector name, or
     assert.ok(t.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'), c)
   }
 })
+test('which connectors: GitLab only for a GitLab remote, Figma for playwright and fullstack; every caller listed', () => {
+  assert.match(doc, /GitLab when `here\.gitlab` is set .* or `gitlab_api_url` is: otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
+  assert.match(doc, /Figma only when the adapter is `playwright` or `fullstack`/)
+  assert.match(doc, /From `start`, `write`, `seed` and `xray`, an optional service/)
+  for (const c of ['setup', 'start', 'write', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
+})
