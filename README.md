@@ -519,7 +519,7 @@ keywords. The model never supplies the number.
 | Acceptance criteria | 30 | 30 |
 | Criteria that are specific (no "works correctly") | 15 | 15 |
 | A feature label from your config | 15 | 5 |
-| A Confluence QA plan found (linked, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 15 | — |
+| A Confluence QA plan found (a page attached to the ticket, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 15 | — |
 | Steps to reproduce (bug) or a user story (story) | 10 | 15 |
 | Expected and actual result | 10 | 15 |
 | A context / summary section | — | 10 |

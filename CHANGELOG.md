@@ -17,6 +17,10 @@ Update with `/plugin update quality-code@quality-code`.
   ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
   project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
   names. The same rows the old in-repo harness wrote: its CSV is read as it is.
+- **Confluence pages attached to a ticket.** `ticket-eval` reads the ticket's remote links (its Web
+  links) and uses an attached Confluence page with scenarios as the QA plan, before searching by
+  `qaPlanSearch`. It used to look in `issuelinks`, which only links tickets to tickets, so an
+  attached page was never found.
 - `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
   linked to that ticket (with an `xray` block).
 

@@ -22,6 +22,16 @@ test('the best match is a title match, never the first hit by rank', () => {
   assert.match(qa, /Read at most one page/)
   assert.match(qa, /no Confluence QA plan found for <feature>/)
 })
+// Real shape (FIC-13453): { relationship: 'Wiki Page', object: { url: '<site>/wiki/pages/viewpage.action?pageId=…', title: 'Wiki Page' } }
+test('a Confluence page attached to the ticket comes from its remote links, before the search', () => {
+  assert.ok(qa.includes('`listJiraIssueRemoteIssueLinks` (`getJiraIssueRemoteIssueLinks` on an older connection)'))
+  assert.ok(qa.includes('never in `issuelinks`'))
+  assert.ok(qa.includes('`object.url` starts with `<jira.site>/wiki/`'))
+  assert.match(qa, /at most 3/)
+  assert.match(qa, /`confluenceSpaces` limits only the search/)
+  assert.ok(qa.indexOf('RemoteIssueLinks') < qa.indexOf('searchConfluenceUsingCql'), 'attached pages come first')
+  assert.match(qa, /no attached page holds scenarios: the search/)
+})
 test('Jira and Confluence tools are named by operation, never by an mcp__ tool name', () => {
   assert.doesNotMatch(doc, /mcp__/)
 })
