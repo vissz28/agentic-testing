@@ -36,7 +36,7 @@ test('startRun writes { key, startedAt, base } and refuses while it is active', 
   const d = repo()
   const now = Date.parse('2026-10-14T08:00:00.000Z')
   const r = startRun(d, 'ABC-1', now)
-  assert.deepEqual(r, { ok: true, marker: { key: 'ABC-1', startedAt: '2026-10-14T08:00:00.000Z', base: head(d) }, replacedStale: false })
+  assert.deepEqual(r, { ok: true, marker: { key: 'ABC-1', startedAt: '2026-10-14T08:00:00.000Z', base: head(d), dirty: {} }, replacedStale: false })
   assert.deepEqual(marker(d), r.marker)
   assert.equal(runActive(d, now), true)
   assert.deepEqual(startRun(d, 'ABC-2', now + 11 * H), { ok: false, error: "a run for ABC-1 is active: finish it or run 'run stop'" })
@@ -49,7 +49,7 @@ test('startRun replaces a marker older than 12 hours; base is null outside git',
   const r = startRun(d, 'ABC-2', now)
   assert.equal(r.ok, true)
   assert.equal(r.replacedStale, true)
-  assert.deepEqual(marker(d), { key: 'ABC-2', startedAt: new Date(now).toISOString(), base: null })
+  assert.deepEqual(marker(d), { key: 'ABC-2', startedAt: new Date(now).toISOString(), base: null, dirty: null })
 })
 test('startRun: an unreadable marker counts by its mtime', () => {
   const d = dir()

@@ -1,16 +1,21 @@
 // Boundary: a test-writing run writes tests, never the code under test. Path rules from the
 // config; a hook that only acts while a run is active; a diff mode that is the check that counts.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { changedPaths } from './git.mjs'
 import { result } from './result.mjs'
 
-export const ALWAYS = ['dist/', 'node_modules/', '.git/', '.claude/quality-code.json']
+// Never written by a test run: build output and packages at any depth (monorepos), git, and the
+// plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
+// The plugin's scripts write their state during a run, so only the hook guards it, not the diff check.
+const STATE = ['.claude/quality-code/run.active', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/audit/']
+export const ALWAYS = ['**/dist/', '**/node_modules/', '.git/', '.claude/quality-code.json', ...STATE, '.claude/settings.json', '.claude/settings.local.json']
 export const DEFAULT_WHY = 'application code: a test run writes tests, it never changes the code under test.'
 export const RUN_MARKER = '.claude/quality-code/run.active'
 export const BOUNDARY_LOG = '.claude/quality-code/boundary.jsonl'
 export const STALE_MS = 12 * 3600 * 1000
-const CI_FILES = ['.gitlab-ci.yml', '.github/workflows/']
+export const CI_FILES = ['.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile', 'azure-pipelines.yml', 'bitbucket-pipelines.yml', '.circleci/']
 // Committed examples of an env file, with no real values: a pattern like .env.* never forbids them.
 const ENV_TEMPLATE = /(?:^|\/)\.env\.(?:example|sample|template)$/
 
@@ -21,13 +26,23 @@ const globRe = pattern => new RegExp(`^${pattern
 
 /** A prefix ending in / (also matches the folder itself), a glob with * or **, or an exact path. */
 export function matches(pattern, path) {
+  // A glob folder (packages/*/src/) covers the folder and everything inside it, as a plain one does.
+  if (pattern.includes('*') && pattern.endsWith('/')) return globRe(`${pattern}**`).test(path) || globRe(pattern.slice(0, -1)).test(path)
   if (pattern.includes('*')) return globRe(pattern).test(path)
   if (pattern.endsWith('/')) return path === pattern.slice(0, -1) || path.startsWith(pattern)
   return path === pattern
 }
 
+// The code folders of a workspace monorepo, when it has one.
+const WORKSPACE_SRC = ['packages/*/src/', 'apps/*/src/']
+
 export function defaultForbidden(root) {
-  return [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }, ...CI_FILES.filter(p => existsSync(join(root, p))).map(path => ({ path }))]
+  return [
+    { path: 'src/' },
+    ...WORKSPACE_SRC.filter(p => existsSync(join(root, p.split('/')[0]))).map(path => ({ path })),
+    { path: '**/.env' }, { path: '**/.env.*' },
+    ...CI_FILES.filter(p => existsSync(join(root, p))).map(path => ({ path })),
+  ]
 }
 
 const norm = p => String(p).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
@@ -70,10 +85,27 @@ export function runActive(root, now = Date.now()) {
   return Boolean(m && !m.stale)
 }
 
+/**
+ * The path on disk as the filesystem knows it: symlinks followed, the case a case-insensitive disk
+ * stores, /tmp as /private/tmp. A file not written yet keeps its name under its deepest existing folder.
+ */
+export function onDisk(p) {
+  const tail = []
+  let cur = resolve(p)
+  for (;;) {
+    try { return join(realpathSync.native(cur), ...tail.reverse()) } catch {}
+    const up = dirname(cur)
+    if (up === cur) return resolve(p)
+    tail.push(basename(cur))
+    cur = up
+  }
+}
+
 export function hookDecision(payload, { root, config, now = Date.now() }) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   if (!target || !config || !runActive(root, now)) return { decision: 'allow' }
-  const v = violation(relative(root, resolve(root, target)), rulesFor(config, root))
+  // SRC/a.ts, a symlinked folder or the /tmp alias reach the same file as src/a.ts: compare the real paths.
+  const v = violation(relative(onDisk(root), onDisk(resolve(root, target))), rulesFor(config, root))
   return v ? { decision: 'deny', path: v.path, why: v.why } : { decision: 'allow' }
 }
 
@@ -90,11 +122,35 @@ export function logBlocked(root, entry) {
   } catch {}
 }
 
+const hashOf = (root, p) => {
+  try { return createHash('sha1').update(readFileSync(join(root, p))).digest('hex') } catch { return null }
+}
+
+/** Every changed or untracked path with the hash of its content (null: deleted), as run start records it. */
+export function snapshot(root) {
+  const c = changedPaths(root)
+  return c.ok ? Object.fromEntries(c.paths.map(p => [p, hashOf(root, p)])) : null
+}
+
+/**
+ * The paths a run wrote: without a range, those whose state differs from the snapshot run start took,
+ * so an edit the developer already had is not the run's (and one the run reverted is). With a range,
+ * or a marker without a snapshot, every changed path.
+ */
+function writtenPaths(root, range) {
+  const c = changedPaths(root, range)
+  if (!c.ok || range) return c
+  const before = readRunMarker(root)?.marker?.dirty
+  if (!before || typeof before !== 'object') return c
+  const paths = [...new Set([...c.paths, ...Object.keys(before)])]
+  return { ok: true, paths: paths.filter(p => !(p in before) || before[p] !== hashOf(root, p)) }
+}
+
 export function run({ range = null }, ctx) {
-  const c = changedPaths(ctx.root, range)
+  const c = writtenPaths(ctx.root, range)
   if (!c.ok) return result('boundary', 'not_run', `cannot read the changed files: ${c.error}`)
   const rules = rulesFor(ctx.config, ctx.root)
-  const hits = c.paths.map(p => violation(p, rules)).filter(Boolean)
+  const hits = c.paths.filter(p => !STATE.some(s => matches(s, p))).map(p => violation(p, rules)).filter(Boolean)
   const data = { mode: 'diff', paths: c.paths.length }
   if (!hits.length) return result('boundary', 'pass', `${c.paths.length} changed file(s), none outside the boundary`, [], data)
   return result('boundary', 'fail', `${hits.length} write(s) outside the boundary`, hits.map(h => ({ file: h.path, kind: 'forbidden write', detail: h.why })), data)
