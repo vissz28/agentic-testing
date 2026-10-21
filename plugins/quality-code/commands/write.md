@@ -28,7 +28,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
    - **Playwright:** `--layer` and `--target` are for Vitest projects: if `$ARGUMENTS` has one, say `--layer and --target are for Vitest projects. Use --route PATH to name the screen.` and stop. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config e2e-folder` and read the `E2E_FOLDER_JSON:` line: its `folder` is the e2e folder, where the spec goes. If it exits with 2, show its lines and stop. Read `playwright.guide`, `features` and `xray` too.
    - **Fullstack:** every flag is allowed: `--layer` and `--target` for the backend part, `--route` and `--no-extras` for the frontend part. Read the layers as for Vitest and the e2e folder, `playwright.guide` and `features` as for Playwright.
 
-   - **`--dry-run`:** go through steps 1 to 4 as usual, show the plan card (step 4's, with its options left out) and stop: no run marker, no file written, nothing posted. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and every Jira post is left out. Both may be given with any other flag.
+   - **`--dry-run`:** go through steps 1 to 4 as usual, show the plan card (step 4's, with its options left out) and stop: no run marker, no test written, no `target` saved, nothing posted. The gate still saves the sanitized ticket (`<ticketsDir>/<KEY>/ticket.json`). A refused ticket ends the dry run at the gate's report: no refuse card, so no comment, fill-in or Jira update. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and every Jira post is left out. Both may be given with any other flag.
 
    Then read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
 2. **Ticket and gate.** Coming from ticket-eval's option 3 (it handed you the key and the incomplete score; `<ticketsDir>/<KEY>/ticket.json` is saved): skip this step and go on as after option 3 below, with that score. Otherwise, read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score. The script scores; never write a test for a ticket it refuses.
@@ -47,7 +47,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
      4. Stop
      ```
 
-     Paths are fine here: a developer reads this card. On `3`, ask `Which file? Type its path from the project root.` and check it exists and is not a spec. On `4`, stop. Whichever way the target was found, write its path, one line, to `<ticketsDir>/<KEY>/target`, so the next run of this ticket does not ask again.
+     Paths are fine here: a developer reads this card. On `3`, ask `Which file? Type its path from the project root.` and check it exists and is not a spec. On `4`, stop. Whichever way the target was found, write its path, one line, to `<ticketsDir>/<KEY>/target` (not with `--dry-run`), so the next run of this ticket does not ask again.
    - **Playwright:** a `--route PATH` in `$ARGUMENTS` is used as it is: it must start with `/` and be one line; otherwise say `--route must be a path in the app starting with /, like /orders` and stop. Without one, the `route` from step 2 (the configured feature whose label is on the ticket) is used, with no card. With neither, show this card, one line per entry of `features` that has a `route`, then `Another screen` and `Stop`, and end the turn:
 
      ```
@@ -168,5 +168,5 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 - `/quality-code:write ABC-123 --route /orders/new`: Playwright, test this screen
 - `/quality-code:write ABC-123 --no-extras`: Playwright, only the ticket's scenarios
 - `/quality-code:write ABC-123 --target src/pricing.ts --route /orders`: fullstack, a backend target and a screen
-- `/quality-code:write ABC-123 --dry-run`: the gate and the plan, then stop; nothing is written
+- `/quality-code:write ABC-123 --dry-run`: the gate and the plan, then stop; no test is written and nothing is posted
 - `/quality-code:write ABC-123 --ci`: no questions; stops where it would have to ask

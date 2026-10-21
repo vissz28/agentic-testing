@@ -14,7 +14,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 - **Token discipline.** Read only the fields listed in step 2; never all fields, never a comment dump. Read comments only when the description has no criteria.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
-- **Never say the score to the user**, except in the guided fill-in lines, shown exactly as the script prints them.
+- **The score is the script's.** Show it only as the script prints it (its report, the guided fill-in lines). Never compute, estimate, round or restate a score of your own.
 - Every script call is `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`).
 - Redact customer ids in anything you echo.
 - End your turn after every card and wait for the answer. `--ci` never asks and never takes option 3.
@@ -72,7 +72,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
    Then run `ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json <frontend|backend|fullstack>` (1, 2, 3) and show its line. The side is saved in `ticket.json`; later steps read it from there.
 
-5. **Score.** `ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report. Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `ticket.mjs refuse-comment` instead, print its text, and stop (printing never posts).
+5. **Score.** `ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report. Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `ticket.mjs refuse-comment` instead, print its text, and stop (printing never posts; its exit 1 on a refused ticket is expected).
    - **pass:** say the ticket is ready and stop. (Other commands that build on this gate continue from here.)
    - **refuse:** show the refuse card.
 
@@ -88,7 +88,7 @@ This ticket needs a bit more information. We cannot start yet.
 
 Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 1: it skips the send-preview, posts the comment, and exits 1. It never takes 3.
 
-- **1:** do not post yet. Run `ticket.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
+- **1:** do not post yet. Run `ticket.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json` (it exits 1 for a refused ticket: that is expected, not an error), then show the send-preview card and end the turn.
 - **2:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
 - **3:** developer override. Post nothing now (`write` offers the risk note at its end). Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete, the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, and a note saying so is offered for the Jira ticket once the tests are written. Remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score. Then:
   - When `write` sent you here, go back to it: it goes on with the incomplete score.

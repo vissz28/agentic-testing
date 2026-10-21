@@ -66,3 +66,7 @@ test('examples use neutral keys', () => {
   const ex = doc.slice(doc.indexOf('## Examples'))
   assert.doesNotMatch(ex, /FIC-|AGT-/)
 })
+test('--dry-run says what it still saves and never reaches a Jira post', () => {
+  assert.match(doc, /then stop: no case written, nothing posted\. The gate still saves the sanitized ticket/)
+  assert.match(doc, /A refused ticket ends the dry run at the gate's report/)
+})

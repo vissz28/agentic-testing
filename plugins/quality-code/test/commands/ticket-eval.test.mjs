@@ -104,3 +104,11 @@ test('fullstack: step 4b finds the side, asks only when the ticket does not say,
   assert.match(qa, /or `adapter: fullstack` and the ticket is not marked backend/)
   assert.ok(doc.includes('`SIDE_JSON:`'), 'the machine line is dropped')
 })
+test('the score is shown only as the script prints it; refuse-comment exit 1 is expected', () => {
+  assert.ok(!doc.includes('Never say the score to the user'), 'it contradicted "Relay the report"')
+  assert.match(doc, /\*\*The score is the script's\.\*\* Show it only as the script prints it/)
+  assert.match(doc, /Never compute, estimate, round or restate a score of your own/)
+  assert.match(doc, /it exits 1 for a refused ticket: that is expected, not an error/)
+  assert.ok(doc.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'))
+  assert.ok(doc.includes('as "Updating a comment" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` says'))
+})
