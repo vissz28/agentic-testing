@@ -58,7 +58,7 @@ The merge request:
 - adds `.claude/quality-code.json` (from `docs/rollout/`) and the `.gitignore` lines setup writes;
 - removes the old harness: its commands, skills, hooks, scripts and their lines in `CLAUDE.md`;
 - replaces a CI ticket gate, if any, with `ticket-eval <KEY> --ci`;
-- says in its description how to install the plugin (`/plugin install quality-code@quality-code`).
+- says in its description how to install the plugin (`/plugin install quality-code@teamsystem`).
 
 ## 6. Onboarding
 

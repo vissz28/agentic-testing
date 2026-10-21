@@ -144,7 +144,7 @@ story += [p('1. Install (each person, once)', 'h1'),
           *steps([
               'In a Claude Code session, inside your repo, add the marketplace and install the plugin:',
           ]),
-          code('/plugin marketplace add vissz28/agentic-testing\n/plugin install quality-code@quality-code'),
+          code('/plugin marketplace add vissz28/agentic-testing\n/plugin install quality-code@teamsystem'),
           *steps([
               f'Open <font name="Mono">/plugin</font> and check that quality-code shows version <b>{VERSION}</b>. '
               'If it shows an older one, go to <b>Marketplaces</b>, pick quality-code, choose <b>Update marketplace</b> '
@@ -165,8 +165,8 @@ story += [p('1. Install (each person, once)', 'h1'),
           ]),
           p('To offer the plugin to everyone who opens the repo, commit this in '
             '<font name="Mono">.claude/settings.json</font>:'),
-          code('{\n  "extraKnownMarketplaces": {\n    "quality-code": { "source": { "source": "github", '
-               '"repo": "vissz28/agentic-testing" } }\n  },\n  "enabledPlugins": { "quality-code@quality-code": true }\n}'),
+          code('{\n  "extraKnownMarketplaces": {\n    "teamsystem": { "source": { "source": "github", '
+               '"repo": "vissz28/agentic-testing" } }\n  },\n  "enabledPlugins": { "quality-code@teamsystem": true }\n}'),
           PageBreak()]
 
 story += [p('3. Every day: start from your branch', 'h1'),

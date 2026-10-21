@@ -44,13 +44,13 @@ const settingsFile = initial => {
   return f
 }
 test('save: only the address and the username go into pluginConfigs; everything else is kept', () => {
-  const f = settingsFile({ theme: 'dark', enabledPlugins: { 'quality-code@quality-code': true }, pluginConfigs: { 'other@x': { options: { a: 1 } }, 'quality-code@quality-code': { options: { figma_api_key_hint: 'keep' } } } })
+  const f = settingsFile({ theme: 'dark', enabledPlugins: { 'quality-code@teamsystem': true }, pluginConfigs: { 'other@x': { options: { a: 1 } }, 'quality-code@teamsystem': { options: { figma_api_key_hint: 'keep' } } } })
   const r = saveGitlabSettings({ file: f, url: 'biosphere.example.com', user: '@jane.doe' })
-  assert.deepEqual(r, { ok: true, plugin: 'quality-code@quality-code', options: { gitlab_api_url: 'https://biosphere.example.com/api/v4', gitlab_username: 'jane.doe' } })
+  assert.deepEqual(r, { ok: true, plugin: 'quality-code@teamsystem', options: { gitlab_api_url: 'https://biosphere.example.com/api/v4', gitlab_username: 'jane.doe' } })
   const d = JSON.parse(readFileSync(f, 'utf8'))
   assert.equal(d.theme, 'dark')
   assert.deepEqual(d.pluginConfigs['other@x'], { options: { a: 1 } })
-  assert.deepEqual(d.pluginConfigs['quality-code@quality-code'].options,
+  assert.deepEqual(d.pluginConfigs['quality-code@teamsystem'].options,
     { figma_api_key_hint: 'keep', gitlab_api_url: 'https://biosphere.example.com/api/v4', gitlab_username: 'jane.doe' })
   assert.ok(!JSON.stringify(d).includes('gitlab_token'))
 })
@@ -59,7 +59,7 @@ test('save: the plugin id comes from enabledPlugins; no settings file yet is fin
   assert.equal(saveGitlabSettings({ file: f, url: 'g.example.com', user: 'jane' }).plugin, 'quality-code@team-market')
   const g = settingsFile()
   assert.equal(saveGitlabSettings({ file: g, url: 'g.example.com', user: 'jane' }).ok, true)
-  assert.equal(JSON.parse(readFileSync(g, 'utf8')).pluginConfigs['quality-code@quality-code'].options.gitlab_username, 'jane')
+  assert.equal(JSON.parse(readFileSync(g, 'utf8')).pluginConfigs['quality-code@teamsystem'].options.gitlab_username, 'jane')
 })
 test('save: a bad address, a bad user or an unreadable settings file changes nothing', () => {
   const f = settingsFile({ theme: 'dark' })
@@ -72,9 +72,9 @@ test('save: a bad address, a bad user or an unreadable settings file changes not
   assert.equal(readFileSync(broken, 'utf8'), '{ not json')
 })
 test('jira: the email is saved lower-case next to the GitLab settings; a token or a bad email is refused', () => {
-  const f = settingsFile({ pluginConfigs: { 'quality-code@quality-code': { options: { gitlab_username: 'jane' } } } })
-  assert.deepEqual(saveJiraSettings({ file: f, email: ' Jane.Doe@Example.com ' }), { ok: true, plugin: 'quality-code@quality-code', options: { jira_email: 'jane.doe@example.com' } })
-  assert.deepEqual(JSON.parse(readFileSync(f, 'utf8')).pluginConfigs['quality-code@quality-code'].options, { gitlab_username: 'jane', jira_email: 'jane.doe@example.com' })
+  const f = settingsFile({ pluginConfigs: { 'quality-code@teamsystem': { options: { gitlab_username: 'jane' } } } })
+  assert.deepEqual(saveJiraSettings({ file: f, email: ' Jane.Doe@Example.com ' }), { ok: true, plugin: 'quality-code@teamsystem', options: { jira_email: 'jane.doe@example.com' } })
+  assert.deepEqual(JSON.parse(readFileSync(f, 'utf8')).pluginConfigs['quality-code@teamsystem'].options, { gitlab_username: 'jane', jira_email: 'jane.doe@example.com' })
   for (const bad of ['jane', 'ATATT3xFfGF0abcdef', 'a b@c.d', '']) {
     assert.ok(!validEmail(bad), bad)
     assert.match(saveJiraSettings({ file: f, email: bad }).reason, /email of your Atlassian account/)
@@ -87,7 +87,7 @@ test('cli: one JSON line, exit 0 on ok, 1 on a refused value, 2 on bad usage; wr
   const ok = run('--jira-save', 'jane@example.com')
   assert.equal(ok.code, 0)
   assert.match(ok.out, /^CONNECTOR_SETTINGS_JSON:\{"ok":true/)
-  assert.equal(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')).pluginConfigs['quality-code@quality-code'].options.jira_email, 'jane@example.com')
+  assert.equal(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')).pluginConfigs['quality-code@teamsystem'].options.jira_email, 'jane@example.com')
   assert.equal(run('--gitlab-save', 'g.example.com', 'glpat-abcdefghijklmnopqrst').code, 1)
   assert.equal(run('--nope').code, 2)
 })

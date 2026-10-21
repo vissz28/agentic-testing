@@ -15,7 +15,7 @@ Nothing here is automatic: read each list before you delete anything.
 1. Install the plugin on your machine and check the version:
    ```
    /plugin marketplace update quality-code
-   /plugin install quality-code@quality-code
+   /plugin install quality-code@teamsystem
    ```
    `/plugin` must show `quality-code` **0.8.0 or later**. An older version refuses parts of the config.
 2. Jira connected: `/quality-code:start` shows ✅ Jira. In `/plugin`, set `gitlab_api_url` to TeamSystem's
@@ -132,9 +132,9 @@ Add, so everyone who opens the repo is offered the plugin:
 ```json
 {
   "extraKnownMarketplaces": {
-    "quality-code": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
-  "enabledPlugins": { "quality-code@quality-code": true }
+  "enabledPlugins": { "quality-code@teamsystem": true }
 }
 ```
 
@@ -181,7 +181,7 @@ Proofs (AGT-85):
 - Writing: <KEY>, specs read by <name>.
 
 How to install: /plugin marketplace add vissz28/agentic-testing, then
-/plugin install quality-code@quality-code (0.8.0 or later).
+/plugin install quality-code@teamsystem (0.8.0 or later).
 ```
 
 ## 7. After the merge

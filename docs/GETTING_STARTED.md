@@ -29,7 +29,7 @@ Open Claude Code in your repo and type:
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install quality-code@quality-code
+/plugin install quality-code@teamsystem
 ```
 
 When Claude Code asks for the plugin's settings (all optional):
@@ -48,9 +48,9 @@ repo's `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "quality-code": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
-  "enabledPlugins": { "quality-code@quality-code": true }
+  "enabledPlugins": { "quality-code@teamsystem": true }
 }
 ```
 

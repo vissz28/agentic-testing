@@ -5,7 +5,7 @@ when you update. The format follows [Keep a Changelog](https://keepachangelog.co
 plugin uses [semantic versioning](https://semver.org/) (before 1.0, a minor version can break
 things, and says so here).
 
-Update with `/plugin update quality-code@quality-code`.
+Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
@@ -40,8 +40,17 @@ Update with `/plugin update quality-code@quality-code`.
   listing metadata: icon, homepage, repository, keywords, documentation and support links. The
   README opens with the wordmark. Name, colours and logo rules are in `docs/brand/BRAND.md`.
 
+- **The marketplace is now `teamsystem`:** install and update with `quality-code@teamsystem`. The
+  plugin's own README has a **Try it** section with example requests, shown with the plugin.
+
 ### Upgrading
 
+- **Once per person**, because the marketplace was renamed: `/plugin uninstall quality-code@quality-code`,
+  `/plugin marketplace remove quality-code`, `/plugin marketplace add vissz28/agentic-testing`,
+  `/plugin install quality-code@teamsystem`. Your plugin settings are kept under the new id only if
+  you set them again (`/plugin`, quality-code, configure). In repos whose `.claude/settings.json`
+  lists the marketplace, rename its key to `teamsystem` and the `enabledPlugins` entry to
+  `quality-code@teamsystem` (the README's Install section shows the block).
 - Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
 
 ## [0.12.0] - 2026-10-16

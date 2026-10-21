@@ -103,7 +103,8 @@ test('runner: a timeout kills the whole process group, grandchildren included', 
   const pidFile = join(d, '.fake-vitest.grandchild')
   let pid
   try {
-    const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'], timeoutMs: 800 })
+    // 3 s: the fake must start, spawn its child and write the pid before the kill, even on a busy machine.
+    const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'], timeoutMs: 3000 })
     assert.equal(r.ran, false)
     assert.match(r.error, /took longer than/)
     pid = Number(readFileSync(pidFile, 'utf8'))

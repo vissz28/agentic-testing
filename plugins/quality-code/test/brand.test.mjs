@@ -12,6 +12,17 @@ test('the display name is Quality Code everywhere a person reads it; the install
   assert.equal(plugin.displayName, 'Quality Code')
   assert.equal(market.plugins.find(p => p.name === 'quality-code').displayName, 'Quality Code')
 })
+test('the marketplace is teamsystem, so the plugin installs as quality-code@teamsystem; the owner and author stay', () => {
+  assert.equal(market.name, 'teamsystem')
+  assert.equal(market.plugins.find(p => p.name === 'quality-code').source, './plugins/quality-code')
+  assert.equal(market.owner.name, 'Elvis Zefaj')
+  assert.equal(plugin.author.name, 'Elvis Zefaj')
+})
+test('the plugin README opens with the tagline and has a Try it section ending in the start command', () => {
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
+  assert.ok(readme.startsWith(`# Quality Code\n\n${TAGLINE}`))
+  assert.match(readme, /## Try it\n\n(- ".+"\n)+\n…or type `\/quality-code:start` in any chat/)
+})
 test('the plugin description opens with the tagline', () => {
   assert.ok(plugin.description.startsWith(TAGLINE))
   assert.match(market.metadata.description, /from Jira ticket to tests you can trust/)

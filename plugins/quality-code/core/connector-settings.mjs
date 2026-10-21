@@ -58,7 +58,7 @@ export function saveOptions({ file = userSettings(), options }) {
     try { data = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { return { ok: false, reason: `could not read ${file}: ${e.message}` } }
     if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: `could not read ${file}: not a settings object` }
   }
-  const plugin = Object.keys(data.enabledPlugins ?? {}).find(k => k.startsWith('quality-code@')) ?? 'quality-code@quality-code'
+  const plugin = Object.keys(data.enabledPlugins ?? {}).find(k => k.startsWith('quality-code@')) ?? 'quality-code@teamsystem'
   const configs = data.pluginConfigs && typeof data.pluginConfigs === 'object' ? data.pluginConfigs : {}
   const entry = configs[plugin] && typeof configs[plugin] === 'object' ? configs[plugin] : {}
   data.pluginConfigs = { ...configs, [plugin]: { ...entry, options: { ...(entry.options ?? {}), ...options } } }

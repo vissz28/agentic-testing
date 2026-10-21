@@ -42,7 +42,7 @@ a guided setup command writes for you. Your application code is never changed.
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install quality-code@quality-code
+/plugin install quality-code@teamsystem
 ```
 
 **2. Set up the repo (once per repo, by one person).** Answer the numbered cards, then commit the
@@ -179,7 +179,7 @@ Inside Claude Code, in your repo:
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install quality-code@quality-code
+/plugin install quality-code@teamsystem
 ```
 
 The same from a shell:
@@ -189,7 +189,7 @@ claude plugin marketplace add vissz28/agentic-testing
 ```
 
 ```bash
-claude plugin install quality-code@quality-code --scope project
+claude plugin install quality-code@teamsystem --scope project
 ```
 
 **Offer it to everyone who opens the repo:** add this to the repo's `.claude/settings.json` and
@@ -198,13 +198,13 @@ commit it:
 ```json
 {
   "extraKnownMarketplaces": {
-    "quality-code": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
-  "enabledPlugins": { "quality-code@quality-code": true }
+  "enabledPlugins": { "quality-code@teamsystem": true }
 }
 ```
 
-**Update** with `/plugin update quality-code@quality-code`. What changed in each version, and any
+**Update** with `/plugin update quality-code@teamsystem`. What changed in each version, and any
 step an update needs, is in the [CHANGELOG](CHANGELOG.md).
 
 ---

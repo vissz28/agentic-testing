@@ -19,7 +19,7 @@ In Claude Code, inside your repo:
 
 ```
 /plugin marketplace add vissz28/agentic-testing
-/plugin install quality-code@quality-code
+/plugin install quality-code@teamsystem
 ```
 
 Then connect Jira: run `/mcp`, choose `atlassian-rovo`, sign in (an Atlassian connection you already
