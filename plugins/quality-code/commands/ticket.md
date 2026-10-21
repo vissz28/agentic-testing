@@ -1,12 +1,15 @@
 ---
 description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>.
 argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>>
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+model: sonnet
 ---
 
 Finds tickets and shows one in short. Read-only on Jira: nothing is ever written, commented or changed. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
 - **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket-eval`; never say a score here.
 - Redact customer ids (`\bU\d{5,}\b`, plus the config's `redact` patterns) in everything you show.

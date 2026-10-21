@@ -1,12 +1,15 @@
 ---
 description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:start and /quality-code:ticket-eval. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
 argument-hint: [advanced]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+model: sonnet
 ---
 
 Set up this repo for the quality-code plugin. Setup asks only for the connections and where the project lives; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
 
 **Rules**
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
 - Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). If none is connected, stop with one message: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.`
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.

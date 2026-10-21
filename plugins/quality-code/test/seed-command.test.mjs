@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--path <spec>\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--path <spec>\]\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: check, ticket, dataset, source, plan, write, output', () => {
   const at = ['\n1. **Check.**', '\n2. **Ticket.**', '\n3. **Dataset.**', '\n4. **Source.**', '\n5. **Plan.**', '\n6. **Write.**', '\n7. **Output.**'].map(s => doc.indexOf(s))

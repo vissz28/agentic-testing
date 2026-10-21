@@ -20,6 +20,17 @@ Update with `/plugin update quality-code@quality-code`.
 - `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
   linked to that ticket (with an `xray` block).
 
+### Changed
+
+- **Cheaper and faster commands.** Each command now picks its model and effort for the turn it
+  starts in: Haiku with low effort for `kpi`, `consumption` and `check`; Sonnet for `setup`,
+  `start`, `ticket` and `ticket-eval`; your own model for `write`, `seed` and `xray`. Measured on
+  the sample service against Opus: `kpi` $0.240 → $0.007, `consumption` $0.214 → $0.006, `check`
+  $0.245 → $0.007, with the same cards.
+- **No permission prompts for the plugin's own scripts.** Every command pre-approves its scripts
+  (`kpi` and `consumption` only their own) and runs them exactly as written. Before, an added
+  `echo` made a call miss its pre-approval and cost a prompt and an extra turn.
+
 ### Upgrading
 
 - Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").

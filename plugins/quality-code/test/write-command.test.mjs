@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/checks/cli.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\] \[--dry-run\] \[--ci\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--ask\] \[--dry-run\] \[--ci\]\n(?:[a-z-]+: .+\n)*---/)
   assert.match(doc, /^description: Write Vitest or Playwright tests/m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card, risk note', () => {

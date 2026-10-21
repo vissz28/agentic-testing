@@ -1,12 +1,15 @@
 ---
 description: Score a Jira ticket for test-readiness (the 70-point gate). Refuses thin tickets, guides the fill-in, and can comment on or update the ticket on Jira after a preview.
 argument-hint: <TICKET-KEY> [--ci] [--json] [--refuse-comment]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+model: sonnet
 ---
 
 From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's script, and act on the result. The script scores; you never compute or guess a score. Below 70 the ticket is refused, interactive and `--ci` alike. Read-only on Jira, except one refuse comment and, after a preview the user confirms, appending their own fill-in to the ticket. Plain English everywhere a human reads. Short sentences, common words.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one connected in claude.ai). If none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.` If the user pastes the ticket text, use it in place of step 2's read. No searching of transcripts or caches.
 - **Token discipline.** Read only the fields listed in step 2; never all fields, never a comment dump. Read comments only when the description has no criteria.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.

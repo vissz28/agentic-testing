@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const XRAY = 'node "${CLAUDE_PLUGIN_ROOT}/core/xray.mjs"'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--route PATH\] \[--no-extras\] \[--dry-run\] \[--ci\] \| --sync \[KEY\]\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--route PATH\] \[--no-extras\] \[--dry-run\] \[--ci\] \| --sync \[KEY\]\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: check, ticket and gate, screen, plan, write, report', () => {
   const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Screen.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Report.**'].map(s => doc.indexOf(s))

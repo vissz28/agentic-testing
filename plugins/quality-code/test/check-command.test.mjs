@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 const doc = readFileSync(new URL('../commands/check.md', import.meta.url), 'utf8')
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals\n(?:[a-z-]+: .+\n)*---/)
 })
 test('no specs: detect the branch and offer its test files', () => {
   assert.ok(doc.includes('core/branch.mjs" --detect'))

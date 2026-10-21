@@ -1,6 +1,7 @@
 ---
 description: Write Vitest or Playwright tests (or both, on a fullstack project) for a Jira ticket that passes the readiness gate, in the team's test folders, then check them with the pipeline and show its card.
 argument-hint: <KEY> [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--ask] [--dry-run] [--ci]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
 ---
 
 Writes tests from a ticket. You write the tests; the scripts gate the ticket and grade the tests. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
@@ -9,6 +10,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The scripts decide.** `cli.mjs` scores the ticket; the pipeline grades the tests. Never compute, change or soften a score, a verdict or a count, and never say a test is good yourself.
 - **Never edit application code.** Write only spec files, only in the layer folders (Vitest) or the e2e folder (Playwright). Source files, config and other tests stay as they are. If the boundary hook denies a write, read its reason and write in a test folder instead.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.

@@ -1,12 +1,15 @@
 ---
 description: Start from your feature branch. Checks the connectors, confirms the repo and what your branch changed, finds the Jira ticket from the branch name, and evaluates it.
 argument-hint: [--base <branch>]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+model: sonnet
 ---
 
 Daily entry point. You ask and relay; the scripts detect and score. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Scripts decide.** `branch.mjs` reads git; `cli.mjs` scores. Never compute a count, a base or a score yourself.
 - **Never read or show diff contents**, file contents of the change or commit subjects. Use only what `BRANCH_JSON` gives: paths, statuses, kinds and counts. The change never changes the score.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.

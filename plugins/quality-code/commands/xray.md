@@ -1,12 +1,14 @@
 ---
 description: Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:write adds the same cases for the tests it writes.
 argument-hint: <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [KEY]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
 ---
 
 Writes XRay test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:write` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The script writes.** `xray.mjs` numbers the cases, writes the CSV and the per-ticket files, and skips a case that is already there. Never edit those files yourself.
 - **Never invent.** An expected result comes from the ticket (its Then, its QA plan) or from the guide's extra probes; a step whose result the ticket does not give has no expected result. Never a value the ticket does not give.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.

@@ -2,12 +2,15 @@
 description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate), read from the local audit log and the spec files. Read-only; sends nothing anywhere.
 argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs":*)
+model: haiku
+effort: low
 ---
 
 Shows how the plugin is used in this project. You relay; the script reads and counts. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The script decides.** `kpi.mjs` reads the audit log and counts. Never compute, round, change or add up a count yourself, and never grade a team or a ticket from it.
 - **Never read the log files yourself.** The card holds only counts, ticket keys, criterion names and dates.
 - **Local only.** The audit log lives in `.claude/quality-code/audit/`, git-ignored, on this machine. Nothing is sent anywhere. Run only the script below; no other tool.

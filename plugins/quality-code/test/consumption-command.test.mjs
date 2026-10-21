@@ -7,7 +7,7 @@ const doc = readFileSync(new URL('../commands/consumption.md', import.meta.url),
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/consumption/cli.mjs"'
 
 test('frontmatter: description, argument hint, and the only tool is the script', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--by command\|ticket\|day\|model\] \[--prices file\.json\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/core\/consumption\/cli\.mjs":\*\)\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--by command\|ticket\|day\|model\] \[--prices file\.json\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/core\/consumption\/cli\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: run, card', () => {
   const at = ['\n1. **Run.**', '\n2. **Card.**'].map(s => doc.indexOf(s))

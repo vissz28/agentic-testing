@@ -7,7 +7,7 @@ const doc = readFileSync(new URL('../commands/kpi.md', import.meta.url), 'utf8')
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs"'
 
 test('frontmatter: description, argument hint, and the only tool is the script', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/core\/kpi\.mjs":\*\)\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/core\/kpi\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: run, card', () => {
   const at = ['\n1. **Run.**', '\n2. **Card.**'].map(s => doc.indexOf(s))

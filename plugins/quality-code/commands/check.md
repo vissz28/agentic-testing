@@ -1,12 +1,16 @@
 ---
 description: Check Vitest or Playwright spec files (or both, on a fullstack project) with the pipeline: tests, assertions, types and mutation. Shows the verdict card the script prints.
 argument-hint: [spec…] [--key KEY] [--flaky N] | --evals
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+model: haiku
+effort: low
 ---
 
 Runs the pipeline on spec files. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The script decides.** `cli.mjs` runs and grades. Never compute, change or soften a verdict, a count or a score yourself.
 - **Never edit tests**, source files or config, and never retry. If the card shows a problem, show it and stop.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.

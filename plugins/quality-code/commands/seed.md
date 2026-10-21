@@ -1,12 +1,14 @@
 ---
 description: Write only the test data a Jira ticket needs: calls to your seed builders (Vitest) or route stubs (Playwright). No test, nothing graded. Prints the block, or puts it into an existing spec with --path.
 argument-hint: <KEY> [--path <spec>]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
 ---
 
 Writes the data setup for a ticket, and nothing else. It is the data-only sibling of `/quality-code:write`: same ticket reading, no test, no checks. You write the data from the ticket and the project's own builders or stubs; nothing is invented. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Data only.** No `it`, `test`, `describe` or `expect`, no pipeline run, no score. The block is data a test will use.
 - **Never invent.** Call only builder functions that the builder files export. Copy a response shape only from an existing stub. Take values only from the ticket or the dataset document. Anything else is a gap you name, never a guess.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
