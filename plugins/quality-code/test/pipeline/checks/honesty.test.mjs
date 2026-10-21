@@ -98,3 +98,28 @@ test("the user's git config cannot hide a removed expect: color, an external dif
   assert.equal(r.status, 'fail')
   assert.deepEqual(r.findings.map(f => f.kind), ['assertion removed'])
 })
+
+test('a test turned into fixme or an expected failure, an inline fixme, a condition skip or .only is caught', () => {
+  const pw = s => kinds(fe(s))
+  assert.deepEqual(pw("-  test('total shows', async ({ page }) => {\n+  test.fixme('total shows', async ({ page }) => {"), ['test removed'])
+  assert.deepEqual(pw("-  test('total shows', async ({ page }) => {\n+  test.fail('total shows', async ({ page }) => {"), ['test removed', 'test newly skipped'])
+  assert.deepEqual(pw("-  test(\n+  test.fixme(\n   'total shows',"), ['test removed'], 'formatter split: the title line follows the declaration')
+  assert.deepEqual(pw('+    test.fixme()'), ['test newly skipped'])
+  assert.deepEqual(pw('+    test.fixme(isMobile, \'not on mobile\')'), ['test newly skipped'])
+  assert.deepEqual(kinds(be("+it.skipIf(true)('adds', () => {")), ['test newly skipped'])
+  assert.deepEqual(kinds(be("+it.only('adds', () => {")), ['test newly skipped'])
+  assert.deepEqual(pw("+  test.describe.only('ABC-1 x', () => {"), ['test newly skipped'], '.only is never forgiven by a ticket key')
+  assert.deepEqual(pw("+  test.fixme('the empty state, not pinned by the ticket', async () => {})"), [], 'a new fixme declaration is the guides\' "not yet"')
+  assert.deepEqual(pw('+  test.fixme(\n+    \'not pinned yet\','), [])
+})
+
+test('a regex .test( on a removed line is no removed test', () => {
+  assert.deepEqual(be("-  if (/x/i.test(text)) return\n-  const ok = re.test(s)"), [])
+})
+
+test('red tags come from playwright.redTags; null turns the check off', () => {
+  const line = "+  test('a', { tag: ['@red'] }, async () => {"
+  assert.deepEqual(kinds(scanDiff(`+++ b/x.spec.ts\n${line}`, dialectFor('playwright'), KEYS, { redTags: ['@red', '@extra'] })), ['anchor tag without a ticket tag'])
+  assert.deepEqual(kinds(scanDiff(`+++ b/x.spec.ts\n${line}`, dialectFor('playwright'), KEYS)), [], 'the default tags are @anchor and @finding')
+  assert.deepEqual(kinds(scanDiff("+++ b/x.spec.ts\n+  test('a', { tag: ['@anchor'] }, async () => {", dialectFor('playwright'), KEYS, { redTags: [] })), [])
+})

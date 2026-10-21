@@ -75,7 +75,7 @@ test('run: a survivor fails the check at the 100% bar and is named', async () =>
   const { runTests } = fakeRunner(d, verdict)
   const r = await run({ spec: 'test/a.spec.ts', key: 'ABC-1' }, { root: d, dialect: V, runTests })
   assert.equal(r.status, 'fail')
-  assert.deepEqual({ ...r.data, survivors: r.data.survivors.length }, { killed: 1, survived: 1, errors: 0, total: 2, score: 50, survivors: 1 })
+  assert.deepEqual({ ...r.data, survivors: r.data.survivors.length }, { killed: 1, survived: 1, errors: 0, total: 2, score: 50, survivors: 1, unmutated: 0 })
   assert.deepEqual(r.findings.map(f => f.test), ['weak'])
   assert.equal(readFileSync(join(d, 'test/a.spec.ts'), 'utf8'), SPEC)
   assert.deepEqual(readdirSync(join(d, 'test')), ['a.spec.ts'])
@@ -187,4 +187,42 @@ test('run: a temp mutant that cannot be written is not_run, not a throw', { skip
     assert.equal(r.status, 'not_run')
     assert.match(r.summary, /cannot write the temp mutant/)
   } finally { chmodSync(join(d, 'test'), 0o755) }
+})
+
+test('vitest flips: any matcher after the expect\'s arguments is inverted, never a snapshot, never a call inside the arguments', () => {
+  const inv = s => V.mutation.flips(s).find(x => x.kind === 'invert-matcher')?.text
+  assert.equal(inv('expect(spy).toHaveBeenCalledOnce()'), 'expect(spy).not.toHaveBeenCalledOnce()')
+  assert.equal(inv('expect(v).toSatisfy(isEven)'), 'expect(v).not.toSatisfy(isEven)')
+  assert.equal(inv('expect(v).toBeTypeOf(\'string\')'), "expect(v).not.toBeTypeOf('string')")
+  assert.equal(inv('expect(fmt(n.toString())).toBe(\'1\')'), "expect(fmt(n.toString())).not.toBe('1')")
+  assert.equal(inv('expect(tree).toMatchSnapshot()'), undefined)
+  assert.equal(inv('expect(fn).rejects.toThrow()'), 'expect(fn).rejects.not.toThrow()')
+})
+
+test('playwright: a plain value assertion gets the strongest value flip; expect.soft is mutated', () => {
+  assert.deepEqual(P.mutation.flips('expect(await rows.count()).toBe(3)').map(f => f.kind), ['invert-matcher'])
+  assert.deepEqual(P.mutation.flips("await expect(page.getByRole('textbox')).toHaveValue('DOC-1')").map(f => f.text), ["await expect(page.getByRole('textbox')).not.toHaveValue('DOC-1')"])
+  const src = "test('a', async ({ page }) => {\n  expect(await rows.count()).toBe(3)\n  await expect.soft(page.getByText('x')).toBeVisible()\n})\n"
+  assert.equal(planMutants(src, ['a'], {}, P).length, 3)
+})
+
+test('run: a passing test with no mutant (an assert call only) is not checked, so the step is not a pass', async () => {
+  const src = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n  it('asserts', () => { assert.equal(add(1, 1), 2) })\n})\n"
+  const d = spec(src)
+  const { runTests } = fakeRunner(d, (s, title) => (title === 'adds' && !s.includes('expect(add(1, 1)).toBe(2)') ? 'failed' : 'passed'))
+  const r = await run({ spec: 'test/a.spec.ts', key: 'ABC-1' }, { root: d, dialect: V, runTests })
+  assert.equal(r.status, 'not_run')
+  assert.deepEqual(r.findings.map(f => [f.test, f.kind]), [['asserts', 'not mutated']])
+  assert.equal(r.data.unmutated, 1)
+})
+
+test('it.each tests are not mutated (their run-time titles are formatted) and do not pull in the test before', () => {
+  const src = "it('one', () => { expect(a).toBe(1) })\nit.each([[1, 2]])('adds %i', (a, b) => { expect(a + 1).toBe(b) })\n"
+  assert.deepEqual(planMutants(src, ['one', 'adds 1'], {}, V).map(m => m.title), ['one'])
+})
+
+test('playwright.ungradedTitles: matching tests are not mutated; without it they are', () => {
+  const src = "test('ABC-1 — design-conformance capture', async ({ page }) => { await expect(page.getByText('a')).toBeVisible() })\n"
+  assert.equal(planMutants(src, ['ABC-1 — design-conformance capture'], { ungraded: /conformance|capture/i }, P).length, 0)
+  assert.ok(planMutants(src, ['ABC-1 — design-conformance capture'], {}, P).length > 0)
 })

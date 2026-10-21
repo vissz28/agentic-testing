@@ -8,6 +8,7 @@ import { EXIT, result } from '../../lib/base/result.mjs'
 import { keySource, isProjectKey, projectKeys } from '../../lib/base/keys.mjs'
 import { specDiff, changedPaths } from '../../lib/base/git.mjs'
 import { dialectFor } from '../../lib/base/dialects/index.mjs'
+import { ungradedTitlesOf } from '../../lib/base/config.mjs'
 
 import { ENV } from '../git-env.mjs'
 
@@ -49,8 +50,10 @@ test('dialects', () => {
   assert.equal(p.suite.notYet, 'fixme')
   assert.equal(v.honesty.removedDecl.test("describe('x', () => {"), true)
   assert.equal(p.honesty.removedDecl.test("describe('x', () => {"), false)
-  assert.equal(p.suite.isCapture('ABC-1 — design-conformance capture'), true)
-  assert.equal(v.suite.isCapture('ABC-1 — design-conformance capture'), false)
+  const cfg = { playwright: { ungradedTitles: 'conformance|capture' } }
+  assert.equal(ungradedTitlesOf(cfg, p).test('ABC-1 — design-conformance capture'), true)
+  assert.equal(ungradedTitlesOf(cfg, v), null, 'a playwright setting never exempts a Vitest test')
+  assert.equal(ungradedTitlesOf({}, p), null)
   assert.throws(() => dialectFor('jest'), /no dialect/)
 })
 test('git: a range starting with "-" is refused inside the helpers (§9 #21)', () => {

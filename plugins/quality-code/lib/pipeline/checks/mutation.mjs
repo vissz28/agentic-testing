@@ -4,7 +4,8 @@
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { result } from '../../base/result.mjs'
-import { anchorRange } from './suite-honesty.mjs'
+import { anchorRange, testMarks } from './suite-honesty.mjs'
+import { ungradedTitlesOf } from '../../base/config.mjs'
 import { inKeyBlock } from '../../base/keys.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/
@@ -51,18 +52,24 @@ export function findExpectRanges(src, dialect) {
 }
 
 export function findTestBlocks(src, dialect) {
-  const re = new RegExp(dialect.mutation.testRe.source, 'g')
-  const marks = []
-  let m
-  while ((m = re.exec(src))) marks.push({ mod: m[1] || null, title: m[3], idx: m.index })
+  const marks = testMarks(src, dialect.mutation.testRe)
   return marks.map((mk, i) => ({ ...mk, start: mk.idx, end: i + 1 < marks.length ? marks[i + 1].idx : src.length }))
 }
 
 /** Mutants for the baseline-green tests; null when --key names a block that is not there. */
-export function planMutants(src, passedTitles, { key = null, thorough = false } = {}, dialect) {
+export function planMutants(src, passedTitles, { key = null, thorough = false, ungraded = null } = {}, dialect) {
   const range = key ? anchorRange(src, key, dialect) : null
   if (key && !range) return null
-  return dialect.mutation.plan({ src, passedTitles, range, thorough, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
+  return dialect.mutation.plan({ src, passedTitles, range, thorough, ungraded, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
+}
+
+/** The baseline-green tests in range that got no mutant: nothing shows their assertions can fail. */
+export function unmutated(src, passedTitles, mutants, { key = null, ungraded = null } = {}, dialect) {
+  const range = key ? anchorRange(src, key, dialect) : null
+  const passed = new Set(passedTitles)
+  const hit = new Set(mutants.map(m => m.title))
+  const left = findTestBlocks(src, dialect).filter(b => (!range || (b.start >= range[0] && b.start < range[1])) && dialect.mutation.eligible(b, passed, ungraded) && !hit.has(b.title))
+  return [...new Set(left.map(b => b.title))]
 }
 
 export function applyMutant(src, m) {
@@ -94,8 +101,11 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
     passed = b.tests.filter(t => t.status === 'passed').map(t => t.title)
   }
   if (!passed.length) return result('mutation', 'not_run', 'baseline had no passing test')
-  let mutants = planMutants(src, passed, { key, thorough }, ctx.dialect)
+  const ungraded = ungradedTitlesOf(ctx.config, ctx.dialect)
+  let mutants = planMutants(src, passed, { key, thorough, ungraded }, ctx.dialect)
   if (mutants === null) return result('mutation', 'not_run', `no ${key} block in ${spec}`, [{ file: spec, kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
+  const bare = unmutated(src, passed, mutants, { key, ungraded }, ctx.dialect)
+  const bareFindings = bare.map(t => ({ file: spec, test: t, kind: 'not mutated', detail: 'passes, but has no assertion mutation can check' }))
   const rank = ctx.dialect.mutation.rank
   mutants = [...mutants].sort((a, b) => rank(a.kind) - rank(b.kind))
   if (max != null && mutants.length > max) mutants = mutants.slice(0, Number(max))
@@ -129,13 +139,15 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   const survivedList = graded.filter(o => !o.killed)
   const errors = outcomes.length - graded.length
   const score = graded.length ? Math.round((100 * killed) / graded.length) : null
-  const data = { killed, survived: survivedList.length, errors, total: graded.length, score, survivors: survivedList.map(o => o.snippet) }
-  if (!graded.length && errors) return result('mutation', 'not_run', `${errors} mutant(s) ran no test`, [], data)
-  if (score === null) return result('mutation', 'pass', 'no eligible assertions to mutate', [], data)
+  const data = { killed, survived: survivedList.length, errors, total: graded.length, score, survivors: survivedList.map(o => o.snippet), unmutated: bare.length }
   if (survivedList.length) {
     return result('mutation', 'fail', `${survivedList.length} of ${graded.length} mutant(s) survived: an assertion that cannot fail`,
-      survivedList.map(o => ({ file: spec, test: o.title, kind: 'survived', detail: o.snippet })), data)
+      [...survivedList.map(o => ({ file: spec, test: o.title, kind: 'survived', detail: o.snippet })), ...bareFindings], data)
   }
+  if (!graded.length && errors) return result('mutation', 'not_run', `${errors} mutant(s) ran no test`, [], data)
+  if (score === null) return result('mutation', 'pass', 'no eligible assertions to mutate', [], data)
+  // A passing test with no mutant is unchecked, not checked: it never makes the step pass.
+  if (bare.length) return result('mutation', 'not_run', `${bare.length} passing test(s) with no assertion mutation can check`, bareFindings, data)
   if (errors) return result('mutation', 'not_run', `${killed} of ${graded.length + errors} mutants killed; ${errors} ran no test`, [], data)
   return result('mutation', 'pass', `${killed}/${graded.length} mutants killed`, [], data)
 }
