@@ -6,6 +6,15 @@ Quality Code checks that a Jira ticket is clear enough to test, helps its author
 writes Vitest and Playwright tests from its acceptance criteria, and grades them with scripts, never
 with the model. For frontend, backend and fullstack projects at TeamSystem.
 
+## Install
+
+```
+/plugin install quality-code --marketplace vissz28/agentic-testing
+```
+
+On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-testing`, then
+`/plugin install quality-code@teamsystem`.
+
 ## Try it
 
 - "Is ABC-123 ready to test?"
@@ -31,7 +40,7 @@ with the model. For frontend, backend and fullstack projects at TeamSystem.
 
 The commands that run tests (`write`, `check`, `seed`) work in Claude Code, where your repository is.
 
-## Data
+## Privacy
 
 Quality Code reads Jira, Confluence, GitLab and Figma through your own connector sign-ins. It writes to
 Jira only after you confirm a preview: a comment, or the fill-in you typed. Tickets are redacted

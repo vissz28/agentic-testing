@@ -20,6 +20,7 @@
   "icon": "./assets/logo.png",
   "documentationUrl": "https://github.com/vissz28/agentic-testing/blob/main/docs/GETTING_STARTED.md",
   "supportUrl": "https://github.com/vissz28/agentic-testing/issues",
+  "privacyPolicyUrl": "https://github.com/vissz28/agentic-testing/blob/main/plugins/quality-code/README.md#privacy",
   "author": {
     "name": "Elvis Zefaj"
   },
