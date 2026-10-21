@@ -32,13 +32,13 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
      `1` gives `adapter: "fullstack"`, `2` `"playwright"`, `3` `"vitest"`.
    - If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks.
-   - Show this card and end the turn (leave out `(subfolder …)` when `here.subfolder` is null; write `no GitLab remote` when `here.gitlab` is null):
+   - Show this card and end the turn (leave out `(subfolder …)` when `here.subfolder` is null; write `Remote   none` when `here.remote` is null):
 
      ```
      This project
        Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
        Stack    <frontend (Playwright) | backend (Vitest) | fullstack (Vitest and Playwright), from adapter>
-       GitLab   <here.gitlab.path> on <here.gitlab.host>
+       Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
      1. Yes, this is it
      2. Stop
      ```
@@ -56,7 +56,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
+   - **1:** build the proposal `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
 4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
@@ -130,6 +130,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** build the proposal `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` as in step 3. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
