@@ -31,7 +31,8 @@ export const asAdapter = (config, adapter) => (config.adapter === adapter ? conf
 /** The side a ticket's title prefix or labels mark, or null when nothing does. Only for fullstack projects. */
 export function ticketSide(config, ticket) {
   if (!isFullstack(config)) return stackOf(config)
-  const sides = config.sides ?? DEFAULT_SIDES
+  // Each side not set in the config keeps its default marks (FE, BE, FS).
+  const sides = { ...DEFAULT_SIDES, ...(config.sides ?? {}) }
   const prefix = /^\s*\[([^\]]+)\]/.exec(String(ticket?.summary ?? ''))?.[1]?.trim().toLowerCase()
   const labels = new Set((ticket?.labels ?? []).map(l => String(l).toLowerCase()))
   const marked = SIDES.filter(s => (sides[s] ?? []).some(m => m.toLowerCase() === prefix || labels.has(m.toLowerCase())))

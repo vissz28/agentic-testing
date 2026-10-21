@@ -6,7 +6,7 @@ import { matches } from './boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -23,7 +23,7 @@ export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => 
 const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
 
 export const DEFAULTS = Object.freeze({
-  languages: ['en', 'it'],
+  languages: ['en'],
   features: [],
   titlePrefixes: [],
   ticketsDir: '.claude/quality-code/tickets',
@@ -90,6 +90,8 @@ export function validateConfig(input) {
     else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
     if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
       e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
+    if (j.bugTypes !== undefined && (!Array.isArray(j.bugTypes) || !j.bugTypes.length || !j.bugTypes.every(t => typeof t === 'string' && t.trim())))
+      e.push('jira.bugTypes: must be a non-empty list of issue type names, like ["Bug", "Defect"]')
     if (j.trackingProjects !== undefined) {
       if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
       else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_"`) })
@@ -115,6 +117,7 @@ export function validateConfig(input) {
     if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
+  if (c.confluence !== undefined && typeof c.confluence !== 'boolean') e.push('confluence: must be true or false (false: the team has no Confluence, so no QA plan is looked for or scored)')
   // Absent means the QA-plan search looks in every Confluence space.
   if (c.confluenceSpaces !== undefined) {
     if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')

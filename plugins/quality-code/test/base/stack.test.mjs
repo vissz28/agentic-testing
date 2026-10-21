@@ -116,3 +116,10 @@ test('cli side: prints the side, saves a chosen one, refuses on a one-adapter pr
   assert.match(errs.join(''), /side must be one of frontend, backend, fullstack/)
   assert.match(errs.join(''), /side is for fullstack projects: this one is vitest/)
 })
+
+test('sides: a side the config does not set keeps its default marks', () => {
+  const c = cfg({ sides: { frontend: ['UI'] } })
+  assert.equal(ticketSide(c, { summary: '[UI] grid' }), 'frontend')
+  assert.equal(ticketSide(c, { summary: '[BE] stock' }), 'backend')
+  assert.equal(ticketSide(c, { summary: '[FS] both' }), 'fullstack')
+})

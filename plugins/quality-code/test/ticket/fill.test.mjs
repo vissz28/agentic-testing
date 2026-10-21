@@ -263,3 +263,19 @@ for (const [name, c, bare] of [['playwright', FE, feBare], ['vitest', BE, beBare
     assert.ok(!r.ok && /Then/.test(r.reason) && !/0 characters/.test(r.reason) && r.input === bare, r.reason)
   })
 }
+
+test('an Italian-only project gets Italian headings, so every answer it types is credited', () => {
+  const it = { ...BE, languages: ['it'] }
+  const bug = { ...beBare, text: { description: 'Il filtro ordini è sbagliato.' } }
+  const answers = {
+    steps: 'Apri gli ordini\nFiltra per codice 22',
+    expected_defined: 'La griglia mostra 5 righe | La griglia mostra 0 righe',
+    context: 'Il filtro per codice non trova gli ordini spediti.',
+    environment: 'staging',
+  }
+  for (const [key, answer] of Object.entries(answers)) {
+    const r = applyAnswer(it, bug, key, answer)
+    assert.equal(r.ok, true, `${key}: ${r.reason}`)
+  }
+  assert.match(applyAnswer(it, bug, 'steps', answers.steps).input.text.description, /## Passi per riprodurre/)
+})
