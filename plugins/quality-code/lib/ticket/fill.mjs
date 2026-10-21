@@ -92,6 +92,34 @@ export function projectPick(menu, nums) {
   }
 }
 
+// Up to ten points under the bar, with something to check, a ticket is borderline: /quality-code:spec
+// goes on with the risk mark instead of stopping. ponytail: a fixed gap, a config field if a team asks.
+export const BORDERLINE_GAP = 10
+
+/**
+ * What the gate means for the next step: the band (ready, borderline or refused) and the fewest
+ * fill-in items, biggest gain first, that get the ticket over the bar, with the score they reach.
+ */
+export function nextStep(config, brief) {
+  if (brief.gate === 'pass') return { band: 'ready', fix: [], reach: brief.score, threshold: brief.threshold, enough: true }
+  const band = brief.score >= brief.threshold - BORDERLINE_GAP && brief.derivable >= 1 ? 'borderline' : 'refused'
+  const menu = fillMenu(config, brief)
+  let pick = null
+  for (let n = 1; n <= menu.items.length && !pick?.enough; n++) pick = projectPick(menu, menu.items.slice(0, n).map(i => i.n))
+  const fix = (pick?.picked ?? []).map(p => ({ key: p.key, title: p.title, gain: menu.items.find(i => i.key === p.key).gain }))
+  return { band, fix, reach: pick?.score ?? brief.score, threshold: brief.threshold, enough: Boolean(pick?.enough) }
+}
+
+/** The one line that leads the refuse card, or null for a ready ticket. */
+export function formatNextStep(step) {
+  if (step.band === 'ready' || !step.fix.length) return null
+  const names = step.fix.map(f => f.title)
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]
+  return step.enough
+    ? `To pass: add ${list} (→ ${step.reach} points, the bar is ${step.threshold}).`
+    : `Even with ${list} the ticket reaches ${step.reach} points: the fill-in alone cannot get it to the bar.`
+}
+
 export function formatFillMenu(menu) {
   const width = Math.max(...menu.items.map(i => i.title.length), 0)
   return [

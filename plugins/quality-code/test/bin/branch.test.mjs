@@ -186,7 +186,10 @@ test('key from a commit subject when the branch has none; other projects ignored
   g(d, 'checkout', '-qb', 'feature/export')
   commit(d, 'TRK-7 export', { 'src/e.ts': 'e\n' })
   commit(d, 'OTHER-1 nothing', { 'src/f.ts': 'f\n' })
-  assert.deepEqual(detect(d, cfg()).keys, ['TRK-7'])
+  const r = detect(d, cfg())
+  assert.deepEqual(r.keys, ['TRK-7'])
+  assert.deepEqual(r.subjects, ['OTHER-1 nothing', 'TRK-7 export'], 'the branch\'s commit messages, newest first, for fill-in suggestions')
+  assert.deepEqual(detect(repo(), cfg()).subjects, [], 'none on the base branch')
 })
 test('a lower-case key in the branch name is found', () => {
   const d = repo()

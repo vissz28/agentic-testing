@@ -96,7 +96,7 @@ export function detect(root, config, { base: baseFlag } = {}) {
   const out = {
     repo: basename(root), remote: null, isRepo: false, branch: null, detached: false, head: null,
     base: null, baseSource: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
-    files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], branches: [],
+    files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], subjects: [], branches: [],
   }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
   out.isRepo = true
@@ -159,6 +159,8 @@ export function detect(root, config, { base: baseFlag } = {}) {
   const subjects = out.mergeBase && !out.onBase ? (git(root, ['log', '--format=%s', `${out.mergeBase}..HEAD`]) ?? '').split('\n') : []
   out.branch = rawBranch === null ? null : clean(rawBranch)
   out.keys = keyCandidates([out.branch?.toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
+  // The branch's own commit messages, newest first and redacted: what a fill-in suggestion may quote.
+  out.subjects = subjects.filter(Boolean).slice(0, 20).map(clean)
   return out
 }
 

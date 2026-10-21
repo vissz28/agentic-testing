@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
@@ -11,13 +11,14 @@ import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } 
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
-import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from '../lib/ticket/fill.mjs'
+import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
 
-// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does).
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit'])
+// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
+// gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next'])
 
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
@@ -53,15 +54,34 @@ function run(argv, env, cwd) {
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
+  // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
+  const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(root, normaliseTicketsDir(config.ticketsDir), key, 'ticket.json') : null)
   if (cmd === 'jira-posted') {
     // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
     const [key, action] = a._
-    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') || !['comment', 'update', 'risk'].includes(action)) {
+    if (!savedPath(key) || !['comment', 'update', 'risk'].includes(action)) {
       err('usage: ticket.mjs jira-posted <KEY> comment|update|risk')
       return 2
     }
     log('jira', { key, action })
+    // The fill-in answers now on Jira are no longer waiting: `saved` stops offering them.
+    if (action === 'update' && existsSync(savedPath(key))) {
+      try {
+        const t = JSON.parse(readFileSync(savedPath(key), 'utf8'))
+        writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length }))
+      } catch {}
+    }
     out('ok')
+    return 0
+  }
+  if (cmd === 'saved') {
+    // What an earlier run left for this ticket: fill-in answers typed here that never reached Jira.
+    const [key] = a._
+    if (!savedPath(key) || a._.length > 1) { err('usage: ticket.mjs saved <KEY>'); return 2 }
+    let t = null
+    try { t = JSON.parse(readFileSync(savedPath(key), 'utf8')) } catch {}
+    const filled = Array.isArray(t?.filled) ? t.filled.length : 0
+    out(`SAVED_JSON:${JSON.stringify({ key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null })}`)
     return 0
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
@@ -130,8 +150,14 @@ function run(argv, env, cwd) {
         key: b.key, issuetype: b.issuetype, score: b.score, gate: b.gate, rubric: b.rubric, legacy: b.legacy,
         missing: b.missing.map(m => m.key), filled: Array.isArray(ticket.filled) ? ticket.filled.length : 0,
       })
-      if (a.flags.has('--json')) out(JSON.stringify(b))
-      else { out(formatReport(b)); out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`) }
+      const next = a.flags.has('--next') ? nextStep(config, b) : null
+      if (a.flags.has('--json')) out(JSON.stringify(next ? { ...b, next } : b))
+      else {
+        out(formatReport(b))
+        if (next && formatNextStep(next)) out(formatNextStep(next))
+        out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`)
+        if (next) out(`GATE_JSON:${JSON.stringify(next)}`)
+      }
       return b.gate === 'refuse' ? 1 : 0
     }
     case 'refuse-comment': {
