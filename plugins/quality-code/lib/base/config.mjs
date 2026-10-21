@@ -20,6 +20,10 @@ export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
 // before a step's data in the action cell. A team's importer mapping may want other headers.
 export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
 export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
+// The tags write puts on red Playwright tests: a ticket scenario's and an extra probe's.
+export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
+// Jira statuses that say the work is finished: a red run then warns that the bug is still there.
+export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
 const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
 
 export const DEFAULTS = Object.freeze({
@@ -90,6 +94,8 @@ export function validateConfig(input) {
     else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
     if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
       e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
+    if (j.doneStatuses !== undefined && (!Array.isArray(j.doneStatuses) || j.doneStatuses.some(s => typeof s !== 'string' || !s.trim())))
+      e.push('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]')
     if (j.trackingProjects !== undefined) {
       if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
       else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_"`) })
@@ -205,8 +211,22 @@ export function validateConfig(input) {
     if (!uses('playwright')) e.push('playwright: only allowed with "adapter": "playwright" or "fullstack"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
       runnerFields(c.playwright, 'playwright', e)
+      const u = c.playwright.ungradedTitles
+      if (u !== undefined) {
+        let re = null
+        try { re = typeof u === 'string' && u.trim() ? new RegExp(u, 'i') : null } catch {}
+        if (!re || re.test('')) e.push('playwright.ungradedTitles: must be a regular expression that matches the titles of tests that never assert (screenshot captures), like "conformance|capture"')
+      }
+      const rt = c.playwright.redTags
+      if (rt !== undefined && rt !== null) {
+        if (!isObj(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
+        else for (const k of Object.keys(rt)) {
+          if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
+          else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
+        }
+      }
       if (c.playwright.folder !== undefined) folderErrors(c.playwright.folder, 'playwright.folder', folderRules(c), e)
       if (c.playwright.guide !== undefined && !guideOk(c.playwright.guide)) e.push(`playwright.guide ${JSON.stringify(c.playwright.guide)} must be a relative path to a .md file inside the project`)
       const ps = c.playwright.projects
@@ -322,6 +342,21 @@ export const xrayOf = config => {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null
   return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
+
+/** The Playwright titles that are never graded nor mutated (playwright.ungradedTitles), as a regex; null for Vitest or when unset. */
+export const ungradedTitlesOf = (config, dialect) => {
+  const u = config?.playwright?.ungradedTitles
+  return dialect?.name === 'playwright' && typeof u === 'string' && u ? new RegExp(u, 'i') : null
+}
+
+/** The red-test tags as a list (scenario's, extra's); [] when playwright.redTags is null. */
+export const redTagsOf = config => {
+  const rt = config?.playwright?.redTags
+  return rt === null ? [] : Object.values({ ...DEFAULT_RED_TAGS, ...(rt ?? {}) })
+}
+
+/** The Jira statuses that mean finished. */
+export const doneStatusesOf = config => config?.jira?.doneStatuses ?? DEFAULT_DONE_STATUSES
 
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD

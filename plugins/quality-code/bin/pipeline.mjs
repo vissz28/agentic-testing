@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { isProjectKey, projectKeys } from '../lib/base/keys.mjs'
 import { audit, auditOff } from '../lib/base/audit.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { doneStatusesOf, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { THRESHOLD } from '../lib/ticket/score.mjs'
 import { formatCard, formatRunLog } from '../lib/pipeline/card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/pipeline.mjs'
@@ -114,12 +114,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const rel = `${config.ticketsDir}/${a.key}/run.md`
     try {
       mkdirSync(dirname(resolve(root, rel)), { recursive: true })
-      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus }))
+      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, doneStatuses: doneStatusesOf(config) }))
       logPath = rel
     } catch {}
   }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, log: logPath })}\n`)
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, doneStatuses: doneStatusesOf(config), log: logPath })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 
