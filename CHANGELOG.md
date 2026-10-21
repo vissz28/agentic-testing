@@ -35,6 +35,11 @@ Update with `/plugin update quality-code@quality-code`.
   (`kpi` and `consumption` only their own) and runs them exactly as written. Before, an added
   `echo` made a call miss its pre-approval and cost a prompt and an extra turn.
 
+- **Quality Code has a brand.** A logo (code brackets around a check, in the TeamSystem palette),
+  the display name **Quality Code**, the tagline "From Jira ticket to tests you can trust.", and the
+  listing metadata: icon, homepage, repository, keywords, documentation and support links. The
+  README opens with the wordmark. Name, colours and logo rules are in `docs/brand/BRAND.md`.
+
 ### Upgrading
 
 - Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").

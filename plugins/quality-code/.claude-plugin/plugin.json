@@ -1,8 +1,25 @@
 {
   "name": "quality-code",
-  "displayName": "Quality code",
+  "displayName": "Quality Code",
   "version": "0.12.0",
-  "description": "From a Jira ticket to graded tests, for any project. A short setup (connectors, the project, the Jira project), a daily start from your feature branch, the readiness gate (70 points, Gherkin or 150+ characters of plain criteria), guided fill-in, Jira comment and push, and a check that runs and grades Vitest and Playwright spec files: frontend, backend or fullstack projects.",
+  "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes Vitest and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
+  "homepage": "https://github.com/vissz28/agentic-testing#readme",
+  "repository": "https://github.com/vissz28/agentic-testing",
+  "keywords": [
+    "jira",
+    "testing",
+    "test-quality",
+    "vitest",
+    "playwright",
+    "mutation-testing",
+    "acceptance-criteria",
+    "qa",
+    "gitlab",
+    "xray"
+  ],
+  "icon": "./assets/logo.png",
+  "documentationUrl": "https://github.com/vissz28/agentic-testing/blob/main/docs/GETTING_STARTED.md",
+  "supportUrl": "https://github.com/vissz28/agentic-testing/issues",
   "author": {
     "name": "Elvis Zefaj"
   },

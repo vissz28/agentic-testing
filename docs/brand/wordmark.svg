@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Quality Code</title>
+  <desc id="d">From Jira ticket to tests you can trust.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#005075"/>
+      <stop offset="1" stop-color="#0090D1"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(30,30) scale(0.46875)">
+    <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+    <g fill="none" stroke="#FFFFFF" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="164,148 84,256 164,364"/>
+      <polyline points="348,148 428,256 348,364"/>
+    </g>
+    <polyline points="190,262 236,310 324,206" fill="none" stroke="#00C3EA" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="300" y="158" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="96" font-weight="700" fill="#0090D1">Quality <tspan fill="#005075">Code</tspan></text>
+  <text x="304" y="222" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="38" fill="#5A6872">From Jira ticket to tests you can trust.</text>
+</svg>

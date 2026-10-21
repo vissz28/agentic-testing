@@ -4,13 +4,21 @@
     "name": "Elvis Zefaj"
   },
   "metadata": {
-    "description": "quality-code: from a Jira ticket to tests you can trust, for any team (setup, daily start from the feature branch, readiness gate, guided fill-in, Jira comment and push)."
+    "description": "Quality Code: from Jira ticket to tests you can trust. One plugin for every team: readiness gate, guided fill-in, tests written from the acceptance criteria and graded by scripts."
   },
   "plugins": [
     {
       "name": "quality-code",
       "source": "./plugins/quality-code",
-      "description": "Reusable ticket-to-test harness for any project: setup, readiness gate, guided fill-in, Jira comment and push (Playwright or Vitest)."
+      "description": "From Jira ticket to tests you can trust: readiness gate, guided fill-in, Vitest and Playwright tests written from the acceptance criteria and graded by scripts, never by the model.",
+      "displayName": "Quality Code",
+      "keywords": [
+        "jira",
+        "testing",
+        "test-quality",
+        "vitest",
+        "playwright"
+      ]
     }
   ]
 }

@@ -1,8 +1,18 @@
-# quality-code
+<p align="center">
+  <img src="docs/brand/wordmark.svg" alt="Quality Code: from Jira ticket to tests you can trust" width="640">
+</p>
+
+<p align="center">
+  <a href="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml"><img src="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <img src="https://img.shields.io/badge/Claude%20Code-plugin-0090D1" alt="Claude Code plugin">
+  <img src="https://img.shields.io/badge/Vitest%20%C2%B7%20Playwright-005075" alt="Vitest and Playwright">
+</p>
+
+# Quality Code
 
 **Test-ready tickets and tests you can trust, inside Claude Code. One plugin for every team.**
 
-quality-code connects your Jira tickets to your test suite. It checks whether a ticket is clear
+Quality Code connects your Jira tickets to your test suite. It checks whether a ticket is clear
 enough to test, helps its author fill the gaps, then writes tests from the ticket's acceptance
 criteria and grades them (Vitest today; Playwright as the [roadmap](#roadmap) lands). It works with any Jira project and any repo
 that uses **Playwright** (frontend) or **Vitest** (backend). What is specific to your team (Jira
