@@ -201,7 +201,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     steps.push(runActive(ctx.root) ? await step('boundary', () => boundary.run({ range }, c))
       : result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
   }
-  steps.push(await step('honesty', () => honesty.run({ specs, range }, c)))
+  steps.push(await step('honesty', () => honesty.run({ specs, range, key }, c)))
   steps.push(await step('suite-honesty', () => suite.run({ specs, key }, c)))
   const types = await step('types', () => typeCheck(specs))
   steps.push(types)

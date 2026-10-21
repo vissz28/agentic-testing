@@ -52,6 +52,13 @@ test('playwright: the frontend self-test', () => {
   assert.equal(fe("+  { tag: ['@finding', '@AGT-7'] },").length, 0)
   assert.ok(kinds(fe("+test('a', { tag: '@anchor' }, async () => {})")).includes('anchor tag without a ticket tag'))
 })
+test("the ticket's own key never excuses a skip of its block; another tracked key still does", () => {
+  const own = s => scanDiff(`+++ b/x.spec.ts\n${s}`, dialectFor('vitest'), KEYS, { own: 'FIC-1' })
+  assert.deepEqual(kinds(own("+describe.skip('FIC-1 Pricing', () => {")), ['test newly skipped'])
+  assert.deepEqual(kinds(own("+it.skip('waits for FIC-12', () => {})")), [])
+  assert.deepEqual(kinds(own("+it.skip('blocked by AGT-3', () => {})")), [])
+})
+
 test('tracked keys come from the config, not from fixed projects', () => {
   const v = scanDiff("+++ b/x.spec.ts\n+it.skip('flaky (ABC-3)', () => {})\n+it.skip('flaky (AGT-3)', () => {})", dialectFor('vitest'), '(?:ABC)-\\d+')
   assert.deepEqual(v.map(x => x.line), ["it.skip('flaky (AGT-3)', () => {})"])

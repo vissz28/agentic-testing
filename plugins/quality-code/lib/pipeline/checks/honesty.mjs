@@ -38,10 +38,13 @@ function headerPath(rest) {
   return p.replace(/^b\//, '')
 }
 
-/** redTags: the red-test tags (playwright.redTags) that need a ticket tag beside them. */
-export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null) } = {}) {
+/**
+ * redTags: the red-test tags (playwright.redTags) that need a ticket tag beside them. own: the
+ * ticket under test; its key is in every title of its block, so it never excuses a skip there.
+ */
+export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own = null } = {}) {
   const h = dialect.honesty
-  const tracked = new RegExp(`\\b${keySrc}\\b`)
+  const tracked = new RegExp(`\\b${own ? `(?!${esc(own)}\\b)` : ''}${keySrc}\\b`)
   const taggedKey = new RegExp(`['"\`]@${keySrc}['"\`]`)
   const redTag = redTags.length ? new RegExp(`['"\`](?:${redTags.map(esc).join('|')})['"\`]`) : null
   const out = []
@@ -89,10 +92,10 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null) } = 
   return kept.map(({ title, ...v }) => v)
 }
 
-export function run({ specs, range = null }, ctx) {
+export function run({ specs, range = null, key = null }, ctx) {
   const d = specDiff(ctx.root, specs, range)
   if (!d.ok) return result('honesty', 'not_run', `cannot read the git diff: ${d.error}`)
-  const v = scanDiff(d.diff, ctx.dialect, keySource(ctx.config), { redTags: redTagsOf(ctx.config) })
+  const v = scanDiff(d.diff, ctx.dialect, keySource(ctx.config), { redTags: redTagsOf(ctx.config), own: key })
   const count = k => v.filter(x => x.kind === k).length
   const data = {
     removedAssertions: count('assertion removed'),
