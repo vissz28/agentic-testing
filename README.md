@@ -679,24 +679,29 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
 | `xray` | Playwright and fullstack: XRay test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
-| `jira.site` | your Jira site, `https://…`, no path | required |
-| `jira.projects` | project keys whose tickets you check (`ABC`) | required |
+| `jira.site` | your Jira Cloud site, `https://…` (a trailing `/` is dropped) | required |
+| `jira.projects` | project keys whose tickets you check (`ABC`, `MY_PROJ`) | required |
 | `jira.acceptanceCriteriaField` | id of the criteria field, or `null` for none. Leave it out to find it by name per project | found at ticket time |
 | `jira.trackingProjects` | other projects whose tickets may be linked | `[]` |
-| `languages` | `en`, `it`, or both | both |
+| `jira.bugTypes` | issue type names that get the Bug rubric and template, any case (`["Bug", "Defect"]`) | any type whose name contains bug, defect, incident, problem, anomal or difett |
+| `jira.doneStatuses` | statuses that mean the work is finished: a red check on such a ticket warns that the bug is still there | `Test OK`, `Done`, `Ready for test`, `Closed`, `Resolved`, `Chiuso`, `Risolto` |
+| `confluence` | `false` when the team keeps no QA plans in Confluence: the QA-plan criterion is left out and the score is scaled over the rest | `true` |
+| `languages` | `en`, `it`, or both | `en` |
 | `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | `[]` |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
-| `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions. A pattern with `*` (like `.env.*`) never forbids an env template (`.env.example`, `.env.sample`, `.env.template`); name one exactly to forbid it | `src/`, `.env`, `.env.*`, the CI file |
-| `playwright` | Playwright and fullstack: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600), `folder` (where `write` puts new specs, ending in `/`, not in a forbidden boundary), `guide` (a `.md` with your e2e conventions) | default Playwright config, every project, `tsconfig.json`, 600; folder: your config's `testDir` when it is a plain string, else `e2e/`; no guide |
+| `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions. A pattern with `*` (like `.env.*`) never forbids an env template (`.env.example`, `.env.sample`, `.env.template`); name one exactly to forbid it | `src/` (and `packages/*/src/`, `apps/*/src/` when they exist), `.env` and `.env.*` at any depth, the CI files (GitLab, GitHub, Jenkins, Azure, Bitbucket, CircleCI) |
+| `playwright` | Playwright and fullstack: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600), `folder` (where `write` puts new specs, ending in `/`, not in a forbidden boundary), `guide` (a `.md` with your e2e conventions), `ungradedTitles` (a regular expression: tests whose title matches are neither graded nor mutated, like design captures), `redTags` (`{ "scenario", "extra" }`: the tags `write` puts on red tests for a merge gate that skips them; `null` for none) | default Playwright config, every project, `tsconfig.json`, 600; folder: your config's `testDir` when it is a plain string, else `e2e/`; no guide; every test graded; `@anchor` and `@finding` |
 | `seed` | optional: `builders` (Vitest: the files with your seed builders), `dataset` (a `.md` documenting a known test dataset), `stubsFrom` (Playwright: the folder whose specs hold your route stubs), `guide` (a `.md` with your own seeding rules) | none |
 | `vitest` | Vitest and fullstack: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
-| `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
+| `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when Stryker is installed for the project (a monorepo's hoisted `node_modules` counts) | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
+| `git.base` | the branch your feature branches start from, when it is not the remote's default (`develop`). `--base` and a merge request still win | the remote's default branch, else `main`, `master`, `develop` |
+| `$schema` | a path or URL to the schema, for your editor; ignored by the plugin | none |
 
 Redaction patterns that would match empty text are rejected, and so are `ticketsDir` values with
 line breaks, `..` or an absolute path.
@@ -778,7 +783,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 - **XRay test cases are files to import.** Nothing is sent to Xray, and only Playwright tests get one.
 - **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
   end-to-end tests.
-- **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, without a target
+- **Stryker is optional.** Without Stryker installed for the project, without a target
   file, or when the tests are red, the Stryker step is "not applicable".
 - **Stacks:** Playwright and Vitest, or both in one repo. Other runners are possible later as new adapters.
 - **Not ported from the old warehouse harnesses, on purpose:** grading each spec file alone in the
@@ -787,7 +792,9 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
   QA's `.xlsx` cases and the export-only `--qa-only` (not scheduled);
   scoping Stryker to the ticket key (the plugin writes one spec file per ticket, so another ticket's
   test is rarely in it).
-- **Jira:** Jira Cloud through the Atlassian connector.
+- **Jira:** Jira Cloud through the Atlassian connector (Server and Data Center sites are refused at setup).
+- **Packages:** the tools are found in `node_modules` (the project's or a parent's). Yarn Plug'n'Play, with no `node_modules`, is not supported.
+- **Git hosts:** merge requests are looked up on GitLab only. On GitHub and Bitbucket, a merged ticket's change is found from its merge commit and pull request links are read from the ticket.
 - **Languages:** English and Italian keywords.
 - **Placeholders:** a team's own template with `{{…}}` placeholders outside comments is not detected
   as unfilled; the plugin's own templates are safe.

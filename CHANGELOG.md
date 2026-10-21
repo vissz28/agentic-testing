@@ -23,6 +23,45 @@ Update with `/plugin update quality-code@quality-code`.
   attached page was never found.
 - `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
   linked to that ticket (with an `xray` block).
+- **Any project, not only the warehouse.** New config fields, each defaulting to today's behaviour
+  unless said otherwise (README, "The config file"): `jira.bugTypes`, `jira.doneStatuses`,
+  `confluence` (`false`: no QA-plan criterion, the score scaled over the rest), `git.base`,
+  `playwright.ungradedTitles` (default: none), `playwright.redTags`, and `$schema` (ignored).
+  Jira keys may hold `_` (`MY_PROJ-12`). GitHub and Bitbucket repos: issue templates in
+  `.github/ISSUE_TEMPLATE/`, pull request merges and links are read, no GitLab warning. Monorepos:
+  tools are found in a parent's `node_modules`, a config is found from a subfolder, `.env*`,
+  `dist/` and `node_modules/` are guarded at any depth. Tools run with Node itself, so Windows
+  works. Solution-style tsconfigs, `vite.config.*` with a test block, lcov coverage, Bedrock and
+  Vertex model ids, and the claude.ai Atlassian connector's operation names are understood.
+
+### Fixed
+
+- **Checks that let a weak test through.** A bare `expect(x)`, an uncalled matcher or an `expect(`
+  in a string no longer counts as an assertion; a passing test mutation cannot check makes the run
+  "not verified" instead of green; a test that passed once and failed every re-run is flaky; a
+  value only inside `expect(…)` no longer counts as asserted (Vitest); `test.fixme`/`test.fail`,
+  `skipIf`/`runIf`, `.only` and a skip of the ticket's own block are honesty failures; a colored or
+  external git diff (from your git config) can no longer hide a removed `expect`.
+- **Checks that failed an honest test.** `it.each`/`test.each`, `describe.concurrent`, `suite(`,
+  `test.describe.serial`, `expect.soft`/`expect.poll`, `assert`, a regex `.test('…')` and plain
+  Playwright value assertions are read right.
+- **The boundary hook.** A path in another case, through a symlink or the `/tmp` alias is checked
+  as the real file; the plugin's own run marker, logs and Claude settings are guarded; a glob folder
+  rule covers its files; an uncommitted edit you had before the run no longer fails it.
+- **The readiness gate.** Jira ADF descriptions keep their lines (a good ticket scored 10%); bold or
+  bulleted Gherkin, `h2.` and decorated AC headings count; a short "X:" line no longer ends the
+  criteria; vague But/E/Ma lines and "e.g." are read right; feature labels match in any case; an
+  Environment section with any text counts; fill-in answers use the project's language; a crash
+  exits 2, never 1 (refuse); tracked projects are not foreign; `score --json` is pure JSON; long
+  blank runs no longer slow scoring down; two different UUIDs stay different when redacted.
+- **Branch and setup.** `--merged` no longer counts the main branch's later work or a stash; a
+  shallow clone keeps its dirty files; `ticketsDir` must stay inside the project; a symlinked
+  `settings.json` is written through.
+- **Reports and XRay.** Card replies (`ok`, `sì`, `basta`…) keep a run's cost in the run; `7d`/`30d`
+  count back from `--until`; impossible dates are refused; another project sharing a transcript
+  folder name is left out; a hand-written XRay case keeps its number; DDE payloads starting with `-`
+  are quoted; evals pick the requirement's own case.
+- **A killed run cleans up.** Ctrl-C or a timeout stops the test tools and removes their temp files.
 
 ### Changed
 
@@ -41,6 +80,12 @@ Update with `/plugin update quality-code@quality-code`.
 ### Upgrading
 
 - Nothing to do. To get XRay test cases, add an `xray` block (README, "XRay test cases").
+- **`languages` now defaults to `["en"]`.** A config without `languages` used to read English and
+  Italian; add `"languages": ["en", "it"]` to keep both.
+- **Design-capture tests** (titles with "capture" or "conformance") are graded now. To keep them
+  out, as before, add `"ungradedTitles": "conformance|capture"` to the `playwright` block.
+- A spec whose passing tests assert only with snapshots or a matcher mutation cannot flip now ends
+  "not verified" instead of green: give those tests a value assertion.
 - If a CI job or script of yours runs a plugin script by path, change it: `core/cli.mjs` →
   `bin/ticket.mjs`, `core/pipeline/cli.mjs` → `bin/pipeline.mjs`, `core/checks/cli.mjs` →
   `bin/checks.mjs`, `core/consumption/cli.mjs` → `bin/consumption.mjs`, and `core/<name>.mjs` →
