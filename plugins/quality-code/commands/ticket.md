@@ -21,7 +21,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop. Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
 2. **Find.** From `$ARGUMENTS`, the first rule that applies:
-   - A key (`[A-Z][A-Z0-9]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
+   - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
    - Only digits: the key is `<first of jira.projects>-<digits>`; as above.
    - Filters `assignee:` `reporter:` `status:` `label:` `epic:` `text:` (a value with spaces is in quotes): one JQL clause each, joined with `AND`, inside `project in (<jira.projects>)`. `assignee:me` and `reporter:me` are `currentUser()`; another name is looked up with `lookupJiraAccountId`. `epic:<KEY>` is `parent = <KEY>`. `text:<words>` is `text ~ "<words>"`. Escape `\` as `\\` and `"` as `\"` in every value first.
    - Anything else is search words: `project in (<jira.projects>) AND text ~ "<words>"`.

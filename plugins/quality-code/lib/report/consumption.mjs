@@ -10,12 +10,14 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 export function parsePeriod({ since = '30d', until = null } = {}, now = Date.now()) {
   const date = (s, flag) => {
     const t = DATE.test(s) ? Date.parse(`${s}T00:00:00Z`) : NaN
-    if (Number.isNaN(t)) throw new Error(`${flag} must be a date like 2026-10-01${flag === '--since' ? ', or 7d or 30d' : ''}, not "${s}"`)
+    // Date.parse rolls 2026-02-31 over to March: only a date that reads back the same is one.
+    if (Number.isNaN(t) || day(t) !== s) throw new Error(`${flag} must be a date like 2026-10-01${flag === '--since' ? ', or 7d or 30d' : ''}, not "${s}"`)
     return t
   }
   const end = until === null ? now : date(until, '--until') + DAY
   const rel = String(since).match(/^([1-9]\d{0,3})d$/)
-  const start = rel ? Math.floor(now / DAY) * DAY - (Number(rel[1]) - 1) * DAY : date(since, '--since')
+  // 7d and 30d count back from the period's last day: today, or --until.
+  const start = rel ? Math.floor((end - 1) / DAY) * DAY - (Number(rel[1]) - 1) * DAY : date(since, '--since')
   if (start >= end) throw new Error(`--since ${since} is after --until ${until ?? 'today'}`)
   const label = rel && until === null ? `last ${rel[1]} days` : `${day(start)} to ${day(end - 1)}`
   return { since: start, until: end, label }

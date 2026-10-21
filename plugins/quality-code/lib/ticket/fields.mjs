@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
-const KEY = /^[A-Z][A-Z0-9]+$/
+const KEY = /^[A-Z][A-Z0-9_]+$/
 const FIELD = /^customfield_\d+$/
 
 function stored(root) {
@@ -26,7 +26,7 @@ export function resolveField(root, config, project) {
 
 /** value: customfield_<digits>, or "none" when the project has no criteria field. */
 export function storeField(root, project, value) {
-  if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters and digits, like "ABC"` }
+  if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters, digits and "_", like "ABC"` }
   if (value !== 'none' && !FIELD.test(String(value))) return { ok: false, error: `the field must be customfield_<digits> or none (got "${value}")` }
   const projects = { ...stored(root), [project]: value === 'none' ? null : value }
   const p = join(root, FIELDS_REL)

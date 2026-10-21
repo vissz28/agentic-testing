@@ -11,7 +11,6 @@ import { adaptersOf } from '../lib/base/stack.mjs'
 const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|vue)$/
 const TEST_NAME = /\.(spec|test)\.[^/]+$/
 const PW_CONFIGS = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mjs', 'playwright.config.cjs']
-const KEY = /(?<![A-Z0-9])([A-Z][A-Z0-9]+)[-_](\d+)(?!\d)/g
 
 /** The origin URL without any user:password@ part. */
 export function stripCredentials(url) {
@@ -21,12 +20,15 @@ export function stripCredentials(url) {
 
 /** Ticket keys of the configured projects, in the order found, each once. */
 export function keyCandidates(texts, projects) {
-  const allowed = new Set(projects)
+  if (!projects.length) return []
+  // The configured keys themselves, longest first: MY_PROJ-12 is never also read as PROJ-12.
+  const names = [...new Set(projects)].sort((a, b) => b.length - a.length).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const re = new RegExp(`(?<![A-Z0-9])(${names.join('|')})[-_](\\d+)(?!\\d)`, 'g')
   const out = []
   for (const t of texts) {
-    for (const m of String(t ?? '').matchAll(KEY)) {
+    for (const m of String(t ?? '').matchAll(re)) {
       const key = `${m[1]}-${m[2]}`
-      if (allowed.has(m[1]) && !out.includes(key)) out.push(key)
+      if (!out.includes(key)) out.push(key)
     }
   }
   return out
@@ -209,7 +211,7 @@ const USAGE = 'usage: branch.mjs --detect [--base <branch>] | --merged <KEY>'
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
   if (argv[0] === '--merged') {
     const key = argv[1]
-    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
+    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
     const root = projectRoot(env, cwd)
     const c = loadConfig(root)
     if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }

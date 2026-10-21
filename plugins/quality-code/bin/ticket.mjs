@@ -50,7 +50,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   if (cmd === 'jira-posted') {
     // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
     const [key, action] = a._
-    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || !['comment', 'update', 'risk'].includes(action)) {
+    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') || !['comment', 'update', 'risk'].includes(action)) {
       err('usage: ticket.mjs jira-posted <KEY> comment|update|risk')
       return 2
     }

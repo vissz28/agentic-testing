@@ -18,6 +18,8 @@ test('stripCredentials drops user:password@ from URLs and leaves the rest', () =
 })
 test('keyCandidates keeps configured projects only, in order, without duplicates', () => {
   assert.deepEqual(keyCandidates(['DEMO-12-ADD-EXPORT', 'TRK-7 export', 'OTHER-1 x', 'DEMO-12 again'], ['DEMO', 'TRK']), ['DEMO-12', 'TRK-7'])
+  assert.deepEqual(keyCandidates(['feature/MY_PROJ-12-x', 'PROJ_3'], ['PROJ', 'MY_PROJ']), ['MY_PROJ-12', 'PROJ-3'], 'a key with "_" is not also read as its tail')
+  assert.deepEqual(keyCandidates(['ABC-1'], []), [])
   assert.deepEqual(keyCandidates([null, undefined, ''], ['DEMO']), [])
 })
 test('keyCandidates finds a key joined with _ or / and ignores a longer prefix', () => {
