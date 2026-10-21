@@ -68,6 +68,35 @@ On Claude Code older than 2.1.275, use two steps:
 **Update** with `/plugin update quality-code@teamsystem`. What changed in each version is in the
 [CHANGELOG](CHANGELOG.md).
 
+## What's new
+
+- **New install name: `quality-code@teamsystem`.** The marketplace is now called `teamsystem`.
+- **Cheaper, faster commands:** `kpi`, `consumption` and `check` run on Haiku (about $0.007 a run
+  instead of $0.24), `setup`, `start` and `ticket-eval` on Sonnet; `write` keeps your model. The
+  plugin's own scripts run without permission prompts.
+- **Settings asked in the chat:** the connectors card asks your Jira email, GitLab address and
+  username, and saves them. Only tokens go through `/plugin`.
+- **XRay test cases** for QA (`/quality-code:xray`), and Confluence QA plans attached to a ticket are
+  now read.
+- **Quality Code brand:** logo, name and a short README; the full reference is the
+  [Guide](docs/GUIDE.md).
+
+Full list: [CHANGELOG](CHANGELOG.md).
+
+### Installed it before the rename?
+
+Switch once, in Claude Code:
+
+```
+/plugin uninstall quality-code@quality-code
+/plugin marketplace remove quality-code
+/plugin install quality-code --marketplace vissz28/agentic-testing
+```
+
+Then `/reload-plugins`, and run `/quality-code:start`: the connectors card asks again for the
+settings it needs. In a repo whose `.claude/settings.json` lists the old marketplace, rename its key
+to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the block above).
+
 ## Quick start
 
 1. **Set up the repo** (once, by one person). Answer the numbered cards, then commit the config it
