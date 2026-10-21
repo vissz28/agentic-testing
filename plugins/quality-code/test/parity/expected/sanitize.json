@@ -20,7 +20,7 @@
         "summary": "[U######] stock wrong for user@example.test",
         "text": {
           "description": "Customer U###### (workspace 00000000-0000-4000-8000-000000000001) wrote from user@example.test.\nAlso U###### and U######.",
-          "acField": "Then U###### sees 80; mail user@example.test; ws 00000000-0000-4000-8000-000000000001"
+          "acField": "Then U###### sees 80; mail user@example.test; ws 00000000-0000-4000-8000-000000000002"
         },
         "gitlab": null
       }
@@ -47,7 +47,7 @@
         "key": "FIC-102",
         "summary": "uuids",
         "text": {
-          "description": "v4 00000000-0000-4000-8000-000000000001\nv1 00000000-0000-4000-8000-000000000001\nnot a version aaaaaaaa-1b2c-0d3e-cf9a-0b1c2d3e4f5a",
+          "description": "v4 00000000-0000-4000-8000-000000000001\nv1 00000000-0000-4000-8000-000000000002\nnot a version aaaaaaaa-1b2c-0d3e-cf9a-0b1c2d3e4f5a",
           "acField": ""
         },
         "gitlab": null
@@ -61,8 +61,8 @@
         "key": "FIC-103",
         "summary": "adf",
         "text": {
-          "description": "What happens?Customer \nU######\n sees 150\n\ninstead of 80.mail user@example.test 3f2c1e4a-1b2c-4d3e-9f9a-0b1c2d3e4f5aopenfilter 22See https://gitlab.example/group/repo/-/merge_requests/42).",
-          "acField": "Then the KPI shows \n80\n."
+          "description": "What happens?\nCustomer U###### sees 150\ninstead of 80.\nmail user@example.test\nws 00000000-0000-4000-8000-000000000001\nopen\nfilter 22\nSee https://gitlab.example/group/repo/-/merge_requests/42).",
+          "acField": "Then the KPI shows 80."
         },
         "gitlab": {
           "url": "https://gitlab.example/group/repo/-/merge_requests/42",
