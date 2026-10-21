@@ -1,12 +1,13 @@
 // The Vitest runner: runs specs with the project's own Vitest and reads its JSON report.
 // Implements the runner contract of the shared checks. Never writes into the project.
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
+import { kill, toolScript, track } from './tool.mjs'
 
 const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 
@@ -41,8 +42,8 @@ export function parseReport(json, root) {
 
 export function runVitest(root, files, { config = null, testName, timeoutMs }) {
   return new Promise(done => {
-    const bin = join(root, 'node_modules/.bin/vitest')
-    if (!existsSync(bin)) return done({ ran: false, error: 'Vitest is not installed in this project: run npm install' })
+    const bin = toolScript(root, ['vitest'], 'vitest')
+    if (!bin) return done({ ran: false, error: 'Vitest is not installed in this project' })
     const dir = mkdtempSync(join(tmpdir(), 'qc-vitest-'))
     const out = join(dir, 'report.json')
     const args = ['run', ...files, '--reporter=json', `--outputFile=${out}`, '--retry=0']
@@ -52,22 +53,25 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
     let timedOut = false
     let settled = false
     let timer = null
+    let untrack = () => {}
     const finish = r => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      untrack()
       try { rmSync(dir, { recursive: true, force: true }) } finally { done(r) }
     }
     let child
     try {
-      child = spawn(bin, args, { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      untrack = track(child, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start Vitest: ${e.message}` })
     }
     child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
     timer = setTimeout(() => {
       timedOut = true
-      try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch {} }
+      kill(child)
       finish({ ran: false, error: `took longer than ${timeoutMs < 1000 ? `${timeoutMs}ms` : `${Math.round(timeoutMs / 1000)}s`}` })
     }, timeoutMs)
     child.on('error', e => finish({ ran: false, error: `could not start Vitest: ${e.message}` }))

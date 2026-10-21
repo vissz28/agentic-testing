@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { configFor, parseReport, titlePattern, vitestRunner } from '../../../lib/pipeline/runners/vitest.mjs'
@@ -70,12 +70,22 @@ test('runner: no report → ran false with the first stderr line; missing binary
   const d = proj()
   fakeBin(d, 'vitest', { exit: 1, stderr: '\nError: connect ECONNREFUSED 127.0.0.1:5432\n  at x' })
   assert.deepEqual(await vitestRunner(d, cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Error: connect ECONNREFUSED 127.0.0.1:5432' })
-  assert.deepEqual(await vitestRunner(proj(), cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Vitest is not installed in this project: run npm install' })
+  assert.deepEqual(await vitestRunner(proj(), cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Vitest is not installed in this project' })
   const s = proj()
   fakeBin(s, 'vitest', { sleepMs: 5000, report: report(s, []) })
   const r = await vitestRunner(s, cfg())({ files: ['a.spec.ts'], timeoutMs: 300 })
   assert.equal(r.ran, false)
   assert.match(r.error, /took longer than/)
+})
+test('runner: a Vitest hoisted to a parent node_modules (a monorepo package) is found and run with this Node', async () => {
+  const mono = proj()
+  const d = join(mono, 'packages/api')
+  mkdirSync(d, { recursive: true })
+  fakeBin(mono, 'vitest', { report: report(d, [{ file: 'a.spec.ts', tests: [t('ok', 'passed')] }]) })
+  copyFileSync(join(mono, '.fake-vitest.json'), join(d, '.fake-vitest.json'))
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
+  assert.equal(r.ran, true, r.error)
+  assert.deepEqual(r.tests.map(x => x.title), ['ok'])
 })
 test('runner: one process per config, results merged (review focus 3)', async () => {
   const d = proj()
