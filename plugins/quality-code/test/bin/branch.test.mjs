@@ -146,6 +146,17 @@ test('fallback prefers main over develop; git.base names the branch features sta
   assert.equal(detect(d, cfg({ git: { base: 'develop' } }), { base: 'main' }).base, 'main', '--base still wins')
   assert.equal(detect(d, cfg({ git: { base: 'nope' } })).base, 'main', 'an unknown git.base falls back')
 })
+test('git.base develop (written by setup): the branch is diffed against develop, not main', () => {
+  const d = repo()
+  g(d, 'checkout', '-qb', 'develop')
+  commit(d, 'on develop', { 'src/dev.ts': 'd\n' })
+  g(d, 'checkout', '-qb', 'DEMO-5-x')
+  commit(d, 'DEMO-5 work', { 'src/x.ts': 'x\n' })
+  assert.deepEqual(detect(d, cfg()).files.map(f => f.path), ['src/dev.ts', 'src/x.ts'], 'against main, develop\'s work counts too')
+  const r = detect(d, cfg({ git: { base: 'develop' } }))
+  assert.deepEqual([r.base, r.baseSource, r.ahead], ['develop', 'config', 1])
+  assert.deepEqual(r.files.map(f => f.path), ['src/x.ts'])
+})
 test('--base wins; an unknown --base gives no base', () => {
   const d = repo()
   g(d, 'branch', 'develop')
