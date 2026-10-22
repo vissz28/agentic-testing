@@ -168,6 +168,81 @@ export function stripVagueCriteria(v, text, { headingless = false } = {}) {
   return kept.join('\n')
 }
 
+const NUMBERED = /^\s*\d+[.)]\s+/
+// A shown text in quotes: straight or curly double quotes, or guillemets. Single quotes are
+// apostrophes too often ("doesn't … it's").
+const QUOTED = /["“«][^"“”«»\n]+["”»]/
+// What follows an action and states its result: "Click Save: the toast reads Saved".
+const RESULT_AFTER_ACTION = /(?::|→|->|=>|\s[–—]\s)\s*(.+)$/
+
+/**
+ * The list blocks of a text, outside an Acceptance criteria section and outside a named section
+ * (Steps to reproduce, Expected, Environment, Notes...): each a run of list items, blank lines
+ * allowed between them, ended by any other line. A heading the vocabulary does not name
+ * ("## Description", "**Checks**") leaves the list readable.
+ */
+function freeLists(v, text) {
+  const blocks = []
+  let section = null // 'ac' | 'named' | null
+  let block = null
+  const close = () => { if (block) blocks.push(block); block = null }
+  for (const line of stripComments(normalise(text)).split('\n')) {
+    if (v.acHeading.test(line)) { close(); section = 'ac'; continue }
+    if (v.sectionEnd.test(line)) {
+      close()
+      const words = line.replace(/^\s*(?:#{1,6}|h[1-6]\.)?\s*/, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim()
+      section = v.namedSection.test(words) ? 'named' : null
+      continue
+    }
+    if (!line.trim()) continue
+    if (!v.listItem.test(line)) { close(); continue }
+    if (section) continue
+    const content = line.replace(v.listItem, '').replace(/\*+/g, '').trim()
+    if (!content) continue
+    block ??= { items: [], numbered: [] }
+    block.items.push(content)
+    block.numbered.push(NUMBERED.test(line))
+  }
+  close()
+  return blocks
+}
+
+/**
+ * Does this list item name a result a test can see: a state, a shown text, a count, a value? An
+ * item that starts with an action ("Open the list") is a step; it only names a result after a
+ * ":" or an arrow ("Click Save: the toast reads Saved").
+ */
+export function namesObservable(v, item) {
+  const result = v.actionStep.test(item) ? item.match(RESULT_AFTER_ACTION)?.[1] : item
+  return !!result && (v.observable.test(result) || /\d/.test(result) || QUOTED.test(result))
+}
+
+/**
+ * The criteria read from a list that has no Acceptance criteria heading (AGT-120): two or more
+ * items, every one a check (it names an observable, or it is vague, which then makes the
+ * criteria untestable), at least one naming an observable. A list of actions is not criteria.
+ */
+export function extractListCriteria(v, text) {
+  const items = []
+  for (const b of freeLists(v, text)) {
+    if (b.items.length < 2) continue
+    const checks = b.items.filter(i => namesObservable(v, i))
+    if (checks.length && b.items.every(i => checks.includes(i) || hasVaguePhrase(v, i))) items.push(...b.items)
+  }
+  return items
+}
+
+/**
+ * Numbered action steps without a heading (AGT-120): a numbered list of two or more items that
+ * starts with an action ("1. Open the list 2. Click Filter") and has at least two of them.
+ */
+export function hasActionSteps(v, text) {
+  return freeLists(v, text).some(b => {
+    const numbered = b.items.filter((_, i) => b.numbered[i])
+    return numbered.length >= 2 && v.actionStep.test(numbered[0]) && numbered.filter(i => v.actionStep.test(i)).length >= 2
+  })
+}
+
 /** Length of the plain-language criteria text, as the scorer reads it (bullets stripped). */
 export function naturalLength(items) {
   return (items || []).join(' ').length

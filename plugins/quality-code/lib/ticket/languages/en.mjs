@@ -20,5 +20,11 @@ export default {
   expectedQuestion: ['what is the expected behavio(?:u)?r\\??'],
   expectedSection: ['expected'],
   insteadOf: ['instead of'],
+  // A list item that names something a test can see (AGT-120): a state, a shown text, a count, a value.
+  observable: ['shows?', 'shown', 'showing', 'displays?', 'displayed', 'visible', 'invisible', 'hidden', 'appears?', 'disappears?', 'enabled', 'disabled', 'greyed\\s+out', 'highlighted', 'reads', 'contains?', 'lists', 'listed', 'returns?', 'returned', 'redirect(?:s|ed)', 'navigates', 'equals?', 'selected', 'checked', 'unchecked', 'sorted', 'saved', 'downloaded', 'exported', 'empty', 'message', 'toast', 'error', 'warning', 'tooltip', 'label', 'badge', 'counter', 'count', 'total', 'status', 'columns?', 'rows?', 'value'],
+  // An imperative that starts an action step ("Open the list", "Click Save").
+  action: ['open', 'click(?:\\s+on)?', 'go\\s+to', 'navigate(?:\\s+to)?', 'select', 'enter', 'type', 'press', 'log\\s*in', 'sign\\s*in', 'fill(?:\\s+in)?', 'choose', 'search(?:\\s+for)?', 'filter(?:\\s+by)?', 'upload', 'save', 'tap', 'scroll', 'insert', 'edit', 'delete', 'submit', 'create', 'add'],
+  // An environment named in a sentence: "on staging", "in production", "Chrome 120".
+  environmentMention: ['\\b(?:on|in|against)\\s+(?:the\\s+)?(?:staging|production|prod|pre-?prod(?:uction)?|uat|sandbox)\\b', '\\b(?:chrome|firefox|safari|edge)\\s+v?\\d+'],
   headings: { ac: 'Acceptance criteria', userStory: 'User story', steps: 'Steps to reproduce', expected: 'Expected', actual: 'Actual', context: 'Context', summary: 'Summary', environment: 'Environment' },
 }

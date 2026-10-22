@@ -20,5 +20,8 @@ export default {
   expectedQuestion: ['qual è il comportamento atteso\\??'],
   expectedSection: ['risultato atteso'],
   insteadOf: ['invece di'],
+  observable: ['mostra', 'mostrat[oaie]', 'visualizza', 'visualizzat[oaie]', 'visibil[ei]', 'nascost[oaie]', 'appare', 'compare', 'scompare', 'abilitat[oaie]', 'disabilitat[oaie]', 'evidenziat[oaie]', 'contiene', 'elenca', 'restituisce', 'selezionat[oaie]', 'ordinat[oaie]', 'salvat[oaie]', 'scaricat[oaie]', 'esportat[oaie]', 'vuot[oaie]', 'messaggio', 'errore', 'avviso', 'etichetta', 'contatore', 'conteggio', 'totale', 'stato', 'colonn[ae]', 'righ[ae]', 'valore'],
+  action: ['apri(?:re)?', 'clicca(?:re)?(?:\\s+su)?', 'vai\\s+(?:a|su|in)', 'andare\\s+(?:a|su|in)', 'naviga(?:re)?', 'seleziona(?:re)?', 'inserisci', 'inserire', 'digita(?:re)?', 'premi', 'premere', 'accedi', 'accedere', 'compila(?:re)?', 'scegli', 'scegliere', 'cerca(?:re)?', 'filtra(?:re)?', 'carica(?:re)?', 'salva(?:re)?', 'aggiungi', 'aggiungere', 'modifica(?:re)?', 'elimina(?:re)?', 'crea(?:re)?'],
+  environmentMention: ['\\b(?:in|su)\\s+(?:ambiente\\s+(?:di\\s+)?)?(?:staging|produzione|pre-?produzione|collaudo)\\b', '\\bambiente\\s+di\\s+(?:test|sviluppo|collaudo|produzione)\\b'],
   headings: { ac: 'Criteri di accettazione', userStory: 'Storia utente', steps: 'Passi per riprodurre', expected: 'Risultato atteso', actual: 'Risultato effettivo', context: 'Contesto', summary: 'Sommario', environment: 'Ambiente' },
 }

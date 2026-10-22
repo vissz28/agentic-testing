@@ -1,5 +1,5 @@
 import { countDerivable, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, hasListChecks, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Playwright stack, sums to 100. Routes a test to a screen, so a feature
 // label and a QA plan carry weight.
@@ -29,7 +29,7 @@ function deriveSignals(v, config, ticket) {
   const environment = envSignal(v, hasHeading, description)
   const anyStructure =
     ac_present || steps || hasExpected || hasActual || environment ||
-    hasHeading(v, description, v.contextHeadingFE)
+    hasHeading(v, description, v.contextHeadingFE) || hasListChecks(v, description)
   return {
     ac_present, ac_testable, feature_label, steps, expected_defined, environment,
     qa_plan_found: !!ticket.qaPlan?.url,
