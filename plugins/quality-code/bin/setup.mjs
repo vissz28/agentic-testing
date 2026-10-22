@@ -157,6 +157,38 @@ function here(root) {
   return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
 }
 
+// A Jira key in a branch name or a commit subject: ABC-12. Jira keys have at least two characters.
+const JIRA_KEY = /(?<![A-Za-z0-9_])([A-Z][A-Z0-9_]+)-\d+(?!\d)/g
+// Shaped like a key, never a Jira project: UTF-8, SHA-256, ISO-8601, PR-12.
+const NOT_PROJECTS = new Set(['UTF', 'ISO', 'SHA', 'RFC', 'CVE', 'HTTP', 'TLS', 'ES', 'PR', 'MR', 'WIP'])
+const MAX_SUBJECTS = 200
+
+/** The project prefixes of the Jira keys in the texts, most frequent first (ties: first seen), at most 5. */
+export function projectCandidates(texts) {
+  const count = new Map()
+  for (const t of texts) {
+    for (const m of String(t ?? '').matchAll(JIRA_KEY)) if (!NOT_PROJECTS.has(m[1])) count.set(m[1], (count.get(m[1]) ?? 0) + 1)
+  }
+  return [...count].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([key]) => key)
+}
+
+/** Project keys named by the local branches and the last 200 commit subjects: setup proposes them. */
+function jiraCandidates(root) {
+  const branches = gitOut(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']) ?? ''
+  const subjects = gitOut(root, ['log', `-${MAX_SUBJECTS}`, '--format=%s']) ?? ''
+  return projectCandidates([...branches.split('\n'), ...subjects.split('\n')])
+}
+
+/**
+ * The branch features start from, as git alone sees it: develop when origin/develop exists (gitflow),
+ * else origin/HEAD. Setup may replace it by the target of recent merge requests. Null outside a repo.
+ */
+function baseCandidate(root) {
+  if (gitOut(root, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop^{commit}'])) return { proposed: 'develop', source: 'develop' }
+  const head = gitOut(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
+  return head ? { proposed: head.replace(/^origin\//, ''), source: 'origin-head' } : null
+}
+
 /** The host whose issue-template folder new templates go to: the remote's, else the folder the repo already has. */
 function templateHost(root, remote) {
   if (remote) return remote.kind === 'gitlab' ? 'gitlab' : 'github'
@@ -204,6 +236,8 @@ export function detect(root, env = process.env) {
     specFolders: specFolders(root),
     playwrightConfigs: playwrightConfigs(root),
     here: here(root),
+    projectCandidates: jiraCandidates(root),
+    base: baseCandidate(root),
     personal: personalState(env)
   }
   if (existingError) result.existingError = existingError

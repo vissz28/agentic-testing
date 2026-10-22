@@ -4,9 +4,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
-import { detect, ghAccount, write } from '../../bin/setup.mjs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { detect, ghAccount, projectCandidates, write } from '../../bin/setup.mjs'
 import { fakeCommand } from '../fake-bin.mjs'
+import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../../bin/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
@@ -327,4 +328,52 @@ test('detect: Playwright configs at the root or up to two folders down, with the
   assert.deepEqual(r.playwrightConfigs, [{ config: 'e2e/playwright.config.ts', folder: 'e2e/tests/' }])
   writeFileSync(join(d, 'playwright.config.ts'), 'export default { testDir: path.join(__dirname, "t") }\n')
   assert.deepEqual(detect(d).playwrightConfigs.map(c => [c.config, c.folder]), [['playwright.config.ts', null], ['e2e/playwright.config.ts', 'e2e/tests/']])
+})
+
+const gitIn = d => (...a) => execFileSync('git', a, { cwd: d, env: GIT_ENV, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+function gitRepo() {
+  const d = repo({ devDependencies: { vitest: '1' } })
+  const g = gitIn(d)
+  g('init', '-q', '-b', 'main')
+  g('commit', '-q', '--allow-empty', '-m', 'init')
+  return [d, g]
+}
+
+test('projectCandidates: the prefixes of Jira keys, most frequent first, without look-alikes', () => {
+  assert.deepEqual(projectCandidates(['DEMO-19338 export', 'fix DEMO-19360 totals', 'ABC-1 typo']), ['DEMO', 'ABC'])
+  assert.deepEqual(projectCandidates(['ABC-1', 'DEMO-2', 'DEMO-3']), ['DEMO', 'ABC'], 'a later key seen more often comes first')
+  assert.deepEqual(projectCandidates(['feature/MY_PROJ-12-x', "Merge branch 'DEMO-4-y' into 'develop'"]), ['MY_PROJ', 'DEMO'])
+  assert.deepEqual(projectCandidates(['UTF-8 files', 'SHA-256 sums', 'PR-12', 'A-1 one letter', 'xDEMO-1', 'demo-1 lower', 'DEMO-x']), [])
+  assert.deepEqual(projectCandidates([null, undefined, '']), [])
+  assert.equal(projectCandidates(['AB-1', 'BC-1', 'CD-1', 'DE-1', 'EF-1', 'FG-1']).length, 5)
+})
+test('detect: recent commits naming DEMO-19338 and DEMO-19360 propose DEMO; branch names count too', () => {
+  const [d, g] = gitRepo()
+  assert.deepEqual(detect(d).projectCandidates, [])
+  g('commit', '-q', '--allow-empty', '-m', 'DEMO-19338 add export')
+  g('commit', '-q', '--allow-empty', '-m', 'DEMO-19360 fix totals')
+  assert.deepEqual(detect(d).projectCandidates, ['DEMO'])
+  for (const b of ['feature/ABC-1-x', 'ABC-2-y', 'ABC-3-z']) g('branch', b)
+  assert.deepEqual(detect(d).projectCandidates, ['ABC', 'DEMO'])
+  assert.deepEqual(detect(repo({})).projectCandidates, [], 'no repo: none')
+})
+test('detect: the base is develop when origin/develop exists, else origin/HEAD, else none', () => {
+  const [d, g] = gitRepo()
+  assert.equal(detect(d).base, null, 'no remote')
+  const bare = mkdtempSync(join(tmpdir(), 'at-bare-'))
+  gitIn(bare)('init', '-q', '--bare')
+  g('remote', 'add', 'origin', bare)
+  g('push', '-q', 'origin', 'main')
+  g('remote', 'set-head', 'origin', 'main')
+  assert.deepEqual(detect(d).base, { proposed: 'main', source: 'origin-head' })
+  g('branch', 'develop')
+  assert.deepEqual(detect(d).base, { proposed: 'main', source: 'origin-head' }, 'a local develop alone is not the team\'s base')
+  g('push', '-q', 'origin', 'develop')
+  assert.deepEqual(detect(d).base, { proposed: 'develop', source: 'develop' })
+  assert.equal(detect(repo({})).base, null, 'no repo: none')
+})
+test('the proposed base is written as git.base', () => {
+  const [d] = gitRepo()
+  assert.equal(write(d, { ...cfg, git: { base: 'develop' } }, {}).ok, true)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).git, { base: 'develop' })
 })
