@@ -20,7 +20,7 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
 
 ## Steps
 
-0. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it prints `ok`, go to step 1. Otherwise show its lines, then this card and end the turn:
+0. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it prints `ok (personal: …)`, or you are not inside a git repo, say `This needs a repo. Open the project folder, or run /quality-code:setup there.` and stop. If it prints `ok`, go to step 1. Otherwise show its lines, then this card and end the turn:
 
    ```
    This repo is not set up yet.

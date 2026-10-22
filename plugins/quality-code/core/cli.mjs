@@ -38,9 +38,9 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   let a
   try { a = parseArgs(rest) } catch (e) { err(e.message); return 2 }
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (cmd === 'config' && a._[0] === 'check') {
-    if (cfg.ok) { out('ok'); return 0 }
+    if (cfg.ok) { out(`ok (${cfg.source}: ${cfg.path})`); return 0 }
     cfg.errors.forEach(e => out(e))
     return 2
   }

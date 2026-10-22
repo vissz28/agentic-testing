@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, projectRoot, validateConfig } from './config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, personalConfigPath, projectRoot, validateConfig } from './config.mjs'
 import { FIELDS_REL } from './fields.mjs'
 import { CONFIG_FILES, readTestDir } from './e2e-folder.mjs'
 
@@ -119,7 +119,17 @@ function here(root) {
   return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, gitlab: remoteProject(gitOut(root, ['remote', 'get-url', 'origin'])) }
 }
 
-export function detect(root) {
+/** The personal config (no repo): its path and what it holds now (null when there is none). */
+function personalState(env) {
+  const path = personalConfigPath(env)
+  const state = { path, existing: null }
+  if (existsSync(path)) {
+    try { state.existing = readJson(path) } catch (err) { state.existingError = `${path} is not valid JSON (${err.message})` }
+  }
+  return state
+}
+
+export function detect(root, env = process.env) {
   let adapter = null
   const pkgPath = join(root, 'package.json')
   if (existsSync(pkgPath)) {
@@ -149,7 +159,8 @@ export function detect(root) {
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     specFolders: specFolders(root),
     playwrightConfigs: playwrightConfigs(root),
-    here: here(root)
+    here: here(root),
+    personal: personalState(env)
   }
   if (existingError) result.existingError = existingError
   return result
@@ -210,25 +221,45 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
   return { ok: true }
 }
 
+/** Writes the personal config only: no repo file, no .gitignore, no template. */
+export function writePersonal(config, env = process.env) {
+  const v = validateConfig(config)
+  if (!v.ok) return { ok: false, errors: v.errors }
+  const p = personalConfigPath(env)
+  try {
+    mkdirSync(dirname(p), { recursive: true })
+    writeFileSync(p, `${JSON.stringify(config, null, 2)}\n`)
+  } catch (err) {
+    return { ok: false, errors: [`${p}: ${err.message}`] }
+  }
+  return { ok: true, path: p }
+}
+
 function main(argv) {
   const root = projectRoot()
   if (argv[0] === '--detect') {
     process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root))}\n`)
     return 0
   }
-  if (argv[0] === '--write' && argv[1]) {
+  if ((argv[0] === '--write' || argv[0] === '--write-personal') && argv[1]) {
     const ref = argv[1].startsWith('@') ? argv[1].slice(1) : argv[1]
     let proposal
     try { proposal = readJson(resolve(root, ref)) } catch (err) {
       process.stdout.write(`proposal: cannot read ${ref} (${err.message})\n`)
       return 2
     }
+    if (argv[0] === '--write-personal' || proposal?.scope === 'personal') {
+      const r = writePersonal(proposal?.config)
+      if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
+      process.stdout.write('ok\n')
+      return 0
+    }
     const r = write(root, proposal?.config, { templates: proposal?.templates })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
     process.stdout.write('ok\n')
     return 0
   }
-  process.stdout.write('usage: setup.mjs --detect | --write @proposal.json\n')
+  process.stdout.write('usage: setup.mjs --detect | --write @proposal.json | --write-personal @proposal.json\n')
   return 2
 }
 

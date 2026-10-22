@@ -44,7 +44,7 @@ test('add rewrites the file only when accepted', () => {
   assert.match(readFileSync(join(d, 't.json'), 'utf8'), /Env: staging/)
 })
 test('config check', () => {
-  assert.equal(run(proj(), 'config', 'check').stdout.trim(), 'ok')
+  assert.match(run(proj(), 'config', 'check').stdout.trim(), /^ok \(repo: .+quality-code\.json\)$/)
 })
 test('config check: a lowercase jira.projects key exits 2 naming jira.projects[0]', () => {
   const d = proj()

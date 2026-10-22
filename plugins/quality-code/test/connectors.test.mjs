@@ -49,7 +49,7 @@ test('tools are named by operation, never by an mcp__ name', () => {
 test('setup step 0 reads the connectors check before the project card', () => {
   const s = step(setup, 0)
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/core/connectors.md'))
-  assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n1. **This project.**'))
+  assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n2. **This project.**'))
 })
 test('GitLab browser sign-in is like Jira: /mcp, choose gitlab, sign in; an instance without the server says so', () => {
   assert.ok(doc.includes('type /mcp, choose `gitlab` and sign in in the browser'))

@@ -1,5 +1,6 @@
 // Find, load and validate the team config. The only module that knows where it lives.
 import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { matches } from './checks/boundary.mjs'
 
@@ -329,12 +330,30 @@ export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? 
 /** Seconds one Stryker run may take. */
 export const strykerTimeoutSeconds = config => config?.vitest?.stryker?.timeoutSeconds ?? DEFAULT_STRYKER_TIMEOUT_SECONDS
 
-export function loadConfig(root) {
-  const p = configPath(root)
-  if (!existsSync(p)) return { ok: false, missing: true, errors: [`This repo is not set up. ${SETUP}`] }
+/** The user's Claude folder: CLAUDE_CONFIG_DIR, else ~/.claude. */
+export const claudeDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+/** The personal config (no repo): <Claude folder>/quality-code.json. */
+export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'quality-code.json')
+/** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
+export const personalTicketsDir = (env = process.env) => normaliseTicketsDir(join(claudeDir(env), 'quality-code', 'tickets'))
+
+function readValidated(p, label, source, env) {
   let obj
   try { obj = JSON.parse(readFileSync(p, 'utf8')) } catch (err) {
-    return { ok: false, errors: [`${CONFIG_REL} is not valid JSON (${err.message}). ${SETUP}`] }
+    return { ok: false, source, path: p, errors: [`${label} is not valid JSON (${err.message}). ${SETUP}`] }
   }
-  return validateConfig(obj)
+  if (source === 'personal' && isObject(obj) && obj.ticketsDir === undefined) obj = { ...obj, ticketsDir: personalTicketsDir(env) }
+  return { ...validateConfig(obj), source, path: p }
+}
+
+/**
+ * The config in force: the repo's .claude/quality-code.json first, else the personal one. The result is
+ * validateConfig's, plus where it came from: source "repo" | "personal" and its path.
+ */
+export function loadConfig(root, env = process.env) {
+  const rp = configPath(root)
+  if (existsSync(rp)) return readValidated(rp, CONFIG_REL, 'repo', env)
+  const pp = personalConfigPath(env)
+  if (existsSync(pp)) return readValidated(pp, pp, 'personal', env)
+  return { ok: false, missing: true, errors: [`This repo is not set up. ${SETUP}`] }
 }
