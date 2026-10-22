@@ -115,7 +115,7 @@ test('attachments and links: step 2 reads them as a count and a list, the fill-i
   assert.match(fill, /valid `http:\/\/` or `https:\/\/` address/)
   assert.match(fill, /attach a screenshot, video or file on the Jira ticket itself/)
   assert.match(fill, /read the ticket again: `getJiraIssue` with fields `attachment` only/)
-  assert.match(fill, /cli\.mjs attachments --in @<ticketsDir>\/<KEY>\/ticket\.json <count>/)
+  assert.match(fill, /ticket\.mjs attachments --in @<ticketsDir>\/<KEY>\/ticket\.json <count>/)
   assert.match(fill, /The script re-scores and is the only decider/)
 })
 
@@ -159,7 +159,7 @@ test('Figma: the draft is shown as it would be added, with Use it / Edit / Skip,
   assert.match(fig, /exactly as it would be added, then end the turn/)
 })
 test('Figma: Use it goes through add like a typed answer, Edit sends their text, Skip moves on; the script decides', () => {
-  assert.ok(fig.includes('cli.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"'))
+  assert.ok(fig.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"'))
   assert.match(fig, /exactly like a typed answer/)
   assert.match(fig, /The script decides whether it counts/)
   assert.match(fig, /\*\*2:\*\* ask for their edited text, and send that through `add`/)

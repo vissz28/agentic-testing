@@ -169,16 +169,17 @@ describe('spec §10 #9: qa_plan_found is left out when there is no way to find a
   test('this group is not empty (the config and fixtures still exercise the difference)', () => {
     assert.ok(affected.length > 0)
   })
+  const achievable = 100 - playwrightRubric.weights.qa_plan_found[0]
   for (const fx of affected) {
     const i = fx.ops.findIndex(op => op[0] === 'score' && op.includes('--json'))
     if (i < 0) continue
-    test(`${fx.name}: the score is rescaled over 85, qa_plan_found is not asked for, nothing else changes`, async () => {
+    test(`${fx.name}: the score is rescaled over ${achievable}, qa_plan_found is not asked for, nothing else changes`, async () => {
       const before = JSON.parse(fx.expected.results[i].stdout)
       assert.ok(before.missing.some(m => m.key === 'qa_plan_found'), 'the fixture is a real case of the old behaviour')
       const [got] = await runFixture({ ...fx, ops: [fx.ops[i]] })
       const after = JSON.parse(got.stdout)
       assert.ok(!after.missing.some(m => m.key === 'qa_plan_found'))
-      assert.equal(after.score, Math.min(100, Math.round((before.score / 85) * 100)))
+      assert.equal(after.score, Math.min(100, Math.round((before.score / achievable) * 100)))
       assert.equal(after.gate, after.score >= 70 ? 'pass' : 'refuse')
       const { score: _a, gate: _b, missing: _c, ...restAfter } = after
       const { score: _d, gate: _e, missing: _f, ...restBefore } = before

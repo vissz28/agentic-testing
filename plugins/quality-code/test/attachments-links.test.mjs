@@ -16,7 +16,7 @@ const raw = (adapter, extra = {}) => ({
   version: 1, adapter,
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
-  features: [{ label: 'Orders', route: '/orders' }],
+  features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
   ...extra,
 })
@@ -24,7 +24,9 @@ const cfg = (adapter, extra) => validateConfig(raw(adapter, extra)).config
 const FE = cfg('playwright')
 const BE = cfg('vitest')
 const total = r => Object.values(r.weights).reduce((n, [w]) => n + w, 0)
-const bare = { key: 'DEMO-1', summary: 'order filter wrong', issuetype: 'Bug', labels: [], text: { description: 'The order filter is wrong.' } }
+// Labeled with the feature (which has a qaPlanSearch) so every key stays in the 100-point
+// denominator: feature_label and qa_plan_found are assessable, not omitted (AGT-104/AGT-115).
+const bare = { key: 'DEMO-1', summary: 'order filter wrong', issuetype: 'Bug', labels: ['Orders'], text: { description: 'The order filter is wrong.' } }
 const id = 'U' + '123456'
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 
@@ -44,8 +46,9 @@ test('omitted keys still drop out of the missing list', () => {
   assert.ok(!b.missing.some(m => ['feature_label', 'title_prefix'].includes(m.key)))
   assert.equal(b.missing.reduce((n, m) => n + m.weight, 0), 100 - 5 - 5, 'the unreachable 10 are not asked for')
   const p = buildBrief(cfg('playwright', { features: [] }), bare)
-  assert.ok(!p.missing.some(m => m.key === 'feature_label'))
-  assert.equal(p.missing.reduce((n, m) => n + m.weight, 0), 100 - 10)
+  assert.ok(!p.missing.some(m => m.key === 'feature_label' || m.key === 'qa_plan_found'))
+  // No features at all, so there is no way to find a QA plan either (AGT-104/AGT-115).
+  assert.equal(p.missing.reduce((n, m) => n + m.weight, 0), 100 - 10 - 10)
 })
 
 test('attachments: credited with at least one attachment, on both rubrics', () => {

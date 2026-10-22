@@ -31,7 +31,7 @@ test('one search with the spec JQL, markdown, a capped limit and paging', () => 
   assert.match(doc, /Escape `\\` as `\\\\` and `"` as `\\"`/)
 })
 test('it runs the batch and shows the card without the machine line', () => {
-  assert.ok(doc.includes('cli.mjs" tickets-eval --in @'))
+  assert.ok(doc.includes('ticket.mjs" tickets-eval --in @'))
   assert.ok(doc.includes('TICKETS_EVAL_JSON:'))
 })
 test('it is read-only on Jira and names tools by operation', () => {
