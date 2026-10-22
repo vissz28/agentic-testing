@@ -1,6 +1,6 @@
 ---
-description: Start from your feature branch. Checks the connectors, confirms the repo and what your branch changed, finds the Jira ticket from the branch name, and evaluates it.
-argument-hint: [--base <branch>]
+description: Start from your feature branch. Checks the connectors, confirms the repo and what your branch changed, finds the Jira ticket from the branch name, then runs the pipeline: the readiness gate, then writes or checks the tests.
+argument-hint: [--base <branch>] [--ask]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
 model: sonnet
 ---
@@ -52,7 +52,14 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
 
    "Pick another base" and `2. Use a different base branch` show `branches` as a numbered list and run detect again with `--base <picked>`. "Evaluate a ticket by key" asks `Which ticket? Type its key, for example ABC-123.` and goes to step 4, option 1, with that key.
 3. **Ticket.** Propose one key, the first that applies: `keys[0]` when it appears in the branch name (ignoring case); else the first key in the merge request title from step 2 whose project is in `jira.projects` or `jira.trackingProjects`; else `keys[0]`. When that key is in the branch name, use it without a card: say one line, `Ticket <KEY> (from the branch name)`, and go on. Otherwise show `1. Use <KEY>` / `2. A different ticket` and end the turn. With no key at all, ask `Which ticket? Type its key, for example ABC-123.` A key from a project not in the config is handled by ticket-eval's project check.
-4. **Action.** Show this card and end the turn:
+4. **Pipeline.** Run the whole flow on `<KEY>` with no card: the readiness gate, then the test pipeline. Say one line first, `Running the pipeline for <KEY>: readiness gate, then tests.` The branch's changed tests are the files with `kind` `test` and `status` other than `D`. The scripts pick the test runner for every adapter, `vitest`, `playwright` and `fullstack` (on a fullstack project, per spec), and `write.md` writes unit tests for Vitest, e2e tests for Playwright, and both for a fullstack ticket. The key is already confirmed in step 3 and the connectors were checked in step 1, so do not ask again or check them again.
+
+   - **The branch has changed tests:** read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow it with `<KEY>` as `$ARGUMENTS`, no flags. When it ends with the ticket passing (straight away, or after the guided fill-in), read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with those files as the spec paths and `--key <KEY>` with the confirmed key, so it shows no file card. Show its card as it prints. Its option 3, the developer override, goes on to writing tests as written there. Anything else that ends ticket-eval (a comment posted, a cancel, a stop) ends here: say `The tests run once the ticket passes the gate.`
+   - **No changed tests:** read `${CLAUDE_PLUGIN_ROOT}/commands/write.md` and follow it with the confirmed key `<KEY>` as `$ARGUMENTS`: it gates the ticket, writes the tests and checks them. Show its cards as it prints them.
+
+   After the last card, add one line: `Branch <branch>: <files.length> files changed against <base> (<counts.code> code, <counts.test> tests, <counts.other> other).` The branch never changes the score.
+
+   **`--ask` in `$ARGUMENTS`:** instead of running the flow, show this card and end the turn:
 
    ```
    <KEY> on <branch> (<files.length> files changed against <base>)
@@ -62,9 +69,9 @@ Daily entry point. You ask and relay; the scripts detect and score. Plain Englis
    4. Stop
    ```
 
-   Offer option 2 only when `files` has at least one entry with `kind` `test` and `status` other than `D`. Options 2 and 3 work for every adapter, `vitest`, `playwright` and `fullstack`: the scripts pick the test runner (on a fullstack project, per spec), and `write.md` writes unit tests for Vitest, e2e tests for Playwright, and both for a fullstack ticket. Leave out an option that is not offered and number the rest in order: without option 2 the card shows `1. Evaluate the ticket / 2. Write and check tests / 3. Stop`.
+   Offer option 2 only when the branch has changed tests. Leave out an option that is not offered and number the rest in order: without option 2 the card shows `1. Evaluate the ticket / 2. Write and check tests / 3. Stop`.
 
-   - **1:** read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow it with `<KEY>` as `$ARGUMENTS`, no flags. After its result, add one line: `Branch <branch>: <files.length> files changed against <base> (<counts.code> code, <counts.test> tests, <counts.other> other).` The branch never changes the score.
-   - **Check the tests (2, when offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with the branch's files of kind `test`, leaving out deleted ones (status `D`), as the spec paths and `--key <KEY>` with the confirmed key. The key is already confirmed in step 3, so do not ask again. Show its card as it prints.
-   - **Write and check tests (3, or 2 when option 2 is not offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/write.md` and follow it with the confirmed key `<KEY>` as `$ARGUMENTS`. The key is already confirmed in step 3, so do not ask again; the connectors were checked in step 1, so skip that part of its step 1. Show its cards as it prints them.
+   - **1:** read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow it with `<KEY>` as `$ARGUMENTS`, no flags, then add the branch line.
+   - **Check the tests (2, when offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with the branch's changed tests, leaving out deleted ones (status `D`), as the spec paths and `--key <KEY>` with the confirmed key.
+   - **Write and check tests (3, or 2 when option 2 is not offered):** read `${CLAUDE_PLUGIN_ROOT}/commands/write.md` and follow it with the confirmed key `<KEY>` as `$ARGUMENTS`.
    - **Stop (last option):** stop.

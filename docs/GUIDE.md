@@ -66,8 +66,9 @@ config it writes:
 ```
 
 It checks your connectors, shows the branch and what it changed, and takes the ticket key from the
-branch name (`ABC-123-add-export`). Then you pick: evaluate that ticket, check the tests on the branch,
-or write and check tests for it. To check any ticket directly:
+branch name (`ABC-123-add-export`). Then it runs the pipeline: the readiness gate, then it checks
+the tests the branch changed, or writes and checks tests when there are none. `--ask` lets you pick
+one step instead. To check any ticket directly:
 `/quality-code:ticket-eval ABC-123`. To write tests for one: `/quality-code:write ABC-123`.
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
@@ -124,7 +125,7 @@ Playwright test).
 | Capability | How | Status |
 |---|---|---|
 | Guided setup for your repo and Jira project | `/quality-code:setup` | ✅ available |
-| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/quality-code:start` | ✅ available |
+| Start from your feature branch: connectors, branch changes, ticket from the branch name, then the gate and the tests | `/quality-code:start` | ✅ available |
 | Readiness gate: score a ticket out of 100 | `/quality-code:ticket-eval <KEY>` | ✅ available |
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
@@ -311,8 +312,8 @@ a script builds the verdict, the model only relays it.
 ```
 
 With no spec paths it takes the test files your branch changed against its base (deleted files are
-left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:start` offers the same as
-option 2 when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
+left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:start` runs the same, after the
+gate, when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
 test that changes its result, naming its first failure. With a ticket key, only that ticket's block
 counts: another ticket's red test in the same file does not decide the verdict (the card says how
 many it left out), a namesake elsewhere never kills a mutant, and the ticket and target `write` saved
@@ -404,8 +405,7 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
 /quality-code:write ABC-123
 ```
 
-`/quality-code:start` offers the same as `Write and check tests` (option 3, or option 2 when the
-branch has no test files to check).
+`/quality-code:start` runs the same, gate included, when the branch has no test files to check.
 
 1. **Gate.** The ticket is read and scored as in `ticket-eval`. A refused ticket gets the refuse card
    and its flow; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",

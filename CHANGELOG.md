@@ -7,6 +7,24 @@ things, and says so here).
 
 Update with `/plugin update quality-code@teamsystem`.
 
+## [0.14.0] - 2026-10-22
+
+**`/quality-code:start` now runs the pipeline instead of showing a menu.**
+
+### Changed
+
+- **`/quality-code:start` runs the whole flow.** After the repo card and the ticket from the branch
+  name, it runs the readiness gate, then the tests: when the branch changed test files it checks
+  them (`check`, with the ticket key), otherwise it writes the tests for the ticket and checks them
+  (`write`). A refused ticket stops at the gate with its refuse card and fill-in, as before.
+- **`--ask`** brings back the old menu (`Evaluate the ticket / Check the tests on this branch /
+  Write and check tests / Stop`) for when you want one step only.
+
+### Upgrading
+
+Nothing to do. If you used `start` only to evaluate a ticket, use `/quality-code:start --ask` or
+`/quality-code:ticket-eval <KEY>`.
+
 ## [0.13.0] - 2026-10-22
 
 **Every ticket's score changes:** attachments and links now count (see Changed). On the warehouse
