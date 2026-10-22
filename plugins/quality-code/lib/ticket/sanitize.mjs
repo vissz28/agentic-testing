@@ -66,7 +66,7 @@ function redactLeaves(config, value, uuids) {
 }
 
 /** Free text the model harvested next to the ticket body. */
-const HARVESTED = ['scenarios', 'qaPlan', 'flags']
+const HARVESTED = ['scenarios', 'qaPlan', 'flags', 'mergeRequest']
 
 export function sanitizeTicket(config, input = {}) {
   const text = input.text ?? {}
@@ -81,6 +81,7 @@ export function sanitizeTicket(config, input = {}) {
     ...harvested,
     summary,
     text: { description, acField },
-    gitlab: findMergeRequest(input),
+    // A link in the branch's own merge request is not one the ticket gives.
+    gitlab: findMergeRequest({ ...input, mergeRequest: undefined }),
   }
 }

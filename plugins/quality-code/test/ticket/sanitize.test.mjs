@@ -29,6 +29,11 @@ test('merge request found on any host', () => {
   const t = sanitizeTicket(cfg(), { remoteLinks: [{ url: 'https://other.example/a/merge_requests/9' }] })
   assert.equal(t.gitlab.iid, 9)
 })
+test('the branch\'s merge request is redacted, from either host, and its links are not the ticket\'s', () => {
+  const t = sanitizeTicket(cfg(), { mergeRequest: { title: `fix for ${id}`, description: 'see https://github.com/o/r/pull/7, ask a.b@example.org' } })
+  assert.deepEqual(t.mergeRequest, { title: 'fix for U######', description: 'see https://github.com/o/r/pull/7, ask user@example.test' })
+  assert.equal(t.gitlab, null)
+})
 test('default customer id is whole-word', () => {
   assert.equal(redact(cfg(), 'ABC' + id + ' and ' + id), 'ABC' + id + ' and U######')
 })

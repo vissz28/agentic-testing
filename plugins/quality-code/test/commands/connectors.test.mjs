@@ -15,8 +15,14 @@ test('Jira is checked with getAccessibleAtlassianResources and blocks', () => {
   assert.match(doc, /Never go past this card without Jira/)
 })
 test('GitLab and Figma never block', () => {
-  assert.match(doc, /GitLab and Figma never block/)
+  assert.match(doc, /GitLab and Figma never block, and neither does GitHub/)
   assert.ok(doc.includes('2. Continue without it'))
+})
+test('GitHub: no call to make, gh\'s account from setup --detect, fixed in a terminal', () => {
+  assert.ok(doc.includes('| GitHub | none to make: `setup.mjs --detect` already asked the `gh` CLI'))
+  assert.ok(doc.includes('⚠️ `<here.github.reason>`'))
+  assert.ok(doc.includes('`In a terminal, run gh auth login --hostname <host>, then come back.`'))
+  assert.ok(doc.includes('`gh is not installed`'))
 })
 test('Figma only for playwright', () => {
   assert.match(doc, /Figma only when the adapter is `playwright`/)
@@ -112,7 +118,9 @@ test('every Rovo operation the commands use has its claude.ai connector name, or
   }
 })
 test('which connectors: GitLab only for a GitLab remote, Figma for playwright and fullstack; every caller listed', () => {
-  assert.match(doc, /GitLab when `here\.gitlab` is set .* or `gitlab_api_url` is: otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
+  assert.match(doc, /GitLab only when `here\.gitlab` is set \(the repo's `origin` is a GitLab project\): otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
+  assert.match(doc, /`gitlab_api_url` always has a value \(its default\), so it never puts GitLab on the card/)
+  assert.match(doc, /GitHub only when `here\.github` is set/)
   assert.match(doc, /Figma only when the adapter is `playwright` or `fullstack`/)
   assert.match(doc, /From `spec`, `seed` and `xray`, an optional service/)
   for (const c of ['setup', 'spec', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)

@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { detect, stripCredentials, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
+import { fakeCommand } from '../fake-bin.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 
@@ -156,6 +157,31 @@ test('--base wins; an unknown --base gives no base', () => {
   assert.equal(n.base, null)
   assert.equal(n.baseSource, null)
   assert.ok(n.branches.includes('develop') && n.branches.includes('main'))
+})
+test('GitHub: the one open pull request from gh gives the base, a key from its title, and its description', () => {
+  const d = repo()
+  g(d, 'branch', 'release')
+  g(d, 'branch', 'develop')
+  g(d, 'checkout', '-qb', 'export-x')
+  const gh = fakeCommand('gh')
+  const prs = out => gh.act(`[ "$4" = export-x ] && echo '${out}' || exit 1`)
+  try {
+    prs('[{"baseRefName":"release","title":"DEMO-42 export","body":"Totals, ask ann@acme.example"}]')
+    const r = detect(d, cfg({ git: { base: 'develop' } }))
+    assert.deepEqual([r.base, r.baseSource], ['release', 'pull-request'], 'the pull request wins over git.base')
+    assert.deepEqual(r.keys, ['DEMO-42'])
+    assert.deepEqual(r.pullRequest, { base: 'release', title: 'DEMO-42 export', description: 'Totals, ask user@example.test' }, 'redacted')
+    const f = detect(d, cfg(), { base: 'main' })
+    assert.equal(f.baseSource, 'flag', '--base still wins')
+    assert.equal(f.pullRequest.title, 'DEMO-42 export', 'and the pull request is still read')
+    prs('[]')
+    assert.deepEqual([detect(d, cfg()).baseSource, detect(d, cfg()).pullRequest], ['fallback', null])
+    prs('[{"baseRefName":"gone","title":"DEMO-1"}]')
+    const u = detect(d, cfg())
+    assert.deepEqual([u.baseSource, u.pullRequest.base], ['fallback', 'gone'], 'a target that is not fetched keeps the detected base, and spec names it')
+  } finally {
+    gh.restore()
+  }
 })
 test('origin/HEAD wins over the fallback and origin/HEAD is not listed as a branch', () => {
   const d = repo()

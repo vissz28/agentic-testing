@@ -1,5 +1,6 @@
 // Local git facts for /quality-code:start: the branch, its base, what changed, and ticket keys.
-// Read-only and offline. Never reads diff contents. --detect prints one BRANCH_JSON: line.
+// Read-only. Offline, except one `gh pr list` for the branch's GitHub pull request. Never reads diff
+// contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -90,13 +91,24 @@ function git(root, args) {
   }
 }
 
+/** The branch's one open GitHub pull request ({ baseRefName, title, body }) from the gh CLI; null without gh, sign-in or exactly one. */
+function pullRequest(root, branch) {
+  try {
+    const prs = JSON.parse(execFileSync('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'baseRefName,title,body', '--limit', '2'],
+      { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000, env: { ...process.env, GH_PROMPT_DISABLED: '1' } }))
+    return prs.length === 1 ? prs[0] : null
+  } catch {
+    return null
+  }
+}
+
 export function detect(root, config, { base: baseFlag } = {}) {
   const projects = [...config.jira.projects, ...(config.jira.trackingProjects ?? [])]
   const clean = t => redact(config, t)
   const out = {
     repo: basename(root), remote: null, isRepo: false, branch: null, detached: false, head: null,
     base: null, baseSource: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
-    files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], subjects: [], branches: [],
+    files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], subjects: [], pullRequest: null, branches: [],
   }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
   out.isRepo = true
@@ -111,10 +123,13 @@ export function detect(root, config, { base: baseFlag } = {}) {
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
   const local = name => (exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null)
   const configured = config.git?.base
+  const pr = rawBranch === null ? null : pullRequest(root, rawBranch)
+  const prBase = typeof pr?.baseRefName === 'string' ? local(pr.baseRefName) : null
   if (baseFlag) {
     const ref = local(baseFlag)
     if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
-  } else if (configured && local(configured)) Object.assign(out, { base: local(configured), baseSource: 'config' })
+  } else if (prBase) Object.assign(out, { base: prBase, baseSource: 'pull-request' })
+  else if (configured && local(configured)) Object.assign(out, { base: local(configured), baseSource: 'config' })
   else {
     const originHead = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
     if (originHead && exists(originHead)) Object.assign(out, { base: originHead, baseSource: 'origin-head' })
@@ -158,9 +173,10 @@ export function detect(root, config, { base: baseFlag } = {}) {
   }
   const subjects = out.mergeBase && !out.onBase ? (git(root, ['log', '--format=%s', `${out.mergeBase}..HEAD`]) ?? '').split('\n') : []
   out.branch = rawBranch === null ? null : clean(rawBranch)
-  out.keys = keyCandidates([out.branch?.toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
+  out.keys = keyCandidates([out.branch?.toUpperCase(), pr && clean(pr.title).toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
   // The branch's own commit messages, newest first and redacted: what a fill-in suggestion may quote.
   out.subjects = subjects.filter(Boolean).slice(0, 20).map(clean)
+  if (pr) out.pullRequest = { base: clean(pr.baseRefName), title: clean(pr.title), description: clean(pr.body) }
   return out
 }
 

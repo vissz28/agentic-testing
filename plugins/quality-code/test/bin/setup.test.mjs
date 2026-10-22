@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { detect, write } from '../../bin/setup.mjs'
+import { detect, ghAccount, write } from '../../bin/setup.mjs'
+import { fakeCommand } from '../fake-bin.mjs'
 
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../../bin/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
@@ -164,7 +165,7 @@ test('write never throws: a dangling symlink at a template path is an error, not
 test('detect: where the project lives, and its GitLab project from the origin remote', () => {
   const d = repo({ devDependencies: { vitest: '1' } })
   const g = (...a) => spawnSync('git', a, { cwd: d, encoding: 'utf8' })
-  assert.deepEqual(detect(d).here, { folder: d.split('/').pop(), repoTop: null, subfolder: null, remote: null, gitlab: null })
+  assert.deepEqual(detect(d).here, { folder: d.split('/').pop(), repoTop: null, subfolder: null, remote: null, gitlab: null, github: null })
   g('init', '-q')
   g('remote', 'add', 'origin', 'https://user:secret@gitlab.example.com/team/sub/app.git')
   const h = detect(d).here
@@ -177,6 +178,42 @@ test('detect: where the project lives, and its GitLab project from the origin re
   assert.equal(detect(join(d, 'web')).here.subfolder, 'web')
   g('remote', 'set-url', 'origin', 'git@github.com:acme/app.git')
   assert.deepEqual([detect(d).here.remote, detect(d).here.gitlab], [{ host: 'github.com', path: 'acme/app', kind: 'github' }, null], 'a GitHub remote is no GitLab project')
+})
+
+test('ghAccount: gh\'s signed-in account on a host, or why not; a GitHub on its own domain is a GitHub', () => {
+  const gh = fakeCommand('gh')
+  // gh auth status --hostname <host> --active --json hosts: signed in on github.com and git.acme.example only.
+  gh.act(`case "$4" in
+github.com|git.acme.example) echo "{\\"hosts\\":{\\"$4\\":[{\\"state\\":\\"success\\",\\"active\\":true,\\"login\\":\\"jdoe\\"}]}}" ;;
+expired.example) echo '{"hosts":{"expired.example":[{"state":"error","active":true,"login":"jdoe"}]}}' ;;
+*) echo '{"hosts":{}}' ;;
+esac`)
+  try {
+    assert.deepEqual(ghAccount('github.com'), { login: 'jdoe' })
+    assert.deepEqual(ghAccount('gitlab.example.com'), { login: null, reason: 'gh is not signed in to gitlab.example.com' })
+    assert.deepEqual(ghAccount('expired.example'), { login: null, reason: 'gh\'s sign-in to expired.example no longer works' })
+    const d = repo({ devDependencies: { vitest: '1' } })
+    const g = (...a) => spawnSync('git', a, { cwd: d, encoding: 'utf8' })
+    g('init', '-q')
+    g('remote', 'add', 'origin', 'git@git.acme.example:team/app.git')
+    assert.deepEqual([detect(d).here.remote.kind, detect(d).here.gitlab, detect(d).here.github], ['github', null, { login: 'jdoe' }], 'GitHub Enterprise')
+    g('remote', 'set-url', 'origin', 'git@gitlab.example.com:team/app.git')
+    assert.deepEqual([detect(d).here.remote.kind, detect(d).here.github], ['gitlab', null])
+    g('remote', 'set-url', 'origin', 'git@github.com:acme/app.git')
+    gh.act('echo \'{"hosts":{}}\'')
+    assert.deepEqual(detect(d).here.github, { login: null, reason: 'gh is not signed in to github.com' }, 'a GitHub remote without a sign-in still gets its GitHub line')
+    gh.act('exit 1')
+    assert.deepEqual(ghAccount('github.com'), { login: null, reason: 'gh could not check github.com' })
+  } finally {
+    gh.restore()
+  }
+  const path = process.env.PATH
+  process.env.PATH = mkdtempSync(join(tmpdir(), 'no-gh-'))
+  try {
+    assert.deepEqual(ghAccount('github.com'), { login: null, reason: 'gh is not installed' })
+  } finally {
+    process.env.PATH = path
+  }
 })
 test('GitHub: its default template names are found, and new templates go to .github', () => {
   const d = repo({})

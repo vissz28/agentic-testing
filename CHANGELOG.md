@@ -24,6 +24,18 @@ Update with `/plugin update quality-code@quality-code`.
   request or the branch's commits for you to accept, and still lets the script accept or refuse each
   answer. Answers typed in an earlier run that never reached Jira are offered again. New script
   calls: `ticket.mjs score --next` (the band and the cheapest fix) and `ticket.mjs saved <KEY>`.
+- **GitHub pull requests, through the `gh` CLI.** On a GitHub repo, `branch.mjs --detect` finds the
+  branch's open pull request when `gh` is installed and signed in: its target is the base (after
+  `--base`, before `git.base`), a key in its title is a ticket candidate, and its description feeds
+  the fill-in suggestions, as a GitLab merge request does. No MCP server and no token setting. The
+  connectors card has a GitHub line (`gh`'s account, or why not and the `gh auth login` fix) for a
+  GitHub repo, GitHub Enterprise on its own domain included (known by `gh`'s sign-in to it).
+- **GitHub and GitLab repos work the same.** GitLab is on the connectors card only for a GitLab
+  remote: the default `gitlab_api_url` used to put it on every card, so GitHub repos saw a GitLab
+  warning on every run. A merge request's title and description, from either host, are saved as
+  `mergeRequest` and redacted by `sanitize` before a fill-in suggestion can quote them (a GitLab
+  description used to be quoted as the connector returned it). When the target branch is not fetched,
+  both keep the detected base and say `git fetch origin <target>`.
 
 - **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
   adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the

@@ -148,7 +148,8 @@ test('the fill-in takes every picked item in one reply, ok takes the To pass ite
 })
 test('a suggestion only quotes the merge request or the commits, never invents a value or a result', () => {
   const f = doc.slice(doc.indexOf('- **Suggested**'), doc.indexOf('- Then, for each line'))
-  assert.match(f, /the merge request's description or the branch's commit messages \(`subjects` in `BRANCH_JSON`\)/)
+  assert.match(f, /the merge request's description \(`mergeRequest\.description` in `ticket\.json`, redacted; never the text as the connector returned it\) or the branch's commit messages \(`subjects` in `BRANCH_JSON`\)/)
+  assert.match(doc, /`mergeRequest`: when `spec` found the branch's merge request \(GitLab\) or pull request .* `sanitize` redacts it, whichever host it came from/)
   assert.match(f, /never add a value, a number or a result the source does not state, and never suggest an expected or actual result/)
   assert.match(f, /leave the line out when there is none/)
 })

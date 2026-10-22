@@ -125,16 +125,36 @@ export function remoteProject(url) {
 export const hostKind = host => (/github/i.test(host) ? 'github' : /bitbucket/i.test(host) ? 'bitbucket' : 'gitlab')
 
 /**
+ * The account the gh CLI is signed in with on host: { login }, else { login: null, reason }. Local
+ * for a host gh has no account on: it never sends a request to a GitLab.
+ */
+export function ghAccount(host) {
+  try {
+    const out = execFileSync('gh', ['auth', 'status', '--hostname', host, '--active', '--json', 'hosts'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10000, env: { ...process.env, GH_PROMPT_DISABLED: '1' } })
+    const a = JSON.parse(out).hosts?.[host]?.[0]
+    if (a?.state === 'success') return { login: a.login }
+    return { login: null, reason: a ? `gh's sign-in to ${host} no longer works` : `gh is not signed in to ${host}` }
+  } catch (e) {
+    return { login: null, reason: e.code === 'ENOENT' ? 'gh is not installed' : `gh could not check ${host}` }
+  }
+}
+
+/**
  * Where the project lives: its folder, the git repo around it, and the origin's project: remote
- * for any host, gitlab only when the host is a GitLab (the GitLab connector looks it up).
+ * for any host, gitlab only when the host is a GitLab (the GitLab connector looks it up), github
+ * (gh's account there) only when it is a GitHub. A GitHub on its own domain (GitHub Enterprise) is
+ * known by gh's sign-in to it, not by its name.
  */
 function here(root) {
   const top = gitOut(root, ['rev-parse', '--show-toplevel'])
-  if (!top) return { folder: basename(root), repoTop: null, subfolder: null, remote: null, gitlab: null }
+  if (!top) return { folder: basename(root), repoTop: null, subfolder: null, remote: null, gitlab: null, github: null }
   const prefix = gitOut(root, ['rev-parse', '--show-prefix'])
   const p = remoteProject(gitOut(root, ['remote', 'get-url', 'origin']))
-  const remote = p && { ...p, kind: hostKind(p.host) }
-  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: remote?.kind === 'gitlab' ? p : null }
+  const gh = p && ghAccount(p.host)
+  const kind = gh?.login ? 'github' : p && hostKind(p.host)
+  const remote = p && { ...p, kind }
+  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
 }
 
 /** The host whose issue-template folder new templates go to: the remote's, else the folder the repo already has. */

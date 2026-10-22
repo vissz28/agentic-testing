@@ -8,8 +8,9 @@
 // or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright). With -g (a Playwright mutant run) and mutantReport,
 // the report is Playwright-shaped, for the file whose pattern is argv[1]. With recordEnv, each call's CI,
 // FORCE_COLOR, NO_COLOR, PLAYWRIGHT_BROWSERS_PATH and report path are appended as one JSON line to <dir>/.fake-<name>.env.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { delimiter, join } from 'node:path'
 
 const script = name => `#!/usr/bin/env node
 const fs = require('fs'), path = require('path')
@@ -61,6 +62,17 @@ export function fakeBin(dir, name, behaviour) {
   writeFileSync(p, script(name))
   writeFileSync(join(dir, `.fake-${name}.json`), JSON.stringify(behaviour))
   return p
+}
+
+/** A fake command first on PATH (gh): act(sh) sets the sh script it runs, restore() puts PATH back. */
+export function fakeCommand(name) {
+  const dir = mkdtempSync(join(tmpdir(), `qc-${name}-`))
+  const before = process.env.PATH
+  process.env.PATH = `${dir}${delimiter}${before}`
+  return {
+    act: sh => writeFileSync(join(dir, name), `#!/bin/sh\n${sh}\n`, { mode: 0o755 }),
+    restore: () => { process.env.PATH = before },
+  }
 }
 
 export function calls(dir, name) {
