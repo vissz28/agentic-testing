@@ -1,24 +1,25 @@
 ---
-description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), confirms where the project lives and which Jira project it uses, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:spec. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
+description: Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), finds where the project lives, its Jira project and its base branch, shows them on one card to confirm, and writes .claude/quality-code.json after you confirm. It does not check any ticket: that is /quality-code:spec. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.
 argument-hint: [advanced]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
-Set up this repo for the quality-code plugin. Setup asks only for the connections and where the project lives; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
+Set up this repo for the quality-code plugin. Setup asks only where the project lives, then shows what it found on one card to confirm; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. A clean setup takes two answers: the **Where** card and the **Confirm** card. Find every other value yourself and put it on the Confirm card; show another card only where a step below says so. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
 
 **Rules**
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
 - Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. If none is connected, step 0's Jira card (in `connectors.md`) says what to do.
+- Run `setup.mjs --detect` once. Step 0 already runs it (in `connectors.md`): keep its `SETUP_JSON:` line and the sites `getAccessibleAtlassianResources` returned, and use both in the steps below without calling them again.
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.
 
 **Steps**
 
 If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
-0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on to step 1 only when its card lets you continue.
+0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. When every connector is ✅, it shows one line and no card: go on to step 1 in the same turn. Otherwise go on to step 1 only when its card lets you continue.
 1. **Where.** Ask where the user will use Quality Code, as this card, and end the turn:
 
    ```
@@ -28,7 +29,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    ```
 
    - **1:** the repo setup: steps 2 to 5 below, as written.
-   - **2:** the personal setup, for people who read tickets and have no repo (QA, PO). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `personal` in its `SETUP_JSON:` line (`path`, `existing`, and `existingError` when the file is broken). Skip step 2 (no project folder, no stack, no GitLab). On a rerun (`personal.existing` is not null), show the current personal config and start every step from it. Then do step 3 (the Jira site and project(s), exactly as for a repo), then ask which tickets they are, as this card, and end the turn:
+   - **2:** the personal setup, for people who read tickets and have no repo (QA, PO). Read `personal` in the `SETUP_JSON:` line (`path`, `existing`, and `existingError` when the file is broken). Skip step 2 (no project folder, no stack, no base branch, no GitLab). On a rerun (`personal.existing` is not null), show the current personal config and start every step from it. Then do step 3 (the Jira site and project(s), exactly as for a repo). Which tickets the user reads is a value on the Confirm card: `personal.existing.adapter` on a rerun, else both (`"fullstack"`). To change it, show this card and end the turn:
 
      ```
      Which tickets?
@@ -38,9 +39,9 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      `1` gives `adapter: "playwright"`, `2` `"vitest"`, `3` `"fullstack"`. The adapter is used only to score tickets. Then step 4 with the personal rules, and step 5 with the personal done line.
-2. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
+2. **This project.** No card here: find the values of the Confirm card. Read `adapter`, `here`, `base`, `existing` (and `existingError` when the old file is broken) in the `SETUP_JSON:` line.
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest, or both).`
-   - `adapter` is `both` (the repo has Vitest and Playwright): ask what the project is, as this card, and end the turn:
+   - **Stack.** `vitest` or `playwright`: that one. `both` (the repo has Vitest and Playwright): propose `fullstack`, or `existing.adapter` on a rerun. Ask nothing now; to change it from the Confirm card, show this card and end the turn:
 
      ```
      This repo has both Vitest and Playwright.
@@ -50,36 +51,46 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      `1` gives `adapter: "fullstack"`, `2` `"playwright"`, `3` `"vitest"`.
-   - If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks.
-   - Show this card and end the turn (leave out `(subfolder …)` when `here.subfolder` is null; write `Remote   none` when `here.remote` is null):
-
-     ```
-     This project
-       Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
-       Stack    <frontend (Playwright) | backend (Vitest) | fullstack (Vitest and Playwright), from adapter>
-       Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
-     1. Yes, this is it
-     2. Stop
-     ```
-
-     The GitLab project is read from the remote every time; it is not written to the config.
-3. **Jira.** Using the Atlassian connector:
-   - Call `getAccessibleAtlassianResources`, then confirm the site URL with the user (`1. Use <site>` / `2. A different site`). The site is an `https://` URL with no path. Only Atlassian Cloud sites work (the ones `getAccessibleAtlassianResources` lists): when the team's Jira is a Server or Data Center site, say `quality-code needs Jira Cloud: the Atlassian connector cannot reach <site>.` and stop. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
-   - Call `getVisibleJiraProjects`. Show the projects as a numbered list; the user picks by number. Their keys become `jira.projects`.
+   - **GitLab project.** If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks. The GitLab project is read from the remote every time; it is not written to the config.
+   - **Base branch** (`git.base`: the branch feature branches start from and merge into; start, spec and check diff against it). On a rerun, keep `existing.git.base` when it is set. Else, when the GitLab project was found, make one read-only GitLab call for its 20 most recently merged merge requests and propose their most common target branch (from `recent merge requests`). Else propose `base.proposed` from the detect result: `base.source` `develop` reads `from origin/develop`, `origin-head` reads `from origin/HEAD`. When `base` is null and nothing else proposes one, leave `git.base` out and show `none found (main or master at run time)`.
+3. **Jira.** Using the Atlassian connector. No card when the values are clear:
+   - **Site.** From the sites of step 0. On a rerun, keep `existing.jira.site` when it is one of them. Else, when there is exactly one site, use it and ask nothing. With several, show them as a numbered list (`<n>. <site URL>`) and end the turn; the pick is the site. The site is an `https://` URL with no path. Only Atlassian Cloud sites work (the ones `getAccessibleAtlassianResources` lists): when the team's Jira is a Server or Data Center site, say `quality-code needs Jira Cloud: the Atlassian connector cannot reach <site>.` and stop. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
+   - **Project.** On a rerun, keep `existing.jira.projects`. Else read `projectCandidates` in the detect result: the project keys named by this repo's branch names and recent commit subjects, most frequent first. Check the first one with one `getVisibleJiraProjects` call with `searchString` `<KEY>`: it exists when a returned project's key is exactly `<KEY>`. It exists: it is the project, ask nothing. It does not: check the next one, at most 3 calls in all. No candidate exists, or there is none: show the project card.
+   - **The project card.** Call `getVisibleJiraProjects` once with `maxResults` 21 and no `searchString`. 20 projects or fewer: show them as a numbered list (`<n>. <KEY>  <name>`), plus a last line `<n>. Type a project key`, and end the turn; the user picks by number, several allowed. More than 20 (a large site can have hundreds): never list them; ask `Which Jira project? Type its key (for example ABC).` and end the turn. A typed key: upper-case it and check it with one `getVisibleJiraProjects` call with `searchString` `<KEY>` (exists when a returned project's key is exactly `<KEY>`). It does not exist: say `<KEY> does not exist on <site host>, or this account cannot see it.`, ask for the key again and end the turn. The picked or typed keys become `jira.projects`.
    - Ask nothing else: no criteria field, labels, prefixes, languages or templates.
-4. **Preview.** Show the config as it will be written, then this card and end the turn:
+4. **Confirm.** Show everything on one card, with the config as it will be written, and end the turn. Leave out `(subfolder …)` when `here.subfolder` is null; write `Remote   none` when `here.remote` is null; add the line `  <path> not found on <host> (check gitlab_api_url)` under Remote when the GitLab lookup did not find it.
 
    ```
+   Quality Code setup
+     Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
+     Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
+     Stack    <frontend (Playwright) | backend (Vitest) | fullstack (Vitest and Playwright), from adapter>
+     Jira     <site host>, project(s) <keys>
+     Base     <branch>   (from <where it was found>)
+   Writes .claude/quality-code.json:
+   <the config JSON>
    1. Write it
    2. Change something
    3. Cancel
    ```
 
-   - **Personal setup (option 2):** show the config and add the line `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors and `2`/`3` work as below.
-   - **1:** build the proposal `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
-   - **2:** ask which part to change, redo that step, show the preview again.
+   The config is `version: 1`, `adapter`, `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
+
+   - **Personal setup (option 2):** the card has no Folder, Remote, Stack or Base line, and shows `Tickets  <frontend | backend | both>` under Jira; in place of the `Writes` line it says `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` (inline, as below). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors, `2` and `3` work as below.
+   - **1:** build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
+   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`; for a personal setup, `Tickets` in place of Stack, and no Base):
+
+     ```
+     Change what?
+     1. Stack
+     2. Jira site
+     3. Jira project
+     4. Base branch
+     ```
+
+     The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 1, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Ask nothing else again.
    - **3:** stop. Nothing is written.
-5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>, or a whole project: /quality-code:tickets-eval <PROJECT>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>, base <branch>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
 
 ## Advanced
 
@@ -150,6 +161,6 @@ A5. **Preview and write.** Show the full config as it will be written (for `vite
    3. Cancel
    ```
 
-   - **1:** build the proposal `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` as in step 3. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
+   - **1:** build the proposal `{ "config": { … }, "templates": { … } }` (omit `templates` if none were accepted; the config is the current one with the answers of A1 to A4 merged in: `version: 1`, `adapter`, `jira { site, projects, trackingProjects? }`, `languages`, `features`, for `vitest` and `fullstack` `titlePrefixes`, for `playwright` and `fullstack` `confluenceSpaces` when spaces were picked and `playwright` `configs` when the Playwright card was answered, for `fullstack` `sides` when they differ from the defaults, `vitest` `configs` when the Vitest configs card was answered, `vitest` `layers` when the test folders were accepted, and `boundaries` when any path was kept). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` as in step 4. If it prints errors, show them as they are and go back to A5 with a fix. On `ok`, say that the advanced setup is done.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.

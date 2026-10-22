@@ -72,6 +72,7 @@ test('the short setup asks only for connectors, the project here and the Jira pr
   assert.match(step(3), /Ask nothing else/)
   for (const w of ['getJiraIssueTypeMetaWithFields', 'labels,summary', 'titlePrefixes', 'searchConfluenceUsingCql', 'Templates.']) assert.ok(!short.includes(w), w)
   assert.ok(step(4).includes('jira { site, projects }'))
+  assert.ok(step(4).includes('git { base }'))
   assert.match(step(4), /keep every other field of `existing` unchanged/)
   assert.ok(step(5).startsWith('5. **Done.**'))
   assert.match(step(5), /Do not read, score or comment on any ticket/)
@@ -150,4 +151,71 @@ test('no Atlassian connection: setup defers to the Jira card, it has no ticket t
 test('setup says plainly that Jira Server and Data Center sites cannot be used', () => {
   assert.match(doc, /Only Atlassian Cloud sites work/)
   assert.ok(doc.includes('`quality-code needs Jira Cloud: the Atlassian connector cannot reach <site>.`'))
+})
+
+// AGT-112: a clean setup (Jira connected, one site, git history naming one project) takes two answers.
+test('a clean setup takes two answers: the Where card and the Confirm card', () => {
+  const short = doc.slice(0, doc.indexOf('## Advanced'))
+  assert.match(short, /A clean setup takes two answers: the \*\*Where\*\* card and the \*\*Confirm\*\* card/)
+  assert.match(step(0), /every connector is ✅, it shows one line and no card: go on to step 1 in the same turn/)
+  assert.match(step(2), /No card here/)
+  assert.match(step(3), /No card when the values are clear/)
+  assert.match(short, /Run `setup\.mjs --detect` once/)
+  assert.match(short, /without calling them again/)
+})
+test('the Confirm card shows the folder, stack, Jira, base and the config, then write / change / cancel', () => {
+  const s = step(4)
+  for (const l of ['Quality Code setup', 'Folder   <here.folder>', 'Remote   <here.remote.path>', 'Stack    <frontend (Playwright)', 'Jira     <site host>, project(s) <keys>', 'Base     <branch>', 'Writes .claude/quality-code.json:', '<the config JSON>', '1. Write it', '2. Change something', '3. Cancel']) assert.ok(s.includes(l), l)
+  assert.ok(s.includes('Remote   none'))
+})
+test('Change something asks only for the value to change, then shows the Confirm card again', () => {
+  const s = step(4)
+  assert.ok(s.includes('Change what?\n     1. Stack\n     2. Jira site\n     3. Jira project\n     4. Base branch'))
+  assert.match(s, /ask only which value to change/)
+  assert.match(s, /type the new value with the number \(for example `4 main`\)/)
+  assert.match(s, /show the Confirm card again with the new value/)
+  assert.match(s, /Stack only when `adapter` is `both`/)
+})
+test('both runners: fullstack is proposed and the both card is shown only to change it', () => {
+  const s = step(2)
+  assert.match(s, /`both` \(the repo has Vitest and Playwright\): propose `fullstack`/)
+  assert.match(s, /Ask nothing now; to change it from the Confirm card/)
+})
+test('the site is not asked when there is exactly one', () => {
+  assert.match(step(3), /exactly one site, use it and ask nothing/)
+  assert.match(step(3), /With several, show them as a numbered list/)
+})
+// AGT-110: the project from the history, a typed key checked, the full list only for 20 projects or fewer.
+test('the Jira project is proposed from branch names and commits, and checked with one call', () => {
+  const s = step(3)
+  assert.match(s, /`projectCandidates`/)
+  assert.match(s, /branch names and recent commit subjects, most frequent first/)
+  assert.ok(s.includes('`getVisibleJiraProjects` call with `searchString` `<KEY>`'))
+  assert.match(s, /key is exactly `<KEY>`/)
+  assert.match(s, /at most 3 calls/)
+})
+test('a typed key that does not exist is refused and asked again', () => {
+  const s = step(3)
+  assert.ok(s.includes('`<KEY> does not exist on <site host>, or this account cannot see it.`'))
+  assert.match(s, /ask for the key again and end the turn/)
+})
+test('the numbered project list only for 20 projects or fewer', () => {
+  const s = step(3)
+  assert.match(s, /`maxResults` 21/)
+  assert.match(s, /20 projects or fewer: show them as a numbered list/)
+  assert.match(s, /More than 20[^:]*: never list them/)
+  assert.ok(s.includes('`Which Jira project? Type its key (for example ABC).`'))
+})
+// AGT-111: the base branch is proposed, shown and written.
+test('the base branch: merge requests, else develop or origin/HEAD from detect; written as git.base', () => {
+  const s = step(2)
+  assert.match(s, /\*\*Base branch\*\* \(`git\.base`/)
+  assert.match(s, /keep `existing\.git\.base`/)
+  assert.match(s, /one read-only GitLab call for its 20 most recently merged merge requests/)
+  assert.match(s, /most common target branch/)
+  assert.match(s, /`base\.proposed`/)
+  assert.match(s, /`base\.source` `develop`/)
+  assert.match(s, /`origin-head`/)
+  assert.match(step(4), /`git \{ base \}` \(left out when no base was found\)/)
+  assert.match(step(5), /base <branch>/)
 })

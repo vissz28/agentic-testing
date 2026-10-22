@@ -113,6 +113,14 @@ test('setup: the first card after the connectors, with both options', () => {
   assert.ok(s.indexOf('0. **Connectors.**') < s.indexOf('Where will you use Quality Code?'))
   assert.ok(s.indexOf('Where will you use Quality Code?') < s.indexOf('2. **This project.**'))
 })
+test('setup: the personal setup confirms on the same card; tickets default to both and change with their card', () => {
+  const s = cmd('setup')
+  assert.match(s, /Which tickets the user reads is a value on the Confirm card: `personal\.existing\.adapter` on a rerun, else both \(`"fullstack"`\)/)
+  assert.match(s, /Skip step 2 \(no project folder, no stack, no base branch, no GitLab\)/)
+  assert.ok(s.includes('shows `Tickets  <frontend | backend | both>` under Jira'))
+  assert.ok(s.includes('`Saved in <personal.path>; no repo file is touched.`'))
+  assert.match(s, /for a personal setup, `Tickets` in place of Stack, and no Base/)
+})
 for (const n of ['check', 'seed', 'xray']) {
   test(`${n}: a personal config or no git repo stops with the needs-a-repo line`, () => {
     const s = cmd(n)

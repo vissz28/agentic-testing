@@ -57,6 +57,11 @@ test('setup step 0 reads the connectors check before the project card', () => {
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/connectors.md'))
   assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n2. **This project.**'))
 })
+test('setup: all connectors ✅ shows no card and goes on in the same turn; the sites are not fetched again', () => {
+  const s = step(setup, 0)
+  assert.match(s, /When every connector is ✅, it shows one line and no card: go on to step 1 in the same turn/)
+  assert.match(setup, /keep its `SETUP_JSON:` line and the sites `getAccessibleAtlassianResources` returned/)
+})
 test('GitLab browser sign-in is like Jira: /mcp, choose gitlab, sign in; an instance without the server says so', () => {
   assert.ok(doc.includes('type /mcp, choose `gitlab` and sign in in the browser'))
   assert.match(doc, /no application to create/)
