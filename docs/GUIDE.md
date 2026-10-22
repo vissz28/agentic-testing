@@ -638,6 +638,16 @@ Type the numbers you want to fill, for example: 1 3
   Labels that are not in your config, a missing "actual" result and vague results are refused the
   same way.
 - Answers go into the local copy first. **Nothing reaches Jira** until you confirm.
+- **Draft from Figma.** When the ticket links a Figma design (`figma.com/design`, `file`, `proto` or
+  `board`) and the Figma connector is connected, the list has one more line: `Draft from Figma and my
+  changes`, for acceptance criteria, expected behaviour and steps. The design (its frames, texts,
+  labels and states) and, in a project repo, your branch's code changes are read, and each item is
+  drafted in the ticket's language, as Given / When / Then for criteria. A value the design and the
+  code do not show is left as a question for you to fill, such as `<which total?>`; nothing is
+  invented. You see the draft exactly as it would be added and choose `1. Use it`, `2. Edit` or
+  `3. Skip`. A draft goes through the same check as a typed answer, so it counts only if the rubric
+  credits it. With a personal setup (no repo) only the design is used. Nothing goes to Jira without
+  the preview and your yes, and it is only appended.
 
 **Pushing the fill-in to Jira.** When the filled-in ticket passes, what you typed goes to the real
 ticket next, so the ticket itself carries it. You see exactly what will be added; only after you

@@ -11,7 +11,7 @@ import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } 
 import { sanitizeTicket } from './sanitize.mjs'
 import { resolveField, storeField } from './fields.mjs'
 import { evalTickets, formatCard, saveTickets } from './batch.mjs'
-import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from './fill.mjs'
+import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks } from './fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -145,7 +145,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     case 'fill-menu': {
       const m = fillMenu(config, buildBrief(config, ticket))
       out(formatFillMenu(m))
-      out(`FILL_JSON:${JSON.stringify({ score: m.score, threshold: m.threshold, items: m.items })}`)
+      out(`FILL_JSON:${JSON.stringify({ score: m.score, threshold: m.threshold, items: m.items, figma: figmaLinks(ticket) })}`)
       return 0
     }
     case 'pick': {

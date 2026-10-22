@@ -31,7 +31,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector with `cloudId` set to the hostname of `jira.site` (no `https://`), fields `summary,issuetype,status,labels,description,<criteria field>,issuelinks,attachment` (the field from step 1; leave it out when it is `null`), and `responseContentFormat` `markdown` so headings and paragraphs keep their line breaks. Harvest:
    - `summary`, `issuetype`, `status`, `labels`; `browse` = `<jira.site>/browse/<KEY>`.
    - The raw description and the raw criteria field text. Do not judge them: the script reads them itself. Extract each `Scenario:` into `scenarios: [{ "name", "gherkin" }]`. Do not pad the list; write only what the ticket supports.
-   - `figma`: a `figma.com/(file|design)/…` URL in the description, labels or `issuelinks`, else `null`. Note the URL only.
+   - `figma`: a `figma.com/(design|file|proto|board)/…` URL in the description, labels or `issuelinks`, else `null`. Note the URL only. (The script finds every Figma link of the ticket itself, from `links`, the description and this field.)
    - `attachments`: the number of entries in the `attachment` field (a number, `0` when there are none). Only the count: never a file name, never an attachment URL, never a file's contents, and do not open or download any attachment.
    - `links`: a list of `{ "url", "title" }`, one per linked issue and per web link. For each entry of `issuelinks` (inward or outward issue): `url` = `<jira.site>/browse/<linked KEY>`, `title` = the key and its summary. For the ticket's web links (Jira's remote links, never in `issuelinks`): call `listJiraIssueRemoteIssueLinks` (`getJiraIssueRemoteIssueLinks` on an older connection) once, with the same `cloudId` and the key, and add each as `url` = `object.url`, `title` = `object.title`. Do this for every adapter; the QA plan below reads the same result, so call it once and reuse it. Links only: no page is opened for this. No links at all: `[]`.
    - Flags: only things a script cannot see (an undefined term, a missing precondition, a `When` with no `Then`). Informational; they do not change the score.
@@ -121,7 +121,7 @@ Comment preview (not posted yet):
 
 Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed. End the turn after every card.
 
-1. **The list.** `cli.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`).
+1. **The list.** `cli.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`). Read `FILL_JSON`: when its `figma` list is not empty, at least one item has `design: true`, and the Figma connector is connected, add one line at the end of the card (see **Draft from Figma**). The Figma connector is connected when you find the tools of `figma` or `figma-token` (the check in `connectors.md`); no tools, no line.
 2. **The pick.** `cli.mjs pick "<their numbers>"`. Show its one line. Not enough points: show the list again (cap 2, then the refuse card). Enough: go on. Unknown number: show the line and the list again. Minimal answers are fine only if the script credits them.
 3. **One item at a time**, in the order picked. Print the item's `title`, `question` and `example` from `FILL_JSON` as:
 
@@ -138,6 +138,35 @@ Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as pr
 **Two items are different.**
    - **Link:** the answer is one web address (a Figma design, a Confluence page, the page the ticket is about). Pass it to `add` like any answer. The script adds it to the description as a `## Links` line and credits it only when it is a valid `http://` or `https://` address.
    - **Attachment:** a file cannot be typed in, so its question asks the user to attach a screenshot, video or file on the Jira ticket itself (never here), then answer `done`. `add` answers `Not counted yet` and writes nothing: the script credits an attachment only when it sees one on the ticket. So after `done`, read the ticket again: `getJiraIssue` with fields `attachment` only, count its entries (the number, nothing else), and run `cli.mjs attachments --in @<ticketsDir>/<KEY>/ticket.json <count>`. Show its line. The script re-scores and is the only decider: if the count is still `0`, the item stays missing, say `I do not see an attachment on the ticket yet.`, and move on. Never mark it as credited yourself, and never ask for the file contents.
+
+## Draft from Figma and my changes
+
+Only when `FILL_JSON.figma` has links and the Figma connector is connected. The list card then gets one more line, numbered after the last item, naming the items marked `design: true` (acceptance criteria, expected behaviour, steps or user story, and nothing else):
+
+```
+<n>. Draft from Figma and my changes (<the titles of the items marked design: true>)
+```
+
+That number is not an item, so it is never given to `pick` as it is. Typing it means: draft every item marked `design: true`. Typing it with item numbers (for example `1 <n>`) means: those items too, filled by hand as usual. Run `cli.mjs pick` with the item numbers that result (the marked ones, and the hand-filled ones) and show its line as usual. Then, for each marked item, one at a time:
+
+- **Read the design.** Use the first link of `FILL_JSON.figma` (the others only if the first does not hold the screen). Call `get_metadata`, or `get_design_context`, on the Figma connector with the node of the link, and a screenshot only if the text is not enough. Load the connector's own skills as its server instructions say (for example `/figma-design-to-code` before `get_design_context`, and `create_session` first where it asks). Use the frames, texts, labels and states of the linked node. This is read-only: never change the Figma file.
+- **Read the branch's code changes.** Only when there is a repo: run `node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect`, take the files of kind `code` whose status is not `D`, and run `git diff <base>...HEAD -- <those files>`, kept short (the changed hunks only, at most a few hundred lines). With a personal config (`config check` printed `ok (personal:`) or no git repo, use the design only and do not run git.
+- **Draft the item** in the ticket's language, in the form of the item's `example`. Gherkin (`Given` / `When` / `Then`) is preferred for acceptance criteria. Use only what the design and the code show. Never invent values: a number, a text, a label or a state you cannot read from them is a question inside the draft, such as `<which total?>`, which the user must fill. A draft with such a question is never sent as it is.
+- **Show the draft** exactly as it would be added, then end the turn:
+
+  ```
+  <the draft>
+
+  1. Use it
+  2. Edit
+  3. Skip
+  ```
+
+- **1:** send the draft through `cli.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"`, exactly like a typed answer. If the draft still holds a `<...>` question, do not send it: ask for the values first, then show the draft again. The script decides whether it counts: show its line. `Not accepted:` is shown as for a typed answer (one more try with Edit, then move on).
+- **2:** ask for their edited text, and send that through `add` the same way.
+- **3:** move on to the next item.
+
+Rules for this path: the draft is a suggestion and the script is the only judge (the model never grades and never says a score); never write to Jira without the preview and a yes (the push below is the only write, and it appends); never send code or design content anywhere else than into the draft shown here; do not paste the diff or the design text into the chat beyond the draft itself. After the last item the usual flow continues below: any item not drafted is asked as above, then the re-score, the preview and the push card.
 
 After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass` with nothing accepted: the ticket is ready; stop. `pass` with at least one answer accepted: what was typed goes to Jira next, so the ticket itself carries it. Say `The ticket now has <score> points (the bar is <threshold>).`, run `cli.mjs jira-update --in @<ticketsDir>/<KEY>/ticket.json`, show its preview as printed, then this card and end the turn (`--ci` never gets here):
 

@@ -118,3 +118,57 @@ test('attachments and links: step 2 reads them as a count and a list, the fill-i
   assert.match(fill, /cli\.mjs attachments --in @<ticketsDir>\/<KEY>\/ticket\.json <count>/)
   assert.match(fill, /The script re-scores and is the only decider/)
 })
+
+// Figma fill-in: the list line, the drafts, and the limits on them.
+const fig = doc.slice(doc.indexOf('## Draft from Figma and my changes'), doc.indexOf('After the last item, re-run'))
+test('Figma: the list card gets the draft line only with Figma links and a connected connector', () => {
+  const list = doc.slice(doc.indexOf('1. **The list.**'), doc.indexOf('2. **The pick.**'))
+  assert.match(list, /`figma` list is not empty/)
+  assert.match(list, /`figma` or `figma-token`/)
+  assert.match(list, /no tools, no line/)
+  assert.ok(fig.includes('<n>. Draft from Figma and my changes (<the titles of the items marked design: true>)'))
+  assert.match(fig, /acceptance criteria, expected behaviour, steps or user story, and nothing else/)
+  assert.match(fig, /never given to `pick` as it is/)
+})
+test('Figma: reads the design with the connector and loads its own skills', () => {
+  assert.match(fig, /`get_metadata`, or `get_design_context`/)
+  assert.match(fig, /screenshot only if the text is not enough/)
+  assert.match(fig, /\/figma-design-to-code/)
+  assert.match(fig, /frames, texts, labels and states/)
+  assert.match(fig, /never change the Figma file/)
+})
+test('Figma: the branch changes come from branch.mjs --detect, code files not deleted, a short diff', () => {
+  assert.ok(fig.includes('node "${CLAUDE_PLUGIN_ROOT}/core/branch.mjs" --detect'))
+  assert.match(fig, /files of kind `code` whose status is not `D`/)
+  assert.ok(fig.includes('git diff <base>...HEAD -- <those files>'))
+  assert.match(fig, /kept short/)
+})
+test('Figma: a personal config or no git repo uses the design only', () => {
+  assert.ok(fig.includes('`ok (personal:`'))
+  assert.match(fig, /no git repo, use the design only and do not run git/)
+})
+test('Figma: drafts use only what is shown, never invent values, and open questions block sending', () => {
+  assert.match(fig, /Gherkin[^.]*preferred for acceptance criteria/)
+  assert.match(fig, /ticket's language/)
+  assert.match(fig, /Never invent values/)
+  assert.ok(fig.includes('`<which total?>`'))
+  assert.match(fig, /never sent as it is/)
+})
+test('Figma: the draft is shown as it would be added, with Use it / Edit / Skip, and the turn ends', () => {
+  assert.ok(fig.includes('1. Use it\n  2. Edit\n  3. Skip'))
+  assert.match(fig, /exactly as it would be added, then end the turn/)
+})
+test('Figma: Use it goes through add like a typed answer, Edit sends their text, Skip moves on; the script decides', () => {
+  assert.ok(fig.includes('cli.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"'))
+  assert.match(fig, /exactly like a typed answer/)
+  assert.match(fig, /The script decides whether it counts/)
+  assert.match(fig, /\*\*2:\*\* ask for their edited text, and send that through `add`/)
+  assert.match(fig, /\*\*3:\*\* move on/)
+  assert.match(fig, /the model never grades/)
+})
+test('Figma: no Jira write without the preview and a yes, append only, nothing sent elsewhere; the usual flow continues', () => {
+  assert.match(fig, /never write to Jira without the preview and a yes/)
+  assert.match(fig, /it appends/)
+  assert.match(fig, /never send code or design content anywhere else/)
+  assert.match(fig, /re-score, the preview and the push card/)
+})
