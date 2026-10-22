@@ -196,6 +196,19 @@ export function applyAnswer(config, ticket, key, answer) {
       entry.label = label
       break
     }
+    case 'links': {
+      const url = lines[0] ?? ''
+      let ok = false
+      try { const u = new URL(url); ok = /^https?:$/.test(u.protocol) && u.hostname.length > 0 && !/\s/.test(url) } catch { ok = false }
+      if (!ok || lines.length > 1) return reject('Paste one web address that starts with http:// or https://.')
+      addSection('Links', url)
+      next.links = [...(next.links ?? []), { url, title: '' }]
+      break
+    }
+    case 'attachments':
+      // A file cannot be typed in. "done" is only a promise: the score counts it after the ticket is read again.
+      if (!/^(done|fatto)$/i.test(text)) return reject('Attach a screenshot, a video or a file on the Jira ticket, then answer: done')
+      return { ok: false, pending: true, input: ticket, reason: 'Not counted yet. The check only counts a file it can see on the ticket: it is read again from Jira, then scored.' }
     case 'environment': {
       const env = text.replace(/^env\s*[:=]\s*/i, '').trim()
       if (!env) return reject('Name the environment, for example staging.')

@@ -104,3 +104,17 @@ test('fullstack: step 4b finds the side, asks only when the ticket does not say,
   assert.match(qa, /or `adapter: fullstack` and the ticket is not marked backend/)
   assert.ok(doc.includes('`SIDE_JSON:`'), 'the machine line is dropped')
 })
+
+test('attachments and links: step 2 reads them as a count and a list, the fill-in re-reads for an attachment', () => {
+  const s2 = doc.slice(doc.indexOf('2. **Read the ticket.**'), doc.indexOf('3. **Save and sanitize.**'))
+  assert.match(s2, /issuelinks,attachment`/)
+  assert.match(s2, /Only the count: never a file name, never an attachment URL/)
+  assert.match(s2, /`listJiraIssueRemoteIssueLinks`/)
+  assert.match(doc, /"attachments": 0, "links": \[\{ "url"/)
+  const fill = doc.slice(doc.indexOf('**Two items are different.**'), doc.indexOf('After the last item, re-run'))
+  assert.match(fill, /valid `http:\/\/` or `https:\/\/` address/)
+  assert.match(fill, /attach a screenshot, video or file on the Jira ticket itself/)
+  assert.match(fill, /read the ticket again: `getJiraIssue` with fields `attachment` only/)
+  assert.match(fill, /cli\.mjs attachments --in @<ticketsDir>\/<KEY>\/ticket\.json <count>/)
+  assert.match(fill, /The script re-scores and is the only decider/)
+})

@@ -51,12 +51,29 @@ function redactLeaves(config, value) {
 /** Free text the model harvested next to the ticket body. */
 const HARVESTED = ['scenarios', 'qaPlan', 'flags']
 
+/** How many files are on the ticket: a number, or a list (only its length is kept: no names, no URLs). */
+export function attachmentCount(value) {
+  const n = Array.isArray(value) ? value.length : Number(value)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+}
+
+/** The ticket's linked issues and web links as { url, title }: http(s) only, redacted, nothing else kept. */
+export function cleanLinks(config, value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map(l => (typeof l === 'string' ? { url: l, title: '' } : l))
+    .filter(l => l && typeof l.url === 'string' && /^https?:\/\//i.test(l.url.trim()))
+    .map(l => ({ url: redact(config, l.url.trim()), title: redact(config, typeof l.title === 'string' ? l.title : '').slice(0, 200) }))
+}
+
 export function sanitizeTicket(config, input = {}) {
   const text = input.text ?? {}
   const harvested = Object.fromEntries(HARVESTED.filter(k => k in input).map(k => [k, redactLeaves(config, input[k])]))
   return {
     ...input,
     ...harvested,
+    ...('attachments' in input ? { attachments: attachmentCount(input.attachments) } : {}),
+    ...('links' in input ? { links: cleanLinks(config, input.links) } : {}),
     summary: redact(config, input.summary ?? ''),
     text: {
       description: redact(config, text.description ?? ''),

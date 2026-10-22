@@ -533,19 +533,28 @@ keywords. The model never supplies the number.
 
 | What the ticket has | Playwright | Vitest |
 |---|---:|---:|
-| Acceptance criteria | 30 | 30 |
+| Acceptance criteria | 25 | 25 |
 | Criteria that are specific (no "works correctly") | 15 | 15 |
-| A feature label from your config | 15 | 5 |
-| A Confluence QA plan found (a page attached to the ticket, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 15 | — |
-| Steps to reproduce (bug) or a user story (story) | 10 | 15 |
+| Steps to reproduce (bug) or a user story (story) | 10 | 10 |
 | Expected and actual result | 10 | 15 |
-| A context / summary section | — | 10 |
+| An attachment (a screenshot, a video or a file on the ticket) | 10 | 10 |
+| A link (a linked issue, or a web link: Figma, Confluence, other) | 5 | 5 |
+| A feature label from your config | 10 | 5 |
+| A Confluence QA plan found (a page attached to the ticket, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 10 | — |
+| A context / summary section | — | 5 |
 | A title prefix from your config (`[API] …`) | — | 5 |
 | Environment (`Env: staging`) | 5 | 5 |
 
 A ticket with acceptance criteria also gets the Expected points. A signal your config cannot meet
 (no feature labels, or no title prefixes) is never asked for and scores 0, so the best possible score
-is then 85 (Playwright) or 90 to 95 (Vitest), still above the bar.
+is then 90 (Playwright) or 90 to 95 (Vitest), still above the bar.
+
+**Attachments and links.** Only their number and addresses are read: the count of files on the ticket
+(never their names, URLs or contents) and the list of linked issues and web links (URL and title, redacted
+like the rest). In the guided fill-in, a **link** is one web address, added to the description as a
+`## Links` line and credited when it is a valid `http(s)` address. An **attachment** cannot be typed: you
+attach the file on the Jira ticket, answer `done`, and it counts once the ticket is read again and the
+script sees the file.
 
 ### Acceptance criteria that count
 

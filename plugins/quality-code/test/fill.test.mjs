@@ -116,18 +116,18 @@ for (const [name, c, bare, vagueTicket] of [['playwright', FE, feBare, feVague],
 
 test('playwright: bug menu lists every gap once, AC first, no QA plan', () => {
   const menu = fillMenu(FE, brief(FE, feBare))
-  assert.equal(menu.items.map(i => i.key).join(), 'ac_present,feature_label,steps,expected_defined,environment')
-  assert.equal(menu.items[0].gain, 55, 'AC gain counts the testable and expected it also credits')
-  assert.deepEqual(menu.items.map(i => i.n), [1, 2, 3, 4, 5])
+  assert.equal(menu.items.map(i => i.key).join(), 'ac_present,steps,expected_defined,attachments,feature_label,links,environment')
+  assert.equal(menu.items[0].gain, 50, 'AC gain counts the testable and expected it also credits')
+  assert.deepEqual(menu.items.map(i => i.n), [1, 2, 3, 4, 5, 6, 7])
   assert.ok(menu.items.every(i => i.n && i.title && i.question && i.example && Number.isInteger(i.gain)))
   assert.deepEqual(Object.keys(menu), ['key', 'rubric', 'issuetype', 'score', 'threshold', 'signals', 'items'])
-  assert.ok(menu.items[1].question.includes('Orders, Invoices'), 'the feature question lists the configured features')
+  assert.ok(menu.items.find(i => i.key === 'feature_label').question.includes('Orders, Invoices'), 'the feature question lists the configured features')
   assert.ok(formatFillMenu(menu).includes('0 of the 70 points'))
 })
 test('vitest: bug menu lists every gap once, AC first, testable folded into AC', () => {
   const menu = fillMenu(BE, brief(BE, beBare))
-  assert.equal(menu.items.map(i => i.key).join(), 'ac_present,steps,expected_defined,context,title_prefix,feature_label,environment')
-  assert.equal(menu.items[0].gain, 60)
+  assert.equal(menu.items.map(i => i.key).join(), 'ac_present,expected_defined,steps,attachments,links,context,title_prefix,feature_label,environment')
+  assert.equal(menu.items[0].gain, 55)
   assert.ok(!menu.items.some(i => i.key === 'ac_testable'))
   assert.ok(menu.items.every(i => i.n && i.question && i.example))
   assert.ok(formatFillMenu(menu).includes('0 of the 70 points'))
@@ -139,7 +139,7 @@ test('playwright: picks reach the bar or fall short', () => {
   const p1 = projectPick(menu, [menu.items.find(i => i.key === 'environment').n])
   assert.ok(p1.score === 5 && p1.short === 65 && !p1.enough, JSON.stringify(p1))
   assert.ok(formatPick(p1).includes('65 points short'))
-  const p2 = projectPick(menu, [1, 2])
+  const p2 = projectPick(menu, [1, 2, menu.items.find(i => i.key === 'feature_label').n])
   assert.ok(p2.enough && p2.score === 70 && p2.short === 0)
   assert.ok(formatPick(p2).includes('enough'))
   assert.deepEqual(Object.keys(p2.picked[0]), ['n', 'key', 'title', 'question', 'example'])
@@ -148,18 +148,18 @@ test('playwright: picks reach the bar or fall short', () => {
   assert.ok(projectPick(menu, []).error)
   assert.equal(projectPick(menu, [1, 1]).picked.length, 1, 'a repeated number counts once')
 })
-test('vitest: the 25-point ticket, pick only Environment, then AC + Environment', () => {
+test('vitest: the 15-point ticket, pick only Environment, then AC + Environment', () => {
   const at25 = { ...beBare, text: { description: '## Summary\nfilter is wrong\n## Steps to reproduce\n1. open\n2. filter 22' } }
   const m25 = fillMenu(BE, brief(BE, at25))
-  assert.equal(m25.score, 25)
+  assert.equal(m25.score, 15)
   const envN = m25.items.find(i => i.key === 'environment').n
   const p1 = projectPick(m25, [envN])
-  assert.ok(p1.score === 30 && p1.short === 40 && !p1.enough, JSON.stringify(p1))
-  assert.ok(formatPick(p1).includes('40 points short'))
+  assert.ok(p1.score === 20 && p1.short === 50 && !p1.enough, JSON.stringify(p1))
+  assert.ok(formatPick(p1).includes('50 points short'))
   const p2 = projectPick(m25, [m25.items.find(i => i.key === 'ac_present').n, envN])
-  assert.ok(p2.enough && p2.score === 90)
+  assert.ok(p2.enough && p2.score === 75)
   assert.ok(projectPick(m25, [99]).error, 'an unknown number is an error, not a silent skip')
-  assert.deepEqual(projectPick(JSON.parse(JSON.stringify(m25)), [envN]).score, 30, 'a menu that went through JSON still projects')
+  assert.deepEqual(projectPick(JSON.parse(JSON.stringify(m25)), [envN]).score, 20, 'a menu that went through JSON still projects')
 })
 test('vitest: context and title prefix', () => {
   assert.ok(!applyAnswer(BE, beBare, 'context', 'bad').ok, 'a stub context is rejected')

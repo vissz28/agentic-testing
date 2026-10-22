@@ -101,7 +101,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     return 0
   }
   if (!a.in) {
-    err("usage: cli.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
+    err("usage: cli.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -163,13 +163,27 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
         try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { err(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
         const b = r.brief
         out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      } else if (r.pending) {
+        out(r.reason)
       } else {
         const example = exampleFor(config, ticket, key)
         out(`Not accepted: ${r.reason}${example ? `\nExample: ${example.replace(/\n/g, ' / ')}` : ''}`)
       }
       const after = r.brief ?? buildBrief(config, ticket)
-      out(`FILL_JSON:${JSON.stringify({ ok: r.ok, reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
+      out(`FILL_JSON:${JSON.stringify({ ok: r.ok, ...(r.pending ? { pending: true } : {}), reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
       return r.ok ? 0 : 1
+    }
+    case 'attachments': {
+      // After the model read the ticket again: the file count from Jira is saved here, and the script re-scores.
+      if (!inPath) { err('attachments needs --in @<ticket.json> to save the count'); return 2 }
+      const n = Number(a._[0])
+      if (!Number.isInteger(n) || n < 0) { err('usage: cli.mjs attachments --in @<ticket.json> <count>'); return 2 }
+      const next = { ...ticket, attachments: n }
+      try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const b = buildBrief(config, next)
+      out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      out(`FILL_JSON:${JSON.stringify({ attachments: n, score: b.score, gate: b.gate })}`)
+      return 0
     }
     case 'side': {
       // Fullstack projects: which side a ticket gets tests on. With a side, it is saved in the ticket file.

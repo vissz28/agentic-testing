@@ -39,3 +39,11 @@ export const stepsSignal = (v, hasHeading, description) =>
 
 export const envSignal = (v, hasHeading, description) =>
   hasHeading(v, description, v.environmentHeading) && /\benv\b\s*[:=]/i.test(description)
+
+/** At least one file (a screenshot, a video, a document) is on the ticket. */
+export const attachmentsSignal = ticket => Number(ticket.attachments) >= 1
+
+/** A linked issue or a web link is on the ticket, or the fill-in added a ## Links line with a URL. */
+export const linksSignal = ticket =>
+  (Array.isArray(ticket.links) && ticket.links.length > 0) ||
+  /^#{1,6}[ \t]*Links[ \t]*\n+[ \t]*(?:[-*][ \t]+)?https?:\/\/\S+/im.test(ticket.text?.description || '')
