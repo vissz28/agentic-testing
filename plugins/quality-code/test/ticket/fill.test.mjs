@@ -134,13 +134,34 @@ test('vitest: bug menu lists every gap once, AC first, testable folded into AC',
   const story = fillMenu(BE, brief(BE, { ...beBare, issuetype: 'Story' }))
   assert.ok(story.items.find(i => i.key === 'context').question.startsWith('In two or three sentences'), 'story wording for context')
 })
+test('a story: each gain is what the real score becomes, though environment and expected never count against it', () => {
+  for (const c of [FE, BE]) {
+    const b = brief(c, { ...feBare, issuetype: 'Story' })
+    const ac = fillMenu(c, b).items.find(i => i.key === 'ac_present')
+    const filled = applyAnswer(c, { ...feBare, issuetype: 'Story' }, 'ac_present', LONG_AC)
+    assert.ok(filled.ok, c.adapter)
+    assert.equal(b.score + ac.gain, filled.brief.score, `${c.adapter}: AC also credits expected, which then counts`)
+  }
+})
+test('the menu is never empty: with nothing to type in, it names what is missing and points to the comment or the override', () => {
+  const withPlan = { ...FE, features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }] }
+  const menu = fillMenu(withPlan, brief(withPlan, { ...feBare, issuetype: 'Story', labels: ['Orders'] }))
+  assert.deepEqual(menu.untyped, ['a Confluence QA plan for the feature'])
+  const card = formatFillMenu(Object.defineProperty({ ...menu, items: [] }, 'untyped', { value: menu.untyped }))
+  assert.match(card, /of the 70 points it needs/)
+  assert.match(card, /Nothing missing can be typed in here: it needs a Confluence QA plan for the feature\./)
+  assert.match(card, /Post a comment on Jira with what to add, or continue anyway\./)
+  assert.doesNotMatch(card, /What is missing:|Type the numbers/)
+  // A ticket that already passes has nothing to comment on or override.
+  assert.doesNotMatch(formatFillMenu({ ...menu, items: [], score: 85 }), /continue anyway/)
+})
 test('playwright: picks reach the bar or fall short', () => {
   const menu = fillMenu(FE, brief(FE, feBare))
   const p1 = projectPick(menu, [menu.items.find(i => i.key === 'environment').n])
   assert.ok(p1.score === 5 && p1.short === 65 && !p1.enough, JSON.stringify(p1))
   assert.ok(formatPick(p1).includes('65 points short'))
   const p2 = projectPick(menu, [1, 2, menu.items.find(i => i.key === 'feature_label').n])
-  assert.ok(p2.enough && p2.score === 70 && p2.short === 0)
+  assert.ok(p2.enough && p2.score === 70 && p2.short === 0, JSON.stringify(p2))
   assert.ok(formatPick(p2).includes('enough'))
   assert.deepEqual(Object.keys(p2.picked[0]), ['n', 'key', 'title', 'question', 'example'])
   assert.ok(projectPick(menu, [42]).error, 'an unknown number is an error')

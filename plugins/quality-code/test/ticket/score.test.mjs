@@ -113,6 +113,19 @@ test('criteria a config can never credit are left out and the rest is scaled to 
   assert.doesNotMatch(formatReport(b), /qa plan.*found/i)
   assert.equal(buildBrief(cfg('playwright'), story(FULL)).score, 65, 'with features and Confluence nothing changes')
 })
+test('a complete Story without an environment passes: what the fill-in never asks a Story for never costs it points', () => {
+  const noEnv = '## User story\nAs a buyer I want the total\n\n## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00'
+  const asStory = d => ({ key: 'DEMO-9', issuetype: 'Story', labels: [], text: { description: d } })
+  for (const adapter of ['vitest', 'playwright']) {
+    const c = own(adapter, { features: [], titlePrefixes: [] })
+    const b = buildBrief(c, asStory(noEnv))
+    assert.equal(b.gate, 'pass', adapter)
+    assert.ok(!b.missing.some(m => ['environment', 'expected_defined'].includes(m.key)), adapter)
+    // Present, it still counts; on a Bug, missing, it still costs.
+    assert.ok(buildBrief(c, asStory(`${noEnv}\n\n## Environment\nEnv: staging`)).score > b.score, adapter)
+    assert.ok(buildBrief(c, { ...asStory(noEnv), issuetype: 'Bug' }).missing.some(m => m.key === 'environment'), adapter)
+  }
+})
 test('bold or bulleted Gherkin counts; a vague But line is not testable; e.g. is no step', () => {
   const p = cfg('playwright')
   for (const d of ['**Given** an order at 40.00\n**When** I open it\n**Then** the total is 108.00', '- Given an order at 40.00\n- When I open it\n- Then the total is 108.00']) {

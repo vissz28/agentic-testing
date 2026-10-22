@@ -66,10 +66,20 @@ Update with `/plugin update quality-code@teamsystem`.
   differs from that snapshot (or that the run reverted back), so dirty files from before the run never
   fail it even when the run edits them further. The run marker, boundary log and the rest of the
   plugin's own state are never counted either.
-- **The readiness gate no longer scores over points a project can never earn.** A key this config can
-  never credit (no features configured, no title prefixes configured, `"confluence": false` for a
-  team with no Confluence) is left out of the gate's denominator instead of permanently capping the
-  score; the report, the refuse comment and the fill menu all stay silent about it.
+- **The readiness gate no longer scores over points a project or this ticket can never earn.** A key
+  this config can never credit (no features configured, no title prefixes configured, `"confluence":
+  false` for a team with no Confluence, or one a Story is never asked for) is left out of the gate's
+  denominator instead of permanently capping the score; the report, the refuse comment and the fill
+  menu all stay silent about it. Earned anyway, it still counts: a Story that already has an
+  environment section is not marked down for lacking one, and gets credit for it. A `qaPlanSearch`
+  that simply finds nothing still lowers the score, and a plan that was in fact found is always
+  credited.
+- **A failed boundary or honesty check keeps the developer's files.** `write` undoes only its own
+  change, with an edit, and never runs `git restore` or `git checkout`. A finding on a file the run
+  did not write ends the run with the card instead.
+- **A Story is never refused for what its fill-in cannot ask.** The fill-in never asks a Story for an
+  environment or an expected and actual result; a refused ticket with nothing left to type in says
+  what is missing and offers the Jira comment or the override, never an empty list.
 - **Checks that let a weak test through.** A bare `expect(x)`, an uncalled matcher or an `expect(`
   in a string no longer counts as an assertion; a passing test mutation cannot check makes the run
   "not verified" instead of green; a test that passed once and failed every re-run is flaky; a

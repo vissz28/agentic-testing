@@ -4,6 +4,10 @@
 //   #5  the backend key warehouse_label is named feature_label (property names and `key` values)
 //   #6  the frontend JIRA_UPDATE_JSON also carries titlePrefix: null
 //   #2  a bare `warehouse` label no longer counts (its own fixture, asserted to differ)
+//   AGT-114, a deliberate change: a Story (any type not a Bug, none included) is never marked down
+//       for a missing environment or expected vs actual, which its fill-in never asks for, and the
+//       fill-in's gains are computed over the same keys as the score. In the line-by-line group, the
+//       ops it changes were re-captured from the plugin, and each file lists them in source.recaptured.
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
 // Sanitize: today's backend sanitizer and `ticket.mjs sanitize` under the backend config write the

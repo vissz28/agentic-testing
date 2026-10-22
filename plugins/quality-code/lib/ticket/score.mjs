@@ -1,5 +1,5 @@
 import { buildVocabulary } from './languages/index.mjs'
-import { labelOverride } from './messages.mjs'
+import { labelOverride, templateFor } from './messages.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base/stack.mjs'
@@ -8,6 +8,19 @@ import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base
 export const THRESHOLD = 70
 
 const RUBRICS = { playwright, vitest }
+
+/** A Story is never asked for these: they are Bug language. */
+const NOT_ON_STORY = ['environment', 'expected_defined']
+
+/**
+ * The keys that never count against a ticket: those the rubric omits for this config, and on a
+ * Story the Bug keys, so a missing item the fill-in will not ask for never costs points.
+ */
+export function omittedFor(rubric, config, ticket) {
+  const keys = new Set(rubric.omitted?.(config) ?? [])
+  if (templateFor(ticket?.issuetype) === 'story') for (const k of NOT_ON_STORY) keys.add(k)
+  return keys
+}
 
 /** The rubric a ticket is scored with. On a fullstack project it depends on the ticket's side: see buildBrief. */
 export function rubricFor(config, ticket = null) {
@@ -21,11 +34,13 @@ export function rubricFor(config, ticket = null) {
 export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ticket)
 
 /**
- * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true. The
- * keys the config can never credit (`omitted`) are left out, and the rest is scaled to 100: a
- * project with no features is not capped below the bar. An omitted key still not credited stays in
- * `missing` (diagnostic), but never lowers the score or is offered by the fill-in; callers that
- * show `missing` filter it against the brief's own `omitted` set first.
+ * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true.
+ * A key in `omitted` is a key this config or this ticket can never earn (no features configured,
+ * no title prefixes configured, "confluence": false…), or one a Story is never asked for: it is
+ * left out of the denominator when not credited, so it never lowers the score, is never in
+ * `missing` and is never offered by the fill-in — instead of leaving points permanently out of
+ * reach. Earned anyway, it counts as usual, so a Story that already has an environment section is
+ * not marked down for lacking one, and gets credit for it.
  */
 export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   let score = 0
@@ -34,10 +49,7 @@ export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   for (const [key, [weight, label]] of Object.entries(rubric.weights)) {
     const credited =
       key === 'ac_testable' ? !!signals.ac_testable && !!signals.ac_present : !!signals[key]
-    if (omitted.has(key)) {
-      if (!credited) missing.push({ key, weight, label })
-      continue
-    }
+    if (omitted.has(key) && !credited) continue
     total += weight
     if (credited) score += weight
     else missing.push({ key, weight, label })
@@ -70,7 +82,7 @@ export function buildBrief(config, ticket) {
 function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
-  const omitted = rubric.omitted?.(config) ?? new Set()
+  const omitted = omittedFor(rubric, config, ticket)
   const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)

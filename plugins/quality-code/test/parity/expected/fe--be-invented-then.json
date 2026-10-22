@@ -3,14 +3,30 @@
   "repo": "fe",
   "source": {
     "ref": "origin/agentic-testing-fe",
-    "commit": "2ee3a1283bd99fca456034af8def946574e7b483"
+    "commit": "2ee3a1283bd99fca456034af8def946574e7b483",
+    "recaptured": {
+      "ticket": "AGT-114",
+      "ops": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11,
+        13,
+        17
+      ]
+    }
   },
   "results": [
     {
       "op": [
         "score"
       ],
-      "stdout": "FIC-0 — test-readiness 0% · legacy / unstructured (threshold 70%)\nFeature: none\nQA plan: not found\nScenarios: 1 read from the ticket · 1 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description (25)\n  - testable AC — each Then or AC item an observable assertion, not \"works correctly\" (15)\n  - steps to reproduce (Bug) or a user story (Story) (10)\n  - clear expected behavior (or Expected vs Actual for a bug) (10)\n  - an attachment (a screenshot, a video or a file on the ticket) (10)\n  - feature label (one of the 8 — routes the test to a screen) (10)\n  - a Confluence QA plan for the feature (10)\n  - a link (a linked issue, or a web link such as Figma or Confluence) (5)\n  - environment / workspace context (5)\nFlags:\n  - legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\nGate: refuse — below 70%. Do not generate. Add the missing items on the ticket, then re-run. Legacy ticket, no template structure.\nTICKET_EVAL_JSON:{\"key\":\"FIC-0\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[{\"then\":\"the report is generated in Italian, not English\"}],\"derivable\":1,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":25},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"expected_defined\",\"label\":\"clear expected behavior (or Expected vs Actual for a bug)\",\"weight\":10},{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":10},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false,\"attachments\":false,\"links\":false}}\n",
+      "stdout": "FIC-0 — test-readiness 0% · legacy / unstructured (threshold 70%)\nFeature: none\nQA plan: not found\nScenarios: 1 read from the ticket · 1 with an expected result clear enough to assert on\nFigma: none   ·   MR: none\nMissing (each lowers the score):\n  - acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description (25)\n  - testable AC — each Then or AC item an observable assertion, not \"works correctly\" (15)\n  - steps to reproduce (Bug) or a user story (Story) (10)\n  - an attachment (a screenshot, a video or a file on the ticket) (10)\n  - feature label (one of the 8 — routes the test to a screen) (10)\n  - a Confluence QA plan for the feature (10)\n  - a link (a linked issue, or a web link such as Figma or Confluence) (5)\nFlags:\n  - legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\nGate: refuse — below 70%. Do not generate. Add the missing items on the ticket, then re-run. Legacy ticket, no template structure.\nTICKET_EVAL_JSON:{\"key\":\"FIC-0\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[{\"then\":\"the report is generated in Italian, not English\"}],\"derivable\":1,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":25},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":10},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false,\"attachments\":false,\"links\":false}}\n",
       "exit": 1
     },
     {
@@ -18,7 +34,7 @@
         "score",
         "--json"
       ],
-      "stdout": "{\"key\":\"FIC-0\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[{\"then\":\"the report is generated in Italian, not English\"}],\"derivable\":1,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":25},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"expected_defined\",\"label\":\"clear expected behavior (or Expected vs Actual for a bug)\",\"weight\":10},{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":10},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5},{\"key\":\"environment\",\"label\":\"environment / workspace context\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false,\"attachments\":false,\"links\":false}}\n",
+      "stdout": "{\"key\":\"FIC-0\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":0,\"threshold\":70,\"gate\":\"refuse\",\"legacy\":true,\"feature\":null,\"route\":null,\"qaPlan\":null,\"figma\":null,\"mr\":null,\"scenarios\":[{\"then\":\"the report is generated in Italian, not English\"}],\"derivable\":1,\"missing\":[{\"key\":\"ac_present\",\"label\":\"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description\",\"weight\":25},{\"key\":\"ac_testable\",\"label\":\"testable AC — each Then or AC item an observable assertion, not \\\"works correctly\\\"\",\"weight\":15},{\"key\":\"steps\",\"label\":\"steps to reproduce (Bug) or a user story (Story)\",\"weight\":10},{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"feature_label\",\"label\":\"feature label (one of the 8 — routes the test to a screen)\",\"weight\":10},{\"key\":\"qa_plan_found\",\"label\":\"a Confluence QA plan for the feature\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5}],\"flags\":[\"legacy / unstructured — no template structure. Refused until the ticket meets the 70% bar.\"],\"signals\":{\"ac_present\":false,\"ac_testable\":false,\"feature_label\":false,\"steps\":false,\"expected_defined\":false,\"environment\":false,\"qa_plan_found\":false,\"attachments\":false,\"links\":false}}\n",
       "exit": 1
     },
     {
@@ -32,7 +48,7 @@
       "op": [
         "fill-menu"
       ],
-      "stdout": "This ticket has 0 of the 70 points it needs.\nWhat is missing:\n  1. Acceptance criteria  +50\n  2. User story           +10\n  3. Attachment           +10\n  4. Feature label        +10\n  5. Link                 +5\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":0,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"gain\":50,\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\",\"design\":true},{\"n\":2,\"key\":\"steps\",\"title\":\"User story\",\"gain\":10,\"question\":\"Who wants what, and why? One line.\",\"example\":\"As a warehouse user, I want to filter the movement list by period so that I find last month quickly.\",\"design\":true},{\"n\":3,\"key\":\"attachments\",\"title\":\"Attachment\",\"gain\":10,\"question\":\"Attach a screenshot, a video or a file on the Jira ticket (the Attach button, or drag it onto the ticket). When it is there, answer: done\",\"example\":\"done\"},{\"n\":4,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":10,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":5,\"key\":\"links\",\"title\":\"Link\",\"gain\":5,\"question\":\"Paste one web address that helps: the Figma design, the Confluence page or the page it is about.\",\"example\":\"https://www.figma.com/design/abc123/Orders\"}],\"figma\":[]}\n",
+      "stdout": "This ticket has 0 of the 70 points it needs.\nWhat is missing:\n  1. Acceptance criteria  +53\n  2. User story           +12\n  3. Attachment           +12\n  4. Feature label        +12\n  5. Link                 +6\nType the numbers you want to fill, for example: 1 3\nFILL_JSON:{\"score\":0,\"threshold\":70,\"items\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"gain\":53,\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\",\"design\":true},{\"n\":2,\"key\":\"steps\",\"title\":\"User story\",\"gain\":12,\"question\":\"Who wants what, and why? One line.\",\"example\":\"As a warehouse user, I want to filter the movement list by period so that I find last month quickly.\",\"design\":true},{\"n\":3,\"key\":\"attachments\",\"title\":\"Attachment\",\"gain\":12,\"question\":\"Attach a screenshot, a video or a file on the Jira ticket (the Attach button, or drag it onto the ticket). When it is there, answer: done\",\"example\":\"done\"},{\"n\":4,\"key\":\"feature_label\",\"title\":\"Feature label\",\"gain\":12,\"question\":\"Which screen is it? One of: Giacenza_Prodotti, Lista_Movimenti_Magazzino, Report_Magazzino, Importa_Giacenze, arrivi_merce_magazzino, Il_mio_magazzino, Minimum_stock, Spinta_warehouse\",\"example\":\"Giacenza_Prodotti\"},{\"n\":5,\"key\":\"links\",\"title\":\"Link\",\"gain\":6,\"question\":\"Paste one web address that helps: the Figma design, the Confluence page or the page it is about.\",\"example\":\"https://www.figma.com/design/abc123/Orders\"}],\"figma\":[]}\n",
       "exit": 0
     },
     {
@@ -40,7 +56,7 @@
         "pick",
         "1 2"
       ],
-      "stdout": "With 1 and 2 the ticket reaches 60 points (the bar is 70): 10 points short. Pick more numbers, or type them again.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"},{\"n\":2,\"key\":\"steps\",\"title\":\"User story\",\"question\":\"Who wants what, and why? One line.\",\"example\":\"As a warehouse user, I want to filter the movement list by period so that I find last month quickly.\"}],\"score\":60,\"threshold\":70,\"enough\":false,\"short\":10}\n",
+      "stdout": "With 1 and 2 the ticket reaches 63 points (the bar is 70): 7 points short. Pick more numbers, or type them again.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"},{\"n\":2,\"key\":\"steps\",\"title\":\"User story\",\"question\":\"Who wants what, and why? One line.\",\"example\":\"As a warehouse user, I want to filter the movement list by period so that I find last month quickly.\"}],\"score\":63,\"threshold\":70,\"enough\":false,\"short\":7}\n",
       "exit": 1
     },
     {
@@ -48,7 +64,7 @@
         "pick",
         "1"
       ],
-      "stdout": "With 1 the ticket reaches 50 points (the bar is 70): 20 points short. Pick more numbers, or type them again.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"}],\"score\":50,\"threshold\":70,\"enough\":false,\"short\":20}\n",
+      "stdout": "With 1 the ticket reaches 53 points (the bar is 70): 17 points short. Pick more numbers, or type them again.\nFILL_JSON:{\"picked\":[{\"n\":1,\"key\":\"ac_present\",\"title\":\"Acceptance criteria\",\"question\":\"What should the user see when this is done? Plain sentences (at least 150 characters), or Given / When / Then.\",\"example\":\"The Delete button is disabled for a warehouse that still has stock. Hovering it shows the tooltip \\\"Empty the warehouse first\\\" and no delete request is sent.\"}],\"score\":53,\"threshold\":70,\"enough\":false,\"short\":17}\n",
       "exit": 1
     },
     {
@@ -93,7 +109,7 @@
         "expected_defined",
         "only document 22 | documents 220 and 122 too"
       ],
-      "stdout": "Accepted. The ticket now has 10 points (the bar is 70): 60 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":10,\"gate\":\"refuse\"}\n",
+      "stdout": "Accepted. The ticket now has 11 points (the bar is 70): 59 points short.\nFILL_JSON:{\"ok\":true,\"reason\":null,\"score\":11,\"gate\":\"refuse\"}\n",
       "exit": 0,
       "fileAfter": {
         "key": "FIC-0",
@@ -121,7 +137,7 @@
         "qa_plan_found",
         "x"
       ],
-      "stdout": "Not accepted: There is no criterion called qa_plan_found that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called qa_plan_found that can be typed in.\",\"score\":10,\"gate\":\"refuse\"}\n",
+      "stdout": "Not accepted: There is no criterion called qa_plan_found that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called qa_plan_found that can be typed in.\",\"score\":11,\"gate\":\"refuse\"}\n",
       "exit": 1,
       "fileAfter": {
         "key": "FIC-0",
@@ -149,7 +165,7 @@
         "nope",
         "x"
       ],
-      "stdout": "Not accepted: There is no criterion called nope that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called nope that can be typed in.\",\"score\":10,\"gate\":\"refuse\"}\n",
+      "stdout": "Not accepted: There is no criterion called nope that can be typed in.\nFILL_JSON:{\"ok\":false,\"reason\":\"There is no criterion called nope that can be typed in.\",\"score\":11,\"gate\":\"refuse\"}\n",
       "exit": 1,
       "fileAfter": {
         "key": "FIC-0",
