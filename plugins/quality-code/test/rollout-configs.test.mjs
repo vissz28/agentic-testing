@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { validateConfig, layersOf } from '../core/config.mjs'
-import { configFor } from '../core/runners/playwright.mjs'
-import { rulesFor, violation } from '../core/checks/boundary.mjs'
+import { validateConfig, layersOf } from '../lib/base/config.mjs'
+import { configFor } from '../lib/pipeline/runners/playwright.mjs'
+import { rulesFor, violation } from '../lib/base/boundary.mjs'
 
 const DIR = new URL('../../../docs/rollout/', import.meta.url)
 const load = f => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'))

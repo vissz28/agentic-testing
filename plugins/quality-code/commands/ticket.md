@@ -1,7 +1,7 @@
 ---
 description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>.
 argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>>
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
@@ -9,19 +9,19 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 ## Rules
 
-- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
 - **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket-eval`; never say a score here.
-- Redact customer ids (`\bU\d{5,}\b`, plus the config's `redact` patterns) in everything you show.
+- Redact in everything you show: the config's `redact` patterns (without a `redact` in the config, the default customer id `\bU\d{5,}\b`; a `redact` in the config replaces it), e-mails and UUIDs.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language.
 - When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`). Every key you show is a link: `[KEY](<jira.site>/browse/KEY)`.
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop. Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop. Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
 2. **Find.** From `$ARGUMENTS`, the first rule that applies:
-   - A key (`[A-Z][A-Z0-9]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
+   - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
    - Only digits: the key is `<first of jira.projects>-<digits>`; as above.
    - Filters `assignee:` `reporter:` `status:` `label:` `epic:` `text:` (a value with spaces is in quotes): one JQL clause each, joined with `AND`, inside `project in (<jira.projects>)`. `assignee:me` and `reporter:me` are `currentUser()`; another name is looked up with `lookupJiraAccountId`. `epic:<KEY>` is `parent = <KEY>`. `text:<words>` is `text ~ "<words>"`. Escape `\` as `\\` and `"` as `\"` in every value first.
    - Anything else is search words: `project in (<jira.projects>) AND text ~ "<words>"`.

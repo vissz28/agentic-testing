@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatCard, formatRunLog } from '../../core/pipeline/card.mjs'
+import { formatCard, formatRunLog } from '../../lib/pipeline/card.mjs'
 
 const s = (check, status, summary, findings = [], data = {}) => ({ check, status, summary, findings, data })
 const base = [
@@ -136,6 +136,8 @@ test('card: a red run on a ticket Jira calls finished says the bug is still ther
   assert.doesNotMatch(formatCard(red, { jiraStatus: 'In Progress' }), /Jira says/)
   assert.doesNotMatch(formatCard(listed([{ title: 'rounds', status: 'passed' }]), { jiraStatus: 'Done' }), /Jira says/)
   assert.match(formatCard(red, { log: '.claude/quality-code/tickets/ABC-1/run.md' }), /\n\nFull details: \.claude\/quality-code\/tickets\/ABC-1\/run\.md\nPIPELINE_JSON:/)
+  assert.match(formatCard(red, { jiraStatus: 'released', doneStatuses: ['Released'] }), /Jira says released\./, 'jira.doneStatuses, any case')
+  assert.doesNotMatch(formatCard(red, { jiraStatus: 'Done', doneStatuses: ['Released'] }), /Jira says/)
 })
 
 test('run log: verdict in words, the tests table, every check with its numbers and findings, the re-run line', () => {

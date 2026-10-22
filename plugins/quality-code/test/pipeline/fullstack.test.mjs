@@ -5,10 +5,10 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { runPipeline } from '../../core/pipeline/pipeline.mjs'
-import { formatCard } from '../../core/pipeline/card.mjs'
-import { result } from '../../core/checks/result.mjs'
-import { ENV } from '../checks/git-env.mjs'
+import { runPipeline } from '../../lib/pipeline/pipeline.mjs'
+import { formatCard } from '../../lib/pipeline/card.mjs'
+import { result } from '../../lib/base/result.mjs'
+import { ENV } from '../git-env.mjs'
 
 const config = { adapter: 'fullstack', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }

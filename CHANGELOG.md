@@ -7,6 +7,162 @@ things, and says so here).
 
 Update with `/plugin update quality-code@teamsystem`.
 
+## [0.15.0] - 2026-10-22
+
+The bug-hunt branch (`hunt-fixes`) merged onto 0.14.0: the plugin's scripts move from `core/` to
+`bin/` and `lib/`, and `/quality-code:spec` takes a ticket to checked tests in one command. Every
+0.13.0 and 0.14.0 feature is kept (the personal setup, `tickets-eval`, attachments and links,
+Figma drafts). Paths changed: see Upgrading.
+
+### Added
+
+- **`/quality-code:spec`: one command from ticket to checked tests**, for developers and QA. It runs
+  the gate, the plan, the writing, the checks and the read-back, and asks a person three times at
+  most: at the gate only when the ticket is refused, at the plan, and after the card. With no key it
+  takes the ticket of your branch: from the branch name with no question, else the merge request's
+  title or the commits. `--gate-only` is the gate alone (as `ticket-eval`); `--yes` skips the plan
+  question. On a branch that already has tests for the ticket, the plan card can just check them.
+- **A gate that only stops when it must.** A borderline ticket (60 to 69, with something to check)
+  goes on, with every result marked 🔴 [RISK / NOT RECOMMENDED]. A refused ticket's card leads with
+  the cheapest way over the bar (`To pass: add Expected result (→ 78 points)`). The fill-in asks every
+  picked question in one card and takes the answers in one reply, can suggest text from the merge
+  request or the branch's commits for you to accept, and still lets the script accept or refuse each
+  answer. Answers typed in an earlier run that never reached Jira are offered again. New script
+  calls: `ticket.mjs score --next` (the band and the cheapest fix) and `ticket.mjs saved <KEY>`.
+- **GitHub pull requests, through the `gh` CLI.** On a GitHub repo, `branch.mjs --detect` finds the
+  branch's open pull request when `gh` is installed and signed in: its target is the base (after
+  `--base`, before `git.base`), a key in its title is a ticket candidate, and its description feeds
+  the fill-in suggestions, as a GitLab merge request does. No MCP server and no token setting. The
+  connectors card has a GitHub line (`gh`'s account, or why not and the `gh auth login` fix) for a
+  GitHub repo, GitHub Enterprise on its own domain included (known by `gh`'s sign-in to it).
+- **GitHub and GitLab repos work the same.** GitLab is on the connectors card only for a GitLab
+  remote: the default `gitlab_api_url` used to put it on every card, so GitHub repos saw a GitLab
+  warning on every run. A merge request's title and description, from either host, are saved as
+  `mergeRequest` and redacted by `sanitize` before a fill-in suggestion can quote them (a GitLab
+  description used to be quoted as the connector returned it). When the target branch is not fetched,
+  both keep the detected base and say `git fetch origin <target>`.
+
+- **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
+  adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
+  cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
+  ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
+  project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
+  names. The same rows the old in-repo harness wrote: its CSV is read as it is.
+- **Confluence pages attached to a ticket.** `ticket-eval` reads the ticket's remote links (its Web
+  links) and uses an attached Confluence page with scenarios as the QA plan, before searching by
+  `qaPlanSearch`. It used to look in `issuelinks`, which only links tickets to tickets, so an
+  attached page was never found.
+- `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
+  linked to that ticket (with an `xray` block).
+- **Any project, not only the warehouse.** New config fields, each defaulting to today's behaviour
+  unless said otherwise (README, "The config file"): `jira.bugTypes`, `jira.doneStatuses`,
+  `confluence` (`false`: no QA-plan criterion, the score scaled over the rest), `git.base`,
+  `playwright.ungradedTitles` (default: none), `playwright.redTags`, and `$schema` (ignored).
+  Jira keys may hold `_` (`MY_PROJ-12`). GitHub and Bitbucket repos: issue templates in
+  `.github/ISSUE_TEMPLATE/`, pull request merges and links are read, no GitLab warning. Monorepos:
+  tools are found in a parent's `node_modules`, a config is found from a subfolder, `.env*`,
+  `dist/` and `node_modules/` are guarded at any depth. Tools run with Node itself, so Windows
+  works. Solution-style tsconfigs, `vite.config.*` with a test block, lcov coverage, Bedrock and
+  Vertex model ids, and the claude.ai Atlassian connector's operation names are understood.
+  Svelte, Astro, `.mts`/`.cts` and `.html` files count as code changes; setup also proposes `app/`,
+  `lib/`, `server/`, `pages/`, `components/` and `packages/*/src/` as paths a test run must not
+  change, and guards the Jenkins, Azure, Bitbucket and CircleCI files.
+- **`ticket.mjs field find @<file>`** finds the acceptance-criteria field in Jira's field list by
+  the configured languages' heading, so `ticket-eval` no longer greps a large file with a call that
+  was never pre-approved.
+
+### Fixed
+
+- **Checks that let a weak test through.** A bare `expect(x)`, an uncalled matcher or an `expect(`
+  in a string no longer counts as an assertion; a passing test mutation cannot check makes the run
+  "not verified" instead of green; a test that passed once and failed every re-run is flaky; a
+  value only inside `expect(…)` no longer counts as asserted (Vitest); `test.fixme`/`test.fail`,
+  `skipIf`/`runIf`, `.only` and a skip of the ticket's own block are honesty failures; a colored or
+  external git diff (from your git config) can no longer hide a removed `expect`.
+- **Checks that failed an honest test.** `it.each`/`test.each`, `describe.concurrent`, `suite(`,
+  `test.describe.serial`, `expect.soft`/`expect.poll`, `assert`, a regex `.test('…')` and plain
+  Playwright value assertions are read right.
+- **The boundary hook.** A path in another case, through a symlink or the `/tmp` alias is checked
+  as the real file; the plugin's own run marker, logs and Claude settings are guarded; a glob folder
+  rule covers its files; an uncommitted edit you had before the run no longer fails it.
+- **The readiness gate.** Jira ADF descriptions keep their lines (a good ticket scored 10%); bold or
+  bulleted Gherkin, `h2.` and decorated AC headings count; a short "X:" line no longer ends the
+  criteria; vague But/E/Ma lines and "e.g." are read right; feature labels match in any case; an
+  Environment section with any text counts; fill-in answers use the project's language; a crash
+  exits 2, never 1 (refuse); tracked projects are not foreign; `score --json` is pure JSON; long
+  blank runs no longer slow scoring down; two different UUIDs stay different when redacted.
+- **Branch and setup.** `--merged` no longer counts the main branch's later work or a stash; a
+  shallow clone keeps its dirty files; `ticketsDir` must stay inside the project; a symlinked
+  `settings.json` is written through.
+- **Reports and XRay.** Card replies (`ok`, `sì`, `basta`…) keep a run's cost in the run; `7d`/`30d`
+  count back from `--until`; impossible dates are refused; another project sharing a transcript
+  folder name is left out; a hand-written XRay case keeps its number; DDE payloads starting with `-`
+  are quoted; evals pick the requirement's own case.
+- **A killed run cleans up.** Ctrl-C or a timeout stops the test tools and removes their temp files.
+- **A repo with no commit yet** is checked against the empty tree, instead of the honesty and
+  boundary checks never running.
+- **The commands.**
+  - `write` rewrote nothing when the assertions check failed (it looked for a step named
+    `assertions`); it now rewrites, also for a passing test mutation cannot check.
+  - `kpi`'s "AI cost of the same days" option could not run; it now runs the consumption script.
+  - `start` no longer runs an unapproved `git branch` call.
+  - `setup` writes its proposal inline, with no temp file and no permission prompt.
+  - `--dry-run` on `write` and `xray` says what it still does: the ticket is saved, nothing goes
+    to Jira, a refused ticket ends the run.
+  - `ticket-eval`'s score rule no longer contradicts itself, and a refuse comment's exit 1 is
+    expected, not an error.
+  - Figma is checked for fullstack repos too, `xray` no longer stops on an optional connector, and
+    examples no longer use warehouse strings.
+- `pick 1 2` works without quotes; a `sides` block that sets only some sides keeps the others'
+  default marks; `jira.site` may end in `/`.
+
+### Changed
+
+- **`/quality-code:start` is `/quality-code:spec` with no key.** The 0.14.0 run-through stays: from
+  the branch, the gate, then the tests. The plan card now carries the choice (write tests, or only
+  check the tests already on the branch), so the 0.14.0 `--ask` menu is gone.
+
+- **`/quality-code:start` and `/quality-code:write` are now `/quality-code:spec`**, kept under their
+  old names. `start` no longer ends on an action card: the plan card carries the choice.
+- **The plan is a question.** `spec` (and `write`) show the plan card and wait; `--yes` goes straight
+  on. `--ask` is gone.
+- **The refuse card's order:** `1` fills it in here, `2` posts a comment on Jira, `3` continues anyway,
+  `4` stops. `--ci` still comments (now option 2).
+
+- **Cheaper and faster commands.** Each command now picks its model and effort for the turn it
+  starts in: Haiku with low effort for `kpi`, `consumption` and `check`; Sonnet for `setup`,
+  `start`, `ticket` and `ticket-eval`; your own model for `write`, `seed` and `xray`. Measured on
+  the sample service against Opus: `kpi` $0.240 → $0.007, `consumption` $0.214 → $0.006, `check`
+  $0.245 → $0.007, with the same cards.
+- **No permission prompts for the plugin's own scripts.** Every command pre-approves its scripts
+  (`kpi` and `consumption` only their own) and runs them exactly as written. Before, an added
+  `echo` made a call miss its pre-approval and cost a prompt and an extra turn.
+- **Base branch order.** With no `--base` and no merge request, the base is `git.base` when set,
+  else the remote's default branch, else `init.defaultBranch`, `main`, `master`, and `develop`
+  last (it used to be tried first).
+- **Setup** says up front that Jira must be an Atlassian Cloud site and stops on a Server or Data
+  Center one; its card shows the remote of any host (GitLab, GitHub, Bitbucket).
+- **New folder layout.** `core/` is gone. The scripts the commands and the hook run are in `bin/`,
+  the modules they use in `lib/` (`base`, `ticket`, `pipeline`, `report`), the guides in `guides/`.
+  `core/quality-kpi.mjs` is now `lib/report/quality-program.mjs`. No behaviour change.
+
+### Upgrading
+
+- Nothing to do for most projects. To get XRay test cases, add an `xray` block (docs/GUIDE.md, "XRay test
+  cases").
+- **`languages` now defaults to `["en"]`.** A config without `languages` used to read English and
+  Italian; add `"languages": ["en", "it"]` to keep both.
+- **Design-capture tests** (titles with "capture" or "conformance") are graded now. To keep them
+  out, as before, add `"ungradedTitles": "conformance|capture"` to the `playwright` block.
+- A spec whose passing tests assert only with snapshots or a matcher mutation cannot flip now ends
+  "not verified" instead of green: give those tests a value assertion.
+- **`--ask` is gone** and the refuse card's numbers changed (`1` is now "fill it in here"): drop
+  `--ask` from saved commands, and read the card before typing a number from habit.
+- If a CI job or script of yours runs a plugin script by path, change it: `core/cli.mjs` →
+  `bin/ticket.mjs`, `core/pipeline/cli.mjs` → `bin/pipeline.mjs`, `core/checks/cli.mjs` →
+  `bin/checks.mjs`, `core/consumption/cli.mjs` → `bin/consumption.mjs`, and `core/<name>.mjs` →
+  `bin/<name>.mjs` for `kpi`, `setup`, `branch`, `xray`, `evals` and `connector-settings`.
+
 ## [0.14.0] - 2026-10-22
 
 **`/quality-code:start` now runs the pipeline instead of showing a menu.**

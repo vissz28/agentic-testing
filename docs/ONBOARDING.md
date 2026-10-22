@@ -65,14 +65,14 @@ Playwright, the app must be running, or your config's `webServer` must start it.
 ## 5. The first written test (Vitest)
 
 ```
-/quality-code:write ABC-123
+/quality-code:spec ABC-123
 ```
 
 Only for a ticket that passes the gate. It asks which code the ticket changes, shows the plan, writes
 the tests in your test folders only, runs the checks and shows the card. Read the tests before you
 commit them. On Playwright it asks which screen (or takes it from the feature's route).
 
-From then on, every day: `/quality-code:start` on your feature branch.
+From then on, every day: `/quality-code:spec` on your feature branch.
 
 ## Moving from your own harness
 
@@ -88,7 +88,7 @@ The warehouse repos' configs in [`rollout/`](rollout/) are worked examples.
 
 ## Checklist for a team lead
 
-- [ ] Everyone has the plugin installed and Jira connected (`/quality-code:start` shows ✅ Jira).
+- [ ] Everyone has the plugin installed and Jira connected (`/quality-code:spec` shows ✅ Jira).
 - [ ] `.claude/quality-code.json` is reviewed and committed; someone owns it.
 - [ ] The forbidden paths cover your application code (default: `src/`, `.env`, `.env.*`, the CI file).
 - [ ] For Vitest: the test folders are right (`vitest.layers`); Stryker is installed if you want its bar.

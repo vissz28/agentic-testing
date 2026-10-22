@@ -28,8 +28,9 @@ grades them. It works with any Jira Cloud project and any repo that uses **Vites
 |---|---|
 | **Readiness gate:** scores a ticket out of 100; 70 passes | `/quality-code:ticket-eval <KEY>` |
 | **Gaps fixed on the spot:** a Jira comment listing what is missing, or a guided fill-in pushed to the ticket after a preview | `ticket-eval`, when a ticket is refused |
-| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:start` |
-| **Tests written from the ticket:** Vitest and Playwright specs in your test folders, graded on the spot | `/quality-code:write <KEY>` |
+| **One command from your branch to checked tests:** the ticket from the branch name, the gate, the plan, the tests written and graded | `/quality-code:spec` (`start` and `write` are the same) |
+| **Tests written from any ticket:** Vitest and Playwright specs in your test folders, graded on the spot | `/quality-code:spec <KEY>` |
+| **GitHub and GitLab:** the branch's merge request or pull request (through the `gh` CLI) gives the base and feeds the fill-in | automatic |
 | **Tests graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:check` |
 | **Test data and QA cases:** seed builders or route stubs; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
 | **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
@@ -72,8 +73,11 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
-- **`/quality-code:start` runs the pipeline:** after the repo card it gates the ticket, then checks
-  the tests your branch changed, or writes and checks them. `--ask` brings back the menu.
+- **`/quality-code:spec`: one command from ticket to checked tests**, asking you three times at most.
+  `start` and `write` are the same command. A borderline ticket (60 to 69) goes on with a 🔴 mark, and
+  a refused one leads with the cheapest fix; the fill-in takes every answer in one reply.
+- **GitHub pull requests** through the `gh` CLI, and a sturdier core (a run snapshot, a configurable
+  `git.base`, a score scaled over what your config can credit).
 - **For QA and product owners:** a Jira-only setup, no repo needed, and
   `/quality-code:tickets-eval <PROJECT>` to see how a whole project's tickets do.
 - **Attachments and links count in the 100 points** (every score changes a little), and the fill-in
@@ -101,7 +105,7 @@ Switch once, in Claude Code:
 /plugin install quality-code --marketplace vissz28/agentic-testing
 ```
 
-Then `/reload-plugins`, and run `/quality-code:start`: the connectors card asks again for the
+Then `/reload-plugins`, and run `/quality-code:spec`: the connectors card asks again for the
 settings it needs. In a repo whose `.claude/settings.json` lists the old marketplace, rename its key
 to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the block above).
 
@@ -114,13 +118,14 @@ to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the
    /quality-code:setup
    ```
 
-2. **Every day, start from your feature branch.** It finds the ticket from the branch name
-   (`ABC-123-add-export`) and runs the pipeline: the readiness gate, then it checks the branch's
-   tests, or writes and checks them when there are none:
+2. **Every day, from your feature branch, one command.** It finds the ticket from the branch name
+   (`ABC-123-add-export`), scores it, shows the plan, then writes and checks the tests:
 
    ```
-   /quality-code:start
+   /quality-code:spec
    ```
+
+   For any ticket: `/quality-code:spec ABC-123`; the score alone: `/quality-code:ticket-eval ABC-123`.
 
 ## Documentation
 
