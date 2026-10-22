@@ -9,7 +9,7 @@ const cfg = adapter => validateConfig({
   version: 1, adapter,
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
-  features: [{ label: 'Orders', route: '/orders' }],
+  features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
 }).config
 
@@ -107,13 +107,39 @@ const story = description => ({ key: 'DEMO-9', issuetype: 'Story', labels: [], t
 const FULL = '## User story\nAs a buyer I want the total\n\n## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00\n\n## Environment\nStaging, Chrome 120'
 test('criteria a config can never credit are left out and the rest is scaled to 100', () => {
   const noFeatures = { ...cfg('playwright'), features: [] }
-  assert.equal(buildBrief(noFeatures, story(FULL)).score, 72, '65 of the 90 a project without features can earn')
+  // No feature, so no qaPlanSearch either: the QA plan is out of reach as well.
+  assert.equal(buildBrief(noFeatures, story(FULL)).score, 81, '65 of the 80 a project without features can earn')
   const b = buildBrief({ ...noFeatures, confluence: false }, story(FULL))
   assert.equal(b.score, 81, '65 of 80: attachments and links can still be earned')
   assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
   const withBoth = { ...story(FULL), attachments: 1, links: [{ url: 'https://example.com/spec', title: 'spec' }] }
   assert.equal(buildBrief({ ...noFeatures, confluence: false }, withBoth).score, 100)
   assert.equal(buildBrief(cfg('playwright'), story(FULL)).score, 65, 'with features and Confluence nothing changes')
+})
+// AGT-115: no rubric points a project cannot earn.
+const noSearch = () => own('playwright', { features: [{ label: 'Orders', route: '/orders' }] })
+test('no qaPlanSearch and no page attached: the QA plan is not missing and does not lower the score', () => {
+  const b = buildBrief(noSearch(), story(FULL))
+  assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
+  assert.equal(b.score, 72, '65 of the 90 left: the QA plan is out of reach')
+  assert.equal(b.score, buildBrief({ ...noSearch(), confluence: false }, story(FULL)).score, 'the same as a team without Confluence')
+  assert.doesNotMatch(formatRefuseComment(noSearch(), b), /QA plan/i)
+  assert.ok(!fillMenu(noSearch(), JSON.parse(JSON.stringify(b))).items.some(i => i.key === 'qa_plan_found'))
+})
+test('a feature with a qaPlanSearch and no page found: the QA plan is missing', () => {
+  const b = buildBrief(cfg('playwright'), story(FULL))
+  assert.ok(b.missing.some(m => m.key === 'qa_plan_found' && m.weight === 10))
+  assert.equal(b.score, 65)
+  // Any feature with search words is enough: the ticket may not carry a label yet.
+  const other = own('playwright', { features: [{ label: 'Orders' }, { label: 'Invoices', qaPlanSearch: 'invoices' }] })
+  assert.ok(buildBrief(other, story(FULL)).missing.some(m => m.key === 'qa_plan_found'))
+})
+test('no qaPlanSearch but a QA-plan page attached to the ticket: the plan is credited', () => {
+  const qaPlan = { title: 'QA plan - Orders', url: 'https://example.atlassian.net/wiki/spaces/DEMO/pages/1', scenarios: [] }
+  const b = buildBrief(noSearch(), { ...story(FULL), qaPlan })
+  assert.equal(b.signals.qa_plan_found, true)
+  assert.equal(b.score, 75, '75 of 100: the plan counts once it is there')
+  assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
 })
 test('bold or bulleted Gherkin counts; a vague But line is not testable; e.g. is no step', () => {
   const p = cfg('playwright')

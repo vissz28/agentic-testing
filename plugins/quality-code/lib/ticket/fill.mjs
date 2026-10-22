@@ -72,7 +72,7 @@ export function fillMenu(config, brief) {
   const kind = templateFor(brief.issuetype, config)
   const msgs = messagesFor(config, kind)
   const keys = new Set(brief.missing.map(m => m.key))
-  const omitted = brief.omitted ?? rubric.omitted?.(config) ?? new Set()
+  const omitted = brief.omitted ?? rubric.omitted?.(config, brief) ?? new Set()
   const order = Object.keys(rubric.weights)
   const items = brief.missing
     .filter(m =>

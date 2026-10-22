@@ -76,11 +76,14 @@ export default {
   derivable: (v, ticket) => countDerivable(v, [...(ticket.scenarios || []), ...(ticket.qaPlan?.scenarios || [])]),
   feature: (config, ticket) => ticket.feature ?? featureOf(config, ticket.labels),
   briefExtras,
-  // A team without Confluence ("confluence": false) never has a QA plan to find: it is left out of
-  // the score rather than costing every ticket 15 points it can never earn.
-  omitted: config => {
+  // A QA plan the project cannot find is left out of the score rather than costing every ticket
+  // points it can never earn: a team without Confluence ("confluence": false), or one whose features
+  // carry no qaPlanSearch while the ticket has no QA-plan page attached. With a search configured, a
+  // plan the search did not find is still missing.
+  omitted: (config, ticket = null) => {
     const keys = omittedKeys(config)
-    if (config.confluence === false) keys.add('qa_plan_found')
+    const searchable = (config.features ?? []).some(f => f?.qaPlanSearch)
+    if (config.confluence === false || (!searchable && !ticket?.qaPlan?.url)) keys.add('qa_plan_found')
     return keys
   },
   legacyFlag: threshold => `legacy / unstructured — no template structure. Refused until the ticket meets the ${threshold}% bar.`,

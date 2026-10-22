@@ -11,7 +11,7 @@ const cfg = adapter => validateConfig({
   version: 1, adapter,
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
-  features: [{ label: 'Orders', route: '/orders' }, { label: 'Invoices', route: '/invoices' }],
+  features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }, { label: 'Invoices', route: '/invoices' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
 }).config
 const FE = cfg('playwright')

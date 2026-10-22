@@ -16,7 +16,7 @@ const raw = (adapter, extra = {}) => ({
   version: 1, adapter,
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
-  features: [{ label: 'Orders', route: '/orders' }],
+  features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
   ...extra,
 })
@@ -44,8 +44,8 @@ test('omitted keys still drop out of the missing list', () => {
   assert.ok(!b.missing.some(m => ['feature_label', 'title_prefix'].includes(m.key)))
   assert.equal(b.missing.reduce((n, m) => n + m.weight, 0), 100 - 5 - 5, 'the unreachable 10 are not asked for')
   const p = buildBrief(cfg('playwright', { features: [] }), bare)
-  assert.ok(!p.missing.some(m => m.key === 'feature_label'))
-  assert.equal(p.missing.reduce((n, m) => n + m.weight, 0), 100 - 10)
+  assert.ok(!p.missing.some(m => ['feature_label', 'qa_plan_found'].includes(m.key)))
+  assert.equal(p.missing.reduce((n, m) => n + m.weight, 0), 100 - 10 - 10, 'no feature means no QA-plan search either')
 })
 
 test('attachments: credited with at least one attachment, on both rubrics', () => {

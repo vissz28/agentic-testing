@@ -68,7 +68,7 @@ export function buildBrief(config, ticket) {
 function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
-  const omitted = rubric.omitted?.(config) ?? new Set()
+  const omitted = rubric.omitted?.(config, ticket) ?? new Set()
   const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)

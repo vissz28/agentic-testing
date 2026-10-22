@@ -19,35 +19,43 @@
   "features": [
     {
       "label": "Giacenza_Prodotti",
-      "route": "/products-stock"
+      "route": "/products-stock",
+      "qaPlanSearch": "Giacenza prodotti"
     },
     {
       "label": "Lista_Movimenti_Magazzino",
-      "route": "/movements-list"
+      "route": "/movements-list",
+      "qaPlanSearch": "Lista movimenti"
     },
     {
       "label": "Report_Magazzino",
-      "route": "/warehouse-reports"
+      "route": "/warehouse-reports",
+      "qaPlanSearch": "Report magazzino"
     },
     {
       "label": "Importa_Giacenze",
-      "route": "/import-stock"
+      "route": "/import-stock",
+      "qaPlanSearch": "Importa giacenze"
     },
     {
       "label": "arrivi_merce_magazzino",
-      "route": "/goods-arrival"
+      "route": "/goods-arrival",
+      "qaPlanSearch": "Arrivi merce"
     },
     {
       "label": "Il_mio_magazzino",
-      "route": "/my-warehouse"
+      "route": "/my-warehouse",
+      "qaPlanSearch": "Il mio magazzino"
     },
     {
       "label": "Minimum_stock",
-      "route": "/minimum-stock"
+      "route": "/minimum-stock",
+      "qaPlanSearch": "Scorta minima"
     },
     {
       "label": "Spinta_warehouse",
-      "route": "/warehouse-push"
+      "route": "/warehouse-push",
+      "qaPlanSearch": "Spinta magazzino"
     }
   ],
   "ticketTemplates": {
