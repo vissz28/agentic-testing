@@ -1,4 +1,4 @@
-import { extractNaturalAC, hasGherkin, hasNaturalAC, hasThen, hasVaguePhrase, stepText } from '../criteria.mjs'
+import { extractListCriteria, extractNaturalAC, hasActionSteps, hasGherkin, hasNaturalAC, hasThen, hasVaguePhrase, stepText } from '../criteria.mjs'
 import { stripComments } from '../text.mjs'
 
 /**
@@ -9,6 +9,8 @@ export function acSignals(v, description, acField) {
   const acText = [acField, description].filter(Boolean).join('\n')
   const gherkin = hasGherkin(v, acField) || hasGherkin(v, description)
   const naturalItems = [...extractNaturalAC(v, acField, { headingless: true }), ...extractNaturalAC(v, description)]
+  // No criteria field, heading or Gherkin: a list of checks without a heading is the criteria (AGT-120).
+  if (!gherkin && !naturalItems.length) naturalItems.push(...extractListCriteria(v, description))
   const natural = hasNaturalAC(naturalItems)
   const ac_present = gherkin || natural
   const thenLines = (stepText(v, stripComments(acText)).match(v.thenAndLines) || []).join('\n')
@@ -40,17 +42,28 @@ export function featureOf(config, labels) {
 
 export const hasFeatureLabel = (config, labels) => featureOf(config, labels) !== null
 
+/** A Steps or User story heading, a user-story line, or numbered action steps without a heading. */
 export const stepsSignal = (v, hasHeading, description) =>
   hasHeading(v, description, v.stepsHeading) ||
   hasHeading(v, description, v.userStoryHeading) ||
-  v.userStoryLine.some(r => r.test(description))
+  v.userStoryLine.some(r => r.test(description)) ||
+  hasActionSteps(v, description)
 
-/** An Environment heading with something under it (or on its label line), or an env: line. */
+/**
+ * An Environment heading with something under it (or on its label line), an "Env:" line, or an
+ * environment named in the text ("on staging", "in production", "Chrome 120").
+ */
 export const envSignal = (v, hasHeading, description) =>
-  hasHeading(v, description, v.environmentHeading) && (
+  // The template's comment hints ("<!-- staging or production -->") name no environment.
+  /^[^\S\n]*(?:[-*][^\S\n]+)?\**env\**[^\S\n]*[:=][^\S\n]*\S/im.test(stripComments(description)) ||
+  v.environmentMention.test(stripComments(description)) ||
+  (hasHeading(v, description, v.environmentHeading) && (
     /\benv\b\s*[:=]/i.test(description) ||
     new RegExp(`^[^\\S\\n]*(?:#{1,6}|h[1-6]\\.|\\*\\*)?[^\\S\\n]*(?:${v.environmentHeading})\\b[^\\n]*\\n(?:[^\\S\\n]*\\n)*[^\\S\\n]*[^#\\s]`, 'im').test(description) ||
-    new RegExp(`^[^\\S\\n]*(?:${v.environmentHeading})[^\\S\\n]*\\**[^\\S\\n]*:[^\\S\\n]*\\S`, 'im').test(description))
+    new RegExp(`^[^\\S\\n]*(?:${v.environmentHeading})[^\\S\\n]*\\**[^\\S\\n]*:[^\\S\\n]*\\S`, 'im').test(description)))
+
+/** A list of checks without a heading, however short: content enough that the ticket is not legacy. */
+export const hasListChecks = (v, description) => extractListCriteria(v, description).length > 0
 
 /** At least one file (a screenshot, a video, a document) is on the ticket. */
 export const attachmentsSignal = ticket => Number(ticket.attachments) >= 1

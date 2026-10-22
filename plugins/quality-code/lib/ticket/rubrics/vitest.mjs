@@ -1,5 +1,5 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, hasListChecks, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
@@ -33,7 +33,8 @@ function deriveSignals(v, config, ticket) {
   const feature_label = hasFeatureLabel(config, ticket.labels)
   const environment = envSignal(v, hasHeading, description)
   const anyStructure =
-    ac_present || steps || hasExpected || hasActual || environment || context || title_prefix
+    ac_present || steps || hasExpected || hasActual || environment || context || title_prefix ||
+    hasListChecks(v, description)
   return {
     ac_present, ac_testable, steps, expected_defined, context, title_prefix, feature_label,
     environment, attachments: attachmentsSignal(ticket), links: linksSignal(ticket), legacy: !anyStructure,
