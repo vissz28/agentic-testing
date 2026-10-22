@@ -17,7 +17,7 @@ const NOT_ON_STORY = ['environment', 'expected_defined']
  * Story the Bug keys, so a missing item the fill-in will not ask for never costs points.
  */
 export function omittedFor(rubric, config, ticket) {
-  const keys = new Set(rubric.omitted?.(config) ?? [])
+  const keys = new Set(rubric.omitted?.(config, ticket) ?? [])
   if (templateFor(ticket?.issuetype) === 'story') for (const k of NOT_ON_STORY) keys.add(k)
   return keys
 }

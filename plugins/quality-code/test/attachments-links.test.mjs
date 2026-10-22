@@ -48,11 +48,11 @@ test('omitted keys still drop out of the missing list', () => {
   assert.ok(!shown.some(m => ['feature_label', 'title_prefix'].includes(m.key)))
   assert.equal(shown.reduce((n, m) => n + m.weight, 0), 100 - 5 - 5, 'the unreachable 10 are not asked for')
   const p = buildBrief(cfg('playwright', { features: [] }), bare)
-  assert.deepEqual([...p.omitted], ['feature_label'])
+  assert.deepEqual([...p.omitted].sort(), ['feature_label', 'qa_plan_found'])
   const shownP = p.missing.filter(m => !p.omitted.has(m.key))
-  assert.ok(!shownP.some(m => m.key === 'feature_label'))
-  // Only "confluence: false" omits qa_plan_found; a missing feature config alone does not.
-  assert.equal(shownP.reduce((n, m) => n + m.weight, 0), 100 - 10)
+  assert.ok(!shownP.some(m => ['feature_label', 'qa_plan_found'].includes(m.key)))
+  // No feature means no QA-plan search either, so the QA plan is left out too.
+  assert.equal(shownP.reduce((n, m) => n + m.weight, 0), 100 - 10 - 10)
 })
 
 test('attachments: credited with at least one attachment, on both rubrics', () => {
