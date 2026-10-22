@@ -11,11 +11,11 @@ const front = c => {
   const m = /^---\n([\s\S]*?)\n---\n/.exec(t)
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
-const MODEL = { kpi: 'haiku', consumption: 'haiku', check: 'haiku', setup: 'sonnet', start: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet' }
+const MODEL = { kpi: 'haiku', consumption: 'haiku', check: 'haiku', setup: 'sonnet', start: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet', 'tickets-eval': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {
-  assert.deepEqual(commands.sort(), ['check', 'consumption', 'kpi', 'seed', 'setup', 'start', 'ticket', 'ticket-eval', 'write', 'xray'])
+  assert.deepEqual(commands.sort(), ['check', 'consumption', 'kpi', 'seed', 'setup', 'start', 'ticket', 'ticket-eval', 'tickets-eval', 'write', 'xray'])
 })
 test('simple commands run on Haiku with low effort, the gate on Sonnet, writing on the session model', () => {
   for (const c of commands) {

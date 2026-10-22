@@ -279,6 +279,28 @@ skeleton when there are no criteria. Nothing is written to Jira, and it never sc
 
 ---
 
+## Check a whole project
+
+```
+/quality-code:tickets-eval ABC [--user "Jane Doe"] [--status "To Do"] [--limit 100] [--json]
+```
+
+For product owners and leads: how ready is a project's backlog? The command makes **one** Jira search
+(`project = ABC`, narrowed by `--user` and `--status`, newest first; `--limit` defaults to 50, at most
+200) and one script run scores every ticket with the same gate as `ticket-eval`. The model reads and
+writes nothing else. The project key must be one of `jira.projects` or `jira.trackingProjects`.
+
+The card has one line per ticket, lowest score first (key, score, pass or refuse, and the biggest
+missing item), then the project: tickets scored, how many pass (number and %), the average score and
+the three items most often missing. On a fullstack project each ticket is scored for both sides and the
+lower decides. `--json` prints only the machine line.
+
+It is read-only: nothing is sent to Jira, and the search results are deleted from disk once scored.
+It exits 0 whatever the pass rate (a bad input exits 2). To fix a ticket, run
+`/quality-code:ticket-eval <KEY>`.
+
+---
+
 ## Check your tests
 
 For Vitest, Playwright and fullstack projects. `/quality-code:check` runs spec files and grades them;
