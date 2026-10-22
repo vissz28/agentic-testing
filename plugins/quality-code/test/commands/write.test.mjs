@@ -106,14 +106,18 @@ test('step 6: one line, then the pipeline with every spec, the key, the ticket f
   assert.match(s, /Pass every spec this run wrote/)
   assert.match(s, /Quote every spec path and the target in single quotes/)
 })
-test('step 6: at most 2 rewrites of the tests for fixable fails; boundary and honesty undo once', () => {
+test('step 6: at most 2 rewrites of the tests for fixable fails; boundary and honesty undo only the run\'s change, once', () => {
   const s = step(6)
   for (const c of ['`expected`', '`assertions`', '`mutation`', '`stryker`', '`types`']) assert.ok(s.includes(c), c)
   // The types step fails only on an error in a spec, so every types fail is the tests' to fix.
   assert.doesNotMatch(s, /outside a spec/)
   assert.match(s, /rewrite the tests only/)
   assert.match(s, /At most 2 rewrites/)
-  assert.match(s, /\*\*`boundary` or `honesty`:\*\* undo that change once/)
+  const undo = s.split('\n').find(l => l.includes('**`boundary` or `honesty`:**'))
+  // Only the run's own change is undone, by an edit; the developer's uncommitted work is never touched.
+  assert.match(undo, /undo this run's change once, with an edit/)
+  assert.match(undo, /a file this run did not write[^.]*: take the card as it is and leave that file alone/)
+  assert.match(undo, /Never run `git restore`, `git checkout`/)
   assert.ok(s.includes(`${RUN} stop`))
   assert.match(s, /Exit 2[^\n]*run `run stop`/)
 })

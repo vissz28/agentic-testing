@@ -28,6 +28,9 @@ Update with `/plugin update quality-code@teamsystem`.
   Confluence QA plan — no `qaPlanSearch` on the feature and no page attached) is left out of the
   gate's denominator instead of permanently capping the score. A `qaPlanSearch` that simply finds
   nothing still lowers the score, and a plan that was in fact found is always credited.
+- **A failed boundary or honesty check keeps the developer's files.** `write` undoes only its own
+  change, with an edit, and never runs `git restore` or `git checkout`. A finding on a file the run
+  did not write ends the run with the card instead.
 
 ## [0.14.0] - 2026-10-22
 
