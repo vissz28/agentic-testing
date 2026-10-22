@@ -19,7 +19,26 @@ Set up this repo for the quality-code plugin. Setup asks only for the connection
 If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
 0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Go on to step 1 only when its card lets you continue.
-1. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
+1. **Where.** Ask where the user will use Quality Code, as this card, and end the turn:
+
+   ```
+   Where will you use Quality Code?
+   1. In a repo (developers)
+   2. No repo, Jira only (QA, PO)
+   ```
+
+   - **1:** the repo setup: steps 2 to 5 below, as written.
+   - **2:** the personal setup, for people who read tickets and have no repo (QA, PO). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `personal` in its `SETUP_JSON:` line (`path`, `existing`, and `existingError` when the file is broken). Skip step 2 (no project folder, no stack, no GitLab). On a rerun (`personal.existing` is not null), show the current personal config and start every step from it. Then do step 3 (the Jira site and project(s), exactly as for a repo), then ask which tickets they are, as this card, and end the turn:
+
+     ```
+     Which tickets?
+     1. Frontend
+     2. Backend
+     3. Both
+     ```
+
+     `1` gives `adapter: "playwright"`, `2` `"vitest"`, `3` `"fullstack"`. The adapter is used only to score tickets. Then step 4 with the personal rules, and step 5 with the personal done line.
+2. **This project.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read the `SETUP_JSON:` line (`adapter`, `here`, `existing`, and `existingError` when the old file is broken).
    - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest, or both).`
    - `adapter` is `both` (the repo has Vitest and Playwright): ask what the project is, as this card, and end the turn:
 
@@ -44,11 +63,11 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      The GitLab project is read from the remote every time; it is not written to the config.
-2. **Jira.** Using the Atlassian connector:
+3. **Jira.** Using the Atlassian connector:
    - Call `getAccessibleAtlassianResources`, then confirm the site URL with the user (`1. Use <site>` / `2. A different site`). The site is an `https://` URL with no path. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
    - Call `getVisibleJiraProjects`. Show the projects as a numbered list; the user picks by number. Their keys become `jira.projects`.
    - Ask nothing else: no criteria field, labels, prefixes, languages or templates.
-3. **Preview.** Show the config as it will be written, then this card and end the turn:
+4. **Preview.** Show the config as it will be written, then this card and end the turn:
 
    ```
    1. Write it
@@ -56,14 +75,15 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 3 with a fix. On `ok`, go on.
+   - **Personal setup (option 2):** show the config and add the line `Saved in <personal.path>; no repo file is touched.` On **1**, write the proposal to a temp file as `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal @<tmp proposal>`. It writes only the personal file (never `.gitignore`, templates or any repo file). Errors and `2`/`3` work as below.
+   - **1:** write the proposal to a temp file as `{ "config": { … } }` with `version: 1`, `adapter` and `jira { site, projects }`. On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were). Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write @<tmp proposal>`. If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
    - **2:** ask which part to change, redo that step, show the preview again.
    - **3:** stop. Nothing is written.
-4. **Done.** Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:start` and `/quality-code:ticket-eval`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:start. To check any ticket: /quality-code:ticket-eval <KEY>. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
 
 ## Advanced
 
-`/quality-code:setup advanced` adds the questions the short setup leaves to defaults. It needs a config: without one, run steps 0 to 3 first. Run `setup.mjs --detect` and start every step from the current config.
+`/quality-code:setup advanced` adds the questions the short setup leaves to defaults. It needs a config: without one, run steps 0 to 4 first. Run `setup.mjs --detect` and start every step from the current config.
 
 A1. **Other projects to track.** Ask once whether any other projects should be tracked (`jira.trackingProjects`, optional; skip on no).
 A2. **Features.** In a Jira project shared by many teams, most recent tickets carry other teams' labels. Before counting, ask how to narrow the search, as a numbered card, and end the turn:

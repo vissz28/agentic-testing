@@ -28,11 +28,13 @@ grades them. It works with any Jira Cloud project and any repo that uses **Vites
 |---|---|
 | **Readiness gate:** scores a ticket out of 100; 70 passes | `/quality-code:ticket-eval <KEY>` |
 | **Gaps fixed on the spot:** a Jira comment listing what is missing, or a guided fill-in pushed to the ticket after a preview | `ticket-eval`, when a ticket is refused |
-| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name | `/quality-code:start` |
+| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:start` |
 | **Tests written from the ticket:** Vitest and Playwright specs in your test folders, graded on the spot | `/quality-code:write <KEY>` |
 | **Tests graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:check` |
 | **Test data and QA cases:** seed builders or route stubs; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
 | **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
+| **A whole project at once:** every ticket scored, how many pass, what is most often missing | `/quality-code:tickets-eval <PROJECT>` |
+| **For QA and PO without a repo:** a personal Jira-only setup for the ticket commands | `/quality-code:setup`, option 2 |
 | **Numbers:** usage, Quality Program KPIs and AI cost, read locally | `/quality-code:kpi`, `/quality-code:consumption` |
 | **CI gate:** refuses untestable tickets in the pipeline | `ticket-eval <KEY> --ci` |
 
@@ -70,6 +72,12 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`/quality-code:start` runs the pipeline:** after the repo card it gates the ticket, then checks
+  the tests your branch changed, or writes and checks them. `--ask` brings back the menu.
+- **For QA and product owners:** a Jira-only setup, no repo needed, and
+  `/quality-code:tickets-eval <PROJECT>` to see how a whole project's tickets do.
+- **Attachments and links count in the 100 points** (every score changes a little), and the fill-in
+  can draft missing items from a linked **Figma** design.
 - **New install name: `quality-code@teamsystem`.** The marketplace is now called `teamsystem`.
 - **Cheaper, faster commands:** `kpi`, `consumption` and `check` run on Haiku (about $0.007 a run
   instead of $0.24), `setup`, `start` and `ticket-eval` on Sonnet; `write` keeps your model. The
@@ -107,7 +115,8 @@ to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the
    ```
 
 2. **Every day, start from your feature branch.** It finds the ticket from the branch name
-   (`ABC-123-add-export`) and offers to evaluate it, check the branch's tests, or write tests for it:
+   (`ABC-123-add-export`) and runs the pipeline: the readiness gate, then it checks the branch's
+   tests, or writes and checks them when there are none:
 
    ```
    /quality-code:start

@@ -29,7 +29,7 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | Command | What it does |
 |---|---|
 | `/quality-code:setup` | connects Jira, GitLab and Figma, and writes the project's config |
-| `/quality-code:start` | your daily start: the branch, its ticket and the readiness gate |
+| `/quality-code:start` | your daily start: the branch, its ticket, the readiness gate, then the tests |
 | `/quality-code:ticket-eval <KEY>` | scores a ticket for test-readiness (70 points to pass) |
 | `/quality-code:write <KEY>` | writes the tests for a ticket and grades them |
 | `/quality-code:check` | grades the spec files on your branch |

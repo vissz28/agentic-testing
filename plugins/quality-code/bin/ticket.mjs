@@ -10,13 +10,14 @@ import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { resolveField, storeField } from '../lib/ticket/fields.mjs'
-import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor } from '../lib/ticket/fill.mjs'
+import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
+import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks } from '../lib/ticket/fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does).
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit'])
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--save'])
 
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
@@ -38,9 +39,9 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   let a
   try { a = parseArgs(rest) } catch (e) { err(e.message); return 2 }
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (cmd === 'config' && a._[0] === 'check') {
-    if (cfg.ok) { out('ok'); return 0 }
+    if (cfg.ok) { out(`ok (${cfg.source}: ${cfg.path})`); return 0 }
     cfg.errors.forEach(e => out(e))
     return 2
   }
@@ -81,8 +82,26 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none>')
     return 2
   }
+  if (cmd === 'tickets-eval') {
+    // Project-wide: --in is a JSON array of raw tickets. Scores them all, sends nothing, writes nothing unless --save.
+    if (!a.in) { err('usage: ticket.mjs tickets-eval --in @<tickets.json> [--json] [--save]'); return 2 }
+    let list
+    const listPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
+    try { list = JSON.parse(listPath ? readFileSync(listPath, 'utf8') : a.in) } catch (e) { err(`--in is not readable JSON: ${e.message}`); return 2 }
+    if (!Array.isArray(list) || list.some(t => !t || typeof t !== 'object' || Array.isArray(t))) { err('--in must be a JSON array of tickets'); return 2 }
+    const r = evalTickets(config, list)
+    if (a.flags.has('--save')) {
+      try { saveTickets(root, config, r.clean) } catch (e) { err(`tickets-eval: cannot save (${e.code ?? e.message})`); return 2 }
+    }
+    // The raw search results go once they are scored (as sanitize removes raw.json).
+    if (listPath) { try { unlinkSync(listPath) } catch { /* already gone */ } }
+    const machine = `TICKETS_EVAL_JSON:${JSON.stringify({ summary: r.summary, tickets: r.rows })}`
+    if (a.flags.has('--json')) out(machine)
+    else { out(formatCard(r)); out(machine) }
+    return 0
+  }
   if (!a.in) {
-    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -126,7 +145,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     case 'fill-menu': {
       const m = fillMenu(config, buildBrief(config, ticket))
       out(formatFillMenu(m))
-      out(`FILL_JSON:${JSON.stringify({ score: m.score, threshold: m.threshold, items: m.items })}`)
+      out(`FILL_JSON:${JSON.stringify({ score: m.score, threshold: m.threshold, items: m.items, figma: figmaLinks(ticket) })}`)
       return 0
     }
     case 'pick': {
@@ -144,13 +163,27 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
         try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { err(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
         const b = r.brief
         out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      } else if (r.pending) {
+        out(r.reason)
       } else {
         const example = exampleFor(config, ticket, key)
         out(`Not accepted: ${r.reason}${example ? `\nExample: ${example.replace(/\n/g, ' / ')}` : ''}`)
       }
       const after = r.brief ?? buildBrief(config, ticket)
-      out(`FILL_JSON:${JSON.stringify({ ok: r.ok, reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
+      out(`FILL_JSON:${JSON.stringify({ ok: r.ok, ...(r.pending ? { pending: true } : {}), reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
       return r.ok ? 0 : 1
+    }
+    case 'attachments': {
+      // After the model read the ticket again: the file count from Jira is saved here, and the script re-scores.
+      if (!inPath) { err('attachments needs --in @<ticket.json> to save the count'); return 2 }
+      const n = Number(a._[0])
+      if (!Number.isInteger(n) || n < 0) { err('usage: ticket.mjs attachments --in @<ticket.json> <count>'); return 2 }
+      const next = { ...ticket, attachments: n }
+      try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const b = buildBrief(config, next)
+      out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      out(`FILL_JSON:${JSON.stringify({ attachments: n, score: b.score, gate: b.gate })}`)
+      return 0
     }
     case 'side': {
       // Fullstack projects: which side a ticket gets tests on. With a side, it is saved in the ticket file.

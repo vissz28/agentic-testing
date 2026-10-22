@@ -92,20 +92,15 @@ Check out your feature branch (named with the ticket key, for example `ABC-123-a
 /quality-code:start
 ```
 
-You confirm the repo card (branch, base, how many files changed), confirm the ticket key, and pick
-what to do:
+You confirm the repo card (branch, base, how many files changed), and the ticket key comes from the
+branch name. Then it runs the pipeline on its own: the readiness gate first, then the tests. When
+the branch changed test files, it checks them; otherwise it writes the tests for the ticket and
+checks those. A refused ticket stops at the gate with the refuse card below. To pick one step
+instead, run `/quality-code:start --ask`: it shows `1. Evaluate the ticket / 2. Check the tests on
+this branch / 3. Write and check tests / 4. Stop`.
 
-```
-ABC-123 on ABC-123-add-export (5 files changed against origin/main)
-1. Evaluate the ticket
-2. Check the tests on this branch
-3. Write and check tests
-4. Stop
-```
-
-Option 2 shows only in a Vitest project whose branch has test files; without it, `Write and check
-tests` is option 2. The rest of this section is what you see after `1. Evaluate the ticket`. To check
-a ticket that has no branch yet, use `/quality-code:ticket-eval ABC-123`.
+The rest of this section is the gate. To check a ticket that has no branch yet, use
+`/quality-code:ticket-eval ABC-123`.
 
 ```
 /quality-code:ticket-eval ABC-123

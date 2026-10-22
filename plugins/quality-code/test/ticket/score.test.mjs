@@ -23,11 +23,11 @@ test('playwright rubric weights', () => {
   // the full weight table with nothing credited, not the omission behaviour (covered below).
   const b = buildBrief(cfg('playwright'), { key: 'DEMO-1', issuetype: 'Bug', labels: ['Orders'], text: { description: 'x' } })
   assert.deepEqual(b.missing.map(m => [m.key, m.weight]),
-    [['ac_present', 30], ['ac_testable', 15], ['qa_plan_found', 15], ['steps', 10], ['expected_defined', 10], ['environment', 5]])
+    [['ac_present', 25], ['ac_testable', 15], ['steps', 10], ['expected_defined', 10], ['attachments', 10], ['qa_plan_found', 10], ['links', 5], ['environment', 5]])
 })
 test('vitest rubric weights', () => {
   const b = buildBrief(cfg('vitest'), { key: 'DEMO-1', issuetype: 'Bug', labels: [], summary: 's', text: { description: 'x' } })
-  assert.deepEqual(b.missing.map(m => m.weight), [30, 15, 15, 15, 10, 5, 5, 5])
+  assert.deepEqual(b.missing.map(m => m.weight), [25, 15, 15, 10, 10, 5, 5, 5, 5, 5])
 })
 test('feature label comes from config; a bare domain word does not count', () => {
   const c = cfg('vitest')

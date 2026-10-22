@@ -156,8 +156,10 @@ test('spec §10 #2: a bare warehouse label no longer counts as a feature label (
   assert.equal(after.signals.feature_label, false)
   assert.equal(after.score, before.score - 5)
   assert.ok(after.missing.some(m => m.key === 'feature_label'))
-  const { score: _a, gate: _b, missing: _c, signals: sa, ...restAfter } = after
-  const { score: _d, gate: _e, missing: _f, signals: sb, ...restBefore } = renameFeatureKey(before)
+  // The expected file was re-baselined with a real feature label standing in for the bare one (the
+  // old scorer counted it), so `feature` differs too.
+  const { score: _a, gate: _b, missing: _c, feature: _g, signals: sa, ...restAfter } = after
+  const { score: _d, gate: _e, missing: _f, feature: _h, signals: sb, ...restBefore } = renameFeatureKey(before)
   assert.deepEqual(restAfter, restBefore, 'nothing else in the brief changes')
   assert.deepEqual({ ...sa, feature_label: true }, sb)
 })

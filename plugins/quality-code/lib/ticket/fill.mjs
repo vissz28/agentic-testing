@@ -30,6 +30,31 @@ const REASONS = {
   },
 }
 
+/** The menu items a design can answer: what the screen shows, not who asked or where. */
+export const DESIGN_ITEMS = ['ac_present', 'ac_testable', 'steps', 'expected_defined']
+
+const FIGMA_URL = /https?:\/\/(?:[\w-]+\.)?figma\.com\/(?:design|file|proto|board)\/[^\s<>"'`)\]]+/gi
+export const MAX_FIGMA_LINKS = 5
+
+/** The distinct Figma URLs of a ticket (its links, description and `figma` field), http(s) only, at most 5. */
+export function figmaLinks(ticket) {
+  const sources = [
+    ...(Array.isArray(ticket?.links) ? ticket.links.map(l => (typeof l === 'string' ? l : l?.url)) : []),
+    ticket?.text?.description,
+    ticket?.text?.acField,
+    ticket?.figma,
+  ]
+  const found = []
+  for (const src of sources) {
+    if (typeof src !== 'string') continue
+    for (const m of src.matchAll(FIGMA_URL)) {
+      const url = m[0].replace(/[.,;:!?]+$/, '')
+      if (!found.includes(url)) found.push(url)
+    }
+  }
+  return found.slice(0, MAX_FIGMA_LINKS)
+}
+
 /** The signals as they would be if `keys` were filled. AC also credits testable and expected, as the rubric does. */
 function credit(signals, keys) {
   const s = { ...signals }
@@ -56,7 +81,7 @@ export function fillMenu(config, brief) {
     .map(m => {
       const block = msgs[m.key] ?? {}
       const gain = scoreTicket(rubric, credit(brief.signals, [m.key])).score - brief.score
-      return { key: m.key, title: block.title ?? m.label, gain, question: block.question, example: block.example }
+      return { key: m.key, title: block.title ?? m.label, gain, question: block.question, example: block.example, ...(DESIGN_ITEMS.includes(m.key) ? { design: true } : {}) }
     })
     .sort((a, b) => b.gain - a.gain || order.indexOf(a.key) - order.indexOf(b.key))
     .map((item, i) => ({ n: i + 1, ...item }))
@@ -196,6 +221,19 @@ export function applyAnswer(config, ticket, key, answer) {
       entry.label = label
       break
     }
+    case 'links': {
+      const url = lines[0] ?? ''
+      let ok = false
+      try { const u = new URL(url); ok = /^https?:$/.test(u.protocol) && u.hostname.length > 0 && !/\s/.test(url) } catch { ok = false }
+      if (!ok || lines.length > 1) return reject('Paste one web address that starts with http:// or https://.')
+      addSection('Links', url)
+      next.links = [...(next.links ?? []), { url, title: '' }]
+      break
+    }
+    case 'attachments':
+      // A file cannot be typed in. "done" is only a promise: the score counts it after the ticket is read again.
+      if (!/^(done|fatto)$/i.test(text)) return reject('Attach a screenshot, a video or a file on the Jira ticket, then answer: done')
+      return { ok: false, pending: true, input: ticket, reason: 'Not counted yet. The check only counts a file it can see on the ticket: it is read again from Jira, then scored.' }
     case 'environment': {
       const env = text.replace(/^env\s*[:=]\s*/i, '').trim()
       if (!env) return reject('Name the environment, for example staging.')

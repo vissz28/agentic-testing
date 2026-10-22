@@ -88,7 +88,7 @@ test('config label overrides the rubric label in missing and the report', () => 
   const c = cfg({ messages: { ac_present: { label: 'X' }, story: { steps: { label: 'S' } } } })
   const b = buildBrief(c, bare)
   assert.equal(b.missing.find(m => m.key === 'ac_present').label, 'X')
-  assert.match(formatReport(b), /- X \(30\)/)
+  assert.match(formatReport(b), /- X \(25\)/)
   assert.notEqual(b.missing.find(m => m.key === 'steps').label, 'S')
   const bs = buildBrief(c, { ...bare, issuetype: 'Story' })
   assert.equal(bs.missing.find(m => m.key === 'steps').label, 'S')

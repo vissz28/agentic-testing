@@ -10,7 +10,7 @@
       "op": [
         "score"
       ],
-      "stdout": "FIC-37: test-readiness 100% · ready (threshold 70%)\nFeature label: none\nExpected chunks in ticket text: 1 assertable · model harvested 0 scenario(s) (not scored)\nMissing: nothing, full marks.\nFlags: none\nGate: pass, ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":100,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":null,\"scenarios\":[],\"derivable\":1,\"missing\":[],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true}}\n",
+      "stdout": "FIC-37: test-readiness 85% · ready (threshold 70%)\nFeature label: Lista_Movimenti_Magazzino\nExpected chunks in ticket text: 1 assertable · model harvested 0 scenario(s) (not scored)\nMissing (each lowers the score):\n  - an attachment (a screenshot, a video or a file on the ticket) (10)\n  - a link (a linked issue, or a web link such as Figma or Confluence) (5)\nFlags: none\nGate: pass, ok to generate.\nTICKET_EVAL_JSON:{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":85,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Lista_Movimenti_Magazzino\",\"scenarios\":[],\"derivable\":1,\"missing\":[{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true,\"attachments\":false,\"links\":false}}\n",
       "exit": 0
     },
     {
@@ -18,7 +18,7 @@
         "score",
         "--json"
       ],
-      "stdout": "{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":100,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":null,\"scenarios\":[],\"derivable\":1,\"missing\":[],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true}}\n",
+      "stdout": "{\"key\":\"FIC-37\",\"browse\":null,\"issuetype\":null,\"status\":null,\"score\":85,\"threshold\":70,\"gate\":\"pass\",\"legacy\":false,\"feature\":\"Lista_Movimenti_Magazzino\",\"scenarios\":[],\"derivable\":1,\"missing\":[{\"key\":\"attachments\",\"label\":\"an attachment (a screenshot, a video or a file on the ticket)\",\"weight\":10},{\"key\":\"links\",\"label\":\"a link (a linked issue, or a web link such as Figma or Confluence)\",\"weight\":5}],\"flags\":[],\"signals\":{\"ac_present\":true,\"ac_testable\":true,\"steps\":true,\"expected_defined\":true,\"context\":true,\"title_prefix\":true,\"warehouse_label\":true,\"environment\":true,\"attachments\":false,\"links\":false}}\n",
       "exit": 0
     }
   ]

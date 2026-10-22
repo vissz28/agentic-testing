@@ -116,6 +116,22 @@ function defaults(config) {
       example: (config.titlePrefixes || [])[0] ?? '',
       label: 'a title prefix',
     },
+    attachments: {
+      title: 'Attachment',
+      missing: 'There is no attachment (screenshot, video or file) on the ticket.',
+      add: 'Please attach a screenshot, a video or a file that shows the problem or the design, on the Jira ticket itself.',
+      question: 'Attach a screenshot, a video or a file on the Jira ticket (the Attach button, or drag it onto the ticket). When it is there, answer: done',
+      example: 'done',
+      label: 'an attachment (a screenshot, a video or a file on the ticket)',
+    },
+    links: {
+      title: 'Link',
+      missing: 'There is no link on the ticket (no linked issue and no web link).',
+      add: 'Please add a link: a linked issue, or a web link to the design (Figma), the spec (Confluence) or the page.',
+      question: 'Paste one web address that helps: the Figma design, the Confluence page or the page it is about.',
+      example: 'https://www.figma.com/design/abc123/Orders',
+      label: 'a link (a linked issue, or a web link such as Figma or Confluence)',
+    },
     environment: {
       title: 'Environment',
       missing: 'There is no Environment section with Env: …',

@@ -1,15 +1,17 @@
 import { countDerivable, hasHeading } from '../criteria.mjs'
-import { acSignals, envSignal, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Playwright stack, sums to 100. Routes a test to a screen, so a feature
 // label and a QA plan carry weight.
 const weights = {
-  ac_present: [30, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description'],
+  ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description'],
   ac_testable: [15, 'testable AC — each Then or AC item an observable assertion, not "works correctly"'],
-  feature_label: [15, 'feature label (one of the configured features — routes the test to a screen)'],
-  qa_plan_found: [15, 'a Confluence QA plan for the feature'],
   steps: [10, 'steps to reproduce (Bug) or a user story (Story)'],
   expected_defined: [10, 'clear expected behavior (or Expected vs Actual for a bug)'],
+  attachments: [10, 'an attachment (a screenshot, a video or a file on the ticket)'],
+  links: [5, 'a link (a linked issue, or a web link such as Figma or Confluence)'],
+  feature_label: [10, 'feature label (one of the configured features — routes the test to a screen)'],
+  qa_plan_found: [10, 'a Confluence QA plan for the feature'],
   environment: [5, 'environment / workspace context'],
 }
 
@@ -31,6 +33,8 @@ function deriveSignals(v, config, ticket) {
   return {
     ac_present, ac_testable, feature_label, steps, expected_defined, environment,
     qa_plan_found: !!ticket.qaPlan?.url,
+    attachments: attachmentsSignal(ticket),
+    links: linksSignal(ticket),
     legacy: !anyStructure,
   }
 }

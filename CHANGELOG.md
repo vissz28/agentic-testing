@@ -16,18 +16,6 @@ Update with `/plugin update quality-code@teamsystem`.
   command that detects the branch (`start`, `check`, `write`) diffs against it. An explicit
   `--base` flag still wins over it; it still wins over `origin/HEAD` and the `develop`/`main`/
   `master` guess.
-- **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
-  adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
-  cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
-  ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
-  project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
-  names. The same rows the old in-repo harness wrote: its CSV is read as it is.
-- **Confluence pages attached to a ticket.** `ticket-eval` reads the ticket's remote links (its Web
-  links) and uses an attached Confluence page with scenarios as the QA plan, before searching by
-  `qaPlanSearch`. It used to look in `issuelinks`, which only links tickets to tickets, so an
-  attached page was never found.
-- `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
-  linked to that ticket (with an `xray` block).
 
 ### Fixed
 
@@ -41,8 +29,66 @@ Update with `/plugin update quality-code@teamsystem`.
   gate's denominator instead of permanently capping the score. A `qaPlanSearch` that simply finds
   nothing still lowers the score, and a plan that was in fact found is always credited.
 
+## [0.14.0] - 2026-10-22
+
+**`/quality-code:start` now runs the pipeline instead of showing a menu.**
+
 ### Changed
 
+- **`/quality-code:start` runs the whole flow.** After the repo card and the ticket from the branch
+  name, it runs the readiness gate, then the tests: when the branch changed test files it checks
+  them (`check`, with the ticket key), otherwise it writes the tests for the ticket and checks them
+  (`write`). A refused ticket stops at the gate with its refuse card and fill-in, as before.
+- **`--ask`** brings back the old menu (`Evaluate the ticket / Check the tests on this branch /
+  Write and check tests / Stop`) for when you want one step only.
+
+### Upgrading
+
+Nothing to do. If you used `start` only to evaluate a ticket, use `/quality-code:start --ask` or
+`/quality-code:ticket-eval <KEY>`.
+
+## [0.13.0] - 2026-10-22
+
+**Every ticket's score changes:** attachments and links now count (see Changed). On the warehouse
+parity set, 8 of 123 tickets go from pass to refuse.
+
+### Added
+
+- **For QA and product owners, no repo needed.** `/quality-code:setup` asks first where you use it:
+  `In a repo (developers)` or `No repo, Jira only (QA, PO)`. The second saves a personal setup in
+  your Claude folder (`~/.claude/quality-code.json`), so `ticket-eval`, `ticket` and `tickets-eval`
+  work in any folder. Inside a repo, the repo's config still wins. `write`, `check`, `seed`, `xray`
+  and `start` say plainly that they need a repo.
+- **`/quality-code:tickets-eval <PROJECT> [--user <name>] [--status <s>] [--limit N]`:** scores a
+  whole project's tickets in one go, read-only. One line per ticket (score, pass or refuse, the
+  biggest gap), then the project: how many pass, the average score and the three items most often
+  missing.
+- **Figma drafts in the fill-in.** When a refused ticket links a Figma design, the guided fill-in
+  offers `Draft from Figma and my changes`: it drafts the acceptance criteria, expected behaviour or
+  steps from the design and the branch's code changes (the design only, without a repo). You see
+  each draft and choose `Use it / Edit / Skip`; the script still decides whether it counts, and
+  nothing reaches Jira without the preview and your yes. Unknown values stay as questions.
+- **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
+  adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
+  cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
+  ticket and never twice, and writes each ticket's `case.csv`, plus a styled `case.xlsx` when the
+  project has `exceljs`, for import into Xray. `xray.headers` matches your import mapping's column
+  names. The same rows the old in-repo harness wrote: its CSV is read as it is.
+- **Confluence pages attached to a ticket.** `ticket-eval` reads the ticket's remote links (its Web
+  links) and uses an attached Confluence page with scenarios as the QA plan, before searching by
+  `qaPlanSearch`. It used to look in `issuelinks`, which only links tickets to tickets, so an
+  attached page was never found.
+- `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
+  linked to that ticket (with an `xray` block).
+
+### Changed
+
+- **Attachments and links are in the 100 points**, the bar stays at 70. Backend (Vitest): criteria
+  25, testable 15, steps 10, expected 15, attachments 10, links 5, context 5, title prefix 5, feature
+  label 5, environment 5. Frontend (Playwright): criteria 25, testable 15, feature 10, QA plan 10,
+  steps 10, expected 10, attachments 10, links 5, environment 5. Only the attachment count and the
+  link addresses are kept, never file names or contents. The fill-in can add a link; an attachment is
+  added on Jira and counted when the ticket is read again.
 - **Cheaper and faster commands.** Each command now picks its model and effort for the turn it
   starts in: Haiku with low effort for `kpi`, `consumption` and `check`; Sonnet for `setup`,
   `start`, `ticket` and `ticket-eval`; your own model for `write`, `seed` and `xray`. Measured on

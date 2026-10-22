@@ -66,8 +66,9 @@ config it writes:
 ```
 
 It checks your connectors, shows the branch and what it changed, and takes the ticket key from the
-branch name (`ABC-123-add-export`). Then you pick: evaluate that ticket, check the tests on the branch,
-or write and check tests for it. To check any ticket directly:
+branch name (`ABC-123-add-export`). Then it runs the pipeline: the readiness gate, then it checks
+the tests the branch changed, or writes and checks tests when there are none. `--ask` lets you pick
+one step instead. To check any ticket directly:
 `/quality-code:ticket-eval ABC-123`. To write tests for one: `/quality-code:write ABC-123`.
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
@@ -124,7 +125,7 @@ Playwright test).
 | Capability | How | Status |
 |---|---|---|
 | Guided setup for your repo and Jira project | `/quality-code:setup` | ✅ available |
-| Start from your feature branch: connectors, branch changes, ticket from the branch name | `/quality-code:start` | ✅ available |
+| Start from your feature branch: connectors, branch changes, ticket from the branch name, then the gate and the tests | `/quality-code:start` | ✅ available |
 | Readiness gate: score a ticket out of 100 | `/quality-code:ticket-eval <KEY>` | ✅ available |
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
@@ -279,6 +280,28 @@ skeleton when there are no criteria. Nothing is written to Jira, and it never sc
 
 ---
 
+## Check a whole project
+
+```
+/quality-code:tickets-eval ABC [--user "Jane Doe"] [--status "To Do"] [--limit 100] [--json]
+```
+
+For product owners and leads: how ready is a project's backlog? The command makes **one** Jira search
+(`project = ABC`, narrowed by `--user` and `--status`, newest first; `--limit` defaults to 50, at most
+200) and one script run scores every ticket with the same gate as `ticket-eval`. The model reads and
+writes nothing else. The project key must be one of `jira.projects` or `jira.trackingProjects`.
+
+The card has one line per ticket, lowest score first (key, score, pass or refuse, and the biggest
+missing item), then the project: tickets scored, how many pass (number and %), the average score and
+the three items most often missing. On a fullstack project each ticket is scored for both sides and the
+lower decides. `--json` prints only the machine line.
+
+It is read-only: nothing is sent to Jira, and the search results are deleted from disk once scored.
+It exits 0 whatever the pass rate (a bad input exits 2). To fix a ticket, run
+`/quality-code:ticket-eval <KEY>`.
+
+---
+
 ## Check your tests
 
 For Vitest, Playwright and fullstack projects. `/quality-code:check` runs spec files and grades them;
@@ -289,8 +312,8 @@ a script builds the verdict, the model only relays it.
 ```
 
 With no spec paths it takes the test files your branch changed against its base (deleted files are
-left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:start` offers the same as
-option 2 when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
+left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:start` runs the same, after the
+gate, when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
 test that changes its result, naming its first failure. With a ticket key, only that ticket's block
 counts: another ticket's red test in the same file does not decide the verdict (the card says how
 many it left out), a namesake elsewhere never kills a mutant, and the ticket and target `write` saved
@@ -382,8 +405,7 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
 /quality-code:write ABC-123
 ```
 
-`/quality-code:start` offers the same as `Write and check tests` (option 3, or option 2 when the
-branch has no test files to check).
+`/quality-code:start` runs the same, gate included, when the branch has no test files to check.
 
 1. **Gate.** The ticket is read and scored as in `ticket-eval`. A refused ticket gets the refuse card
    and its flow; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",
@@ -511,19 +533,28 @@ keywords. The model never supplies the number.
 
 | What the ticket has | Playwright | Vitest |
 |---|---:|---:|
-| Acceptance criteria | 30 | 30 |
+| Acceptance criteria | 25 | 25 |
 | Criteria that are specific (no "works correctly") | 15 | 15 |
-| A feature label from your config | 15 | 5 |
-| A Confluence QA plan found (a page attached to the ticket, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 15 | — |
-| Steps to reproduce (bug) or a user story (story) | 10 | 15 |
+| Steps to reproduce (bug) or a user story (story) | 10 | 10 |
 | Expected and actual result | 10 | 15 |
-| A context / summary section | — | 10 |
+| An attachment (a screenshot, a video or a file on the ticket) | 10 | 10 |
+| A link (a linked issue, or a web link: Figma, Confluence, other) | 5 | 5 |
+| A feature label from your config | 10 | 5 |
+| A Confluence QA plan found (a page attached to the ticket, or by the feature's search text: a page whose title contains those words, in `confluenceSpaces` when set) | 10 | — |
+| A context / summary section | — | 5 |
 | A title prefix from your config (`[API] …`) | — | 5 |
 | Environment (`Env: staging`) | 5 | 5 |
 
 A ticket with acceptance criteria also gets the Expected points. A signal your config cannot meet
 (no feature labels, or no title prefixes) is never asked for and scores 0, so the best possible score
-is then 85 (Playwright) or 90 to 95 (Vitest), still above the bar.
+is then 90 (Playwright) or 90 to 95 (Vitest), still above the bar.
+
+**Attachments and links.** Only their number and addresses are read: the count of files on the ticket
+(never their names, URLs or contents) and the list of linked issues and web links (URL and title, redacted
+like the rest). In the guided fill-in, a **link** is one web address, added to the description as a
+`## Links` line and credited when it is a valid `http(s)` address. An **attachment** cannot be typed: you
+attach the file on the Jira ticket, answer `done`, and it counts once the ticket is read again and the
+script sees the file.
 
 ### Acceptance criteria that count
 
@@ -607,6 +638,16 @@ Type the numbers you want to fill, for example: 1 3
   Labels that are not in your config, a missing "actual" result and vague results are refused the
   same way.
 - Answers go into the local copy first. **Nothing reaches Jira** until you confirm.
+- **Draft from Figma.** When the ticket links a Figma design (`figma.com/design`, `file`, `proto` or
+  `board`) and the Figma connector is connected, the list has one more line: `Draft from Figma and my
+  changes`, for acceptance criteria, expected behaviour and steps. The design (its frames, texts,
+  labels and states) and, in a project repo, your branch's code changes are read, and each item is
+  drafted in the ticket's language, as Given / When / Then for criteria. A value the design and the
+  code do not show is left as a question for you to fill, such as `<which total?>`; nothing is
+  invented. You see the draft exactly as it would be added and choose `1. Use it`, `2. Edit` or
+  `3. Skip`. A draft goes through the same check as a typed answer, so it counts only if the rubric
+  credits it. With a personal setup (no repo) only the design is used. Nothing goes to Jira without
+  the preview and your yes, and it is only appended.
 
 **Pushing the fill-in to Jira.** When the filled-in ticket passes, what you typed goes to the real
 ticket next, so the ticket itself carries it. You see exactly what will be added; only after you

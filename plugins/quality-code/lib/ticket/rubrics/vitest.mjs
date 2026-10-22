@@ -1,13 +1,15 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, envSignal, escapeRegExp, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
-  ac_present: [30, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description'],
+  ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description'],
   ac_testable: [15, 'testable AC: each Then or AC item an observable assertion, not "works correctly"'],
-  steps: [15, 'steps to reproduce (Bug) or a user story (Story)'],
+  steps: [10, 'steps to reproduce (Bug) or a user story (Story)'],
   expected_defined: [15, 'clear expected behaviour (Expected vs Actual, or AC present)'],
-  context: [10, 'a Context / Summary section'],
+  attachments: [10, 'an attachment (a screenshot, a video or a file on the ticket)'],
+  links: [5, 'a link (a linked issue, or a web link such as Figma or Confluence)'],
+  context: [5, 'a Context / Summary section'],
   title_prefix: [5, 'title prefix (a configured one)'],
   feature_label: [5, 'a feature label from the configured features'],
   environment: [5, 'environment / workspace context'],
@@ -34,7 +36,7 @@ function deriveSignals(v, config, ticket) {
     ac_present || steps || hasExpected || hasActual || environment || context || title_prefix
   return {
     ac_present, ac_testable, steps, expected_defined, context, title_prefix, feature_label,
-    environment, legacy: !anyStructure,
+    environment, attachments: attachmentsSignal(ticket), links: linksSignal(ticket), legacy: !anyStructure,
   }
 }
 
