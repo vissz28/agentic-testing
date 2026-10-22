@@ -545,9 +545,11 @@ keywords. The model never supplies the number.
 | A title prefix from your config (`[API] …`) | — | 5 |
 | Environment (`Env: staging`) | 5 | 5 |
 
-A ticket with acceptance criteria also gets the Expected points. A signal your config cannot meet
-(no feature labels, or no title prefixes) is never asked for and scores 0, so the best possible score
-is then 90 (Playwright) or 90 to 95 (Vitest), still above the bar.
+A ticket with acceptance criteria also gets the Expected points. A signal your config or ticket
+cannot meet (no feature labels, no title prefixes, or no way to find a QA plan) is never asked for
+and is left out: the score is scaled over the rest, so the best possible score is always 100. A
+story is never asked for an environment or an expected and actual result either, so it is never
+marked down for them; when it has them, they count.
 
 **Attachments and links.** Only their number and addresses are read: the count of files on the ticket
 (never their names, URLs or contents) and the list of linked issues and web links (URL and title, redacted

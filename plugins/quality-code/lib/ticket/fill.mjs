@@ -9,9 +9,6 @@ import { asAdapter, isFullstack } from '../base/stack.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
-/** A story is never asked for these: they are Bug language. */
-const NOT_ON_STORY = new Set(['environment', 'expected_defined'])
-
 // Rejection wording, one table per rubric: the two stacks phrase these slightly differently.
 const REASONS = {
   playwright: {
@@ -72,20 +69,24 @@ export function fillMenu(config, brief) {
   const kind = templateFor(brief.issuetype)
   const msgs = messagesFor(config, kind)
   const keys = new Set(brief.missing.map(m => m.key))
+  // The brief's own omitted keys (a Story's Bug keys among them): each gain is what the score becomes.
+  const omitted = brief.omitted ?? new Set()
   const order = Object.keys(rubric.weights)
   const items = brief.missing
-    .filter(m =>
-      m.key !== 'qa_plan_found' &&
-      !(m.key === 'ac_testable' && keys.has('ac_present')) &&
-      !(kind === 'story' && NOT_ON_STORY.has(m.key)))
+    .filter(m => m.key !== 'qa_plan_found' && !(m.key === 'ac_testable' && keys.has('ac_present')))
     .map(m => {
       const block = msgs[m.key] ?? {}
-      const gain = scoreTicket(rubric, credit(brief.signals, [m.key])).score - brief.score
+      const gain = scoreTicket(rubric, credit(brief.signals, [m.key]), omitted).score - brief.score
       return { key: m.key, title: block.title ?? m.label, gain, question: block.question, example: block.example, ...(DESIGN_ITEMS.includes(m.key) ? { design: true } : {}) }
     })
     .sort((a, b) => b.gain - a.gain || order.indexOf(a.key) - order.indexOf(b.key))
     .map((item, i) => ({ n: i + 1, ...item }))
-  return { key: brief.key, rubric: rubric.id, issuetype: brief.issuetype, score: brief.score, threshold: brief.threshold, signals: brief.signals, items }
+  const menu = { key: brief.key, rubric: rubric.id, issuetype: brief.issuetype, score: brief.score, threshold: brief.threshold, signals: brief.signals, items }
+  // Non-enumerable, as on the brief: projectPick scores a pick over the same keys.
+  Object.defineProperty(menu, 'omitted', { value: [...omitted], enumerable: false })
+  // What no answer typed here can add (a Confluence QA plan): named when the list is empty.
+  Object.defineProperty(menu, 'untyped', { value: brief.missing.filter(m => m.key === 'qa_plan_found').map(m => m.label), enumerable: false })
+  return menu
 }
 
 /** The rubric a menu was built for, read from its signal keys so a menu that went through JSON still works. */
@@ -103,7 +104,7 @@ export function projectPick(menu, nums) {
   }
   if (!picked.length) return { error: 'Type at least one number from the list.' }
   const rubric = menu.rubric === 'vitest' ? vitest : menu.rubric === 'playwright' ? playwright : rubricOfSignals(menu.signals)
-  const score = scoreTicket(rubric, credit(menu.signals, picked.map(i => i.key))).score
+  const score = scoreTicket(rubric, credit(menu.signals, picked.map(i => i.key)), new Set(menu.omitted ?? [])).score
   return {
     picked: picked.map(({ n, key, title, question, example }) => ({ n, key, title, question, example })),
     score,
@@ -114,6 +115,15 @@ export function projectPick(menu, nums) {
 }
 
 export function formatFillMenu(menu) {
+  // A refused ticket never gets an empty list to pick from: say what is missing and point to the
+  // comment or the override.
+  if (!menu.items.length && menu.score < menu.threshold) {
+    return [
+      `This ticket has ${menu.score} of the ${menu.threshold} points it needs.`,
+      `Nothing missing can be typed in here${menu.untyped?.length ? `: it needs ${menu.untyped.join(', ')}` : ''}.`,
+      'Post a comment on Jira with what to add, or continue anyway.',
+    ].join('\n')
+  }
   const width = Math.max(...menu.items.map(i => i.title.length), 0)
   return [
     `This ticket has ${menu.score} of the ${menu.threshold} points it needs.`,

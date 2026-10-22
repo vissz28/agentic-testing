@@ -105,6 +105,20 @@ for (const adapter of ['playwright', 'vitest']) {
   })
 }
 
+test('a complete Story without an environment passes: what the fill-in never asks a Story for never costs it points', () => {
+  const noEnv = '## User story\nAs a buyer I want the total\n\n## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00'
+  const story = d => ({ key: 'DEMO-9', issuetype: 'Story', labels: [], text: { description: d } })
+  for (const adapter of ['vitest', 'playwright']) {
+    const c = own(adapter, { features: [], titlePrefixes: [] })
+    const b = buildBrief(c, story(noEnv))
+    assert.equal(b.gate, 'pass', adapter)
+    assert.ok(!b.missing.some(m => ['environment', 'expected_defined'].includes(m.key)), adapter)
+    // Present, it still counts; on a Bug, missing, it still costs.
+    assert.ok(buildBrief(c, story(`${noEnv}\n\n## Environment\nEnv: staging`)).score > b.score, adapter)
+    assert.ok(buildBrief(c, { ...story(noEnv), issuetype: 'Bug' }).missing.some(m => m.key === 'environment'), adapter)
+  }
+})
+
 // AGT-104 / AGT-115: the score is scaled over the keys this config and this ticket can actually
 // earn, so points permanently out of reach (no features, no way to find a QA plan) never lower it.
 test('no features and no way to find a QA plan: a well-written ticket passes on a basic setup (AGT-104)', () => {

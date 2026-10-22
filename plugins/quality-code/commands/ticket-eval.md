@@ -121,7 +121,7 @@ Comment preview (not posted yet):
 
 Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed. End the turn after every card.
 
-1. **The list.** `ticket.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`). Read `FILL_JSON`: when its `figma` list is not empty, at least one item has `design: true`, and the Figma connector is connected, add one line at the end of the card (see **Draft from Figma**). The Figma connector is connected when you find the tools of `figma` or `figma-token` (the check in `connectors.md`); no tools, no line.
+1. **The list.** `ticket.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`). When `FILL_JSON` has no `items`, there is nothing to type in: show the card's lines as printed, then the refuse card without its option 1 (the other options keep their numbers), and end the turn. Read `FILL_JSON`: when its `figma` list is not empty, at least one item has `design: true`, and the Figma connector is connected, add one line at the end of the card (see **Draft from Figma**). The Figma connector is connected when you find the tools of `figma` or `figma-token` (the check in `connectors.md`); no tools, no line.
 2. **The pick.** `ticket.mjs pick "<their numbers>"`. Show its one line. Not enough points: show the list again (cap 2, then the refuse card). Enough: go on. Unknown number: show the line and the list again. Minimal answers are fine only if the script credits them.
 3. **One item at a time**, in the order picked. Print the item's `title`, `question` and `example` from `FILL_JSON` as:
 

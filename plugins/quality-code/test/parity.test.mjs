@@ -9,6 +9,11 @@
 //       fixtures has a Confluence page attached, so every frontend fixture without an already-found
 //       qaPlan is affected (its own group, excluded from the line-by-line loop below; asserted to
 //       differ, by the one rescale the fix makes, in its own describe block)
+//   AGT-114, a deliberate change: a Story (any type not a Bug, none included) is never marked down
+//       for a missing environment or expected vs actual, which its fill-in never asks for, and the
+//       fill-in's gains are computed over the same keys as the score. The #9 group's rescale leaves
+//       them out too; in the line-by-line group, the ops it changes were re-captured from the
+//       plugin, in the old naming, and each file lists them in source.recaptured.
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
 // Sanitize: today's backend sanitizer and `ticket.mjs sanitize` under the backend config write the
@@ -23,6 +28,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mask, sanitizeInputs } from './parity/sanitize-inputs.mjs'
 import playwrightRubric from '../lib/ticket/rubrics/playwright.mjs'
+import { templateFor } from '../lib/ticket/messages.mjs'
+
+/** AGT-114: the keys a Story is never asked for, so never marked down for. */
+const NOT_ON_STORY = ['environment', 'expected_defined']
 
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const DIR = new URL('./parity/', import.meta.url).pathname
@@ -169,16 +178,20 @@ describe('spec §10 #9: qa_plan_found is left out when there is no way to find a
   test('this group is not empty (the config and fixtures still exercise the difference)', () => {
     assert.ok(affected.length > 0)
   })
-  const achievable = 100 - playwrightRubric.weights.qa_plan_found[0]
+  const weight = k => playwrightRubric.weights[k][0]
   for (const fx of affected) {
     const i = fx.ops.findIndex(op => op[0] === 'score' && op.includes('--json'))
     if (i < 0) continue
+    const before = JSON.parse(fx.expected.results[i].stdout)
+    // AGT-114: a Story's missing environment and expected are left out too.
+    const storyOut = templateFor(before.issuetype) === 'story' ? NOT_ON_STORY.filter(k => !before.signals[k]) : []
+    const achievable = 100 - weight('qa_plan_found') - storyOut.reduce((s, k) => s + weight(k), 0)
     test(`${fx.name}: the score is rescaled over ${achievable}, qa_plan_found is not asked for, nothing else changes`, async () => {
-      const before = JSON.parse(fx.expected.results[i].stdout)
       assert.ok(before.missing.some(m => m.key === 'qa_plan_found'), 'the fixture is a real case of the old behaviour')
       const [got] = await runFixture({ ...fx, ops: [fx.ops[i]] })
       const after = JSON.parse(got.stdout)
       assert.ok(!after.missing.some(m => m.key === 'qa_plan_found'))
+      assert.ok(!after.missing.some(m => storyOut.includes(m.key)), 'a Story is not asked for them')
       assert.equal(after.score, Math.min(100, Math.round((before.score / achievable) * 100)))
       assert.equal(after.gate, after.score >= 70 ? 'pass' : 'refuse')
       const { score: _a, gate: _b, missing: _c, ...restAfter } = after

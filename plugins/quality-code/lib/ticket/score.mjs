@@ -1,5 +1,5 @@
 import { buildVocabulary } from './languages/index.mjs'
-import { labelOverride } from './messages.mjs'
+import { labelOverride, templateFor } from './messages.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base/stack.mjs'
@@ -8,6 +8,19 @@ import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base
 export const THRESHOLD = 70
 
 const RUBRICS = { playwright, vitest }
+
+/** A Story is never asked for these: they are Bug language. */
+const NOT_ON_STORY = ['environment', 'expected_defined']
+
+/**
+ * The keys that never count against a ticket: those the rubric omits for this config and ticket,
+ * and on a Story the Bug keys, so a missing item the fill-in will not ask for never costs points.
+ */
+export function omittedFor(rubric, config, ticket, feature) {
+  const keys = new Set(rubric.omitted?.(config, ticket, feature) ?? [])
+  if (templateFor(ticket?.issuetype) === 'story') for (const k of NOT_ON_STORY) keys.add(k)
+  return keys
+}
 
 /** The rubric a ticket is scored with. On a fullstack project it depends on the ticket's side: see buildBrief. */
 export function rubricFor(config, ticket = null) {
@@ -23,19 +36,20 @@ export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ti
 /**
  * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true.
  * A key in `omitted` is a key this config or this ticket can never earn (no features configured,
- * no title prefixes configured, no way to find a QA plan…): it is left out of the denominator, so
- * it never lowers the score and is never asked for, instead of leaving points permanently out of
- * reach.
+ * no title prefixes configured, no way to find a QA plan…), or one a Story is never asked for: it
+ * is left out of the denominator, so it never lowers the score and is never asked for, instead of
+ * leaving points permanently out of reach. Earned anyway, it counts as usual, so a Story that has an
+ * environment is not marked down for it.
  */
 export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   let earned = 0
   let achievable = 0
   const missing = []
   for (const [key, [weight, label]] of Object.entries(rubric.weights)) {
-    if (omitted.has(key)) continue
-    achievable += weight
     const credited =
       key === 'ac_testable' ? !!signals.ac_testable && !!signals.ac_present : !!signals[key]
+    if (omitted.has(key) && !credited) continue
+    achievable += weight
     if (credited) earned += weight
     else missing.push({ key, weight, label })
   }
@@ -68,7 +82,7 @@ function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
   const feature = rubric.feature(config, ticket)
-  const omitted = rubric.omitted?.(config, ticket, feature) ?? new Set()
+  const omitted = omittedFor(rubric, config, ticket, feature)
   const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)

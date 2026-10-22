@@ -31,6 +31,13 @@ Update with `/plugin update quality-code@teamsystem`.
 - **A failed boundary or honesty check keeps the developer's files.** `write` undoes only its own
   change, with an edit, and never runs `git restore` or `git checkout`. A finding on a file the run
   did not write ends the run with the card instead.
+- **A Story is never refused for what its fill-in cannot ask.** The fill-in never asks a Story for an
+  environment or an expected and actual result, but the score still took points off for them, so a
+  well-written Story could be refused with nothing on the list to fix it. Missing, they are now left
+  out of a Story's score (present, they still count): Story scores only go up. The fill-in's points
+  are worked out over the same items as the score, so each `+N` is what the score really becomes (it
+  could show `+-2`). A refused ticket with nothing to type in says what is missing and offers the
+  Jira comment or the override, never an empty list.
 
 ## [0.14.0] - 2026-10-22
 

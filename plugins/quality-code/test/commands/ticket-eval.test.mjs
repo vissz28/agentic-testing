@@ -172,3 +172,8 @@ test('Figma: no Jira write without the preview and a yes, append only, nothing s
   assert.match(fig, /never send code or design content anywhere else/)
   assert.match(fig, /re-score, the preview and the push card/)
 })
+
+test('the fill-in list is never empty: with no items, the card says what is missing and the refuse card follows without option 1', () => {
+  const list = doc.slice(doc.indexOf('1. **The list.**'), doc.indexOf('\n', doc.indexOf('1. **The list.**')))
+  assert.match(list, /When `FILL_JSON` has no `items`, there is nothing to type in: show the card's lines as printed, then the refuse card without its option 1/)
+})
