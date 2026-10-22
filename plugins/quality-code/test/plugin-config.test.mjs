@@ -13,15 +13,28 @@ test('the five connectors: Jira, Figma and GitLab by browser sign-in, Figma and 
   assert.deepEqual(mcp['atlassian-rovo'], { type: 'http', url: 'https://mcp.atlassian.com/v1/mcp' })
   assert.deepEqual(mcp.figma, { type: 'http', url: 'https://mcp.figma.com/mcp' })
 })
-test('figma-token: the pinned Framelink server with the secret key', () => {
+// The token connectors start through bin/mcp-launch.mjs: the real server with a token, a server
+// with no tools without one, so a connector nobody set up is never reported as failed.
+const LAUNCH = '${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs'
+test('figma-token: the pinned Framelink server with the secret key, through the launcher', () => {
   const f = mcp['figma-token']
-  assert.equal(f.command, 'npx')
-  assert.deepEqual(f.args, ['-y', 'figma-developer-mcp@0.13.2', '--stdio'])
+  assert.equal(f.command, 'node')
+  assert.deepEqual(f.args, [LAUNCH, 'figma-token', '--', 'npx', '-y', 'figma-developer-mcp@0.13.2', '--stdio'])
   assert.deepEqual(f.env, { FIGMA_API_KEY: '${user_config.figma_api_key}' })
+})
+test('the launcher knows each token connector and the variable its env sets', async () => {
+  const { CONNECTORS } = await import('../bin/mcp-launch.mjs')
+  const launched = Object.entries(mcp).filter(([, s]) => s.command === 'node')
+  assert.deepEqual(launched.map(([n]) => n).sort(), Object.keys(CONNECTORS).sort())
+  for (const [name, s] of launched) {
+    assert.deepEqual(s.args.slice(0, 3), [LAUNCH, name, '--'], name)
+    assert.match(s.env[CONNECTORS[name]], /^\$\{user_config\.\w+\}$/, name)
+  }
 })
 test('gitlab: browser sign-in through GitLab\'s own MCP server, like Jira; token through the pinned read-only package', () => {
   assert.deepEqual(mcp.gitlab, { type: 'http', url: '${user_config.gitlab_api_url}/mcp' })
-  assert.deepEqual(mcp['gitlab-token'].args, ['-y', '@zereight/mcp-gitlab@2.2.5'])
+  assert.equal(mcp['gitlab-token'].command, 'node')
+  assert.deepEqual(mcp['gitlab-token'].args, [LAUNCH, 'gitlab-token', '--', 'npx', '-y', '@zereight/mcp-gitlab@2.2.5'])
   assert.deepEqual(mcp['gitlab-token'].env, {
     GITLAB_API_URL: '${user_config.gitlab_api_url}',
     GITLAB_PERSONAL_ACCESS_TOKEN: '${user_config.gitlab_token}',
@@ -29,7 +42,13 @@ test('gitlab: browser sign-in through GitLab\'s own MCP server, like Jira; token
   })
 })
 test('no connector runs an unpinned package', () => {
-  for (const [name, s] of Object.entries(mcp)) for (const a of s.args ?? []) assert.doesNotMatch(a, /@latest$|^[a-z@][^@]*[^@\d]$/, `${name}: ${a}`)
+  // The package is the argument after npx's -y; every token connector runs one.
+  for (const [name, s] of Object.entries(mcp)) {
+    const args = s.args ?? []
+    const pkgs = args.filter((_, i) => args[i - 1] === '-y')
+    if (args.length) assert.equal(pkgs.length, 1, name)
+    for (const a of pkgs) assert.doesNotMatch(a, /@latest$|^[a-z@][^@]*[^@\d]$/, `${name}: ${a}`)
+  }
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
   assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email'])

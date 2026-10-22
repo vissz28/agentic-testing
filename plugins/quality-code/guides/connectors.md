@@ -17,7 +17,7 @@ Shared by `/quality-code:setup` (step 0), and `/quality-code:spec`, `/quality-co
 | GitHub | none to make: `setup.mjs --detect` already asked the `gh` CLI, which reads the branch's pull request | `here.github.login` is set |
 | Figma | find the tools of the `figma` connector (browser sign-in) and of `figma-token` (token); make one read-only call with each that is present: the current user (whoami) | either connector answers |
 
-A connector whose tools are missing, that asks to sign in, or whose call errors is not ✅. Do not retry a failed call during this check. GitLab and Figma each have two ways in and need only one: the unused one stays disconnected, and that is fine; show the service as ✅ and do not mention the other.
+A connector whose tools are missing, that asks to sign in, or whose call errors is not ✅. `gitlab-token` and `figma-token` start even when their token is not set, so they never show as failed: without the token they are connected with no tools, which means not set up (➖), not ✅. Do not retry a failed call during this check. GitLab and Figma each have two ways in and need only one: the unused one stays disconnected, and that is fine; show the service as ✅ and do not mention the other.
 
 **Who is signed in.** Each line shows the account, so nobody works under someone else's sign-in by mistake.
 
