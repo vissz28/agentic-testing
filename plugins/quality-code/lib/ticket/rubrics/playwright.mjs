@@ -72,7 +72,17 @@ export default {
   derivable: (v, ticket) => countDerivable(v, [...(ticket.scenarios || []), ...(ticket.qaPlan?.scenarios || [])]),
   feature: (config, ticket) => ticket.feature ?? (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
   briefExtras,
-  omitted: omittedKeys,
+  // Also leave out qa_plan_found when there is no way to find one: no qaPlanSearch configured for
+  // this feature, and no Confluence page attached to the ticket (checked regardless of
+  // qaPlanSearch). A configured search that simply finds nothing still lowers the score. A plan
+  // that was in fact found is always credited, whatever confluenceAttached says.
+  omitted: (config, ticket, feature) => {
+    const keys = omittedKeys(config)
+    const searchable = Boolean(config.features?.find(f => f.label === feature)?.qaPlanSearch)
+    const found = Boolean(ticket?.qaPlan?.url)
+    if (!searchable && !ticket?.confluenceAttached && !found) keys.add('qa_plan_found')
+    return keys
+  },
   legacyFlag: threshold => `legacy / unstructured — no template structure. Refused until the ticket meets the ${threshold}% bar.`,
   formatReport,
 }

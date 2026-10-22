@@ -412,6 +412,17 @@ test('fullstack: both blocks, both seed kinds and sides are allowed; sides only 
   ])
   assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found "jest")'])
 })
+test('git.base: a branch name, optional; the config keeps it as given', () => {
+  assert.equal(validateConfig({ ...good, git: { base: 'develop' } }).ok, true)
+  assert.equal(validateConfig({ ...good, git: { base: 'develop' } }).config.git.base, 'develop')
+  assert.equal(validateConfig({ ...good, git: {} }).ok, true)
+  assert.equal(validateConfig(good).config.git, undefined)
+  assert.deepEqual(validateConfig({ ...good, git: { base: '' } }).errors, ['git.base: must be one non-empty line (a branch name)'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: 'a\nb' } }).errors, ['git.base: must be one non-empty line (a branch name)'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: 5 } }).errors, ['git.base: must be one non-empty line (a branch name)'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: 'develop', extra: 1 } }).errors, ['git.extra: unknown field (only "base")'])
+  assert.deepEqual(validateConfig({ ...good, git: 'develop' }).errors, ['git: must be an object with an optional "base"'])
+})
 test('seed block: each wrong part is named', () => {
   for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset", "stubsFrom" and "guide"'], JSON.stringify(v))
   const list = 'seed.builders: must be a list of 1 to 10 files that hold the seed builders'
@@ -479,7 +490,7 @@ test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
 test('the schema knows every top-level field the validator takes, fullstack included', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'fullstack'])
-  for (const f of ['sides', 'qaPlans', 'xray']) assert.ok(schema.properties[f], f)
+  for (const f of ['sides', 'qaPlans', 'xray', 'git']) assert.ok(schema.properties[f], f)
   assert.equal(schema.properties.xray.properties.csv.pattern, schema.properties.qaPlans.pattern)
   assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack'])
   assert.equal(schema.properties.qaPlans.pattern, schema.properties.vitest.properties.tsconfig.pattern)

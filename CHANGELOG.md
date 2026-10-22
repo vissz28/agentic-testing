@@ -11,6 +11,11 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Added
 
+- **`git.base` in the config.** When a project's merge requests target a branch other than
+  `origin/HEAD` (for example `develop` while `origin/HEAD` is `main`), set `git.base` and every
+  command that detects the branch (`start`, `check`, `write`) diffs against it. An explicit
+  `--base` flag still wins over it; it still wins over `origin/HEAD` and the `develop`/`main`/
+  `master` guess.
 - **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
   adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
   cases alone, with no test. `bin/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
@@ -23,6 +28,18 @@ Update with `/plugin update quality-code@teamsystem`.
   attached page was never found.
 - `check --evals`: a fixture with `requirement` also checks that each of its tests has an XRay case
   linked to that ticket (with an `xray` block).
+
+### Fixed
+
+- **Uncommitted work no longer fails a write run's boundary check.** `run start` snapshots what was
+  already changed before the run; the boundary step now counts only paths changed since then, so
+  dirty `src/` files from before the run never fail it. The run marker and boundary log themselves
+  are never counted either.
+- **The readiness gate no longer scores over points a project can never earn.** A key this config or
+  this ticket cannot credit (no features configured, no title prefixes configured, no way to find a
+  Confluence QA plan — no `qaPlanSearch` on the feature and no page attached) is left out of the
+  gate's denominator instead of permanently capping the score. A `qaPlanSearch` that simply finds
+  nothing still lowers the score, and a plan that was in fact found is always credited.
 
 ### Changed
 

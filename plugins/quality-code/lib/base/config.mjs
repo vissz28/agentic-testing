@@ -6,7 +6,7 @@ import { matches } from './boundary.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray'])
+const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'git'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -271,6 +271,16 @@ export function validateConfig(input) {
           if (new Set(texts).size !== texts.length) e.push('xray.headers: two columns have the same header')
         }
       }
+    }
+  }
+  // The branch base wins over origin/HEAD: a merge request's target branch (develop) can differ
+  // from the repo's default branch (main). Absent means detect() falls back to origin/HEAD.
+  if (c.git !== undefined) {
+    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
+    else {
+      for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
+      if (c.git.base !== undefined && (typeof c.git.base !== 'string' || !c.git.base.trim() || /[\r\n]/.test(c.git.base)))
+        e.push('git.base: must be one non-empty line (a branch name)')
     }
   }
   if (c.sides !== undefined) {

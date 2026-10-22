@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation } from '../../lib/base/boundary.mjs'
+import { startRun } from '../../lib/base/run.mjs'
 import { ENV } from '../git-env.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -115,6 +116,46 @@ test('diff mode: a rename out of a forbidden folder names the old path (§9 #21)
   const r = run({}, { root: d, config: cfg() })
   assert.equal(r.status, 'fail')
   assert.deepEqual(r.findings.map(f => f.file), ['src/x.ts'])
+})
+test('diff mode: uncommitted work from before the run does not fail a write run (AGT-104)', () => {
+  const d = dir()
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
+  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
+  // 3 files under src/ already dirty before the run starts (stands in for "36 changed files").
+  put(d, 'src/a.ts'); put(d, 'src/b.ts'); put(d, 'src/c.ts')
+  startRun(d, 'ABC-1')
+  // The run itself only writes one spec.
+  put(d, 'test/b.spec.ts')
+  const r = run({}, { root: d, config: cfg() })
+  assert.equal(r.status, 'pass')
+  assert.equal(r.data.paths, 1)
+  assert.deepEqual(r.findings, [])
+})
+test('diff mode: a forbidden write made during the run is still caught, pre-run dirt aside', () => {
+  const d = dir()
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
+  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
+  put(d, 'src/already-dirty.ts')
+  startRun(d, 'ABC-1')
+  put(d, 'test/b.spec.ts')
+  put(d, 'src/written-during-run.ts')
+  const r = run({}, { root: d, config: cfg() })
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings, [{ file: 'src/written-during-run.ts', kind: 'forbidden write', detail: DEFAULT_WHY }])
+  assert.equal(r.data.paths, 2)
+})
+test('diff mode: a stale run marker is not used as a dirty snapshot', () => {
+  const d = dir()
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
+  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
+  put(d, 'src/a.ts')
+  startRun(d, 'ABC-1')
+  const marker = JSON.parse(readFileSync(join(d, RUN_MARKER), 'utf8'))
+  marker.startedAt = new Date(Date.now() - 13 * 3600 * 1000).toISOString()
+  put(d, RUN_MARKER, JSON.stringify(marker))
+  const r = run({}, { root: d, config: cfg() })
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings.map(f => f.file), ['src/a.ts'])
 })
 test('rulesFor: config patterns are normalised (leading ./, backslashes)', () => {
   const d = dir()

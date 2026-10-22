@@ -168,6 +168,14 @@
         "fullstack": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } }
       }
     },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Branch detection. Absent means detect the base from origin/HEAD, falling back to develop, main or master.",
+      "properties": {
+        "base": { "type": "string", "minLength": 1, "pattern": "^[^\\r\\n]+$", "description": "The branch merge requests target, when it differs from origin/HEAD (the repo's default branch). Wins over origin/HEAD; an explicit --base flag still wins over this." }
+      }
+    },
     "redact": {
       "type": "object",
       "default": { "customerId": "\\bU\\d{5,}\\b" },

@@ -90,12 +90,21 @@ export function logBlocked(root, entry) {
   } catch {}
 }
 
+const OWN_FILES = new Set([RUN_MARKER, BOUNDARY_LOG])
+
 export function run({ range = null }, ctx) {
   const c = changedPaths(ctx.root, range)
   if (!c.ok) return result('boundary', 'not_run', `cannot read the changed files: ${c.error}`)
+  // A run marker's `dirty` is the snapshot taken at `run start`: paths already changed before the
+  // run, out of the run's control. Only paths changed since then are counted, so uncommitted work
+  // from before the run never fails the boundary check. The plugin's own run marker and log are
+  // never counted either, whether or not the project's .gitignore excludes them.
+  const m = readRunMarker(ctx.root)
+  const dirty = m && !m.stale && Array.isArray(m.marker?.dirty) ? new Set(m.marker.dirty) : null
+  const paths = c.paths.filter(p => !OWN_FILES.has(p) && !(dirty && dirty.has(p)))
   const rules = rulesFor(ctx.config, ctx.root)
-  const hits = c.paths.map(p => violation(p, rules)).filter(Boolean)
-  const data = { mode: 'diff', paths: c.paths.length }
-  if (!hits.length) return result('boundary', 'pass', `${c.paths.length} changed file(s), none outside the boundary`, [], data)
+  const hits = paths.map(p => violation(p, rules)).filter(Boolean)
+  const data = { mode: 'diff', paths: paths.length }
+  if (!hits.length) return result('boundary', 'pass', `${paths.length} changed file(s), none outside the boundary`, [], data)
   return result('boundary', 'fail', `${hits.length} write(s) outside the boundary`, hits.map(h => ({ file: h.path, kind: 'forbidden write', detail: h.why })), data)
 }

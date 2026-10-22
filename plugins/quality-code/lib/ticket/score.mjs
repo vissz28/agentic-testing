@@ -20,17 +20,27 @@ export function rubricFor(config, ticket = null) {
 /** The side a ticket is scored for on a fullstack project: the one set with `ticket.mjs side`, else its marks. */
 export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ticket)
 
-/** Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true. */
-export function scoreTicket(rubric, signals = {}) {
-  let score = 0
+/**
+ * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true.
+ * A key in `omitted` is a key this config or this ticket can never earn (no features configured,
+ * no title prefixes configured, no way to find a QA plan…): it is left out of the denominator, so
+ * it never lowers the score and is never asked for, instead of leaving points permanently out of
+ * reach.
+ */
+export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
+  let earned = 0
+  let achievable = 0
   const missing = []
   for (const [key, [weight, label]] of Object.entries(rubric.weights)) {
+    if (omitted.has(key)) continue
+    achievable += weight
     const credited =
       key === 'ac_testable' ? !!signals.ac_testable && !!signals.ac_present : !!signals[key]
-    if (credited) score += weight
+    if (credited) earned += weight
     else missing.push({ key, weight, label })
   }
   missing.sort((a, b) => b.weight - a.weight)
+  const score = achievable > 0 ? Math.round((earned / achievable) * 100) : 0
   return { score: Math.max(0, Math.min(100, score)), missing }
 }
 
@@ -57,11 +67,11 @@ export function buildBrief(config, ticket) {
 function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
-  const { score, missing } = scoreTicket(rubric, signals)
+  const feature = rubric.feature(config, ticket)
+  const omitted = rubric.omitted?.(config, ticket, feature) ?? new Set()
+  const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)
-  const feature = rubric.feature(config, ticket)
-  const omitted = rubric.omitted?.(config) ?? new Set()
   const labels = rubric.labels?.(config) ?? {}
   const flags = [...(ticket.flags || [])]
   if (legacy) flags.unshift(rubric.legacyFlag(THRESHOLD))
@@ -78,9 +88,7 @@ function briefFor(config, rubric, ticket) {
     ...rubric.briefExtras(config, ticket, feature),
     scenarios: ticket.scenarios ?? [],
     derivable,
-    missing: missing
-      .filter(m => !omitted.has(m.key))
-      .map(m => ({ key: m.key, label: labelOverride(config, ticket.issuetype, m.key) ?? labels[m.key] ?? m.label, weight: m.weight })),
+    missing: missing.map(m => ({ key: m.key, label: labelOverride(config, ticket.issuetype, m.key) ?? labels[m.key] ?? m.label, weight: m.weight })),
     flags,
     signals,
   }

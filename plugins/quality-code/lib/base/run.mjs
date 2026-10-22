@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker } from './boundary.mjs'
+import { changedPaths } from './git.mjs'
 
 /** HEAD of the repository at root, or null when it is not a git repo or has no commit. */
 export function gitHead(root) {
@@ -25,6 +26,10 @@ export function startRun(root, key, now = Date.now()) {
   }
   if (cur) rmSync(p, { force: true })
   const marker = { key, startedAt: new Date(now).toISOString(), base: gitHead(root) }
+  // Snapshot of what was already changed before the run: the boundary check only counts paths
+  // changed since this snapshot, so uncommitted work from before the run never fails it.
+  const snapshot = changedPaths(root)
+  if (snapshot.ok && snapshot.paths.length) marker.dirty = snapshot.paths
   mkdirSync(dirname(p), { recursive: true })
   try {
     writeFileSync(p, `${JSON.stringify(marker)}\n`, { flag: 'wx' })

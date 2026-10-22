@@ -9,7 +9,7 @@ const cfg = adapter => validateConfig({
   version: 1, adapter,
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
-  features: [{ label: 'Orders', route: '/orders' }],
+  features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
 }).config
 
@@ -19,9 +19,11 @@ test('the bar is 70 and fixed', () => {
   assert.equal(decideGate(70), 'pass')
 })
 test('playwright rubric weights', () => {
-  const b = buildBrief(cfg('playwright'), { key: 'DEMO-1', issuetype: 'Bug', labels: [], text: { description: 'x' } })
+  // Labeled with the feature so qa_plan_found is assessable (it has a qaPlanSearch): this shows
+  // the full weight table with nothing credited, not the omission behaviour (covered below).
+  const b = buildBrief(cfg('playwright'), { key: 'DEMO-1', issuetype: 'Bug', labels: ['Orders'], text: { description: 'x' } })
   assert.deepEqual(b.missing.map(m => [m.key, m.weight]),
-    [['ac_present', 30], ['ac_testable', 15], ['feature_label', 15], ['qa_plan_found', 15], ['steps', 10], ['expected_defined', 10], ['environment', 5]])
+    [['ac_present', 30], ['ac_testable', 15], ['qa_plan_found', 15], ['steps', 10], ['expected_defined', 10], ['environment', 5]])
 })
 test('vitest rubric weights', () => {
   const b = buildBrief(cfg('vitest'), { key: 'DEMO-1', issuetype: 'Bug', labels: [], summary: 's', text: { description: 'x' } })
@@ -102,3 +104,34 @@ for (const adapter of ['playwright', 'vitest']) {
     assert.ok(!fillMenu(c, b).items.some(i => i.key === 'feature_label'))
   })
 }
+
+// AGT-104 / AGT-115: the score is scaled over the keys this config and this ticket can actually
+// earn, so points permanently out of reach (no features, no way to find a QA plan) never lower it.
+test('no features and no way to find a QA plan: a well-written ticket passes on a basic setup (AGT-104)', () => {
+  const c = own('playwright', { features: [] })
+  const ticket = {
+    key: 'DEMO-1', issuetype: 'Story', labels: [],
+    text: { description: 'As a user, I want to export orders so that I can report on them.\n\nScenario: Export\n  Given an order list\n  When I export\n  Then a CSV downloads' },
+  }
+  const b = buildBrief(c, ticket)
+  assert.ok(!b.missing.some(m => m.key === 'feature_label' || m.key === 'qa_plan_found'))
+  assert.equal(b.gate, 'pass', `score was ${b.score}`)
+})
+test('a feature with a qaPlanSearch that finds nothing still lowers the score (AGT-115)', () => {
+  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }] })
+  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: false, text: {} }
+  const b = buildBrief(c, ticket)
+  assert.ok(b.missing.some(m => m.key === 'qa_plan_found'))
+})
+test('no qaPlanSearch but a Confluence page is attached: qa_plan_found still counts (AGT-115)', () => {
+  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders' }] })
+  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: true, text: {} }
+  const b = buildBrief(c, ticket)
+  assert.ok(b.missing.some(m => m.key === 'qa_plan_found'))
+})
+test('no qaPlanSearch and no Confluence page attached: qa_plan_found is not asked for (AGT-115)', () => {
+  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders' }] })
+  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: false, text: {} }
+  const b = buildBrief(c, ticket)
+  assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
+})

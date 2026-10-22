@@ -111,9 +111,14 @@ export function detect(root, config, { base: baseFlag } = {}) {
     .split('\n').filter(b => b && b !== 'origin' && b !== 'origin/HEAD')
 
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
+  // Priority: an explicit --base flag, then the configured git.base (a merge request's target
+  // branch can differ from origin/HEAD, the repo's default branch), then origin/HEAD, then a guess.
+  const configBase = config?.git?.base
   if (baseFlag) {
     const ref = exists(baseFlag) ? baseFlag : exists(`origin/${baseFlag}`) ? `origin/${baseFlag}` : null
     if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
+  } else if (configBase && (exists(configBase) || exists(`origin/${configBase}`))) {
+    Object.assign(out, { base: exists(configBase) ? configBase : `origin/${configBase}`, baseSource: 'config' })
   } else {
     const originHead = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
     if (originHead && exists(originHead)) Object.assign(out, { base: originHead, baseSource: 'origin-head' })
