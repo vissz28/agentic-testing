@@ -31,11 +31,13 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
    { "key": "<KEY>", "browse": "<jira.site>/browse/<KEY>", "issuetype": "<type>", "status": "<status>",
      "summary": "<summary>", "labels": ["<label>"],
      "text": { "description": "<raw description>", "acField": "<raw criteria field, or empty>" },
-     "attachments": [{ "name": "<file name>" }], "links": [{ "url": "<linked issue key or web link>" }],
+     "attachments": 0, "links": [{ "url": "…", "title": "…" }],
      "scenarios": [], "qaPlan": null, "figma": null, "mr": null, "flags": [] }
    ```
 
-   Copy the text as returned; do not judge, trim or rewrite it, and do not invent scenarios (leave `scenarios` empty: the script reads the text itself). `attachments` and `links` come from the `attachment` and `issuelinks` fields when present, else empty arrays.
+   Copy the text as returned; do not judge, trim or rewrite it, and do not invent scenarios (leave `scenarios` empty: the script reads the text itself).
+   - `attachments`: the number of entries in the `attachment` field (`0` when there are none). Only the count: never a file name, an attachment URL or a file's contents.
+   - `links`: one `{ "url", "title" }` per linked issue in `issuelinks` (inward or outward): `url` = `<jira.site>/browse/<linked KEY>`, `title` = the key and its summary. Only for a ticket with no linked issue, also read its web links: one `listJiraIssueRemoteIssueLinks` call (`getJiraIssueRemoteIssueLinks` on an older connection) for that key, each as `url` = `object.url`, `title` = `object.title`. A ticket that already has a linked issue needs no such call: one link is all the score needs. No links: `[]`.
 5. **Score.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" tickets-eval --in @<ticketsDir>/tickets-eval.json` (add `--json` if given; with `--json` print only the `TICKETS_EVAL_JSON:` line and stop). It exits 0 whatever the pass rate; exit 2 is bad input or config (show the message and stop). Show the card exactly as printed, and drop the `TICKETS_EVAL_JSON:` machine line.
 6. **End.** After the card, one sentence: how many tickets were read, and that nothing was sent to Jira. If the search hit the limit, add `Showing the latest <N>. Use --limit to read more (up to 200).` To fix one ticket: `/quality-code:ticket-eval <KEY>`. Stop.
 

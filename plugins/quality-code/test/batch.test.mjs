@@ -35,7 +35,7 @@ Then the message "No orders to export" is shown
 ## Environment
 Env: staging`
 const raw = (key, description, extra = {}) => ({ key, issuetype: 'Story', status: 'To Do', summary: `Ticket ${key}`, labels: [], text: { description }, scenarios: [], ...extra })
-const good = key => raw(key, GOOD, { attachments: [{ name: 'a.png' }] })
+const good = key => raw(key, GOOD, { attachments: 1, links: [{ url: 'https://jira.example.com/browse/ABC-99', title: 'ABC-99 related' }] })
 const thin = key => raw(key, 'Broken.')
 
 test('a thin ticket is refused and a well-written one passes, each scored like cli score', () => {

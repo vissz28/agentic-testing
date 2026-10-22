@@ -40,3 +40,10 @@ test('it is read-only on Jira and names tools by operation', () => {
   assert.doesNotMatch(doc, /addCommentToJiraIssue|editJiraIssue|transitionJiraIssue/)
   assert.doesNotMatch(doc, /mcp__/)
 })
+
+test('attachments are a count only, and a linked issue becomes a browse link; web links only when there is none', () => {
+  assert.ok(doc.includes('"attachments": 0, "links": [{ "url": "…", "title": "…" }]'))
+  assert.match(doc, /Only the count: never a file name/)
+  assert.ok(doc.includes('`url` = `<jira.site>/browse/<linked KEY>`'))
+  assert.match(doc, /Only for a ticket with no linked issue, also read its web links/)
+})
