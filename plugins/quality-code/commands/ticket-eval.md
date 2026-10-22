@@ -1,7 +1,7 @@
 ---
 description: Score a Jira ticket for test-readiness (the 70-point gate). Refuses thin tickets, guides the fill-in, and can comment on or update the ticket on Jira after a preview.
 argument-hint: <TICKET-KEY> [--ci] [--json] [--refuse-comment]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
@@ -9,25 +9,25 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
 ## Rules
 
-- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/core/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one connected in claude.ai). If none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Or paste the ticket text.` If the user pastes the ticket text, use it in place of step 2's read. No searching of transcripts or caches.
 - **Token discipline.** Read only the fields listed in step 2; never all fields, never a comment dump. Read comments only when the description has no criteria.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **Never say the score to the user**, except in the guided fill-in lines, shown exactly as the script prints them.
-- Every script call is `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`).
+- Every script call is `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`).
 - Redact customer ids in anything you echo.
 - End your turn after every card and wait for the answer. `--ci` never asks and never takes option 3.
 
 ## Steps
 
-1. **Parse and check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /quality-code:ticket-eval <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `.claude/quality-code.json` for `adapter`, `jira.site`, `jira.projects`, `confluenceSpaces` (optional) and `ticketsDir` (default `.claude/quality-code/tickets`; write it with `/` separators and no trailing `/`, as the script does). Never hard-code any of these.
+1. **Parse and check.** The first `[A-Z][A-Z0-9]*-\d+` in `$ARGUMENTS` is the key. No key: `pass a key: /quality-code:ticket-eval <KEY>`. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `.claude/quality-code.json` for `adapter`, `jira.site`, `jira.projects`, `confluenceSpaces` (optional) and `ticketsDir` (default `.claude/quality-code/tickets`; write it with `/` separators and no trailing `/`, as the script does). Never hard-code any of these.
 
-   - **Criteria field.** Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" field get <PROJECT>` (the key's project) and read the `FIELD_JSON:` line. `source` `config` or `stored`: use its `field` (`null` means the project has no criteria field: criteria come from the description only). `source` `unknown` (the first ticket of this project on this machine): find it once, then remember it:
+   - **Criteria field.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" field get <PROJECT>` (the key's project) and read the `FIELD_JSON:` line. `source` `config` or `stored`: use its `field` (`null` means the project has no criteria field: criteria come from the description only). `source` `unknown` (the first ticket of this project on this machine): find it once, then remember it:
      - Call `getJiraProjectIssueTypesMetadata` for the key's project to list its issue types, then `getJiraIssueTypeMetaWithFields` for the Story type (else the first type) with `requiredFieldsOnly` `false`, to read all its fields. When a Jira tool needs a `cloudId`, pass the hostname of the site (for example `example.atlassian.net`, no `https://`).
      - On a large project this result is very long (hundreds of thousands of characters) and is saved to a file. Never read that file whole. Search it for the field whose name matches `/acceptance criteria|criteri di accettazione/i` and take its key (it looks like `customfield_12345`), with `grep -n -i -E 'acceptance criteria|criteri di accettazione' <file>` or a one-line `node -e` that parses the file and prints the `key` and `name` of each matching field. Read only the matching lines.
      - Exactly one match: use it, with no question. More than one: ask with a numbered card of the matches plus a last line `<n>. None`, and end the turn (with `--ci`, never ask: take `None` and say so). No match: `None`.
-     - Run `node "${CLAUDE_PLUGIN_ROOT}/core/cli.mjs" field set <PROJECT> <customfield_N|none>`. Later tickets of this project skip the lookup.
+     - Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" field set <PROJECT> <customfield_N|none>`. Later tickets of this project skip the lookup.
 2. **Read the ticket.** Call `getJiraIssue` on the Atlassian connector with `cloudId` set to the hostname of `jira.site` (no `https://`), fields `summary,issuetype,status,labels,description,<criteria field>,issuelinks` (the field from step 1; leave it out when it is `null`), and `responseContentFormat` `markdown` so headings and paragraphs keep their line breaks. Harvest:
    - `summary`, `issuetype`, `status`, `labels`; `browse` = `<jira.site>/browse/<KEY>`.
    - The raw description and the raw criteria field text. Do not judge them: the script reads them itself. Extract each `Scenario:` into `scenarios: [{ "name", "gherkin" }]`. Do not pad the list; write only what the ticket supports.
@@ -48,7 +48,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    }
    ```
 
-   Then run `cli.mjs sanitize --in @<ticketsDir>/<KEY>/raw.json --out <ticketsDir>/<KEY>/ticket.json`. This deletes `raw.json`. From here on every call uses `--in @<ticketsDir>/<KEY>/ticket.json`, the only copy.
+   Then run `ticket.mjs sanitize --in @<ticketsDir>/<KEY>/raw.json --out <ticketsDir>/<KEY>/ticket.json`. This deletes `raw.json`. From here on every call uses `--in @<ticketsDir>/<KEY>/ticket.json`, the only copy.
 
 4. **Project check.** If any call prints `PROJECT_MISMATCH:` (the key's project is not in `jira.projects`), stop before scoring and show this card:
 
@@ -61,7 +61,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
    `--ci` takes 2. Show this card once. On 1, go on and ignore the `PROJECT_MISMATCH:` line for the rest of the run; on 2, stop.
 
-4b. **Side** (only for `adapter: fullstack`). A fullstack project writes Vitest tests for a backend ticket, Playwright tests for a frontend one, and both for a fullstack one, and scores each with its own rubric. Run `cli.mjs side --in @<ticketsDir>/<KEY>/ticket.json` and read the `SIDE_JSON:` line. A `side` is set: go on. `side` is `null` (the title and labels do not say), show this card and end the turn (`--ci` never asks: it goes on, and the ticket is scored for both sides):
+4b. **Side** (only for `adapter: fullstack`). A fullstack project writes Vitest tests for a backend ticket, Playwright tests for a frontend one, and both for a fullstack one, and scores each with its own rubric. Run `ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json` and read the `SIDE_JSON:` line. A `side` is set: go on. `side` is `null` (the title and labels do not say), show this card and end the turn (`--ci` never asks: it goes on, and the ticket is scored for both sides):
 
    ```
    Which part of the app does this ticket change?
@@ -70,9 +70,9 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    3. Both (fullstack)
    ```
 
-   Then run `cli.mjs side --in @<ticketsDir>/<KEY>/ticket.json <frontend|backend|fullstack>` (1, 2, 3) and show its line. The side is saved in `ticket.json`; later steps read it from there.
+   Then run `ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json <frontend|backend|fullstack>` (1, 2, 3) and show its line. The side is saved in `ticket.json`; later steps read it from there.
 
-5. **Score.** `cli.mjs score --in @<ticketsDir>/<KEY>/ticket.json` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report. Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `cli.mjs refuse-comment` instead, print its text, and stop (printing never posts).
+5. **Score.** `ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report. Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `ticket.mjs refuse-comment` instead, print its text, and stop (printing never posts).
    - **pass:** say the ticket is ready and stop. (Other commands that build on this gate continue from here.)
    - **refuse:** show the refuse card.
 
@@ -88,7 +88,7 @@ This ticket needs a bit more information. We cannot start yet.
 
 Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 1: it skips the send-preview, posts the comment, and exits 1. It never takes 3.
 
-- **1:** do not post yet. Run `cli.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
+- **1:** do not post yet. Run `ticket.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json`, then show the send-preview card and end the turn.
 - **2:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
 - **3:** developer override. Post nothing now (`write` offers the risk note at its end). Proceed only if the brief's `derivable` is at least 1 (there is something to check). If `derivable` is 0, stay on this card with one extra sentence: `There is nothing to check yet — paste what should happen, or stop.` When proceeding, say plainly that the ticket is incomplete, the result carries the 🔴 **[RISK / NOT RECOMMENDED]** mark, and a note saying so is offered for the Jira ticket once the tests are written. Remember the brief's `score` from `TICKET_EVAL_JSON` as the incomplete score. Then:
   - When `write` sent you here, go back to it: it goes on with the incomplete score.
@@ -109,7 +109,7 @@ Comment preview (not posted yet):
 4. Cancel
 ```
 
-- **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the comment text verbatim. If an existing comment contains `Thanks, we can continue as soon as these are on the ticket.`, the older `Thanks — we can continue as soon as these are on the ticket.`, or `<!-- /spec refuse -->` (the same rule as `isRefuseComment` in the plugin's `core/jira.mjs`), update that comment instead of adding a second one. Do not rewrite the body. If no add-comment tool is available, do not improvise: show the text and say `Copy this onto the ticket.` On success: `The comment has been posted. Work has not started.`, then run `cli.mjs jira-posted <KEY> comment` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not comment on Jira.` Then stop.
+- **1:** call `addCommentToJiraIssue` on the Atlassian connector: the ticket key, `contentFormat` `markdown`, the comment text verbatim. If an existing comment contains `Thanks, we can continue as soon as these are on the ticket.`, the older `Thanks — we can continue as soon as these are on the ticket.`, or `<!-- /spec refuse -->` (the same rule as `isRefuseComment` in the plugin's `lib/ticket/jira.mjs`), update that comment instead of adding a second one. Do not rewrite the body. If no add-comment tool is available, do not improvise: show the text and say `Copy this onto the ticket.` On success: `The comment has been posted. Work has not started.`, then run `ticket.mjs jira-posted <KEY> comment` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not comment on Jira.` Then stop.
 - **2:** the guided fill-in.
 - **3:** re-read the ticket, re-run steps 2 to 5 and `refuse-comment`; never write the comment by hand. Now `pass`: say so and stop. Still `refuse`: show the preview again. Cap 2, then add one sentence: `The comment has been generated twice. Please post it, add the missing information, or cancel.`
 - **4:** `The comment was not posted.` Stop.
@@ -118,8 +118,8 @@ Comment preview (not posted yet):
 
 Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed. End the turn after every card.
 
-1. **The list.** `cli.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`).
-2. **The pick.** `cli.mjs pick "<their numbers>"`. Show its one line. Not enough points: show the list again (cap 2, then the refuse card). Enough: go on. Unknown number: show the line and the list again. Minimal answers are fine only if the script credits them.
+1. **The list.** `ticket.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. The user types the numbers to fill (`1 3`).
+2. **The pick.** `ticket.mjs pick "<their numbers>"`. Show its one line. Not enough points: show the list again (cap 2, then the refuse card). Enough: go on. Unknown number: show the line and the list again. Minimal answers are fine only if the script credits them.
 3. **One item at a time**, in the order picked. Print the item's `title`, `question` and `example` from `FILL_JSON` as:
 
    ```
@@ -130,9 +130,9 @@ Three script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as pr
    Type your answer, or "skip".
    ```
 
-   Then `cli.mjs add --in @<ticket.json> <key> -- "<their answer, verbatim>"` (the `--` keeps an answer that starts with `--` from being read as a flag). Show its line. `Accepted.`: next item. `Not accepted:`: show it and ask again; after 2 rejections on one item, move on. `skip`: move on. Plain acceptance criteria need at least 150 characters, or Gherkin steps; the script says so when an answer is too short. Only `add` writes `ticket.json`, and only when the answer counts. Never edit it yourself and never send answers to Jira on this path.
+   Then `ticket.mjs add --in @<ticket.json> <key> -- "<their answer, verbatim>"` (the `--` keeps an answer that starts with `--` from being read as a flag). Show its line. `Accepted.`: next item. `Not accepted:`: show it and ask again; after 2 rejections on one item, move on. `skip`: move on. Plain acceptance criteria need at least 150 characters, or Gherkin steps; the script says so when an answer is too short. Only `add` writes `ticket.json`, and only when the answer counts. Never edit it yourself and never send answers to Jira on this path.
 
-After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass` with nothing accepted: the ticket is ready; stop. `pass` with at least one answer accepted: what was typed goes to Jira next, so the ticket itself carries it. Say `The ticket now has <score> points (the bar is <threshold>).`, run `cli.mjs jira-update --in @<ticketsDir>/<KEY>/ticket.json`, show its preview as printed, then this card and end the turn (`--ci` never gets here):
+After the last item, re-run `ticket.mjs score` on the same file. Still `refuse`: show the refuse card again. `pass` with nothing accepted: the ticket is ready; stop. `pass` with at least one answer accepted: what was typed goes to Jira next, so the ticket itself carries it. Say `The ticket now has <score> points (the bar is <threshold>).`, run `ticket.mjs jira-update --in @<ticketsDir>/<KEY>/ticket.json`, show its preview as printed, then this card and end the turn (`--ci` never gets here):
 
 ```
 1. Update the Jira ticket
@@ -140,7 +140,7 @@ After the last item, re-run `cli.mjs score` on the same file. Still `refuse`: sh
 3. Cancel
 ```
 
-- **1:** only now write to Jira. Fetch the ticket fresh with `getJiraIssue` (fields `description,labels,summary`, `responseContentFormat` `markdown`), then one `editJiraIssue` (`contentFormat` `markdown`) that sets only what `JIRA_UPDATE_JSON` names: `description` = the fresh description + a blank line + `append`; `labels` = the fresh labels plus `labelsAdd`; `summary` = `[<titlePrefix>] ` + the fresh summary without its old `[..]` prefix, only when `titlePrefix` is set. Append only. Never send the text from disk, never rewrite or reorder what is on the ticket. Then one sentence: `The Jira ticket has been updated.`, and run `cli.mjs jira-posted <KEY> update` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not update the Jira ticket.` Either way, the ticket is ready; stop.
+- **1:** only now write to Jira. Fetch the ticket fresh with `getJiraIssue` (fields `description,labels,summary`, `responseContentFormat` `markdown`), then one `editJiraIssue` (`contentFormat` `markdown`) that sets only what `JIRA_UPDATE_JSON` names: `description` = the fresh description + a blank line + `append`; `labels` = the fresh labels plus `labelsAdd`; `summary` = `[<titlePrefix>] ` + the fresh summary without its old `[..]` prefix, only when `titlePrefix` is set. Append only. Never send the text from disk, never rewrite or reorder what is on the ticket. Then one sentence: `The Jira ticket has been updated.`, and run `ticket.mjs jira-posted <KEY> update` (it logs the key for `/quality-code:kpi`; show nothing of it). On failure: `Could not update the Jira ticket.` Either way, the ticket is ready; stop.
 - **2:** nothing sent. The ticket is ready; stop.
 - **3:** stop, nothing sent.
 

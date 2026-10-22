@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { readTsc, scopedTsconfig, typeCheck } from '../../core/pipeline/types.mjs'
-import { calls, fakeBin } from '../runners/fake-bin.mjs'
+import { readTsc, scopedTsconfig, typeCheck } from '../../lib/pipeline/types.mjs'
+import { calls, fakeBin } from '../fake-bin.mjs'
 
 const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] } }
 const proj = (tsconfig = true) => { const d = mkdtempSync(join(tmpdir(), 'qc-tsc-')); if (tsconfig) writeFileSync(join(d, 'tsconfig.json'), '{}'); return d }

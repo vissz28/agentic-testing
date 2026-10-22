@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "quality-code team config (.claude/quality-code.json)",
-  "description": "Documentation of the rules enforced by core/config.mjs.",
+  "description": "Documentation of the rules enforced by lib/base/config.mjs.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "adapter", "jira"],

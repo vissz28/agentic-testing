@@ -8,11 +8,11 @@ import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, readdirS
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ENV } from '../checks/git-env.mjs'
-import { typeCheck } from '../../core/pipeline/types.mjs'
+import { ENV } from '../git-env.mjs'
+import { typeCheck } from '../../lib/pipeline/types.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const CLI = join(HERE, '../../core/pipeline/cli.mjs')
+const CLI = join(HERE, '../../bin/pipeline.mjs')
 const SAMPLE = join(HERE, '../../../../examples/sample-service')
 const skip = process.env.QC_E2E === '1' ? false : 'end to end: set QC_E2E=1 (after npm ci in examples/sample-service)'
 const LONG = 10 * 60 * 1000

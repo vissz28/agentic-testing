@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatCard, formatRunLog } from '../../core/pipeline/card.mjs'
+import { formatCard, formatRunLog } from '../../lib/pipeline/card.mjs'
 
 const s = (check, status, summary, findings = [], data = {}) => ({ check, status, summary, findings, data })
 const base = [

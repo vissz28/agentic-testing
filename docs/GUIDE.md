@@ -129,7 +129,7 @@ Playwright test).
 | Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
 | Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
-| Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `core/checks/cli.mjs` | ✅ available (building blocks) |
+| Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `bin/checks.mjs` | ✅ available (building blocks) |
 | Check the tests on your branch: run them and grade them | `/quality-code:check` (or `start`, option 2) | ✅ available (Vitest, Playwright, both) |
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
@@ -352,7 +352,7 @@ the run also writes the developer log next to the ticket's files (`<ticketsDir>/
 verdict in words, every test, every check with its numbers and findings, what to do and how to run it
 again. Like the audit log it is local, and off with `QC_NO_AUDIT=1`.
 
-**Frozen evals.** `/quality-code:check --evals` (or `node <plugin>/core/evals.mjs`) checks the
+**Frozen evals.** `/quality-code:check --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or
 an edited guide that softens one shows up: one folder per ticket in `.claude/quality-code/evals/<KEY>/`
 with `expected.json` (`minSpecs`, `specMustMatch` and `specMustNotMatch` regular expressions,
@@ -367,7 +367,7 @@ drifted, 3 no fixture.
 | ⚠️ not verified | something could not run (Vitest or `tsc` missing, a timeout, a spec whose assertions mutation cannot check such as snapshot-only ones, a spec with no block for the ticket key, Stryker failing to run). Never shown as green |
 | 🔴 tests red | the checks passed but a test fails. Expected for a bug whose fix is not merged yet |
 
-Exit codes of `core/pipeline/cli.mjs`: `0` green, `1` checks failed or tests red, `2` usage or config
+Exit codes of `bin/pipeline.mjs`: `0` green, `1` checks failed or tests red, `2` usage or config
 error (or a crash), `3` not verified. The run writes nothing into your repo except Vitest's own cache
 in `node_modules/.vite` and the mutation check's temporary spec copies, deleted when it ends.
 
@@ -423,7 +423,7 @@ stop), and Claude talks in your language, or the ticket's.
 `.claude/quality-code/run.active` (git-ignored). Only then does the boundary hook block writes to the
 forbidden paths, and only then does the boundary check run. The marker is removed at the end, on every
 way out. One older than 12 hours is ignored and replaced. By hand:
-`node <plugin>/core/checks/cli.mjs run start --key ABC-123`, `run stop`, `run status`.
+`node <plugin>/bin/checks.mjs run start --key ABC-123`, `run stop`, `run status`.
 
 ---
 
@@ -439,7 +439,7 @@ Browsers installed into `node_modules` (`PLAYWRIGHT_BROWSERS_PATH=0`) are found 
 that variable when `node_modules/playwright-core/.local-browsers` exists and you have not set it yourself. The e2e
 folder is `playwright.folder`, else the `testDir` of the first config in `playwright.configs` or of
 your root Playwright config, when it is a plain string (a config in `e2e/` with `testDir: './tests'`
-gives `e2e/tests/`), else `e2e/` (`node <plugin>/core/cli.mjs config e2e-folder` shows which and why).
+gives `e2e/tests/`), else `e2e/` (`node <plugin>/bin/ticket.mjs config e2e-folder` shows which and why).
 `/quality-code:setup` finds a Playwright config up to two folders down and offers it as
 `playwright.configs`.
 
@@ -458,7 +458,7 @@ With an `xray` block in the config (Playwright and fullstack projects), each Pla
 writes also becomes an XRay test case, and `/quality-code:xray ABC-123` writes the cases alone, with
 no test (QA's cases before the tests exist). A case is the test's steps in plain words (action, data,
 expected result), named after its test (`Automated: <test name>` in its Description) and linked to
-the ticket. `core/xray.mjs` appends the cases to `xray.csv`, the record of every case, numbered per
+the ticket. `bin/xray.mjs` appends the cases to `xray.csv`, the record of every case, numbered per
 ticket (TC ID), and skips a case that is already there. Then it writes the ticket's `case.csv`, and
 `case.xlsx` when the project has `exceljs` installed, in `<xray.folder><KEY>/`, for QA to import
 (Xray: Test Repository, Import, Excel or CSV). One row per step, the metadata on the first row, and
@@ -758,7 +758,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 | `marketplace add` fails | Make sure `git clone https://github.com/vissz28/agentic-testing` works on its own. |
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
 | `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
-| `Another test-writing run is active.` | A `/quality-code:write` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/core/checks/cli.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
+| `Another test-writing run is active.` | A `/quality-code:write` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/bin/checks.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
 | `the e2e folder "…" is inside the forbidden "…"` | Your Playwright `testDir` is in a folder tests must not write. Set `playwright.folder` to a test folder, or allow it in `boundaries.allow`. |
 | `honesty: anchor tag without a ticket tag` | A tag list was split over lines; keep `{ tag: ['@anchor', '@KEY'] }` on the `test(` line. |
 | `No quality-code audit data yet` | Gate a ticket or run a check first; the audit log is local to your machine. |
@@ -858,25 +858,26 @@ audit and KPI [spec](specs/2026-10-14-audit-kpi-design.md) ·
 agentic-testing/
 ├─ CHANGELOG.md                      what changed in each version
 ├─ .claude-plugin/marketplace.json
-├─ .github/workflows/test.yml          core tests, JSON check, no project values in core or the checks
+├─ .github/workflows/test.yml          core tests, JSON check, no project values in lib or the checks
 ├─ plugins/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
 │     ├─ commands/                     check.md, consumption.md, kpi.md, seed.md, setup.md, start.md, ticket-eval.md, write.md, xray.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
-│     ├─ core/                         the scripts (no dependencies): config, languages, criteria,
-│     │                                rubrics, score, sanitize, fill, jira, fields, messages,
-│     │                                cli, setup, branch, xray, connectors.md
-│     │  ├─ checks/                    boundary, honesty, suite-honesty, expected, flaky, mutation,
-│     │  │                             the run marker (run) and their CLI
-│     │  ├─ guides/                    vitest-writing.md, the rules /quality-code:write follows
-│     │  ├─ runners/                   the Vitest, Playwright and Stryker runners
-│     │  ├─ consumption/               reads Claude Code's local transcripts: usage and estimated cost
-│     │  └─ pipeline/                  one pipeline for Vitest and Playwright, its card and CLI
+│     ├─ bin/                          the only scripts the commands and the hook run: ticket.mjs,
+│     │                                pipeline.mjs, checks.mjs, consumption.mjs, kpi.mjs, setup.mjs,
+│     │                                branch.mjs, xray.mjs, evals.mjs, connector-settings.mjs
+│     ├─ lib/                          the modules those scripts use (no dependencies, no project values)
+│     │  ├─ base/                      config, languages, keys, git, result, e2e-folder, boundary,
+│     │  │                             dialects, the run marker
+│     │  ├─ ticket/                    criteria, rubrics, score, sanitize, fill, jira, fields, messages, text
+│     │  ├─ pipeline/                  one pipeline for Vitest and Playwright: its card, checks and runners
+│     │  └─ report/                    consumption (usage and estimated cost) and the Quality Program KPIs
+│     ├─ guides/                       connectors.md, vitest-writing.md, playwright-writing.md, seed-data.md
 │     ├─ schema/                       quality-code.schema.json
 │     ├─ templates/                    standard Story and Bug templates
-│     └─ test/                         unit tests and the parity suite
+│     └─ test/                         unit tests (mirrors bin/ and lib/) and the parity suite
 ├─ examples/sample-service/          the end-to-end proof: a small pricing service, two tickets, their specs
 ├─ scripts/capture-parity.mjs          records the reference outputs the parity suite compares with
 └─ docs/                               getting started, specs, plans
@@ -889,7 +890,7 @@ cd plugins/quality-code && npm test
 Run a check by hand (from a set-up repo):
 
 ```bash
-node <plugin>/core/checks/cli.mjs honesty test/orders.spec.ts
+node <plugin>/bin/checks.mjs honesty test/orders.spec.ts
 ```
 
 Exit codes: `0` pass, `1` fail, `2` usage or config error (or a crash), `3` not run.
@@ -900,14 +901,14 @@ Diff mode (`boundary`, `honesty`) reads git, so it cannot see git-ignored files 
 `mutation` need a test runner: both runners are there (Vitest and Playwright).
 `run start --key KEY`, `run stop` and `run status` open, close and show a test-writing run (`run
 start` exits `1` when a run is already active). The pipeline runs the checks in order, picking the runner from `adapter` (Playwright has no Stryker step and refuses `--target`):
-`node <plugin>/core/pipeline/cli.mjs <spec…> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]`
+`node <plugin>/bin/pipeline.mjs <spec…> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]`
 (exit `0` green, `1` checks failed or tests red, `2` usage or config error, `3` not verified).
 
 ```bash
 claude plugin validate plugins/quality-code && claude plugin validate .
 ```
 
-- **No dependencies and no project values in `core/`.** CI fails if a warehouse value (project key,
+- **No dependencies and no project values in `lib/`.** CI fails if a warehouse value (project key,
   site, field id, label) appears there; every team value comes from the config.
 - **Parity suite.** `test/parity/` runs the core with the warehouse configs against 116 real ticket
   fixtures and compares the output with what the original warehouse scripts printed. Differences

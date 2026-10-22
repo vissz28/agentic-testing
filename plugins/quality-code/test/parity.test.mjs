@@ -6,7 +6,7 @@
 //   #2  a bare `warehouse` label no longer counts (its own fixture, asserted to differ)
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
-// Sanitize: today's backend sanitizer and `cli.mjs sanitize` under the backend config write the
+// Sanitize: today's backend sanitizer and `ticket.mjs sanitize` under the backend config write the
 // same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
 // One hand edit, spec §10 #8 (harvested free text is redacted): in expected/sanitize.json the
 // untouched-fields scenario `then` reads "shows U######" where today's script kept the id.
@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mask, sanitizeInputs } from './parity/sanitize-inputs.mjs'
 
-const CLI = new URL('../core/cli.mjs', import.meta.url).pathname
+const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const DIR = new URL('./parity/', import.meta.url).pathname
 const read = p => JSON.parse(readFileSync(p, 'utf8'))
 const CONFIGS = { fe: read(join(DIR, 'configs/warehouse-frontend.json')), be: read(join(DIR, 'configs/warehouse-backend.json')) }
