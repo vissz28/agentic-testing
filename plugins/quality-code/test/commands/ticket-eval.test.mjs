@@ -160,7 +160,7 @@ test('Figma: the draft is shown as it would be added, with Use it / Edit / Skip,
   assert.match(fig, /exactly as it would be added, then end the turn/)
 })
 test('Figma: Use it goes through add like a typed answer, Edit sends their text, Skip moves on; the script decides', () => {
-  assert.ok(fig.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"'))
+  assert.ok(fig.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"'))
   assert.match(fig, /exactly like a typed answer/)
   assert.match(fig, /The script decides whether it counts/)
   assert.match(fig, /\*\*2:\*\* ask for their edited text, and send that through `add`/)
@@ -172,6 +172,46 @@ test('Figma: no Jira write without the preview and a yes, append only, nothing s
   assert.match(fig, /it appends/)
   assert.match(fig, /never send code or design content anywhere else/)
   assert.match(fig, /re-score, the preview and the push card/)
+})
+// AGT-116: criteria drafted from the ticket's own text; the author confirms, the script scores.
+const draft = doc.slice(doc.indexOf('## Draft the criteria from the ticket'), doc.indexOf('## Draft from Figma and my changes'))
+test('ticket draft: only for the criteria items, only from the ticket\'s own text, Figma first', () => {
+  assert.ok(draft.length > 0)
+  assert.match(draft, /The model drafts, the author confirms, the script scores/)
+  assert.ok(draft.includes('(`ac_present`, `ac_testable`)'))
+  assert.match(draft, /only when Figma is not drafting them/)
+  assert.ok(draft.includes('`text.description`, `text.acField`'))
+  assert.match(draft, /`scenarios`, or XRay tests among its `links`/)
+  assert.match(draft, /Nothing of that: no draft/)
+  assert.match(draft, /Attachments are never opened/)
+  const step3 = doc.slice(doc.indexOf('3. **All at once.**'), doc.indexOf('\n', doc.indexOf('3. **All at once.**')))
+  assert.match(step3, /draft them first \(see \*\*Draft the criteria from the ticket\*\*\)/)
+})
+test('ticket draft: Given / When / Then in the ticket\'s language, never invented values, a question blocks sending', () => {
+  assert.match(draft, /in the ticket's language, as Given \/ When \/ Then steps/)
+  assert.match(draft, /Never invent values/)
+  assert.ok(draft.includes('`<which message?>`'))
+  assert.match(draft, /never sent as it is/)
+  assert.match(draft, /do not send it: ask for the values first/)
+})
+test('ticket draft: the card is Use it / Edit / Skip and the turn ends', () => {
+  assert.ok(draft.includes('Drafted from the ticket. Check it before it counts.\n\n  <the draft>\n\n  1. Use it\n  2. Edit\n  3. Skip'))
+  assert.match(draft, /exactly as it would be added, then end the turn/)
+})
+test('ticket draft: Use it and Edit go through add --drafted; the script scores, a rejection shows its reason', () => {
+  assert.ok(draft.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"'))
+  assert.match(draft, /marks the answer as drafted in `ticket.json` and in the local audit log \(for `\/quality-code:kpi`\); it never changes the score/)
+  assert.match(draft, /\*\*2:\*\* ask for their edited text, and send that through `add` the same way, with `--drafted`\. The script scores the edited text/)
+  assert.match(draft, /\*\*3:\*\* the item goes on the card with the other items, typed by hand/)
+  assert.match(draft, /\*\*Not accepted:\*\* show the line with the script's reason as printed/)
+  assert.match(draft, /rejected twice, the item goes on the card/)
+  assert.match(draft, /the model never grades/)
+})
+test('ticket draft: Jira only through the update preview and option 1; Do not update sends nothing', () => {
+  assert.match(draft, /through the re-score, the `jira-update` preview and option 1 of its card/)
+  assert.match(draft, /On `2\. Do not update, just continue` or `3\. Cancel` nothing is sent to Jira/)
+  assert.match(draft, /Never write a draft to Jira without that preview and a yes/)
+  assert.ok(doc.includes('1. Update the Jira ticket\n2. Do not update, just continue\n3. Cancel'))
 })
 
 test('the score is shown only as the script prints it; refuse-comment exit 1 is expected', () => {

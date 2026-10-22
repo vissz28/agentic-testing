@@ -137,7 +137,7 @@ Script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed.
 
 1. **The list.** `ticket.mjs fill-menu`. Show its card: the score, the bar, and each missing item with the points it adds. When `FILL_JSON` has no `items`, there is nothing to type in: show the card's lines as printed, then the refuse card without its option 1 (the other options keep their numbers), and end the turn. Otherwise, under it, one line: `Type the numbers to fill, or ok for <the numbers of the items in the To pass: line>.` (match `fix` in `GATE_JSON` to the items of `FILL_JSON` by `key`). Read `FILL_JSON`: when its `figma` list is not empty, at least one item has `design: true`, and the Figma connector is connected, add one more line (see **Draft from Figma**). The Figma connector is connected when you find the tools of `figma` or `figma-token` (the check in `connectors.md`); no tools, no line.
 2. **The pick.** `ticket.mjs pick "<their numbers>"` (`ok`: the numbers of the `To pass:` items). Show its one line. Not enough points: show the list again (cap 2, then the refuse card). Enough: go on. Unknown number: show the line and the list again. Minimal answers are fine only if the script credits them.
-3. **All at once.** One card with every picked item that was not drafted by **Draft from Figma**, in the order picked, from `FILL_JSON`, then end the turn:
+3. **All at once.** When the pick holds acceptance criteria (`ac_present` or `ac_testable`) and the ticket has text to draft them from, draft them first (see **Draft the criteria from the ticket**); an item answered from its draft is left out of this card. One card with every other picked item (and none that **Draft from Figma** drafted), in the order picked, from `FILL_JSON`, then end the turn:
 
    ```
    Answer in one message, one line per number. Type "skip" for one you leave out.
@@ -153,6 +153,30 @@ Script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed.
 **Two items are different.**
    - **Link:** the answer is one web address (a Figma design, a Confluence page, the page the ticket is about). Pass it to `add` like any answer. The script adds it to the description as a `## Links` line and credits it only when it is a valid `http://` or `https://` address.
    - **Attachment:** a file cannot be typed in, so its question asks the user to attach a screenshot, video or file on the Jira ticket itself (never here), then answer `done`. `add` answers `Not counted yet` and writes nothing: the script credits an attachment only when it sees one on the ticket. So after `done`, read the ticket again: `getJiraIssue` with fields `attachment` only, count its entries (the number, nothing else), and run `ticket.mjs attachments --in @<ticketsDir>/<KEY>/ticket.json <count>`. Show its line. The script re-scores and is the only decider: if the count is still `0`, the item stays missing, say `I do not see an attachment on the ticket yet.`, and move on. Never mark it as credited yourself, and never ask for the file contents.
+
+## Draft the criteria from the ticket
+
+The model drafts, the author confirms, the script scores. Only for the acceptance criteria items (`ac_present`, `ac_testable`) the user picked, and only when Figma is not drafting them (**Draft from Figma** below goes first). Only when the ticket itself has something to draft from: prose in the description or the criteria field (`text.description`, `text.acField` in `ticket.json`), `scenarios`, or XRay tests among its `links` (their titles). Nothing of that: no draft, the item goes on the card as usual. Attachments are never opened: a file on the ticket gives nothing to draft from here.
+
+- **Draft the item** in the ticket's language, as Given / When / Then steps, one scenario per behaviour the ticket describes. Use only the ticket's own words, read from `ticket.json` (redacted; never the text as the connector returned it). Never invent values: a number, a text, a label, a state or a result the ticket does not state is a question inside the draft, such as `<which message?>`, which the user must fill. A draft with such a question is never sent as it is.
+- **Show the draft** exactly as it would be added, then end the turn:
+
+  ```
+  Drafted from the ticket. Check it before it counts.
+
+  <the draft>
+
+  1. Use it
+  2. Edit
+  3. Skip
+  ```
+
+- **1:** send the draft through `ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"`, exactly like a typed answer. `--drafted` marks the answer as drafted in `ticket.json` and in the local audit log (for `/quality-code:kpi`); it never changes the score. If the draft still holds a `<...>` question, do not send it: ask for the values first, then show the draft again. The script decides whether it counts: show its line.
+- **2:** ask for their edited text, and send that through `add` the same way, with `--drafted`. The script scores the edited text, not the draft.
+- **3:** the item goes on the card with the other items, typed by hand.
+- **Not accepted:** show the line with the script's reason as printed. Offer the same card once more (Edit is the usual way out); rejected twice, the item goes on the card with the other items. Never argue with the reason, never send the same draft again unchanged.
+
+Rules for this path: the draft is a suggestion and the script is the only judge (the model never grades and never says a score of its own). A drafted answer reaches Jira only as a typed one does: through the re-score, the `jira-update` preview and option 1 of its card. On `2. Do not update, just continue` or `3. Cancel` nothing is sent to Jira. Never write a draft to Jira without that preview and a yes.
 
 ## Draft from Figma and my changes
 
@@ -177,8 +201,8 @@ That number is not an item, so it is never given to `pick` as it is. Typing it m
   3. Skip
   ```
 
-- **1:** send the draft through `ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> -- "<the draft, verbatim>"`, exactly like a typed answer. If the draft still holds a `<...>` question, do not send it: ask for the values first, then show the draft again. The script decides whether it counts: show its line. `Not accepted:` is shown as for a typed answer (one more try with Edit, then move on).
-- **2:** ask for their edited text, and send that through `add` the same way.
+- **1:** send the draft through `ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"`, exactly like a typed answer (`--drafted` marks it as drafted, as above). If the draft still holds a `<...>` question, do not send it: ask for the values first, then show the draft again. The script decides whether it counts: show its line. `Not accepted:` is shown as for a typed answer (one more try with Edit, then move on).
+- **2:** ask for their edited text, and send that through `add` the same way, with `--drafted`.
 - **3:** move on to the next item.
 
 Rules for this path: the draft is a suggestion and the script is the only judge (the model never grades and never says a score); never write to Jira without the preview and a yes (the push below is the only write, and it appends); never send code or design content anywhere else than into the draft shown here; do not paste the diff or the design text into the chat beyond the draft itself. After the last item the usual flow continues below: any item not drafted is asked as above, then the re-score, the preview and the push card.

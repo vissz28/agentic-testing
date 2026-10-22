@@ -179,8 +179,10 @@ export function exampleFor(config, ticket, key) {
 /**
  * Write one answer into the ticket, but only if the rubric then credits it. A rejected answer
  * returns the untouched input and the reason, so nothing half-written reaches the file.
+ * `drafted`: the text began as the model's draft and the author confirmed it. The fill-in record
+ * and the ticket's `drafted` list say so; the score is the same as for a typed answer.
  */
-export function applyAnswer(config, ticket, key, answer) {
+export function applyAnswer(config, ticket, key, answer, { drafted = false } = {}) {
   const rubric = rubricFor(config, ticket)
   const why = REASONS[rubric.id]
   const v = buildVocabulary(config.languages)
@@ -287,6 +289,10 @@ export function applyAnswer(config, ticket, key, answer) {
   const { signals } = isFullstack(config) ? buildBrief(asAdapter(config, rubric.id), next) : brief
   const credited = key === 'ac_present' ? signals.ac_present && signals.ac_testable : signals[key]
   if (!credited) return reject('The answer was added, but the check still does not count it. Try the example form.')
+  if (drafted) {
+    entry.drafted = true
+    next.drafted = [...new Set([...(Array.isArray(ticket.drafted) ? ticket.drafted : []), key])]
+  }
   next.filled = [...(ticket.filled ?? []), entry]
   return { ok: true, input: next, brief }
 }

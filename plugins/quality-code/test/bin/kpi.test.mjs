@@ -43,6 +43,11 @@ const FULL = {
   ],
   [`${A}jira.jsonl`]: [{ key: 'ABC-2', action: 'comment', date: day(3) }, { key: 'ABC-4', action: 'comment', date: day(5) }, { key: 'ABC-1', action: 'update', date: day(2) }, { key: 'ABC-2', action: 'risk', date: day(7) }],
   [`${A}override.jsonl`]: [{ key: 'ABC-4', score: 20, bar: 70, date: day(6) }, { key: 'ABC-2', score: 55, bar: 70, date: day(7) }],
+  [`${A}fill.jsonl`]: [
+    { key: 'ABC-1', item: 'ac_present', drafted: true, date: day(2) },
+    { key: 'ABC-1', item: 'steps', drafted: false, date: day(2) },
+    { key: 'OLD-1', item: 'ac_present', drafted: true, date: '2026-08-01T00:00:00.000Z' }, // outside the period
+  ],
   '.claude/quality-code/boundary.jsonl': [{ ts: day(4), path: 'src/a.ts' }, { ts: day(6), path: 'src/b.ts' }, { ts: '2026-01-01T00:00:00.000Z', path: 'x' }],
 }
 
@@ -66,6 +71,7 @@ test('the card, exactly', async () => {
     'Scores      0-29: 1 · 30-49: 0 · 50-69: 1 · 70-89: 2 · 90-100: 1',
     'Missing     acceptance criteria 3 · steps to reproduce 3 · testable AC 1',
     'Filled in   1 refused ticket filled in here, then passed',
+    'Drafted     1 drafted fill-in (the model drafted, the author confirmed)',
     'Jira        2 comments posted · 1 ticket updated · 1 risk note',
     'Forced      2 runs past the gate (continue anyway): ABC-2, ABC-4',
     'Pipeline    6 runs · 2 green · 2 checks failed · 1 tests red · 1 not verified',
@@ -93,6 +99,7 @@ test('the report object behind the card', async () => {
     scores: { '0-29': 1, '30-49': 0, '50-69': 1, '70-89': 2, '90-100': 1 },
     missing: [{ key: 'ac_present', label: 'acceptance criteria', tickets: 3 }, { key: 'steps', label: 'steps to reproduce', tickets: 3 }, { key: 'ac_testable', label: 'testable AC', tickets: 1 }],
     filledThenPassed: 1,
+    draftedFillIns: 1,
   })
   assert.deepEqual(j.jira, { comments: 2, updates: 1, risks: 1 })
   assert.deepEqual(j.forced, { runs: 2, tickets: ['ABC-2', 'ABC-4'] })
@@ -119,7 +126,7 @@ test('an empty period: the card says so per line, exit 0', async () => {
   assert.match(r.out, /^Jira {8}nothing posted$/m)
   assert.match(r.out, /^Forced {6}none$/m)
   assert.match(r.out, /^Boundary {4}no write blocked$/m)
-  assert.doesNotMatch(r.out, /^(Scores|Missing|Filled in|Decided by)/m)
+  assert.doesNotMatch(r.out, /^(Scores|Missing|Filled in|Drafted|Decided by)/m)
 })
 test('no audit data yet: exit 3, says where it looked', async () => {
   const root = project()

@@ -12,7 +12,7 @@ const lines = (d, kind) => readFileSync(join(d, AUDIT_DIR, `${kind}.jsonl`), 'ut
 
 test('the kinds and the folder', () => {
   assert.equal(AUDIT_DIR, '.claude/quality-code/audit')
-  assert.deepEqual(KINDS, ['gate', 'pipeline', 'jira', 'override'])
+  assert.deepEqual(KINDS, ['gate', 'pipeline', 'jira', 'override', 'fill'])
 })
 test('one line per event, appended, with the date', () => {
   const d = dir()
@@ -21,6 +21,15 @@ test('one line per event, appended, with the date', () => {
   assert.deepEqual(lines(d, 'gate'), [
     { key: 'ABC-1', issuetype: 'Bug', score: 45, gate: 'refuse', rubric: 'vitest', legacy: false, missing: ['ac_present'], filled: 0, date: '2026-10-14T09:00:00.000Z' },
     { key: 'ABC-1', issuetype: 'Bug', score: 80, gate: 'pass', rubric: 'vitest', legacy: false, missing: [], filled: 2, date: '2026-10-14T09:00:00.000Z' },
+  ])
+})
+test('a fill line keeps the key, the item and the drafted mark only', () => {
+  const d = dir()
+  audit(d, 'fill', { key: 'ABC-1', item: 'ac_present', drafted: true, answer: 'Given a secret' }, { env: {}, now: NOW })
+  audit(d, 'fill', { key: 'ABC-1', item: 'environment', drafted: 'yes' }, { env: {}, now: NOW })
+  assert.deepEqual(lines(d, 'fill'), [
+    { key: 'ABC-1', item: 'ac_present', drafted: true, date: '2026-10-14T09:00:00.000Z' },
+    { key: 'ABC-1', item: 'environment', drafted: false, date: '2026-10-14T09:00:00.000Z' },
   ])
 })
 test('the audit folder ignores itself, also in a project set up before the setup line existed', () => {

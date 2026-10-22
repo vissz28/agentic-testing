@@ -54,7 +54,7 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
   const at = e => Date.parse(e.date ?? e.ts)
   const inPeriod = e => { const t = at(e); return t >= period.since && t < period.until }
   const pick = k => (events[k] ?? []).filter(inPeriod).sort((a, b) => at(a) - at(b))
-  const [gates, runs, jira, overrides, blocked] = ['gate', 'pipeline', 'jira', 'override', 'boundary'].map(pick)
+  const [gates, runs, jira, overrides, blocked, fills] = ['gate', 'pipeline', 'jira', 'override', 'boundary', 'fill'].map(pick)
 
   // One ticket per key; an evaluation without a key is its own ticket.
   const tickets = new Map()
@@ -90,6 +90,8 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
       scores,
       missing: [...missing.values()].sort((a, b) => b.tickets - a.tickets || (a.key < b.key ? -1 : 1)).slice(0, 3),
       filledThenPassed,
+      // Accepted fill-in answers that began as the model's draft, confirmed by the author.
+      draftedFillIns: fills.filter(f => f.drafted === true).length,
     },
     jira: { comments: jira.filter(j => j.action === 'comment').length, updates: jira.filter(j => j.action === 'update').length, risks: jira.filter(j => j.action === 'risk').length },
     forced: { runs: overrides.length, tickets: [...new Set(overrides.map(o => o.key).filter(Boolean))].sort() },
@@ -112,6 +114,7 @@ export function formatKpiCard(r) {
     lines.push(row('Scores', Object.entries(g.scores).map(([band, n]) => `${band}: ${n}`).join(' · ')))
     if (g.missing.length) lines.push(row('Missing', g.missing.map(m => `${m.label} ${m.tickets}`).join(' · ')))
     if (g.filledThenPassed) lines.push(row('Filled in', `${plural(g.filledThenPassed, 'refused ticket')} filled in here, then passed`))
+    if (g.draftedFillIns) lines.push(row('Drafted', `${plural(g.draftedFillIns, 'drafted fill-in')} (the model drafted, the author confirmed)`))
   }
   const j = r.jira
   lines.push(row('Jira', j.comments || j.updates || j.risks ? `${plural(j.comments, 'comment')} posted · ${plural(j.updates, 'ticket')} updated${j.risks ? ` · ${plural(j.risks, 'risk note')}` : ''}` : 'nothing posted'))

@@ -300,3 +300,21 @@ test('an Italian-only project gets Italian headings, so every answer it types is
   }
   assert.match(applyAnswer(it, bug, 'steps', answers.steps).input.text.description, /## Passi per riprodurre/)
 })
+
+// AGT-116: an answer that began as the model's draft is marked, and scored like any other.
+test('applyAnswer drafted: the fill-in record and the ticket say drafted; a typed answer does not', () => {
+  const t = { key: 'DEMO-1', issuetype: 'Bug', labels: [], text: { description: 'The delete button is in the wrong place.' } }
+  const typed = applyAnswer(BE, t, 'ac_present', LONG_AC)
+  const drafted = applyAnswer(BE, t, 'ac_present', LONG_AC, { drafted: true })
+  assert.ok(typed.ok && drafted.ok)
+  assert.equal(typed.input.drafted, undefined)
+  assert.equal(typed.input.filled[0].drafted, undefined)
+  assert.deepEqual(drafted.input.drafted, ['ac_present'])
+  assert.equal(drafted.input.filled[0].drafted, true)
+  assert.equal(drafted.brief.score, typed.brief.score, 'the mark never changes the score')
+  const again = applyAnswer(BE, drafted.input, 'ac_present', FIX_AC, { drafted: true })
+  assert.deepEqual(again.input.drafted, ['ac_present'], 'one entry per item')
+  const rejected = applyAnswer(BE, t, 'ac_present', 'it works correctly', { drafted: true })
+  assert.equal(rejected.ok, false)
+  assert.equal(rejected.input, t, 'a rejected draft writes nothing')
+})
