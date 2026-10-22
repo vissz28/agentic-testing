@@ -21,27 +21,30 @@ export function rubricFor(config, ticket = null) {
 export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ticket)
 
 /**
- * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true.
- * A key in `omitted` is a key this config or this ticket can never earn (no features configured,
- * no title prefixes configured, no way to find a QA plan…): it is left out of the denominator, so
- * it never lowers the score and is never asked for, instead of leaving points permanently out of
- * reach.
+ * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true. The
+ * keys the config can never credit (`omitted`) are left out, and the rest is scaled to 100: a
+ * project with no features is not capped below the bar. An omitted key still not credited stays in
+ * `missing` (diagnostic), but never lowers the score or is offered by the fill-in; callers that
+ * show `missing` filter it against the brief's own `omitted` set first.
  */
 export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
-  let earned = 0
-  let achievable = 0
+  let score = 0
+  let total = 0
   const missing = []
   for (const [key, [weight, label]] of Object.entries(rubric.weights)) {
-    if (omitted.has(key)) continue
-    achievable += weight
     const credited =
       key === 'ac_testable' ? !!signals.ac_testable && !!signals.ac_present : !!signals[key]
-    if (credited) earned += weight
+    if (omitted.has(key)) {
+      if (!credited) missing.push({ key, weight, label })
+      continue
+    }
+    total += weight
+    if (credited) score += weight
     else missing.push({ key, weight, label })
   }
   missing.sort((a, b) => b.weight - a.weight)
-  const score = achievable > 0 ? Math.round((earned / achievable) * 100) : 0
-  return { score: Math.max(0, Math.min(100, score)), missing }
+  const scaled = total ? Math.round((score * 100) / total) : 0
+  return { score: Math.max(0, Math.min(100, scaled)), missing }
 }
 
 /** Below the threshold is refuse: a readable Then does not save a thin ticket. */
@@ -67,11 +70,11 @@ export function buildBrief(config, ticket) {
 function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
-  const feature = rubric.feature(config, ticket)
-  const omitted = rubric.omitted?.(config, ticket, feature) ?? new Set()
+  const omitted = rubric.omitted?.(config) ?? new Set()
   const { score, missing } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)
+  const feature = rubric.feature(config, ticket)
   const labels = rubric.labels?.(config) ?? {}
   const flags = [...(ticket.flags || [])]
   if (legacy) flags.unshift(rubric.legacyFlag(THRESHOLD))

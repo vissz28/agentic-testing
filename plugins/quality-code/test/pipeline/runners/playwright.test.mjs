@@ -182,7 +182,7 @@ test('runner: no report → first stderr line; missing binary; timeout from play
   assert.deepEqual(await playwrightRunner(d, cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Error: playwright.config.ts: Unexpected token' })
   fakeBin(d, 'playwright', { exit: 1 })
   assert.deepEqual(await playwrightRunner(d, cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Playwright wrote no report' })
-  assert.deepEqual(await playwrightRunner(proj(), cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Playwright is not installed in this project: run npm install' })
+  assert.deepEqual(await playwrightRunner(proj(), cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: 'Playwright is not installed in this project' })
   const s = proj()
   fakeBin(s, 'playwright', { sleepMs: 3000, report: report(s, []) })
   const r = await playwrightRunner(s, cfg({ timeoutSeconds: 0.2 }))({ files: ['a.spec.ts'] })

@@ -76,7 +76,7 @@ test('the short setup asks only for connectors, the project here and the Jira pr
   assert.ok(step(5).startsWith('5. **Done.**'))
   assert.match(step(5), /Do not read, score or comment on any ticket/)
   assert.doesNotMatch(step(5), /ticket-eval\.md|searchJiraIssuesUsingJql|getJiraIssue/)
-  for (const c of ['/quality-code:start', '/quality-code:ticket-eval <KEY>', '/quality-code:setup advanced']) assert.ok(step(5).includes(c), c)
+  for (const c of ['/quality-code:spec.', '/quality-code:spec <KEY>', '--gate-only', '/quality-code:setup advanced']) assert.ok(step(5).includes(c), c)
 })
 test('advanced keeps the full questions and needs a config', () => {
   assert.match(doc, /If `\$ARGUMENTS` contains `advanced`, go to \*\*Advanced\*\*/)
@@ -141,5 +141,13 @@ test('fullstack: a repo with both asks what the project is; sides, Playwright co
   assert.match(doc, /\*\*Where Playwright runs\.\*\* Only for `playwright` and `fullstack`, and only when `playwrightConfigs`/)
   assert.match(doc, /For `fullstack`, leave out the e2e folder/)
   assert.ok(doc.includes('With no config at all (`playwrightConfigs` is empty), say once and go on: `No Playwright config found. The tests need one with a baseURL, and a webServer or the app already running: npm init playwright@latest creates it.`'))
-  assert.match(doc, /the path the app's router uses \(for example `\/productsStock`\), not a folder name/)
+  assert.match(doc, /the path the app's router uses \(for example `\/orderHistory`\), not a folder name/)
+})
+test('no Atlassian connection: setup defers to the Jira card, it has no ticket to paste', () => {
+  assert.ok(!doc.includes('Or paste the ticket text'))
+  assert.match(doc, /If none is connected, step 0's Jira card \(in `connectors\.md`\) says what to do/)
+})
+test('setup says plainly that Jira Server and Data Center sites cannot be used', () => {
+  assert.match(doc, /Only Atlassian Cloud sites work/)
+  assert.ok(doc.includes('`quality-code needs Jira Cloud: the Atlassian connector cannot reach <site>.`'))
 })

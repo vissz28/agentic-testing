@@ -52,6 +52,13 @@ test('playwright: the frontend self-test', () => {
   assert.equal(fe("+  { tag: ['@finding', '@AGT-7'] },").length, 0)
   assert.ok(kinds(fe("+test('a', { tag: '@anchor' }, async () => {})")).includes('anchor tag without a ticket tag'))
 })
+test("the ticket's own key never excuses a skip of its block; another tracked key still does", () => {
+  const own = s => scanDiff(`+++ b/x.spec.ts\n${s}`, dialectFor('vitest'), KEYS, { own: 'FIC-1' })
+  assert.deepEqual(kinds(own("+describe.skip('FIC-1 Pricing', () => {")), ['test newly skipped'])
+  assert.deepEqual(kinds(own("+it.skip('waits for FIC-12', () => {})")), [])
+  assert.deepEqual(kinds(own("+it.skip('blocked by AGT-3', () => {})")), [])
+})
+
 test('tracked keys come from the config, not from fixed projects', () => {
   const v = scanDiff("+++ b/x.spec.ts\n+it.skip('flaky (ABC-3)', () => {})\n+it.skip('flaky (AGT-3)', () => {})", dialectFor('vitest'), '(?:ABC)-\\d+')
   assert.deepEqual(v.map(x => x.line), ["it.skip('flaky (AGT-3)', () => {})"])
@@ -87,4 +94,39 @@ test('diff headers: a trailing tab and quoted non-ASCII names give the right fil
   put('test/café.spec.ts', "it.skip('a', () => {})\n")
   const r = run({ specs: ['test/my file.spec.ts', 'test/café.spec.ts'] }, ctx(d))
   assert.deepEqual([...new Set(r.findings.map(f => f.file))].sort(), ['test/café.spec.ts', 'test/my file.spec.ts'])
+})
+test("the user's git config cannot hide a removed expect: color, an external diff, no prefix", () => {
+  const { d, g, put } = repo()
+  put('test/a.spec.ts', "it('a', () => {\n  expect(1).toBe(1)\n})\n")
+  g('add', '-A'); g('commit', '-qm', 'spec')
+  put('test/a.spec.ts', "it('a', () => {\n})\n")
+  for (const [k, v] of [['color.ui', 'always'], ['color.diff', 'always'], ['diff.external', 'true'], ['diff.noprefix', 'true']]) g('config', k, v)
+  const r = run({ specs: ['test/a.spec.ts'] }, ctx(d))
+  assert.equal(r.status, 'fail')
+  assert.deepEqual(r.findings.map(f => f.kind), ['assertion removed'])
+})
+
+test('a test turned into fixme or an expected failure, an inline fixme, a condition skip or .only is caught', () => {
+  const pw = s => kinds(fe(s))
+  assert.deepEqual(pw("-  test('total shows', async ({ page }) => {\n+  test.fixme('total shows', async ({ page }) => {"), ['test removed'])
+  assert.deepEqual(pw("-  test('total shows', async ({ page }) => {\n+  test.fail('total shows', async ({ page }) => {"), ['test removed', 'test newly skipped'])
+  assert.deepEqual(pw("-  test(\n+  test.fixme(\n   'total shows',"), ['test removed'], 'formatter split: the title line follows the declaration')
+  assert.deepEqual(pw('+    test.fixme()'), ['test newly skipped'])
+  assert.deepEqual(pw('+    test.fixme(isMobile, \'not on mobile\')'), ['test newly skipped'])
+  assert.deepEqual(kinds(be("+it.skipIf(true)('adds', () => {")), ['test newly skipped'])
+  assert.deepEqual(kinds(be("+it.only('adds', () => {")), ['test newly skipped'])
+  assert.deepEqual(pw("+  test.describe.only('ABC-1 x', () => {"), ['test newly skipped'], '.only is never forgiven by a ticket key')
+  assert.deepEqual(pw("+  test.fixme('the empty state, not pinned by the ticket', async () => {})"), [], 'a new fixme declaration is the guides\' "not yet"')
+  assert.deepEqual(pw('+  test.fixme(\n+    \'not pinned yet\','), [])
+})
+
+test('a regex .test( on a removed line is no removed test', () => {
+  assert.deepEqual(be("-  if (/x/i.test(text)) return\n-  const ok = re.test(s)"), [])
+})
+
+test('red tags come from playwright.redTags; null turns the check off', () => {
+  const line = "+  test('a', { tag: ['@red'] }, async () => {"
+  assert.deepEqual(kinds(scanDiff(`+++ b/x.spec.ts\n${line}`, dialectFor('playwright'), KEYS, { redTags: ['@red', '@extra'] })), ['anchor tag without a ticket tag'])
+  assert.deepEqual(kinds(scanDiff(`+++ b/x.spec.ts\n${line}`, dialectFor('playwright'), KEYS)), [], 'the default tags are @anchor and @finding')
+  assert.deepEqual(kinds(scanDiff("+++ b/x.spec.ts\n+  test('a', { tag: ['@anchor'] }, async () => {", dialectFor('playwright'), KEYS, { redTags: [] })), [])
 })

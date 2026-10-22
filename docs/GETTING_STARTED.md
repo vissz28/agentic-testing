@@ -72,7 +72,7 @@ Setup asks one question per card. You answer by typing a number (or `stop` to qu
 
 At the end you see the config and choose `1. Write it / 2. Change something / 3. Cancel`. Nothing
 is written before you type `1`. Setup does not check any ticket; the first ticket you check with
-`/quality-code:start` or `/quality-code:ticket-eval` also finds your project's acceptance-criteria
+`/quality-code:spec` also finds your project's acceptance-criteria
 field and remembers it.
 
 Want the extra points for feature labels, QA plans or title prefixes, or your own templates? Run
@@ -84,48 +84,40 @@ anything later, run `/quality-code:setup` again rather than editing the file by 
 
 ---
 
-## 4. Every day: start from your branch
+## 4. Every day: one command from your branch
 
 Check out your feature branch (named with the ticket key, for example `ABC-123-add-export`), then:
 
 ```
-/quality-code:start
+/quality-code:spec
 ```
 
-You confirm the repo card (branch, base, how many files changed), and the ticket key comes from the
-branch name. Then it runs the pipeline on its own: the readiness gate first, then the tests. When
-the branch changed test files, it checks them; otherwise it writes the tests for the ticket and
-checks those. A refused ticket stops at the gate with the refuse card below. To pick one step
-instead, run `/quality-code:start --ask`: it shows `1. Evaluate the ticket / 2. Check the tests on
-this branch / 3. Write and check tests / 4. Stop`.
-
-The rest of this section is the gate. To check a ticket that has no branch yet, use
-`/quality-code:ticket-eval ABC-123`.
-
-```
-/quality-code:ticket-eval ABC-123
-```
+It takes the ticket key from the branch name (`Ticket: ABC-123 (from the branch ABC-123-add-export)`),
+scores the ticket, plans the tests, writes them and checks them. It asks you three times at most: at
+the gate only when the ticket is not workable, at the plan, and after the result. For a ticket with no
+branch yet: `/quality-code:spec ABC-123`. For the score alone: `/quality-code:spec ABC-123 --gate-only`
+(the same as `/quality-code:ticket-eval ABC-123`). `/quality-code:start` and `/quality-code:write`
+still work: they are the same command.
 
 The plugin reads the ticket, hides customer data in its local copy, and a script gives it a
-**score out of 100**. **70 or more passes.** The model never decides the score.
+**score out of 100**. The model never decides the score.
 
-- **Pass:** the ticket is ready. You're done.
-- **Refused:** you get this card:
+- **70 or more: ready.** It goes straight on.
+- **60 to 69, with something to check: borderline.** It goes on without asking. Every result is
+  marked 🔴 [RISK / NOT RECOMMENDED], and it tells you what would clear the mark.
+- **Below that: refused.** You get this card, led by the cheapest way over the bar:
 
 ```
+To pass: add Acceptance criteria and Steps to reproduce (→ 83 points, the bar is 70).
 This ticket needs a bit more information. We cannot start yet.
 
-1. Post a comment on Jira with what to add.
-2. I will add the missing information here.
+1. I will add the missing information here.
+2. Post a comment on Jira with what to add.
 3. 🔴 [RISK / NOT RECOMMENDED] Continue anyway (developers only). The user story is not complete.
+4. Stop
 ```
 
-### Option 1: ask the author on Jira
-
-You see the full comment first: what is missing, with an example to copy for each item. It is posted
-only when you confirm. Running it again later updates the same comment instead of adding a new one.
-
-### Option 2: fill it in yourself (most common)
+### Option 1: fill it in yourself (most common)
 
 You get a list of what's missing and what each item is worth:
 
@@ -137,15 +129,24 @@ What is missing:
   3. Expected and actual result  +15
   4. Summary                     +10
   5. Environment                 +5
-Type the numbers you want to fill, for example: 1 3
+Type the numbers to fill, or ok for 1 2.
 ```
 
-1. Type the numbers, for example `1 2`. It tells you whether that is enough to reach 70.
-2. Answer one question per item, or type `skip`.
-3. **The script decides whether an answer counts.** If it doesn't, you see why and can try again.
+1. Type the numbers, or `ok` for the ones in the `To pass:` line. It tells you whether that is
+   enough to reach 70.
+2. You get every question in one card. Answer them in one message, one line per number, or `skip`.
+   When the plugin found your merge request or your branch's commits, a question may carry a
+   suggestion taken from them: type `ok` on that line to use it.
+3. **The script decides whether an answer counts.** The ones that don't come back together, with
+   the reason, and you can try again.
 4. When the ticket passes, **what you typed goes to the real Jira ticket** next. You see a preview
    first and confirm it (or skip it). Your text is only appended, and nothing already on the ticket
-   changes.
+   changes. If you stop before that, your answers are kept: the next run offers to send them.
+
+### Option 2: ask the author on Jira
+
+You see the full comment first: what is missing, with an example to copy for each item. It is posted
+only when you confirm. Running it again later updates the same comment instead of adding a new one.
 
 ### Option 3: continue anyway
 
@@ -164,7 +165,7 @@ Once your branch has test files, run:
 /quality-code:check
 ```
 
-Or pick `2. Check the tests on this branch` in `/quality-code:start`. You can also name the specs:
+Or pick `Only check the tests already on this branch` on the plan card of `/quality-code:spec`. You can also name the specs:
 `/quality-code:check test/orders.spec.ts`. It lists the test files your branch changed (deleted ones
 are left out) and asks `1. Yes / 2. Pick some / 3. Stop`, confirms the ticket key, then runs the
 tests and the checks. This can take a few minutes. You get one card with a verdict:
@@ -191,19 +192,19 @@ written next to the ticket (`Full details:` on the card).
 To have the tests written from the ticket, run:
 
 ```
-/quality-code:write ABC-123
+/quality-code:spec ABC-123
 ```
 
-Or pick `Write and check tests` in `/quality-code:start`. It goes like this:
+On your feature branch, `/quality-code:spec` alone does the same. It goes like this:
 
-1. **The ticket is checked first.** A ticket below 70 gets the same refuse card as above. Fill it in
-   until it passes and writing goes on; otherwise nothing is written.
+1. **The ticket is checked first,** as above. A refused ticket gets the refuse card: fill it in until
+   it passes and writing goes on; otherwise nothing is written.
 2. **Which code?** It proposes the source file the ticket changes: `1. <path> / 2. <path> /
    3. Another file / 4. Stop`. Add `--target src/pricing.ts` to skip this card.
 3. **The plan.** One line per scenario of the ticket, with the test folder it goes in and what it
    checks (`We check: the total is 108.00`). The folders come from `/quality-code:setup advanced`; by
-   default it is `test/`. With `--ask` you choose: `1. Write these tests / 2. Change the layers /
-   3. No, I'll type the right result / 4. Stop`. A result you type is added to the ticket, never only
+   default it is `test/`. You confirm it: `1. Write these tests / 2. Change the layers /
+   3. No, I'll type the right result / 4. Stop` (`--yes` skips the question). A result you type is added to the ticket, never only
    to a test.
 4. **The tests are written** in those folders only, with the real expected values from the ticket.
    Your code is never changed.
@@ -266,10 +267,10 @@ What does **not** count:
 | `/quality-code:ticket-eval ABC-123 --json` | prints only the machine result |
 | `/quality-code:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
 | `/quality-code:check test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
-| `/quality-code:write ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
-| `/quality-code:write ABC-123 --layer unit` | writes only in the `unit` test folder |
-| `/quality-code:write ABC-123 --route /orders` | Playwright: writes the tests for the `/orders` screen |
-| `/quality-code:write ABC-123 --dry-run` | checks the ticket and shows the plan, then stops: nothing is written |
+| `/quality-code:spec ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
+| `/quality-code:spec ABC-123 --layer unit` | writes only in the `unit` test folder |
+| `/quality-code:spec ABC-123 --route /orders` | Playwright: writes the tests for the `/orders` screen |
+| `/quality-code:spec ABC-123 --dry-run` | checks the ticket and shows the plan, then stops: nothing is written |
 | `/quality-code:ticket ABC-123` | the ticket in short, with suggestions for its author (nothing is posted) |
 | `/quality-code:check --evals` | the frozen evals: chosen tickets' specs must keep pinning what they pin |
 | `/quality-code:seed ABC-123` | writes only the test data the ticket needs |

@@ -31,6 +31,7 @@ test('long prompts bill at the long rate where a model has one', () => {
 })
 test('snapshot dates and [1m] suffixes resolve to the base model; unknown models get no price', () => {
   assert.equal(baseModel('claude-haiku-4-5-20251001'), 'claude-haiku-4-5')
+  for (const id of ['us.anthropic.claude-sonnet-4-6-v1:0', 'anthropic.claude-sonnet-4-6-20251001-v1:0', 'claude-sonnet-4-6@20260101', 'eu.anthropic.claude-sonnet-4-6']) assert.equal(baseModel(id), 'claude-sonnet-4-6', id)
   assert.equal(priceFor('claude-opus-5-5[1m]'), PRICES['claude-opus-5-5'])
   assert.equal(priceFor('claude-unknown-9'), null)
   assert.equal(costOf(t(1, 1), null), null)

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const doc = readFileSync(new URL('../../commands/xray.md', import.meta.url), 'utf8')
-const write = readFileSync(new URL('../../commands/write.md', import.meta.url), 'utf8')
+const write = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
 const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. **`) === -1 ? doc.indexOf('\n## Examples') : doc.indexOf(`\n${n + 1}. **`))
 const XRAY = 'node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs"'
 
@@ -65,4 +65,8 @@ test('write adds the cases for the Playwright tests it wrote, by this command\'s
 test('examples use neutral keys', () => {
   const ex = doc.slice(doc.indexOf('## Examples'))
   assert.doesNotMatch(ex, /FIC-|AGT-/)
+})
+test('--dry-run says what it still saves and never reaches a Jira post', () => {
+  assert.match(doc, /then stop: no case written, nothing posted\. The gate still saves the sanitized ticket/)
+  assert.match(doc, /A refused ticket ends the dry run at the gate's report/)
 })

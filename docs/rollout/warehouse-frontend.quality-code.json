@@ -158,7 +158,8 @@
     ],
     "folder": "e2e/tests/",
     "tsconfig": "e2e/tsconfig.json",
-    "guide": ".claude/quality-code/guides/playwright.md"
+    "guide": ".claude/quality-code/guides/playwright.md",
+    "ungradedTitles": "conformance|capture"
   },
   "seed": {
     "stubsFrom": "e2e/tests/",

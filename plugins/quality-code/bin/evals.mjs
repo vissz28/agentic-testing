@@ -44,7 +44,8 @@ export function checkFixture(root, config, dir, key) {
   if (want.requirement && x) {
     const cases = readCases(root, x)
     for (const t of list(want.tests).filter(t => t.key)) {
-      const hit = cases.find(c => c.key === t.key)
+      // Two tickets may each have a test of that name: the requirement's own case wins.
+      const hit = cases.find(c => c.key === t.key && c.ticket === want.requirement) ?? cases.find(c => c.key === t.key)
       if (!hit) problems.push(`${x.csv} has no XRay case for ${t.key}`)
       else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its XRay case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)
     }

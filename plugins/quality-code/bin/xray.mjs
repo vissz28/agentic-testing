@@ -15,16 +15,20 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 
-const TICKET = /^[A-Z][A-Z0-9]+-\d+$/
-const AUTOMATED = /^Automated:[ \t]*(.+?)[ \t]*$/m
-// A cell Excel would run as a formula when it opens the CSV. Ticket text is anyone's text.
-const FORMULA = /^[=+@\t\r]|^-(?=[^\s\d])/
+const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
+// The test name is the cell's last line (buildRows puts it there), so a description line of its own
+// that starts with "Automated:" is not read as the key.
+const AUTOMATED = /(?:^|\n)Automated:[ \t]*([^\n]*?\S)\s*$/
+// A cell Excel would run as a formula when it opens the CSV. Ticket text is anyone's text. A cell
+// starting with "-" is a bullet or a number unless an operator follows (-2+3+cmd|' /C calc'!A0).
+const FORMULA = /^[=+@\t\r]|^-[\s\S]*[=+*/^&|!(@]/
 const safe = v => (typeof v === 'string' && FORMULA.test(v) ? `'${v}` : v)
 const esc = v => {
   const s = String(v ?? '')
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 export const toLine = cells => cells.map(esc).join(',')
+const TCID = XRAY_COLUMNS.indexOf('tcid')
 export const headerRow = headers => XRAY_COLUMNS.map(c => headers[c])
 
 /** RFC 4180 CSV to rows of text cells: quoted cells may hold commas, quotes and line breaks. */
@@ -123,7 +127,7 @@ export function readCases(root, x) {
 /** Appends the cases not yet in the CSV (same ticket and test name); returns a line per case. */
 export function append(root, x, cases) {
   const p = join(root, x.csv)
-  if (!existsSync(p)) {
+  if (!existsSync(p) || !readFileSync(p, 'utf8').trim()) {
     mkdirSync(dirname(p), { recursive: true })
     writeFileSync(p, `${toLine(headerRow(x.headers))}\n`)
   }
@@ -132,7 +136,8 @@ export function append(root, x, cases) {
   return cases.map(tc => {
     const known = casesIn(rows)
     if (known.some(c => c.ticket === tc.ticket && c.key === tc.key)) return `already there: ${tc.key} (delete its rows to write it again)`
-    const tcid = Math.max(0, ...known.filter(c => c.ticket === tc.ticket && Number.isInteger(c.tcid)).map(c => c.tcid)) + 1
+    // Every numbered row of the ticket counts, a hand-written case without "Automated:" too.
+    const tcid = Math.max(0, ...(byTicket(rows).get(tc.ticket) ?? []).map(r => Number.parseInt(String(r[TCID]), 10)).filter(Number.isInteger)) + 1
     const add = buildRows(tc, tcid, x.headers)
     appendFileSync(p, `${add.map(toLine).join('\n')}\n`)
     rows = rows.concat(add.map(r => r.map(String)))
@@ -219,10 +224,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (cmd === 'sync') { stdout(`${(await sync(root, x, arg ?? null)).join('\n')}\n`); return 0 }
     let input
     try { input = JSON.parse(arg.startsWith('@') ? readFileSync(resolve(root, arg.slice(1)), 'utf8') : arg) } catch (e) { stderr(`not valid JSON: ${String(e.message).split('\n')[0]}\n`); return 2 }
-    const cases = Array.isArray(input) ? input : [input]
-    const errors = cases.map(caseError).filter(Boolean)
-    if (!cases.length) errors.push('no case given')
+    const given = Array.isArray(input) ? input : [input]
+    const errors = given.map(caseError).filter(Boolean)
+    if (!given.length) errors.push('no case given')
     if (errors.length) { stderr(`${errors.join('\n')}\nNothing was written.\n`); return 2 }
+    // The CSV reads a key back trimmed, so it is stored trimmed: else the same case is added twice.
+    const cases = given.map(tc => ({ ...tc, key: tc.key.trim() }))
     const lines = append(root, x, cases)
     for (const t of new Set(cases.map(tc => tc.ticket))) lines.push(...(await sync(root, x, t)))
     stdout(`XRay test cases in ${x.csv}:\n${lines.join('\n')}\n`)

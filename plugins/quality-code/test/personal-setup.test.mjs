@@ -113,9 +113,18 @@ test('setup: the first card after the connectors, with both options', () => {
   assert.ok(s.indexOf('0. **Connectors.**') < s.indexOf('Where will you use Quality Code?'))
   assert.ok(s.indexOf('Where will you use Quality Code?') < s.indexOf('2. **This project.**'))
 })
-for (const n of ['write', 'check', 'seed', 'xray', 'start']) {
+for (const n of ['check', 'seed', 'xray']) {
   test(`${n}: a personal config or no git repo stops with the needs-a-repo line`, () => {
     const s = cmd(n)
+    assert.ok(s.includes('config check'))
+    assert.ok(s.includes('ok (personal: …)'))
+    assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))
+  })
+}
+for (const n of ['write', 'start']) {
+  test(`${n}: delegates to spec, which stops with the needs-a-repo line`, () => {
+    assert.ok(cmd(n).includes('commands/spec.md'))
+    const s = cmd('spec')
     assert.ok(s.includes('config check'))
     assert.ok(s.includes('ok (personal: …)'))
     assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))

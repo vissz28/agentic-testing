@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf } from '../../lib/base/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf, redTagsOf, doneStatusesOf } from '../../lib/base/config.mjs'
 
 const good = {
   version: 1,
@@ -69,7 +69,13 @@ test('loadConfig names a JSON syntax error', () => {
   assert.match(r.errors[0], /not valid JSON/)
 })
 
-test('projectRoot prefers CLAUDE_PROJECT_DIR, else cwd', () => {
+test('projectRoot: CLAUDE_PROJECT_DIR with the config, else the nearest config up from cwd, else CLAUDE_PROJECT_DIR or cwd', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-root-'))
+  mkdirSync(join(d, 'app/.claude'), { recursive: true }); writeFileSync(join(d, 'app/.claude/quality-code.json'), '{}')
+  mkdirSync(join(d, 'app/src/deep'), { recursive: true })
+  assert.equal(projectRoot({}, join(d, 'app/src/deep')), join(d, 'app'), 'a script run from a subfolder')
+  assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: d }, join(d, 'app/src')), join(d, 'app'), 'a monorepo session, a package with its own config')
+  assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: join(d, 'app') }, d), join(d, 'app'))
   assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: '/p' }, '/c'), '/p')
   assert.equal(projectRoot({}, '/c'), '/c')
   assert.equal(configPath('/p'), '/p/.claude/quality-code.json')
@@ -153,9 +159,15 @@ bad({ confluenceSpaces: [] }, 'confluenceSpaces')
 test('the short setup config: only version, adapter and Jira site and projects', () => {
   const r = validateConfig({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
-  assert.deepEqual(r.config.languages, ['en', 'it'])
+  assert.deepEqual(r.config.languages, ['en'], 'Italian is opt-in: its "e" step word read English text')
   assert.deepEqual(r.config.features, [])
   assert.equal('acceptanceCriteriaField' in r.config.jira, false)
+})
+test('jira.bugTypes is a non-empty list of names; confluence is a boolean', () => {
+  const ok = validateConfig({ ...good, jira: { ...good.jira, bugTypes: ['Defect'] }, confluence: false })
+  assert.equal(ok.ok, true, ok.errors?.join(' | '))
+  for (const bugTypes of [[], 'Bug', [''], [3]]) assert.match(validateConfig({ ...good, jira: { ...good.jira, bugTypes } }).errors.join(' '), /jira.bugTypes/)
+  assert.match(validateConfig({ ...good, confluence: 'no' }).errors.join(' '), /confluence: must be true or false/)
 })
 test('given languages and features still win over the defaults', () => {
   const r = validateConfig(good)
@@ -335,7 +347,7 @@ test('playwright block: absent stays absent; only with adapter playwright; not a
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
   assert.deepEqual(r.errors, [
-    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")',
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")',
     'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'playwright.configs[1]: must be an object with "match" and "config"',
     'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -363,12 +375,28 @@ test('adapterOptions and timeoutSecondsOf: the configured adapter\'s block, 600 
   assert.equal(timeoutSecondsOf({ adapter: 'playwright', playwright: { timeoutSeconds: 42 } }), 42)
   assert.equal(timeoutSecondsOf({ adapter: 'vitest', vitest: { timeoutSeconds: 42 }, playwright: { timeoutSeconds: 7 } }), 42)
 })
+test('playwright.ungradedTitles, playwright.redTags and jira.doneStatuses: checked, with today\'s defaults', () => {
+  const pw = playwright => validateConfig({ ...good, playwright })
+  assert.equal(pw({ ungradedTitles: 'conformance|capture' }).ok, true)
+  for (const u of ['', '(', 'a|', 5]) assert.ok(pw({ ungradedTitles: u }).errors.some(e => e.startsWith('playwright.ungradedTitles:')), JSON.stringify(u))
+  assert.equal(pw({ redTags: null }).ok, true)
+  assert.equal(pw({ redTags: { scenario: '@red' } }).ok, true)
+  for (const rt of ['@x', { scenario: 'red' }, { other: '@x' }]) assert.equal(pw({ redTags: rt }).ok, false, JSON.stringify(rt))
+  assert.deepEqual(redTagsOf({}), ['@anchor', '@finding'])
+  assert.deepEqual(redTagsOf({ playwright: { redTags: { scenario: '@red' } } }), ['@red', '@finding'])
+  assert.deepEqual(redTagsOf({ playwright: { redTags: null } }), [])
+  const jira = doneStatuses => validateConfig({ ...good, jira: { ...good.jira, doneStatuses } })
+  assert.equal(jira(['Released']).ok, true)
+  for (const d of ['Done', [''], [3]]) assert.ok(jira(d).errors.includes('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]'), JSON.stringify(d))
+  assert.ok(doneStatusesOf({}).includes('Done'))
+  assert.deepEqual(doneStatusesOf(jira(['Released']).config), ['Released'])
+})
 test('the schema documents the playwright block with the validator\'s path pattern', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   const p = schema.properties.playwright
   assert.equal(p.type, 'object')
   assert.equal(p.additionalProperties, false)
-  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'timeoutSeconds', 'tsconfig'])
+  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'redTags', 'timeoutSeconds', 'tsconfig', 'ungradedTitles'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
   assert.equal(p.properties.folder.pattern, path)
   assert.equal(p.properties.guide.pattern, path)
@@ -417,9 +445,9 @@ test('git.base: a branch name, optional; the config keeps it as given', () => {
   assert.equal(validateConfig({ ...good, git: { base: 'develop' } }).config.git.base, 'develop')
   assert.equal(validateConfig({ ...good, git: {} }).ok, true)
   assert.equal(validateConfig(good).config.git, undefined)
-  assert.deepEqual(validateConfig({ ...good, git: { base: '' } }).errors, ['git.base: must be one non-empty line (a branch name)'])
-  assert.deepEqual(validateConfig({ ...good, git: { base: 'a\nb' } }).errors, ['git.base: must be one non-empty line (a branch name)'])
-  assert.deepEqual(validateConfig({ ...good, git: { base: 5 } }).errors, ['git.base: must be one non-empty line (a branch name)'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: '' } }).errors, ['git.base "" must be a branch name, like "develop"'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: 'a\nb' } }).errors, ['git.base "a\\nb" must be a branch name, like "develop"'])
+  assert.deepEqual(validateConfig({ ...good, git: { base: 5 } }).errors, ['git.base 5 must be a branch name, like "develop"'])
   assert.deepEqual(validateConfig({ ...good, git: { base: 'develop', extra: 1 } }).errors, ['git.extra: unknown field (only "base")'])
   assert.deepEqual(validateConfig({ ...good, git: 'develop' }).errors, ['git: must be an object with an optional "base"'])
 })
@@ -520,4 +548,15 @@ test('vitest.stryker.timeoutSeconds: 60 to 7200, default 1800', async () => {
   assert.equal(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: 600 } } }).ok, true)
   for (const t of [59, 7201, 1.5, '600']) assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: t } } }).errors, ['vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200'], String(t))
   assert.deepEqual(validateConfig({ ...vgood, vitest: { stryker: { bad: 1 } } }).errors, ['vitest.stryker.bad: unknown field (only "threshold" and "timeoutSeconds")'])
+})
+
+test('$schema is accepted; git.base; ticketsDir stays inside and drops ./; jira.site may end in / or have a path', () => {
+  const b = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net/', projects: ['ABC'] } }
+  const r = validateConfig({ ...b, $schema: './node_modules/x/schema.json', git: { base: 'develop' }, ticketsDir: './qa/tickets' })
+  assert.equal(r.ok, true, r.errors?.join('\n'))
+  assert.equal(r.config.jira.site, 'https://x.atlassian.net')
+  assert.equal(r.config.ticketsDir, 'qa/tickets')
+  for (const t of ['../outside', '/etc/x', 'C:/x']) assert.match(validateConfig({ ...b, ticketsDir: t }).errors.join(), /ticketsDir .* must be a relative path inside the project/, t)
+  assert.equal(validateConfig({ ...b, jira: { site: 'https://jira.example.com/jira', projects: ['ABC'] } }).ok, true)
+  assert.deepEqual(validateConfig({ ...b, git: { base: '-x', other: 1 } }).errors, ['git.other: unknown field (only "base")', 'git.base "-x" must be a branch name, like "develop"'])
 })

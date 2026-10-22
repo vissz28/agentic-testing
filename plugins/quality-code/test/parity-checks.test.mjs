@@ -11,21 +11,28 @@ import { classify, overall } from '../lib/pipeline/checks/flaky.mjs'
 import { planMutants } from '../lib/pipeline/checks/mutation.mjs'
 import { keySource } from '../lib/base/keys.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
+import { ungradedTitlesOf } from '../lib/base/config.mjs'
 
 const DIR = new URL('./parity/', import.meta.url).pathname
 const read = p => readFileSync(join(DIR, p), 'utf8')
 const CONFIGS = { fe: JSON.parse(read('configs/warehouse-frontend.json')), be: JSON.parse(read('configs/warehouse-backend.json')) }
 const D = { fe: dialectFor('playwright'), be: dialectFor('vitest') }
 const E = JSON.parse(read('checks/expected.json'))
+const U = { fe: ungradedTitlesOf(CONFIGS.fe, D.fe), be: ungradedTitlesOf(CONFIGS.be, D.be) }
+// The old scripts read a regex's .test( as a test declaration: removing `if (/x/.test(s))` was "test removed".
+const regexTest = v => v.kind === 'test removed' && /\.test\s*\(/.test(v.line) && !/(?<![.\w$])(?:it|test|describe)\b/.test(v.line)
+// The old frontend planner had no flip for a matcher outside its web-first list (toHaveValue, toHaveCount
+// with options, a plain value check): those assertions now get the strongest value flip.
+const VALUE_FLIPS = new Set(['invert-matcher', 'drop-not', 'truthy→falsy', 'falsy→truthy', 'num→n+1', 'corrupt-string'])
 
 describe('honesty', () => {
   for (const h of E.honesty) test(h.fixture, () => {
-    assert.deepEqual(scanDiff(read(`checks/${h.fixture}`), D[h.repo], keySource(CONFIGS[h.repo])), h.violations)
+    assert.deepEqual(scanDiff(read(`checks/${h.fixture}`), D[h.repo], keySource(CONFIGS[h.repo])), h.violations.filter(v => !regexTest(v)))
   })
 })
 describe('suite-honesty', () => {
   for (const s of E.suite) test(`${s.fixture}${s.key ? ` --key ${s.key}` : ''}`, () => {
-    const r = grade([{ path: 'work.spec.ts', src: read(`checks/${s.fixture}`) }], { key: s.key }, D[s.repo])
+    const r = grade([{ path: 'work.spec.ts', src: read(`checks/${s.fixture}`) }], { key: s.key, ungraded: U[s.repo] }, D[s.repo])
     assert.equal(r.status, s.exit === 0 ? 'pass' : 'fail')
     assert.equal(r.data.percent, s.percent)
     assert.deepEqual(r.findings.filter(f => f.kind === 'hollow test').map(f => f.test), s.hollow)
@@ -56,7 +63,8 @@ test('flaky classification', () => {
 })
 describe('mutation plans', () => {
   for (const m of E.mutation) test(`${m.fixture}${m.key ? ` --key ${m.key}` : ''}${m.thorough ? ' thorough' : ''}`, () => {
-    assert.deepEqual(planMutants(read(`checks/${m.fixture}`), m.passed, { key: m.key, thorough: m.thorough }, D[m.repo]), m.mutants)
+    const plan = planMutants(read(`checks/${m.fixture}`), m.passed, { key: m.key, thorough: m.thorough, ungraded: U[m.repo] }, D[m.repo])
+    assert.deepEqual(m.repo === 'fe' && plan ? plan.filter(p => !VALUE_FLIPS.has(p.kind)) : plan, m.mutants)
   })
 })
 test('the captured data covers the failure paths', () => {

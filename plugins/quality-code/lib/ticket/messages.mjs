@@ -3,9 +3,16 @@
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
-/** Which template this issue type should have been written to. */
-export function templateFor(issuetype) {
-  return /bug/i.test(String(issuetype ?? '')) ? 'bug' : 'story'
+// Issue types written to the Bug template when the config names none: Jira schemes call a bug a
+// Defect, an Incident, a Problem or an Anomalia as well.
+const BUG_TYPES = /bug|defect|incident|problem|anomal|difett/i
+
+/** Which template this issue type should have been written to: jira.bugTypes when set (any case). */
+export function templateFor(issuetype, config = null) {
+  const name = String(issuetype ?? '').trim()
+  const types = config?.jira?.bugTypes
+  const bug = Array.isArray(types) ? types.some(t => t.toLowerCase() === name.toLowerCase()) : BUG_TYPES.test(name)
+  return bug ? 'bug' : 'story'
 }
 
 const featureLabels = config => (config.features || []).map(f => f.label)
@@ -200,7 +207,7 @@ export function messagesFor(config, kind = 'bug') {
 /** The configured label for a rubric key, or undefined so the rubric's own label stays. */
 export function labelOverride(config, issuetype, key) {
   const cfg = isObj(config.messages) ? config.messages : {}
-  const story = templateFor(issuetype) === 'story'
+  const story = templateFor(issuetype, config) === 'story'
   const fromStory = story && isObj(cfg.story) && isObj(cfg.story[key]) ? cfg.story[key].label : undefined
   const fromKey = isObj(cfg[key]) ? cfg[key].label : undefined
   return typeof fromStory === 'string' ? fromStory : typeof fromKey === 'string' ? fromKey : undefined

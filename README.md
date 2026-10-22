@@ -72,6 +72,12 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`/quality-code:spec`: one command from ticket to checked tests.** It runs the gate, the plan, the
+  writing, the checks and the read-back, asking at most three questions. `start` and `write` are now
+  thin aliases of `spec`, kept so the old names work.
+- **GitHub pull requests, through the `gh` CLI.** A GitHub repo's open pull request gives the base
+  branch and a ticket candidate, the same way a GitLab merge request does. `git.base` in the config
+  covers projects whose merge requests target a branch other than the default.
 - **`/quality-code:start` runs the pipeline:** after the repo card it gates the ticket, then checks
   the tests your branch changed, or writes and checks them. `--ask` brings back the menu.
 - **For QA and product owners:** a Jira-only setup, no repo needed, and

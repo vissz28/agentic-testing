@@ -3,13 +3,14 @@
 // command names, ticket keys and times leave this module: never prompt or answer text.
 import { existsSync, readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 
 const PLUGIN = 'quality-code'
 const SYSTEM_TEXT = /^\s*(<(task-notification|system-reminder|local-command-stdout|local-command-stderr|local-command-caveat|user-prompt-submit-hook|bash-stdout|bash-stderr)\b|\[Request interrupted by user)/
-// A reply to a numbered card keeps the run going: a number or several, a ticket key, yes, no, none.
-const CARD_ANSWER = /^\s*(\d{1,2}([\s,]+\d{1,2})*|[A-Z][A-Z0-9]+-\d+|yes|no|none)\s*\.?\s*$/i
-const GENERIC_KEY = '[A-Z][A-Z0-9]+-\\d+'
+// A reply to a numbered card keeps the run going: a number or several, a ticket key, or one of the
+// reply words the commands accept (yes, y, sì, si, ok, va bene, stop, basta), no, none.
+const CARD_ANSWER = /^\s*(\d{1,2}([\s,]+\d{1,2})*|[A-Z][A-Z0-9_]+-\d+|yes|y|no|n|none|ok|sì|si|va bene|stop|basta)\s*[.!]?\s*$/i
+const GENERIC_KEY = '[A-Z][A-Z0-9_]+-\\d+'
 
 export const configDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 
@@ -38,17 +39,30 @@ function cwdOf(file) {
   return null
 }
 
-/** Transcript folders of the project: by slug first; if that fails, every folder whose sessions ran in root. */
+/**
+ * Does this session belong to the project? It ran in root or below it (a session started in
+ * packages/web). Two paths can share a slug (/a/b-c and /a/b/c), so the folder name alone is not
+ * enough; a session with no cwd line counts only in the project's own folder.
+ */
+function ranIn(file, root, own) {
+  const c = cwdOf(file)
+  return c === null ? own : c === root || c.startsWith(root.endsWith(sep) ? root : root + sep)
+}
+
+/** Transcript folders of the project, each with the sessions that belong to it: by slug first; if that fails, every folder. */
 export function findProjectDirs(root, dir = configDir()) {
   const base = join(dir, 'projects')
-  const bySlug = join(base, slugFor(root))
-  const looked = [bySlug]
-  if (jsonlIn(bySlug).length) return { dirs: [bySlug], looked }
-  looked.push(`${base} (sessions whose cwd is ${root})`)
+  const slug = slugFor(root)
+  const looked = [join(base, slug)]
   let names = []
   try { names = readdirSync(base).sort() } catch { return { dirs: [], looked } }
-  const dirs = names.map(n => join(base, n)).filter(d => isDir(d) && jsonlIn(d).some(f => cwdOf(join(d, f)) === root))
-  return { dirs, looked }
+  const pick = list => list.map(n => ({ dir: join(base, n), files: jsonlIn(join(base, n)).filter(f => ranIn(join(base, n, f), root, n === slug)) })).filter(d => d.files.length)
+  let found = pick(names.filter(n => n === slug || n.startsWith(`${slug}-`)))
+  if (!found.length) {
+    looked.push(`${base} (sessions whose cwd is ${root})`)
+    found = pick(names.filter(n => isDir(join(base, n))))
+  }
+  return { dirs: found.map(d => d.dir), sessions: Object.fromEntries(found.map(d => [d.dir, d.files])), looked }
 }
 
 function readLines(file) {
@@ -66,9 +80,9 @@ function readJson(file) {
   try { return JSON.parse(readFileSync(file, 'utf8')) } catch { return null }
 }
 
-/** Sessions of one transcript folder, each with its subagents. */
-export function loadSessions(dir) {
-  return jsonlIn(dir).map(f => {
+/** Sessions of one transcript folder (only `files` when given), each with its subagents. */
+export function loadSessions(dir, files = jsonlIn(dir)) {
+  return files.map(f => {
     const id = f.slice(0, -'.jsonl'.length)
     const subDir = join(dir, id, 'subagents')
     const subagents = jsonlIn(subDir).map(s => ({

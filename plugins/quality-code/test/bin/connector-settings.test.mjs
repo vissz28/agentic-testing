@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -90,4 +90,15 @@ test('cli: one JSON line, exit 0 on ok, 1 on a refused value, 2 on bad usage; wr
   assert.equal(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')).pluginConfigs['quality-code@teamsystem'].options.jira_email, 'jane@example.com')
   assert.equal(run('--gitlab-save', 'g.example.com', 'glpat-abcdefghijklmnopqrst').code, 1)
   assert.equal(run('--nope').code, 2)
+})
+
+test('save: a settings.json that links into a dotfiles folder is written through the link', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-link-'))
+  mkdirSync(join(d, 'dot')); mkdirSync(join(d, 'cfg'))
+  writeFileSync(join(d, 'dot/settings.json'), '{"theme":"dark"}')
+  symlinkSync(join(d, 'dot/settings.json'), join(d, 'cfg/settings.json'))
+  assert.equal(saveJiraSettings({ file: join(d, 'cfg/settings.json'), email: 'a@b.co' }).ok, true)
+  assert.ok(lstatSync(join(d, 'cfg/settings.json')).isSymbolicLink(), 'still a link')
+  assert.equal(JSON.parse(readFileSync(join(d, 'dot/settings.json'), 'utf8')).theme, 'dark')
+  assert.ok(readFileSync(join(d, 'dot/settings.json'), 'utf8').includes('a@b.co'))
 })

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation } from '../../lib/base/boundary.mjs'
@@ -20,6 +20,8 @@ test('matches: prefix, exact and globs (review focus 4)', () => {
   assert.ok(matches('**/*.pem', 'a.pem') && matches('**/*.pem', 'x/y/a.pem'))
   assert.ok(matches('src/**/*.spec.ts', 'src/a.spec.ts') && matches('src/**/*.spec.ts', 'src/x/y/a.spec.ts'))
   assert.ok(!matches('src/*.ts', 'src/x/a.ts'))
+  assert.ok(matches('packages/*/src/', 'packages/api/src/x.ts') && matches('packages/*/src/', 'packages/api/src'), 'a glob folder covers what is inside')
+  assert.ok(!matches('packages/*/src/', 'packages/api/test/x.ts'))
 })
 test('violation: always-forbidden paths win over allow; allow wins over forbidden; default why', () => {
   const rules = { forbidden: [{ path: 'src/' }, { path: '.env', why: 'shared systems' }], allow: ['src/**/*.spec.ts', 'dist/**'] }
@@ -30,7 +32,8 @@ test('violation: always-forbidden paths win over allow; allow wins over forbidde
   assert.equal(violation('../other/src/a.ts', rules), null)
   assert.equal(violation('./test/a.spec.ts', rules), null)
   assert.ok(violation('src\\win.ts', rules))
-  assert.deepEqual(ALWAYS, ['dist/', 'node_modules/', '.git/', '.claude/quality-code.json'])
+  assert.deepEqual(ALWAYS.slice(0, 4), ['**/dist/', '**/node_modules/', '.git/', '.claude/quality-code.json'])
+  for (const p of ['packages/api/dist/x.js', 'apps/web/node_modules/a.js', '.claude/quality-code/run.active', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/audit/gate.jsonl', '.claude/settings.json', '.claude/settings.local.json']) assert.ok(violation(p, rules), `${p}: the plugin's own state and build output at any depth`)
 })
 test('an env template is not caught by a .env.* pattern, only by a rule that names it', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-b-'))
@@ -42,9 +45,11 @@ test('an env template is not caught by a .env.* pattern, only by a rule that nam
 })
 test('defaults: src/, .env, .env.* and the CI file that exists', () => {
   const d = dir()
-  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '.env', '.env.*'])
-  put(d, '.gitlab-ci.yml'); put(d, '.github/workflows/ci.yml')
-  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '.env', '.env.*', '.gitlab-ci.yml', '.github/workflows/'])
+  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '**/.env', '**/.env.*'])
+  put(d, '.gitlab-ci.yml'); put(d, '.github/workflows/ci.yml'); put(d, 'Jenkinsfile'); put(d, 'packages/api/package.json')
+  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', 'packages/*/src/', '**/.env', '**/.env.*', '.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile'])
+  for (const p of ['packages/api/src/x.ts', 'apps/web/.env', 'apps/web/.env.local']) assert.ok(violation(p, rulesFor({}, d)), p)
+  assert.equal(violation('apps/web/.env.example', rulesFor({}, d)), null)
   assert.deepEqual(rulesFor(cfg(), d).allow, [])
   assert.deepEqual(rulesFor(cfg({ forbidden: [{ path: 'lib/' }] }), d).forbidden, [{ path: 'lib/' }])
 })
@@ -117,46 +122,6 @@ test('diff mode: a rename out of a forbidden folder names the old path (§9 #21)
   assert.equal(r.status, 'fail')
   assert.deepEqual(r.findings.map(f => f.file), ['src/x.ts'])
 })
-test('diff mode: uncommitted work from before the run does not fail a write run (AGT-104)', () => {
-  const d = dir()
-  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
-  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
-  // 3 files under src/ already dirty before the run starts (stands in for "36 changed files").
-  put(d, 'src/a.ts'); put(d, 'src/b.ts'); put(d, 'src/c.ts')
-  startRun(d, 'ABC-1')
-  // The run itself only writes one spec.
-  put(d, 'test/b.spec.ts')
-  const r = run({}, { root: d, config: cfg() })
-  assert.equal(r.status, 'pass')
-  assert.equal(r.data.paths, 1)
-  assert.deepEqual(r.findings, [])
-})
-test('diff mode: a forbidden write made during the run is still caught, pre-run dirt aside', () => {
-  const d = dir()
-  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
-  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
-  put(d, 'src/already-dirty.ts')
-  startRun(d, 'ABC-1')
-  put(d, 'test/b.spec.ts')
-  put(d, 'src/written-during-run.ts')
-  const r = run({}, { root: d, config: cfg() })
-  assert.equal(r.status, 'fail')
-  assert.deepEqual(r.findings, [{ file: 'src/written-during-run.ts', kind: 'forbidden write', detail: DEFAULT_WHY }])
-  assert.equal(r.data.paths, 2)
-})
-test('diff mode: a stale run marker is not used as a dirty snapshot', () => {
-  const d = dir()
-  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
-  g('init', '-q', '-b', 'main'); put(d, 'test/a.spec.ts'); g('add', '-A'); g('commit', '-qm', 'i')
-  put(d, 'src/a.ts')
-  startRun(d, 'ABC-1')
-  const marker = JSON.parse(readFileSync(join(d, RUN_MARKER), 'utf8'))
-  marker.startedAt = new Date(Date.now() - 13 * 3600 * 1000).toISOString()
-  put(d, RUN_MARKER, JSON.stringify(marker))
-  const r = run({}, { root: d, config: cfg() })
-  assert.equal(r.status, 'fail')
-  assert.deepEqual(r.findings.map(f => f.file), ['src/a.ts'])
-})
 test('rulesFor: config patterns are normalised (leading ./, backslashes)', () => {
   const d = dir()
   const rules = rulesFor(cfg({ forbidden: [{ path: './lib/', why: 'w' }, { path: 'app\\core\\' }], allow: ['./lib/**/*.spec.ts', 'app\\core\\ok.ts'] }), d)
@@ -165,4 +130,30 @@ test('rulesFor: config patterns are normalised (leading ./, backslashes)', () =>
   assert.ok(violation('lib/a.ts', rules))
   assert.equal(violation('lib/a.spec.ts', rules), null)
   assert.ok(violation('app/core/b.ts', rules))
+})
+
+test('hook: the same file through another spelling is the same file (case, symlink, /tmp alias)', () => {
+  const d = dir()
+  put(d, 'src/a.ts'); put(d, RUN_MARKER, '')
+  symlinkSync(join(d, 'src'), join(d, 'link'))
+  const write = f => ({ tool_name: 'Write', tool_input: { file_path: f } })
+  assert.equal(hookDecision(write(join(d, 'link/a.ts')), { root: d, config: cfg() }).decision, 'deny', 'through a symlink')
+  assert.equal(hookDecision(write(join(d, 'link/new.ts')), { root: d, config: cfg() }).decision, 'deny', 'a new file through a symlink')
+  assert.equal(hookDecision(write(join(realpathSync(d), 'src/b.ts')), { root: d, config: cfg() }).decision, 'deny', 'the real path of a /tmp root')
+  if (existsSync(join(d, 'SRC'))) assert.equal(hookDecision(write(join(d, 'SRC/a.ts')), { root: d, config: cfg() }).decision, 'deny', 'other case on a case-insensitive disk')
+})
+test('diff mode: an edit made before run start is not the run\'s; a change to it during the run is', () => {
+  const d = dir()
+  const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
+  g('init', '-q'); put(d, 'src/base.ts', 'a\n'); put(d, 'src/gone.ts', 'g\n'); g('add', '-A'); g('commit', '-qm', 'i')
+  put(d, 'src/base.ts', 'edited before\n'); put(d, 'src/gone.ts', 'edited before\n')
+  assert.equal(startRun(d, 'ABC-1').ok, true)
+  const check = () => run({}, { root: d, config: cfg() })
+  assert.equal(check().status, 'pass', 'pre-existing edits are not the run\'s')
+  put(d, 'test/a.spec.ts')
+  assert.equal(check().status, 'pass')
+  put(d, 'src/base.ts', 'edited during the run\n'); put(d, 'src/new.ts'); g('checkout', '--', 'src/gone.ts')
+  assert.deepEqual(check().findings.map(f => f.file).sort(), ['src/base.ts', 'src/gone.ts', 'src/new.ts'])
+  put(d, RUN_MARKER, JSON.stringify({ key: 'ABC-1', startedAt: new Date().toISOString() }))
+  assert.deepEqual(check().findings.map(f => f.file).sort(), ['src/base.ts', 'src/new.ts'], 'a marker without a snapshot: every changed path counts, as before')
 })

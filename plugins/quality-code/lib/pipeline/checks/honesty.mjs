@@ -4,13 +4,22 @@
 import { keySource } from '../../base/keys.mjs'
 import { specDiff } from '../../base/git.mjs'
 import { result } from '../../base/result.mjs'
+import { redTagsOf } from '../../base/config.mjs'
 
-const SKIP = [/\b(?:it|test|describe)\.skip\b/, /\.skip\s*\(/]
+// Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition
+// (skipIf, runIf), an inline test.fixme(). A new test.fixme('title', …) declaration is the guides' "not
+// pinned down yet" and stays allowed; .only drops every other test.
+const SKIP = [/\b(?:it|test|describe)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/]
+const ONLY = /(?<![.\w$])(?:it|test|describe|suite)(?:\.describe)?\.only\b/
+const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', 'runIf'])
+const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** The title of a test(/it( declaration on the same line; else null. */
-function testTitle(line) {
-  return /\b(?:test|it)(?:\.\w+)?\s*\(\s*(['"`])(.+?)\1/.exec(line)?.[2] ?? null
+/** The modifier and title of a test(/it( declaration on the same line; else null. */
+function testDecl(line) {
+  const m = /(?<![.\w$])(?:test|it)(?:\.(\w+))?\s*\(\s*(['"`])(.+?)\2/.exec(line)
+  return m ? { mod: m[1] ?? null, title: m[3] } : null
 }
+const testTitle = line => testDecl(line)?.title ?? null
 
 /** The path of a `+++` header: drop the b/ prefix and a trailing tab; unquote what git quoted. */
 function headerPath(rest) {
@@ -29,13 +38,19 @@ function headerPath(rest) {
   return p.replace(/^b\//, '')
 }
 
-export function scanDiff(diff, dialect, keySrc) {
+/**
+ * redTags: the red-test tags (playwright.redTags) that need a ticket tag beside them. own: the
+ * ticket under test; its key is in every title of its block, so it never excuses a skip there.
+ */
+export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own = null } = {}) {
   const h = dialect.honesty
-  const tracked = new RegExp(`\\b${keySrc}\\b`)
+  const tracked = new RegExp(`\\b${own ? `(?!${esc(own)}\\b)` : ''}${keySrc}\\b`)
   const taggedKey = new RegExp(`['"\`]@${keySrc}['"\`]`)
+  const redTag = redTags.length ? new RegExp(`['"\`](?:${redTags.map(esc).join('|')})['"\`]`) : null
   const out = []
   const added = new Set()
   const addedLines = new Map()
+  let pendingMod = null
   let file = null
   for (const raw of String(diff).split('\n')) {
     if (raw.startsWith('+++ b/') || raw.startsWith('+++ "b/')) { file = headerPath(raw.slice(4)); continue }
@@ -50,12 +65,16 @@ export function scanDiff(diff, dialect, keySrc) {
         const lineKey = `${file}\0${body.trim()}`
         addedLines.set(lineKey, (addedLines.get(lineKey) ?? 0) + 1)
         // Formatters put a long title on its own line, so a bare string-literal line is a title too.
-        const title = testTitle(body) ?? /^\s*(['"`])(.+?)\1,\s*$/.exec(body)?.[2]
-        if (title) added.add(`${file}\0${title}`)
+        const decl = testDecl(body)
+        const open = /(?<![.\w$])(?:test|it)(?:\.(\w+))?\s*\(\s*$/.exec(body)
+        if (open) pendingMod = open[1] ?? null
+        const title = decl?.title ?? /^\s*(['"`])(.+?)\1,\s*$/.exec(body)?.[2]
+        // Only a re-add that still runs forgives a removal: test.fixme('same title') hides the test it replaces.
+        if (title && !DISABLING.has(decl ? decl.mod : pendingMod)) added.add(`${file}\0${title}`)
       }
-      if (h.anchorTags && /['"`]@(?:anchor|finding)['"`]/.test(body) && !taggedKey.test(body))
+      if (h.anchorTags && redTag?.test(body) && !taggedKey.test(body))
         out.push({ file, kind: 'anchor tag without a ticket tag', line: body.trim() })
-      if (SKIP.some(re => re.test(body)) && !tracked.test(body))
+      if ((SKIP.some(re => re.test(body)) && !tracked.test(body)) || ONLY.test(body))
         out.push({ file, kind: 'test newly skipped', line: body.trim() })
     }
   }
@@ -73,10 +92,10 @@ export function scanDiff(diff, dialect, keySrc) {
   return kept.map(({ title, ...v }) => v)
 }
 
-export function run({ specs, range = null }, ctx) {
+export function run({ specs, range = null, key = null }, ctx) {
   const d = specDiff(ctx.root, specs, range)
   if (!d.ok) return result('honesty', 'not_run', `cannot read the git diff: ${d.error}`)
-  const v = scanDiff(d.diff, ctx.dialect, keySource(ctx.config))
+  const v = scanDiff(d.diff, ctx.dialect, keySource(ctx.config), { redTags: redTagsOf(ctx.config), own: key })
   const count = k => v.filter(x => x.kind === k).length
   const data = {
     removedAssertions: count('assertion removed'),

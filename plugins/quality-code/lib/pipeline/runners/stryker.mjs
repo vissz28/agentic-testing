@@ -7,6 +7,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { kill, toolScript, track } from './tool.mjs'
 
 const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 // Stryker's stderr starts with Node's stack frame; the error it names is the line to show.
@@ -40,7 +41,7 @@ export function parseStrykerReport(json) {
 }
 
 // The project's default Vitest config, as Vitest looks for it.
-const VITEST_CONFIGS = ['vitest', 'vite'].flatMap(n => ['ts', 'mts', 'js', 'mjs'].map(e => `${n}.config.${e}`))
+const VITEST_CONFIGS = ['vitest', 'vite'].flatMap(n => ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map(e => `${n}.config.${e}`))
 
 /**
  * A Vitest config for one Stryker run, written next to the project's (its imports resolve the same):
@@ -82,8 +83,8 @@ export function strykerConfigSource(root, out, { testFiles = [], tempDirName, vi
 
 export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig = null, key = null }) {
   return new Promise(done => {
-    const bin = join(root, 'node_modules/.bin/stryker')
-    if (!existsSync(bin)) return done({ ran: false, error: 'Stryker is not installed' })
+    const bin = toolScript(root, ['@stryker-mutator/core'], 'stryker')
+    if (!bin) return done({ ran: false, error: 'Stryker is not installed' })
     // Stryker's first run must be all green: only the specs under test run, never a red bug spec elsewhere.
     if (!specs.length) return done({ ran: false, error: 'no spec files to run' })
     const sandbox = `.stryker-tmp-qc-${randomBytes(4).toString('hex')}`
@@ -100,10 +101,12 @@ export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig =
     let timedOut = false
     let settled = false
     let timer = null
+    let untrack = () => {}
     const finish = r => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      untrack()
       try {
         rmSync(dir, { recursive: true, force: true })
         rmSync(join(root, sandbox), { recursive: true, force: true })
@@ -114,14 +117,15 @@ export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig =
     try {
       if (scoped) writeFileSync(join(root, scoped), vitestConfigSource(base, specs, key))
       writeFileSync(cfg, strykerConfigSource(root, out, { testFiles: scoped ? [] : specs, tempDirName: sandbox, vitestConfig: scoped, ignore: linkedFolders(root) }))
-      child = spawn(bin, args, { cwd: root, detached: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      untrack = track(child, [dir, join(root, sandbox), ...(scoped ? [join(root, scoped)] : [])])
     } catch (e) {
       return finish({ ran: false, error: `could not start Stryker: ${e.message}` })
     }
     child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
     timer = setTimeout(() => {
       timedOut = true
-      try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch {} }
+      kill(child)
       finish({ ran: false, error: `took longer than ${timeoutMs < 1000 ? `${timeoutMs}ms` : `${Math.round(timeoutMs / 1000)}s`}` })
     }, timeoutMs)
     child.on('error', e => finish({ ran: false, error: `could not start Stryker: ${e.message}` }))

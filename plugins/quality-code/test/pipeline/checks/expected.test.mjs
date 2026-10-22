@@ -215,3 +215,14 @@ test('run: toBeCloseTo, comparisons and toHaveLength pin values too (FIC-13436 a
   const neg = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(stock()).not.toBeCloseTo(58.86, 2); expect(rows()).toHaveLength(3) })") })
   assert.deepEqual(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, neg).data.missing, ['58.86'])
 })
+
+test('run: a ticket value that is only an input inside expect(...) is not asserted (Vitest); an argument-less matcher reads expect(...)', () => {
+  const t = JSON.stringify(ticket('## Acceptance criteria\nGiven an order\nWhen I check out\nThen the order total is 80'))
+  const input = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(orderTotal([{ price: 80, qty: 1 }])).toBeGreaterThan(0) })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, input).status, 'fail')
+  const shown = proj({ 't.json': t, 'test/a.spec.ts': spec("  it('a', () => { expect(screen.getByText('Total 80')).toBeInTheDocument() })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, shown).status, 'pass')
+  const field = JSON.stringify(ticket('## Acceptance criteria\nGiven a row\nWhen saved\nThen unit_cost is 5'))
+  const read = proj({ 't.json': field, 'test/a.spec.ts': spec("  it('a', () => { expect(row.unit_cost).toBe(5) })") })
+  assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, read).status, 'pass', 'a field is still read inside expect(...)')
+})

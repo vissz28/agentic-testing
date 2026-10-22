@@ -199,3 +199,13 @@ test('R38: a comma inside a number is not a result', async () => {
   assert.deepEqual(await signalsOf('', dec), { ac_present: false, ac_testable: false })
   assert.deepEqual(C.extractNaturalAC(v, 'When the user enters 2,5 kg, the total reads 2,5 kg.', { headingless: true }), ['When the user enters 2,5 kg, the total reads 2,5 kg.'])
 })
+
+test('a short line ending in ":" inside the criteria is a criterion, not the end of the section', () => {
+  const text = '## Acceptance criteria\nThe order grid shows these columns:\n- Code, the product code as typed when the order was created, never trimmed\n- Total, the order total with VAT, two decimals and the euro sign before it'
+  assert.equal(C.extractNaturalAC(v, text).length, 3)
+})
+test('with Italian on, "e.g." after a Then is prose, not a continuation', () => {
+  const items = C.extractNaturalAC(v, '## Acceptance criteria\nThen the total is 108.00\ne.g. 3 items at 40.00 each, minus the discount')
+  assert.equal(items[0], 'the total is 108.00')
+  assert.ok(!items.some(i => i.startsWith('.g.')), JSON.stringify(items))
+})

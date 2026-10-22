@@ -8,7 +8,8 @@ import { NOW, install } from './helpers.mjs'
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`)
 function report({ by = 'command', since = '2026-10-01', until = null, keySource } = {}) {
   const f = install()
-  const sessions = findProjectDirs(f.root, f.configDir).dirs.flatMap(loadSessions)
+  const found = findProjectDirs(f.root, f.configDir)
+  const sessions = found.dirs.flatMap(d => loadSessions(d, found.sessions[d]))
   const usage = attribute(sessions, keySource ? { keySource } : {})
   return buildReport(usage, { period: parsePeriod({ since, until }, NOW), by, prices: PRICES, project: 'demo', priceInfo: { asOf: '2026-10-06', source: 's', override: null } })
 }
@@ -25,6 +26,10 @@ test('period: relative days end now, dates are whole UTC days, bad values refuse
   assert.throws(() => parsePeriod({ since: 'yesterday' }, NOW), /--since must be a date/)
   assert.throws(() => parsePeriod({ since: '30d', until: '2026-13-45' }, NOW), /--until must be a date/)
   assert.throws(() => parsePeriod({ since: '2026-10-10', until: '2026-10-01' }, NOW), /after/)
+  assert.throws(() => parsePeriod({ since: '2026-02-31' }, NOW), /--since must be a date/)
+  const back = parsePeriod({ until: '2026-08-31' }, NOW)
+  assert.equal(back.label, '2026-08-02 to 2026-08-31', '30d counts back from --until, not from today')
+  assert.equal(parsePeriod({ since: '7d', until: '2026-10-01' }, NOW).label, '2026-09-25 to 2026-10-01')
 })
 
 test('totals by command: runs, requests, tokens, cost, and cost per run', () => {

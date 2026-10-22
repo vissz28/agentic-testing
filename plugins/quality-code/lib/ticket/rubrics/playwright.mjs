@@ -1,5 +1,5 @@
 import { countDerivable, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Playwright stack, sums to 100. Routes a test to a screen, so a feature
 // label and a QA plan carry weight.
@@ -49,24 +49,25 @@ function briefExtras(config, ticket, feature) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [] } = brief
+  const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [], omitted = new Set() } = brief
   const band = legacy ? 'legacy / unstructured' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'
       ? 'pass — ok to generate.'
       : `refuse — below ${threshold}%. Do not generate. Add the missing items on the ticket, then re-run.${legacy ? ' Legacy ticket, no template structure.' : ''}`
+  const shown = missing.filter(m => !omitted.has(m.key))
   return [
     `${key} — test-readiness ${score}% · ${band} (threshold ${threshold}%)`,
     `Feature: ${feature || 'none'}${route ? ` → ${route}` : ''}`,
-    `QA plan: ${qaPlan?.url ? `found — ${qaPlan.title || qaPlan.url} · ${(qaPlan.scenarios || []).length} scenarios` : 'not found'}`,
+    omitted.has('qa_plan_found') ? null : `QA plan: ${qaPlan?.url ? `found — ${qaPlan.title || qaPlan.url} · ${(qaPlan.scenarios || []).length} scenarios` : 'not found'}`,
     `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to assert on`,
     `Figma: ${figma || 'none'}   ·   MR: ${mr || 'none'}`,
-    missing.length
-      ? `Missing (each lowers the score):\n${missing.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
+    shown.length
+      ? `Missing (each lowers the score):\n${shown.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
       : 'Missing: nothing — full marks.',
     flags.length ? `Flags:\n${flags.map(f => `  - ${f}`).join('\n')}` : 'Flags: none',
     `Gate: ${gateLine}`,
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 }
 
 export default {
@@ -74,17 +75,13 @@ export default {
   weights,
   deriveSignals,
   derivable: (v, ticket) => countDerivable(v, [...(ticket.scenarios || []), ...(ticket.qaPlan?.scenarios || [])]),
-  feature: (config, ticket) => ticket.feature ?? (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
+  feature: (config, ticket) => ticket.feature ?? featureOf(config, ticket.labels),
   briefExtras,
-  // Also leave out qa_plan_found when there is no way to find one: no qaPlanSearch configured for
-  // this feature, and no Confluence page attached to the ticket (checked regardless of
-  // qaPlanSearch). A configured search that simply finds nothing still lowers the score. A plan
-  // that was in fact found is always credited, whatever confluenceAttached says.
-  omitted: (config, ticket, feature) => {
+  // A team without Confluence ("confluence": false) never has a QA plan to find: it is left out of
+  // the score rather than costing every ticket 15 points it can never earn.
+  omitted: config => {
     const keys = omittedKeys(config)
-    const searchable = Boolean(config.features?.find(f => f.label === feature)?.qaPlanSearch)
-    const found = Boolean(ticket?.qaPlan?.url)
-    if (!searchable && !ticket?.confluenceAttached && !found) keys.add('qa_plan_found')
+    if (config.confluence === false) keys.add('qa_plan_found')
     return keys
   },
   legacyFlag: threshold => `legacy / unstructured — no template structure. Refused until the ticket meets the ${threshold}% bar.`,

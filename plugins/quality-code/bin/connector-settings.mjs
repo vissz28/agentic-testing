@@ -5,7 +5,7 @@
 //   node bin/connector-settings.mjs --gitlab-check <address>
 //   node bin/connector-settings.mjs --gitlab-save <address> <username or email>
 //   node bin/connector-settings.mjs --jira-save <email>
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -62,6 +62,8 @@ export function saveOptions({ file = userSettings(), options }) {
   const configs = data.pluginConfigs && typeof data.pluginConfigs === 'object' ? data.pluginConfigs : {}
   const entry = configs[plugin] && typeof configs[plugin] === 'object' ? configs[plugin] : {}
   data.pluginConfigs = { ...configs, [plugin]: { ...entry, options: { ...(entry.options ?? {}), ...options } } }
+  // A settings.json that links into a dotfiles repo is written through the link, not replaced by a file.
+  if (existsSync(file)) file = realpathSync(file)
   mkdirSync(dirname(file), { recursive: true })
   const tmp = `${file}.qc-${process.pid}.tmp`
   writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`)

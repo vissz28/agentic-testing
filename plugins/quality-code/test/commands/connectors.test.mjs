@@ -15,8 +15,14 @@ test('Jira is checked with getAccessibleAtlassianResources and blocks', () => {
   assert.match(doc, /Never go past this card without Jira/)
 })
 test('GitLab and Figma never block', () => {
-  assert.match(doc, /GitLab and Figma never block/)
+  assert.match(doc, /GitLab and Figma never block, and neither does GitHub/)
   assert.ok(doc.includes('2. Continue without it'))
+})
+test('GitHub: no call to make, gh\'s account from setup --detect, fixed in a terminal', () => {
+  assert.ok(doc.includes('| GitHub | none to make: `setup.mjs --detect` already asked the `gh` CLI'))
+  assert.ok(doc.includes('⚠️ `<here.github.reason>`'))
+  assert.ok(doc.includes('`In a terminal, run gh auth login --hostname <host>, then come back.`'))
+  assert.ok(doc.includes('`gh is not installed`'))
 })
 test('Figma only for playwright', () => {
   assert.match(doc, /Figma only when the adapter is `playwright`/)
@@ -63,7 +69,7 @@ test('the GitLab username is confirmed against who is signed in, and shown on th
   assert.match(doc, /belongs to <actual>, not <gitlab_username>/)
 })
 test('every command that checks connectors hands over the GitLab username from the settings', () => {
-  for (const c of ['setup', 'start', 'seed', 'write']) {
+  for (const c of ['setup', 'spec', 'seed']) {
     const t = readFileSync(new URL(`../../commands/${c}.md`, import.meta.url), 'utf8')
     for (const k of ['jira_email', 'gitlab_username', 'gitlab_api_url']) assert.ok(t.includes(`\`\${user_config.${k}}\``), `${c} ${k}`)
   }
@@ -98,4 +104,24 @@ test('all connectors ✅: one line and go on, no card; optional ones missing nev
   assert.ok(doc.includes('Connectors: ✅ Jira <email> on <site host> · ✅ GitLab <username> on <host>'))
   assert.match(doc, /Every service ✅: show only that line and go on, with no card/)
   assert.match(doc, /Only Jira not ✅ stops the command/)
+})
+test('every Rovo operation the commands use has its claude.ai connector name, or discover', () => {
+  for (const [rovo, other] of [['addCommentToJiraIssue', 'addOrEditJiraIssueComment'], ['searchConfluenceUsingCql', 'searchConfluence'], ['reading a Confluence page', 'getConfluenceContent']]) {
+    assert.match(doc, new RegExp(`\\| \`?${rovo}\`? \\| \`${other}\``), rovo)
+  }
+  for (const op of ['getVisibleJiraProjects', 'getJiraProjectIssueTypesMetadata', 'getJiraIssueTypeMetaWithFields', 'listJiraIssueRemoteIssueLinks', 'lookupJiraAccountId']) assert.ok(doc.includes(`\`${op}\``), op)
+  assert.match(doc, /find the operation with `discover`.*`executeRead`/)
+  assert.match(doc, /\*\*Updating a comment\.\*\* .*`addOrEditJiraIssueComment` with that comment's id/)
+  for (const c of ['setup', 'ticket-eval', 'ticket']) {
+    const t = readFileSync(new URL(`../../commands/${c}.md`, import.meta.url), 'utf8')
+    assert.ok(t.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'), c)
+  }
+})
+test('which connectors: GitLab only for a GitLab remote, Figma for playwright and fullstack; every caller listed', () => {
+  assert.match(doc, /GitLab only when `here\.gitlab` is set \(the repo's `origin` is a GitLab project\): otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
+  assert.match(doc, /`gitlab_api_url` always has a value \(its default\), so it never puts GitLab on the card/)
+  assert.match(doc, /GitHub only when `here\.github` is set/)
+  assert.match(doc, /Figma only when the adapter is `playwright` or `fullstack`/)
+  assert.match(doc, /From `spec`, `seed` and `xray`, an optional service/)
+  for (const c of ['setup', 'spec', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
 })

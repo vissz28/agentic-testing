@@ -1,5 +1,5 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
@@ -47,12 +47,13 @@ function formatReport(brief) {
     gate === 'pass'
       ? 'pass, ok to generate.'
       : `refuse, below ${threshold}%. Do not generate. Add the missing items on the ticket, then re-run.${legacy ? ' Legacy ticket, no template structure.' : ''}`
+  const shown = missing.filter(m => !omitted.has(m.key))
   return [
     `${key}: test-readiness ${score}% · ${band} (threshold ${threshold}%)`,
     ...(omitted.has('feature_label') ? [] : [feature ? `Feature label: ${feature}` : 'Feature label: none']),
     `Expected chunks in ticket text: ${derivable} assertable · model harvested ${scenarios.length} scenario(s) (not scored)`,
-    missing.length
-      ? `Missing (each lowers the score):\n${missing.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
+    shown.length
+      ? `Missing (each lowers the score):\n${shown.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
       : 'Missing: nothing, full marks.',
     flags.length ? `Flags:\n${flags.map(f => `  - ${f}`).join('\n')}` : 'Flags: none',
     `Gate: ${gateLine}`,
@@ -65,7 +66,7 @@ export default {
   deriveSignals,
   derivable: (v, ticket) =>
     countDerivableFromText(v, [ticket.summary, ticket.text?.description, ticket.text?.acField].filter(Boolean).join('\n')),
-  feature: (config, ticket) => (ticket.labels || []).find(l => config.features.some(f => f.label === l)) ?? null,
+  feature: (config, ticket) => featureOf(config, ticket.labels),
   briefExtras: () => ({}),
   omitted: config => {
     const keys = omittedKeys(config)

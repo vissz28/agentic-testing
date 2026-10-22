@@ -88,7 +88,6 @@ test('empty titlePrefixes: never matches and is left out of report, comment and 
   const c = own('vitest', { titlePrefixes: [] })
   const b = buildBrief(c, thin)
   assert.equal(b.signals.title_prefix, false)
-  assert.ok(!b.missing.some(m => m.key === 'title_prefix'))
   assert.doesNotMatch(formatReport(b), /title prefix/i)
   assert.doesNotMatch(formatRefuseComment(c, b), /title prefix/i)
   assert.ok(!fillMenu(c, b).items.some(i => i.key === 'title_prefix'))
@@ -98,40 +97,46 @@ for (const adapter of ['playwright', 'vitest']) {
     const c = own(adapter, { features: [] })
     const b = buildBrief(c, thin)
     assert.equal(b.signals.feature_label, false)
-    assert.ok(!b.missing.some(m => m.key === 'feature_label'))
     assert.doesNotMatch(formatReport(b), /feature label/i)
     assert.doesNotMatch(formatRefuseComment(c, b), /feature label/i)
     assert.ok(!fillMenu(c, b).items.some(i => i.key === 'feature_label'))
   })
 }
 
-// AGT-104 / AGT-115: the score is scaled over the keys this config and this ticket can actually
-// earn, so points permanently out of reach (no features, no way to find a QA plan) never lower it.
-test('no features and no way to find a QA plan: a well-written ticket passes on a basic setup (AGT-104)', () => {
-  const c = own('playwright', { features: [] })
-  const ticket = {
-    key: 'DEMO-1', issuetype: 'Story', labels: [],
-    text: { description: 'As a user, I want to export orders so that I can report on them.\n\nScenario: Export\n  Given an order list\n  When I export\n  Then a CSV downloads' },
+const story = description => ({ key: 'DEMO-9', issuetype: 'Story', labels: [], text: { description } })
+const FULL = '## User story\nAs a buyer I want the total\n\n## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00\n\n## Environment\nStaging, Chrome 120'
+test('criteria a config can never credit are left out and the rest is scaled to 100', () => {
+  const noFeatures = { ...cfg('playwright'), features: [] }
+  assert.equal(buildBrief(noFeatures, story(FULL)).score, 72, '65 of the 90 a project without features can earn')
+  const b = buildBrief({ ...noFeatures, confluence: false }, story(FULL))
+  assert.equal(b.score, 81, '65 of the 80 once a QA plan is also out of reach')
+  assert.doesNotMatch(formatReport(b), /qa plan.*found/i)
+  assert.equal(buildBrief(cfg('playwright'), story(FULL)).score, 65, 'with features and Confluence nothing changes')
+})
+test('bold or bulleted Gherkin counts; a vague But line is not testable; e.g. is no step', () => {
+  const p = cfg('playwright')
+  for (const d of ['**Given** an order at 40.00\n**When** I open it\n**Then** the total is 108.00', '- Given an order at 40.00\n- When I open it\n- Then the total is 108.00']) {
+    assert.equal(buildBrief(p, story(d)).signals.ac_present, true, d)
   }
-  const b = buildBrief(c, ticket)
-  assert.ok(!b.missing.some(m => m.key === 'feature_label' || m.key === 'qa_plan_found'))
-  assert.equal(b.gate, 'pass', `score was ${b.score}`)
+  const vague = buildBrief(p, story('Given an order\nWhen I open it\nThen the total is 108.00\nBut the page works correctly'))
+  assert.equal(vague.signals.ac_testable, false)
 })
-test('a feature with a qaPlanSearch that finds nothing still lowers the score (AGT-115)', () => {
-  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }] })
-  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: false, text: {} }
-  const b = buildBrief(c, ticket)
-  assert.ok(b.missing.some(m => m.key === 'qa_plan_found'))
+test('feature labels match in any case and report the configured label', () => {
+  const b = buildBrief(cfg('playwright'), { ...story(FULL), labels: ['orders'] })
+  assert.equal(b.signals.feature_label, true)
+  assert.equal(b.feature, 'Orders')
+  assert.equal(b.route, '/orders')
 })
-test('no qaPlanSearch but a Confluence page is attached: qa_plan_found still counts (AGT-115)', () => {
-  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders' }] })
-  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: true, text: {} }
-  const b = buildBrief(c, ticket)
-  assert.ok(b.missing.some(m => m.key === 'qa_plan_found'))
+test('an Environment heading with any line under it counts; "## Contextual menu" is no Context heading', () => {
+  const v = cfg('vitest')
+  assert.equal(buildBrief(v, story('## Environment\nStaging, Chrome 120 on Windows 11')).signals.environment, true)
+  assert.equal(buildBrief(v, story('## Environment\n\n## Notes')).signals.environment, false)
+  assert.equal(buildBrief(v, story('## Contextual menu\nopens on right click')).signals.context, false)
 })
-test('no qaPlanSearch and no Confluence page attached: qa_plan_found is not asked for (AGT-115)', () => {
-  const c = own('playwright', { features: [{ label: 'Orders', route: '/orders' }] })
-  const ticket = { key: 'DEMO-1', labels: ['Orders'], qaPlan: null, confluenceAttached: false, text: {} }
-  const b = buildBrief(c, ticket)
-  assert.ok(!b.missing.some(m => m.key === 'qa_plan_found'))
+test('a Defect is a bug; jira.bugTypes names them exactly', () => {
+  const v = cfg('vitest')
+  assert.match(formatRefuseComment(v, buildBrief(v, { ...story('x'), issuetype: 'Defect' })), /Steps to reproduce/)
+  const custom = { ...v, jira: { ...v.jira, bugTypes: ['Anomaly'] } }
+  assert.match(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'anomaly' })), /Steps to reproduce/)
+  assert.doesNotMatch(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'Bug' })), /Steps to reproduce/)
 })

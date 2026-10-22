@@ -72,4 +72,11 @@ test('with requirement and an xray block, each test needs its XRay case, linked 
   })
   assert.deepEqual(runEvals(d, xcfg)[0].problems, ['test ABC-2-3 is gone', 'ABC-2-2: its XRay case links ABC-9, not ABC-2', 'qa/cases.csv has no XRay case for ABC-2-3'])
   assert.deepEqual(runEvals(d, cfg)[0].problems, ['test ABC-2-3 is gone'], 'no xray block: no link check')
+  const same = project({
+    '.claude/quality-code.json': JSON.stringify(xcfg),
+    'e2e/empty.spec.ts': FE,
+    'qa/cases.csv': `${[headerRow(XRAY_HEADERS), ...row('ABC-2-1', 'ABC-1'), ...row('ABC-2-1', 'ABC-2')].map(toLine).join('\n')}\n`,
+    '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', requirement: 'ABC-2', tests: [{ key: 'ABC-2-1' }] },
+  })
+  assert.deepEqual(runEvals(same, xcfg)[0].problems, [], 'the same test name on another ticket does not hide this one')
 })

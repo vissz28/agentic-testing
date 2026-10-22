@@ -1,12 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { attribute, classifyUser, findProjectDirs, loadSessions, slugFor } from '../../lib/report/transcripts.mjs'
 import { install } from './helpers.mjs'
 
 const load = opts => {
   const f = install(opts)
-  const { dirs } = findProjectDirs(f.root, f.configDir)
-  return { ...f, dirs, sessions: dirs.flatMap(loadSessions) }
+  const { dirs, sessions } = findProjectDirs(f.root, f.configDir)
+  return { ...f, dirs, sessions: dirs.flatMap(d => loadSessions(d, sessions[d])) }
 }
 const runOf = (usage, iso) => {
   const e = usage.events.find(x => x.t === Date.parse(iso))
@@ -29,6 +31,20 @@ test('when the slug guess fails, folders whose sessions ran in the project are f
   assert.deepEqual(findProjectDirs(`${root}-other`, configDir).dirs, [])
 })
 
+test('a session counts by its cwd: another path with the same slug is left out, a subfolder of the project is in', () => {
+  const { dirs, dir, root, configDir } = load()
+  const line = cwd => `${JSON.stringify({ type: 'user', cwd, message: { content: 'hi' } })}\n`
+  writeFileSync(join(dir, 'other.jsonl'), line(root.replace('my project', 'my/project')))
+  const sub = join(configDir, 'projects', `${slugFor(root)}-packages-web`)
+  mkdirSync(sub, { recursive: true })
+  writeFileSync(join(sub, 'web.jsonl'), line(join(root, 'packages/web')))
+  const r = findProjectDirs(root, configDir)
+  assert.deepEqual(r.dirs, [dir, sub])
+  assert.ok(!r.sessions[dir].includes('other.jsonl'), 'same slug, other project')
+  assert.deepEqual(r.sessions[sub], ['web.jsonl'])
+  assert.deepEqual(dirs, [dir])
+})
+
 test('nothing found: no folders and the places looked at', () => {
   const r = findProjectDirs('/no/such/project', '/no/such/config')
   assert.deepEqual(r.dirs, [])
@@ -46,7 +62,7 @@ test('classifyUser: commands, prompts, card answers and what never ends a run', 
   assert.equal(u('<system-reminder>x</system-reminder>').kind, 'meta')
   assert.equal(u('[Request interrupted by user]').kind, 'meta')
   assert.equal(u('hello there', { isSidechain: true }).kind, 'other')
-  for (const a of ['1', ' 2 ', '1, 3', 'ABC-123', 'none', 'yes']) assert.equal(u(a).kind, 'answer', a)
+  for (const a of ['1', ' 2 ', '1, 3', 'ABC-123', 'MY_PROJ-7', 'none', 'yes', 'y', 'ok', 'sì', 'si', 'va bene', 'stop', 'basta']) assert.equal(u(a).kind, 'answer', a)
   assert.equal(u('fix the login page please').kind, 'prompt')
 })
 

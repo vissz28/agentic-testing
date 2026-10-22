@@ -48,7 +48,7 @@ test('a thin ticket is refused and a well-written one passes, each scored like c
     const b = buildBrief(config, sanitizeTicket(config, t))
     assert.equal(by[t.key].score, b.score)
     assert.equal(by[t.key].gate, b.gate)
-    assert.equal(by[t.key].biggestMissing, b.missing[0]?.label ?? null)
+    assert.equal(by[t.key].biggestMissing, b.missing.filter(m => !b.omitted.has(m.key))[0]?.label ?? null)
   }
   assert.ok(by['ABC-1'].score > by['ABC-2'].score)
 })

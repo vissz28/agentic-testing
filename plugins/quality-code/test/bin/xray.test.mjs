@@ -48,6 +48,9 @@ test('a cell Excel would run as a formula is quoted with a leading apostrophe; b
   assert.equal(rows[0][col('expected')], "'-cmd|calc")
   assert.equal(rows[1][col('action')], '- a bullet')
   assert.equal(rows[1][col('expected')], '-5 pieces')
+  const dde = buildRows({ ...CASE, steps: [{ action: "-2+3+cmd|' /C calc'!A0", expected: '-1+1' }] }, 1, XRAY_HEADERS)
+  assert.equal(dde[0][col('action')], "'-2+3+cmd|' /C calc'!A0")
+  assert.equal(dde[0][col('expected')], "'-1+1")
 })
 
 test('the CSV parser reads quoted commas, quotes, line breaks, CRLF and a BOM', () => {
@@ -74,6 +77,18 @@ test('append numbers cases per ticket, skips one already there, and keeps the ol
   const x = xrayOf({ ...JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')) })
   assert.deepEqual(append(d, x, [CASE, { ...CASE, ticket: 'ABC-2' }, CASE]), ['TC 2: Shows the empty message', 'TC 1: Shows the empty message', 'already there: Shows the empty message (delete its rows to write it again)'])
   assert.deepEqual(readCases(d, x).map(c => `${c.ticket} ${c.tcid} ${c.key}`), ['ABC-1 1 ABC-1-1-old-slug', 'ABC-1 2 Shows the empty message', 'ABC-2 1 Shows the empty message'])
+})
+
+test('append: a hand-written case keeps its number; a description line "Automated:" is not the key; keys are trimmed; an empty CSV gets its header', async () => {
+  const manual = buildRows({ ...CASE, key: 'x', description: '' }, 1, IT).map(r => r.map(c => String(c).replace(/^Automated: x$/, '')))
+  const d = project(undefined, { 'qa/cases.csv': `${[headerRow(IT), ...manual].map(toLine).join('\n')}\n` })
+  const x = xrayOf(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')))
+  const odd = { ...CASE, key: 'real name', description: 'Automated: nightly' }
+  assert.deepEqual(append(d, x, [odd, odd]), ['TC 2: real name', 'already there: real name (delete its rows to write it again)'])
+  assert.deepEqual(readCases(d, x).map(c => c.key), ['real name'])
+  const e = project(undefined, { 'qa/cases.csv': '' })
+  assert.equal((await run(e, 'add', JSON.stringify({ ...CASE, key: 't3 ' }))).code, 0)
+  assert.match((await run(e, 'add', JSON.stringify({ ...CASE, key: 't3 ' }))).out, /already there: t3 \(/)
 })
 
 test('a CSV whose header is not the configured columns is refused, nothing appended', () => {

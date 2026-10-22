@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { detect, stripCredentials, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
+import { fakeCommand } from '../fake-bin.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 
@@ -18,6 +19,8 @@ test('stripCredentials drops user:password@ from URLs and leaves the rest', () =
 })
 test('keyCandidates keeps configured projects only, in order, without duplicates', () => {
   assert.deepEqual(keyCandidates(['DEMO-12-ADD-EXPORT', 'TRK-7 export', 'OTHER-1 x', 'DEMO-12 again'], ['DEMO', 'TRK']), ['DEMO-12', 'TRK-7'])
+  assert.deepEqual(keyCandidates(['feature/MY_PROJ-12-x', 'PROJ_3'], ['PROJ', 'MY_PROJ']), ['MY_PROJ-12', 'PROJ-3'], 'a key with "_" is not also read as its tail')
+  assert.deepEqual(keyCandidates(['ABC-1'], []), [])
   assert.deepEqual(keyCandidates([null, undefined, ''], ['DEMO']), [])
 })
 test('keyCandidates finds a key joined with _ or / and ignores a longer prefix', () => {
@@ -33,14 +36,19 @@ test('kindOf: tests by name, code by extension, the rest other', () => {
   assert.equal(kindOf('README.md', 'vitest'), 'other')
   assert.equal(kindOf('e2e/helpers.ts', 'vitest'), 'code')
   assert.equal(kindOf('e2e/helpers.ts', 'playwright', ['e2e/']), 'test')
+  for (const p of ['src/App.svelte', 'src/pages/index.astro', 'src/a.mts', 'src/app/x.component.html']) assert.equal(kindOf(p, 'vitest'), 'code', p)
 })
-test('playwrightTestDirs reads a plain testDir, else e2e/ and tests/', () => {
+test('playwrightTestDirs: the e2e folder write uses (playwright.folder, else a plain testDir), else e2e/ and tests/', () => {
   const d = mkdtempSync(join(tmpdir(), 'at-pw-'))
-  assert.deepEqual(playwrightTestDirs(d), ['e2e/', 'tests/'])
+  const pw = { adapter: 'playwright', jira: { projects: ['DEMO'] } }
+  assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/', 'tests/'])
   put(d, 'playwright.config.ts', "export default defineConfig({ testDir: './e2e/specs', retries: 0 })")
-  assert.deepEqual(playwrightTestDirs(d), ['e2e/specs/'])
+  assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/specs/'])
   put(d, 'playwright.config.ts', 'export default defineConfig({ testDir: process.env.DIR })')
-  assert.deepEqual(playwrightTestDirs(d), ['e2e/', 'tests/'])
+  assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/', 'tests/'])
+  put(d, 'playwright.config.ts', "export default defineConfig({\n  // testDir: './old-tests',\n  testDir: './e2e',\n})")
+  assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/'], 'a commented-out testDir is not read')
+  assert.deepEqual(playwrightTestDirs(d, { ...pw, playwright: { folder: 'qa/e2e/' } }), ['qa/e2e/'])
 })
 test('parseStatusZ: untracked is A, renames skip the old path, paths keep spaces', () => {
   const out = ['?? docs/my notes.md', ' M src/a.ts', 'R  src/c.ts', 'src/b.ts', ' D src/gone.ts', 'A  src/new.ts', ''].join('\0')
@@ -128,11 +136,15 @@ test('behind counts commits on the base after the branch started', () => {
   assert.equal(r.behind, 1)
   assert.deepEqual(r.files.map(f => f.path), ['src/x.ts'])
 })
-test('fallback prefers develop over main', () => {
+test('fallback prefers main over develop; git.base names the branch features start from', () => {
   const d = repo()
   g(d, 'branch', 'develop')
   g(d, 'checkout', '-qb', 'DEMO-2-x')
-  assert.equal(detect(d, cfg()).base, 'develop')
+  assert.equal(detect(d, cfg()).base, 'main')
+  const r = detect(d, cfg({ git: { base: 'develop' } }))
+  assert.deepEqual([r.base, r.baseSource], ['develop', 'config'])
+  assert.equal(detect(d, cfg({ git: { base: 'develop' } }), { base: 'main' }).base, 'main', '--base still wins')
+  assert.equal(detect(d, cfg({ git: { base: 'nope' } })).base, 'main', 'an unknown git.base falls back')
 })
 test('--base wins; an unknown --base gives no base', () => {
   const d = repo()
@@ -145,6 +157,31 @@ test('--base wins; an unknown --base gives no base', () => {
   assert.equal(n.base, null)
   assert.equal(n.baseSource, null)
   assert.ok(n.branches.includes('develop') && n.branches.includes('main'))
+})
+test('GitHub: the one open pull request from gh gives the base, a key from its title, and its description', () => {
+  const d = repo()
+  g(d, 'branch', 'release')
+  g(d, 'branch', 'develop')
+  g(d, 'checkout', '-qb', 'export-x')
+  const gh = fakeCommand('gh')
+  const prs = out => gh.act(`[ "$4" = export-x ] && echo '${out}' || exit 1`)
+  try {
+    prs('[{"baseRefName":"release","title":"DEMO-42 export","body":"Totals, ask ann@acme.example"}]')
+    const r = detect(d, cfg({ git: { base: 'develop' } }))
+    assert.deepEqual([r.base, r.baseSource], ['release', 'pull-request'], 'the pull request wins over git.base')
+    assert.deepEqual(r.keys, ['DEMO-42'])
+    assert.deepEqual(r.pullRequest, { base: 'release', title: 'DEMO-42 export', description: 'Totals, ask user@example.test' }, 'redacted')
+    const f = detect(d, cfg(), { base: 'main' })
+    assert.equal(f.baseSource, 'flag', '--base still wins')
+    assert.equal(f.pullRequest.title, 'DEMO-42 export', 'and the pull request is still read')
+    prs('[]')
+    assert.deepEqual([detect(d, cfg()).baseSource, detect(d, cfg()).pullRequest], ['fallback', null])
+    prs('[{"baseRefName":"gone","title":"DEMO-1"}]')
+    const u = detect(d, cfg())
+    assert.deepEqual([u.baseSource, u.pullRequest.base], ['fallback', 'gone'], 'a target that is not fetched keeps the detected base, and spec names it')
+  } finally {
+    gh.restore()
+  }
 })
 test('origin/HEAD wins over the fallback and origin/HEAD is not listed as a branch', () => {
   const d = repo()
@@ -207,7 +244,10 @@ test('key from a commit subject when the branch has none; other projects ignored
   g(d, 'checkout', '-qb', 'feature/export')
   commit(d, 'TRK-7 export', { 'src/e.ts': 'e\n' })
   commit(d, 'OTHER-1 nothing', { 'src/f.ts': 'f\n' })
-  assert.deepEqual(detect(d, cfg()).keys, ['TRK-7'])
+  const r = detect(d, cfg())
+  assert.deepEqual(r.keys, ['TRK-7'])
+  assert.deepEqual(r.subjects, ['OTHER-1 nothing', 'TRK-7 export'], 'the branch\'s commit messages, newest first, for fill-in suggestions')
+  assert.deepEqual(detect(repo(), cfg()).subjects, [], 'none on the base branch')
 })
 test('a lower-case key in the branch name is found', () => {
   const d = repo()
@@ -248,6 +288,8 @@ test('shallow clone with no merge base', () => {
   assert.equal(r.base, 'origin/main')
   assert.equal(r.mergeBase, null)
   assert.deepEqual(r.files, [])
+  put(dst, 'src/f.ts', 'dirty\n')
+  assert.deepEqual(detect(dst, cfg()).files, [{ path: 'src/f.ts', status: 'M', kind: 'code', committed: false }], 'uncommitted work counts with no merge base')
 })
 test('remote credentials are stripped and paths are redacted', () => {
   const d = repo()

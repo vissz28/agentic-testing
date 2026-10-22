@@ -8,6 +8,7 @@ import { EXIT, result } from '../../lib/base/result.mjs'
 import { keySource, isProjectKey, projectKeys } from '../../lib/base/keys.mjs'
 import { specDiff, changedPaths } from '../../lib/base/git.mjs'
 import { dialectFor } from '../../lib/base/dialects/index.mjs'
+import { ungradedTitlesOf } from '../../lib/base/config.mjs'
 
 import { ENV } from '../git-env.mjs'
 
@@ -40,6 +41,17 @@ test('git: spec diff against HEAD and changed paths with spaces and untracked fi
   assert.equal(specDiff(d, ['x'], 'nope...HEAD').ok, false)
   assert.equal(changedPaths(mkdtempSync(join(tmpdir(), 'qc-nogit-'))).ok, false)
 })
+test('git: a repo with no commit yet diffs against the empty tree, so every spec line is added', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-unborn-'))
+  g(d, 'init', '-q', '-b', 'main')
+  put(d, 'test/a.spec.ts', "it.skip('a', () => {})\n")
+  g(d, 'add', 'test/a.spec.ts')
+  put(d, 'src/b.ts', 'x\n')
+  const sd = specDiff(d, ['test/a.spec.ts'])
+  assert.equal(sd.ok, true, sd.error)
+  assert.match(sd.diff, /^\+it\.skip\('a'/m)
+  assert.deepEqual(changedPaths(d).paths.sort(), ['src/b.ts', 'test/a.spec.ts'])
+})
 test('dialects', () => {
   const v = dialectFor('vitest')
   const p = dialectFor('playwright')
@@ -49,8 +61,10 @@ test('dialects', () => {
   assert.equal(p.suite.notYet, 'fixme')
   assert.equal(v.honesty.removedDecl.test("describe('x', () => {"), true)
   assert.equal(p.honesty.removedDecl.test("describe('x', () => {"), false)
-  assert.equal(p.suite.isCapture('ABC-1 — design-conformance capture'), true)
-  assert.equal(v.suite.isCapture('ABC-1 — design-conformance capture'), false)
+  const cfg = { playwright: { ungradedTitles: 'conformance|capture' } }
+  assert.equal(ungradedTitlesOf(cfg, p).test('ABC-1 — design-conformance capture'), true)
+  assert.equal(ungradedTitlesOf(cfg, v), null, 'a playwright setting never exempts a Vitest test')
+  assert.equal(ungradedTitlesOf({}, p), null)
   assert.throws(() => dialectFor('jest'), /no dialect/)
 })
 test('git: a range starting with "-" is refused inside the helpers (§9 #21)', () => {

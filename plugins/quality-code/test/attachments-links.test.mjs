@@ -43,12 +43,16 @@ test('each rubric sums to 100 and carries the new weights', () => {
 
 test('omitted keys still drop out of the missing list', () => {
   const b = buildBrief(cfg('vitest', { features: [], titlePrefixes: [] }), bare)
-  assert.ok(!b.missing.some(m => ['feature_label', 'title_prefix'].includes(m.key)))
-  assert.equal(b.missing.reduce((n, m) => n + m.weight, 0), 100 - 5 - 5, 'the unreachable 10 are not asked for')
+  assert.deepEqual([...b.omitted].sort(), ['feature_label', 'title_prefix'])
+  const shown = b.missing.filter(m => !b.omitted.has(m.key))
+  assert.ok(!shown.some(m => ['feature_label', 'title_prefix'].includes(m.key)))
+  assert.equal(shown.reduce((n, m) => n + m.weight, 0), 100 - 5 - 5, 'the unreachable 10 are not asked for')
   const p = buildBrief(cfg('playwright', { features: [] }), bare)
-  assert.ok(!p.missing.some(m => m.key === 'feature_label' || m.key === 'qa_plan_found'))
-  // No features at all, so there is no way to find a QA plan either (AGT-104/AGT-115).
-  assert.equal(p.missing.reduce((n, m) => n + m.weight, 0), 100 - 10 - 10)
+  assert.deepEqual([...p.omitted], ['feature_label'])
+  const shownP = p.missing.filter(m => !p.omitted.has(m.key))
+  assert.ok(!shownP.some(m => m.key === 'feature_label'))
+  // Only "confluence: false" omits qa_plan_found; a missing feature config alone does not.
+  assert.equal(shownP.reduce((n, m) => n + m.weight, 0), 100 - 10)
 })
 
 test('attachments: credited with at least one attachment, on both rubrics', () => {

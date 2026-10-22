@@ -7,7 +7,7 @@ import { join } from 'node:path'
 export const AUDIT_DIR = '.claude/quality-code/audit'
 export const KINDS = ['gate', 'pipeline', 'jira', 'override']
 
-const KEY = /^[A-Z][A-Z0-9]*-\d+$/
+const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 // Verdicts, gates, step names, rubric and adapter ids, criterion keys.
 const WORD = /^[a-z][a-z0-9_-]{0,39}$/
 // A Jira issue type name, in any language ("Bug", "Story", "Sotto-task").

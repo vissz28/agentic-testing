@@ -44,8 +44,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       priceInfo = { asOf: p.asOf ?? AS_OF, source: `${p.source}, then ${SOURCE}`, override: a.prices, models: p.models }
     } catch (e) { return err(e.message) }
   }
-  const { dirs, looked } = findProjectDirs(root, configDir(env))
-  const sessions = dirs.flatMap(loadSessions)
+  const { dirs, sessions: files, looked } = findProjectDirs(root, configDir(env))
+  const sessions = dirs.flatMap(d => loadSessions(d, files[d]))
   if (!sessions.length) {
     stdout(`No Claude Code transcripts found for ${root}.\nLooked in:\n${looked.map(l => `  ${l}`).join('\n')}\n`)
     return 3

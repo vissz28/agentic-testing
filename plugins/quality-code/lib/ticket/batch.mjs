@@ -16,13 +16,14 @@ export function evalTickets(config, tickets) {
   const clean = tickets.map(t => sanitizeTicket(config, t))
   const rows = clean.map(t => {
     const b = buildBrief(config, t)
+    const shown = b.missing.filter(m => !b.omitted.has(m.key))
     return {
       key: b.key ?? t.key ?? '?',
       score: b.score,
       gate: b.gate,
       legacy: b.legacy,
-      missing: b.missing.map(m => m.label),
-      biggestMissing: b.missing[0]?.label ?? null,
+      missing: shown.map(m => m.label),
+      biggestMissing: shown[0]?.label ?? null,
     }
   })
   rows.sort((a, b) => a.score - b.score || a.key.localeCompare(b.key, 'en', { numeric: true }))

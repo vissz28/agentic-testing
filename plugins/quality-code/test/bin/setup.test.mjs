@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { detect, write } from '../../bin/setup.mjs'
+import { detect, ghAccount, write } from '../../bin/setup.mjs'
+import { fakeCommand } from '../fake-bin.mjs'
 
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../../bin/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
@@ -164,7 +165,7 @@ test('write never throws: a dangling symlink at a template path is an error, not
 test('detect: where the project lives, and its GitLab project from the origin remote', () => {
   const d = repo({ devDependencies: { vitest: '1' } })
   const g = (...a) => spawnSync('git', a, { cwd: d, encoding: 'utf8' })
-  assert.deepEqual(detect(d).here, { folder: d.split('/').pop(), repoTop: null, subfolder: null, gitlab: null })
+  assert.deepEqual(detect(d).here, { folder: d.split('/').pop(), repoTop: null, subfolder: null, remote: null, gitlab: null, github: null })
   g('init', '-q')
   g('remote', 'add', 'origin', 'https://user:secret@gitlab.example.com/team/sub/app.git')
   const h = detect(d).here
@@ -175,6 +176,69 @@ test('detect: where the project lives, and its GitLab project from the origin re
   mkdirSync(join(d, 'web'))
   writeFileSync(join(d, 'web/package.json'), '{}')
   assert.equal(detect(join(d, 'web')).here.subfolder, 'web')
+  g('remote', 'set-url', 'origin', 'git@github.com:acme/app.git')
+  assert.deepEqual([detect(d).here.remote, detect(d).here.gitlab], [{ host: 'github.com', path: 'acme/app', kind: 'github' }, null], 'a GitHub remote is no GitLab project')
+})
+
+test('ghAccount: gh\'s signed-in account on a host, or why not; a GitHub on its own domain is a GitHub', () => {
+  const gh = fakeCommand('gh')
+  // gh auth status --hostname <host> --active --json hosts: signed in on github.com and git.acme.example only.
+  gh.act(`case "$4" in
+github.com|git.acme.example) echo "{\\"hosts\\":{\\"$4\\":[{\\"state\\":\\"success\\",\\"active\\":true,\\"login\\":\\"jdoe\\"}]}}" ;;
+expired.example) echo '{"hosts":{"expired.example":[{"state":"error","active":true,"login":"jdoe"}]}}' ;;
+*) echo '{"hosts":{}}' ;;
+esac`)
+  try {
+    assert.deepEqual(ghAccount('github.com'), { login: 'jdoe' })
+    assert.deepEqual(ghAccount('gitlab.example.com'), { login: null, reason: 'gh is not signed in to gitlab.example.com' })
+    assert.deepEqual(ghAccount('expired.example'), { login: null, reason: 'gh\'s sign-in to expired.example no longer works' })
+    const d = repo({ devDependencies: { vitest: '1' } })
+    const g = (...a) => spawnSync('git', a, { cwd: d, encoding: 'utf8' })
+    g('init', '-q')
+    g('remote', 'add', 'origin', 'git@git.acme.example:team/app.git')
+    assert.deepEqual([detect(d).here.remote.kind, detect(d).here.gitlab, detect(d).here.github], ['github', null, { login: 'jdoe' }], 'GitHub Enterprise')
+    g('remote', 'set-url', 'origin', 'git@gitlab.example.com:team/app.git')
+    assert.deepEqual([detect(d).here.remote.kind, detect(d).here.github], ['gitlab', null])
+    g('remote', 'set-url', 'origin', 'git@github.com:acme/app.git')
+    gh.act('echo \'{"hosts":{}}\'')
+    assert.deepEqual(detect(d).here.github, { login: null, reason: 'gh is not signed in to github.com' }, 'a GitHub remote without a sign-in still gets its GitHub line')
+    gh.act('exit 1')
+    assert.deepEqual(ghAccount('github.com'), { login: null, reason: 'gh could not check github.com' })
+  } finally {
+    gh.restore()
+  }
+  const path = process.env.PATH
+  process.env.PATH = mkdtempSync(join(tmpdir(), 'no-gh-'))
+  try {
+    assert.deepEqual(ghAccount('github.com'), { login: null, reason: 'gh is not installed' })
+  } finally {
+    process.env.PATH = path
+  }
+})
+test('GitHub: its default template names are found, and new templates go to .github', () => {
+  const d = repo({})
+  spawnSync('git', ['init', '-q'], { cwd: d }); spawnSync('git', ['remote', 'add', 'origin', 'https://github.com/acme/app.git'], { cwd: d })
+  touch(d, '.github/ISSUE_TEMPLATE/bug_report.md')
+  assert.equal(detect(d).templates.bug, '.github/ISSUE_TEMPLATE/bug_report.md')
+  assert.equal(write(d, cfg, { templates: { bug: '# Bug', story: '# Story' } }).ok, true)
+  assert.equal(existsSync(join(d, '.gitlab')), false)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).ticketTemplates, { bug: '.github/ISSUE_TEMPLATE/bug_report.md', story: '.github/ISSUE_TEMPLATE/story.md' })
+})
+test('CLI --write takes the proposal inline, no temp file', () => {
+  const d = repo({})
+  const r = cli(d, '--write', JSON.stringify({ config: cfg }))
+  assert.equal(r.stdout, 'ok\n')
+  assert.equal(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).adapter, 'vitest')
+  assert.equal(cli(d, '--write', '{nope').status, 2)
+})
+test('detect: a vite.config with a test block is a Vitest config; a ./ ticketsDir still git-ignores raw.json', () => {
+  const d = repo({})
+  writeFileSync(join(d, 'vite.config.ts'), 'export default defineConfig({ test: { environment: "jsdom" } })')
+  assert.deepEqual(detect(d).vitestConfigs, ['vite.config.ts'])
+  writeFileSync(join(d, 'vite.config.ts'), 'export default defineConfig({ plugins: [] })')
+  assert.deepEqual(detect(d).vitestConfigs, [])
+  assert.equal(write(d, { ...cfg, ticketsDir: './qa/tickets' }, {}).ok, true)
+  assert.ok(readFileSync(join(d, '.gitignore'), 'utf8').split('\n').includes('qa/tickets/*/raw.json'))
 })
 test('write git-ignores the local Jira field memory', () => {
   const d = repo({})
@@ -187,6 +251,8 @@ test('detect lists the boundary candidates that exist, and specs next to the cod
   for (const p of ['src/a.ts', 'prisma/schema.prisma', '.env.local', '.gitlab-ci.yml', '.github/workflows/ci.yml']) { mkdirSync(join(d, p, '..'), { recursive: true }); writeFileSync(join(d, p), 'x') }
   const r = detect(d)
   assert.deepEqual(r.boundaries, ['src/', 'prisma/', '.env.*', '.gitlab-ci.yml', '.github/workflows/'])
+  for (const p of ['app/page.tsx', 'packages/api/src/a.ts', 'Jenkinsfile', 'dapr/x.yaml']) { mkdirSync(join(d, p, '..'), { recursive: true }); writeFileSync(join(d, p), 'x') }
+  assert.deepEqual(detect(d).boundaries, ['src/', 'app/', 'prisma/', 'packages/*/src/', '.env.*', '.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile'])
   assert.equal(r.specsBesideCode, false)
   writeFileSync(join(d, 'src/a.spec.ts'), 'x')
   assert.equal(detect(d).specsBesideCode, true)

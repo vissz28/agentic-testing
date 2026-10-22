@@ -7,9 +7,15 @@ import { normalise, stripComments } from './text.mjs'
 /** Plain-language criteria need this many characters in total to count. Gherkin is exempt. */
 export const MIN_NATURAL_AC = 150
 
+/**
+ * Each line as the step patterns read it: no list marker, no bold. Jira's markdown writes a bold
+ * keyword as **Given** and a bulleted step as - Given, as the criteria section rows already do.
+ */
+export const stepText = (v, text) => text.split('\n').map(l => l.replace(v.listItem, '').replace(/\*+/g, '')).join('\n')
+
 /** Literal Gherkin: line-anchored step words with a Then present and at least two steps. */
 export function hasGherkin(v, text) {
-  text = stripComments(normalise(text))
+  text = stepText(v, stripComments(normalise(text)))
   if (!text) return false
   const steps = (text.match(v.gherkinStepAll) || []).length
   const hasThenLine = v.thenLine.test(text)
@@ -17,7 +23,7 @@ export function hasGherkin(v, text) {
 }
 
 export function hasThen(v, text) {
-  text = stripComments(normalise(text))
+  text = stepText(v, stripComments(normalise(text)))
   return !!text && v.thenLine.test(text)
 }
 
@@ -26,13 +32,17 @@ export function hasVaguePhrase(v, text) {
   return !!text && v.vague.test(text)
 }
 
-/** A markdown heading (`## X`), a bold line (`**X**`), or a label line (`X:`) matching `wordsSrc`. */
+/**
+ * A markdown heading (`## X`, Jira's `h2. X`), a bold line (`**X**`), or a label line (`X:`)
+ * matching `wordsSrc` as whole words: "## Contextual menu" is no Context heading.
+ */
 export function hasHeading(v, text, wordsSrc) {
   text = normalise(text)
   if (!text) return false
+  const S = '[^\\S\\n]*'
   return (
-    new RegExp(`^\\s*(?:#{1,6}\\s*|\\*\\*\\s*)(?:${wordsSrc})`, 'im').test(text) ||
-    new RegExp(`^\\s*(?:${wordsSrc})\\s*\\**\\s*:`, 'im').test(text)
+    new RegExp(`^${S}(?:#{1,6}${S}|h[1-6]\\.${S}|\\*\\*${S})(?:${wordsSrc})\\b`, 'im').test(text) ||
+    new RegExp(`^${S}(?:${wordsSrc})${S}\\**${S}:`, 'im').test(text)
   )
 }
 

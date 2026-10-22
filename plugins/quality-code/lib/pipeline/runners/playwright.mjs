@@ -2,12 +2,13 @@
 // Implements the runner contract of the shared checks. Never writes into the project: the report
 // and Playwright's artifacts go to a temp folder that is always deleted.
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
+import { findUp, kill, toolScript, track } from './tool.mjs'
 
 const ESC = /[.*+?^${}()|[\]\\]/g
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g
@@ -84,8 +85,8 @@ export function parseReport(json, root) {
 
 export function runPlaywright(root, files, { config = null, projects = [], testName, timeoutMs }) {
   return new Promise(done => {
-    const bin = join(root, 'node_modules/.bin/playwright')
-    if (!existsSync(bin)) return done({ ran: false, error: 'Playwright is not installed in this project: run npm install' })
+    const bin = toolScript(root, ['@playwright/test', 'playwright'], 'playwright')
+    if (!bin) return done({ ran: false, error: 'Playwright is not installed in this project' })
     const dir = mkdtempSync(join(tmpdir(), 'qc-playwright-'))
     const out = join(dir, 'report.json')
     const args = ['test', ...files.map(filePattern), '--reporter=json', '--retries=0', '--output', join(dir, 'output')]
@@ -96,27 +97,30 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
     const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out }
     delete env.FORCE_COLOR
     // Browsers installed with PLAYWRIGHT_BROWSERS_PATH=0 live in node_modules, where only that setting finds them.
-    if (env.PLAYWRIGHT_BROWSERS_PATH === undefined && existsSync(join(root, LOCAL_BROWSERS))) env.PLAYWRIGHT_BROWSERS_PATH = '0'
+    if (env.PLAYWRIGHT_BROWSERS_PATH === undefined && findUp(root, LOCAL_BROWSERS)) env.PLAYWRIGHT_BROWSERS_PATH = '0'
     let stderr = ''
     let timedOut = false
     let settled = false
     let timer = null
+    let untrack = () => {}
     const finish = r => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      untrack()
       try { rmSync(dir, { recursive: true, force: true }) } finally { done(r) }
     }
     let child
     try {
-      child = spawn(bin, args, { cwd: root, detached: true, env, stdio: ['ignore', 'ignore', 'pipe'] })
+      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env, stdio: ['ignore', 'ignore', 'pipe'] })
+      untrack = track(child, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start Playwright: ${e.message}` })
     }
     child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
     timer = setTimeout(() => {
       timedOut = true
-      try { process.kill(-child.pid, 'SIGKILL') } catch { try { child.kill('SIGKILL') } catch {} }
+      kill(child)
       finish({ ran: false, error: `took longer than ${timeoutMs < 1000 ? `${timeoutMs}ms` : `${Math.round(timeoutMs / 1000)}s`}` })
     }, timeoutMs)
     child.on('error', e => finish({ ran: false, error: `could not start Playwright: ${e.message}` }))

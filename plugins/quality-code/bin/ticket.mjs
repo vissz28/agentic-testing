@@ -1,23 +1,25 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
-import { resolveField, storeField } from '../lib/ticket/fields.mjs'
+import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
+import { projectKeys } from '../lib/base/keys.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
-import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks } from '../lib/ticket/fill.mjs'
+import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
 
-// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does).
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--save'])
+// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
+// gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--save', '--next'])
 
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
@@ -35,6 +37,11 @@ function parseArgs(argv) {
 }
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
+  // A crash is an error (2), never a refuse (1): the commands read exit 1 as "the ticket is too thin".
+  try { return run(argv, env, cwd) } catch (e) { err(`ticket.mjs: ${e.message}`); return 2 }
+}
+
+function run(argv, env, cwd) {
   const [cmd, ...rest] = argv
   let a
   try { a = parseArgs(rest) } catch (e) { err(e.message); return 2 }
@@ -48,15 +55,34 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
+  // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
+  const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(root, normaliseTicketsDir(config.ticketsDir), key, 'ticket.json') : null)
   if (cmd === 'jira-posted') {
     // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
     const [key, action] = a._
-    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key ?? '') || !['comment', 'update', 'risk'].includes(action)) {
+    if (!savedPath(key) || !['comment', 'update', 'risk'].includes(action)) {
       err('usage: ticket.mjs jira-posted <KEY> comment|update|risk')
       return 2
     }
     log('jira', { key, action })
+    // The fill-in answers now on Jira are no longer waiting: `saved` stops offering them.
+    if (action === 'update' && existsSync(savedPath(key))) {
+      try {
+        const t = JSON.parse(readFileSync(savedPath(key), 'utf8'))
+        writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length }))
+      } catch {}
+    }
     out('ok')
+    return 0
+  }
+  if (cmd === 'saved') {
+    // What an earlier run left for this ticket: fill-in answers typed here that never reached Jira.
+    const [key] = a._
+    if (!savedPath(key) || a._.length > 1) { err('usage: ticket.mjs saved <KEY>'); return 2 }
+    let t = null
+    try { t = JSON.parse(readFileSync(savedPath(key), 'utf8')) } catch {}
+    const filled = Array.isArray(t?.filled) ? t.filled.length : 0
+    out(`SAVED_JSON:${JSON.stringify({ key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null })}`)
     return 0
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
@@ -79,7 +105,16 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       out('ok')
       return 0
     }
-    err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none>')
+    if (sub === 'find' && project?.startsWith('@')) {
+      // project is the saved field-metadata file here: the fields whose name is the criteria heading.
+      let text
+      try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { err(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const r = findFields(config, text)
+      if (!r.ok) { err(r.error); return 2 }
+      out(`FIELD_MATCHES_JSON:${JSON.stringify({ matches: r.matches })}`)
+      return 0
+    }
+    err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none> | field find @<metadata file>')
     return 2
   }
   if (cmd === 'tickets-eval') {
@@ -107,10 +142,15 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { err(`--in is not readable JSON: ${e.message}`); return 2 }
-  if (!ticket || typeof ticket !== 'object') { err('--in must be a JSON object'); return 2 }
-  const project = String(ticket.key ?? '').split('-')[0]
-  const mismatch = Boolean(ticket.key) && !config.jira.projects.includes(project)
-  if (mismatch) out(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: config.jira.projects })}`)
+  if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { err('--in must be a JSON object'); return 2 }
+  // Lists the connector or the model may hand over as one value: a single label, a single scenario.
+  for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
+  const project = String(ticket.key ?? '').replace(/-\d+$/, '')
+  // A tracking project's keys belong to the project too (start proposes them).
+  const keys = projectKeys(config)
+  const mismatch = Boolean(ticket.key) && !keys.includes(project)
+  // With --json, stdout is the JSON alone: the mismatch line goes to stderr.
+  if (mismatch) (a.flags.has('--json') ? err : out)(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: keys })}`)
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { err('sanitize needs --out <path>'); return 2 }
@@ -123,14 +163,20 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       return 0
     }
     case 'score': {
-      if (mismatch && a.flags.has('--ci')) return 2
+      if (mismatch && a.flags.has('--ci')) { err(`${ticket.key} is not a ticket of this project's Jira projects (${keys.join(', ')})`); return 2 }
       const b = buildBrief(config, ticket)
       log('gate', {
         key: b.key, issuetype: b.issuetype, score: b.score, gate: b.gate, rubric: b.rubric, legacy: b.legacy,
         missing: b.missing.map(m => m.key), filled: Array.isArray(ticket.filled) ? ticket.filled.length : 0,
       })
-      if (a.flags.has('--json')) out(JSON.stringify(b))
-      else { out(formatReport(b)); out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`) }
+      const next = a.flags.has('--next') ? nextStep(config, b) : null
+      if (a.flags.has('--json')) out(JSON.stringify(next ? { ...b, next } : b))
+      else {
+        out(formatReport(b))
+        if (next && formatNextStep(next)) out(formatNextStep(next))
+        out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`)
+        if (next) out(`GATE_JSON:${JSON.stringify(next)}`)
+      }
       return b.gate === 'refuse' ? 1 : 0
     }
     case 'refuse-comment': {
@@ -149,7 +195,8 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
       return 0
     }
     case 'pick': {
-      const nums = String(a._[0] ?? '').split(/[\s,]+/).filter(Boolean)
+      // `pick 1 3` and `pick "1 3"` alike.
+      const nums = a._.join(' ').split(/[\s,]+/).filter(Boolean)
       const p = projectPick(fillMenu(config, buildBrief(config, ticket)), nums)
       out(formatPick(p))
       out(`FILL_JSON:${JSON.stringify(p)}`)

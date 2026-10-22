@@ -4,17 +4,18 @@
 //   #5  the backend key warehouse_label is named feature_label (property names and `key` values)
 //   #6  the frontend JIRA_UPDATE_JSON also carries titlePrefix: null
 //   #2  a bare `warehouse` label no longer counts (its own fixture, asserted to differ)
-//   #9  (AGT-104/AGT-115) qa_plan_found is left out of the score when there is no way to find a QA
-//       plan: warehouse-frontend.json configures no feature with a qaPlanSearch, and none of these
-//       fixtures has a Confluence page attached, so every frontend fixture without an already-found
-//       qaPlan is affected (its own group, excluded from the line-by-line loop below; asserted to
-//       differ, by the one rescale the fix makes, in its own describe block)
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
 // Sanitize: today's backend sanitizer and `ticket.mjs sanitize` under the backend config write the
 // same JSON for every raw input of parity/sanitize-inputs.mjs (both sides masked the same way).
 // One hand edit, spec §10 #8 (harvested free text is redacted): in expected/sanitize.json the
 // untouched-fields scenario `then` reads "shows U######" where today's script kept the id.
+// Bug fixes after the capture, also hand edits of expected/sanitize.json (today's script has the bugs):
+//   adf-paragraphs-lists-breaks-marks  ADF blocks are one per line and a block's text runs join as
+//     written; before, "Customer \nU######\n sees 150" and "…acme-corp.itws <uuid>openfilter" glued
+//     blocks together, so a UUID inside a list item was never redacted.
+//   plain-all-fields, uuid-versions  each distinct UUID of a ticket gets its own placeholder
+//     (…0001, …0002) instead of one for all, so "workspace A is not workspace B" survives.
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
@@ -22,7 +23,6 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mask, sanitizeInputs } from './parity/sanitize-inputs.mjs'
-import playwrightRubric from '../lib/ticket/rubrics/playwright.mjs'
 
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const DIR = new URL('./parity/', import.meta.url).pathname
@@ -30,13 +30,6 @@ const read = p => JSON.parse(readFileSync(p, 'utf8'))
 const CONFIGS = { fe: read(join(DIR, 'configs/warehouse-frontend.json')), be: read(join(DIR, 'configs/warehouse-backend.json')) }
 const FIXTURES = readdirSync(join(DIR, 'fixtures')).filter(f => f.endsWith('.json')).sort()
   .map(f => ({ name: f, ...read(join(DIR, 'fixtures', f)), expected: read(join(DIR, 'expected', f)) }))
-
-/** §10 #9: true when this fixture's ticket can never earn qa_plan_found under this repo's config. */
-function qaPlanOmitted(fx) {
-  if (fx.repo !== 'fe') return false
-  const feature = (fx.ticket.labels || []).find(l => CONFIGS.fe.features.some(f => f.label === l)) ?? null
-  return playwrightRubric.omitted(CONFIGS.fe, fx.ticket, feature).has('qa_plan_found')
-}
 
 function run(dir, argv) {
   return new Promise((done, fail) => {
@@ -133,7 +126,7 @@ async function runFixture(fx) {
 }
 
 describe('parity with today\'s warehouse scorers', { concurrency: 8 }, () => {
-  for (const fx of FIXTURES.filter(f => !f.difference && !qaPlanOmitted(f))) {
+  for (const fx of FIXTURES.filter(f => !f.difference)) {
     test(fx.name, async () => {
       assert.deepEqual(fx.expected.results.map(r => r.op), fx.ops, 'expected/ was captured from these ops')
       const got = await runFixture(fx)
@@ -162,30 +155,6 @@ test('spec §10 #2: a bare warehouse label no longer counts as a feature label (
   const { score: _d, gate: _e, missing: _f, feature: _h, signals: sb, ...restBefore } = renameFeatureKey(before)
   assert.deepEqual(restAfter, restBefore, 'nothing else in the brief changes')
   assert.deepEqual({ ...sa, feature_label: true }, sb)
-})
-
-describe('spec §10 #9: qa_plan_found is left out when there is no way to find a QA plan (AGT-104/AGT-115)', { concurrency: 8 }, () => {
-  const affected = FIXTURES.filter(f => !f.difference && qaPlanOmitted(f))
-  test('this group is not empty (the config and fixtures still exercise the difference)', () => {
-    assert.ok(affected.length > 0)
-  })
-  const achievable = 100 - playwrightRubric.weights.qa_plan_found[0]
-  for (const fx of affected) {
-    const i = fx.ops.findIndex(op => op[0] === 'score' && op.includes('--json'))
-    if (i < 0) continue
-    test(`${fx.name}: the score is rescaled over ${achievable}, qa_plan_found is not asked for, nothing else changes`, async () => {
-      const before = JSON.parse(fx.expected.results[i].stdout)
-      assert.ok(before.missing.some(m => m.key === 'qa_plan_found'), 'the fixture is a real case of the old behaviour')
-      const [got] = await runFixture({ ...fx, ops: [fx.ops[i]] })
-      const after = JSON.parse(got.stdout)
-      assert.ok(!after.missing.some(m => m.key === 'qa_plan_found'))
-      assert.equal(after.score, Math.min(100, Math.round((before.score / achievable) * 100)))
-      assert.equal(after.gate, after.score >= 70 ? 'pass' : 'refuse')
-      const { score: _a, gate: _b, missing: _c, ...restAfter } = after
-      const { score: _d, gate: _e, missing: _f, ...restBefore } = before
-      assert.deepEqual(restAfter, restBefore, 'nothing else in the brief changes')
-    })
-  }
 })
 
 test('spec §10 #5: the backend output really names the key warehouse_label today', () => {

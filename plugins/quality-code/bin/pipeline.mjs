@@ -8,11 +8,12 @@ import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { isProjectKey, projectKeys } from '../lib/base/keys.mjs'
 import { audit, auditOff } from '../lib/base/audit.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { doneStatusesOf, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { THRESHOLD } from '../lib/ticket/score.mjs'
 import { formatCard, formatRunLog } from '../lib/pipeline/card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/pipeline.mjs'
 import { isFullstack } from '../lib/base/stack.mjs'
+import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -114,13 +115,18 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const rel = `${config.ticketsDir}/${a.key}/run.md`
     try {
       mkdirSync(dirname(resolve(root, rel)), { recursive: true })
-      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus }))
+      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, doneStatuses: doneStatusesOf(config) }))
       logPath = rel
     } catch {}
   }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, log: logPath })}\n`)
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, doneStatuses: doneStatusesOf(config), log: logPath })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  // A killed run (Ctrl-C, a tool call's timeout) stops the tools it started, their workers too, and
+  // removes their temp files from the project. The mutation step's own handler, when one is set, exits.
+  for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { stopAll(); if (process.listenerCount(sig) === 1) process.exit(130) })
+  process.exitCode = await main()
+}

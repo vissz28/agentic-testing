@@ -1,13 +1,13 @@
 // Find, load and validate the team config. The only module that knows where it lives.
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { matches } from './boundary.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
-const KEY = /^[A-Z][A-Z0-9]+$/
-const FIELDS = new Set(['version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'git'])
+const KEY = /^[A-Z][A-Z0-9_]+$/
+const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -21,10 +21,14 @@ export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
 // before a step's data in the action cell. A team's importer mapping may want other headers.
 export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
 export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
+// The tags write puts on red Playwright tests: a ticket scenario's and an extra probe's.
+export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
+// Jira statuses that say the work is finished: a red run then warns that the bug is still there.
+export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
 const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
 
 export const DEFAULTS = Object.freeze({
-  languages: ['en', 'it'],
+  languages: ['en'],
   features: [],
   titlePrefixes: [],
   ticketsDir: '.claude/quality-code/tickets',
@@ -33,10 +37,29 @@ export const DEFAULTS = Object.freeze({
   ticketTemplates: { bug: null, story: null },
 })
 
-/** ticketsDir as every caller uses it: "/" separators, no trailing "/". */
-export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/\/+$/, '')
+/** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
+export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
-export const projectRoot = (env = process.env, cwd = process.cwd()) => env.CLAUDE_PROJECT_DIR || cwd
+const hasConfig = dir => existsSync(join(dir, CONFIG_REL))
+
+/** The nearest folder at or above dir that holds the config, or null. */
+export function findRoot(dir) {
+  for (let d = resolve(dir); ; d = dirname(d)) {
+    if (hasConfig(d)) return d
+    if (dirname(d) === d) return null
+  }
+}
+
+/**
+ * The project: CLAUDE_PROJECT_DIR when it holds the config, else the nearest folder up from cwd that
+ * does (a script run from src/, a package of a monorepo); with no config anywhere, CLAUDE_PROJECT_DIR
+ * or cwd, where setup writes it.
+ */
+export function projectRoot(env = process.env, cwd = process.cwd()) {
+  const dir = env.CLAUDE_PROJECT_DIR
+  if (dir && hasConfig(dir)) return dir
+  return findRoot(cwd) ?? (dir || cwd)
+}
 export const configPath = root => join(root, CONFIG_REL)
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -75,7 +98,7 @@ function folderErrors(folder, name, rules, e) {
 
 const guideOk = g => pathOk(g) && /\.md$/i.test(g)
 
-export function validateConfig(input) {
+export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
   for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
@@ -86,14 +109,18 @@ export function validateConfig(input) {
   const j = isObj(c.jira) ? c.jira : {}
   if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
   else {
-    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
+    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
     if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
-    else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits, like "ABC"`) })
+    else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
     if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
       e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
+    if (j.bugTypes !== undefined && (!Array.isArray(j.bugTypes) || !j.bugTypes.length || !j.bugTypes.every(t => typeof t === 'string' && t.trim())))
+      e.push('jira.bugTypes: must be a non-empty list of issue type names, like ["Bug", "Defect"]')
+    if (j.doneStatuses !== undefined && (!Array.isArray(j.doneStatuses) || j.doneStatuses.some(s => typeof s !== 'string' || !s.trim())))
+      e.push('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]')
     if (j.trackingProjects !== undefined) {
       if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
-      else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters and digits`) })
+      else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_"`) })
     }
   }
   if (c.languages !== undefined && (!Array.isArray(c.languages) || c.languages.length === 0)) e.push('languages: must list at least one of "en", "it"')
@@ -116,6 +143,7 @@ export function validateConfig(input) {
     if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
+  if (c.confluence !== undefined && typeof c.confluence !== 'boolean') e.push('confluence: must be true or false (false: the team has no Confluence, so no QA plan is looked for or scored)')
   // Absent means the QA-plan search looks in every Confluence space.
   if (c.confluenceSpaces !== undefined) {
     if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')
@@ -127,6 +155,19 @@ export function validateConfig(input) {
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
+    else {
+      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !normaliseTicketsDir(c.ticketsDir).split('/').includes('..')
+      if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
+    }
+  }
+  // The branch a feature branch starts from, when origin/HEAD is not it (gitflow: develop).
+  if (c.git !== undefined) {
+    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
+    else {
+      for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
+      const b = c.git.base
+      if (b !== undefined && (typeof b !== 'string' || !b.trim() || b.startsWith('-') || /[\s~^:?*[\\]/.test(b))) e.push(`git.base ${JSON.stringify(b)} must be a branch name, like "develop"`)
+    }
   }
   if (c.ticketTemplates !== undefined) {
     if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
@@ -206,8 +247,22 @@ export function validateConfig(input) {
     if (!uses('playwright')) e.push('playwright: only allowed with "adapter": "playwright" or "fullstack"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder" and "guide")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
       runnerFields(c.playwright, 'playwright', e)
+      const u = c.playwright.ungradedTitles
+      if (u !== undefined) {
+        let re = null
+        try { re = typeof u === 'string' && u.trim() ? new RegExp(u, 'i') : null } catch {}
+        if (!re || re.test('')) e.push('playwright.ungradedTitles: must be a regular expression that matches the titles of tests that never assert (screenshot captures), like "conformance|capture"')
+      }
+      const rt = c.playwright.redTags
+      if (rt !== undefined && rt !== null) {
+        if (!isObj(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
+        else for (const k of Object.keys(rt)) {
+          if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
+          else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
+        }
+      }
       if (c.playwright.folder !== undefined) folderErrors(c.playwright.folder, 'playwright.folder', folderRules(c), e)
       if (c.playwright.guide !== undefined && !guideOk(c.playwright.guide)) e.push(`playwright.guide ${JSON.stringify(c.playwright.guide)} must be a relative path to a .md file inside the project`)
       const ps = c.playwright.projects
@@ -274,16 +329,6 @@ export function validateConfig(input) {
       }
     }
   }
-  // The branch base wins over origin/HEAD: a merge request's target branch (develop) can differ
-  // from the repo's default branch (main). Absent means detect() falls back to origin/HEAD.
-  if (c.git !== undefined) {
-    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
-    else {
-      for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
-      if (c.git.base !== undefined && (typeof c.git.base !== 'string' || !c.git.base.trim() || /[\r\n]/.test(c.git.base)))
-        e.push('git.base: must be one non-empty line (a branch name)')
-    }
-  }
   if (c.sides !== undefined) {
     if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
     else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
@@ -297,7 +342,8 @@ export function validateConfig(input) {
     ok: true,
     config: {
       ...c,
-      jira: { trackingProjects: [], ...j },
+      // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
+      jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
       languages: c.languages ?? DEFAULTS.languages,
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
@@ -334,6 +380,21 @@ export const xrayOf = config => {
   return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
 
+/** The Playwright titles that are never graded nor mutated (playwright.ungradedTitles), as a regex; null for Vitest or when unset. */
+export const ungradedTitlesOf = (config, dialect) => {
+  const u = config?.playwright?.ungradedTitles
+  return dialect?.name === 'playwright' && typeof u === 'string' && u ? new RegExp(u, 'i') : null
+}
+
+/** The red-test tags as a list (scenario's, extra's); [] when playwright.redTags is null. */
+export const redTagsOf = config => {
+  const rt = config?.playwright?.redTags
+  return rt === null ? [] : Object.values({ ...DEFAULT_RED_TAGS, ...(rt ?? {}) })
+}
+
+/** The Jira statuses that mean finished. */
+export const doneStatusesOf = config => config?.jira?.doneStatuses ?? DEFAULT_DONE_STATUSES
+
 /** The share of Stryker mutants the tests must catch, as a whole percentage. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD
 
@@ -353,7 +414,7 @@ function readValidated(p, label, source, env) {
     return { ok: false, source, path: p, errors: [`${label} is not valid JSON (${err.message}). ${SETUP}`] }
   }
   if (source === 'personal' && isObject(obj) && obj.ticketsDir === undefined) obj = { ...obj, ticketsDir: personalTicketsDir(env) }
-  return { ...validateConfig(obj), source, path: p }
+  return { ...validateConfig(obj, { allowAbsoluteTicketsDir: source === 'personal' }), source, path: p }
 }
 
 /**

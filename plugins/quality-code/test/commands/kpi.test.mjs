@@ -7,7 +7,7 @@ const doc = readFileSync(new URL('../../commands/kpi.md', import.meta.url), 'utf
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs"'
 
 test('frontmatter: description, argument hint, and the only tool is the script', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\), Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: run, card', () => {
   const at = ['\n1. **Run.**', '\n2. **Card.**'].map(s => doc.indexOf(s))
@@ -30,6 +30,7 @@ test('the card is relayed verbatim without the machine line', () => {
 test('numbered options after the card point to consumption for cost, and the turn ends', () => {
   for (const t of ['1. The AI cost of the same days', '2. Another period', '3. Stop']) assert.ok(doc.includes(t), t)
   assert.ok(doc.includes('/quality-code:consumption'))
+  assert.ok(doc.includes('On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>`'), 'option 1 runs the pre-approved script, not a slash command')
   assert.match(doc, /End your turn after every card/)
 })
 test('read-only and local; the script does the sums; no grading', () => {

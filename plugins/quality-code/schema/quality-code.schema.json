@@ -6,17 +6,18 @@
   "additionalProperties": false,
   "required": ["version", "adapter", "jira"],
   "properties": {
+    "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
     "version": { "const": 1 },
     "adapter": { "enum": ["playwright", "vitest", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest: a backend project (tests of the code). fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under Vitest." },
     "jira": {
       "type": "object",
       "required": ["site", "projects"],
       "properties": {
-        "site": { "type": "string", "pattern": "^https://" },
+        "site": { "type": "string", "pattern": "^https://[^/\\s]+(/\\S*)?$", "description": "Your Jira site, like https://example.atlassian.net. A trailing \"/\" is dropped." },
         "projects": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]+$" }
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
         },
         "acceptanceCriteriaField": {
           "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^customfield_\\d+$" }]
@@ -24,13 +25,26 @@
         "trackingProjects": {
           "type": "array",
           "default": [],
-          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9]+$" }
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+        },
+        "bugTypes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Issue type names (any case) written to the Bug template. Absent: any type whose name contains bug, defect, incident, problem, anomal or difett."
+        },
+        "doneStatuses": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": ["Test OK", "Done", "Ready for test", "Closed", "Resolved", "Chiuso", "Risolto"],
+          "description": "Jira statuses that mean the work is finished (any case). A red /quality-code:check on a ticket in one of them warns that the bug is still on the branch."
         }
       }
     },
     "languages": {
       "type": "array",
       "minItems": 1,
+      "default": ["en"],
       "items": { "enum": ["en", "it"] }
     },
     "features": {
@@ -51,6 +65,7 @@
       "description": "Title prefixes the vitest rubric credits, written without brackets and matched literally. May be [] when the team uses none: the title-prefix signal then scores 0 and is never asked for.",
       "items": { "type": "string", "minLength": 1 }
     },
+    "confluence": { "type": "boolean", "default": true, "description": "false: the team has no Confluence. No QA plan is looked for, and the QA plan is left out of the Playwright score (the rest is scaled to 100)." },
     "confluenceSpaces": {
       "type": "array",
       "minItems": 1,
@@ -67,8 +82,16 @@
     "ticketsDir": {
       "type": "string",
       "default": ".claude/quality-code/tickets",
-      "pattern": "^[^\\r\\n]+$",
-      "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\" and a trailing \"/\" is dropped, so the .gitignore line is <dir>/*/raw.json."
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$",
+      "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\", a leading \"./\" and a trailing \"/\" are dropped, so the .gitignore line is <dir>/*/raw.json."
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base": { "type": "string", "pattern": "^[^-\\s~^:?*\\[\\\\][^\\s~^:?*\\[\\\\]*$", "description": "The branch feature branches start from when origin/HEAD is not it (gitflow: \"develop\"). /quality-code:start reads the changes against it; --base and a merge request's target still win." }
+      },
+      "description": "Optional git settings."
     },
     "boundaries": {
       "type": "object",
@@ -113,7 +136,16 @@
         "tsconfig": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one Playwright process may take." },
         "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where /quality-code:write puts new Playwright specs, ending in /. Must be inside your Playwright config's testDir and not inside a forbidden boundary. Default: the default config's testDir when it is a plain string, else e2e/." },
-        "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's Playwright conventions (fixtures, login, which APIs to stub), read on top of the plugin's writing guide." }
+        "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's Playwright conventions (fixtures, login, which APIs to stub), read on top of the plugin's writing guide." },
+        "ungradedTitles": { "type": "string", "minLength": 1, "description": "Optional regular expression (any case) for the titles of tests that never assert, such as screenshot captures (\"conformance|capture\"). They are neither graded nor mutated. Left out, every test is graded." },
+        "redTags": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "object", "additionalProperties": false, "properties": { "scenario": { "type": "string", "pattern": "^@[\\w-]+$" }, "extra": { "type": "string", "pattern": "^@[\\w-]+$" } } }
+          ],
+          "default": { "scenario": "@anchor", "extra": "@finding" },
+          "description": "The tags /quality-code:write puts on red Playwright tests (a ticket scenario's, an extra probe's), which a merge gate can skip. null: red tests get no tag."
+        }
       }
     },
     "seed": {

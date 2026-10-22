@@ -1,6 +1,6 @@
 # Writing Playwright tests from a ticket
 
-The generic rules `/quality-code:write` always follows on a Playwright project. The team's own guide
+The generic rules `/quality-code:spec` always follows on a Playwright project. The team's own guide
 (set in `playwright.guide`) adds its conventions on top of these (fixtures, login, which APIs to
 stub) and wins where they differ. So do the specs already in the e2e folder: copy their imports,
 fixtures and login, never invent new ones.
@@ -122,7 +122,7 @@ What a probe asserts, in this order:
 1. A concrete value from the ticket, the branch's code or the app's own translation files.
 2. Otherwise, that the screen still works: an element a ticket scenario names is still visible and
    usable, and no raw translation key shows instead of a text (for an app whose keys look like
-   `NoDataFiltersMessage`: `await expect(page.getByText(/^[A-Z][A-Za-z]+Message$/)).toHaveCount(0)`;
+   `orders.emptyMessage`: `await expect(page.getByText(/^[a-z]+(\.[a-zA-Z]+)+$/)).toHaveCount(0)`;
    use the key shape of your app's translation files).
 3. Otherwise, do not write the probe. Never invent an expected value.
 
