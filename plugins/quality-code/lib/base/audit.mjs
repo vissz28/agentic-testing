@@ -5,7 +5,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const AUDIT_DIR = '.claude/quality-code/audit'
-export const KINDS = ['gate', 'pipeline', 'jira', 'override']
+export const KINDS = ['gate', 'pipeline', 'jira', 'override', 'fill']
 
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 // Verdicts, gates, step names, rubric and adapter ids, criterion keys.
@@ -45,6 +45,8 @@ const SHAPE = {
   }),
   jira: e => ({ key: key(e.key), action: oneOf(['comment', 'update', 'risk'])(e.action) }),
   override: e => ({ key: key(e.key), score: score(e.score), bar: score(e.bar) }),
+  // An accepted fill-in answer; `drafted` when the author confirmed the model's draft.
+  fill: e => ({ key: key(e.key), item: word(e.item), drafted: e.drafted === true }),
 }
 
 /** On unless QC_NO_AUDIT=1 or the caller's --no-audit. */

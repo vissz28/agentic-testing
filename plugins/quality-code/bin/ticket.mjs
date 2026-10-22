@@ -19,8 +19,9 @@ const err = s => process.stderr.write(`${s}\n`)
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
-// --save keeps the per-ticket results of `tickets-eval`.
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save'])
+// --save keeps the per-ticket results of `tickets-eval`. --drafted marks an `add` answer as the
+// model's draft the author confirmed (the script still decides whether it counts).
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted'])
 
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
@@ -216,9 +217,12 @@ function run(argv, env, cwd) {
     case 'add': {
       if (!inPath) { err('add needs --in @<ticket.json> so the accepted answer can be saved'); return 2 }
       const [key, answer] = a._
-      const r = applyAnswer(config, ticket, key, answer)
+      const drafted = a.flags.has('--drafted')
+      const r = applyAnswer(config, ticket, key, answer, { drafted })
       if (r.ok) {
         try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { err(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+        // One line per accepted answer: the key, the item and whether it began as a draft. Never the text.
+        log('fill', { key: r.input.key, item: key, drafted })
         const b = r.brief
         out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       } else if (r.pending) {
