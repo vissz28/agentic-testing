@@ -187,8 +187,11 @@ describe('sanitize parity with today\'s backend sanitizer', { concurrency: 8 }, 
       try {
         mkdirSync(join(dir, '.claude'))
         writeFileSync(join(dir, '.claude/quality-code.json'), JSON.stringify(CONFIGS.be))
-        writeFileSync(join(dir, 'raw.json'), JSON.stringify(raw))
-        const got = await run(dir, ['sanitize', '--in', '@raw.json', '--out', 'ticket.json'])
+        // sanitize deletes only a raw ticket in its key folder, so the input lives where ticket-eval puts it.
+        const KEYDIR = '.claude/quality-code/tickets/DEMO-1'
+        mkdirSync(join(dir, KEYDIR), { recursive: true })
+        writeFileSync(join(dir, KEYDIR, 'raw.json'), JSON.stringify(raw))
+        const got = await run(dir, ['sanitize', '--in', `@${KEYDIR}/raw.json`, '--out', 'ticket.json'])
         assert.equal(got.exit, want.exit)
         assert.equal(mask(got.stdout), want.stdout)
         assert.deepEqual(JSON.parse(mask(readFileSync(join(dir, 'ticket.json'), 'utf8'))), want.out)

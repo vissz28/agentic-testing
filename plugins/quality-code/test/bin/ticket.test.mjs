@@ -151,13 +151,32 @@ test('fill-menu, pick, jira-update, refuse-comment, risk-comment', () => {
   assert.match(r.stdout, /^Tests were written for this ticket although it is not complete: it has \d+ of the 70 points it needs\.$/m)
   assert.match(r.stdout, /Logged by quality-code: tests were written on an incomplete ticket\.\n$/)
 })
-test('sanitize writes --out and deletes an @file input; missing --out exits 2', () => {
+const RAW = '.claude/quality-code/tickets/DEMO-1/raw.json'
+const OUT = '.claude/quality-code/tickets/DEMO-1/ticket.json'
+const rawIn = d => {
+  mkdirSync(join(d, '.claude/quality-code/tickets/DEMO-1'), { recursive: true })
+  writeFileSync(join(d, RAW), readFileSync(join(d, 't.json'), 'utf8'))
+}
+test('sanitize writes --out and deletes the raw ticket file; missing --out exits 2', () => {
   const d = proj()
-  assert.equal(run(d, 'sanitize', '--in', '@t.json').status, 2)
-  assert.equal(existsSync(join(d, 't.json')), true)
-  assert.equal(run(d, 'sanitize', '--in', '@t.json', '--out', 'clean.json').status, 0)
-  assert.equal(existsSync(join(d, 't.json')), false)
-  assert.equal(JSON.parse(readFileSync(join(d, 'clean.json'), 'utf8')).key, 'DEMO-1')
+  rawIn(d)
+  assert.equal(run(d, 'sanitize', '--in', `@${RAW}`).status, 2)
+  assert.equal(existsSync(join(d, RAW)), true)
+  assert.equal(run(d, 'sanitize', '--in', `@${RAW}`, '--out', OUT).status, 0)
+  assert.equal(existsSync(join(d, RAW)), false)
+  assert.equal(JSON.parse(readFileSync(join(d, OUT), 'utf8')).key, 'DEMO-1')
+})
+test('sanitize never deletes any other input file: exit 2, the file unchanged, nothing written', () => {
+  const d = proj()
+  writeFileSync(join(d, 'package.json'), '{"name":"app"}\n')
+  for (const input of ['package.json', 't.json', '.claude/quality-code/tickets/raw.json', '.claude/quality-code/tickets/DEMO-1/other.json', 'raw.json']) {
+    const before = existsSync(join(d, input)) ? readFileSync(join(d, input), 'utf8') : null
+    const r = run(d, 'sanitize', '--in', `@${input}`, '--out', 'out.json')
+    assert.equal(r.status, 2, input)
+    oneLine(r)
+    if (before !== null) assert.equal(readFileSync(join(d, input), 'utf8'), before, input)
+    assert.equal(existsSync(join(d, 'out.json')), false, input)
+  }
 })
 test('missing --in and unknown command exit 2', () => {
   const d = proj()
@@ -174,10 +193,11 @@ test('add rejection: no Example line for a key the rubric does not score', () =>
 })
 test('sanitize with --out equal to --in keeps the sanitized file', () => {
   const d = proj()
-  for (const out of ['t.json', './t.json', join(d, 't.json')]) {
-    assert.equal(run(d, 'sanitize', '--in', '@t.json', '--out', out).status, 0, out)
-    assert.equal(existsSync(join(d, 't.json')), true, out)
-    assert.equal(JSON.parse(readFileSync(join(d, 't.json'), 'utf8')).key, 'DEMO-1', out)
+  for (const out of [RAW, `./${RAW}`, join(d, RAW)]) {
+    rawIn(d)
+    assert.equal(run(d, 'sanitize', '--in', `@${RAW}`, '--out', out).status, 0, out)
+    assert.equal(existsSync(join(d, RAW)), true, out)
+    assert.equal(JSON.parse(readFileSync(join(d, RAW), 'utf8')).key, 'DEMO-1', out)
   }
 })
 const oneLine = r => {
@@ -186,10 +206,11 @@ const oneLine = r => {
 }
 test('sanitize into a missing folder: one line, exit 2, input kept', () => {
   const d = proj()
-  const r = run(d, 'sanitize', '--in', '@t.json', '--out', 'no/such/dir/clean.json')
+  rawIn(d)
+  const r = run(d, 'sanitize', '--in', `@${RAW}`, '--out', 'no/such/dir/clean.json')
   assert.equal(r.status, 2)
   oneLine(r)
-  assert.equal(existsSync(join(d, 't.json')), true)
+  assert.equal(existsSync(join(d, RAW)), true)
 })
 test('add on a read-only ticket file: one line, exit 2', () => {
   const d = proj()
