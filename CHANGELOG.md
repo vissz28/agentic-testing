@@ -80,6 +80,12 @@ Update with `/plugin update quality-code@teamsystem`.
 - **A Story is never refused for what its fill-in cannot ask.** The fill-in never asks a Story for an
   environment or an expected and actual result; a refused ticket with nothing left to type in says
   what is missing and offers the Jira comment or the override, never an empty list.
+- **`sanitize` deletes only the raw ticket file** (AGT-105). It deletes its input once the clean copy
+  is written, and it used to delete any JSON file it was given (`--in @package.json` removed
+  `package.json`). Now a file input must be `<ticketsDir>/<KEY>/raw.json`; anything else is refused
+  with exit 2, left as it is, and nothing is written. `tickets-eval` likewise removes only
+  `<ticketsDir>/tickets-eval.json`, the file its command writes.
+
 - **Checks that let a weak test through.** A bare `expect(x)`, an uncalled matcher or an `expect(`
   in a string no longer counts as an assertion; a passing test mutation cannot check makes the run
   "not verified" instead of green; a test that passed once and failed every re-run is flaky; a

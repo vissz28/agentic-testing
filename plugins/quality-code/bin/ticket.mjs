@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
@@ -56,7 +56,10 @@ function run(argv, env, cwd) {
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
-  const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(root, normaliseTicketsDir(config.ticketsDir), key, 'ticket.json') : null)
+  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(ticketsRoot, key, 'ticket.json') : null)
+  // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
+  const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && /^[A-Z][A-Z0-9_]*-\d+$/.test(basename(dirname(p)))
   if (cmd === 'jira-posted') {
     // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
     const [key, action] = a._
@@ -129,7 +132,8 @@ function run(argv, env, cwd) {
       try { saveTickets(root, config, r.clean) } catch (e) { err(`tickets-eval: cannot save (${e.code ?? e.message})`); return 2 }
     }
     // The raw search results go once they are scored (as sanitize removes raw.json).
-    if (listPath) { try { unlinkSync(listPath) } catch { /* already gone */ } }
+    // Only the search results file the command writes; any other input is left as it is.
+    if (listPath === join(ticketsRoot, 'tickets-eval.json')) { try { unlinkSync(listPath) } catch { /* already gone */ } }
     const machine = `TICKETS_EVAL_JSON:${JSON.stringify({ summary: r.summary, tickets: r.rows })}`
     if (a.flags.has('--json')) out(machine)
     else { out(formatCard(r)); out(machine) }
@@ -154,6 +158,12 @@ function run(argv, env, cwd) {
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { err('sanitize needs --out <path>'); return 2 }
+      // sanitize deletes its input, so a file input must be a raw ticket: <ticketsDir>/<KEY>/raw.json.
+      // Anything else (package.json, a spec) is refused and left as it is, with nothing written.
+      if (inPath && !isRawTicket(inPath)) {
+        err(`sanitize reads only <ticketsDir>/<KEY>/raw.json, and deletes it; ${a.in.slice(1)} is left as it is`)
+        return 2
+      }
       const outPath = resolve(root, a.out)
       try {
         writeFileSync(outPath, `${JSON.stringify(sanitizeTicket(config, ticket))}\n`)

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { evalTickets, formatCard } from '../lib/ticket/batch.mjs'
@@ -131,8 +131,13 @@ test('cli: writes no per-ticket files unless --save', () => {
   writeFileSync(join(d, 'r.json'), JSON.stringify([thin('ABC-1')]))
   run(d, 'tickets-eval', '--in', '@r.json')
   assert.ok(!existsSync(join(d, '.quality-code/tickets')))
-  assert.ok(!existsSync(join(d, 'r.json')), 'the raw results are removed once scored')
-  writeFileSync(join(d, 'r.json'), JSON.stringify([thin('ABC-1')]))
+  assert.ok(existsSync(join(d, 'r.json')), 'any other input is left as it is')
+  const list = '.quality-code/tickets/tickets-eval.json'
+  mkdirSync(join(d, '.quality-code/tickets'), { recursive: true })
+  writeFileSync(join(d, list), JSON.stringify([thin('ABC-1')]))
+  run(d, 'tickets-eval', '--in', `@${list}`)
+  assert.ok(!existsSync(join(d, list)), 'the search results the command wrote are removed once scored')
+  rmSync(join(d, '.quality-code/tickets'), { recursive: true })
   assert.equal(run(d, 'tickets-eval', '--in', '@r.json', '--save').status, 0)
   assert.deepEqual(readdirSync(join(d, '.quality-code/tickets')), ['ABC-1'])
   assert.ok(existsSync(join(d, '.quality-code/tickets/ABC-1/ticket.json')))
