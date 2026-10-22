@@ -7,10 +7,27 @@ things, and says so here).
 
 Update with `/plugin update quality-code@teamsystem`.
 
-## [Unreleased]
+## [0.13.0] - 2026-10-22
+
+**Every ticket's score changes:** attachments and links now count (see Changed). On the warehouse
+parity set, 8 of 123 tickets go from pass to refuse.
 
 ### Added
 
+- **For QA and product owners, no repo needed.** `/quality-code:setup` asks first where you use it:
+  `In a repo (developers)` or `No repo, Jira only (QA, PO)`. The second saves a personal setup in
+  your Claude folder (`~/.claude/quality-code.json`), so `ticket-eval`, `ticket` and `tickets-eval`
+  work in any folder. Inside a repo, the repo's config still wins. `write`, `check`, `seed`, `xray`
+  and `start` say plainly that they need a repo.
+- **`/quality-code:tickets-eval <PROJECT> [--user <name>] [--status <s>] [--limit N]`:** scores a
+  whole project's tickets in one go, read-only. One line per ticket (score, pass or refuse, the
+  biggest gap), then the project: how many pass, the average score and the three items most often
+  missing.
+- **Figma drafts in the fill-in.** When a refused ticket links a Figma design, the guided fill-in
+  offers `Draft from Figma and my changes`: it drafts the acceptance criteria, expected behaviour or
+  steps from the design and the branch's code changes (the design only, without a repo). You see
+  each draft and choose `Use it / Edit / Skip`; the script still decides whether it counts, and
+  nothing reaches Jira without the preview and your yes. Unknown values stay as questions.
 - **XRay test cases for QA.** With an `xray` block in the config (Playwright and fullstack), `write`
   adds one XRay test case per Playwright test it writes, and `/quality-code:xray <KEY>` writes the
   cases alone, with no test. `core/xray.mjs` appends them to one CSV (`xray.csv`), numbered per
@@ -26,6 +43,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Changed
 
+- **Attachments and links are in the 100 points**, the bar stays at 70. Backend (Vitest): criteria
+  25, testable 15, steps 10, expected 15, attachments 10, links 5, context 5, title prefix 5, feature
+  label 5, environment 5. Frontend (Playwright): criteria 25, testable 15, feature 10, QA plan 10,
+  steps 10, expected 10, attachments 10, links 5, environment 5. Only the attachment count and the
+  link addresses are kept, never file names or contents. The fill-in can add a link; an attachment is
+  added on Jira and counted when the ticket is read again.
 - **Cheaper and faster commands.** Each command now picks its model and effort for the turn it
   starts in: Haiku with low effort for `kpi`, `consumption` and `check`; Sonnet for `setup`,
   `start`, `ticket` and `ticket-eval`; your own model for `write`, `seed` and `xray`. Measured on

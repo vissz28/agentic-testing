@@ -25,7 +25,8 @@ test('simple commands run on Haiku with low effort, the gate on Sonnet, writing 
   }
 })
 // kpi and consumption may run only their own script; the rest any of the plugin's scripts, nothing else.
-const OWN = { kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs":*)', consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/consumption/cli.mjs":*)' }
+// ticket-eval also reads the branch diff (read-only) for the Figma drafts.
+const OWN = { 'ticket-eval': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*) Bash(git diff *)', kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/kpi.mjs":*)', consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/core/consumption/cli.mjs":*)' }
 test('every command pre-approves only the plugin\'s own scripts', () => {
   for (const c of commands) assert.equal(front(c).fields['allowed-tools'], OWN[c] ?? SCRIPTS, c)
 })

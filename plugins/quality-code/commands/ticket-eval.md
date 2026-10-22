@@ -1,7 +1,7 @@
 ---
 description: Score a Jira ticket for test-readiness (the 70-point gate). Refuses thin tickets, guides the fill-in, and can comment on or update the ticket on Jira after a preview.
 argument-hint: <TICKET-KEY> [--ci] [--json] [--refuse-comment]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/core/*) Bash(git diff *)
 model: sonnet
 ---
 
