@@ -25,6 +25,11 @@ Update with `/plugin update quality-code@teamsystem`.
   A repo that already runs Vitest becomes fullstack, and `setup.mjs --vitest-overlap` asks the team's
   own Vitest which files it runs: Vitest's default pattern also takes `e2e/*.spec.ts`, where it fails
   on Playwright's `test()`, so setup offers to add `e2e/**` to Vitest's exclude and checks again.
+- **Criteria drafted from the description's screenshots** (AGT-121). The connector cannot open the
+  images, so when the fill-in drafts acceptance criteria it asks you to paste up to 3 of them (or
+  their paths), or `skip`. What a screen shows goes into the draft for the author to confirm, never
+  personal data. Screenshots never count in the score: criteria only in a screenshot are still a
+  refuse until a draft is confirmed.
 
 ## [0.15.0] - 2026-10-23
 

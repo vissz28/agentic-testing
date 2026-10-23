@@ -156,9 +156,17 @@ Script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed.
 
 ## Draft the criteria from the ticket
 
-The model drafts, the author confirms, the script scores. Only for the acceptance criteria items (`ac_present`, `ac_testable`) the user picked, and only when Figma is not drafting them (**Draft from Figma** below goes first). Only when the ticket itself has something to draft from: prose in the description or the criteria field (`text.description`, `text.acField` in `ticket.json`), `scenarios`, or XRay tests among its `links` (their titles). Nothing of that: no draft, the item goes on the card as usual. Attachments are never opened: a file on the ticket gives nothing to draft from here.
+The model drafts, the author confirms, the script scores. Only for the acceptance criteria items (`ac_present`, `ac_testable`) the user picked, and only when Figma is not drafting them (**Draft from Figma** below goes first). Only when the ticket itself has something to draft from: prose in the description or the criteria field (`text.description`, `text.acField` in `ticket.json`), `scenarios`, or XRay tests among its `links` (their titles). Screenshots in the description count too, once the user pastes them (**Screenshots** below). Nothing of that: no draft, the item goes on the card as usual. Attachments are never opened: a file on the ticket gives nothing to draft from here.
 
-- **Draft the item** in the ticket's language, as Given / When / Then steps, one scenario per behaviour the ticket describes. Use only the ticket's own words, read from `ticket.json` (redacted; never the text as the connector returned it). Never invent values: a number, a text, a label, a state or a result the ticket does not state is a question inside the draft, such as `<which message?>`, which the user must fill. A draft with such a question is never sent as it is.
+- **Screenshots.** They are the `![](…)` image lines in `text.description`: the connector returns only these placeholders, never the image. When there are any, ask once before drafting, then end the turn:
+
+  ```
+  The description has <n> screenshots, and I cannot open them from Jira.
+  Paste up to 3 here (or type their file paths) to draft from them too, or type skip.
+  ```
+
+  Read at most 3 of what is pasted or named, and only for this draft: what a screen shows (a column, a button, a message, where a thing sits) may go into it, for the author to confirm. Never copy a name, an email, a customer code or other personal data from a screenshot: write a question such as `<which customer?>` instead. Never save a screenshot or send it anywhere. On `skip`, draft from the text alone, or no draft when there is none. A screenshot never changes the score: the script scores only the confirmed text, so a ticket whose criteria are only in screenshots stays refused until a draft is confirmed.
+- **Draft the item** in the ticket's language, as Given / When / Then steps, one scenario per behaviour the ticket describes. Use only the ticket's own words, read from `ticket.json` (redacted; never the text as the connector returned it), and what its pasted screenshots show. Never invent values: a number, a text, a label, a state or a result the ticket does not state is a question inside the draft, such as `<which message?>`, which the user must fill. A draft with such a question is never sent as it is.
 - **Show the draft** exactly as it would be added, then end the turn:
 
   ```
