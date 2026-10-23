@@ -134,7 +134,7 @@ test('sync rewrites one ticket or all from the CSV; a ticket that is not a Jira 
 })
 
 test('the folder defaults to the tickets folder', () => {
-  assert.deepEqual(xrayOf({ xray: { csv: 'a.csv' } }), { csv: 'a.csv', folder: '.claude/quality-code/tickets/', headers: XRAY_HEADERS })
+  assert.deepEqual(xrayOf({ xray: { csv: 'a.csv' } }), { csv: 'a.csv', folder: '.quality-code/tickets/', headers: XRAY_HEADERS })
   assert.equal(xrayOf({ ticketsDir: 'qc/t/', xray: { csv: 'a.csv' } }).folder, 'qc/t/')
   assert.equal(xrayOf({}), null)
 })

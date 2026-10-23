@@ -131,8 +131,17 @@ Update with `/plugin update quality-code@teamsystem`.
   on. `--ask` is gone.
 - **The refuse card's order:** `1` fills it in here, `2` posts a comment on Jira, `3` continues anyway,
   `4` stops. `--ci` still comments (now option 2).
+- **Ticket copies default to `.quality-code/tickets`**, not `.claude/quality-code/tickets`. Claude
+  Code asks before every write under `.claude/`, so a `--ci` run could not save `raw.json`,
+  `expected.json` or `target`, and an interactive run got extra prompts. A config that sets
+  `ticketsDir` keeps it (AGT-107).
 
 ### Upgrading
+
+- **New ticket folder.** With no `ticketsDir` in the config, rerun `/quality-code:setup` so
+  `.gitignore` ignores `.quality-code/tickets/*/raw.json`, and move saved tickets with
+  `mkdir -p .quality-code && mv .claude/quality-code/tickets .quality-code/` (or set `"ticketsDir": ".claude/quality-code/tickets"`
+  to stay where you were, prompts included).
 
 - **`languages` now defaults to `["en"]`.** A config without `languages` used to read English and
   Italian; add `"languages": ["en", "it"]` to keep both.

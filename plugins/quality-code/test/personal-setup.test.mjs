@@ -27,7 +27,7 @@ test('repo config wins over the personal one', () => {
   assert.equal(r.source, 'repo')
   assert.equal(r.config.adapter, 'vitest')
   assert.equal(r.path, join(d, '.claude/quality-code.json'))
-  assert.equal(r.config.ticketsDir, '.claude/quality-code/tickets')
+  assert.equal(r.config.ticketsDir, '.quality-code/tickets')
 })
 test('personal only: it is used, with the absolute tickets default', () => {
   const d = tmp(), claude = tmp()

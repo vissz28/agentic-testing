@@ -11,7 +11,7 @@ import { fakeCommand } from '../fake-bin.mjs'
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../../bin/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
 const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
-const LINE = '.claude/quality-code/tickets/*/raw.json'
+const LINE = '.quality-code/tickets/*/raw.json'
 const cli = (d, ...args) => spawnSync(process.execPath, [SETUP, ...args], { cwd: d, env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
 
 test('detects the stack', () => {
@@ -294,7 +294,7 @@ test('write adds the runtime gitignore lines once', () => {
   write(d, cfg, {})
   write(d, cfg, {})
   const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
-  assert.deepEqual(lines, ['.claude/quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/'])
+  assert.deepEqual(lines, ['.quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/'])
 })
 test('the runtime gitignore lines keep the audit log, the boundary log and the run marker out of git', () => {
   const d = repo({})

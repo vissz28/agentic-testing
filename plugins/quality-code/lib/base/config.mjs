@@ -31,7 +31,7 @@ export const DEFAULTS = Object.freeze({
   languages: ['en'],
   features: [],
   titlePrefixes: [],
-  ticketsDir: '.claude/quality-code/tickets',
+  ticketsDir: '.quality-code/tickets',
   redact: { customerId: '\\bU\\d{5,}\\b' },
   messages: {},
   ticketTemplates: { bug: null, story: null },

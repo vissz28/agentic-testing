@@ -19,7 +19,7 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (default `.claude/quality-code/tickets`, with `/` separators and no trailing `/`) from it.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (default `.quality-code/tickets`, with `/` separators and no trailing `/`) from it.
 2. **Parse.** From `$ARGUMENTS`:
    - `<PROJECT>`: the first word that is a project key (`[A-Z][A-Z0-9]*`), mandatory. Missing: `pass a project: /quality-code:tickets-eval <PROJECT>` and stop. It must be in `jira.projects` or `jira.trackingProjects`; if not, say `<PROJECT> is not one of <those keys>. Add it with /quality-code:setup, or pick one of them.` and stop.
    - `--user <name>`, `--status <status>` (a value with spaces is in quotes), `--limit N` (default 50, cap 200; not a whole number of 1 or more: say so and stop), `--json`.

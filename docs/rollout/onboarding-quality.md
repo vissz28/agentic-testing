@@ -60,7 +60,7 @@ Then run `/quality-code:setup` in the repo: it starts from the file, re-confirms
 the `.gitignore` lines. Check `.gitignore` now has:
 
 ```
-.claude/quality-code/tickets/*/raw.json
+.quality-code/tickets/*/raw.json
 .claude/quality-code/*.jsonl
 .claude/quality-code/run.active
 mut-tmp-*

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
-import { normaliseTicketsDir } from '../base/config.mjs'
+import { DEFAULTS, normaliseTicketsDir } from '../base/config.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
@@ -63,7 +63,7 @@ export function formatCard({ rows, summary }) {
 
 /** Write each sanitized ticket to <ticketsDir>/<KEY>/ticket.json. Only used with --save. */
 export function saveTickets(root, config, clean) {
-  const dir = normaliseTicketsDir(config.ticketsDir ?? '.claude/quality-code/tickets')
+  const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
     if (!/^[A-Z][A-Z0-9]*-\d+$/.test(t.key ?? '')) continue
     const d = resolve(root, dir, t.key)
