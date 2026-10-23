@@ -4,7 +4,7 @@
 import { buildVocabulary } from './languages/index.mjs'
 import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
-import { buildBrief, rubricFor, scoreTicket } from './score.mjs'
+import { buildBrief, omittedFor, rubricFor, scoreTicket } from './score.mjs'
 import { asAdapter, isFullstack } from '../base/stack.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
@@ -70,7 +70,7 @@ export function fillMenu(config, brief) {
   const msgs = messagesFor(config, kind)
   const keys = new Set(brief.missing.map(m => m.key))
   // The brief's own omitted keys (a Story's Bug keys among them): each gain is what the score becomes.
-  const omitted = brief.omitted ?? new Set()
+  const omitted = brief.omitted ?? omittedFor(rubric, config, brief)
   const order = Object.keys(rubric.weights)
   const items = brief.missing
     .filter(m => m.key !== 'qa_plan_found' && !(m.key === 'ac_testable' && keys.has('ac_present')))

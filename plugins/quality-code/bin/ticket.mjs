@@ -142,7 +142,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (!a.in) {
-    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null

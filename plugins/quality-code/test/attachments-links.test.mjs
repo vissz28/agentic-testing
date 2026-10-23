@@ -112,6 +112,13 @@ test('sanitize keeps the attachment count and the links (url and title), redacte
   assert.ok(!('links' in sanitizeTicket(c, { key: 'DEMO-1' })))
 })
 
+test('sanitize numbers the UUIDs of the links with the rest of the ticket', () => {
+  const a = '11111111-2222-4333-8444-555555555555', b = '66666666-7777-4888-9999-aaaaaaaaaaaa'
+  const t = sanitizeTicket(BE, { key: 'DEMO-1', summary: 's', text: { description: `order ${a}` }, links: [{ url: `https://x.test/${b}`, title: a }] })
+  assert.equal(t.text.description, 'order 00000000-0000-4000-8000-000000000001')
+  assert.deepEqual(t.links, [{ url: 'https://x.test/00000000-0000-4000-8000-000000000002', title: '00000000-0000-4000-8000-000000000001' }])
+})
+
 test('fill menu offers attachments and links with their gains', () => {
   for (const c of [FE, BE]) {
     const menu = fillMenu(c, buildBrief(c, bare))
