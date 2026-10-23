@@ -152,6 +152,8 @@ export function surface(specSrc, key, dialect, { actual = true } = {}) {
   const range = anchorRange(specSrc, key, dialect)
   if (!range) return null
   const block = stripCodeComments(specSrc.slice(range[0], range[1]))
+  // A dialect whose assertions are no matcher call (Go's if got != want) gives their text itself.
+  if (dialect?.expected?.parts) return dialect.expected.parts(block).join('\n')
   const parts = []
   for (const m of block.matchAll(callRe(dialect))) {
     const open = m.index + m[0].length - 1

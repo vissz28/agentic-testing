@@ -88,14 +88,19 @@ export function anchorRange(src, key, dialect) {
   return [start.idx, next ? next.idx : src.length]
 }
 
-/** ungraded: the titles not graded (a Playwright project's playwright.ungradedTitles), or null. */
+/**
+ * ungraded: the titles not graded (a Playwright project's playwright.ungradedTitles), or null. A dialect
+ * whose marks a regex cannot give (Go: a skip is a call in the body) brings its own suite.marks(src),
+ * each mark with its end, and its own suite.countAssertions(body).
+ */
 export function scoreSpec(src, dialect, ungraded = null) {
   const s = dialect.suite
   const skipRanges = s.skippedGroups ? skippedGroupRanges(src, dialect) : []
-  const marks = testMarks(src, s.testRe)
+  const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe)
+  const count = s.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
-    // A test's slice runs up to the next test.
-    const expects = countAssertions(src.slice(mk.idx, i + 1 < marks.length ? marks[i + 1].idx : src.length))
+    // A test's slice runs up to the next test (or to its own end, when the dialect knows it).
+    const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)))
     const inSkipped = skipRanges.some(([a, b]) => mk.idx >= a && mk.idx < b)
     return { title: mk.title, mod: inSkipped ? 'skip' : mk.mod, expects, idx: mk.idx, capture: Boolean(ungraded?.test(mk.title)) }
   })

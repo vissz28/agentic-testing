@@ -1,0 +1,18 @@
+{"Time":"2026-10-23T10:00:00.000075+02:00","Action":"start","Package":"example.com/demo/orders"}
+{"Time":"2026-10-23T10:00:00.000076+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestTable"}
+{"Time":"2026-10-23T10:00:00.000077+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable","Output":"=== RUN   TestTable\n"}
+{"Time":"2026-10-23T10:00:00.000078+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestTable/zero"}
+{"Time":"2026-10-23T10:00:00.000079+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"=== RUN   TestTable/zero\n"}
+{"Time":"2026-10-23T10:00:00.000080+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"--- FAIL: TestTable/zero (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000081+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"panic: runtime error: index out of range [3] with length 3 [recovered]\n"}
+{"Time":"2026-10-23T10:00:00.000082+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"\tpanic: runtime error: index out of range [3] with length 3\n"}
+{"Time":"2026-10-23T10:00:00.000083+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"\n"}
+{"Time":"2026-10-23T10:00:00.000084+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"goroutine 7 [running]:\n"}
+{"Time":"2026-10-23T10:00:00.000085+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"testing.tRunner.func1.2({0x5b4f40, 0xc000018150})\n"}
+{"Time":"2026-10-23T10:00:00.000086+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"\t/usr/local/go/src/testing/testing.go:1631 +0x24a\n"}
+{"Time":"2026-10-23T10:00:00.000087+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"example.com/demo/orders.TestTable.func1(0xc0000a0820)\n"}
+{"Time":"2026-10-23T10:00:00.000088+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"\t/home/dev/demo/orders/reorder_test.go:36 +0x1d\n"}
+{"Time":"2026-10-23T10:00:00.000089+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestTable/zero","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000090+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestTable","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000091+02:00","Action":"output","Package":"example.com/demo/orders","Output":"FAIL\texample.com/demo/orders\t0.006s\n"}
+{"Time":"2026-10-23T10:00:00.000092+02:00","Action":"fail","Package":"example.com/demo/orders","Elapsed":0.006}

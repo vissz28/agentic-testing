@@ -22,6 +22,8 @@ export const originalOf = file => file.replace(/(^|\/)mut-tmp-\d+-[a-z0-9]+-[a-z
 
 /** { start, end } of each expect(...).matcher...; statement, nested parens and chains included. */
 export function findExpectRanges(src, dialect) {
+  // A dialect whose assertions are no call chain (Go's if got != want { t.Errorf(…) }) finds its own.
+  if (dialect.mutation.ranges) return dialect.mutation.ranges(src)
   const ranges = []
   const re = new RegExp(dialect.mutation.expectRe.source, 'g')
   let m
@@ -54,8 +56,8 @@ export function findExpectRanges(src, dialect) {
 }
 
 export function findTestBlocks(src, dialect) {
-  const marks = testMarks(src, dialect.mutation.testRe)
-  return marks.map((mk, i) => ({ ...mk, start: mk.idx, end: i + 1 < marks.length ? marks[i + 1].idx : src.length }))
+  const marks = dialect.mutation.marks ? dialect.mutation.marks(src) : testMarks(src, dialect.mutation.testRe)
+  return marks.map((mk, i) => ({ ...mk, start: mk.idx, end: mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length) }))
 }
 
 /** Mutants for the baseline-green tests; null when --key names a block that is not there. */

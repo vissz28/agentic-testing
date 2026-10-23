@@ -63,12 +63,21 @@ test('compiled stacks: the types step says they compile in the test run', async 
   }
 })
 
-test('the stub runner leaves the tests not run, never a pass', async () => {
+test('a stub runner leaves the tests not run, never a pass', async () => {
+  const spec = 'tests/OrderTests.cs'
+  const d = repo(spec, 'x\n')
+  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'dotnet', jira: { projects: ['ABC'] } }, dialect: dialectFor('dotnet'), root: d })
+  assert.equal(step(out, 'tests').status, 'not_run')
+  assert.match(step(out, 'tests').summary, /\.NET support is not built yet/)
+  assert.equal(out.verdict, 'not_verified')
+})
+
+test('go: a spec that does not build (or no go at all) leaves the tests not run, never a pass', async () => {
   const spec = 'orders/total_test.go'
   const d = repo(spec, 'x\n')
+  put(d, 'go.mod', 'module example.com/demo\n')
   const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'go', jira: { projects: ['ABC'] } }, dialect: dialectFor('go'), root: d })
   assert.equal(step(out, 'tests').status, 'not_run')
-  assert.match(step(out, 'tests').summary, /Go support is not built yet/)
   assert.equal(out.verdict, 'not_verified')
 })
 

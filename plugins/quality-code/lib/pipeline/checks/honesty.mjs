@@ -44,6 +44,9 @@ function headerPath(rest) {
  */
 export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own = null } = {}) {
   const h = dialect.honesty
+  // A dialect may name its own assertions and skips (Go: t.Errorf, assert.Equal, t.Skip).
+  const assertion = h.assertionRe ?? /\bexpect\s*\(/
+  const skips = h.skips ?? SKIP
   const tracked = new RegExp(`\\b${own ? `(?!${esc(own)}\\b)` : ''}${keySrc}\\b`)
   const taggedKey = new RegExp(`['"\`]@${keySrc}['"\`]`)
   const redTag = redTags.length ? new RegExp(`['"\`](?:${redTags.map(esc).join('|')})['"\`]`) : null
@@ -57,7 +60,7 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
     if (raw.startsWith('+++') || raw.startsWith('---') || raw.startsWith('@@')) continue
     if (raw.startsWith('-')) {
       const body = raw.slice(1)
-      if (/\bexpect\s*\(/.test(body)) out.push({ file, kind: 'assertion removed', line: body.trim() })
+      if (assertion.test(body)) out.push({ file, kind: 'assertion removed', line: body.trim() })
       else if (h.removedDecl.test(body)) out.push({ file, kind: 'test removed', line: body.trim(), title: testTitle(body) })
     } else if (raw.startsWith('+')) {
       const body = raw.slice(1)
@@ -74,7 +77,7 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
       }
       if (h.anchorTags && redTag?.test(body) && !taggedKey.test(body))
         out.push({ file, kind: 'anchor tag without a ticket tag', line: body.trim() })
-      if ((SKIP.some(re => re.test(body)) && !tracked.test(body)) || ONLY.test(body))
+      if ((skips.some(re => re.test(body)) && !tracked.test(body)) || ONLY.test(body))
         out.push({ file, kind: 'test newly skipped', line: body.trim() })
     }
   }

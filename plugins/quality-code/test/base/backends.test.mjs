@@ -145,8 +145,10 @@ test('stack: every backend is the backend side; fullstack runs its backend with 
 })
 
 test('every backend has a dialect of the vitest shape; compiled stacks mutate in place', () => {
+  // Every key Vitest's has; a dialect may add the checks' optional hooks (suite.marks, mutation.ranges, …).
+  const V = dialectFor('vitest')
   const shape = d => ({
-    name: typeof d.name, groupRe: d.groupRe instanceof RegExp, honesty: Object.keys(d.honesty).sort(), suite: Object.keys(d.suite).sort(),
+    name: typeof d.name, groupRe: d.groupRe instanceof RegExp, honesty: Object.keys(V.honesty).every(k => k in d.honesty), suite: Object.keys(V.suite).every(k => k in d.suite),
     mutation: ['expectRe', 'testRe', 'rank', 'flips', 'eligible', 'plan'].every(k => k in d.mutation),
   })
   for (const a of OTHERS) {

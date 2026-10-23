@@ -1,0 +1,3 @@
+# example.com/demo/orders [example.com/demo/orders.test]
+orders/reorder_test.go:12:9: undefined: Reordr
+orders/reorder_test.go:19:3: declared and not used: x

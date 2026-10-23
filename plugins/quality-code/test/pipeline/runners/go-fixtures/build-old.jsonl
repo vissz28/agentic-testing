@@ -1,0 +1,3 @@
+{"Time":"2026-10-23T10:00:00.000093+02:00","Action":"start","Package":"example.com/demo/orders"}
+{"Time":"2026-10-23T10:00:00.000094+02:00","Action":"output","Package":"example.com/demo/orders","Output":"FAIL\texample.com/demo/orders [build failed]\n"}
+{"Time":"2026-10-23T10:00:00.000095+02:00","Action":"fail","Package":"example.com/demo/orders","Elapsed":0}

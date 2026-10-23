@@ -1,0 +1,6 @@
+{"ImportPath":"example.com/demo/orders [example.com/demo/orders.test]","Action":"build-output","Output":"# example.com/demo/orders [example.com/demo/orders.test]\n"}
+{"ImportPath":"example.com/demo/orders [example.com/demo/orders.test]","Action":"build-output","Output":"orders/reorder_test.go:12:9: undefined: Reordr\n"}
+{"ImportPath":"example.com/demo/orders [example.com/demo/orders.test]","Action":"build-fail"}
+{"Time":"2026-10-23T10:00:00.000096+02:00","Action":"start","Package":"example.com/demo/orders"}
+{"Time":"2026-10-23T10:00:00.000097+02:00","Action":"output","Package":"example.com/demo/orders","Output":"FAIL\texample.com/demo/orders [build failed]\n"}
+{"Time":"2026-10-23T10:00:00.000098+02:00","Action":"fail","Package":"example.com/demo/orders","Elapsed":0,"FailedBuild":"example.com/demo/orders [example.com/demo/orders.test]"}

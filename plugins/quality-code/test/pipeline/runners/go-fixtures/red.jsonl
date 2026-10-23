@@ -1,0 +1,41 @@
+{"Time":"2026-10-23T10:00:00.000034+02:00","Action":"start","Package":"example.com/demo/orders"}
+{"Time":"2026-10-23T10:00:00.000035+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestReorder"}
+{"Time":"2026-10-23T10:00:00.000036+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder","Output":"=== RUN   TestReorder\n"}
+{"Time":"2026-10-23T10:00:00.000037+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders"}
+{"Time":"2026-10-23T10:00:00.000038+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"=== RUN   TestReorder/stock_of_4_reorders\n"}
+{"Time":"2026-10-23T10:00:00.000039+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"    reorder_test.go:14: \n"}
+{"Time":"2026-10-23T10:00:00.000040+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"        \tError Trace:\t/home/dev/demo/orders/reorder_test.go:14\n"}
+{"Time":"2026-10-23T10:00:00.000041+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"        \tError:      \tNot equal: \n"}
+{"Time":"2026-10-23T10:00:00.000042+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"        \t            \texpected: 20\n"}
+{"Time":"2026-10-23T10:00:00.000043+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"        \t            \tactual  : 19\n"}
+{"Time":"2026-10-23T10:00:00.000044+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"        \tTest:       \tTestReorder/stock_of_4_reorders\n"}
+{"Time":"2026-10-23T10:00:00.000045+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Output":"    --- FAIL: TestReorder/stock_of_4_reorders (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000046+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_4_reorders","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000047+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_5_does_not"}
+{"Time":"2026-10-23T10:00:00.000048+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_5_does_not","Output":"=== RUN   TestReorder/stock_of_5_does_not\n"}
+{"Time":"2026-10-23T10:00:00.000049+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_5_does_not","Output":"    reorder_test.go:21: Reorder(5) = 3, want 0\n"}
+{"Time":"2026-10-23T10:00:00.000050+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_5_does_not","Output":"    --- FAIL: TestReorder/stock_of_5_does_not (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000051+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestReorder/stock_of_5_does_not","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000052+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestReorder/later"}
+{"Time":"2026-10-23T10:00:00.000053+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/later","Output":"=== RUN   TestReorder/later\n"}
+{"Time":"2026-10-23T10:00:00.000054+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/later","Output":"    reorder_test.go:26: todo: the ticket does not say\n"}
+{"Time":"2026-10-23T10:00:00.000055+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder/later","Output":"    --- SKIP: TestReorder/later (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000056+02:00","Action":"skip","Package":"example.com/demo/orders","Test":"TestReorder/later","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000057+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestReorder","Output":"--- FAIL: TestReorder (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000058+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestReorder","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000059+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestTable"}
+{"Time":"2026-10-23T10:00:00.000060+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable","Output":"=== RUN   TestTable\n"}
+{"Time":"2026-10-23T10:00:00.000061+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestTable/zero"}
+{"Time":"2026-10-23T10:00:00.000062+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"=== RUN   TestTable/zero\n"}
+{"Time":"2026-10-23T10:00:00.000063+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/zero","Output":"    --- PASS: TestTable/zero (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000064+02:00","Action":"pass","Package":"example.com/demo/orders","Test":"TestTable/zero","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000065+02:00","Action":"run","Package":"example.com/demo/orders","Test":"TestTable/negative"}
+{"Time":"2026-10-23T10:00:00.000066+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/negative","Output":"=== RUN   TestTable/negative\n"}
+{"Time":"2026-10-23T10:00:00.000067+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/negative","Output":"    reorder_test.go:38: not ok for -1\n"}
+{"Time":"2026-10-23T10:00:00.000068+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable/negative","Output":"    --- FAIL: TestTable/negative (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000069+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestTable/negative","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000070+02:00","Action":"output","Package":"example.com/demo/orders","Test":"TestTable","Output":"--- FAIL: TestTable (0.00s)\n"}
+{"Time":"2026-10-23T10:00:00.000071+02:00","Action":"fail","Package":"example.com/demo/orders","Test":"TestTable","Elapsed":0}
+{"Time":"2026-10-23T10:00:00.000072+02:00","Action":"output","Package":"example.com/demo/orders","Output":"FAIL\n"}
+{"Time":"2026-10-23T10:00:00.000073+02:00","Action":"output","Package":"example.com/demo/orders","Output":"FAIL\texample.com/demo/orders\t0.005s\n"}
+{"Time":"2026-10-23T10:00:00.000074+02:00","Action":"fail","Package":"example.com/demo/orders","Elapsed":0.005}
