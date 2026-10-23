@@ -24,7 +24,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
    ```
    Quality Code settings
    Project · <path> (<repo: shared with your team, commit it | personal: only you, no repo>)
-     1. Stack           <adapter: frontend (Playwright) | backend (Vitest) | fullstack>
+     1. Stack           <adapter: frontend (Playwright) | backend (Vitest) | fullstack; a runner of `runners` in place of its default, for example backend (Jest, generic checks)>
      2. Jira site       <jira.site host>
      3. Jira projects   <jira.projects>
      4. Base branch     <git.base, or "detected">

@@ -9,6 +9,15 @@
     "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
     "version": { "const": 1 },
     "adapter": { "enum": ["playwright", "vitest", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest: a backend project (tests of the code). fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under Vitest." },
+    "runners": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The project's own runner when it is not Vitest or Playwright. Its tests get the generic checks; Vitest and Playwright keep the specialized ones.",
+      "properties": {
+        "unit": { "enum": ["vitest", "jest", "mocha"], "description": "The runner of the tests of the code (the vitest adapter). Default vitest." },
+        "e2e": { "enum": ["playwright", "cypress"], "description": "The runner of the e2e tests of screens (the playwright adapter). Default playwright." }
+      }
+    },
     "jira": {
       "type": "object",
       "required": ["site", "projects"],

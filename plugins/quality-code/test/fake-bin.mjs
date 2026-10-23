@@ -5,7 +5,7 @@
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
 // and the report is written to the --outputFile path (or, for Stryker, the fileName its temp config file names,
-// or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright). With -g (a Playwright mutant run) and mutantReport,
+// or the PLAYWRIGHT_JSON_OUTPUT_NAME path, for Playwright, or Mocha's output= reporter option). With -g (a Playwright mutant run) and mutantReport,
 // the report is Playwright-shaped, for the file whose pattern is argv[1]. With recordEnv, each call's CI,
 // FORCE_COLOR, NO_COLOR, PLAYWRIGHT_BROWSERS_PATH and report path are appended as one JSON line to <dir>/.fake-<name>.env.
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
@@ -28,7 +28,7 @@ if (cfg && spec.mkdir) {
   const run = JSON.parse((/^const run = (.*)$/m.exec(fs.readFileSync(cfg, 'utf8')) || [0, '{}'])[1])
   if (run.tempDirName) fs.mkdirSync(path.join(dir, run.tempDirName, 'sandbox'), { recursive: true })
 }
-const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || fromCfg || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME || ''
+const out = (args.find(a => a.startsWith('--outputFile=')) || '').slice(13) || (args.find(a => a.startsWith('output=')) || '').slice(7) || fromCfg || process.env.PLAYWRIGHT_JSON_OUTPUT_NAME || ''
 if (spec.recordEnv) {
   const e = process.env
   fs.appendFileSync(path.join(dir, '.fake-${name}.env'), JSON.stringify({ CI: e.CI ?? null, FORCE_COLOR: e.FORCE_COLOR ?? null, NO_COLOR: e.NO_COLOR ?? null, PLAYWRIGHT_BROWSERS_PATH: e.PLAYWRIGHT_BROWSERS_PATH ?? null, report: out }) + '\\n')
@@ -52,7 +52,7 @@ setTimeout(() => {
 }, spec.sleepMs ?? 0)
 `
 
-const PACKAGE = { vitest: 'vitest', playwright: '@playwright/test', stryker: '@stryker-mutator/core', tsc: 'typescript' }
+const PACKAGE = { vitest: 'vitest', playwright: '@playwright/test', stryker: '@stryker-mutator/core', tsc: 'typescript', jest: 'jest', mocha: 'mocha' }
 
 export function fakeBin(dir, name, behaviour) {
   const pkg = join(dir, 'node_modules', PACKAGE[name])

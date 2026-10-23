@@ -7,6 +7,7 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
+import { runnerOf } from '../lib/base/runners.mjs'
 import { isProjectKey, projectKeys } from '../lib/base/keys.mjs'
 import { audit, auditOff } from '../lib/base/audit.mjs'
 import { doneStatusesOf, loadConfig, projectRoot } from '../lib/base/config.mjs'
@@ -103,7 +104,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (a.specs.some(s => normalizeSpec(root, resolve(root, s)) === target)) return err(`--target ${a.target} is one of the specs: name the code the tests check`)
   }
   // A fullstack run picks the dialect per spec.
-  const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(config.adapter), root }
+  const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(runnerOf(config)), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit })
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })

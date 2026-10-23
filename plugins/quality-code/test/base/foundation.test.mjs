@@ -65,7 +65,8 @@ test('dialects', () => {
   assert.equal(ungradedTitlesOf(cfg, p).test('ABC-1 — design-conformance capture'), true)
   assert.equal(ungradedTitlesOf(cfg, v), null, 'a playwright setting never exempts a Vitest test')
   assert.equal(ungradedTitlesOf({}, p), null)
-  assert.throws(() => dialectFor('jest'), /no dialect/)
+  assert.equal(dialectFor('jest').name, 'generic', 'another runner gets the generic tier')
+  assert.throws(() => dialectFor('karma'), /no dialect/)
 })
 test('git: a range starting with "-" is refused inside the helpers (§9 #21)', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-rng-'))

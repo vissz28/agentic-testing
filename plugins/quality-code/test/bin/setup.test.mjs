@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, vitestOverlap, write } from '../../bin/setup.mjs'
+import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
 import { filePattern } from '../../lib/pipeline/runners/playwright.mjs'
 import { calls, fakeBin, fakeCommand } from '../fake-bin.mjs'
@@ -564,30 +564,62 @@ test('detect: a frontend with Vitest and a script that serves it gets a scaffold
   assert.equal(detect(repo({ scripts: { dev: 'tsx watch src/server.ts' }, devDependencies: { vitest: '3' } })).scaffold, null, 'a backend with Vitest')
 })
 
-test('vitestOverlap: the e2e specs the project\'s own Vitest lists, from its realpath; errors when it cannot list them', () => {
+test('unitOverlap (Vitest): the e2e specs the project\'s own Vitest lists, from its realpath; errors when it cannot list them', () => {
   const d = repo({})
   const real = realpathSync(d)
   const list = files => JSON.stringify(files.map(f => ({ file: join(real, f) })))
   fakeBin(d, 'vitest', { stdout: `some log line\n${list(['src/sum.test.ts', 'e2e/smoke.spec.ts', 'e2e/smoke.spec.ts', 'e2e/a/b.spec.ts', 'e2e-other/x.spec.ts'])}` })
-  assert.deepEqual(vitestOverlap(d, 'e2e/'), { files: ['e2e/a/b.spec.ts', 'e2e/smoke.spec.ts'] })
+  assert.deepEqual(unitOverlap(d, 'e2e/'), { files: ['e2e/a/b.spec.ts', 'e2e/smoke.spec.ts'] })
   assert.deepEqual(calls(d, 'vitest')[0], ['list', '--filesOnly', '--json'])
   fakeBin(d, 'vitest', { stdout: list(['src/sum.test.ts']), exit: 1 })
-  assert.deepEqual(vitestOverlap(d, 'e2e/'), { files: [] }, 'a non-zero exit still lists')
+  assert.deepEqual(unitOverlap(d, 'e2e/'), { files: [] }, 'a non-zero exit still lists')
   fakeBin(d, 'vitest', { stdout: 'Error: cannot load config' })
-  assert.deepEqual(vitestOverlap(d, 'e2e/'), { error: 'Vitest could not list its test files' })
-  assert.match(vitestOverlap(repo({}), 'e2e/').error, /Vitest is not installed/)
+  assert.deepEqual(unitOverlap(d, 'e2e/'), { error: 'Vitest could not list its test files' })
+  assert.match(unitOverlap(repo({}), 'e2e/').error, /Vitest is not installed/)
 })
-test('CLI --vitest-overlap: exit 0 when Vitest leaves the e2e folder alone, 1 with the specs it would run, 2 when it cannot tell', () => {
+test('CLI --unit-overlap (Vitest): exit 0 when Vitest leaves the e2e folder alone, 1 with the specs it would run, 2 when it cannot tell', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, adapter: 'fullstack' }, { scaffold: SCAFFOLD }).ok, true)
   const real = realpathSync(d)
   fakeBin(d, 'vitest', { stdout: JSON.stringify([{ file: join(real, 'src/sum.test.js') }, { file: join(real, SMOKE) }]) })
-  let r = cli(d, '--vitest-overlap')
+  let r = cli(d, '--unit-overlap')
   assert.deepEqual([r.status, r.stdout], [1, `Vitest also runs 1 spec(s) in e2e/, and fails on them:\n  ${SMOKE}\n`])
   fakeBin(d, 'vitest', { stdout: JSON.stringify([{ file: join(real, 'src/sum.test.js') }]) })
-  r = cli(d, '--vitest-overlap')
+  r = cli(d, '--unit-overlap')
   assert.deepEqual([r.status, r.stdout], [0, 'ok: Vitest runs none of the specs in e2e/\n'])
   fakeBin(d, 'vitest', { stdout: 'nope' })
-  assert.equal(cli(d, '--vitest-overlap').status, 2)
-  assert.equal(cli(d, '--vitest-overlap', 'x').status, 2, 'takes no argument')
+  assert.equal(cli(d, '--unit-overlap').status, 2)
+  assert.equal(cli(d, '--unit-overlap', 'x').status, 2, 'takes no argument')
+})
+
+// Another runner: the repo keeps its own, and the config names it.
+test('detect: Jest, Mocha and Cypress are the repo\'s own runners, named in runners; Vitest and Playwright are the default', () => {
+  const r = deps => { const x = detect(repo({ devDependencies: deps })); return [x.adapter, x.runners] }
+  assert.deepEqual(r({ jest: '30' }), ['vitest', { unit: 'jest' }])
+  assert.deepEqual(r({ mocha: '12', chai: '5' }), ['vitest', { unit: 'mocha' }])
+  assert.deepEqual(r({ cypress: '16' }), ['playwright', { e2e: 'cypress' }])
+  assert.deepEqual(r({ jest: '30', cypress: '16' }), ['both', { unit: 'jest', e2e: 'cypress' }])
+  assert.deepEqual(r({ vitest: '3', jest: '30', '@playwright/test': '1' }), ['both', {}], 'Vitest and Playwright win')
+  assert.deepEqual(r({}), [null, {}])
+})
+test('detect: a frontend that runs Cypress keeps it, so setup offers no Playwright; a Jest frontend is offered it next to Jest', () => {
+  assert.equal(detect(repo({ scripts: { dev: 'vite' }, dependencies: { react: '19' }, devDependencies: { cypress: '16' } })).scaffold, null)
+  assert.equal(detect(repo({ scripts: { dev: 'vite' }, dependencies: { react: '19' }, devDependencies: { jest: '30' } })).scaffold.install, 'npm install --save-dev @playwright/test')
+})
+test('write refuses a Playwright scaffold in a project whose e2e runner is Cypress', () => {
+  const d = repo({})
+  const r = write(d, { ...cfg, adapter: 'playwright', runners: { e2e: 'cypress' } }, { scaffold: SCAFFOLD })
+  assert.equal(r.ok, false)
+  assert.match(r.errors.join('\n'), /sets up Playwright, and this project's e2e runner is cypress/)
+})
+test('unitOverlap (Jest): the e2e specs Jest lists; Mocha is taken to leave the e2e folder alone', () => {
+  const d = repo({})
+  const real = realpathSync(d)
+  fakeBin(d, 'jest', { stdout: JSON.stringify([join(real, 'src/a.test.js'), join(real, 'e2e/smoke.spec.js')]) })
+  assert.deepEqual(unitOverlap(d, 'e2e/', 'jest'), { files: ['e2e/smoke.spec.js'] })
+  assert.deepEqual(calls(d, 'jest')[0], ['--listTests', '--json'])
+  assert.deepEqual(unitOverlap(d, 'e2e/', 'mocha'), { files: [] })
+  assert.equal(write(d, { ...cfg, adapter: 'fullstack', runners: { unit: 'jest' } }, { scaffold: SCAFFOLD }).ok, true)
+  const r = cli(d, '--unit-overlap')
+  assert.deepEqual([r.status, r.stdout], [1, 'Jest also runs 1 spec(s) in e2e/, and fails on them:\n  e2e/smoke.spec.js\n'])
 })

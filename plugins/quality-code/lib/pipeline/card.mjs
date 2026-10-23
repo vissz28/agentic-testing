@@ -1,4 +1,5 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
+import { runnerLabel } from '../base/runners.mjs'
 const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
@@ -75,7 +76,7 @@ export function riskLine({ score, bar }, color = false) {
 
 export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
   const n = specs.length
-  const sides = outcome.runners?.length ? ` · ${outcome.runners.map(r => ({ vitest: 'Vitest', playwright: 'Playwright' })[r] ?? r).join(' + ')}` : ''
+  const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
@@ -107,7 +108,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']
   if (outcome.incompleteTicket) out.push(riskLine(outcome.incompleteTicket), '')
   out.push(`- **Checked:** ${date.toISOString()}`, `- **Specs:** ${specs.map(s => `\`${s}\``).join(', ') || 'none'}`)
-  if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.join(', ')}`)
+  if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.map(runnerLabel).join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
   out.push(`- **Verdict:** ${VERDICT_TEXT[outcome.verdict] ?? outcome.verdict}`)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)

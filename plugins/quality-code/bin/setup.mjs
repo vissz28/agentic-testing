@@ -1,6 +1,6 @@
 // Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and
 // writes, --smoke runs the smoke test setup writes for a frontend that had no Playwright, and
-// --vitest-overlap lists the e2e specs the project's own Vitest run would pick up too.
+// --unit-overlap lists the e2e specs the project's own unit runner (Vitest, Jest) would pick up too.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
@@ -15,6 +15,7 @@ import { asAdapter } from '../lib/base/stack.mjs'
 import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs'
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
+import { RUNNERS, runnerOf } from '../lib/base/runners.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -54,7 +55,7 @@ function vitestConfigs(root) {
   return names.filter(n => VITEST_CONFIG.test(n) || (VITE_CONFIG.test(n) && viteWithTests(n))).sort()
 }
 
-const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
+const SPEC_FILE = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
 
 function hasSpecBesideCode(dir, budget = { n: 5000 }) {
   let entries = []
@@ -120,6 +121,8 @@ const AUTH_STATE = 'playwright/.auth/user.json'
 const ENV_FILE = '.env.e2e'
 const PLAYWRIGHT_GITIGNORE = ['test-results/', 'playwright-report/']
 const SIGN_IN_GITIGNORE = [`${dirname(AUTH_STATE)}/`, ENV_FILE]
+// The unit runners setup recognises, the first one found winning; Vitest is the specialized one.
+const UNIT_RUNNERS = ['vitest', 'jest', 'mocha']
 
 /** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
 function packageManager(root, pkg) {
@@ -158,6 +161,8 @@ function devServer(root, pkg, pm) {
 function playwrightScaffold(root, pkg, adapter, configs) {
   if (!pkg || configs.length) return null
   const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+  // A repo that runs Cypress keeps it: its e2e tests are written and checked in Cypress.
+  if ('cypress' in deps) return null
   const installed = '@playwright/test' in deps
   const { pm, pnp } = packageManager(root, pkg)
   const app = devServer(root, pkg, pm)
@@ -225,6 +230,7 @@ function scaffoldProblems(root, config, s) {
   if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
   const e = []
   if (config.adapter !== 'playwright' && config.adapter !== 'fullstack') e.push('scaffold: only for "adapter": "playwright" or "fullstack"')
+  else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
   if (typeof s.command !== 'string' || !s.command.trim() || /[\r\n]/.test(s.command)) e.push('scaffold.command: must be the one-line command that starts the app, like "npm run dev"')
   if (typeof s.url !== 'string' || !/^https?:\/\/[^\s'"`\\]+$/.test(s.url)) e.push('scaffold.url: must be the address the app opens at, like "http://localhost:5173"')
   if (typeof s.signIn !== 'boolean') e.push('scaffold.signIn: must be true or false')
@@ -339,16 +345,19 @@ function personalState(env) {
 
 export function detect(root, env = process.env) {
   let adapter = null
+  let runners = {}
   let pkg = null
   const pkgPath = join(root, 'package.json')
   if (existsSync(pkgPath)) {
     try {
       pkg = readJson(pkgPath)
       const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-      const pw = '@playwright/test' in deps
-      const vt = 'vitest' in deps
-      adapter = pw && vt ? 'both' : pw ? 'playwright' : vt ? 'vitest' : null
-    } catch { adapter = null; pkg = null }
+      const unit = UNIT_RUNNERS.find(r => r in deps) ?? null
+      const e2e = '@playwright/test' in deps ? 'playwright' : 'cypress' in deps ? 'cypress' : null
+      adapter = unit && e2e ? 'both' : e2e ? 'playwright' : unit ? 'vitest' : null
+      // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
+      runners = { ...(unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
+    } catch { adapter = null; runners = {}; pkg = null }
   }
   const pwConfigs = playwrightConfigs(root)
   const templates = {}
@@ -362,7 +371,7 @@ export function detect(root, env = process.env) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
   const result = {
-    adapter, templates, existing,
+    adapter, runners, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),
     vitestConfigs: vitestConfigs(root),
@@ -484,22 +493,32 @@ export async function smoke(root, config, { ifFirst = false, run = runPlaywright
   return { code: 0, line: 'ok: the app opens' }
 }
 
+// How a unit runner lists the files it would run, with its default config.
+// ponytail: Mocha runs only its spec glob (./test by default), so it is taken to leave the e2e folder alone.
+const LISTS = {
+  vitest: { packages: ['vitest'], args: ['list', '--filesOnly', '--json'], files: list => list.map(t => t?.file) },
+  jest: { packages: ['jest'], args: ['--listTests', '--json'], files: list => list },
+}
+
 /**
- * The e2e specs the project's own Vitest run (its default config) picks up too, where they fail: Playwright's
- * test() runs only under Playwright. { files } from `vitest list`, or { error } when Vitest cannot list them.
+ * The e2e specs the project's own unit runner (Vitest, Jest) picks up too, where they fail: Playwright's
+ * test() runs only under Playwright. { files } from the runner's own list, or { error } when it cannot list them.
  */
-export function vitestOverlap(root, folder, { timeoutMs = 120000 } = {}) {
-  const bin = toolScript(root, ['vitest'], 'vitest')
-  if (!bin) return { error: 'Vitest is not installed in this project: run npm install' }
+export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 120000 } = {}) {
+  const how = LISTS[runner]
+  if (!how) return { files: [] }
+  const label = RUNNERS[runner]?.label ?? runner
+  const bin = toolScript(root, how.packages, runner)
+  if (!bin) return { error: `${label} is not installed in this project: run npm install` }
   let out
   try {
-    out = execFileSync(process.execPath, [bin, 'list', '--filesOnly', '--json'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: timeoutMs, env: { ...process.env, NO_COLOR: '1', CI: '1' } })
+    out = execFileSync(process.execPath, [bin, ...how.args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: timeoutMs, env: { ...process.env, NO_COLOR: '1', CI: '1' } })
   } catch (e) { out = e.stdout ?? '' }
   let list
-  try { list = JSON.parse(out.slice(out.indexOf('['))) } catch { return { error: 'Vitest could not list its test files' } }
+  try { list = how.files(JSON.parse(out.slice(out.indexOf('[')))) } catch { return { error: `${label} could not list its test files` } }
   let base = root
   try { base = realpathSync(root) } catch {}
-  const files = list.map(t => relative(base, String(t?.file ?? '')).split('\\').join('/')).filter(f => f.startsWith(folder))
+  const files = list.map(f => relative(base, String(f ?? '')).split('\\').join('/')).filter(f => f.startsWith(folder))
   return { files: [...new Set(files)].sort() }
 }
 
@@ -535,17 +554,19 @@ function main(argv) {
     if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
     return smoke(root, cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { process.stdout.write(`${r.line}\n`); return r.code })
   }
-  if (argv[0] === '--vitest-overlap' && argv.length === 1) {
+  if (argv[0] === '--unit-overlap' && argv.length === 1) {
     const cfg = loadConfig(root)
     if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
+    const runner = runnerOf(cfg.config, 'vitest')
+    const label = RUNNERS[runner]?.label ?? runner
     const e2e = e2eFolder(root, cfg.config)
-    const r = e2e.ok ? vitestOverlap(root, e2e.folder) : { error: e2e.error }
+    const r = e2e.ok ? unitOverlap(root, e2e.folder, runner) : { error: e2e.error }
     if (r.error) { process.stdout.write(`${r.error}\n`); return 2 }
-    if (!r.files.length) { process.stdout.write(`ok: Vitest runs none of the specs in ${e2e.folder}\n`); return 0 }
-    process.stdout.write(`Vitest also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}\n`)
+    if (!r.files.length) { process.stdout.write(`ok: ${label} runs none of the specs in ${e2e.folder}\n`); return 0 }
+    process.stdout.write(`${label} also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}\n`)
     return 1
   }
-  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --vitest-overlap\n")
+  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap\n")
   return 2
 }
 
