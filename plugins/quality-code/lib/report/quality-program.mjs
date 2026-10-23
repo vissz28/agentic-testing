@@ -9,36 +9,43 @@ import { dialectFor } from '../base/dialects/index.mjs'
 import { keySource } from '../base/keys.mjs'
 import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../base/stack.mjs'
+import { BACKENDS, isBackend } from '../base/backends.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
 const SPEC = /\.(spec|test)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
+// The build output and environments of the other stacks: a walk of a whole repo (Go's "./") skips them.
+const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
 const pct = (a, b) => (b ? Math.round((100 * a) / b) : null)
 
-function specsIn(root, folder, budget = { n: 20000 }) {
+function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 20000 }) {
   const out = []
   const walk = rel => {
     let entries = []
     try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
     for (const e of entries) {
       if (--budget.n < 0) return
-      const p = `${rel.replace(/\/$/, '')}/${e.name}`
-      if (e.isDirectory()) { if (!SKIP.has(e.name) && !e.name.startsWith('mut-tmp-')) walk(p) }
-      else if (SPEC.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
+      // The repo itself ("./", Go's default layer) lists its files without a "./" in front.
+      const p = rel ? `${rel.replace(/\/$/, '')}/${e.name}` : e.name
+      if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-')) walk(p) }
+      else if (spec.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
     }
   }
-  walk(folder)
+  walk(String(folder).replace(/^(?:\.\/)+/, ''))
   return out
 }
 
-/** The project's spec files, each with its adapter: the Vitest layer folders and the e2e folder. */
+/** The project's spec files, each with its adapter: the backend's layer folders and the e2e folder. */
 export function projectSpecs(root, config) {
   const seen = new Map()
   for (const adapter of adaptersOf(config)) {
     const view = asAdapter(config, adapter)
-    const folders = adapter === 'vitest' ? layersOf(view).map(l => l.folder) : [e2eFolder(root, view).folder].filter(Boolean)
-    for (const f of folders) for (const p of specsIn(root, f)) if (!seen.has(p)) seen.set(p, adapter)
+    const backend = isBackend(adapter)
+    const folders = backend ? layersOf(view).map(l => l.folder) : [e2eFolder(root, view).folder].filter(Boolean)
+    // Each backend's own test file names; Vitest and Playwright keep the JS/TS spec names.
+    const names = backend && adapter !== 'vitest' ? { spec: BACKENDS[adapter].testFile, skip: SKIP_BUILD } : {}
+    for (const f of folders) for (const p of specsIn(root, f, names)) if (!seen.has(p)) seen.set(p, adapter)
   }
   return [...seen].map(([path, adapter]) => ({ path, adapter }))
 }

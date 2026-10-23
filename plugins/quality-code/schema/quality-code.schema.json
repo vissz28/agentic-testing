@@ -8,7 +8,8 @@
   "properties": {
     "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
     "version": { "const": 1 },
-    "adapter": { "enum": ["playwright", "vitest", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest: a backend project (tests of the code). fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under Vitest." },
+    "adapter": { "enum": ["playwright", "vitest", "pytest", "junit", "go", "dotnet", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest, pytest, junit, go or dotnet: a backend project (tests of the code), run by Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test. fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under the backend runner (backend, default vitest)." },
+    "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "default": "vitest", "description": "Only with adapter fullstack: the runner of the backend side." },
     "jira": {
       "type": "object",
       "required": ["site", "projects"],
@@ -124,6 +125,47 @@
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300 },
         "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's specs go, ending in /. Must not be inside a forbidden boundary." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:write may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"test/\" }." },
         "stryker": { "type": "object", "additionalProperties": false, "properties": { "threshold": { "type": "integer", "minimum": 0, "maximum": 100, "default": 60, "description": "Share of Stryker's code changes the tests must catch, in percent." }, "timeoutSeconds": { "type": "integer", "minimum": 60, "maximum": 7200, "default": 1800, "description": "Seconds one Stryker run may take: it reruns the tests once per code change." } }, "description": "Used only when the project has node_modules/.bin/stryker." }
+      }
+    },
+    "pytest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only with adapter pytest, or fullstack with backend pytest. How quality-code runs your pytest tests.",
+      "properties": {
+        "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:write may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"tests/\" }." },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300, "description": "Seconds one test process may take." },
+        "command": { "type": "string", "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "The project's own test command, when the default is wrong: a template that may hold {files} (the test files), {report} (the report file read back) and {test} (one test's name)." },
+        "typeCheck": { "type": "string", "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "Optional type-check command, like \"mypy {files}\". Left out, Python has no type step." }
+      }
+    },
+    "junit": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only with adapter junit, or fullstack with backend junit. How quality-code runs your JUnit (Maven or Gradle) tests.",
+      "properties": {
+        "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:write may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"src/test/java/\" }." },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one test process may take." },
+        "command": { "type": "string", "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "The project's own test command, when the default is wrong: a template that may hold {files} (the test files), {report} (the report file read back) and {test} (one test's name)." }
+      }
+    },
+    "go": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only with adapter go, or fullstack with backend go. How quality-code runs your go test tests.",
+      "properties": {
+        "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. \"./\" is the whole repo: Go tests live beside the code. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:write may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"./\" }." },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300, "description": "Seconds one test process may take." },
+        "command": { "type": "string", "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "The project's own test command, when the default is wrong: a template that may hold {files} (the test files), {report} (the report file read back) and {test} (one test's name)." }
+      }
+    },
+    "dotnet": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Only with adapter dotnet, or fullstack with backend dotnet. How quality-code runs your dotnet test tests.",
+      "properties": {
+        "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:write may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"tests/\" }." },
+        "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one test process may take." },
+        "command": { "type": "string", "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "The project's own test command, when the default is wrong: a template that may hold {files} (the test files), {report} (the report file read back) and {test} (one test's name)." }
       }
     },
     "playwright": {

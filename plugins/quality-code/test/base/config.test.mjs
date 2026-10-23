@@ -443,7 +443,7 @@ test('fullstack: both blocks, both seed kinds and sides are allowed; sides only 
     'sides.backend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
     'sides.frontend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
   ])
-  assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found "jest")'])
+  assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest", "pytest", "junit", "go" or "dotnet" (backend) or "fullstack" (both) (found "jest")'])
 })
 test('git.base: a branch name, optional; the config keeps it as given', () => {
   assert.equal(validateConfig({ ...good, git: { base: 'develop' } }).ok, true)
@@ -522,8 +522,10 @@ test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
 
 test('the schema knows every top-level field the validator takes, fullstack included', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
-  assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'fullstack'])
-  for (const f of ['sides', 'qaPlans', 'xray', 'git']) assert.ok(schema.properties[f], f)
+  assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'pytest', 'junit', 'go', 'dotnet', 'fullstack'])
+  assert.deepEqual(schema.properties.backend.enum, ['vitest', 'pytest', 'junit', 'go', 'dotnet'])
+  for (const f of ['sides', 'qaPlans', 'xray', 'git', 'backend', 'pytest', 'junit', 'go', 'dotnet']) assert.ok(schema.properties[f], f)
+  for (const b of ['pytest', 'junit', 'go', 'dotnet']) assert.deepEqual(Object.keys(schema.properties[b].properties), ['layers', 'timeoutSeconds', 'command', ...(b === 'pytest' ? ['typeCheck'] : [])], b)
   assert.equal(schema.properties.xray.properties.csv.pattern, schema.properties.qaPlans.pattern)
   assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack'])
   assert.equal(schema.properties.qaPlans.pattern, schema.properties.vitest.properties.tsconfig.pattern)

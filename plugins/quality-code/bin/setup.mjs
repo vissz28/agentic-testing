@@ -50,6 +50,31 @@ function vitestConfigs(root) {
 
 const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
 
+// The files that name a Python project's test runner; any of them that mentions pytest makes it pytest.
+const PYTHON_FILES = /^(?:pyproject\.toml|pytest\.ini|setup\.cfg|tox\.ini|requirements[\w.-]*\.txt)$/
+const DOTNET_FILES = /\.(?:csproj|fsproj|sln)$/
+
+/**
+ * The backend runners a repo shows, in the order setup proposes them: Vitest (package.json), pytest,
+ * JUnit (Maven or Gradle), Go (go.mod), .NET (a project or solution file, at the top or one folder down).
+ */
+export function detectBackends(root, deps = {}) {
+  let names = []
+  try { names = readdirSync(root) } catch {}
+  const read = n => { try { return readFileSync(join(root, n), 'utf8').slice(0, 1 << 20) } catch { return '' } }
+  const oneDown = re => names.some(n => re.test(n)) || names.some(n => {
+    if (n.startsWith('.') || n === 'node_modules') return false
+    try { return readdirSync(join(root, n)).some(m => re.test(m)) } catch { return false }
+  })
+  const found = []
+  if ('vitest' in deps) found.push('vitest')
+  if (names.includes('pytest.ini') || names.some(n => PYTHON_FILES.test(n) && /\bpytest\b/.test(read(n)))) found.push('pytest')
+  if (['pom.xml', 'build.gradle', 'build.gradle.kts'].some(n => names.includes(n))) found.push('junit')
+  if (names.includes('go.mod')) found.push('go')
+  if (oneDown(DOTNET_FILES)) found.push('dotnet')
+  return found
+}
+
 function hasSpecBesideCode(dir, budget = { n: 5000 }) {
   let entries = []
   try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return false }
@@ -206,17 +231,19 @@ function personalState(env) {
 }
 
 export function detect(root, env = process.env) {
-  let adapter = null
+  let deps = {}
   const pkgPath = join(root, 'package.json')
   if (existsSync(pkgPath)) {
     try {
       const pkg = readJson(pkgPath)
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-      const pw = '@playwright/test' in deps
-      const vt = 'vitest' in deps
-      adapter = pw && vt ? 'both' : pw ? 'playwright' : vt ? 'vitest' : null
-    } catch { adapter = null }
+      deps = { ...pkg.dependencies, ...pkg.devDependencies }
+    } catch { deps = {} }
   }
+  // The backend runner: the first one found; with Playwright too the repo is both (fullstack + backend).
+  const backends = detectBackends(root, deps)
+  const backend = backends[0] ?? null
+  const pw = '@playwright/test' in deps
+  const adapter = pw && backend ? 'both' : pw ? 'playwright' : backend
   const templates = {}
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
@@ -228,7 +255,7 @@ export function detect(root, env = process.env) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
   const result = {
-    adapter, templates, existing,
+    adapter, backend, backends, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),
     vitestConfigs: vitestConfigs(root),

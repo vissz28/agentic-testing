@@ -11,6 +11,11 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Added
 
+- **Backend tests for every stack** (AGT-128): the registry of backend runners (`vitest`, `pytest`,
+  `junit`, `go`, `dotnet`) behind `adapter`, and `backend` on a fullstack project. Each has its own
+  config block (`layers`, `timeoutSeconds`, `command`), test file names, writing guide and rubric (the
+  backend one); Stryker and `tsc` stay Vitest's and show `not applicable` elsewhere, and compiled
+  stacks mutate the spec in place, always restored. Setup detects each stack.
 - **Three run commands replace `/quality-code:check`** (AGT-127). `/quality-code:run-frontend` runs
   every frontend (Playwright) spec of the project through the pipeline, `/quality-code:run-backend`
   every backend (Vitest) spec, and `/quality-code:run-pipeline` both together, the full suite. The

@@ -1,6 +1,8 @@
 // Assertion mutation: does each generated assertion bind the value it checks? Strict mutants of the
 // expect statements in baseline-green tests, each run alone from a temp sibling of the spec.
-// Any survivor fails (the bar is 100%). The original spec is never written.
+// Any survivor fails (the bar is 100%). The original spec is never written, except in place: a
+// compiled language's dialect (mutation.inPlace) cannot run a sibling copy (a duplicate class or
+// function), so each mutant goes over the spec itself and its original bytes always come back.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { result } from '../../base/result.mjs'
@@ -92,7 +94,8 @@ export function sweepStale(dir) {
 
 export async function run({ spec, key = null, baseline = null, max = null, thorough = false, timeoutMs = 300_000 }, ctx) {
   const specPath = resolve(ctx.root, spec)
-  const src = readFileSync(specPath, 'utf8')
+  const bytes = readFileSync(specPath)
+  const src = bytes.toString('utf8')
   sweepStale(dirname(specPath))
   let passed = baseline
   if (!passed) {
@@ -110,9 +113,11 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   mutants = [...mutants].sort((a, b) => rank(a.kind) - rank(b.kind))
   if (max != null && mutants.length > max) mutants = mutants.slice(0, Number(max))
 
-  const tmp = tempSpecPath(specPath)
-  const relTmp = join(dirname(spec), basename(tmp))
-  const cleanup = () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
+  const inPlace = ctx.dialect.mutation.inPlace === true
+  const tmp = inPlace ? specPath : tempSpecPath(specPath)
+  const relTmp = inPlace ? spec : join(dirname(spec), basename(tmp))
+  // In place, cleaning up is putting the original bytes back: after each mutant, in finally, on a signal.
+  const cleanup = inPlace ? () => { try { writeFileSync(specPath, bytes) } catch {} } : () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
   const onSignal = () => { cleanup(); process.exit(130) }
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
@@ -120,9 +125,10 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   try {
     for (const m of mutants) {
       try { writeFileSync(tmp, applyMutant(src, m)) } catch (e) {
-        return result('mutation', 'not_run', `cannot write the temp mutant next to the spec: ${String(e?.message ?? e).split('\n')[0]}`)
+        return result('mutation', 'not_run', `cannot write the ${inPlace ? 'mutant into the spec' : 'temp mutant next to the spec'}: ${String(e?.message ?? e).split('\n')[0]}`)
       }
-      const r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs })
+      let r
+      try { r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs }) } finally { if (inPlace) cleanup() }
       // A namesake in another ticket's block never kills this one's mutant. A result with no describe path
       // is taken as it is: it cannot be in another block.
       const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || !t.path?.length || inKeyBlock(t, key))) : []

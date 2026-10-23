@@ -3,11 +3,15 @@ import { labelOverride, templateFor } from './messages.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base/stack.mjs'
+import { backendOf, isBackend, runnerLabel } from '../base/backends.mjs'
 
 /** Pass bar. A constant: never read from config or flags. */
 export const THRESHOLD = 70
 
 const RUBRICS = { playwright, vitest }
+
+/** The rubric of an adapter: every backend runner is scored with the backend rubric (id "vitest"), Playwright with its own. */
+export const rubricOfAdapter = adapter => (adapter === 'playwright' ? playwright : isBackend(adapter) ? vitest : undefined)
 
 /** A Story is never asked for these: they are Bug language. */
 const NOT_ON_STORY = ['environment', 'expected_defined']
@@ -25,7 +29,7 @@ export function omittedFor(rubric, config, ticket) {
 /** The rubric a ticket is scored with. On a fullstack project it depends on the ticket's side: see buildBrief. */
 export function rubricFor(config, ticket = null) {
   if (isFullstack(config)) return RUBRICS[buildBrief(config, ticket ?? {}).rubric]
-  const r = RUBRICS[config.adapter]
+  const r = rubricOfAdapter(config.adapter)
   if (!r) throw new Error(`adapter "${config.adapter}" has no rubric`)
   return r
 }
@@ -70,11 +74,13 @@ export function decideGate(score) {
  * both sides, so the lower score decides.
  */
 export function buildBrief(config, ticket) {
-  if (!isFullstack(config)) return briefFor(config, RUBRICS[config.adapter] ?? rubricFor(config), ticket)
+  if (!isFullstack(config)) return briefFor(config, rubricOfAdapter(config.adapter) ?? rubricFor(config), ticket)
   const side = sideFor(config, ticket)
-  const briefs = adaptersForSide(side).map(a => briefFor({ ...config, adapter: a }, RUBRICS[a], ticket))
+  const briefs = adaptersForSide(side, config).map(a => briefFor({ ...config, adapter: a }, rubricOfAdapter(a), ticket))
   const brief = briefs.reduce((low, b) => (b.score < low.score ? b : low))
   brief.side = side
+  // Non-enumerable, like rubric: the side line names the project's backend runner.
+  Object.defineProperty(brief, 'backendLabel', { value: runnerLabel(backendOf(config)), enumerable: false })
   if (briefs.length > 1) brief.sides = Object.fromEntries(briefs.map(b => [sideOfAdapter(b.rubric), { score: b.score, gate: b.gate }]))
   return brief
 }
@@ -124,11 +130,12 @@ export function formatReport(brief) {
 }
 
 const SIDE_TEXT = {
-  frontend: 'frontend: Playwright tests of a screen',
-  backend: 'backend: Vitest tests of the code',
-  fullstack: 'fullstack: Vitest and Playwright tests; the lower of the two scores decides',
+  frontend: () => 'frontend: Playwright tests of a screen',
+  backend: b => `backend: ${b} tests of the code`,
+  fullstack: b => `fullstack: ${b} and Playwright tests; the lower of the two scores decides`,
 }
 
 function sideLine(brief) {
-  return `Side: ${SIDE_TEXT[brief.side] ?? 'not marked on the ticket, so scored for both Vitest and Playwright; the lower score decides'}`
+  const b = brief.backendLabel ?? 'Vitest'
+  return `Side: ${SIDE_TEXT[brief.side]?.(b) ?? `not marked on the ticket, so scored for both ${b} and Playwright; the lower score decides`}`
 }

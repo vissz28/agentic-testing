@@ -40,17 +40,17 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
      `1` gives `adapter: "playwright"`, `2` `"vitest"`, `3` `"fullstack"`. The adapter is used only to score tickets. Then step 4 with the personal rules, and step 5 with the personal done line.
 2. **This project.** No card here: find the values of the Confirm card. Read `adapter`, `here`, `base`, `existing` (and `existingError` when the old file is broken) in the `SETUP_JSON:` line.
-   - `adapter` is `null`: stop with `This stack is not supported yet (v1: Playwright, Vitest, or both).`
-   - **Stack.** `vitest` or `playwright`: that one. `both` (the repo has Vitest and Playwright): propose `fullstack`, or `existing.adapter` on a rerun. Ask nothing now; to change it from the Confirm card, show this card and end the turn:
+   - `adapter` is `null`: stop with `This stack is not supported yet (Playwright, and for the backend Vitest, pytest, JUnit, Go or .NET).`
+   - **Stack.** `vitest` or `playwright`, or another backend runner (`pytest`, `junit`, `go`, `dotnet`): that one. `backend` in the detect result names the backend runner; `<Runner>` below is its name: Vitest, pytest, JUnit, Go or .NET. `both` (the repo has Vitest and Playwright, or another backend runner and Playwright): propose `fullstack`, with `"backend": "<backend>"` when `backend` is not `vitest`, or `existing.adapter` (and `existing.backend`) on a rerun. Ask nothing now; to change it from the Confirm card, show this card and end the turn:
 
      ```
-     This repo has both Vitest and Playwright.
-     1. Fullstack: backend tests with Vitest, frontend tests with Playwright
+     This repo has both <Runner> and Playwright.
+     1. Fullstack: backend tests with <Runner>, frontend tests with Playwright
      2. Frontend only: Playwright
-     3. Backend only: Vitest
+     3. Backend only: <Runner>
      ```
 
-     `1` gives `adapter: "fullstack"`, `2` `"playwright"`, `3` `"vitest"`.
+     `1` gives `adapter: "fullstack"` (plus `backend` when it is not `vitest`), `2` `"playwright"`, `3` `"<backend>"`.
    - **GitLab project.** If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks. The GitLab project is read from the remote every time; it is not written to the config.
    - **Base branch** (`git.base`: the branch feature branches start from and merge into; start, spec and check diff against it). On a rerun, keep `existing.git.base` when it is set. Else, when the GitLab project was found, make one read-only GitLab call for its 20 most recently merged merge requests and propose their most common target branch (from `recent merge requests`). Else propose `base.proposed` from the detect result: `base.source` `develop` reads `from origin/develop`, `origin-head` reads `from origin/HEAD`. When `base` is null and nothing else proposes one, leave `git.base` out and show `none found (main or master at run time)`.
 3. **Jira.** Using the Atlassian connector. No card when the values are clear:
@@ -64,7 +64,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    Quality Code setup
      Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
      Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
-     Stack    <frontend (Playwright) | backend (Vitest) | fullstack (Vitest and Playwright), from adapter>
+     Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend>
      Jira     <site host>, project(s) <keys>
      Base     <branch>   (from <where it was found>)
    Writes .claude/quality-code.json:
@@ -74,7 +74,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   The config is `version: 1`, `adapter`, `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
+   The config is `version: 1`, `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
 
    - **Personal setup (option 2):** the card has no Folder, Remote, Stack or Base line, and shows `Tickets  <frontend | backend | both>` under Jira; in place of the `Writes` line it says `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` (inline, as below). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors, `2` and `3` work as below.
    - **1:** build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.

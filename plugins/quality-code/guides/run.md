@@ -16,7 +16,7 @@ Shared by `/quality-code:run-frontend`, `/quality-code:run-backend` and `/qualit
 
 ## The suite
 
-The command that sent you here names its suite: `frontend` (`/quality-code:run-frontend`: the Playwright specs), `backend` (`/quality-code:run-backend`: the Vitest specs) or `full` (`/quality-code:run-pipeline`: both). Keep it as `<suite>` for every step below.
+The command that sent you here names its suite: `frontend` (`/quality-code:run-frontend`: the Playwright specs), `backend` (`/quality-code:run-backend`: the specs of the backend runner, Vitest, pytest, JUnit, Go or .NET) or `full` (`/quality-code:run-pipeline`: both). Keep it as `<suite>` for every step below.
 
 ## Steps
 

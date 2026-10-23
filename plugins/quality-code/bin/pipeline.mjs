@@ -2,7 +2,7 @@
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
-// --suite takes every spec of one side (frontend: the e2e folder, backend: the Vitest layers) or of both.
+// --suite takes every spec of one side (frontend: the e2e folder, backend: the backend's layers) or of both.
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,15 +13,18 @@ import { doneStatusesOf, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { THRESHOLD } from '../lib/ticket/score.mjs'
 import { formatCard, formatRunLog } from '../lib/pipeline/card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/pipeline.mjs'
-import { adaptersOf, isFullstack } from '../lib/base/stack.mjs'
+import { adaptersForSide, adaptersOf, isFullstack } from '../lib/base/stack.mjs'
+import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
-// The adapters a suite runs: frontend is Playwright, backend is Vitest, full is whatever the project has.
-const SUITES = { frontend: ['playwright'], backend: ['vitest'], full: null }
-const SIDE = { frontend: 'frontend (Playwright)', backend: 'backend (Vitest)' }
+// The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
+// full is whatever the project has.
+const SUITES = ['frontend', 'backend', 'full']
+const suiteAdapters = (suite, config) => (suite === 'full' ? null : adaptersForSide(suite, config))
+const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite, config)[0])})`
 
 function parse(argv) {
   const a = { json: false, noAudit: false, specs: [] }
@@ -37,7 +40,7 @@ function parse(argv) {
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
   }
-  if (a.suite !== undefined && !Object.hasOwn(SUITES, a.suite)) throw new Error(`--suite must be frontend, backend or full, not "${a.suite}"`)
+  if (a.suite !== undefined && !SUITES.includes(a.suite)) throw new Error(`--suite must be frontend, backend or full, not "${a.suite}"`)
   if (a.suite !== undefined && a.specs.length) throw new Error('give spec paths or --suite, not both')
   if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
@@ -59,10 +62,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const config = cfg.config
   if (a.suite !== undefined) {
     const has = adaptersOf(config)
-    const want = SUITES[a.suite] ?? has
-    if (!want.some(x => has.includes(x))) return err(`This project has no ${SIDE[a.suite]} tests: its adapter is ${config.adapter}.`)
+    const want = suiteAdapters(a.suite, config) ?? has
+    if (!want.some(x => has.includes(x))) return err(`This project has no ${sideName(a.suite, config)} tests: its adapter is ${config.adapter}.`)
     a.specs = projectSpecs(root, config).filter(s => want.includes(s.adapter)).map(s => s.path)
-    if (!a.specs.length) return err(`No ${a.suite === 'full' ? '' : `${SIDE[a.suite]} `}spec files found in the project's test folders.`)
+    if (!a.specs.length) return err(`No ${a.suite === 'full' ? '' : `${sideName(a.suite, config)} `}spec files found in the project's test folders.`)
     if (a.target !== undefined && a.suite === 'frontend') return err('--target runs Stryker, which is for Vitest specs: leave it out for the frontend suite')
   }
   for (const s of a.specs) {
@@ -96,6 +99,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   let target = null
   if (a.target !== undefined && config.adapter === 'playwright') return err('--target runs Stryker, which is for Vitest projects: leave it out for Playwright specs')
+  const backend = backendOf(config)
+  if (a.target !== undefined && backend && !BACKENDS[backend].stryker) return err(`--target runs Stryker, which is for Vitest projects: leave it out for ${runnerLabel(backend)} specs`)
   if (a.target !== undefined) {
     target = normalizeSpec(root, resolve(root, a.target))
     if (!inside(target)) return err(`--target must be inside the project: ${a.target}`)

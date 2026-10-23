@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/base/stack.mjs'
+import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 
@@ -41,10 +42,15 @@ export function playwrightTestDirs(root, config) {
   return f.ok && f.source !== 'default' ? [f.folder] : ['e2e/', 'tests/']
 }
 
-export function kindOf(path, adapter, testDirs = []) {
-  if (TEST_NAME.test(path)) return 'test'
+/**
+ * test, code or other. JS/TS spec names and Playwright's test folders as always; a backend other than
+ * Vitest adds its own test names (test_x.py, FooTest.java, x_test.go, FooTests.cs) and source files.
+ */
+export function kindOf(path, adapter, testDirs = [], backend = isBackend(adapter) ? adapter : null) {
+  const own = backend && backend !== 'vitest' ? BACKENDS[backend] : null
+  if (TEST_NAME.test(path) || own?.testFile.test(path)) return 'test'
   if (adapter === 'playwright' && testDirs.some(d => path.startsWith(d))) return 'test'
-  return CODE_EXT.test(path) ? 'code' : 'other'
+  return CODE_EXT.test(path) || own?.codeFile.test(path) ? 'code' : 'other'
 }
 
 /** `git status --porcelain=v1 -z` → files. Untracked counts as added; a rename is followed by its old path. */
@@ -168,7 +174,7 @@ export function detect(root, config, { base: baseFlag } = {}) {
   out.files = [...files.values()]
     .filter(f => f.path.startsWith(prefix))
     .map(f => ({ ...f, path: f.path.slice(prefix.length) }))
-    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, playwright ? 'playwright' : config.adapter, dirs), committed: f.committed }))
+    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, playwright ? 'playwright' : config.adapter, dirs, backendOf(config)), committed: f.committed }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   for (const f of out.files) {
     out.counts[f.kind]++
@@ -203,7 +209,7 @@ export function merged(root, config, key) {
     const seen = new Map()
     for (const f of list) if (f.path?.startsWith(prefix)) seen.set(f.path.slice(prefix.length), f.status)
     out.files = [...seen].sort(([a], [b]) => (a < b ? -1 : 1)).map(([path, status]) => {
-      const kind = I18N.test(path) ? 'code' : kindOf(path, playwright ? 'playwright' : config.adapter, dirs)
+      const kind = I18N.test(path) ? 'code' : kindOf(path, playwright ? 'playwright' : config.adapter, dirs, backendOf(config))
       out.counts[kind]++
       return { path, status, kind }
     })

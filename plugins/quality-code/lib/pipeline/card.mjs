@@ -1,4 +1,5 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
+import { runnerLabel } from '../base/backends.mjs'
 const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
@@ -75,7 +76,7 @@ export function riskLine({ score, bar }, color = false) {
 
 export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
   const n = specs.length
-  const sides = outcome.runners?.length ? ` · ${outcome.runners.map(r => ({ vitest: 'Vitest', playwright: 'Playwright' })[r] ?? r).join(' + ')}` : ''
+  const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)

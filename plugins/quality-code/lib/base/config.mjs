@@ -3,13 +3,20 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { matches } from './boundary.mjs'
+import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence'])
+const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
-const ADAPTERS = ['playwright', 'vitest', 'fullstack']
+const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
+// The backends other than Vitest: each has a block of its own options, named after it.
+const OTHER_BACKENDS = BACKEND_ADAPTERS.filter(a => a !== 'vitest')
+// The placeholders a backend's own test command may hold.
+const COMMAND_SLOTS = new Set(['files', 'report', 'test'])
+const quoted = list => list.map(a => `"${a}"`)
+const orList = list => `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
 const PATH_RULE = 'must be a relative path inside the project (no "..", not absolute, one line)'
 const LAYER_NAME = /^[a-z][a-z0-9-]{0,30}$/
@@ -98,13 +105,54 @@ function folderErrors(folder, name, rules, e) {
 
 const guideOk = g => pathOk(g) && /\.md$/i.test(g)
 
+/** The layers of a backend block: 1 to 5 { name, folder, guide }, names unique, folders writable. */
+function layerErrors(ls, name, rules, e) {
+  if (ls === undefined) return
+  if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) return e.push(`${name}.layers: must be a list of 1 to 5 { "name", "folder", "guide" }`)
+  const seen = new Set()
+  ls.forEach((l, i) => {
+    if (!isObject(l)) { e.push(`${name}.layers[${i}]: must be an object with "name", "folder" and an optional "guide"`); return }
+    for (const k of Object.keys(l)) if (!['name', 'folder', 'guide'].includes(k)) e.push(`${name}.layers[${i}].${k}: unknown field (only "name", "folder" and "guide")`)
+    if (typeof l.name !== 'string' || !LAYER_NAME.test(l.name)) e.push(`${name}.layers[${i}].name ${JSON.stringify(l.name)} must be lower-case letters, digits and "-", starting with a letter, like "unit"`)
+    else if (seen.has(l.name)) e.push(`${name}.layers[${i}].name "${l.name}" appears twice`)
+    else seen.add(l.name)
+    folderErrors(l.folder, `${name}.layers[${i}].folder`, rules, e)
+    if (l.guide !== undefined && !guideOk(l.guide)) e.push(`${name}.layers[${i}].guide ${JSON.stringify(l.guide)} must be a relative path to a .md file inside the project`)
+  })
+}
+
+/** One line of shell text, not empty. */
+const lineOk = v => typeof v === 'string' && v.trim() !== '' && !/[\r\n]/.test(v)
+
+/** The block of a backend other than Vitest: layers, timeoutSeconds, command (and pytest's typeCheck). */
+function otherBackendErrors(b, name, e) {
+  const fields = ['layers', 'timeoutSeconds', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
+  for (const k of Object.keys(b)) if (!fields.includes(k)) e.push(`${name}.${k}: unknown field (only ${orList(quoted(fields))})`)
+  const t = b.timeoutSeconds
+  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+  // The test file names are the backend's own, so a layer may sit in a code folder (src/test/java/, Go's
+  // tests beside the code): the boundary lets test files through by their name, see boundary.mjs.
+  layerErrors(b.layers, name, { forbidden: [], allow: [] }, e)
+  if (b.command !== undefined) {
+    if (!lineOk(b.command)) e.push(`${name}.command: must be one line of text, the project's test command, like "${name === 'pytest' ? 'poetry run pytest {files} --junitxml={report}' : 'make test'}"`)
+    else for (const m of b.command.matchAll(/\{([^}]*)\}/g)) if (!COMMAND_SLOTS.has(m[1])) e.push(`${name}.command: unknown placeholder {${m[1]}} (only {files}, {report} and {test})`)
+  }
+  if (b.typeCheck !== undefined && !lineOk(b.typeCheck)) e.push(`${name}.typeCheck: must be one line of text, the type-check command, like "mypy {files}"`)
+}
+
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
   for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
   if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
-  if (!ADAPTERS.includes(c.adapter)) e.push(`adapter: must be "playwright" (frontend), "vitest" (backend) or "fullstack" (both) (found ${JSON.stringify(c.adapter)})`)
-  const uses = a => c.adapter === a || c.adapter === 'fullstack'
+  if (!ADAPTERS.includes(c.adapter)) e.push(`adapter: must be "playwright" (frontend), ${orList(quoted(BACKEND_ADAPTERS))} (backend) or "fullstack" (both) (found ${JSON.stringify(c.adapter)})`)
+  // The backend side of a fullstack project: the "backend" field, else Vitest.
+  const backend = c.adapter === 'fullstack' ? (isBackend(c.backend) ? c.backend : 'vitest') : c.adapter
+  const uses = a => c.adapter === a || (c.adapter === 'fullstack' && (a === 'playwright' || a === backend))
+  if (c.backend !== undefined) {
+    if (c.adapter !== 'fullstack') e.push('backend: only allowed with "adapter": "fullstack" (on a backend project the adapter names the runner)')
+    else if (!isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
+  }
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
   const j = isObj(c.jira) ? c.jira : {}
   if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
@@ -215,23 +263,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     else {
       for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
       runnerFields(c.vitest, 'vitest', e)
-      const ls = c.vitest.layers
-      if (ls !== undefined) {
-        if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) e.push('vitest.layers: must be a list of 1 to 5 { "name", "folder", "guide" }')
-        else {
-          const rules = folderRules(c)
-          const seen = new Set()
-          ls.forEach((l, i) => {
-            if (!isObj(l)) { e.push(`vitest.layers[${i}]: must be an object with "name", "folder" and an optional "guide"`); return }
-            for (const k of Object.keys(l)) if (!['name', 'folder', 'guide'].includes(k)) e.push(`vitest.layers[${i}].${k}: unknown field (only "name", "folder" and "guide")`)
-            if (typeof l.name !== 'string' || !LAYER_NAME.test(l.name)) e.push(`vitest.layers[${i}].name ${JSON.stringify(l.name)} must be lower-case letters, digits and "-", starting with a letter, like "unit"`)
-            else if (seen.has(l.name)) e.push(`vitest.layers[${i}].name "${l.name}" appears twice`)
-            else seen.add(l.name)
-            folderErrors(l.folder, `vitest.layers[${i}].folder`, rules, e)
-            if (l.guide !== undefined && !guideOk(l.guide)) e.push(`vitest.layers[${i}].guide ${JSON.stringify(l.guide)} must be a relative path to a .md file inside the project`)
-          })
-        }
-      }
+      layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
       const st = c.vitest.stryker
       if (st !== undefined) {
         if (!isObj(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
@@ -242,6 +274,12 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
         }
       }
     }
+  }
+  for (const name of OTHER_BACKENDS) {
+    if (c[name] === undefined) continue
+    if (!uses(name)) e.push(`${name}: only allowed with "adapter": "${name}", or "fullstack" with "backend": "${name}"`)
+    else if (!isObj(c[name])) e.push(`${name}: must be an object`)
+    else otherBackendErrors(c[name], name, e)
   }
   if (c.playwright !== undefined) {
     if (!uses('playwright')) e.push('playwright: only allowed with "adapter": "playwright" or "fullstack"')
@@ -355,17 +393,26 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
 }
 
-/** The test folders a writing run may use: the configured layers, else one "unit" layer in test/. */
-export const layersOf = config => config?.vitest?.layers ?? DEFAULT_LAYERS
+/**
+ * The test folders a writing run may use: the backend block's layers, else the backend's default (one
+ * "unit" layer: test/ for Vitest). A frontend project reads Vitest's, as it always did.
+ */
+export const layersOf = config => {
+  const backend = backendOf(config) ?? 'vitest'
+  return config?.[backend]?.layers ?? (backend === 'vitest' ? DEFAULT_LAYERS : BACKENDS[backend].defaultLayers)
+}
 
-/** The block of the configured adapter (vitest or playwright), or {} when there is none. */
+/** The block of the configured adapter (a backend or playwright), or {} when there is none. */
 export const adapterOptions = config => {
-  const b = config?.adapter === 'vitest' || config?.adapter === 'playwright' ? config[config.adapter] : null
+  const b = isBackend(config?.adapter) || config?.adapter === 'playwright' ? config[config.adapter] : null
   return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
 }
 
-/** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, 300 for Vitest. */
-export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : 300)
+/** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, the backend's default (300 for Vitest). */
+export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : BACKENDS[config?.adapter]?.timeoutSeconds ?? 300)
+
+/** The project's own test command of a backend block (a template with {files}, {report}, {test}), or null. */
+export const commandOf = config => adapterOptions(config).command ?? null
 
 /** The seed block with its defaults: no builder files, no dataset, no stub folder. */
 export const seedOf = config => {

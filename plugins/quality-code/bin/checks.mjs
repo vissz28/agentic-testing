@@ -16,6 +16,7 @@ import * as mutation from '../lib/pipeline/checks/mutation.mjs'
 import * as runMarker from '../lib/base/run.mjs'
 import { EXIT } from '../lib/base/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
+import { backendOf } from '../lib/base/backends.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -111,7 +112,7 @@ const readStdin = () => new Promise(done => {
 /** A fullstack project: each side's specs in their own dialect, one result. */
 async function fullstackCheck(name, check, args, config, root) {
   const side = adapter => ({ config: asAdapter(config, adapter), dialect: dialectFor(adapter), root })
-  if (check.specs === 'none') return check.run(args, side('vitest'))
+  if (check.specs === 'none') return check.run(args, side(backendOf(config)))
   if (name === 'expected') return check.run(args, { config, root, dialectOf: p => dialectFor(adapterOfSpec(config, root, p)) })
   const parts = []
   for (const [adapter, specs] of specsByAdapter(config, root, args.specs)) parts.push({ adapter, steps: [await check.run({ ...args, specs }, side(adapter))] })

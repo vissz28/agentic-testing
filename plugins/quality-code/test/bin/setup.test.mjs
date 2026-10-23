@@ -22,6 +22,32 @@ test('detects the stack', () => {
   assert.equal(detect(repo({})).adapter, null)
   assert.equal(detect(mkdtempSync(join(tmpdir(), 'at-'))).adapter, null)
 })
+test('detects the backend of every stack, alone or with Playwright', () => {
+  const dir = files => {
+    const d = mkdtempSync(join(tmpdir(), 'at-'))
+    for (const [p, s] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
+    return d
+  }
+  const pick = d => { const r = detect(d); return [r.adapter, r.backend] }
+  assert.deepEqual(pick(dir({ 'pyproject.toml': '[tool.pytest.ini_options]\naddopts = "-q"\n' })), ['pytest', 'pytest'])
+  assert.deepEqual(pick(dir({ 'pytest.ini': '' })), ['pytest', 'pytest'])
+  assert.deepEqual(pick(dir({ 'requirements-dev.txt': 'pytest==8.0\n' })), ['pytest', 'pytest'])
+  assert.deepEqual(pick(dir({ 'tox.ini': '[testenv]\ncommands = pytest\n' })), ['pytest', 'pytest'])
+  assert.deepEqual(pick(dir({ 'requirements.txt': 'flask\n' })), [null, null], 'Python without pytest is no backend yet')
+  assert.deepEqual(pick(dir({ 'pom.xml': '<project/>' })), ['junit', 'junit'])
+  assert.deepEqual(pick(dir({ 'build.gradle.kts': '' })), ['junit', 'junit'])
+  assert.deepEqual(pick(dir({ 'go.mod': 'module example.com/demo\n' })), ['go', 'go'])
+  assert.deepEqual(pick(dir({ 'Demo.sln': '' })), ['dotnet', 'dotnet'])
+  assert.deepEqual(pick(dir({ 'src/Demo.Api/Demo.Api.csproj': '' })), [null, null], 'two folders down is too deep')
+  assert.deepEqual(pick(dir({ 'Demo.Api/Demo.Api.csproj': '' })), ['dotnet', 'dotnet'])
+  const pw = JSON.stringify({ devDependencies: { '@playwright/test': '1' } })
+  assert.deepEqual(pick(dir({ 'package.json': pw, 'go.mod': 'module demo\n' })), ['both', 'go'])
+  assert.deepEqual(pick(dir({ 'package.json': pw, 'pytest.ini': '' })), ['both', 'pytest'])
+  assert.deepEqual(pick(dir({ 'package.json': JSON.stringify({ devDependencies: { vitest: '1', '@playwright/test': '1' } }) })), ['both', 'vitest'])
+  // Vitest first, then the others in the order of the spec; every one found is listed.
+  const many = detect(dir({ 'package.json': JSON.stringify({ devDependencies: { vitest: '1' } }), 'go.mod': 'module demo\n', 'pom.xml': '<project/>' }))
+  assert.deepEqual([many.adapter, many.backend, many.backends], ['vitest', 'vitest', ['vitest', 'junit', 'go']])
+})
 test('finds GitLab templates', () => {
   const d = repo({}); mkdirSync(join(d, '.gitlab/issue_templates'), { recursive: true })
   writeFileSync(join(d, '.gitlab/issue_templates/Bug.md'), '#')

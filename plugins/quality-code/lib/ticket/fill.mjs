@@ -6,6 +6,7 @@ import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, s
 import { messagesFor, templateFor } from './messages.mjs'
 import { buildBrief, rubricFor, scoreTicket } from './score.mjs'
 import { asAdapter, isFullstack } from '../base/stack.mjs'
+import { backendOf } from '../base/backends.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
@@ -286,7 +287,8 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
   next.text.description = desc
   const brief = buildBrief(config, next)
   // Credited by the rubric it was asked for: on a fullstack project the other side's may decide now.
-  const { signals } = isFullstack(config) ? buildBrief(asAdapter(config, rubric.id), next) : brief
+  // The backend rubric's id is "vitest"; the side it scores is the project's backend runner.
+  const { signals } = isFullstack(config) ? buildBrief(asAdapter(config, rubric.id === 'playwright' ? 'playwright' : backendOf(config)), next) : brief
   const credited = key === 'ac_present' ? signals.ac_present && signals.ac_testable : signals[key]
   if (!credited) return reject('The answer was added, but the check still does not count it. Try the example form.')
   if (drafted) {

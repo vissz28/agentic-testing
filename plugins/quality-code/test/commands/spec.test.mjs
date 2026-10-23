@@ -442,3 +442,14 @@ test('write and start are aliases of spec', () => {
   assert.match(st, /never a key/)
   assert.match(st, /Tip: \/quality-code:spec does this now\./)
 })
+test('every backend runner: the spec reads its own writing guide, its layers and its default folder', async () => {
+  const { BACKENDS } = await import('../../lib/base/backends.mjs')
+  assert.match(doc, /the backend runner \(Vitest, pytest, JUnit, Go or \.NET\)/)
+  const s = step(4)
+  for (const [a, b] of Object.entries(BACKENDS)) {
+    assert.ok(s.includes(`${b.guide}\` for ${a}`), a)
+    assert.ok(readFileSync(new URL(`../../guides/${b.guide}`, import.meta.url), 'utf8').trim(), `guides/${b.guide}`)
+  }
+  for (const l of ['`pytest.layers`', '`junit.layers`', '`go.layers`', '`dotnet.layers`', '`src/test/java/`']) assert.ok(step(1).includes(l), l)
+  assert.match(doc, /takes `--target '<target>'` \(Stryker\) only on Vitest/)
+})

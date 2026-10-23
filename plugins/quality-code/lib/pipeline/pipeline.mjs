@@ -1,5 +1,6 @@
-// The pipeline for both adapters: the shared checks, the type-check and the tests in a fixed order,
-// then one verdict. The adapter picks the runner (Vitest or Playwright) and whether Stryker runs.
+// The pipeline for every adapter: the shared checks, the type-check and the tests in a fixed order,
+// then one verdict. The adapter picks the runner (a backend's of backends.mjs, or Playwright), the
+// type-check and whether Stryker runs.
 // Nothing here grades by opinion: every step is a script's result.
 import * as boundary from '../base/boundary.mjs'
 import { runActive } from '../base/boundary.mjs'
@@ -13,17 +14,39 @@ import * as suite from './checks/suite-honesty.mjs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { runStryker as realRunStryker } from './runners/stryker.mjs'
 import { playwrightRunner } from './runners/playwright.mjs'
-import { configFor, vitestRunner } from './runners/vitest.mjs'
+import { configFor } from './runners/vitest.mjs'
+import * as vitestRunners from './runners/vitest.mjs'
+import * as pytestRunners from './runners/pytest.mjs'
+import * as junitRunners from './runners/junit.mjs'
+import * as goRunners from './runners/go.mjs'
+import * as dotnetRunners from './runners/dotnet.mjs'
+import { BACKENDS, runnerLabel } from '../base/backends.mjs'
 import { strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../base/config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 import { dialectFor } from '../base/dialects/index.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../base/stack.mjs'
 
-// Stryker mutates source code under unit tests; it does not run e2e tests.
+// Each backend's runner module: <adapter>Runner(root, config), and an optional typeCheck(root, config, specs)
+// for a backend whose type-check is no tsc (pytest's typeCheck command).
+const RUNNER_MODULES = { vitest: vitestRunners, pytest: pytestRunners, junit: junitRunners, go: goRunners, dotnet: dotnetRunners }
+
+// Stryker mutates JavaScript and TypeScript source under unit tests; it does not run e2e tests.
 export const ADAPTERS = Object.freeze({
-  vitest: Object.freeze({ runner: vitestRunner, stryker: true }),
-  playwright: Object.freeze({ runner: playwrightRunner, stryker: false }),
+  ...Object.fromEntries(Object.entries(BACKENDS).map(([a, b]) => {
+    const mod = RUNNER_MODULES[a]
+    return [a, Object.freeze({ runner: mod[`${a}Runner`], stryker: b.stryker, typeCheck: b.typeCheck === 'tsc' ? 'tsc' : mod.typeCheck ?? null })]
+  })),
+  playwright: Object.freeze({ runner: playwrightRunner, stryker: false, typeCheck: 'tsc' }),
 })
+
+/** The types step of a backend with no tsc: its runner's own type-check when it has one, else not applicable. */
+function noTsc(adapter, ctx) {
+  const own = ADAPTERS[adapter].typeCheck
+  if (typeof own === 'function') return specs => own(ctx.root, ctx.config, specs)
+  // Compiled stacks compile in the test run: a compile error leaves the tests step not_run there.
+  const why = BACKENDS[adapter].compiled ? `${BACKENDS[adapter].label} compiles in the test run` : `no type-check for ${BACKENDS[adapter].language}`
+  return async () => result('types', 'pass', `not applicable: ${why}`, [], { applicable: false })
+}
 
 export function decide(steps) {
   const failed = steps.find(s => s.status === 'fail' && s.check !== 'tests')
@@ -138,7 +161,7 @@ export async function runPipeline(opts, ctx) {
   const parts = []
   for (const [adapter, list] of groups) {
     // Only Vitest has a Stryker step; the value check reads every side at once (below).
-    const own = { ...opts, specs: list, target: adapter === 'vitest' ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket }
+    const own = { ...opts, specs: list, target: ADAPTERS[adapter]?.stryker ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket }
     parts.push({ adapter, steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
   }
   if (groups.length > 1 && opts.ticket) {
@@ -167,7 +190,7 @@ function mergeData(datas) {
 }
 
 // A spec is named by its runner, not its side: a frontend repo's Vitest unit tests are no backend.
-const RUNNER = { vitest: 'Vitest', playwright: 'Playwright' }
+const RUNNER = Object.fromEntries(Object.keys(ADAPTERS).map(a => [a, runnerLabel(a)]))
 
 /** One step per check from the runners of a fullstack run, each summary and finding named by its runner. */
 export function mergeSides(parts) {
@@ -192,7 +215,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runTests = ctx.runTests ?? adapter.runner(ctx.root, ctx.config)
-  const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
+  const typeCheck = ctx.typeCheck ?? (adapter.typeCheck === 'tsc' ? s => realTypeCheck(ctx.root, ctx.config, s) : noTsc(ctx.config.adapter, ctx))
   const c = { ...ctx, runTests }
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
   const steps = []
@@ -226,5 +249,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     }
   }
   if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key)))
+  // A backend Stryker cannot run on still shows the step, as Vitest's does with nothing to mutate.
+  else if (BACKENDS[ctx.config.adapter]) steps.push(result('stryker', 'pass', 'not applicable: Stryker is for JavaScript and TypeScript', [], { applicable: false, target }))
   return steps
 }

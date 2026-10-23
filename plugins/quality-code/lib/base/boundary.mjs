@@ -5,6 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, stat
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { changedPaths } from './git.mjs'
 import { result } from './result.mjs'
+import { backendOf, BACKENDS } from './backends.mjs'
 
 // Never written by a test run: build output and packages at any depth (monorepos), git, and the
 // plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
@@ -47,9 +48,19 @@ export function defaultForbidden(root) {
 
 const norm = p => String(p).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
 
+/**
+ * The test file names a run may write even inside a forbidden folder: those of a backend other than
+ * Vitest, whose tests live in the code tree (Maven's src/test/java/, Go beside the code). A Vitest
+ * project keeps its rules as they are: an exception there is an "allow" entry.
+ */
+export function testsAnywhere(config) {
+  const b = backendOf(config)
+  return b && b !== 'vitest' ? BACKENDS[b].testFile : null
+}
+
 export function rulesFor(config, root) {
   const forbidden = config.boundaries?.forbidden ?? defaultForbidden(root)
-  return { forbidden: forbidden.map(r => ({ ...r, path: norm(r.path) })), allow: (config.boundaries?.allow ?? []).map(norm) }
+  return { forbidden: forbidden.map(r => ({ ...r, path: norm(r.path) })), allow: (config.boundaries?.allow ?? []).map(norm), tests: testsAnywhere(config) }
 }
 
 export function violation(relPath, rules) {
@@ -57,6 +68,7 @@ export function violation(relPath, rules) {
   if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
   if (ALWAYS.some(a => matches(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
+  if (rules.tests?.test(p)) return null
   const rule = rules.forbidden.find(r => matches(r.path, p) && !(r.path.includes('*') && ENV_TEMPLATE.test(p)))
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
