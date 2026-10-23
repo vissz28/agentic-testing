@@ -18,6 +18,7 @@ import { pathToFileURL } from 'node:url'
 export const CONNECTORS = {
   'figma-token': 'FIGMA_API_KEY',
   'gitlab-token': 'GITLAB_PERSONAL_ACCESS_TOKEN',
+  xray: 'XRAY_CLIENT_SECRET',
 }
 
 /** A value counts as set when it is not empty and not a ${...} placeholder left unexpanded. */
@@ -60,8 +61,11 @@ export function reply(msg, name) {
   }
 }
 
-/** The no-tools server: newline-delimited JSON-RPC on stdin/stdout, ends with stdin. */
-export function serveEmpty(name, input = process.stdin, output = process.stdout) {
+/**
+ * A stdio MCP server: newline-delimited JSON-RPC on stdin/stdout, ends with stdin. `handle` answers
+ * one message, or a promise of the answer (null for a notification).
+ */
+export function serve(handle, input = process.stdin, output = process.stdout) {
   const lines = createInterface({ input, crlfDelay: Infinity })
   lines.on('line', line => {
     if (!line.trim()) return
@@ -70,11 +74,17 @@ export function serveEmpty(name, input = process.stdin, output = process.stdout)
       output.write(JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }) + '\n')
       return
     }
-    const r = reply(msg, name)
-    if (r) output.write(JSON.stringify(r) + '\n')
+    // A plain answer is written at once, so replies keep the order of the requests; a promise when it settles.
+    const write = r => { if (r) output.write(JSON.stringify(r) + '\n') }
+    const r = handle(msg)
+    if (r instanceof Promise) r.then(write)
+    else write(r)
   })
   return new Promise(done => lines.on('close', done))
 }
+
+/** The no-tools server. */
+export const serveEmpty = (name, input, output) => serve(msg => reply(msg, name), input, output)
 
 /** Runs the real server in this process's place: same stdio and env, signals passed on, same exit. */
 export function runReal(command) {

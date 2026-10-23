@@ -1,6 +1,6 @@
 # Connectors check
 
-Shared by `/quality-code:setup` (step 0), and `/quality-code:spec`, `/quality-code:seed` and `/quality-code:xray` (their step 1). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
+Shared by `/quality-code:setup` (step 0), and `/quality-code:spec`, `/quality-code:seed` and `/quality-code:xray` (their step 1), and `/quality-code:qa` (step 1, Jira only). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
 
 **What may be asked in the chat.** Only what is not secret: your Jira email, your GitLab address, your GitLab username or email. Save them with `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs"` (below), never by editing a settings file yourself. A token is set only in the `/plugin` dialog (quality-code, configure), which hides it and stores it in the keychain. If the user pastes a token in the chat anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 
@@ -86,11 +86,13 @@ The plugin only ever calls GitLab's read operations.
 
 | Commands say | On the claude.ai Atlassian connector |
 |---|---|
-| `getJiraIssue`, `editJiraIssue`, `searchJiraIssuesUsingJql`, `getAccessibleAtlassianResources`, `atlassianUserInfo` | the same names |
+| `getJiraIssue`, `editJiraIssue`, `searchJiraIssuesUsingJql`, `getAccessibleAtlassianResources`, `atlassianUserInfo`, `createJiraIssue`, `transitionJiraIssue` | the same names |
 | `addCommentToJiraIssue` | `addOrEditJiraIssueComment` |
 | `searchConfluenceUsingCql` | `searchConfluence` (pass the same CQL) |
 | reading a Confluence page | `getConfluenceContent` |
-| `getVisibleJiraProjects`, `getJiraProjectIssueTypesMetadata`, `getJiraIssueTypeMetaWithFields`, `listJiraIssueRemoteIssueLinks`, `lookupJiraAccountId` | find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
+| `getTransitionsForJiraIssue` | `listJiraIssueTransitions`, found with `discover` and run with `executeRead` |
+| `getVisibleJiraProjects`, `getJiraProjectIssueTypesMetadata`, `getJiraIssueTypeMetaWithFields`, `listJiraIssueRemoteIssueLinks`, `lookupJiraAccountId`, `listJiraIssueLinkTypes` | find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
+| `createJiraIssueLink`, `uploadAttachmentToJiraIssue` | find the operation with `discover`, then run it with `executeWrite`. Not found on the connection: skip that write and say so |
 
 **Updating a comment.** Where a command says to update an existing comment instead of adding a second one, use `addOrEditJiraIssueComment` with that comment's id. When the connection offers no way to edit a comment (only an add), add a new one.
 

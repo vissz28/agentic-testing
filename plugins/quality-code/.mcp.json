@@ -16,6 +16,15 @@
         "GITLAB_PERSONAL_ACCESS_TOKEN": "${user_config.gitlab_token}",
         "GITLAB_PERMISSION_MODE": "readonly"
       }
+    },
+    "xray": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs", "xray", "--", "node", "${CLAUDE_PLUGIN_ROOT}/bin/xray-api.mjs"],
+      "env": {
+        "XRAY_API_URL": "${user_config.xray_api_url}",
+        "XRAY_CLIENT_ID": "${user_config.xray_client_id}",
+        "XRAY_CLIENT_SECRET": "${user_config.xray_client_secret}"
+      }
     }
   }
 }

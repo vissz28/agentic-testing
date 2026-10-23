@@ -30,6 +30,27 @@ Update with `/plugin update quality-code@teamsystem`.
   their paths), or `skip`. What a screen shows goes into the draft for the author to confirm, never
   personal data. Screenshots never count in the score: criteria only in a screenshot are still a
   refuse until a draft is confirmed.
+- **`/quality-code:qa`, manual test runs for QA.** Lists the Xray test executions assigned to you,
+  reads the run's tests and steps from the Xray API, an Xray export attached to the message (CSV), or
+  the Jira page in the browser (Claude in Chrome), runs them in the app one at a time, and proposes
+  OK, KO or Not verified. You give each verdict. A KO becomes a defect drafted in the style of your
+  last one: under the story's epic, in its active sprint, assigned to its developer, and linked to the
+  run and the test. Retests of open defects draft the `Retest` comment. At the end it can move the run
+  and the story to their KO or Done status. Every Jira write waits for a preview and a yes, and
+  `--dry-run` sends nothing. Without an Xray API key, the command lists the run statuses for you to
+  set in Xray by hand. Works with the personal setup, with no repo.
+- **Xray API for `/quality-code:qa`.** Set an Xray Cloud API key in `/plugin` (`xray_client_id` and
+  `xray_client_secret`, kept in the keychain), and `xray_api_url` for a regional Xray. qa then reads
+  the tests, steps and run statuses from Xray, adds each defect to its test run, and sets the run
+  statuses after a yes. A new `xray` connector (`bin/xray-api.mjs`, started by the launcher only
+  when the key is set) sends the key only to an Xray Cloud address. If the API fails, qa falls back
+  to the export, then the browser.
+- **`/quality-code:config`.** Shows the project config (repo or personal) and your plugin settings
+  on one card, and changes one at a time. The scripts that already check setup's values do the
+  writes (`setup.mjs --write`, `connector-settings.mjs`, now with `--xray-save`). The card also shows
+  whether the GitLab token, Figma key, Xray API key and GitHub sign-in are set. It reads this from the
+  connectors, never from the token, and gives the steps to set one in `/plugin`, which keeps it in
+  the keychain; tokens are never asked for in the chat.
 
 ## [0.15.0] - 2026-10-23
 

@@ -38,6 +38,8 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | writes only the test data a ticket needs |
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |
+| `/quality-code:qa [KEY]` | for QA: lists your Xray test executions, runs one in the browser and drafts each defect; you give every verdict, and nothing reaches Jira without a yes |
+| `/quality-code:config` | shows the settings and changes one at a time: the project config and your own plugin settings |
 | `/quality-code:kpi`, `/quality-code:consumption` | usage numbers and AI cost, read locally |
 
 The commands that run tests (`spec`, the run commands, `seed`) work in Claude Code, where your repository is.
