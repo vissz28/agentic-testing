@@ -151,6 +151,8 @@ export function stripCodeComments(src) {
 export function surface(specSrc, key, dialect, { actual = true } = {}) {
   const range = anchorRange(specSrc, key, dialect)
   if (!range) return null
+  // A dialect whose assertions are no matcher calls (pytest's assert statement) reads its block itself.
+  if (dialect?.expected?.surface) return dialect.expected.surface(specSrc.slice(range[0], range[1]), { actual })
   const block = stripCodeComments(specSrc.slice(range[0], range[1]))
   // A dialect whose assertions are no matcher call (Go's if got != want) gives their text itself.
   if (dialect?.expected?.parts) return dialect.expected.parts(block).join('\n')

@@ -100,8 +100,8 @@ export function scoreSpec(src, dialect, ungraded = null) {
   const s = dialect.suite
   const skipRanges = s.skippedGroups ? skippedGroupRanges(src, dialect) : []
   const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe, s.modOf)
-  // A dialect may count its own assertions (C#'s Assert.Equal, .Should(), Go's testify); else expect and assert.
-  const count = s.countAssertions ?? countAssertions
+  // A dialect may count its own assertions (C#'s Assert.Equal, .Should(), Go's testify, pytest's assert); else expect and assert.
+  const count = s.countAssertions ?? dialect.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
     // A test's slice runs up to the next test (or to its own end, when the dialect knows it).
     const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)))

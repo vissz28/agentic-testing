@@ -34,8 +34,6 @@ test('the registry builds a pipeline entry per backend; the stubs say they are n
   for (const a of ['pytest', 'junit', 'go', 'dotnet']) assert.equal(ADAPTERS[a].stryker, false, a)
   assert.equal(ADAPTERS.vitest.typeCheck, 'tsc')
   assert.equal(ADAPTERS.playwright.typeCheck, 'tsc')
-  const r = await pytestRunner('/nowhere', {})({ files: ['tests/test_a.py'] })
-  assert.deepEqual(r, { ran: false, tests: [], broken: [], error: 'pytest support is not built yet' })
 })
 
 test('pytest: no type step and Stryker not applicable; the card leaves both out', async () => {
@@ -45,8 +43,9 @@ test('pytest: no type step and Stryker not applicable; the card leaves both out'
   assert.deepEqual(step(out, 'types'), result('types', 'pass', 'not applicable: no type-check for Python', [], { applicable: false }))
   assert.deepEqual(step(out, 'stryker'), result('stryker', 'pass', 'not applicable: Stryker is for JavaScript and TypeScript', [], { applicable: false, target: 'app/orders.py' }))
   assert.equal(step(out, 'tests').status, 'pass')
-  // The stub dialect knows no assertion yet: mutation cannot show the test binds, so it is not verified.
-  assert.equal(step(out, 'mutation').status, 'not_run')
+  // The stand-in runner passes every mutant too: the assert's inversion survives.
+  assert.equal(step(out, 'mutation').status, 'fail')
+  assert.match(step(out, 'mutation').data.survivors[0], /^invert-assert: assert total\(\[40, 40, 40\]\) == 108/)
   const card = formatCard(out, { specs: [spec] }).split('PIPELINE_JSON:')[0]
   assert.match(card, /tests {10}1 passed/)
   assert.doesNotMatch(card, /stryker|types/)
