@@ -136,12 +136,13 @@ test('the synthetic sprint tickets: scores after AGT-120', () => {
     const be = buildBrief(BE, ticket(d, { labels: ['Documents'] }))
     return [k, [fe.score, fe.legacy, be.score, be.legacy]]
   }))
-  // [playwright score, legacy, vitest score, legacy]; before AGT-120 every one was legacy, at 10 and 5.
+  // [playwright score, legacy, vitest score, legacy]; before AGT-120 every one was legacy, at 12 and 6.
+  // A Story is not marked down for an environment or an expected result it is never asked for.
   assert.deepEqual(scores, {
-    'five-checks': [60, false, 60, false],
+    'five-checks': [63, false, 63, false],
     'bug-steps-env-checks': [75, false, 75, false],
-    'vague-checks': [45, false, 45, false],
-    'italian-checks': [60, false, 60, false],
-    'notes-only': [10, true, 5, true],
+    'vague-checks': [47, false, 47, false],
+    'italian-checks': [63, false, 63, false],
+    'notes-only': [12, true, 6, true],
   })
 })
