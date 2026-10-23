@@ -52,7 +52,7 @@ export function buildVocabulary(langs) {
     beforeInsteadOf: new RegExp(`([+\\u2212-]?\\d+(?:[.,]\\d+)?)\\s+(?:${m('insteadOf')})\\b`, 'gi'),
     negatedWord: new RegExp(`\\b(?:${alt(['not', 'non', ...merge(langs, 'insteadOf')])})\\s+[\\w.-]+`, 'gi'),
     listOrStep: new RegExp(`^(?:[-*•]\\s|\\d+[.)]\\s|(?:${alt(['scenario', ...merge(langs, 'steps'), ...merge(langs, 'continuation')])})${W})`, 'i'),
-    // Content signals, read without a heading (AGT-120). An action word followed by "is", "button"
+    // Content signals, read without a heading. An action word followed by "is", "button"
     // and the like names a control ("Delete is disabled"), not a step.
     observable: new RegExp(`\\b(?:${m('observable')})\\b`, 'i'),
     actionStep: new RegExp(`^(?:please\\s+)?(?:${m('action')})\\b(?!\\s+(?:is|are|was|were|button|link|icon|menu|field|shows?|displays?|has|have|stays|remains|becomes|should|must|will|can|does|do|sono|resta|rimane|deve|pulsante|bottone)\\b)`, 'i'),
