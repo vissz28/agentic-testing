@@ -9,7 +9,7 @@ export function acSignals(v, description, acField) {
   const acText = [acField, description].filter(Boolean).join('\n')
   const gherkin = hasGherkin(v, acField) || hasGherkin(v, description)
   const naturalItems = [...extractNaturalAC(v, acField, { headingless: true }), ...extractNaturalAC(v, description)]
-  // No criteria field, heading or Gherkin: a list of checks without a heading is the criteria (AGT-120).
+  // No criteria field, heading or Gherkin: a list of checks without a heading is the criteria.
   if (!gherkin && !naturalItems.length) naturalItems.push(...extractListCriteria(v, description))
   const natural = hasNaturalAC(naturalItems)
   const ac_present = gherkin || natural

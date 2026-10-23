@@ -218,7 +218,7 @@ export function namesObservable(v, item) {
 }
 
 /**
- * The criteria read from a list that has no Acceptance criteria heading (AGT-120): two or more
+ * The criteria read from a list that has no Acceptance criteria heading: two or more
  * items, every one a check (it names an observable, or it is vague, which then makes the
  * criteria untestable), at least one naming an observable. A list of actions is not criteria.
  */
@@ -233,7 +233,7 @@ export function extractListCriteria(v, text) {
 }
 
 /**
- * Numbered action steps without a heading (AGT-120): a numbered list of two or more items that
+ * Numbered action steps without a heading: a numbered list of two or more items that
  * starts with an action ("1. Open the list 2. Click Filter") and has at least two of them.
  */
 export function hasActionSteps(v, text) {
