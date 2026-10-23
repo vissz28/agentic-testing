@@ -3,7 +3,7 @@
 From Jira ticket to tests you can trust.
 
 Quality Code checks that a Jira ticket is clear enough to test, helps its author fill the gaps,
-writes Vitest and Playwright tests from its acceptance criteria, and grades them with scripts, never
+writes backend tests (Vitest, pytest, JUnit, Go or .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never
 with the model. For frontend, backend and fullstack projects at TeamSystem.
 
 ## Install

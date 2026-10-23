@@ -16,6 +16,16 @@ Update with `/plugin update quality-code@teamsystem`.
   config block (`layers`, `timeoutSeconds`, `command`), test file names, writing guide and rubric (the
   backend one); Stryker and `tsc` stay Vitest's and show `not applicable` elsewhere, and compiled
   stacks mutate the spec in place, always restored. Setup detects each stack.
+  - **Python (pytest):** runs `python -m pytest` (the project's `.venv` first) with a JUnit XML report;
+    one class per ticket with the key in its docstring; `assert` statements are mutated.
+  - **Java and Kotlin (JUnit 5/4):** Maven or Gradle (wrapper first), surefire and Gradle reports;
+    `@DisplayName("<KEY> …")` on the class; JUnit, AssertJ, Hamcrest and kotest assertions.
+  - **Go (`go test -json`):** `// <KEY> …` above the test function, one `t.Run` per scenario; testify
+    and `if got != want { t.Errorf }` comparisons.
+  - **C# (.NET: xUnit, NUnit, MSTest):** `dotnet test` with a TRX report; `// <KEY> …` above the
+    class; xUnit, NUnit, MSTest and FluentAssertions assertions.
+  - CI runs each stack for real (`e2e-python`, `e2e-java`, `e2e-go`, `e2e-dotnet`). Seeding stays
+    Vitest and Playwright only.
 - **Three run commands replace `/quality-code:check`** (AGT-127). `/quality-code:run-frontend` runs
   every frontend (Playwright) spec of the project through the pipeline, `/quality-code:run-backend`
   every backend (Vitest) spec, and `/quality-code:run-pipeline` both together, the full suite. The

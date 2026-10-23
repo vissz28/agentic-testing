@@ -302,6 +302,28 @@ It exits 0 whatever the pass rate (a bad input exits 2). To fix a ticket, run
 
 ---
 
+## Backends
+
+The backend can be any of five runners, set by `adapter` (or by `backend` on a fullstack project):
+
+| `adapter` | Stack | Runs | Ticket block | Assertions mutated |
+|---|---|---|---|---|
+| `vitest` | TypeScript, Node | the project's Vitest | `describe('<KEY> …')` | `expect(…)` matchers |
+| `pytest` | Python | `python -m pytest` (`.venv` first) | a `class Test…` whose docstring starts with the key | `assert` statements, `pytest.raises` |
+| `junit` | Java, Kotlin | Maven or Gradle (wrapper first) | `@DisplayName("<KEY> …")` on the class | JUnit, AssertJ, Hamcrest, kotest |
+| `go` | Go | `go test -json` | `// <KEY> …` above the test function, one `t.Run` per scenario | testify, `if got != want { t.Errorf }` |
+| `dotnet` | C# | `dotnet test` (TRX report) | `// <KEY> …` above the class | xUnit, NUnit, MSTest, FluentAssertions |
+
+Setup detects the stack (`package.json`, `pyproject.toml`/`pytest.ini`, `pom.xml`/`build.gradle`, `go.mod`,
+`*.csproj`/`*.sln`). Each has a config block named after it with `layers`, `timeoutSeconds` and `command` (the
+project's own test command, when the default is wrong: `{files}`, `{report}` and `{test}` are filled in).
+Stryker and the TypeScript type-check are Vitest's: elsewhere the card says `not applicable`, and a compiled
+stack's compile error makes the tests `not run`, never a pass. Compiled stacks are mutated in place, and the
+spec is always restored. The writing guides are `guides/<adapter>-writing.md`. Seeding is Vitest and Playwright
+only.
+
+---
+
 ## Check your tests
 
 For Vitest, Playwright and fullstack projects. Three commands run spec files through the pipeline and grade them:
@@ -332,7 +354,7 @@ The steps, always in this order:
 4. **types**: `tsc --noEmit` with the project's `tsconfig` plus the specs, so a spec its `include`
    leaves out is still checked. Only an error in a spec fails; errors elsewhere in the project are
    counted but not graded. Pick the `tsconfig` whose options (path aliases, types) fit the specs.
-5. **tests**: Vitest or Playwright, with the project's own install and, per spec, the config you map
+5. **tests**: the backend runner (Vitest, pytest, JUnit through Maven or Gradle, `go test`, `dotnet test`) or Playwright, with the project's own install and, per spec, the config you map
    in `vitest.configs` or `playwright.configs`.
 6. **expected**: only with `--ticket` (used by `/quality-code:write`): every concrete number and quoted
    text in the ticket's Then / Expected lines is asserted in the ticket's block. A negated matcher
@@ -400,7 +422,7 @@ in `node_modules/.vite` and the mutation check's temporary spec copies, deleted 
 
 ## Write tests from a ticket
 
-For Vitest and Playwright projects. `/quality-code:write` writes tests from a ticket that passes the readiness gate,
+For every backend (Vitest, pytest, JUnit, Go, .NET) and Playwright. `/quality-code:write` writes tests from a ticket that passes the readiness gate,
 then the pipeline grades them. Claude writes; the scripts gate and grade.
 
 ```

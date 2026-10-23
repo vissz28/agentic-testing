@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml"><img src="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin-0090D1" alt="Claude Code plugin">
-  <img src="https://img.shields.io/badge/Vitest%20%C2%B7%20Playwright-005075" alt="Vitest and Playwright">
+  <img src="https://img.shields.io/badge/Vitest%20%C2%B7%20pytest%20%C2%B7%20JUnit%20%C2%B7%20Go%20%C2%B7%20.NET%20%C2%B7%20Playwright-005075" alt="Vitest, pytest, JUnit, Go, .NET and Playwright">
 </p>
 
 # Quality Code
@@ -16,8 +16,9 @@
 
 Quality Code connects your Jira tickets to your test suite. It checks that a ticket is clear enough
 to test, helps its author fill the gaps, writes tests from the ticket's acceptance criteria, and
-grades them. It works with any Jira Cloud project and any repo that uses **Vitest** (backend),
-**Playwright** (frontend) or both (fullstack). Your application code is never changed.
+grades them. It works with any Jira Cloud project, a backend on **Vitest** (TypeScript, Node),
+**pytest** (Python), **JUnit** (Java, Kotlin), **Go** or **.NET** (C#), a frontend on **Playwright**, or
+both in one repo (fullstack). Your application code is never changed.
 
 > **The rule everything is built on:** the model reads, drafts and writes, but it **never grades**.
 > Every score and every pass/fail comes from a deterministic script.
@@ -29,7 +30,7 @@ grades them. It works with any Jira Cloud project and any repo that uses **Vites
 | **Readiness gate:** scores a ticket out of 100; 70 passes | `/quality-code:ticket-eval <KEY>` |
 | **Gaps fixed on the spot:** a Jira comment listing what is missing, or a guided fill-in pushed to the ticket after a preview | `ticket-eval`, when a ticket is refused |
 | **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:start` |
-| **Tests written from the ticket:** Vitest and Playwright specs in your test folders, graded on the spot | `/quality-code:write <KEY>` |
+| **Tests written from the ticket:** Vitest, pytest, JUnit, Go, .NET and Playwright tests in your test folders, graded on the spot | `/quality-code:write <KEY>` |
 | **Tests run and graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (both) |
 | **Test data and QA cases:** seed builders or route stubs; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
 | **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
