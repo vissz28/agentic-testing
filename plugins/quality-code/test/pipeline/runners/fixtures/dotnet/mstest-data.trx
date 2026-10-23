@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestRun id="c0ffee00-1111-4222-8333-444455556666" name="runner@build-02 2026-10-23 11:02:40" runUser="runner" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-23T11:02:40.5050000+00:00" queuing="2026-10-23T11:02:40.5050000+00:00" start="2026-10-23T11:02:39.9900000+00:00" finish="2026-10-23T11:02:40.5180000+00:00" />
+  <TestSettings name="default" id="9a8b7c6d-1111-4222-8333-444455556666">
+    <Deployment runDeploymentRoot="runner_build-02_2026-10-23_11_02_40" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="e0000000-0000-4000-8000-000000000001" testId="d0000000-0000-4000-8000-000000000001" testName="Sums" computerName="build-02" duration="00:00:00.0201000" startTime="2026-10-23T11:02:40.1000000+00:00" endTime="2026-10-23T11:02:40.1210000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e0000000-0000-4000-8000-000000000001" resultType="DataDrivenTest">
+      <InnerResults>
+        <UnitTestResult executionId="e0000000-0000-4000-8000-000000000002" parentExecutionId="e0000000-0000-4000-8000-000000000001" testId="d0000000-0000-4000-8000-000000000001" testName="Sums (1,2,3)" computerName="build-02" duration="00:00:00.0010000" startTime="2026-10-23T11:02:40.1000000+00:00" endTime="2026-10-23T11:02:40.1010000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" dataRowInfo="1" resultType="DataDrivenDataRow" relativeResultsDirectory="e0000000-0000-4000-8000-000000000002" />
+        <UnitTestResult executionId="e0000000-0000-4000-8000-000000000003" parentExecutionId="e0000000-0000-4000-8000-000000000001" testId="d0000000-0000-4000-8000-000000000001" testName="Sums (2,2,5)" computerName="build-02" duration="00:00:00.0050000" startTime="2026-10-23T11:02:40.1020000+00:00" endTime="2026-10-23T11:02:40.1070000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" dataRowInfo="2" resultType="DataDrivenDataRow" relativeResultsDirectory="e0000000-0000-4000-8000-000000000003">
+          <Output>
+            <ErrorInfo>
+              <Message>Assert.AreEqual failed. Expected:&lt;5&gt;. Actual:&lt;4&gt;. </Message>
+              <StackTrace>   at Demo.Stock.Tests.StockTests.Sums(Int32 a, Int32 b, Int32 sum) in C:\work\tests\Demo.Stock.Tests\StockTests.cs:line 18
+</StackTrace>
+            </ErrorInfo>
+          </Output>
+        </UnitTestResult>
+      </InnerResults>
+    </UnitTestResult>
+    <UnitTestResult executionId="e0000000-0000-4000-8000-000000000004" testId="d0000000-0000-4000-8000-000000000002" testName="Counts_the_pallets" computerName="build-02" duration="00:00:00.0004000" startTime="2026-10-23T11:02:40.1300000+00:00" endTime="2026-10-23T11:02:40.1310000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e0000000-0000-4000-8000-000000000004" />
+    <UnitTestResult executionId="e0000000-0000-4000-8000-000000000005" testId="d0000000-0000-4000-8000-000000000003" testName="Not_yet" computerName="build-02" duration="00:00:00" startTime="2026-10-23T11:02:40.1320000+00:00" endTime="2026-10-23T11:02:40.1320000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e0000000-0000-4000-8000-000000000005" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Sums" storage="c:\work\tests\demo.stock.tests\bin\debug\net8.0\demo.stock.tests.dll" id="d0000000-0000-4000-8000-000000000001">
+      <Execution id="e0000000-0000-4000-8000-000000000001" />
+      <TestMethod codeBase="C:\work\tests\Demo.Stock.Tests\bin\Debug\net8.0\Demo.Stock.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Demo.Stock.Tests.StockTests" name="Sums" />
+    </UnitTest>
+    <UnitTest name="Counts_the_pallets" storage="c:\work\tests\demo.stock.tests\bin\debug\net8.0\demo.stock.tests.dll" id="d0000000-0000-4000-8000-000000000002">
+      <Execution id="e0000000-0000-4000-8000-000000000004" />
+      <TestMethod codeBase="C:\work\tests\Demo.Stock.Tests\bin\Debug\net8.0\Demo.Stock.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Demo.Stock.Tests.StockTests, Demo.Stock.Tests, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" name="Counts_the_pallets" />
+    </UnitTest>
+    <UnitTest name="Not_yet" storage="c:\work\tests\demo.stock.tests\bin\debug\net8.0\demo.stock.tests.dll" id="d0000000-0000-4000-8000-000000000003">
+      <Execution id="e0000000-0000-4000-8000-000000000005" />
+      <TestMethod codeBase="C:\work\tests\Demo.Stock.Tests\bin\Debug\net8.0\Demo.Stock.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Demo.Stock.Tests.StockTests" name="Not_yet" />
+    </UnitTest>
+  </TestDefinitions>
+  <ResultSummary outcome="Failed">
+    <Counters total="3" executed="2" passed="1" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="1" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

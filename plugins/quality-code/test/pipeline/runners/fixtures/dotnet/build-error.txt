@@ -1,0 +1,13 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Demo -> /work/src/Demo/bin/Debug/net8.0/Demo.dll
+/work/tests/Demo.Tests/PricingTests.cs(14,40): error CS1002: ; expected [/work/tests/Demo.Tests/Demo.Tests.csproj]
+/work/tests/Demo.Tests/PricingTests.cs(21,9): error CS0103: The name 'totl' does not exist in the current context [/work/tests/Demo.Tests/Demo.Tests.csproj]
+
+Build FAILED.
+
+/work/tests/Demo.Tests/PricingTests.cs(14,40): error CS1002: ; expected [/work/tests/Demo.Tests/Demo.Tests.csproj]
+    0 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:02.41

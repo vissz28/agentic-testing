@@ -29,3 +29,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: cd plugins/quality-code && QC_E2E=1 node --test test/e2e/go.test.mjs
+  e2e-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - run: cd plugins/quality-code && QC_E2E=1 node --test "test/e2e-dotnet/**/*.test.mjs"

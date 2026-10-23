@@ -162,7 +162,9 @@ export function surface(specSrc, key, dialect, { actual = true } = {}) {
     if (!actual && !m[0].startsWith('.') && !/^(?:\s*\.\s*(?:not|resolves|rejects))*\s*\.\s*\w+\s*\(\s*\)/.test(block.slice(close))) continue
     parts.push(block.slice(open + 1, close - 1))
   }
-  return parts.join('\n')
+  // A dialect may read its literals as the ticket writes them (C#'s 13.50m is 13.50).
+  const text = parts.join('\n')
+  return dialect?.expected?.literals ? dialect.expected.literals(text) : text
 }
 
 /** The numbers a bug reports as its wrong result: under its Actual heading, and "N instead of". */

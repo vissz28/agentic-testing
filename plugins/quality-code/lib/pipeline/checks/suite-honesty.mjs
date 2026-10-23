@@ -30,13 +30,16 @@ function closeAt(src, open) {
   return src.length
 }
 
-/** Test declarations in order: { mod, title, idx }. An each/for test takes the title after its table. */
-export function testMarks(src, re) {
+/**
+ * Test declarations in order: { mod, title, idx }. An each/for test takes the title after its table.
+ * modOf: the dialect's reading of m[1], when its skip mark is no "skip" in the source (C#'s [Ignore]).
+ */
+export function testMarks(src, re, modOf = null) {
   const all = new RegExp(re.source, 'g')
   const out = []
   let m
   while ((m = all.exec(src))) {
-    if (!m[4]) { out.push({ mod: m[1] || null, title: m[3], idx: m.index }); continue }
+    if (!m[4]) { out.push({ mod: modOf ? modOf(m[1]) : m[1] || null, title: m[3], idx: m.index }); continue }
     const title = /^\s*\(\s*(['"`])(.*?)\1/.exec(src.slice(closeAt(src, m.index + m[0].length - 1)))?.[2] ?? ''
     out.push({ mod: m[1] === 'skip' ? 'skip' : 'each', title, idx: m.index })
   }
@@ -96,7 +99,8 @@ export function anchorRange(src, key, dialect) {
 export function scoreSpec(src, dialect, ungraded = null) {
   const s = dialect.suite
   const skipRanges = s.skippedGroups ? skippedGroupRanges(src, dialect) : []
-  const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe)
+  const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe, s.modOf)
+  // A dialect may count its own assertions (C#'s Assert.Equal, .Should(), Go's testify); else expect and assert.
   const count = s.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
     // A test's slice runs up to the next test (or to its own end, when the dialect knows it).

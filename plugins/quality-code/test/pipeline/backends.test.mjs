@@ -36,7 +36,6 @@ test('the registry builds a pipeline entry per backend; the stubs say they are n
   assert.equal(ADAPTERS.playwright.typeCheck, 'tsc')
   const r = await pytestRunner('/nowhere', {})({ files: ['tests/test_a.py'] })
   assert.deepEqual(r, { ran: false, tests: [], broken: [], error: 'pytest support is not built yet' })
-  assert.equal((await dotnetRunner('/nowhere', {})({ files: [] })).error, '.NET support is not built yet')
 })
 
 test('pytest: no type step and Stryker not applicable; the card leaves both out', async () => {
@@ -63,12 +62,11 @@ test('compiled stacks: the types step says they compile in the test run', async 
   }
 })
 
-test('a stub runner leaves the tests not run, never a pass', async () => {
+test('dotnet: a spec that does not build (or no dotnet at all) leaves the tests not run, never a pass', async () => {
   const spec = 'tests/OrderTests.cs'
   const d = repo(spec, 'x\n')
   const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'dotnet', jira: { projects: ['ABC'] } }, dialect: dialectFor('dotnet'), root: d })
   assert.equal(step(out, 'tests').status, 'not_run')
-  assert.match(step(out, 'tests').summary, /\.NET support is not built yet/)
   assert.equal(out.verdict, 'not_verified')
 })
 

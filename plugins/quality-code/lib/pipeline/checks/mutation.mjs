@@ -56,7 +56,7 @@ export function findExpectRanges(src, dialect) {
 }
 
 export function findTestBlocks(src, dialect) {
-  const marks = dialect.mutation.marks ? dialect.mutation.marks(src) : testMarks(src, dialect.mutation.testRe)
+  const marks = dialect.mutation.marks ? dialect.mutation.marks(src) : testMarks(src, dialect.mutation.testRe, dialect.mutation.modOf)
   return marks.map((mk, i) => ({ ...mk, start: mk.idx, end: mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length) }))
 }
 

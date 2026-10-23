@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="3e2d1c0b-aaaa-4bbb-8ccc-ddddeeeeffff" name="runner@build-03 2026-10-23 12:30:11" runUser="runner" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-23T12:30:11.0000000+00:00" queuing="2026-10-23T12:30:11.0000000+00:00" start="2026-10-23T12:30:10.2000000+00:00" finish="2026-10-23T12:30:11.0100000+00:00" />
+  <Results>
+    <UnitTestResult executionId="f1000000-0000-4000-8000-000000000001" testId="b1000000-0000-4000-8000-000000000001" testName="Moves_stock(&quot;A-1&quot;,3)" computerName="build-03" duration="00:00:00.0120000" startTime="2026-10-23T12:30:10.5000000+00:00" endTime="2026-10-23T12:30:10.5120000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f1000000-0000-4000-8000-000000000001" />
+    <UnitTestResult executionId="f1000000-0000-4000-8000-000000000002" testId="b1000000-0000-4000-8000-000000000002" testName="Refuses_a_negative_move" computerName="build-03" duration="00:00:00.0300000" startTime="2026-10-23T12:30:10.5130000+00:00" endTime="2026-10-23T12:30:10.5430000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f1000000-0000-4000-8000-000000000002">
+      <Output>
+        <ErrorInfo>
+          <Message>  Expected: "quantity must be 1 or more"
+  But was:  "quantity must be positive"
+</Message>
+          <StackTrace>   at Demo.Tests.StockTests.Refuses_a_negative_move() in /work/tests/Demo.Tests/StockTests.cs:line 31
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f1000000-0000-4000-8000-000000000003" testId="b1000000-0000-4000-8000-000000000003" testName="Ignored_case" computerName="build-03" duration="00:00:00.0000010" startTime="2026-10-23T12:30:10.5440000+00:00" endTime="2026-10-23T12:30:10.5440000+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f1000000-0000-4000-8000-000000000003">
+      <Output>
+        <ErrorInfo>
+          <Message>DEMO-7 waiting for the new rule</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Moves_stock(&quot;A-1&quot;,3)" storage="/work/tests/demo.tests/bin/debug/net8.0/demo.tests.dll" id="b1000000-0000-4000-8000-000000000001">
+      <Execution id="f1000000-0000-4000-8000-000000000001" />
+      <TestMethod codeBase="/work/tests/Demo.Tests/bin/Debug/net8.0/Demo.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Demo.Tests.StockTests" name="Moves_stock(&quot;A-1&quot;,3)" />
+    </UnitTest>
+    <UnitTest name="Refuses_a_negative_move" storage="/work/tests/demo.tests/bin/debug/net8.0/demo.tests.dll" id="b1000000-0000-4000-8000-000000000002">
+      <Execution id="f1000000-0000-4000-8000-000000000002" />
+      <TestMethod codeBase="/work/tests/Demo.Tests/bin/Debug/net8.0/Demo.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Demo.Tests.StockTests" name="Refuses_a_negative_move" />
+    </UnitTest>
+    <UnitTest name="Ignored_case" storage="/work/tests/demo.tests/bin/debug/net8.0/demo.tests.dll" id="b1000000-0000-4000-8000-000000000003">
+      <Execution id="f1000000-0000-4000-8000-000000000003" />
+      <TestMethod codeBase="/work/tests/Demo.Tests/bin/Debug/net8.0/Demo.Tests.dll" adapterTypeName="executor://NUnit3TestExecutor" className="Demo.Tests.StockTests" name="Ignored_case" />
+    </UnitTest>
+  </TestDefinitions>
+  <ResultSummary outcome="Failed">
+    <Counters total="3" executed="2" passed="1" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="1" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>
