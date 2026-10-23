@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality Code",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes backend tests (Vitest, pytest, JUnit, Go, .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
   "homepage": "https://github.com/vissz28/agentic-testing#readme",
   "repository": "https://github.com/vissz28/agentic-testing",
@@ -52,6 +52,24 @@
       "title": "Figma API key",
       "description": "Optional, instead of signing in to Figma in the browser: a personal Figma access token.",
       "sensitive": true
+    },
+    "xray_client_id": {
+      "type": "string",
+      "title": "Xray client ID",
+      "description": "Optional, for /quality-code:qa: the Client ID of an Xray Cloud API key (Xray, API Keys; a Jira admin creates it). With it, qa reads the tests and sets the run statuses in Xray; without it, qa reads an attached export or the Jira page.",
+      "sensitive": true
+    },
+    "xray_client_secret": {
+      "type": "string",
+      "title": "Xray client secret",
+      "description": "Optional, the Client Secret of the same Xray Cloud API key as xray_client_id.",
+      "sensitive": true
+    },
+    "xray_api_url": {
+      "type": "string",
+      "title": "Xray API address",
+      "description": "Xray Cloud's address, where the Xray API key is sent. The default is the global one; for data kept in a region, its regional address, like https://eu.xray.cloud.getxray.app.",
+      "default": "https://xray.cloud.getxray.app"
     }
   }
 }

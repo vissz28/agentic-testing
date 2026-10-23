@@ -39,7 +39,7 @@ The command that sent you here names its suite: `frontend` (`/quality-code:run-f
 
    `Running the checks: tests, assertions, types and mutation; this can take a few minutes.` (with `--ticket`, say `tests, assertions, types, expected values and mutation`)
 
-   For the `frontend` and `full` suites on a project with Playwright, for `playwright`, and for `fullstack` when a spec is in the e2e folder, add this second line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.`
+   For the `frontend` and `full` suites on a project with Playwright, for `playwright`, and for `fullstack` when a spec is in the e2e folder, add this second line: `The tests open the app: your Playwright config starts it (its webServer), or it must already be running.` With Cypress (`runners.e2e` in the config), the line is `The tests open the app: it must already be running (Cypress does not start it).`
 
    `node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" --suite <suite> [--key <KEY>] [--flaky <N>]` for the whole suite, else `node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" '<spec>' '<spec>' [--range <base>...HEAD] [--key <KEY>] [--ticket @<ticketsDir>/<KEY>/ticket.json] [--expected @<ticketsDir>/<KEY>/expected.json] [--target '<target>'] [--flaky <N>]`
 

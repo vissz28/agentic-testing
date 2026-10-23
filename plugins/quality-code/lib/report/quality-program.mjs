@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { layersOf, ungradedTitlesOf } from '../base/config.mjs'
 import { e2eFolder } from '../base/e2e-folder.mjs'
 import { dialectFor } from '../base/dialects/index.mjs'
+import { runnerOf } from '../base/runners.mjs'
 import { keySource } from '../base/keys.mjs'
 import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../base/stack.mjs'
@@ -13,7 +14,8 @@ import { BACKENDS, isBackend } from '../base/backends.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
-const SPEC = /\.(spec|test)\.[cm]?[jt]sx?$/
+// Cypress names its specs *.cy.ts.
+const SPEC = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
 // The build output and environments of the other stacks: a walk of a whole repo (Go's "./") skips them.
 const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
@@ -59,7 +61,7 @@ export function scanSpecs(root, config) {
   for (const s of specs) {
     let src
     try { src = readFileSync(join(root, s.path), 'utf8') } catch { continue }
-    const d = dialectFor(s.adapter)
+    const d = dialectFor(runnerOf(config, s.adapter))
     // Linked to a ticket: its key in a group's or a test's title, or in the file name (ABC-123.spec.ts).
     const titles = [...src.matchAll(new RegExp(d.groupRe.source, 'gm')), ...src.matchAll(new RegExp(d.suite.testRe.source, 'g'))].map(m => m[3] ?? '')
     if ([...titles, s.path.split('/').at(-1)].some(t => key.test(t.toUpperCase()))) traced++
@@ -69,7 +71,8 @@ export function scanSpecs(root, config) {
   let tests = 0
   let honest = 0
   for (const [adapter, files] of byAdapter) {
-    const r = grade(files, { ungraded: ungradedTitlesOf(config, dialectFor(adapter)) }, dialectFor(adapter))
+    const dialect = dialectFor(runnerOf(config, adapter))
+    const r = grade(files, { ungraded: ungradedTitlesOf(config, dialect) }, dialect)
     tests += r.data?.tests ?? 0
     honest += r.data?.withAssertion ?? 0
   }

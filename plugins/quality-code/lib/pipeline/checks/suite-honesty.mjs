@@ -6,6 +6,11 @@ import { result } from '../../base/result.mjs'
 import { keyPattern } from '../../base/keys.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
 
+// An x- or f- prefix (xdescribe, xit, fit: Jest, Jasmine, Mocha) skips or focuses like .skip and .only.
+// Only on a JavaScript test word: Go's func TestX or a Python def is no focus mark.
+const PREFIXED = { x: 'skip', f: 'only' }
+const prefixed = m => (/^[xf](?:it|test|describe|context|specify)\b/.test(m[0]) ? PREFIXED[m[0][0]] : null)
+
 /**
  * Top-level groups (column 0): { idx, mod, title }; a chain holding skip, todo or fixme never runs. A
  * dialect whose skip is no chain (a JUnit @Disabled class) sets the named group skip instead.
@@ -16,7 +21,7 @@ export function groups(src, dialect) {
   let m
   while ((m = re.exec(src))) {
     const chain = m[1] ?? ''
-    out.push({ idx: m.index, mod: m.groups?.skip || /\.(?:skip|todo|fixme)\b/.test(chain) ? 'skip' : /\.only\b/.test(chain) ? 'only' : null, title: m[3] })
+    out.push({ idx: m.index, mod: m.groups?.skip || /\.(?:skip|todo|fixme)\b/.test(chain) ? 'skip' : /\.only\b/.test(chain) ? 'only' : prefixed(m), title: m[3] })
   }
   return out
 }
@@ -43,7 +48,7 @@ export function testMarks(src, re, modOf = null) {
   const out = []
   let m
   while ((m = all.exec(src))) {
-    if (!m[4]) { out.push({ mod: m.groups?.skip ? 'skip' : m.groups?.todo ? 'todo' : modOf ? modOf(m[1]) : m[1] || null, title: m[3], idx: m.index }); continue }
+    if (!m[4]) { out.push({ mod: m.groups?.skip ? 'skip' : m.groups?.todo ? 'todo' : modOf ? modOf(m[1]) : m[1] || prefixed(m) || null, title: m[3], idx: m.index }); continue }
     const title = /^\s*\(\s*(['"`])(.*?)\1/.exec(src.slice(closeAt(src, m.index + m[0].length - 1)))?.[2] ?? ''
     out.push({ mod: m[1] === 'skip' ? 'skip' : 'each', title, idx: m.index })
   }
@@ -68,13 +73,16 @@ function codeOnly(src) {
 
 /**
  * Assertions in a test body: an expect (or expect.soft / expect.poll) that ends in a matcher call, or an
- * assert call. A bare expect(x) or an uncalled .toBeTruthy asserts nothing.
+ * assert call. A bare expect(x) or an uncalled .toBeTruthy asserts nothing. chai (the generic tier) also
+ * counts Chai's property chains (expect(ok).to.be.true) and Cypress's .should(…).
  */
-export function countAssertions(body) {
+export function countAssertions(body, { chai = false } = {}) {
   const code = codeOnly(body)
   let n = (code.match(/(?<![.\w$])assert(?:\.\w+)?\s*\(/g) || []).length
+  if (chai) n += (code.match(/\.should\b(?:\s*\.\s*\w+)*\s*\(/g) || []).length
   for (const m of code.matchAll(/(?<![.\w$])expect(?:\.(?:soft|poll))?\s*\(/g)) {
-    if (/^(?:\s*\.\s*\w+)*?\s*\.\s*\w+\s*\(/.test(code.slice(closeAt(code, m.index + m[0].length - 1)))) n++
+    const rest = code.slice(closeAt(code, m.index + m[0].length - 1))
+    if (/^(?:\s*\.\s*\w+)*?\s*\.\s*\w+\s*\(/.test(rest) || (chai && /^\s*\.\s*(?:not\s*\.\s*)?to(?![\w$])/.test(rest))) n++
   }
   return n
 }
@@ -108,7 +116,7 @@ export function scoreSpec(src, dialect, ungraded = null) {
   const count = s.countAssertions ?? dialect.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
     // A test's slice runs up to the next test (or to its own end, when the dialect knows it).
-    const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)))
+    const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)), { chai: s.chai })
     const inSkipped = skipRanges.some(([a, b]) => mk.idx >= a && mk.idx < b)
     return { title: mk.title, mod: inSkipped ? 'skip' : mk.mod, expects, idx: mk.idx, capture: Boolean(ungraded?.test(mk.title)) }
   })

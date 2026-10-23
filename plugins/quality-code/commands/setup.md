@@ -10,7 +10,7 @@ Set up this repo for the quality-code plugin. Setup asks only where the project 
 **Rules**
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates and the `.gitignore` lines.
+- Never write `.claude/quality-code.json` yourself; only `setup.mjs --write` does. The same goes for the issue templates, the `.gitignore` lines, and the Playwright config and smoke test setup adds to a frontend. The one file setup leaves to you is the sign-in of step 4.
 - Jira tools: refer to them by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session (the plugin's own or one the user connected in claude.ai). On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. If none is connected, step 0's Jira card (in `connectors.md`) says what to do.
 - Run `setup.mjs --detect` once. Step 0 already runs it (in `connectors.md`): keep its `SETUP_JSON:` line and the sites `getAccessibleAtlassianResources` returned, and use both in the steps below without calling them again.
 - Rerun: if `existing` is not null in the detect result, show its current values and start every step from them. The user may change any field.
@@ -39,8 +39,25 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      `1` gives `adapter: "playwright"`, `2` `"vitest"`, `3` `"fullstack"`. The adapter is used only to score tickets. Then step 4 with the personal rules, and step 5 with the personal done line.
-2. **This project.** No card here: find the values of the Confirm card. Read `adapter`, `here`, `base`, `existing` (and `existingError` when the old file is broken) in the `SETUP_JSON:` line.
-   - `adapter` is `null`: stop with `This stack is not supported yet (Playwright, and for the backend Vitest, pytest, JUnit, Go or .NET).`
+2. **This project.** No card here, except for a frontend with no Playwright yet (below): find the values of the Confirm card. Read `adapter`, `scaffold`, `here`, `base`, `existing` (and `existingError` when the old file is broken) in the `SETUP_JSON:` line.
+   - `adapter` is `null` and `scaffold` is null: stop with `This stack is not supported yet (Playwright or Cypress; for the backend Vitest, Jest, Mocha, pytest, JUnit, Go or .NET).`
+   - **No Playwright yet.** `scaffold` is not null: this frontend has no Playwright config, and no Playwright either when `scaffold.install` is set. It may already have Vitest (`adapter` `vitest`) for its unit tests. Setup can add them. With `scaffold.problem`, say it, then stop when `adapter` is `null`; otherwise go on without Playwright. When `scaffold.command` is null, ask `Which command starts the app? For example npm run dev.`; when `scaffold.url` is null, ask `At which address does <command> open the app? For example http://localhost:3000.`; end the turn after each. A command is one line; an address starts with `http://` or `https://`. Then show this card and end the turn (with `scaffold.install` null, the Installs line is `the Chromium browser`):
+
+     ```
+     This frontend has no Playwright tests yet. Setup can add them:
+       Installs  <scaffold.install>, and the Chromium browser
+       Writes    <scaffold.files, comma-separated>
+       App       <command> at <url>
+     1. Add Playwright: the app has no sign-in
+     2. Add Playwright: the app has a sign-in
+     3. Change the command or the address
+     4. Not now
+     ```
+
+     - **1**, **2:** the stack is `playwright`; when `adapter` is `vitest` or `both`, the repo then has both runners: propose `fullstack`, as **Stack** below does for `both`, with its card to change it (`3. Backend only: Vitest` there also drops the Playwright setup would add). Keep `scaffold: { command, url, signIn }` for the Confirm card and step 4, `signIn` true on `2`.
+     - **3:** ask which, and its new value, then show this card again.
+     - **4:** with `adapter` `null`, stop: `Setup needs a test runner. Run /quality-code:setup again to add Playwright.` Otherwise go on without Playwright (a `vitest` repo stays `vitest`).
+   - **Runner.** `runners` in the detect result names the repo's own runner when it is not Vitest or Playwright: `unit` (`jest`, `mocha`) for the tests of the code, `e2e` (`cypress`) for the tests of screens. The plugin writes and checks the tests in that runner, with the generic checks; Vitest and Playwright keep the specialized ones. Put it in the config as `runners` and show it on the Stack line. Ask nothing. `unit` comes only with a JavaScript backend (`backend` `vitest`): pytest, JUnit, Go and .NET run their own tests.
    - **Stack.** `vitest` or `playwright`, or another backend runner (`pytest`, `junit`, `go`, `dotnet`): that one. `backend` in the detect result names the backend runner; `<Runner>` below is its name: Vitest, pytest, JUnit, Go or .NET. `both` (the repo has Vitest and Playwright, or another backend runner and Playwright): propose `fullstack`, with `"backend": "<backend>"` when `backend` is not `vitest`, or `existing.adapter` (and `existing.backend`) on a rerun. Ask nothing now; to change it from the Confirm card, show this card and end the turn:
 
      ```
@@ -58,13 +75,14 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    - **Project.** On a rerun, keep `existing.jira.projects`. Else read `projectCandidates` in the detect result: the project keys named by this repo's branch names and recent commit subjects, most frequent first. Check the first one with one `getVisibleJiraProjects` call with `searchString` `<KEY>`: it exists when a returned project's key is exactly `<KEY>`. It exists: it is the project, ask nothing. It does not: check the next one, at most 3 calls in all. No candidate exists, or there is none: show the project card.
    - **The project card.** Call `getVisibleJiraProjects` once with `maxResults` 21 and no `searchString`. 20 projects or fewer: show them as a numbered list (`<n>. <KEY>  <name>`), plus a last line `<n>. Type a project key`, and end the turn; the user picks by number, several allowed. More than 20 (a large site can have hundreds): never list them; ask `Which Jira project? Type its key (for example ABC).` and end the turn. A typed key: upper-case it and check it with one `getVisibleJiraProjects` call with `searchString` `<KEY>` (exists when a returned project's key is exactly `<KEY>`). It does not exist: say `<KEY> does not exist on <site host>, or this account cannot see it.`, ask for the key again and end the turn. The picked or typed keys become `jira.projects`.
    - Ask nothing else: no criteria field, labels, prefixes, languages or templates.
-4. **Confirm.** Show everything on one card, with the config as it will be written, and end the turn. Leave out `(subfolder …)` when `here.subfolder` is null; write `Remote   none` when `here.remote` is null; add the line `  <path> not found on <host> (check gitlab_api_url)` under Remote when the GitLab lookup did not find it.
+4. **Confirm.** Show everything on one card, with the config as it will be written, and end the turn. Leave out the `Adds` line unless setup adds Playwright (step 2's card, `1` or `2`), and `(subfolder …)` when `here.subfolder` is null; write `Remote   none` when `here.remote` is null; add the line `  <path> not found on <host> (check gitlab_api_url)` under Remote when the GitLab lookup did not find it.
 
    ```
    Quality Code setup
      Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
      Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
-     Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend>
+     Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend; a runner of `runners` in place of its default, with `generic checks`, for example `backend (Jest, generic checks)`>
+     Adds     Playwright: <scaffold.files, comma-separated>; app <command> at <url>; sign-in <yes | no>
      Jira     <site host>, project(s) <keys>
      Base     <branch>   (from <where it was found>)
    Writes .claude/quality-code.json:
@@ -74,11 +92,38 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   The config is `version: 1`, `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
+   The config is `version: 1`, `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `runners` (only when the detect result has one), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
 
    - **Personal setup (option 2):** the card has no Folder, Remote, Stack or Base line, and shows `Tickets  <frontend | backend | both>` under Jira; in place of the `Writes` line it says `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` (inline, as below). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors, `2` and `3` work as below.
-   - **1:** build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
-   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`; for a personal setup, `Tickets` in place of Stack, and no Base):
+   - **1:** when setup adds Playwright, do **Adding Playwright** below first, up to the write. Build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
+   - **Adding Playwright** (step 2's card, `1` or `2`). On the Confirm card's `1`, before the write, say `Installing Playwright; this can take a minute.` and run `scaffold.install` when it is set, then `scaffold.browsers`, each as one command exactly as detect gave it (they download, and ask for permission). If either fails, show its last lines and stop: nothing is written. Then add `"scaffold": { "command", "url", "signIn" }` to the proposal, next to `config`: `--write` also writes the files of the `Adds` line, and `.gitignore` lines for Playwright's output (with a sign-in, also for `playwright/.auth/` and `.env.e2e`). It never replaces a file. On `ok`:
+     - **Unit runner** (only when `adapter` was `vitest` or `both`: the repo already runs Vitest, Jest or Mocha). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --unit-overlap`. Exit 0: go on. Exit 2: show its line and go on. Exit 1: the team's own unit test run would also pick up the Playwright specs it lists, and fail on them (Playwright's `test()` runs only under Playwright). Show this card and end the turn, `<runner>` being the runner its first line names:
+
+       ```
+       Your <runner> run would also run the Playwright specs in e2e/, and fail on them.
+       1. Keep e2e/ out of <runner>: add it to the exclude in <its config>
+       2. Leave it
+       ```
+
+       `<its config>` is the file the runner reads. **Vitest:** `vitest.config.*`, else `vite.config.*`, else a new `vitest.config.<ts or js>`. On `1`, add `'e2e/**'` to its `test.exclude`, after `...configDefaults.exclude` (imported from `vitest/config`) so Vitest's own defaults stay; when `test.exclude` is there, add only `'e2e/**'` to it. A `vite.config.*` with no `test` block gets one (in TypeScript with `/// <reference types="vitest/config" />` at the top). A new file is `import { configDefaults, defineConfig } from 'vitest/config'` and `export default defineConfig({ test: { exclude: [...configDefaults.exclude, 'e2e/**'] } })`. **Jest:** `jest.config.*`, else the `jest` key of `package.json` (add one when there is none). On `1`, set `testPathIgnorePatterns` to `['/node_modules/', '<rootDir>/e2e/']`, keeping Jest's own `/node_modules/`; when it is there, add only `'<rootDir>/e2e/'` to it. Change nothing else in the file. Then run `--unit-overlap` again: exit 0, say `<runner> now leaves e2e/ to Playwright.`; otherwise show its lines and say `<runner> still picks them up: keep e2e/ out of it by hand.` On `2`, say `Your <runner> run fails on the specs in e2e/ until e2e/ is in its exclude.` Either way, go on.
+     - **Sign-in** (`signIn` true). Write `e2e/auth.setup.<ts or js>` yourself, with the smoke test's extension: only the app's code says how it signs in. Read the app's sign-in screen (read-only, never shown in the chat) for its route and the real labels of its fields and button. A user-and-password form: fill it from `process.env.E2E_USERNAME` and `process.env.E2E_PASSWORD`, and throw `Set E2E_USERNAME and E2E_PASSWORD in .env.e2e` when either is missing. Anything else (single sign-on, a token, a dev switch): ask `How does a tester sign in when the app runs locally? Describe it in a few words.`, end the turn, and write what the answer says. The file imports `{ test as setup, expect }` from `@playwright/test` and holds one `setup('sign in', async ({ page }) => { … })` that signs in, waits with an `expect` until the app is past its sign-in page, and ends with `await page.context().storageState({ path: 'playwright/.auth/user.json' })`. Never ask for a password or a token in the chat, and never write one in a file. When the file reads the two variables, show this card and end the turn:
+
+       ```
+       The sign-in reads E2E_USERNAME and E2E_PASSWORD from .env.e2e, which git ignores. Put a test user's there, then:
+       1. Run the smoke test
+       2. Later
+       ```
+
+       On `2`, say `/quality-code:spec runs the smoke test first, until it passes.` and go to step 5.
+     - **Smoke test.** Say `Starting the app for the smoke test; this can take a minute.`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --smoke` and show its line. Exit 0: go to step 5. Exit 1: the setup does not work yet, and tests written now would fail on it, not on the app. Show this card and end the turn:
+
+       ```
+       1. Run the smoke test again
+       2. Stop here
+       ```
+
+       On `1`, run it again: the user fixed what the line says, or you fix the sign-in file you wrote (never the app's code or the Playwright config). On `2`, say `The setup is written. /quality-code:spec runs the smoke test first, until it passes.` and go to step 5.
+   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`, or setup adds Playwright to a `vitest` repo; for a personal setup, `Tickets` in place of Stack, and no Base):
 
      ```
      Change what?
@@ -90,7 +135,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
      The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 1, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Ask nothing else again.
    - **3:** stop. Nothing is written.
-5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>, or a whole project: /quality-code:tickets-eval <PROJECT>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>, base <branch>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.`
+5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>, or a whole project: /quality-code:tickets-eval <PROJECT>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>, base <branch>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.` When setup added Playwright, say `Commit .claude/quality-code.json, the Playwright files, .gitignore, package.json and its lockfile.` (adding `, and the <runner> config` when the unit runner card changed it) in place of `Commit .claude/quality-code.json.`
 
 ## Advanced
 

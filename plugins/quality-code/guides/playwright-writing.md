@@ -137,3 +137,19 @@ A red extra test is a case the ticket does not cover: report it, never loosen it
 - `{ force: true }` on an action to get past an element that is covered or disabled: that is the
   behaviour to report.
 - A change to application code, config or another team's test to make a test pass.
+
+## Cypress
+
+With `"runners": { "e2e": "cypress" }` in the config, the same rules in Cypress's syntax. Copy the specs
+already in the folder for imports, commands and login.
+
+- One `describe('<KEY> <summary>', () => { … })` with one `it` per scenario. No tags: Cypress has none.
+- `cy.visit('<route>')`, then `cy.get(…)` or `cy.contains(…)` with the test ids or texts the app shows,
+  never a CSS path that says nothing about what the user sees.
+- Assert with `.should(…)`: `cy.get('[data-test=total]').should('have.text', '€ 24,50')`. Cypress retries
+  a `.should` until it passes, so a negated one (`.should('not.exist')`) can pass before the screen has
+  loaded: assert something the loaded screen shows first.
+- Stubs: `cy.intercept('GET', '**/api/orders**', { body: … })`, before `cy.visit`. As in Playwright, the
+  handler registered last is used first.
+- `cy.clock()` sets the time; never `cy.wait(<milliseconds>)`. No behaviour the ticket does not pin down
+  gets a test (Cypress has no todo).

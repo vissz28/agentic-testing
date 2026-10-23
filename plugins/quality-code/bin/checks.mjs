@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import * as boundary from '../lib/base/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
+import { runnerOf } from '../lib/base/runners.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../lib/base/stack.mjs'
 import { mergeSides } from '../lib/pipeline/pipeline.mjs'
 import * as expected from '../lib/pipeline/checks/expected.mjs'
@@ -111,9 +112,9 @@ const readStdin = () => new Promise(done => {
 
 /** A fullstack project: each side's specs in their own dialect, one result. */
 async function fullstackCheck(name, check, args, config, root) {
-  const side = adapter => ({ config: asAdapter(config, adapter), dialect: dialectFor(adapter), root })
+  const side = adapter => ({ config: asAdapter(config, adapter), dialect: dialectFor(runnerOf(config, adapter)), root })
   if (check.specs === 'none') return check.run(args, side(backendOf(config)))
-  if (name === 'expected') return check.run(args, { config, root, dialectOf: p => dialectFor(adapterOfSpec(config, root, p)) })
+  if (name === 'expected') return check.run(args, { config, root, dialectOf: p => dialectFor(runnerOf(config, adapterOfSpec(config, root, p))) })
   const parts = []
   for (const [adapter, specs] of specsByAdapter(config, root, args.specs)) parts.push({ adapter, steps: [await check.run({ ...args, specs }, side(adapter))] })
   return parts.length === 1 ? parts[0].steps[0] : mergeSides(parts)[0]
@@ -143,7 +144,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const args = { specs: a.specs, range: a.range ?? null, key: a.key ?? null, ticket }
   let r
   try {
-    r = isFullstack(config) ? await fullstackCheck(name, check, args, config, root) : await check.run(args, { config, dialect: dialectFor(config.adapter), root })
+    r = isFullstack(config) ? await fullstackCheck(name, check, args, config, root) : await check.run(args, { config, dialect: dialectFor(runnerOf(config)), root })
   } catch (e) {
     const msg = String(e?.message ?? e).split('\n')[0]
     process.stderr.write(`check ${name} crashed: ${msg}\n`)

@@ -1,13 +1,15 @@
 // Where /quality-code:write puts new Playwright specs: playwright.folder, else the testDir of the
 // project's default Playwright config when it is one plain string, else e2e/. The config is read as
-// text, never run.
+// text, never run. A Cypress project's specs are in cypress/e2e/ unless playwright.folder says otherwise.
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ALWAYS, matches, rulesFor } from './boundary.mjs'
+import { runnerOf } from './runners.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']
 export const DEFAULT_E2E_FOLDER = 'e2e/'
+export const CYPRESS_FOLDER = 'cypress/e2e/'
 
 const stripComments = src => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -45,6 +47,7 @@ export function e2eFolder(root, config) {
   if (config?.adapter !== 'playwright' && config?.adapter !== 'fullstack') return { ok: false, error: `the e2e folder is for Playwright projects: this project uses ${config?.adapter}` }
   let out
   if (config.playwright?.folder) out = { ok: true, folder: config.playwright.folder, source: 'config' }
+  else if (runnerOf(config, 'playwright') === 'cypress') out = { ok: true, folder: CYPRESS_FOLDER, source: 'cypress' }
   else {
     // A config named in playwright.configs comes first: Playwright does not find one outside the root.
     const t = readTestDir(root, [...new Set([...(config.playwright?.configs ?? []).map(c => c.config), ...CONFIG_FILES])])
@@ -63,5 +66,6 @@ export function e2eFolder(root, config) {
 export function e2eFolderLine(r) {
   if (r.source === 'config') return `${r.folder} (from playwright.folder)`
   if (r.source === 'testDir') return `${r.folder} (from testDir in ${r.configFile})`
+  if (r.source === 'cypress') return `${r.folder} (Cypress's default)`
   return `${r.folder} (default: no testDir found in a Playwright config)`
 }

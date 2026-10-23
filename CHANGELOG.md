@@ -26,6 +26,66 @@ Update with `/plugin update quality-code@teamsystem`.
     class; xUnit, NUnit, MSTest and FluentAssertions assertions.
   - CI runs each stack for real (`e2e-python`, `e2e-java`, `e2e-go`, `e2e-dotnet`). Seeding stays
     Vitest and Playwright only.
+  - With Jest or Mocha (`runners.unit`) the backend stays a JavaScript one: config refuses
+    `runners.unit` beside a pytest, JUnit, Go or .NET backend, which runs its own tests.
+- **Setup adds Playwright to a frontend that has none.** On a frontend with no test runner (React,
+  Vue, Angular, Svelte, Vite and the like), with Vitest unit tests only, or with Playwright but no
+  config, setup no longer stops or settles for Vitest:
+  one card shows what it installs (`@playwright/test` with your package manager, and Chromium), the
+  files it writes and the command and address the app starts at, read from your dev script. It writes
+  `playwright.config.<ts|js>` and `e2e/smoke.spec.<ts|js>`, never over a file that is there. For an
+  app behind a sign-in, a setup project signs in once (`e2e/auth.setup`, from the app's own sign-in
+  screen; the test user comes from `.env.e2e`, which git ignores, never from the chat) and every test
+  starts signed in. Then the smoke test proves the app opens past its sign-in page
+  (`setup.mjs --smoke`). Until a ticket's tests are in the e2e folder, `/quality-code:spec` runs it
+  first and stops when it fails, so a setup that does not work is never reported as a bug in the app.
+  A repo that already runs Vitest or Jest becomes fullstack, and `setup.mjs --unit-overlap` asks the
+  team's own runner which files it runs: Vitest's and Jest's default patterns also take
+  `e2e/*.spec.ts`, where they fail on Playwright's `test()`, so setup offers to keep `e2e/` out of them
+  and checks again.
+- **Criteria drafted from the description's screenshots** (AGT-121). The connector cannot open the
+  images, so when the fill-in drafts acceptance criteria it asks you to paste up to 3 of them (or
+  their paths), or `skip`. What a screen shows goes into the draft for the author to confirm, never
+  personal data. Screenshots never count in the score: criteria only in a screenshot are still a
+  refuse until a draft is confirmed.
+- **`/quality-code:qa`, manual test runs for QA.** Lists the Xray test executions assigned to you,
+  reads the run's tests and steps from the Xray API, an Xray export attached to the message (CSV), or
+  the Jira page in the browser (Claude in Chrome), runs them in the app one at a time, and proposes
+  OK, KO or Not verified. You give each verdict. A KO becomes a defect drafted in the style of your
+  last one: under the story's epic, in its active sprint, assigned to its developer, and linked to the
+  run and the test. Retests of open defects draft the `Retest` comment. At the end it can move the run
+  and the story to their KO or Done status. Every Jira write waits for a preview and a yes, and
+  `--dry-run` sends nothing. Without an Xray API key, the command lists the run statuses for you to
+  set in Xray by hand. Works with the personal setup, with no repo.
+- **Xray API for `/quality-code:qa`.** Set an Xray Cloud API key in `/plugin` (`xray_client_id` and
+  `xray_client_secret`, kept in the keychain), and `xray_api_url` for a regional Xray. qa then reads
+  the tests, steps and run statuses from Xray, adds each defect to its test run, and sets the run
+  statuses after a yes. A new `xray` connector (`bin/xray-api.mjs`, started by the launcher only
+  when the key is set) sends the key only to an Xray Cloud address. If the API fails, qa falls back
+  to the export, then the browser.
+- **`/quality-code:config`.** Shows the project config (repo or personal) and your plugin settings
+  on one card, and changes one at a time. The scripts that already check setup's values do the
+  writes (`setup.mjs --write`, `connector-settings.mjs`, now with `--xray-save`). The card also shows
+  whether the GitLab token, Figma key, Xray API key and GitHub sign-in are set. It reads this from the
+  connectors, never from the token, and gives the steps to set one in `/plugin`, which keeps it in
+  the keychain; tokens are never asked for in the chat.
+- **Jest, Mocha and Cypress, with the generic checks.** A repo that tests with another runner keeps
+  it: setup names it in the config (`"runners": { "unit": "jest" }`, `"mocha"`, or `"runners": {
+  "e2e": "cypress" }`), `/quality-code:spec` writes the tests in it, like the specs already there, and
+  the pipeline runs it through the same checks, reading its specs as the syntax all these runners share
+  (`describe`/`it`, `expect`, Chai, Cypress's `.should`, `xit`/`fit`). Mutation never negates a retried
+  Cypress `.should` (it would pass while the screen loads): it breaks the value or asks for an
+  impossible count. The card says `Jest (generic checks)`. Vitest and Playwright keep the specialized
+  checks; Stryker stays Vitest's. Cypress's screenshots and videos go to a temp folder, never into the
+  project, and a down app is said plainly.
+
+## [0.15.0] - 2026-10-23
+
+**Two things to do when you update** (see Upgrading): `/quality-code:check` is gone (use the
+`run-*` commands), and ticket copies move to `.quality-code/tickets`.
+
+### Added
+
 - **Three run commands replace `/quality-code:check`** (AGT-127). `/quality-code:run-frontend` runs
   every frontend (Playwright) spec of the project through the pipeline, `/quality-code:run-backend`
   every backend (Vitest) spec, and `/quality-code:run-pipeline` both together, the full suite. The

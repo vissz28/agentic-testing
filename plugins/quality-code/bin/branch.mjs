@@ -12,7 +12,7 @@ import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
-const TEST_NAME = /\.(spec|test)\.[^/]+$/
+const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
 
 /** The origin URL without any user:password@ part. */
 export function stripCredentials(url) {

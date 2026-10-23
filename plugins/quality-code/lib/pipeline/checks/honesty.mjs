@@ -9,8 +9,9 @@ import { redTagsOf } from '../../base/config.mjs'
 // Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition
 // (skipIf, runIf), an inline test.fixme(). A new test.fixme('title', …) declaration is the guides' "not
 // pinned down yet" and stays allowed; .only drops every other test.
-const SKIP = [/\b(?:it|test|describe)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/]
-const ONLY = /(?<![.\w$])(?:it|test|describe|suite)(?:\.describe)?\.only\b/
+// xit, xdescribe (Jest, Jasmine, Mocha) skip; fit, fdescribe focus like .only.
+const SKIP = [/\b(?:it|test|describe|context|specify)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/, /(?<![.\w$])x(?:it|test|describe|context|specify)\s*\(/]
+const ONLY = /(?<![.\w$])(?:(?:it|test|describe|suite|context|specify)(?:\.describe)?\.only\b|f(?:it|describe)\s*\()/
 const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', 'runIf'])
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -46,7 +47,7 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
   const h = dialect.honesty
   // A dialect may name its own assertions and skips (Go: t.Errorf, assert.Equal, t.Skip; pytest: assert,
   // @pytest.mark.skipif; JUnit's assertEquals and @Disabled through assertRe and skipRe below).
-  const assertion = h.assertionRe ?? dialect.removedAssertion ?? /\bexpect\s*\(/
+  const assertion = h.assertionRe ?? h.assertion ?? dialect.removedAssertion ?? /\bexpect\s*\(/
   const skips = [...(h.skips ?? SKIP), ...(dialect.skipMarks ?? [])]
   const tracked = new RegExp(`\\b${own ? `(?!${esc(own)}\\b)` : ''}${keySrc}\\b`)
   const taggedKey = new RegExp(`['"\`]@${keySrc}['"\`]`)

@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
+import { runnerOf } from '../lib/base/runners.mjs'
 import { keyPattern } from '../lib/base/keys.mjs'
 import * as expected from '../lib/pipeline/checks/expected.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
@@ -53,7 +54,7 @@ export function checkFixture(root, config, dir, key) {
   const input = existsSync(join(dir, 'input.json')) ? read(join(dir, 'input.json')) : null
   if (input?.ticket && specs.length) {
     const ticket = typeof input.ticket === 'string' ? JSON.parse(input.ticket) : input.ticket
-    const ctx = { root, config, dialectOf: p => dialectFor(adapterOfSpec(config, root, p)) }
+    const ctx = { root, config, dialectOf: p => dialectFor(runnerOf(config, adapterOfSpec(config, root, p))) }
     const r = expected.run({ specs, key: k, ticket, candidates: list(input.candidates).map(String) }, ctx)
     if (r.status !== 'pass') problems.push(`expected values: ${r.summary}`)
   }

@@ -63,10 +63,11 @@ function run(argv, env, cwd) {
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
   const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && /^[A-Z][A-Z0-9_]*-\d+$/.test(basename(dirname(p)))
   if (cmd === 'jira-posted') {
-    // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note: the key and the kind only.
+    // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note, or
+    // after qa filed a defect, posted a retest comment or moved a status: the key and the kind only.
     const [key, action] = a._
-    if (!savedPath(key) || !['comment', 'update', 'risk'].includes(action)) {
-      err('usage: ticket.mjs jira-posted <KEY> comment|update|risk')
+    if (!savedPath(key) || !['comment', 'update', 'risk', 'defect', 'retest', 'status'].includes(action)) {
+      err('usage: ticket.mjs jira-posted <KEY> comment|update|risk|defect|retest|status')
       return 2
     }
     log('jira', { key, action })
@@ -142,7 +143,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (!a.in) {
-    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null

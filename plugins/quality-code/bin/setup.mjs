@@ -1,14 +1,22 @@
-// Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and writes.
+// Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and
+// writes, --smoke runs the smoke test setup writes for a frontend that had no Playwright, and
+// --unit-overlap lists the e2e specs the project's own unit runner (Vitest, Jest) would pick up too.
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, normaliseTicketsDir, personalConfigPath, validateConfig } from '../lib/base/config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, loadConfig, normaliseTicketsDir, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
-import { CONFIG_FILES, readTestDir } from '../lib/base/e2e-folder.mjs'
+import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/base/e2e-folder.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { CI_FILES } from '../lib/base/boundary.mjs'
+import { asAdapter } from '../lib/base/stack.mjs'
+import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs'
+import { toolScript } from '../lib/pipeline/runners/tool.mjs'
+import { projectSpecs } from '../lib/report/quality-program.mjs'
+import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
+import { backendOf } from '../lib/base/backends.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -48,7 +56,7 @@ function vitestConfigs(root) {
   return names.filter(n => VITEST_CONFIG.test(n) || (VITE_CONFIG.test(n) && viteWithTests(n))).sort()
 }
 
-const SPEC_FILE = /\.(spec|test)\.[cm]?[jt]sx?$/
+const SPEC_FILE = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
 
 // The files that name a Python project's test runner; any of them that mentions pytest makes it pytest.
 const PYTHON_FILES = /^(?:pyproject\.toml|pytest\.ini|setup\.cfg|tox\.ini|requirements[\w.-]*\.txt)$/
@@ -125,6 +133,137 @@ function playwrightConfigs(root) {
 }
 
 const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
+
+// A frontend: one of these in its dependencies, or an index.html at the root.
+const UI_DEPS = ['react', 'vue', '@angular/core', 'svelte', 'solid-js', 'preact', 'lit', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'ember-source', 'vite', 'parcel', 'webpack-dev-server']
+const DEV_SCRIPTS = ['dev', 'start', 'serve']
+// The port a dev server opens on when its script and config name none.
+const DEFAULT_PORTS = [[/\bnext\b|\breact-scripts\b|\bnuxi?\b/, 3000], [/\bng\b/, 4200], [/\bastro\b/, 4321], [/\bparcel\b/, 1234], [/\bvue-cli-service\b|\bwebpack\b/, 8080], [/\bvite\b|\bremix\b|\breact-router\b/, 5173]]
+const LOCKFILES = [['pnpm-lock.yaml', 'pnpm'], ['yarn.lock', 'yarn'], ['bun.lock', 'bun'], ['bun.lockb', 'bun'], ['package-lock.json', 'npm']]
+const ADD_DEV = { npm: 'npm install --save-dev', pnpm: 'pnpm add -D', yarn: 'yarn add -D', bun: 'bun add -d' }
+const EXEC = { npm: 'npx', pnpm: 'pnpm exec', yarn: 'yarn', bun: 'bunx' }
+const SMOKE_NAMES = ['smoke.spec.ts', 'smoke.spec.js']
+const AUTH_STATE = 'playwright/.auth/user.json'
+const ENV_FILE = '.env.e2e'
+const PLAYWRIGHT_GITIGNORE = ['test-results/', 'playwright-report/']
+const SIGN_IN_GITIGNORE = [`${dirname(AUTH_STATE)}/`, ENV_FILE]
+// The unit runners setup recognises, the first one found winning; Vitest is the specialized one.
+const UNIT_RUNNERS = ['vitest', 'jest', 'mocha']
+
+/** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
+function packageManager(root, pkg) {
+  let pm = /^(npm|pnpm|yarn|bun)@/.exec(pkg.packageManager ?? '')?.[1] ?? null
+  let pnp = false
+  for (let dir = resolve(root); ; dir = dirname(dir)) {
+    pm ??= LOCKFILES.find(([f]) => existsSync(join(dir, f)))?.[1] ?? null
+    pnp ||= existsSync(join(dir, '.pnp.cjs'))
+    if (pm || existsSync(join(dir, '.git')) || dirname(dir) === dir) return { pm: pm ?? 'npm', pnp }
+  }
+}
+
+// ponytail: the first `port:` in the Vite config, server's or preview's; the user confirms the address on the card.
+function vitePort(root) {
+  for (const e of ['ts', 'mts', 'js', 'mjs', 'cjs']) {
+    try { return /\bport\s*:\s*(\d{2,5})\b/.exec(readFileSync(join(root, `vite.config.${e}`), 'utf8'))?.[1] ?? null } catch {}
+  }
+  return null
+}
+
+/** How the app starts for the tests: its dev script, and the address it opens at; null for what cannot be read. */
+function devServer(root, pkg, pm) {
+  const name = DEV_SCRIPTS.find(n => typeof pkg.scripts?.[n] === 'string')
+  if (!name) return { command: null, url: null }
+  const script = pkg.scripts[name]
+  const port = /(?:--port|-p)[=\s]+(\d{2,5})\b/.exec(script)?.[1] ?? /\bPORT=(\d{2,5})\b/.exec(script)?.[1]
+    ?? (/\bvite\b/.test(script) ? vitePort(root) : null) ?? DEFAULT_PORTS.find(([re]) => re.test(script))?.[1]
+  return { command: `${pm} run ${name}`, url: port ? `http://localhost:${port}` : null }
+}
+
+/**
+ * What setup adds to a frontend with no Playwright config: the install command (null when Playwright is
+ * installed), the browser download, the app's command and address, the files it writes. Null when the
+ * repo has a Playwright config, or is no frontend (a backend, a UI library, or no package.json).
+ */
+function playwrightScaffold(root, pkg, adapter, configs) {
+  if (!pkg || configs.length) return null
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+  // A repo that runs Cypress keeps it: its e2e tests are written and checked in Cypress.
+  if ('cypress' in deps) return null
+  const installed = '@playwright/test' in deps
+  const { pm, pnp } = packageManager(root, pkg)
+  const app = devServer(root, pkg, pm)
+  const frontend = UI_DEPS.some(d => d in deps) || existsSync(join(root, 'index.html'))
+  // With Vitest already, a frontend also needs a script that serves it: a UI library is tested with Vitest alone.
+  if (!installed && !(frontend && (adapter === null || (adapter === 'vitest' && app.command)))) return null
+  const ts = existsSync(join(root, 'tsconfig.json'))
+  // As npm init playwright does: the config reads process, which TypeScript knows from @types/node.
+  const packages = ['@playwright/test', ...(ts && !('@types/node' in deps) ? ['@types/node'] : [])]
+  const ext = ts ? 'ts' : 'js'
+  const s = {
+    install: installed ? null : `${ADD_DEV[pm]} ${packages.join(' ')}`,
+    browsers: `${EXEC[pm]} playwright install chromium`,
+    ...app,
+    files: [`playwright.config.${ext}`, `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`],
+  }
+  if (pnp) s.problem = "Yarn Plug'n'Play keeps no node_modules folder, which the checks run Playwright from: set nodeLinker: node-modules in .yarnrc.yml, then run setup again."
+  return s
+}
+
+const quote = s => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+
+/** The Playwright config setup writes. With signIn, a setup project signs in once and every test starts signed in. */
+export function playwrightConfigText({ command, url, signIn }) {
+  const head = signIn
+    ? `import { existsSync } from 'node:fs'
+import { defineConfig, devices } from '@playwright/test'
+
+// The test user for the sign-in: E2E_USERNAME and E2E_PASSWORD in ${ENV_FILE}, which git ignores.
+if (existsSync('${ENV_FILE}')) process.loadEnvFile('${ENV_FILE}')
+`
+    : `import { defineConfig, devices } from '@playwright/test'
+`
+  const projects = signIn
+    ? `    { name: 'setup', testMatch: /auth\\.setup\\.[cm]?[jt]s/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], storageState: '${AUTH_STATE}' }, dependencies: ['setup'] },`
+    : `    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },`
+  return `${head}
+export default defineConfig({
+  testDir: './${DEFAULT_E2E_FOLDER.replace(/\/$/, '')}',
+  use: { baseURL: ${quote(url)} },
+  webServer: { command: ${quote(command)}, url: ${quote(url)}, reuseExistingServer: !process.env.CI },
+  projects: [
+${projects}
+  ],
+})
+`
+}
+
+// Each expect names what it checks: the first line of a failure says what is wrong with the setup.
+export const SMOKE_TEXT = `import { test, expect } from '@playwright/test'
+
+// Written by quality-code setup. While it is the only spec here, /quality-code:spec runs it first, so a
+// setup that does not work is never read as a bug in the app.
+test('the app opens', async ({ page }) => {
+  const response = await page.goto('/')
+
+  expect(response?.ok(), 'the app should answer at its address').toBe(true)
+  await expect(page.locator('body'), 'the app should show a page').not.toHaveText(/^\\s*$/)
+  await expect(page.locator('input[type="password"]'), 'the app should open past its sign-in page').toHaveCount(0)
+})
+`
+
+function scaffoldProblems(root, config, s) {
+  if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
+  const e = []
+  if (config.adapter !== 'playwright' && config.adapter !== 'fullstack') e.push('scaffold: only for "adapter": "playwright" or "fullstack"')
+  else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
+  if (typeof s.command !== 'string' || !s.command.trim() || /[\r\n]/.test(s.command)) e.push('scaffold.command: must be the one-line command that starts the app, like "npm run dev"')
+  if (typeof s.url !== 'string' || !/^https?:\/\/[^\s'"`\\]+$/.test(s.url)) e.push('scaffold.url: must be the address the app opens at, like "http://localhost:5173"')
+  if (typeof s.signIn !== 'boolean') e.push('scaffold.signIn: must be true or false')
+  const there = CONFIG_FILES.find(f => existsSync(join(root, f)))
+  if (there) e.push(`scaffold: ${there} already exists, and setup never replaces it`)
+  return e
+}
 
 function hasLine(path, line) {
   return existsSync(path) && readFileSync(path, 'utf8').split(/\r?\n/).some(l => l.trim() === line)
@@ -232,18 +371,25 @@ function personalState(env) {
 
 export function detect(root, env = process.env) {
   let deps = {}
+  let pkg = null
   const pkgPath = join(root, 'package.json')
   if (existsSync(pkgPath)) {
     try {
-      const pkg = readJson(pkgPath)
+      pkg = readJson(pkgPath)
       deps = { ...pkg.dependencies, ...pkg.devDependencies }
-    } catch { deps = {} }
+    } catch { deps = {}; pkg = null }
   }
-  // The backend runner: the first one found; with Playwright too the repo is both (fullstack + backend).
+  // The JavaScript unit runner (Vitest, else Jest or Mocha under the vitest adapter) and the e2e one.
+  const unit = UNIT_RUNNERS.find(r => r in deps) ?? null
+  const e2e = '@playwright/test' in deps ? 'playwright' : 'cypress' in deps ? 'cypress' : null
+  // The backend runner: the first one found; with an e2e runner too the repo is both (fullstack + backend).
   const backends = detectBackends(root, deps)
+  if (unit && !backends.includes('vitest')) backends.unshift('vitest')
   const backend = backends[0] ?? null
-  const pw = '@playwright/test' in deps
-  const adapter = pw && backend ? 'both' : pw ? 'playwright' : backend
+  const adapter = e2e && backend ? 'both' : e2e ? 'playwright' : backend
+  // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
+  const runners = { ...(backend === 'vitest' && unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
+  const pwConfigs = playwrightConfigs(root)
   const templates = {}
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
@@ -255,13 +401,14 @@ export function detect(root, env = process.env) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
   const result = {
-    adapter, backend, backends, templates, existing,
+    adapter, backend, backends, runners, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     specFolders: specFolders(root),
-    playwrightConfigs: playwrightConfigs(root),
+    playwrightConfigs: pwConfigs,
+    scaffold: playwrightScaffold(root, pkg, adapter, pwConfigs),
     here: here(root),
     projectCandidates: jiraCandidates(root),
     base: baseCandidate(root),
@@ -280,13 +427,15 @@ function pathProblem(root, label, p) {
   return null
 }
 
-export function write(root, config, { templates, gitignoreLine } = {}) {
+/** scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test; an existing file is never replaced. */
+export function write(root, config, { templates, gitignoreLine, scaffold } = {}) {
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
   const errors = []
   const named = [['ticketsDir', config.ticketsDir], ...Object.entries(config.ticketTemplates ?? {}).filter(([, p]) => p !== null).map(([k, p]) => [`ticketTemplates.${k}`, p])]
   for (const [label, p] of named) if (p !== undefined) { const m = pathProblem(root, label, p); if (m) errors.push(m) }
   if (gitignoreLine !== undefined && typeof gitignoreLine !== 'string') errors.push('gitignoreLine: must be text')
+  if (scaffold !== undefined) errors.push(...scaffoldProblems(root, config, scaffold))
   if (errors.length) return { ok: false, errors }
 
   const { templates: found, here: h } = detect(root)
@@ -298,6 +447,12 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
     const p = home[kind]
     paths[kind] = p
     toWrite.push([p, templates[kind]])
+  }
+  if (scaffold !== undefined) {
+    const ext = existsSync(join(root, 'tsconfig.json')) ? 'ts' : 'js'
+    toWrite.push([`playwright.config.${ext}`, playwrightConfigText(scaffold)])
+    const smoke = `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`
+    if (!existsSync(join(root, smoke))) toWrite.push([smoke, SMOKE_TEXT])
   }
   const out = { ...config }
   if (out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
@@ -316,7 +471,8 @@ export function write(root, config, { templates, gitignoreLine } = {}) {
 
     const gi = join(root, '.gitignore')
     step = '.gitignore'
-    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL, ...RUNTIME_GITIGNORE]) {
+    const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]
+    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL, ...RUNTIME_GITIGNORE, ...playwrightLines]) {
       if (hasLine(gi, line)) continue
       const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
       writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
@@ -341,6 +497,61 @@ export function writePersonal(config, env = process.env) {
   return { ok: true, path: p }
 }
 
+/**
+ * Runs the smoke test setup wrote: { code, line }. code 0: it passed, or there was nothing to run; 1: it
+ * failed, so the setup does not work yet; 2: no usable e2e folder. With ifFirst it runs only while it is
+ * the only frontend spec: before the first ticket's tests, never after them.
+ */
+export async function smoke(root, config, { ifFirst = false, run = runPlaywright } = {}) {
+  const e2e = e2eFolder(root, config)
+  if (!e2e.ok) return { code: 2, line: e2e.error }
+  const file = SMOKE_NAMES.map(n => `${e2e.folder}${n}`).find(p => existsSync(join(root, p)))
+  if (!file) return { code: 0, line: 'skip: no smoke test in the e2e folder' }
+  if (ifFirst && projectSpecs(root, config).some(s => s.adapter === 'playwright' && s.path !== file)) return { code: 0, line: 'skip: the e2e folder has other specs' }
+  const timeoutMs = timeoutSecondsOf(asAdapter(config, 'playwright')) * 1000
+  const r = await run(root, [file], { config: configFor(file, config), projects: config.playwright?.projects ?? [], timeoutMs })
+  const why = m => String(m).replace(/^Error: /, '')
+  if (!r.ran) return { code: 1, line: `The app did not open: ${why(r.error)}` }
+  if (r.broken.length) return { code: 1, line: `${r.broken[0].file} does not load: ${why(r.broken[0].message)}` }
+  // A setup project (the sign-in) runs first; when it fails, the smoke test does not run.
+  const signIn = r.tests.find(t => t.status === 'failed' && t.file !== file)
+  if (signIn) return { code: 1, line: `The sign-in failed (${signIn.file}): ${why(signIn.message)}` }
+  const t = r.tests.find(x => x.file === file)
+  if (!t || t.status === 'skipped') return { code: 1, line: 'The smoke test did not run: check the projects in the Playwright config' }
+  if (t.status === 'failed' && t.message.includes(AUTH_STATE)) return { code: 1, line: `The smoke test found no signed-in state: the sign-in (${e2e.folder}auth.setup.${file.split('.').pop()}) is missing, or it does not save ${AUTH_STATE}` }
+  if (t.status === 'failed') return { code: 1, line: `The smoke test failed: ${why(t.message)}` }
+  return { code: 0, line: 'ok: the app opens' }
+}
+
+// How a unit runner lists the files it would run, with its default config.
+// ponytail: Mocha runs only its spec glob (./test by default), so it is taken to leave the e2e folder alone.
+const LISTS = {
+  vitest: { packages: ['vitest'], args: ['list', '--filesOnly', '--json'], files: list => list.map(t => t?.file) },
+  jest: { packages: ['jest'], args: ['--listTests', '--json'], files: list => list },
+}
+
+/**
+ * The e2e specs the project's own unit runner (Vitest, Jest) picks up too, where they fail: Playwright's
+ * test() runs only under Playwright. { files } from the runner's own list, or { error } when it cannot list them.
+ */
+export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 120000 } = {}) {
+  const how = LISTS[runner]
+  if (!how) return { files: [] }
+  const label = RUNNERS[runner]?.label ?? runner
+  const bin = toolScript(root, how.packages, runner)
+  if (!bin) return { error: `${label} is not installed in this project: run npm install` }
+  let out
+  try {
+    out = execFileSync(process.execPath, [bin, ...how.args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: timeoutMs, env: { ...process.env, NO_COLOR: '1', CI: '1' } })
+  } catch (e) { out = e.stdout ?? '' }
+  let list
+  try { list = how.files(JSON.parse(out.slice(out.indexOf('[')))) } catch { return { error: `${label} could not list its test files` } }
+  let base = root
+  try { base = realpathSync(root) } catch {}
+  const files = list.map(f => relative(base, String(f ?? '')).split('\\').join('/')).filter(f => f.startsWith(folder))
+  return { files: [...new Set(files)].sort() }
+}
+
 function main(argv) {
   // Where the user set up: not a parent folder's project, which projectRoot would find.
   const root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
@@ -363,13 +574,32 @@ function main(argv) {
       process.stdout.write('ok\n')
       return 0
     }
-    const r = write(root, proposal?.config, { templates: proposal?.templates })
+    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
     process.stdout.write('ok\n')
     return 0
   }
-  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json\n")
+  if (argv[0] === '--smoke' && argv.slice(1).every(a => a === '--if-first')) {
+    const cfg = loadConfig(root)
+    if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
+    return smoke(root, cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { process.stdout.write(`${r.line}\n`); return r.code })
+  }
+  if (argv[0] === '--unit-overlap' && argv.length === 1) {
+    const cfg = loadConfig(root)
+    if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
+    // A pytest, JUnit, Go or .NET backend never runs the Playwright specs: its runner lists none of them.
+    const backend = backendOf(cfg.config)
+    const runner = backend && backend !== 'vitest' ? backend : runnerOf(cfg.config, 'vitest')
+    const label = RUNNERS[runner]?.label ?? runnerLabel(runner)
+    const e2e = e2eFolder(root, cfg.config)
+    const r = e2e.ok ? unitOverlap(root, e2e.folder, runner) : { error: e2e.error }
+    if (r.error) { process.stdout.write(`${r.error}\n`); return 2 }
+    if (!r.files.length) { process.stdout.write(`ok: ${label} runs none of the specs in ${e2e.folder}\n`); return 0 }
+    process.stdout.write(`${label} also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}\n`)
+    return 1
+  }
+  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap\n")
   return 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main(process.argv.slice(2))
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) Promise.resolve(main(process.argv.slice(2))).then(code => { process.exitCode = code })

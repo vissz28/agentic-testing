@@ -10,6 +10,15 @@
     "version": { "const": 1 },
     "adapter": { "enum": ["playwright", "vitest", "pytest", "junit", "go", "dotnet", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest, pytest, junit, go or dotnet: a backend project (tests of the code), run by Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test. fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under the backend runner (backend, default vitest)." },
     "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "default": "vitest", "description": "Only with adapter fullstack: the runner of the backend side." },
+    "runners": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The project's own runner when it is not Vitest or Playwright. Its tests get the generic checks; Vitest and Playwright keep the specialized ones.",
+      "properties": {
+        "unit": { "enum": ["vitest", "jest", "mocha"], "description": "The runner of the tests of the code (the vitest adapter, or fullstack with backend vitest). Default vitest. Not with a pytest, junit, go or dotnet backend: they run their own tests." },
+        "e2e": { "enum": ["playwright", "cypress"], "description": "The runner of the e2e tests of screens (the playwright adapter). Default playwright." }
+      }
+    },
     "jira": {
       "type": "object",
       "required": ["site", "projects"],

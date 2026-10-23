@@ -194,6 +194,14 @@ test('ticket draft: Given / When / Then in the ticket\'s language, never invente
   assert.match(draft, /never sent as it is/)
   assert.match(draft, /do not send it: ask for the values first/)
 })
+test('ticket draft: screenshots are pasted by the user, 3 at most, never scored, never a source of personal data (AGT-121)', () => {
+  assert.match(draft, /Screenshots in the description count too, once the user pastes them/)
+  assert.ok(draft.includes('The description has <n> screenshots, and I cannot open them from Jira.\n  Paste up to 3 here (or type their file paths) to draft from them too, or type skip.'))
+  assert.match(draft, /Read at most 3/)
+  assert.match(draft, /Never copy a name, an email, a customer code or other personal data from a screenshot/)
+  assert.match(draft, /Never save a screenshot or send it anywhere/)
+  assert.match(draft, /A screenshot never changes the score/)
+})
 test('ticket draft: the card is Use it / Edit / Skip and the turn ends', () => {
   assert.ok(draft.includes('Drafted from the ticket. Check it before it counts.\n\n  <the draft>\n\n  1. Use it\n  2. Edit\n  3. Skip'))
   assert.match(draft, /exactly as it would be added, then end the turn/)

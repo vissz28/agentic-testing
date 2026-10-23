@@ -10,7 +10,9 @@ import { adapterOptions, timeoutSecondsOf } from '../base/config.mjs'
 import { matches } from '../base/boundary.mjs'
 import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
+import { runnerOf } from '../base/runners.mjs'
 
+const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
 const CAP = 1 << 20
 
@@ -72,7 +74,9 @@ export function readTsc(out, code, specs, truncated = false) {
 }
 
 export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}) {
-  const configured = adapterOptions(config).tsconfig ?? 'tsconfig.json'
+  // Cypress keeps the types its specs need (cy, its chainers) in cypress/tsconfig.json.
+  const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
+  const configured = adapterOptions(config).tsconfig ?? (cypress ? CYPRESS_TSCONFIG : 'tsconfig.json')
   const tsSpecs = specs.filter(s => TS.test(s))
   if (!tsSpecs.length) return Promise.resolve(result('types', 'pass', 'no TypeScript specs: nothing to type-check', [], { applicable: false }))
   if (!existsSync(join(root, configured))) return Promise.resolve(result('types', 'not_run', `no ${configured}: cannot type-check the TypeScript specs`))

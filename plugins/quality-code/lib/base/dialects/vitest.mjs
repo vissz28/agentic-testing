@@ -61,10 +61,10 @@ export function flipMutations(expectSrc) {
 }
 
 /** A block mutation judges: it ran green, it is not skipped or a todo; an each/for test's titles are formatted at run time. */
-const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && block.mod !== 'each' && passed.has(block.title)
+export const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && block.mod !== 'each' && passed.has(block.title)
 
-/** One mutant per expect (the strongest) unless thorough; baseline-green tests only, inside the range. */
-function plan({ src, passedTitles, range, thorough, blocks, expects }) {
+/** A mutation plan from a dialect's flips: one mutant per expect (the strongest) unless thorough; baseline-green tests only, inside the range. */
+export const planOf = (flips, rank) => ({ src, passedTitles, range, thorough, blocks, expects }) => {
   const passed = new Set(passedTitles)
   const all = []
   for (const ex of expects) {
@@ -72,7 +72,7 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
     const block = blocks.find(b => ex.start >= b.start && ex.start < b.end)
     if (!block || !eligible(block, passed)) continue
     const original = src.slice(ex.start, ex.end)
-    for (const flip of flipMutations(original)) {
+    for (const flip of flips(original)) {
       all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
     }
   }
@@ -80,7 +80,7 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
   const best = new Map()
   for (const m of all) {
     const cur = best.get(m.start)
-    if (!cur || mutantRank(m.kind) < mutantRank(cur.kind)) best.set(m.start, m)
+    if (!cur || rank(m.kind) < rank(cur.kind)) best.set(m.start, m)
   }
   return [...best.values()].sort((a, b) => a.start - b.start)
 }
@@ -91,5 +91,5 @@ export const mutation = {
   rank: mutantRank,
   flips: flipMutations,
   eligible,
-  plan,
+  plan: planOf(flipMutations, mutantRank),
 }

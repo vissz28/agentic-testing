@@ -179,3 +179,14 @@ test('a Defect is a bug; jira.bugTypes names them exactly', () => {
   assert.match(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'anomaly' })), /Steps to reproduce/)
   assert.doesNotMatch(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'Bug' })), /Steps to reproduce/)
 })
+test('screenshots in the description never count: no criteria in the text is still a refuse (AGT-121)', () => {
+  const img = '![](blob:https://media.staging.atl-paas.net/?type=file&id=00000000-0000-4000-8000-000000000001&height=827&width=930)'
+  const prose = 'In the stamp configuration, a "Find Position" button must be added. Upon confirmation, the position must be returned to the main page.'
+  for (const adapter of ['playwright', 'vitest']) {
+    for (const description of [`${img}\n${img}`, `${prose}\n\n${img}\n${img}`]) {
+      const b = buildBrief(cfg(adapter), { key: 'DEMO-1', issuetype: 'Story', labels: [], text: { description }, attachments: 2 })
+      assert.equal(b.signals.ac_present, false, `${adapter}: ${description.slice(0, 20)}`)
+      assert.equal(b.gate, 'refuse', `${adapter}: ${description.slice(0, 20)}`)
+    }
+  }
+})
