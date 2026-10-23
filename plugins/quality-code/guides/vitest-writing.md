@@ -63,3 +63,14 @@ describe('ABC-123 Line totals round to the cent', () => {
 - `.skip` without a ticket key in its title, or an empty `it` with no `expect`.
 - An `expect` that cannot fail: `expect(true).toBe(true)`, or asserting the input you just built.
 - A change to application code, config or another team's test to make a test pass.
+
+## Other runners (Jest, Mocha)
+
+With `runners.unit` in the config, these rules hold in that runner's own syntax. Copy the specs already
+there for imports and setup.
+
+- **Jest:** `jest.fn`, `jest.mock`, `jest.spyOn` and `jest.restoreAllMocks()`; `jest.useFakeTimers()` and
+  `jest.setSystemTime(new Date('2026-01-15T10:00:00Z'))`. The matchers are the ones above.
+- **Mocha:** Chai's `expect(total).to.equal(108)`, `.to.deep.equal({ … })` for an object, `.to.throw('the
+  message')`, and the stub library the repo already uses (often Sinon). Mocha has no `it.todo`: a
+  behaviour the ticket does not pin down gets no test.

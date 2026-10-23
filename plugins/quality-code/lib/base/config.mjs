@@ -3,11 +3,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { matches } from './boundary.mjs'
+import { RUNNERS } from './runners.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence'])
+const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence'])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', 'vitest', 'fullstack']
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -207,6 +208,15 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
         if (!Array.isArray(a)) e.push('boundaries.allow: must be a list of path patterns')
         else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
       }
+    }
+  }
+  if (c.runners !== undefined) {
+    if (!isObj(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
+    else for (const [kind, name] of Object.entries(c.runners)) {
+      const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
+      if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
+      else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
+      else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with "adapter": "${kind === 'unit' ? 'vitest' : 'playwright'}" or "fullstack"`)
     }
   }
   if (c.vitest !== undefined) {

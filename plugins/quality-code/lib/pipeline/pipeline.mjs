@@ -14,12 +14,15 @@ import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { runStryker as realRunStryker } from './runners/stryker.mjs'
 import { playwrightRunner } from './runners/playwright.mjs'
 import { configFor, vitestRunner } from './runners/vitest.mjs'
+import { genericRunner } from './runners/generic.mjs'
 import { strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../base/config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 import { dialectFor } from '../base/dialects/index.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../base/stack.mjs'
+import { RUNNERS, isSpecialized, runnerOf } from '../base/runners.mjs'
 
-// Stryker mutates source code under unit tests; it does not run e2e tests.
+// Stryker mutates source code under unit tests; it does not run e2e tests. Another runner of the same
+// kind (runners.unit, runners.e2e) runs through the generic runner instead.
 export const ADAPTERS = Object.freeze({
   vitest: Object.freeze({ runner: vitestRunner, stryker: true }),
   playwright: Object.freeze({ runner: playwrightRunner, stryker: false }),
@@ -126,12 +129,16 @@ const step = async (name, fn) => {
 
 export async function runPipeline(opts, ctx) {
   const specs = [...new Set(opts.specs.map(f => normalizeSpec(ctx.root, f)))]
-  if (!isFullstack(ctx.config)) return withVerdict(await runSide({ ...opts, specs }, ctx))
+  if (!isFullstack(ctx.config)) {
+    // The card names a generic runner, so its checks are never taken for the specialized ones.
+    const runner = runnerOf(ctx.config)
+    return { ...withVerdict(await runSide({ ...opts, specs }, ctx)), ...(isSpecialized(runner) ? {} : { runners: [runner] }) }
+  }
   const groups = specsByAdapter(ctx.config, ctx.root, specs)
   const sideCtx = adapter => ({
     ...ctx,
     config: asAdapter(ctx.config, adapter),
-    dialect: dialectFor(adapter),
+    dialect: dialectFor(runnerOf(ctx.config, adapter)),
     runTests: ctx.runners?.[adapter] ?? ctx.runTests,
     typeCheck: ctx.typeChecks?.[adapter] ?? ctx.typeCheck,
   })
@@ -139,13 +146,13 @@ export async function runPipeline(opts, ctx) {
   for (const [adapter, list] of groups) {
     // Only Vitest has a Stryker step; the value check reads every side at once (below).
     const own = { ...opts, specs: list, target: adapter === 'vitest' ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket }
-    parts.push({ adapter, steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
+    parts.push({ adapter, runner: runnerOf(ctx.config, adapter), steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
   }
   if (groups.length > 1 && opts.ticket) {
-    const dialectOf = p => dialectFor(adapterOfSpec(ctx.config, ctx.root, p))
+    const dialectOf = p => dialectFor(runnerOf(ctx.config, adapterOfSpec(ctx.config, ctx.root, p)))
     parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [] }, { ...ctx, dialectOf }))] })
   }
-  return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.adapter) }
+  return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }
 }
 
 const withVerdict = steps => ({ ...decide(steps), steps })
@@ -167,13 +174,13 @@ function mergeData(datas) {
 }
 
 // A spec is named by its runner, not its side: a frontend repo's Vitest unit tests are no backend.
-const RUNNER = { vitest: 'Vitest', playwright: 'Playwright' }
+const sideLabel = p => RUNNERS[p.runner ?? p.adapter]?.label ?? null
 
 /** One step per check from the runners of a fullstack run, each summary and finding named by its runner. */
 export function mergeSides(parts) {
   const steps = []
   for (const check of ORDER) {
-    const have = parts.flatMap(p => p.steps.filter(s => s.check === check).map(s => ({ side: RUNNER[p.adapter] ?? null, s })))
+    const have = parts.flatMap(p => p.steps.filter(s => s.check === check).map(s => ({ side: sideLabel(p), s })))
     if (!have.length) continue
     const named = (side, text) => (side ? `${side}: ${text}` : text)
     const status = have.map(h => h.s.status).reduce((a, b) => (rank[b] > rank[a] ? b : a))
@@ -191,7 +198,8 @@ export function mergeSides(parts) {
 async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [] }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
-  const runTests = ctx.runTests ?? adapter.runner(ctx.root, ctx.config)
+  const runner = runnerOf(ctx.config)
+  const runTests = ctx.runTests ?? (isSpecialized(runner) ? adapter.runner(ctx.root, ctx.config) : genericRunner(ctx.root, ctx.config, runner))
   const typeCheck = ctx.typeCheck ?? (s => realTypeCheck(ctx.root, ctx.config, s))
   const c = { ...ctx, runTests }
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
@@ -225,6 +233,8 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
     }
   }
-  if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key)))
+  // ponytail: Stryker runs under Vitest only; Jest and Mocha have Stryker runners too, add them when a team asks.
+  if (adapter.stryker && runner !== 'vitest') steps.push(result('stryker', 'pass', `not applicable: Stryker runs with Vitest only, not ${RUNNERS[runner]?.label ?? runner}`, [], { applicable: false, target }))
+  else if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key)))
   return steps
 }

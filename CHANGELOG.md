@@ -22,9 +22,10 @@ Update with `/plugin update quality-code@teamsystem`.
   starts signed in. Then the smoke test proves the app opens past its sign-in page
   (`setup.mjs --smoke`). Until a ticket's tests are in the e2e folder, `/quality-code:spec` runs it
   first and stops when it fails, so a setup that does not work is never reported as a bug in the app.
-  A repo that already runs Vitest becomes fullstack, and `setup.mjs --vitest-overlap` asks the team's
-  own Vitest which files it runs: Vitest's default pattern also takes `e2e/*.spec.ts`, where it fails
-  on Playwright's `test()`, so setup offers to add `e2e/**` to Vitest's exclude and checks again.
+  A repo that already runs Vitest or Jest becomes fullstack, and `setup.mjs --unit-overlap` asks the
+  team's own runner which files it runs: Vitest's and Jest's default patterns also take
+  `e2e/*.spec.ts`, where they fail on Playwright's `test()`, so setup offers to keep `e2e/` out of them
+  and checks again.
 - **Criteria drafted from the description's screenshots** (AGT-121). The connector cannot open the
   images, so when the fill-in drafts acceptance criteria it asks you to paste up to 3 of them (or
   their paths), or `skip`. What a screen shows goes into the draft for the author to confirm, never
@@ -51,6 +52,15 @@ Update with `/plugin update quality-code@teamsystem`.
   whether the GitLab token, Figma key, Xray API key and GitHub sign-in are set. It reads this from the
   connectors, never from the token, and gives the steps to set one in `/plugin`, which keeps it in
   the keychain; tokens are never asked for in the chat.
+- **Jest, Mocha and Cypress, with the generic checks.** A repo that tests with another runner keeps
+  it: setup names it in the config (`"runners": { "unit": "jest" }`, `"mocha"`, or `"runners": {
+  "e2e": "cypress" }`), `/quality-code:spec` writes the tests in it, like the specs already there, and
+  the pipeline runs it through the same checks, reading its specs as the syntax all these runners share
+  (`describe`/`it`, `expect`, Chai, Cypress's `.should`, `xit`/`fit`). Mutation never negates a retried
+  Cypress `.should` (it would pass while the screen loads): it breaks the value or asks for an
+  impossible count. The card says `Jest (generic checks)`. Vitest and Playwright keep the specialized
+  checks; Stryker stays Vitest's. Cypress's screenshots and videos go to a temp folder, never into the
+  project, and a down app is said plainly.
 
 ## [0.15.0] - 2026-10-23
 
