@@ -7,7 +7,10 @@ things, and says so here).
 
 Update with `/plugin update quality-code@teamsystem`.
 
-## [Unreleased]
+## [0.15.0] - 2026-10-23
+
+**Two things to do when you update** (see Upgrading): `/quality-code:check` is gone (use the
+`run-*` commands), and ticket copies move to `.quality-code/tickets`.
 
 ### Added
 
