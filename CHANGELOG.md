@@ -11,6 +11,20 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Added
 
+- **Setup in two answers** (AGT-110, AGT-111, AGT-112). After the repo-or-no-repo card, one Confirm
+  card shows the folder, remote, stack, Jira site and project(s), the base branch and the config, with
+  `1. Write it / 2. Change something / 3. Cancel`. The site is not asked when the account has one. The
+  Jira project is proposed from the keys in your branch names and recent commits (`setup.mjs --detect`
+  gives `projectCandidates`); on a site with more than 20 projects a typed key is checked instead of
+  showing the whole list. The base branch is proposed (an earlier `git.base`, the usual target of
+  recent merged merge requests, `develop`, else `origin/HEAD`) and written as `git.base`.
+- **Criteria drafted from the ticket** (AGT-116). When the fill-in asks for acceptance criteria and
+  the ticket has text to work from, the model drafts Given / When / Then for the author: Use it / Edit /
+  Skip. The script still scores it, nothing reaches Jira without the preview and a yes, and
+  `/quality-code:kpi` counts drafted fill-ins.
+- **No failed MCP servers without a token** (AGT-113). `figma-token` and `gitlab-token` start through
+  `bin/mcp-launch.mjs`: the real server when its token is set, else a server with no tools.
+
 - **`/quality-code:spec`: one command from ticket to checked tests**, for developers and QA. It runs
   the gate, the plan, the writing, the checks and the read-back, and asks a person three times at
   most: at the gate only when the ticket is refused, at the plan, and after the card. With no key it
@@ -61,6 +75,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Fixed
 
+- **Criteria read from the content, not the headings** (AGT-120). A list of checks with no
+  "Acceptance criteria" heading counts as criteria when its items name something a test can see;
+  numbered action steps count as steps, and an `Env:` line or a named environment counts as the
+  environment. A ticket is legacy only with no content signal at all. Vague items still are not
+  testable.
+- **No QA-plan points out of reach** (AGT-115). With no `qaPlanSearch` on any feature and no QA-plan
+  page attached, the QA plan is left out of the score, as with `confluence: false`.
 - **Uncommitted work no longer fails a write run's boundary check.** `run start` snapshots the hash of
   every path already changed before the run; the boundary step only counts a path whose content now
   differs from that snapshot (or that the run reverted back), so dirty files from before the run never
