@@ -339,17 +339,17 @@ test('--expected: a JSON list of pinned values, passed to the pipeline; it needs
 test('with a key, the developer log is written next to the ticket and the card links it; off with the audit log', async () => {
   const d = repo()
   const r = await stubbed(d, ['--key', 'ABC-1'])
-  const log = join(d, '.claude/quality-code/tickets/ABC-1/run.md')
+  const log = join(d, '.quality-code/tickets/ABC-1/run.md')
   assert.ok(existsSync(log))
   assert.match(readFileSync(log, 'utf8'), /^# ABC-1: 🔴 tests red\n/)
-  assert.match(r.out, /\nFull details: \.claude\/quality-code\/tickets\/ABC-1\/run\.md\n/)
+  assert.match(r.out, /\nFull details: \.quality-code\/tickets\/ABC-1\/run\.md\n/)
   const off = repo()
   const r2 = await stubbed(off, ['--key', 'ABC-1'], { QC_NO_AUDIT: '1' })
-  assert.equal(existsSync(join(off, '.claude/quality-code/tickets/ABC-1/run.md')), false)
+  assert.equal(existsSync(join(off, '.quality-code/tickets/ABC-1/run.md')), false)
   assert.doesNotMatch(r2.out, /Full details/)
   const noKey = repo()
   await stubbed(noKey, [])
-  assert.equal(existsSync(join(noKey, '.claude/quality-code/tickets')), false)
+  assert.equal(existsSync(join(noKey, '.quality-code/tickets')), false)
 })
 
 test('fullstack through the CLI: each spec to its runner, one verdict, the card names both runners', () => {

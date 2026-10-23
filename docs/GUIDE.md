@@ -365,7 +365,7 @@ Checks
 
 What to do: add a real expect(...) to 'cancels', or mark it todo if the behaviour isn't known yet.
 
-Full details: .claude/quality-code/tickets/ABC-123/run.md
+Full details: .quality-code/tickets/ABC-123/run.md
 ```
 
 The card lists each test (up to 40), the ticket's first and the extra probes under `Extra (not in the
@@ -732,7 +732,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
-| `ticketsDir` | where local ticket copies go, inside the project | `.claude/quality-code/tickets` |
+| `ticketsDir` | where local ticket copies go, inside the project | `.quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
 

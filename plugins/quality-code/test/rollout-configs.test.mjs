@@ -14,6 +14,8 @@ test('every rollout config passes validation', () => {
   for (const f of files) {
     const r = validateConfig(load(f))
     assert.equal(r.ok, true, `${f}: ${r.errors?.join(' | ')}`)
+    // Under .claude/ every ticket write asks for approval, and a --ci run cannot save (AGT-107).
+    assert.ok(!r.config.ticketsDir.startsWith('.claude/'), `${f}: ticketsDir ${r.config.ticketsDir}`)
   }
 })
 

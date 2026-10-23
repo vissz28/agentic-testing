@@ -135,7 +135,7 @@ test('card: a red run on a ticket Jira calls finished says the bug is still ther
   assert.match(formatCard(red, { jiraStatus: 'Test OK' }), /\nJira says Test OK\. This branch still has the bug\.\n/)
   assert.doesNotMatch(formatCard(red, { jiraStatus: 'In Progress' }), /Jira says/)
   assert.doesNotMatch(formatCard(listed([{ title: 'rounds', status: 'passed' }]), { jiraStatus: 'Done' }), /Jira says/)
-  assert.match(formatCard(red, { log: '.claude/quality-code/tickets/ABC-1/run.md' }), /\n\nFull details: \.claude\/quality-code\/tickets\/ABC-1\/run\.md\nPIPELINE_JSON:/)
+  assert.match(formatCard(red, { log: '.quality-code/tickets/ABC-1/run.md' }), /\n\nFull details: \.quality-code\/tickets\/ABC-1\/run\.md\nPIPELINE_JSON:/)
   assert.match(formatCard(red, { jiraStatus: 'released', doneStatuses: ['Released'] }), /Jira says released\./, 'jira.doneStatuses, any case')
   assert.doesNotMatch(formatCard(red, { jiraStatus: 'Done', doneStatuses: ['Released'] }), /Jira says/)
 })

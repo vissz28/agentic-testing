@@ -81,7 +81,7 @@
     },
     "ticketsDir": {
       "type": "string",
-      "default": ".claude/quality-code/tickets",
+      "default": ".quality-code/tickets",
       "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$",
       "description": "Folder for the local ticket copies, relative to the project root and inside it (no \"..\", not absolute; the check is on the path text, symlinks are not resolved). One line only. Backslashes become \"/\", a leading \"./\" and a trailing \"/\" are dropped, so the .gitignore line is <dir>/*/raw.json."
     },

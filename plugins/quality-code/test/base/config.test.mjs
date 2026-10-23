@@ -17,9 +17,14 @@ test('a minimal valid config passes and gets defaults', () => {
   const r = validateConfig(good)
   assert.equal(r.ok, true)
   assert.deepEqual(r.config.titlePrefixes, [])
-  assert.equal(r.config.ticketsDir, '.claude/quality-code/tickets')
+  assert.equal(r.config.ticketsDir, '.quality-code/tickets')
   assert.deepEqual(r.config.redact, { customerId: '\\bU\\d{5,}\\b' })
   assert.deepEqual(r.config.jira.trackingProjects, [])
+})
+
+test('ticketsDir defaults outside .claude/, where Claude Code asks before every write; a set one is kept (AGT-107)', () => {
+  assert.ok(!validateConfig(good).config.ticketsDir.startsWith('.claude/'))
+  assert.equal(validateConfig({ ...good, ticketsDir: '.claude/quality-code/tickets' }).config.ticketsDir, '.claude/quality-code/tickets')
 })
 
 const bad = (patch, field) =>
