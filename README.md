@@ -72,6 +72,12 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`run-frontend`, `run-backend` and `run-pipeline` replace `/quality-code:check`**, and
+  `run-pipeline --branch` checks only the tests your branch changed.
+- **Setup in two answers**, with the Jira project keys and base branch detected for you; the fill-in
+  drafts acceptance criteria from the ticket for the author to confirm.
+- **Ticket copies live in `.quality-code/tickets`**, outside `.claude/`, so a `--ci` run saves
+  them with no approval prompt.
 - **`/quality-code:spec`: one command from ticket to checked tests.** It runs the gate, the plan, the
   writing, the checks and the read-back, asking at most three questions. `start` and `write` are now
   thin aliases of `spec`, kept so the old names work.
