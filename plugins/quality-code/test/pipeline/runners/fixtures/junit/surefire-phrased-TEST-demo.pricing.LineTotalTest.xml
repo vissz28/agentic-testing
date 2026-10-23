@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- surefire with statelessTestsetReporter usePhrasedTestCaseMethodName and usePhrasedTestCaseClassName -->
+<testsuite version="3.0" name="ABC-12 Line totals round to the cent" time="0.031" tests="2" errors="0" skipped="0" failures="1">
+  <testcase name="three at 4.50 make 13.50" classname="ABC-12 Line totals round to the cent" time="0.012"/>
+  <testcase name="half a cent &quot;rounds&quot; up &amp; away" classname="ABC-12 Line totals round to the cent" time="0.003">
+    <failure message="expected: &lt;1001&gt; but was: &lt;1000&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: expected: <1001> but was: <1000>
+	at demo.pricing.LineTotalTest.roundsHalfUp(LineTotalTest.java:24)
+]]></failure>
+  </testcase>
+</testsuite>

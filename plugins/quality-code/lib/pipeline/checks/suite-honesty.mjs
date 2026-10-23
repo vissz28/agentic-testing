@@ -6,14 +6,17 @@ import { result } from '../../base/result.mjs'
 import { keyPattern } from '../../base/keys.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
 
-/** Top-level groups (column 0): { idx, mod, title }; a chain holding skip, todo or fixme never runs. */
+/**
+ * Top-level groups (column 0): { idx, mod, title }; a chain holding skip, todo or fixme never runs. A
+ * dialect whose skip is no chain (a JUnit @Disabled class) sets the named group skip instead.
+ */
 export function groups(src, dialect) {
   const re = new RegExp(dialect.groupRe.source, 'gm')
   const out = []
   let m
   while ((m = re.exec(src))) {
     const chain = m[1] ?? ''
-    out.push({ idx: m.index, mod: /\.(?:skip|todo|fixme)\b/.test(chain) ? 'skip' : /\.only\b/.test(chain) ? 'only' : null, title: m[3] })
+    out.push({ idx: m.index, mod: m.groups?.skip || /\.(?:skip|todo|fixme)\b/.test(chain) ? 'skip' : /\.only\b/.test(chain) ? 'only' : null, title: m[3] })
   }
   return out
 }
@@ -33,13 +36,14 @@ function closeAt(src, open) {
 /**
  * Test declarations in order: { mod, title, idx }. An each/for test takes the title after its table.
  * modOf: the dialect's reading of m[1], when its skip mark is no "skip" in the source (C#'s [Ignore]).
+ * A dialect whose skip or not-yet mark is an annotation (JUnit @Disabled) sets the named group skip or todo.
  */
 export function testMarks(src, re, modOf = null) {
   const all = new RegExp(re.source, 'g')
   const out = []
   let m
   while ((m = all.exec(src))) {
-    if (!m[4]) { out.push({ mod: modOf ? modOf(m[1]) : m[1] || null, title: m[3], idx: m.index }); continue }
+    if (!m[4]) { out.push({ mod: m.groups?.skip ? 'skip' : m.groups?.todo ? 'todo' : modOf ? modOf(m[1]) : m[1] || null, title: m[3], idx: m.index }); continue }
     const title = /^\s*\(\s*(['"`])(.*?)\1/.exec(src.slice(closeAt(src, m.index + m[0].length - 1)))?.[2] ?? ''
     out.push({ mod: m[1] === 'skip' ? 'skip' : 'each', title, idx: m.index })
   }

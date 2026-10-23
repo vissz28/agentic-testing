@@ -45,7 +45,7 @@ function headerPath(rest) {
 export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own = null } = {}) {
   const h = dialect.honesty
   // A dialect may name its own assertions and skips (Go: t.Errorf, assert.Equal, t.Skip; pytest: assert,
-  // @pytest.mark.skipif).
+  // @pytest.mark.skipif; JUnit's assertEquals and @Disabled through assertRe and skipRe below).
   const assertion = h.assertionRe ?? dialect.removedAssertion ?? /\bexpect\s*\(/
   const skips = [...(h.skips ?? SKIP), ...(dialect.skipMarks ?? [])]
   const tracked = new RegExp(`\\b${own ? `(?!${esc(own)}\\b)` : ''}${keySrc}\\b`)

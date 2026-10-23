@@ -16,8 +16,10 @@ const NUMBER = /(?<![\w.,\-−])[+\-−]?\d+(?:[.,]\d+)*(?![\w]|[.,]\d)/g
 // Every matcher whose argument is a value the test pins (the old backend check also read toBeCloseTo and the comparisons).
 const MATCHERS = ['expect', 'toBe', 'toEqual', 'toStrictEqual', 'toContain', 'toContainEqual', 'toMatchObject', 'toHaveProperty', 'toThrow',
   'toBeCloseTo', 'toBeGreaterThan', 'toBeGreaterThanOrEqual', 'toBeLessThan', 'toBeLessThanOrEqual', 'toHaveLength', 'toMatch', 'toHaveBeenCalledWith']
-// A dialect may add its own matchers (Playwright's web-first ones: toHaveText, toHaveValue, …).
-const callRe = dialect => new RegExp(`(?:\\bexpect|\\.(?:${[...MATCHERS.slice(1), ...(dialect?.expected?.matchers ?? [])].join('|')}))\\s*\\(`, 'g')
+// A dialect may add its own matchers (Playwright's web-first ones: toHaveText, toHaveValue, …), and
+// assertion functions called bare (JUnit's assertEquals(108, total)), read like expect(…).
+const bareCalls = dialect => (dialect?.expected?.calls?.length ? `|(?<![\\w$])(?:${dialect.expected.calls.join('|')})` : '')
+const callRe = dialect => new RegExp(`(?:\\bexpect|\\.(?:${[...MATCHERS.slice(1), ...(dialect?.expected?.matchers ?? [])].join('|')})${bareCalls(dialect)})\\s*\\(`, 'g')
 
 /**
  * Every value a written number may mean, as canonical decimal text: "1.234,5", "1,234.5" and

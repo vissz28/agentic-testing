@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="demo.pricing.TotalsTest" tests="2" skipped="0" failures="0" errors="1" timestamp="2026-10-23T09:12:46" hostname="runnervm" time="0.02">
+  <properties/>
+  <testcase name="sums three lines()" classname="demo.pricing.TotalsTest" time="0.01"/>
+  <testcase name="initializationError" classname="demo.pricing.TotalsTest" time="0.0">
+    <error message="java.lang.IllegalStateException: no price list" type="java.lang.IllegalStateException">java.lang.IllegalStateException: no price list
+	at demo.pricing.TotalsTest.&lt;init&gt;(TotalsTest.kt:9)
+</error>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

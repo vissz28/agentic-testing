@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="demo.pricing.LineTotalTest" time="0.087" tests="6" errors="1" skipped="1" failures="1">
+  <properties>
+    <property name="java.specification.version" value="21"/>
+    <property name="sun.boot.library.path" value="/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.4-7/x64/lib"/>
+    <property name="surefire.test.class.path" value="/home/runner/work/demo/target/test-classes:/home/runner/work/demo/target/classes"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vendor" value="Eclipse Adoptium"/>
+  </properties>
+  <testcase name="threeItems" classname="demo.pricing.LineTotalTest" time="0.021"/>
+  <testcase name="roundsHalfUp" classname="demo.pricing.LineTotalTest" time="0.004">
+    <failure message="expected: &lt;1001&gt; but was: &lt;1000&gt;" type="org.opentest4j.AssertionFailedError"><![CDATA[org.opentest4j.AssertionFailedError: expected: <1001> but was: <1000>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:563)
+	at demo.pricing.LineTotalTest.roundsHalfUp(LineTotalTest.java:24)
+]]></failure>
+    <system-out><![CDATA[rounding 10.005 & friends <ok>
+]]></system-out>
+  </testcase>
+  <testcase name="parsesSku" classname="demo.pricing.LineTotalTest" time="0.001">
+    <error message="Index 3 out of bounds for length 3" type="java.lang.ArrayIndexOutOfBoundsException"><![CDATA[java.lang.ArrayIndexOutOfBoundsException: Index 3 out of bounds for length 3
+	at demo.pricing.Sku.parse(Sku.java:12)
+	at demo.pricing.LineTotalTest.parsesSku(LineTotalTest.java:31)
+]]></error>
+  </testcase>
+  <testcase name="discount" classname="demo.pricing.LineTotalTest" time="0">
+    <skipped message="ABC-9 the discount rule is not decided"/>
+  </testcase>
+  <testcase name="quantities(int)[1]" classname="demo.pricing.LineTotalTest" time="0.002"/>
+  <testcase name="quantities(int)[2]" classname="demo.pricing.LineTotalTest" time="0.001"/>
+</testsuite>
