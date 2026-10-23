@@ -252,7 +252,7 @@ test('playwright step 6: only the red tests get a tag, after the last run, on th
 test('playwright step 7: the extra line and the app line', () => {
   const s = step(7)
   assert.ok(s.includes('`A red extra test is a case the ticket does not cover: show it to the ticket\'s author. Do not change the test to make it pass.`'))
-  assert.ok(s.includes('`Start the app (or check the webServer in your Playwright config), then run /quality-code:check with the spec path above.`'))
+  assert.ok(s.includes('`Start the app (or check the webServer in your Playwright config), then run /quality-code:run-frontend with the spec path above.`'))
   assert.match(s, /starts with `Extra:`/)
   assert.match(s, /app is not reachable/)
 })
@@ -427,7 +427,7 @@ test('step 2: the band decides: ready goes on, borderline goes on with the risk 
 test('step 4: tests already on the branch can be checked instead of writing new ones', () => {
   const s = step(4)
   assert.match(s, /`Only check the tests already on this branch`/)
-  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/check.md'))
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'))
   assert.match(s, /kind `test`, status other than `D`/)
 })
 test('write and start are aliases of spec', () => {

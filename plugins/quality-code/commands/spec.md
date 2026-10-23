@@ -106,7 +106,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
      With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order.
 
-   **Tests already on the branch.** When the ticket came from the branch (step 1) and its `files` hold tests (kind `test`, status other than `D`), add the option `Only check the tests already on this branch` before the plan card's Stop. On it, read `${CLAUDE_PLUGIN_ROOT}/commands/check.md` and follow it with those spec paths and `--key <KEY>`, show its card as printed, and stop. On `Leave out the extras`, drop them and show the plan card again. On `No, I'll type the right result`, do as for Vitest. On `Stop`, stop.
+   **Tests already on the branch.** When the ticket came from the branch (step 1) and its `files` hold tests (kind `test`, status other than `D`), add the option `Only check the tests already on this branch` before the plan card's Stop. On it, read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite `full`, those spec paths and `--key <KEY>`, show its card as printed, and stop. On `Leave out the extras`, drop them and show the plan card again. On `No, I'll type the right result`, do as for Vitest. On `Stop`, stop.
 5. **Write.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run start --key <KEY>` before writing any file. If it exits with an error because a run is already active, show its line, then this card and end the turn:
 
    ```
@@ -153,7 +153,7 @@ The steps are the same for both adapters. Where a **Vitest** project (unit tests
 
    On Playwright, also add one line in these two cases:
    - The card is `tests red` and the test it names starts with `Extra:`: `A red extra test is a case the ticket does not cover: show it to the ticket's author. Do not change the test to make it pass.`
-   - The card is `not verified` because the app is not reachable: `Start the app (or check the webServer in your Playwright config), then run /quality-code:check with the spec path above.`
+   - The card is `not verified` because the app is not reachable: `Start the app (or check the webServer in your Playwright config), then run /quality-code:run-frontend with the spec path above.`
 8. **Risk note on Jira.** Only after option 3 in step 2 (the run had `--incomplete-ticket`), and only when step 7 showed a card. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" risk-comment --in @<ticketsDir>/<KEY>/ticket.json`; never write the note yourself. Show it as printed, then this card and end the turn:
 
    ```

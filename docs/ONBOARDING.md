@@ -55,7 +55,7 @@ is the point.
 On a branch that changed some tests:
 
 ```
-/quality-code:check
+/quality-code:run-pipeline --branch
 ```
 
 It runs the tests and grades them: no hollow test, no removed assertion, assertions that can fail.

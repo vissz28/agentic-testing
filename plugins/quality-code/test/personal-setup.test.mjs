@@ -121,9 +121,10 @@ test('setup: the personal setup confirms on the same card; tickets default to bo
   assert.ok(s.includes('`Saved in <personal.path>; no repo file is touched.`'))
   assert.match(s, /for a personal setup, `Tickets` in place of Stack, and no Base/)
 })
-for (const n of ['check', 'seed', 'xray']) {
+const guide = n => readFileSync(join(HERE, '../guides', `${n}.md`), 'utf8')
+for (const n of ['run', 'seed', 'xray']) {
   test(`${n}: a personal config or no git repo stops with the needs-a-repo line`, () => {
-    const s = cmd(n)
+    const s = n === 'run' ? guide('run') : cmd(n)
     assert.ok(s.includes('config check'))
     assert.ok(s.includes('ok (personal: …)'))
     assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))

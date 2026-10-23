@@ -32,13 +32,15 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | `/quality-code:start` | your daily start: the branch, its ticket, the readiness gate, then the tests |
 | `/quality-code:ticket-eval <KEY>` | scores a ticket for test-readiness (70 points to pass) |
 | `/quality-code:write <KEY>` | writes the tests for a ticket and grades them |
-| `/quality-code:check` | grades the spec files on your branch |
+| `/quality-code:run-frontend` | runs every frontend (Playwright) spec through the pipeline |
+| `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
+| `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | writes only the test data a ticket needs |
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |
 | `/quality-code:kpi`, `/quality-code:consumption` | usage numbers and AI cost, read locally |
 
-The commands that run tests (`write`, `check`, `seed`) work in Claude Code, where your repository is.
+The commands that run tests (`spec`, the run commands, `seed`) work in Claude Code, where your repository is.
 
 ## Privacy
 

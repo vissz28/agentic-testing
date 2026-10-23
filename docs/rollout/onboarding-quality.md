@@ -36,7 +36,7 @@ request description (step 6).
    Score and pass/refuse must match. Known, deliberate difference: on the backend, a bare `warehouse`
    label no longer counts as a feature label (5 points less, spec §10 #2; the replay suite pins it).
    Any other mismatch is a finding: stop and report it on AGT-85.
-2. **Checks, the specs of one recent branch.** Old check vs `/quality-code:check <specs>`. Verdicts
+2. **Checks, the specs of one recent branch.** Old check vs `/quality-code:run-pipeline <specs>`. Verdicts
    must match, except the differences the specs record as deliberate: the mutation bar is fixed at
    100%, one exit-code scheme (0 green, 1 checks failed or tests red, 2 usage, 3 not verified), and
    on the frontend a red `@anchor` test is `tests red` (exit 1), not exit 0. Also deliberate:
@@ -161,7 +161,7 @@ A `.claude/boundary-guard.mjs` line left in `.gitlab-ci.yml` (the backend lists 
 In Claude Code, in the repo:
 1. `/quality-code:spec`: the ticket from the branch, the gate, the plan.
 2. `/quality-code:ticket-eval <a recent KEY>`: same score as in step 1.
-3. `/quality-code:check` on the branch's specs: the card.
+3. `/quality-code:run-pipeline --branch` on the branch's specs: the card.
 4. `/quality-code:kpi`: shows the runs you just did.
 
 ## 6. The merge request

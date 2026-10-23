@@ -11,6 +11,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Added
 
+- **Three run commands replace `/quality-code:check`** (AGT-127). `/quality-code:run-frontend` runs
+  every frontend (Playwright) spec of the project through the pipeline, `/quality-code:run-backend`
+  every backend (Vitest) spec, and `/quality-code:run-pipeline` both together, the full suite. The
+  script lists the specs (`pipeline.mjs --suite frontend|backend|full`), never the model; spec paths,
+  `--key` and `--flaky` work as before, `run-pipeline --branch` takes only the tests your branch
+  changed, and `run-pipeline --evals` runs the frozen evals.
 - **Setup in two answers** (AGT-110, AGT-111, AGT-112). After the repo-or-no-repo card, one Confirm
   card shows the folder, remote, stack, Jira site and project(s), the base branch and the config, with
   `1. Write it / 2. Change something / 3. Cancel`. The site is not asked when the account has one. The
@@ -165,6 +171,9 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Upgrading
 
+- **`/quality-code:check` is gone.** Use `/quality-code:run-pipeline --branch` for the tests your
+  branch changed, `/quality-code:run-pipeline <spec…>` for named specs, and
+  `/quality-code:run-pipeline --evals` for the frozen evals.
 - **New ticket folder.** With no `ticketsDir` in the config, rerun `/quality-code:setup` so
   `.gitignore` ignores `.quality-code/tickets/*/raw.json`, and move saved tickets with
   `mkdir -p .quality-code && mv .claude/quality-code/tickets .quality-code/` (or set `"ticketsDir": ".claude/quality-code/tickets"`

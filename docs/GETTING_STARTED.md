@@ -159,14 +159,18 @@ when you confirm.
 
 ## Checking tests (Vitest, Playwright and fullstack projects)
 
-Once your branch has test files, run:
+Run the frontend suite, the backend suite, or both together:
 
 ```
-/quality-code:check
+/quality-code:run-frontend
+/quality-code:run-backend
+/quality-code:run-pipeline
 ```
+
+To check only the tests your branch changed: `/quality-code:run-pipeline --branch`.
 
 Or pick `Only check the tests already on this branch` on the plan card of `/quality-code:spec`. You can also name the specs:
-`/quality-code:check test/orders.spec.ts`. It lists the test files your branch changed (deleted ones
+`/quality-code:run-pipeline test/orders.spec.ts`. With `--branch` it lists the test files your branch changed (deleted ones
 are left out) and asks `1. Yes / 2. Pick some / 3. Stop`, confirms the ticket key, then runs the
 tests and the checks. This can take a few minutes. You get one card with a verdict:
 
@@ -208,7 +212,7 @@ On your feature branch, `/quality-code:spec` alone does the same. It goes like t
    to a test.
 4. **The tests are written** in those folders only, with the real expected values from the ticket.
    Your code is never changed.
-5. **The checks run**, as in `/quality-code:check`, plus two more: every expected value from the
+5. **The checks run**, as in `/quality-code:run-pipeline --branch`, plus two more: every expected value from the
    ticket must be asserted, and, if the project has Stryker installed, the tests must catch enough
    changes to the code. A fixable problem gets up to two rewrites of the tests; then you see the card.
 
@@ -266,13 +270,13 @@ What does **not** count:
 | `/quality-code:ticket-eval ABC-123 --refuse-comment` | prints the Jira comment without posting it |
 | `/quality-code:ticket-eval ABC-123 --json` | prints only the machine result |
 | `/quality-code:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
-| `/quality-code:check test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
+| `/quality-code:run-pipeline test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
 | `/quality-code:spec ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
 | `/quality-code:spec ABC-123 --layer unit` | writes only in the `unit` test folder |
 | `/quality-code:spec ABC-123 --route /orders` | Playwright: writes the tests for the `/orders` screen |
 | `/quality-code:spec ABC-123 --dry-run` | checks the ticket and shows the plan, then stops: nothing is written |
 | `/quality-code:ticket ABC-123` | the ticket in short, with suggestions for its author (nothing is posted) |
-| `/quality-code:check --evals` | the frozen evals: chosen tickets' specs must keep pinning what they pin |
+| `/quality-code:run-pipeline --evals` | the frozen evals: chosen tickets' specs must keep pinning what they pin |
 | `/quality-code:seed ABC-123` | writes only the test data the ticket needs |
 | `/quality-code:kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days, and the Quality Program numbers |
 | `/quality-code:consumption --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |

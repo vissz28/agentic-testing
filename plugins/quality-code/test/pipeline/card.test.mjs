@@ -153,5 +153,5 @@ test('run log: verdict in words, the tests table, every check with its numbers a
   assert.ok(log.includes('### ❌ mutation\n\n1 of 2 mutant(s) survived\n\nkilled: 1 · survived: 1 · total: 2 · survivors: expect(x).toBeDefined()'))
   assert.ok(log.includes("- a.spec.ts › 'adds' [survived]: expect(x).toBeDefined()"))
   assert.ok(log.includes('## What to do'))
-  assert.ok(log.includes('`/quality-code:check a.spec.ts --key ABC-1`'))
+  assert.ok(log.includes('`/quality-code:run-pipeline a.spec.ts --key ABC-1`'))
 })

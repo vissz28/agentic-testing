@@ -391,3 +391,54 @@ test('a killed run stops its tools with their workers and leaves no temp file in
   }
   assert.ok(gone, "the tool's own child is gone too")
 })
+
+// --suite: the script picks every spec of one side, or of both; the model never lists them.
+const suiteRun = async (d, args) => {
+  const seen = []
+  const errs = []
+  const write = process.stderr.write
+  process.stderr.write = m => { errs.push(String(m)); return true }
+  let code
+  try {
+    code = await main([...args, '--no-audit', '--json'], { ...ENV, CLAUDE_PROJECT_DIR: d }, d, {
+      runPipeline: async ({ specs }) => { seen.push(...specs); return { verdict: 'green', steps: [] } },
+    })
+  } finally { process.stderr.write = write }
+  return { code, specs: seen.sort(), err: errs.join('') }
+}
+const fullstack = () => {
+  const d = repo()
+  put(d, '.claude/quality-code.json', CONFIG('fullstack'))
+  put(d, 'playwright.config.ts', "export default { testDir: './e2e' }\n")
+  put(d, 'e2e/orders.spec.ts', "test('ABC-1 opens', async () => {})\n")
+  return d
+}
+test('--suite backend runs every Vitest spec of the project', async () => {
+  const r = await suiteRun(repo(), ['--suite', 'backend'])
+  assert.equal(r.code, 0, r.err)
+  assert.deepEqual(r.specs, ['test/a.spec.ts'])
+})
+test('--suite for a side the project does not have: exit 2, and says so', async () => {
+  const r = await suiteRun(repo(), ['--suite', 'frontend'])
+  assert.equal(r.code, 2)
+  assert.match(r.err, /This project has no frontend \(Playwright\) tests: its adapter is vitest\./)
+  const p = await suiteRun(repo({ adapter: 'playwright' }), ['--suite', 'backend'])
+  assert.equal(p.code, 2)
+  assert.match(p.err, /no backend \(Vitest\) tests: its adapter is playwright/)
+})
+test('--suite on a fullstack project: frontend, backend, or both in one run', async () => {
+  const d = fullstack()
+  assert.deepEqual((await suiteRun(d, ['--suite', 'frontend'])).specs, ['e2e/orders.spec.ts'])
+  assert.deepEqual((await suiteRun(d, ['--suite', 'backend'])).specs, ['test/a.spec.ts'])
+  assert.deepEqual((await suiteRun(d, ['--suite', 'full'])).specs, ['e2e/orders.spec.ts', 'test/a.spec.ts'])
+})
+test('--suite: a bad name, spec paths with it, --target with the frontend suite, or no spec found: exit 2', async () => {
+  assert.equal((await suiteRun(repo(), ['--suite', 'all'])).code, 2)
+  assert.equal((await suiteRun(repo(), ['--suite', 'backend', 'test/a.spec.ts'])).code, 2)
+  assert.equal((await suiteRun(fullstack(), ['--suite', 'frontend', '--target', 'README.md'])).code, 2)
+  const empty = repo()
+  execFileSync('rm', ['-r', join(empty, 'test')])
+  const r = await suiteRun(empty, ['--suite', 'backend'])
+  assert.equal(r.code, 2)
+  assert.match(r.err, /No backend \(Vitest\) spec files found/)
+})

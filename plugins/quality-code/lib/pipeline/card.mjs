@@ -127,6 +127,6 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   }
   const todo = whatToDo(outcome)
   if (todo) out.push('', '## What to do', '', todo)
-  out.push('', '## Run it again', '', `\`/quality-code:check ${specs.join(' ')}${key ? ` --key ${key}` : ''}\``, '')
+  out.push('', '## Run it again', '', `\`/quality-code:run-pipeline ${specs.join(' ')}${key ? ` --key ${key}` : ''}\``, '')
   return out.join('\n')
 }

@@ -37,7 +37,7 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "default": ["Test OK", "Done", "Ready for test", "Closed", "Resolved", "Chiuso", "Risolto"],
-          "description": "Jira statuses that mean the work is finished (any case). A red /quality-code:check on a ticket in one of them warns that the bug is still on the branch."
+          "description": "Jira statuses that mean the work is finished (any case). A red /quality-code:run-* run on a ticket in one of them warns that the bug is still on the branch."
         }
       }
     },

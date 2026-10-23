@@ -1,13 +1,29 @@
-// The check command is a prompt, not code: these pin its flow and its safety rules.
+// The run commands are prompts, not code: three thin commands over one shared guide. These pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/check.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../guides/run.md', import.meta.url), 'utf8')
+const cmd = n => readFileSync(new URL(`../../commands/${n}.md`, import.meta.url), 'utf8')
+const SUITE = { 'run-frontend': 'frontend', 'run-backend': 'backend', 'run-pipeline': 'full' }
 
-test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals\n(?:[a-z-]+: .+\n)*---/)
+test('three commands, each its own suite, all following the shared guide', () => {
+  for (const [n, suite] of Object.entries(SUITE)) {
+    const c = cmd(n)
+    assert.ok(c.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'), n)
+    assert.ok(c.includes(`with the suite \`${suite}\``), n)
+  }
+  assert.match(cmd('run-frontend'), /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n/)
+  assert.match(cmd('run-backend'), /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n/)
+  assert.match(cmd('run-pipeline'), /argument-hint: \[spec…\] \[--branch\] \[--key KEY\] \[--flaky N\] \| --evals\n/)
 })
+test('the whole suite is listed by the script, never by the model', () => {
+  assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" --suite <suite> [--key <KEY>] [--flaky <N>]'))
+  assert.match(doc, /the script lists them itself \(`--suite <suite>` in step 4\), so do not look for files/)
+  assert.match(doc, /A whole suite spans many tickets: without `--key`, pass none/)
+  assert.match(doc, /`--branch` \(the `full` suite only/)
+})
+
 test('no specs: detect the branch and offer its test files', () => {
   assert.ok(doc.includes('bin/branch.mjs" --detect'))
   assert.ok(doc.includes('Check these <n> spec files?'))
@@ -48,7 +64,6 @@ test('commands never grade, edit tests or retry', () => {
 test('Vitest and Playwright projects run the same pipeline; Playwright gets the line about the app', () => {
   assert.doesNotMatch(doc, /part 3/)
   assert.doesNotMatch(doc, /Vitest projects only/)
-  assert.match(doc, /^description: Check Vitest or Playwright spec files/m)
   assert.match(doc, /`vitest`, `playwright` and `fullstack` projects are checked the same way/)
   assert.match(doc, /on a fullstack project, per spec: the e2e folder's specs run under Playwright/)
   assert.match(doc, /for `fullstack` when a spec is in the e2e folder, add this second line/)
@@ -73,6 +88,6 @@ test('with a key, the saved ticket and target are passed, so the value check and
 })
 
 test('--evals runs only the frozen evals script', () => {
-  assert.match(doc, /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\] \| --evals/)
+  assert.match(doc, /\*\*Evals\.\*\* Only for the `full` suite/)
   assert.ok(doc.includes('run only `node "${CLAUDE_PLUGIN_ROOT}/bin/evals.mjs"`'))
 })

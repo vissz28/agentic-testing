@@ -129,7 +129,7 @@ story += [p('What it is', 'h1'),
               ['Set up a repo (once)', '<font name="Mono">/quality-code:setup</font>'],
               ['Start your day on a feature branch', '<font name="Mono">/quality-code:start</font>'],
               ['Check whether a ticket is ready to test', '<font name="Mono">/quality-code:ticket-eval ABC-123</font>'],
-              ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:check</font>'],
+              ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:run-pipeline --branch</font>'],
               ['Have tests written from a ticket', '<font name="Mono">/quality-code:write ABC-123</font>'],
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
               ['See how the team uses it', '<font name="Mono">/quality-code:kpi</font>'],
@@ -200,9 +200,9 @@ story += [p('3. Every day: start from your branch', 'h1'),
           PageBreak()]
 
 story += [p('5. Check the tests on your branch', 'h1'),
-          code('/quality-code:check                       # the test files your branch changed\n'
-               '/quality-code:check test/orders.spec.ts   # or name the specs\n'
-               '/quality-code:check --key ABC-123 --flaky 3'),
+          code('/quality-code:run-pipeline --branch                       # the test files your branch changed\n'
+               '/quality-code:run-pipeline test/orders.spec.ts   # or name the specs\n'
+               '/quality-code:run-pipeline --key ABC-123 --flaky 3'),
           p('The pipeline always runs the same steps, in this order, and a script decides the verdict:'),
           table(['Step', 'It checks'], [
               ['boundary', 'during a writing run: no change outside the test folders'],
