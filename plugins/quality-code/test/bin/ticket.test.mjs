@@ -149,20 +149,19 @@ test('a failed append never changes the result or the exit code', () => {
   assert.equal(r.stderr, '')
   assert.match(r.stdout, /^TICKET_EVAL_JSON:/m)
 })
-test('jira-posted <KEY> comment|update|risk logs what was sent to Jira (the key and the kind only)', () => {
+test('jira-posted <KEY> comment|update|risk|defect|retest|status logs what was sent to Jira (the key and the kind only)', () => {
   const d = proj()
   const a = runA(d, {}, 'jira-posted', 'DEMO-1', 'comment')
   assert.equal(a.status, 0, a.stderr)
   assert.equal(a.stdout, 'ok\n')
-  assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', 'update').status, 0)
-  assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', 'risk').status, 0)
-  assert.deepEqual(auditLines(d, 'jira').map(x => [x.key, x.action]), [['DEMO-1', 'comment'], ['DEMO-1', 'update'], ['DEMO-1', 'risk']])
+  for (const action of ['update', 'risk', 'defect', 'retest', 'status']) assert.equal(runA(d, {}, 'jira-posted', 'DEMO-1', action).status, 0, action)
+  assert.deepEqual(auditLines(d, 'jira').map(x => x.action), ['comment', 'update', 'risk', 'defect', 'retest', 'status'])
   for (const bad of [['jira-posted'], ['jira-posted', 'DEMO-1'], ['jira-posted', 'demo 1', 'comment'], ['jira-posted', 'DEMO-1', 'delete']]) {
     const r = runA(d, {}, ...bad)
     assert.equal(r.status, 2, bad.join(' '))
-    assert.match(r.stderr, /usage: ticket\.mjs jira-posted <KEY> comment\|update\|risk/)
+    assert.match(r.stderr, /usage: ticket\.mjs jira-posted <KEY> comment\|update\|risk\|defect\|retest\|status/)
   }
-  assert.equal(auditLines(d, 'jira').length, 3)
+  assert.equal(auditLines(d, 'jira').length, 6)
   const e = proj()
   assert.equal(runA(e, { QC_NO_AUDIT: '1' }, 'jira-posted', 'DEMO-1', 'comment').stdout, 'ok\n')
   assert.equal(existsSync(join(e, AUDIT)), false)

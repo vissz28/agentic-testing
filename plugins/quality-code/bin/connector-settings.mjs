@@ -1,10 +1,12 @@
-// Connector settings asked for in the chat: the GitLab address and username or email, and the Jira
-// email. They are saved where Claude Code keeps plugin options (pluginConfigs in the user settings
-// file). No token is ever handled here: secrets go through the /plugin dialog into the keychain.
+// Connector settings asked for in the chat: the GitLab address and username or email, the Jira
+// email and the Xray API address. They are saved where Claude Code keeps plugin options
+// (pluginConfigs in the user settings file). No token is ever handled here: secrets go through the
+// /plugin dialog into the keychain.
 //
 //   node bin/connector-settings.mjs --gitlab-check <address>
 //   node bin/connector-settings.mjs --gitlab-save <address> <username or email>
 //   node bin/connector-settings.mjs --jira-save <email>
+//   node bin/connector-settings.mjs --xray-save <address>
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -85,6 +87,27 @@ export function saveJiraSettings({ file, email }) {
   return saveOptions({ file, options: { jira_email: String(email).trim().toLowerCase() } })
 }
 
+export const DEFAULT_XRAY_API = 'https://xray.cloud.getxray.app'
+
+/**
+ * Xray Cloud's address, global or regional (https://eu.xray.cloud.getxray.app), with no path; null
+ * for any other host, since the API key is sent there.
+ */
+export function xrayApiUrlOf(input) {
+  const raw = String(input ?? '').trim()
+  let u
+  try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`) } catch { return null }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.search || u.hash || u.pathname.replace(/\/+$/, '')) return null
+  return /^(?:[a-z]{2}\.)?xray\.cloud\.getxray\.app$/.test(u.hostname) ? `https://${u.hostname}` : null
+}
+
+/** Saves xray_api_url. */
+export function saveXraySettings({ file, url }) {
+  const apiUrl = xrayApiUrlOf(url)
+  if (!apiUrl) return { ok: false, reason: `not an Xray Cloud address: ${JSON.stringify(String(url ?? ''))} (${DEFAULT_XRAY_API}, or a regional one like https://eu.xray.cloud.getxray.app)` }
+  return saveOptions({ file, options: { xray_api_url: apiUrl } })
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const [cmd, a, b] = argv
   const out = r => { console.log(`CONNECTOR_SETTINGS_JSON:${JSON.stringify(r)}`); return r.ok ? 0 : 1 }
@@ -95,7 +118,8 @@ export async function main(argv = process.argv.slice(2)) {
   }
   if (cmd === '--gitlab-save' && a && b) return out(saveGitlabSettings({ url: a, user: b }))
   if (cmd === '--jira-save' && a && !b) return out(saveJiraSettings({ email: a }))
-  console.error('usage: connector-settings.mjs --gitlab-check <address> | --gitlab-save <address> <username or email> | --jira-save <email>')
+  if (cmd === '--xray-save' && a && !b) return out(saveXraySettings({ url: a }))
+  console.error('usage: connector-settings.mjs --gitlab-check <address> | --gitlab-save <address> <username or email> | --jira-save <email> | --xray-save <address>')
   return 2
 }
 
