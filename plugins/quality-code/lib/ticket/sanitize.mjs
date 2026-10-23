@@ -75,12 +75,12 @@ export function attachmentCount(value) {
 }
 
 /** The ticket's linked issues and web links as { url, title }: http(s) only, redacted, nothing else kept. */
-export function cleanLinks(config, value) {
+export function cleanLinks(config, value, uuids = new Map()) {
   if (!Array.isArray(value)) return []
   return value
     .map(l => (typeof l === 'string' ? { url: l, title: '' } : l))
     .filter(l => l && typeof l.url === 'string' && /^https?:\/\//i.test(l.url.trim()))
-    .map(l => ({ url: redact(config, l.url.trim()), title: redact(config, typeof l.title === 'string' ? l.title : '').slice(0, 200) }))
+    .map(l => ({ url: redact(config, l.url.trim(), uuids), title: redact(config, typeof l.title === 'string' ? l.title : '', uuids).slice(0, 200) }))
 }
 
 export function sanitizeTicket(config, input = {}) {
@@ -95,7 +95,7 @@ export function sanitizeTicket(config, input = {}) {
     ...input,
     ...harvested,
     ...('attachments' in input ? { attachments: attachmentCount(input.attachments) } : {}),
-    ...('links' in input ? { links: cleanLinks(config, input.links) } : {}),
+    ...('links' in input ? { links: cleanLinks(config, input.links, uuids) } : {}),
     summary,
     text: { description, acField },
     // A link in the branch's own merge request is not one the ticket gives.
