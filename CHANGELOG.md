@@ -7,6 +7,25 @@ things, and says so here).
 
 Update with `/plugin update quality-code@teamsystem`.
 
+## [Unreleased]
+
+### Added
+
+- **Setup adds Playwright to a frontend that has none.** On a frontend with no test runner (React,
+  Vue, Angular, Svelte, Vite and the like), with Vitest unit tests only, or with Playwright but no
+  config, setup no longer stops or settles for Vitest:
+  one card shows what it installs (`@playwright/test` with your package manager, and Chromium), the
+  files it writes and the command and address the app starts at, read from your dev script. It writes
+  `playwright.config.<ts|js>` and `e2e/smoke.spec.<ts|js>`, never over a file that is there. For an
+  app behind a sign-in, a setup project signs in once (`e2e/auth.setup`, from the app's own sign-in
+  screen; the test user comes from `.env.e2e`, which git ignores, never from the chat) and every test
+  starts signed in. Then the smoke test proves the app opens past its sign-in page
+  (`setup.mjs --smoke`). Until a ticket's tests are in the e2e folder, `/quality-code:spec` runs it
+  first and stops when it fails, so a setup that does not work is never reported as a bug in the app.
+  A repo that already runs Vitest becomes fullstack, and `setup.mjs --vitest-overlap` asks the team's
+  own Vitest which files it runs: Vitest's default pattern also takes `e2e/*.spec.ts`, where it fails
+  on Playwright's `test()`, so setup offers to add `e2e/**` to Vitest's exclude and checks again.
+
 ## [0.15.0] - 2026-10-23
 
 **Two things to do when you update** (see Upgrading): `/quality-code:check` is gone (use the

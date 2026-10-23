@@ -83,8 +83,8 @@ a whole team on board: [Onboarding](ONBOARDING.md), one page with a team lead's 
 | You need | You do not need |
 |---|---|
 | A Jira Cloud project you can read (and comment on, to post refuse comments) | A specific folder layout, branch model or CI system |
-| `@playwright/test` or `vitest` in `package.json`, or both (a fullstack repo) | A dedicated Jira field: criteria can live in the description |
-| For Playwright: a Playwright config with a `baseURL`, and a `webServer` or the app already running (`npm init playwright@latest` creates one). An app behind a login also needs a fixture that signs in, used by your specs: `write` copies it from them | Existing specs: on a project with none, `write` uses plain `@playwright/test` |
+| `@playwright/test` or `vitest` in `package.json`, or both (a fullstack repo). A frontend with no Playwright (React, Vue, Angular, Svelte, Vite…), even one with Vitest unit tests: setup offers to add it | A dedicated Jira field: criteria can live in the description |
+| For Playwright: a Playwright config with a `baseURL`, and a `webServer` or the app already running. With no config, setup writes one from your dev script, a smoke test and, for an app behind a sign-in, a sign-in step every test starts from. Otherwise an app behind a login needs a fixture that signs in, used by your specs: `write` copies it from them | Existing specs: on a project with none, `write` uses plain `@playwright/test` |
 | Node 18 or newer | Feature labels or title prefixes: setup offers them, both are optional |
 | Claude Code with plugin support | Changes to your application code |
 

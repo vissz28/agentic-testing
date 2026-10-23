@@ -442,3 +442,9 @@ test('write and start are aliases of spec', () => {
   assert.match(st, /never a key/)
   assert.match(st, /Tip: \/quality-code:spec does this now\./)
 })
+test('step 3 (Playwright): the smoke test setup wrote runs first while it is the only spec; a red one stops', () => {
+  const s = step(3)
+  assert.ok(s.includes('unless `--dry-run`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --smoke --if-first`'))
+  assert.ok(s.includes('`Fix this first: tests written now would fail on the setup, not on the app. Then run /quality-code:spec again.`'))
+  assert.ok(s.indexOf('--smoke --if-first') < s.indexOf('a `--route PATH`'), 'before the screen')
+})
