@@ -140,3 +140,8 @@ test('fullstack: the ticket side picks builders, stubs or both', () => {
 test('step 4 reads seed.guide on top of the plugin guide', () => {
   assert.match(step(4), /then `seed\.guide` when it is set: the team's own seeding rules, on top of it \(they win where they differ\)/)
 })
+test('seed builders are Vitest only: another backend stops with a plain line', () => {
+  const doc = readFileSync(new URL('../../commands/seed.md', import.meta.url), 'utf8')
+  assert.ok(doc.includes('it is not built for <the adapter> yet.'))
+  assert.match(doc, /on a `pytest`, `junit`, `go` or `dotnet` project/)
+})
