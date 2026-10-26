@@ -19,6 +19,7 @@ export const CONNECTORS = {
   'figma-token': 'FIGMA_API_KEY',
   'gitlab-token': 'GITLAB_PERSONAL_ACCESS_TOKEN',
   xray: 'XRAY_CLIENT_SECRET',
+  'jira-files': 'JIRA_API_TOKEN',
 }
 
 /** A value counts as set when it is not empty and not a ${...} placeholder left unexpanded. */

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
@@ -9,6 +10,7 @@ import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
+import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
@@ -90,6 +92,17 @@ function run(argv, env, cwd) {
     const filled = Array.isArray(t?.filled) ? t.filled.length : 0
     out(`SAVED_JSON:${JSON.stringify({ key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null })}`)
     return 0
+  }
+  if (cmd === 'docx') {
+    // A Word file the user named, when the Jira files connector cannot fetch it: its text, to add to the raw description.
+    const [file] = a._
+    if (!file || a._.length > 1) { err("usage: ticket.mjs docx '<path to a .docx>'"); return 2 }
+    const path = resolve(file.replace(/^~(?=\/|$)/, homedir()))
+    try {
+      if (statSync(path).size > MAX_BYTES) { err(`${basename(path)}: over 5 MB, not read`); return 2 }
+      out(`DOCX_JSON:${JSON.stringify(docxText(readFileSync(path)))}`)
+      return 0
+    } catch (e) { err(`${basename(path)}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`); return 2 }
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
     const r = e2eFolder(root, config)

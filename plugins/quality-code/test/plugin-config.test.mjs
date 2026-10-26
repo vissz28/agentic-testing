@@ -8,8 +8,8 @@ const mcp = JSON.parse(readFileSync(new URL('../.mcp.json', import.meta.url), 'u
 const plugin = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
 const settings = plugin.userConfig
 
-test('the six connectors: Jira, Figma and GitLab by browser sign-in, Figma and GitLab by token, Xray by API key', () => {
-  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'xray'])
+test('the seven connectors: Jira, Figma and GitLab by browser sign-in, Figma and GitLab by token, Xray by API key, Jira files by API token', () => {
+  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'jira-files', 'xray'])
   assert.deepEqual(mcp['atlassian-rovo'], { type: 'http', url: 'https://mcp.atlassian.com/v1/mcp' })
   assert.deepEqual(mcp.figma, { type: 'http', url: 'https://mcp.figma.com/mcp' })
 })
@@ -49,19 +49,23 @@ test('xray: the plugin\'s own API server, through the launcher, with the key and
     XRAY_CLIENT_SECRET: '${user_config.xray_client_secret}',
   })
 })
+test('jira-files: the plugin\'s own attachment reader, through the launcher, with the email and the API token from the settings', () => {
+  assert.deepEqual(mcp['jira-files'].args, [LAUNCH, 'jira-files', '--', 'node', '${CLAUDE_PLUGIN_ROOT}/bin/jira-files.mjs'])
+  assert.deepEqual(mcp['jira-files'].env, { JIRA_EMAIL: '${user_config.jira_email}', JIRA_API_TOKEN: '${user_config.jira_api_token}' })
+})
 test('no connector runs an unpinned package', () => {
   // The package is the argument after npx's -y; every token connector runs one, except the plugin's own script.
   for (const [name, s] of Object.entries(mcp)) {
     const args = s.args ?? []
-    if (args.includes('${CLAUDE_PLUGIN_ROOT}/bin/xray-api.mjs')) continue
+    if (args.includes('${CLAUDE_PLUGIN_ROOT}/bin/xray-api.mjs') || args.includes('${CLAUDE_PLUGIN_ROOT}/bin/jira-files.mjs')) continue
     const pkgs = args.filter((_, i) => args[i - 1] === '-y')
     if (args.length) assert.equal(pkgs.length, 1, name)
     for (const a of pkgs) assert.doesNotMatch(a, /@latest$|^[a-z@][^@]*[^@\d]$/, `${name}: ${a}`)
   }
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
-  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
-  for (const k of ['figma_api_key', 'gitlab_token', 'xray_client_id', 'xray_client_secret']) assert.equal(settings[k].sensitive, true, k)
+  assert.deepEqual(Object.keys(settings).sort(), ['figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_api_token', 'jira_email', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
+  for (const k of ['figma_api_key', 'gitlab_token', 'jira_api_token', 'xray_client_id', 'xray_client_secret']) assert.equal(settings[k].sensitive, true, k)
   assert.notEqual(settings.xray_api_url.sensitive, true)
   assert.equal(settings.xray_api_url.default, 'https://xray.cloud.getxray.app')
   assert.notEqual(settings.gitlab_api_url.sensitive, true)

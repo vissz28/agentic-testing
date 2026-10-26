@@ -790,6 +790,7 @@ enough; the other stays disconnected.
 | Jira (`atlassian-rovo`) | tickets, the refuse comment, the fill-in push, the risk note, Confluence QA plans | `/mcp`, choose `atlassian-rovo`, sign in. An Atlassian connection you already have in claude.ai works too | — |
 | GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | like Jira: `/mcp`, choose `gitlab`, sign in. Nothing to create or set: it is GitLab's own MCP server at `<gitlab_api_url>/mcp` (your GitLab admin must have it switched on, GitLab 19.5 or later) | set `gitlab_token` and `gitlab_username`, then `/mcp`, reconnect `gitlab-token` |
 | Figma (`figma`, `figma-token`) | design comparison (later parts) | `/mcp`, choose `figma`, sign in | set `figma_api_key`, then `/mcp`, reconnect `figma-token` |
+| Jira files (`jira-files`) | a ticket's `.docx` analysis and its screenshots, which the Jira connector cannot download. Optional, read only | — | set `jira_email` and `jira_api_token`, then `/mcp`, reconnect `jira-files` |
 
 `/quality-code:setup`, `/quality-code:start` and `/quality-code:write` check the connectors first
 and show, for each one that is missing, exactly these steps. Figma is on that card only for
@@ -807,8 +808,11 @@ never typed in the chat. Every setting can be changed there later.
 | `gitlab_username` | both GitLab ways | your GitLab username (without `@`) or email. The connectors check confirms the signed-in account is yours and shows it on the card |
 | `jira_email` | Jira | the email of your Atlassian account. The connectors check confirms Jira is signed in with it and shows it on the card |
 | `figma_api_key` (secret) | Figma token | a Figma personal access token |
+| `jira_api_token` (secret) | Jira files | an Atlassian API token (id.atlassian.com, Security, API tokens) for the account of `jira_email` |
 
 The plugin only ever calls GitLab's read operations. The token connector also runs in read-only mode, and its token has only the `read_api` scope.
+
+**Jira files limits.** `jira-files` only reads, and only from an `https://<name>.atlassian.net` site. Per ticket it reads at most 3 `.docx` files and 3 images, each up to 5 MB; a `.docx` gives at most 20,000 characters of text. PDFs, spreadsheets and other files are not read: the ticket's flags name each one skipped. A `.docx`'s text is redacted and scored like the description; a screenshot is only used to draft criteria for the author to confirm, and never counts in the score. Without the token, `ticket-eval` asks for the `.docx` files' paths on your computer, and for the screenshots to be pasted.
 
 ---
 
