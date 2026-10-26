@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-10-26
+
 ### Added
 
 - **The project can live in a subfolder** (AGT-108). In a repo whose app is in a folder (`web/`) while Claude Code
@@ -18,6 +20,11 @@ Update with `/plugin update quality-code@teamsystem`.
   (one with a test tool first), and `setup.mjs --detect --root <folder>` picks another. During a run
   the hook still keeps the config and Claude's settings at the top off limits. A `root` outside the
   repo (`..`, absolute) fails the config check.
+
+### Removed
+
+- **`/quality-code:start` and `/quality-code:write` are gone: `/quality-code:spec` is the one command.**
+  `/quality-code:spec` takes the ticket of your branch; `/quality-code:spec <KEY>` takes any ticket.
 
 ## [0.16.1] - 2026-10-26
 

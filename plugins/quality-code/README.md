@@ -22,16 +22,16 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 - "Check the tests I changed on this branch."
 - "Show me the tickets assigned to me that are in progress."
 
-…or type `/quality-code:start` in any chat, from your feature branch.
+…or type `/quality-code:spec` in any chat, from your feature branch.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/quality-code:setup` | connects Jira, GitLab and Figma, and writes the project's config |
-| `/quality-code:start` | your daily start: the branch, its ticket, the readiness gate, then the tests |
+| `/quality-code:spec` | your daily start: the branch, its ticket, the readiness gate, then the tests |
 | `/quality-code:ticket-eval <KEY>` | scores a ticket for test-readiness (70 points to pass) |
-| `/quality-code:write <KEY>` | writes the tests for a ticket and grades them |
+| `/quality-code:spec <KEY>` | writes the tests for a ticket and grades them |
 | `/quality-code:run-frontend` | runs every frontend (Playwright) spec through the pipeline |
 | `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
 | `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |

@@ -1,6 +1,6 @@
 # Warehouse frontend: how our Playwright specs are written
 
-The team's rules for `/quality-code:write` on warehouse-frontend, read on top of the plugin's own
+The team's rules for `/quality-code:spec` on warehouse-frontend, read on top of the plugin's own
 guide (these win where they differ). From `e2e/README.md` §3 and the old `/spec-frontend` skill.
 
 ## Fixtures and navigation

@@ -127,10 +127,10 @@ story += [p('What it is', 'h1'),
             'a refusal always comes from a script, never from the model\'s opinion.'),
           table(['You want to', 'Command'], [
               ['Set up a repo (once)', '<font name="Mono">/quality-code:setup</font>'],
-              ['Start your day on a feature branch', '<font name="Mono">/quality-code:start</font>'],
+              ['Start your day on a feature branch', '<font name="Mono">/quality-code:spec</font>'],
               ['Check whether a ticket is ready to test', '<font name="Mono">/quality-code:ticket-eval ABC-123</font>'],
               ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:run-pipeline --branch</font>'],
-              ['Have tests written from a ticket', '<font name="Mono">/quality-code:write ABC-123</font>'],
+              ['Have tests written from a ticket', '<font name="Mono">/quality-code:spec ABC-123</font>'],
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
               ['See how the team uses it', '<font name="Mono">/quality-code:kpi</font>'],
               ['See what the AI runs cost', '<font name="Mono">/quality-code:consumption</font>'],
@@ -170,7 +170,7 @@ story += [p('1. Install (each person, once)', 'h1'),
           PageBreak()]
 
 story += [p('3. Every day: start from your branch', 'h1'),
-          code('/quality-code:start'),
+          code('/quality-code:spec'),
           *steps([
               'It checks your connectors (Jira must be connected).',
               'It shows the repo card: your branch, its base branch and what the branch changed. Confirm with 1.',
@@ -226,8 +226,8 @@ story += [p('5. Check the tests on your branch', 'h1'),
           PageBreak()]
 
 story += [p('6. Have tests written from a ticket', 'h1'),
-          code('/quality-code:write ABC-123\n/quality-code:write ABC-123 --target src/pricing.ts   # Vitest\n'
-               '/quality-code:write ABC-123 --route /orders           # Playwright'),
+          code('/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --target src/pricing.ts   # Vitest\n'
+               '/quality-code:spec ABC-123 --route /orders           # Playwright'),
           *steps([
               '<b>Gate.</b> The ticket is scored first. Only a ticket that passes (or option 3, marked at risk) gets tests.',
               '<b>Target.</b> Vitest: which code the ticket changes. Playwright: which screen (from --route or the '

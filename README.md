@@ -29,8 +29,8 @@ both in one repo (fullstack). Your application code is never changed.
 |---|---|
 | **Readiness gate:** scores a ticket out of 100; 70 passes | `/quality-code:ticket-eval <KEY>` |
 | **Gaps fixed on the spot:** a Jira comment listing what is missing, or a guided fill-in pushed to the ticket after a preview | `ticket-eval`, when a ticket is refused |
-| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:start` |
-| **Tests written from the ticket:** Vitest, pytest, JUnit, Go, .NET and Playwright tests in your test folders, graded on the spot | `/quality-code:write <KEY>` |
+| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:spec` |
+| **Tests written from the ticket:** Vitest, pytest, JUnit, Go, .NET and Playwright tests in your test folders, graded on the spot | `/quality-code:spec <KEY>` |
 | **Tests run and graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (both) |
 | **Test data and QA cases:** seed builders or route stubs; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
 | **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
@@ -86,8 +86,6 @@ On Claude Code older than 2.1.275, use two steps:
 - **GitHub pull requests, through the `gh` CLI.** A GitHub repo's open pull request gives the base
   branch and a ticket candidate, the same way a GitLab merge request does. `git.base` in the config
   covers projects whose merge requests target a branch other than the default.
-- **`/quality-code:start` runs the pipeline:** after the repo card it gates the ticket, then checks
-  the tests your branch changed, or writes and checks them. `--ask` brings back the menu.
 - **For QA and product owners:** a Jira-only setup, no repo needed, and
   `/quality-code:tickets-eval <PROJECT>` to see how a whole project's tickets do.
 - **Attachments and links count in the 100 points** (every score changes a little), and the fill-in
@@ -115,7 +113,7 @@ Switch once, in Claude Code:
 /plugin install quality-code --marketplace vissz28/agentic-testing
 ```
 
-Then `/reload-plugins`, and run `/quality-code:start`: the connectors card asks again for the
+Then `/reload-plugins`, and run `/quality-code:spec`: the connectors card asks again for the
 settings it needs. In a repo whose `.claude/settings.json` lists the old marketplace, rename its key
 to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the block above).
 
@@ -133,7 +131,7 @@ to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the
    tests, or writes and checks them when there are none:
 
    ```
-   /quality-code:start
+   /quality-code:spec
    ```
 
 ## Documentation

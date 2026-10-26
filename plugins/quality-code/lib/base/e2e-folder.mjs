@@ -1,4 +1,4 @@
-// Where /quality-code:write puts new Playwright specs: playwright.folder, else the testDir of the
+// Where /quality-code:spec puts new Playwright specs: playwright.folder, else the testDir of the
 // project's default Playwright config when it is one plain string, else e2e/. The config is read as
 // text, never run. A Cypress project's specs are in cypress/e2e/ unless playwright.folder says otherwise.
 import { readFileSync } from 'node:fs'

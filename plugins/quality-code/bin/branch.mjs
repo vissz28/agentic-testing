@@ -1,4 +1,4 @@
-// Local git facts for /quality-code:start: the branch, its base, what changed, and ticket keys.
+// Local git facts for /quality-code:spec: the branch, its base, what changed, and ticket keys.
 // Read-only. Offline, except one `gh pr list` for the branch's GitHub pull request. Never reads diff
 // contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'

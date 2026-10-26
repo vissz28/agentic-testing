@@ -1,4 +1,4 @@
-// A spec in the shape /quality-code:write gives Playwright projects (guides/playwright-writing.md)
+// A spec in the shape /quality-code:spec gives Playwright projects (guides/playwright-writing.md)
 // must pass the static checks as they are: part 3b needs no pipeline change (spec §8).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

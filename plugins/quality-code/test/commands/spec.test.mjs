@@ -432,18 +432,6 @@ test('step 4: tests already on the branch can be checked instead of writing new 
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'))
   assert.match(s, /kind `test`, status other than `D`/)
 })
-test('write and start are aliases of spec', () => {
-  const w = readFileSync(new URL('../../commands/write.md', import.meta.url), 'utf8')
-  const st = readFileSync(new URL('../../commands/start.md', import.meta.url), 'utf8')
-  for (const t of [w, st]) {
-    assert.ok(t.includes('${CLAUDE_PLUGIN_ROOT}/commands/spec.md'))
-    assert.match(t, /Run each plugin script exactly as written/)
-    assert.ok(t.split('\n').length < 12, 'an alias, not a second copy of the flow')
-  }
-  assert.match(w, /a key is required/)
-  assert.match(st, /never a key/)
-  assert.match(st, /Tip: \/quality-code:spec does this now\./)
-})
 test('every backend runner: the spec reads its own writing guide, its layers and its default folder', async () => {
   const { BACKENDS } = await import('../../lib/base/backends.mjs')
   assert.match(doc, /the backend runner \(Vitest, pytest, JUnit, Go or \.NET\)/)

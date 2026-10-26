@@ -96,8 +96,7 @@ It takes the ticket key from the branch name (`Ticket: ABC-123 (from the branch 
 scores the ticket, plans the tests, writes them and checks them. It asks you three times at most: at
 the gate only when the ticket is not workable, at the plan, and after the result. For a ticket with no
 branch yet: `/quality-code:spec ABC-123`. For the score alone: `/quality-code:spec ABC-123 --gate-only`
-(the same as `/quality-code:ticket-eval ABC-123`). `/quality-code:start` and `/quality-code:write`
-still work: they are the same command.
+(the same as `/quality-code:ticket-eval ABC-123`).
 
 The plugin reads the ticket, hides customer data in its local copy, and a script gives it a
 **score out of 100**. The model never decides the score.

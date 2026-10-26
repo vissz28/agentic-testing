@@ -130,10 +130,9 @@ for (const n of ['run', 'seed', 'xray']) {
     assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))
   })
 }
-for (const n of ['write', 'start']) {
-  test(`${n}: delegates to spec, which stops with the needs-a-repo line`, () => {
-    assert.ok(cmd(n).includes('commands/spec.md'))
-    const s = cmd('spec')
+for (const n of ['spec']) {
+  test(`${n}: a personal config or no git repo stops with the needs-a-repo line`, () => {
+    const s = cmd(n)
     assert.ok(s.includes('config check'))
     assert.ok(s.includes('ok (personal: …)'))
     assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))

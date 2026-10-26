@@ -1,10 +1,10 @@
 ---
-description: Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:write adds the same cases for the tests it writes.
+description: Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:spec adds the same cases for the tests it writes.
 argument-hint: <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [KEY]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
-Writes XRay test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:write` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Writes XRay test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:spec` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
 
 ## Rules
 
@@ -27,7 +27,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
    - **Refused:** its refuse card and its flow, as written there. Go on only when that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card). Option 3 (continue anyway), a comment posted, a cancel or a stop: stop, `XRay test cases need a ticket that passes the gate.` Nothing written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`, the only copy of the ticket; never edit it. Keep the `feature` and the `route` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
    - **Fullstack:** a ticket whose `side` (the last `TICKET_EVAL_JSON:` line) is `backend` gets no XRay test cases: say `XRay test cases are written for frontend tickets (Playwright tests).` and stop.
-3. **Screen.** A `--route PATH` in `$ARGUMENTS` is used as it is: it must start with `/` and be one line; otherwise say `--route must be a path in the app starting with /, like /orders` and stop. Without one, the `route` from step 2 is used, with no card. With neither, show `/quality-code:write`'s screen card (its step 3, Playwright) and do as it says.
+3. **Screen.** A `--route PATH` in `$ARGUMENTS` is used as it is: it must start with `/` and be one line; otherwise say `--route must be a path in the app starting with /, like /orders` and stop. Without one, the `route` from step 2 is used, with no card. With neither, show `/quality-code:spec`'s screen card (its step 3, Playwright) and do as it says.
 4. **Plan.** Read `${CLAUDE_PLUGIN_ROOT}/guides/playwright-writing.md` for its extra probes, then `playwright.guide` when it is set. One case per scenario, with the result it checks as a plain sentence from the ticket's Then. Then, unless `$ARGUMENTS` has `--no-extras`, at most 3 extra probes from the guide's list that apply to this screen, one case each. Show this card and end the turn:
 
    ```
@@ -55,7 +55,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
    - **Leave out** what you do not know: `description`, `label`, `priority`, `epic`. `testType` is `Cucumber` unless the case has no Gherkin behind it (`Generic`).
 
    Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs" add @<ticketsDir>/<KEY>/xray.json`. Exit 2 is a config or input error: show its lines; when it names a case, fix that case in `xray.json` once and run again.
-6. **Report.** Show the script's lines as printed: the case numbers, a case that was already there, and the files for QA. Add one line: `QA imports the case file in Xray: Test Repository, Import, Excel or CSV.` Nothing is graded and no test is written: say `/quality-code:write <KEY>` writes the tests with the same names when you need them.
+6. **Report.** Show the script's lines as printed: the case numbers, a case that was already there, and the files for QA. Add one line: `QA imports the case file in Xray: Test Repository, Import, Excel or CSV.` Nothing is graded and no test is written: say `/quality-code:spec <KEY>` writes the tests with the same names when you need them.
 
 ## Examples
 

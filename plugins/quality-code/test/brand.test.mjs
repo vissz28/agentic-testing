@@ -21,7 +21,7 @@ test('the marketplace is teamsystem, so the plugin installs as quality-code@team
 test('the plugin README opens with the tagline and has a Try it section ending in the start command', () => {
   const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8')
   assert.ok(readme.startsWith(`# Quality Code\n\n${TAGLINE}`))
-  assert.match(readme, /## Try it\n\n(- ".+"\n)+\n…or type `\/quality-code:start` in any chat/)
+  assert.match(readme, /## Try it\n\n(- ".+"\n)+\n…or type `\/quality-code:spec` in any chat/)
 })
 test('the plugin description opens with the tagline', () => {
   assert.ok(plugin.description.startsWith(TAGLINE))

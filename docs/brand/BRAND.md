@@ -6,7 +6,7 @@
 
 - **Quality Code** in text, titles and the plugin's display name.
 - `quality-code` only where a machine reads it: the install command, the commands
-  (`/quality-code:start`), file and folder names, the marketplace.
+  (`/quality-code:spec`), file and folder names, the marketplace.
 
 ## Tagline
 
