@@ -41,8 +41,9 @@ both in one repo (fullstack). Your application code is never changed.
 
 ## Installation
 
-**Requirements:** Claude Code with plugin support, Node 18+, a repo whose `package.json` has
-`vitest` or `@playwright/test`, and access to your Jira site.
+**Requirements:** Claude Code with plugin support, Node 20+ (22.12+ when setup adds Vitest), a repo
+with a `package.json` (setup adds Vitest or Playwright when it has no test runner) or a pytest, JUnit,
+Go or .NET project, and access to your Jira site.
 
 In Claude Code, inside your repo:
 

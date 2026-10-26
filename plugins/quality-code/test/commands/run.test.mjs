@@ -17,6 +17,10 @@ test('three commands, each its own suite, all following the shared guide', () =>
   assert.match(cmd('run-backend'), /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n/)
   assert.match(cmd('run-pipeline'), /argument-hint: \[spec…\] \[--branch\] \[--key KEY\] \[--flaky N\] \| --evals\n/)
 })
+test('a test runner the config names and the project has not installed stops the run before the pipeline', () => {
+  assert.ok(doc.includes('ticket.mjs" config check --runner`'))
+  assert.match(doc, /Each `missing:` line names a test runner of the config that this project has not installed, so the specs could not run: show the lines and stop\./)
+})
 test('the whole suite is listed by the script, never by the model', () => {
   assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" --suite <suite> [--key <KEY>] [--flaky <N>]'))
   assert.match(doc, /the script lists them itself \(`--suite <suite>` in step 4\), so do not look for files/)

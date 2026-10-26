@@ -11,6 +11,9 @@ import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
+import { backendOf } from '../lib/base/backends.mjs'
+import { runnerOf } from '../lib/base/runners.mjs'
+import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
@@ -22,8 +25,24 @@ const err = s => process.stderr.write(`${s}\n`)
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
 // --save keeps the per-ticket results of `tickets-eval`. --drafted marks an `add` answer as the
-// model's draft the author confirmed (the script still decides whether it counts).
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted'])
+// model's draft the author confirmed (the script still decides whether it counts). --runner adds to
+// `config check` the test runners the config names and the project has not installed.
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--runner'])
+
+// The runners setup adds when a repo has none, and the packages that install each.
+const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', ['@playwright/test', 'playwright']]]
+
+/** A line per runner the config writes tests in that this project has not installed, saying how to add it. */
+function missingRunners(root, config) {
+  let deps = {}
+  try { const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')); deps = { ...pkg.dependencies, ...pkg.devDependencies } } catch {}
+  const wants = { vitest: backendOf(config) === 'vitest', playwright: config.adapter === 'playwright' || isFullstack(config) }
+  return ADDABLE
+    .filter(([adapter, , packages]) => wants[adapter] && runnerOf(config, adapter) === adapter && !toolScript(root, packages, adapter))
+    .map(([, label, packages]) => (packages.some(p => p in deps)
+      ? `${label} is in package.json but not installed: run your package manager's install.`
+      : `${label} is not installed in this project: run /quality-code:setup to add it.`))
+}
 
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
@@ -52,9 +71,10 @@ function run(argv, env, cwd) {
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root, env)
   if (cmd === 'config' && a._[0] === 'check') {
-    if (cfg.ok) { out(`ok (${cfg.source}: ${cfg.path})`); return 0 }
-    cfg.errors.forEach(e => out(e))
-    return 2
+    if (!cfg.ok) { cfg.errors.forEach(e => out(e)); return 2 }
+    out(`ok (${cfg.source}: ${cfg.path})`)
+    if (a.flags.has('--runner') && cfg.source === 'repo') missingRunners(root, cfg.config).forEach(m => out(`missing: ${m}`))
+    return 0
   }
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
