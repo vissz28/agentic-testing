@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-26
+
 ### Added
 
 - **Backend tests for every stack** (AGT-128): the registry of backend runners (`vitest`, `pytest`,
