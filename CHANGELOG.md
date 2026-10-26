@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-26
+
+### Changed
+
+- **Setup asks "Where" first** (AGT-131). `Where will you use Quality Code?` (`1. In a repo
+  (developers)` / `2. No repo, Jira only (QA, PO)`) is the first card, before any connector. Then the
+  connectors one at a time; with no repo the source code card is skipped (Jira, then Figma).
+
 ## [0.16.0] - 2026-10-26
 
 ### Added

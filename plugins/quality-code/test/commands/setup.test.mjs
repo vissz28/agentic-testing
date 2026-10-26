@@ -64,7 +64,7 @@ test('A2 (playwright): each feature\'s QA-plan search is tried once, and a title
 
 test('the short setup asks only for connectors, the project here and the Jira project', () => {
   const short = doc.slice(0, doc.indexOf('## Advanced'))
-  assert.ok(step(0).includes('guides/connectors.md'))
+  assert.ok(step(1).includes('guides/connectors.md'))
   assert.ok(step(2).includes('This project'))
   assert.ok(step(2).includes('here.gitlab'))
   assert.match(step(2), /check gitlab_api_url/)
@@ -154,10 +154,11 @@ test('setup says plainly that Jira Server and Data Center sites cannot be used',
 })
 
 // AGT-112: a clean setup (Jira connected, one site, git history naming one project) takes two answers.
-test('after the connectors, a clean setup takes two answers: the Where card and the Confirm card', () => {
+test('Where first, then the connectors; besides them a clean setup takes two answers: the Where card and the Confirm card', () => {
   const short = doc.slice(0, doc.indexOf('## Advanced'))
-  assert.match(short, /After them a clean setup takes two answers: the \*\*Where\*\* card and the \*\*Confirm\*\* card/)
-  assert.match(step(0), /Setup: one connector at a time/)
+  assert.match(short, /The \*\*Where\*\* card comes first/)
+  assert.match(short, /Besides the connectors, a clean setup takes two answers: the \*\*Where\*\* card and the \*\*Confirm\*\* card/)
+  assert.match(step(1), /Setup: one connector at a time/)
   assert.match(step(2), /No card here/)
   assert.match(step(3), /No card when the values are clear/)
   assert.match(short, /Run `setup\.mjs --detect` once/)

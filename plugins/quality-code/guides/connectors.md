@@ -10,7 +10,7 @@ Shared by `/quality-code:setup` (step 0, as the one-at-a-time sequence below), a
 
 **Setup: one connector at a time.** `/quality-code:setup` does not use the single card below. It walks the connectors in this order, one question per turn, using the checks and fixes of this guide:
 
-1. **Source code.** Show this card and end the turn (add `(this repo)` after GitLab when `here.gitlab` is set, after GitHub when `here.github` is set):
+1. **Source code.** Only for a setup in a repo (the Where card's `1`); a setup with no repo (QA, PO) skips this step and starts at Jira. Show this card and end the turn (add `(this repo)` after GitLab when `here.gitlab` is set, after GitHub when `here.github` is set):
 
    ```
    Choose your source code connector
