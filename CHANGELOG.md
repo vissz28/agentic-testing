@@ -120,6 +120,13 @@ Update with `/plugin update quality-code@teamsystem`.
   the keys its ticket can never earn (a Story's Bug keys among them), so each item's `→ N points` was
   scored over the whole rubric and came out too low. The menu now works those keys out again.
 
+### Changed
+
+- **Setup asks for the connectors one at a time.** First the source code connector (`1. GitLab /
+  2. GitHub / 3. Both / 4. None for now`, the repo's own host marked), then Jira, required and with your
+  account, then Figma, optional (`1. Connect Figma / 2. Skip`). The other commands keep their one-line
+  check.
+
 ## [0.15.0] - 2026-10-23
 
 **Two things to do when you update** (see Upgrading): `/quality-code:check` is gone (use the
