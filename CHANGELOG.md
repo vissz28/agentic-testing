@@ -87,6 +87,13 @@ Update with `/plugin update quality-code@teamsystem`.
   `pyproject.toml`, `requirements*.txt`, `pom.xml`, the Gradle builds, `go.mod`/`go.sum` and the .NET
   project files join the default boundary, each kind with its own reason (dependencies, secrets and
   environment, CI) instead of "application code". `boundaries.forbidden` still replaces the defaults.
+- **A link's UUIDs keep the ticket's numbering.** `sanitize` numbered the UUIDs in linked issues and
+  web links on their own, so a placeholder in a link could stand for a different UUID than the same
+  placeholder in the description. Links now share the ticket's numbering: one UUID gets one
+  placeholder everywhere, and two different ones never share one.
+- **Fill-in gains for a brief read from a file.** A brief passed as JSON (`fill-menu --in @…`) lost
+  the keys its ticket can never earn (a Story's Bug keys among them), so each item's `→ N points` was
+  scored over the whole rubric and came out too low. The menu now works those keys out again.
 
 ## [0.15.0] - 2026-10-23
 
