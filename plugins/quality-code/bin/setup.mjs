@@ -136,6 +136,8 @@ const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 
 // A frontend: one of these in its dependencies, or an index.html at the root.
 const UI_DEPS = ['react', 'vue', '@angular/core', 'svelte', 'solid-js', 'preact', 'lit', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'ember-source', 'vite', 'parcel', 'webpack-dev-server']
+// A server: one of these in its dependencies. A frontend with one is a frontend with its backend.
+const SERVER_DEPS = ['express', '@nestjs/core', 'fastify', 'koa', '@hapi/hapi', 'hono', 'restify', '@adonisjs/core', '@feathersjs/feathers', 'h3']
 const DEV_SCRIPTS = ['dev', 'start', 'serve']
 // The port a dev server opens on when its script and config name none.
 const DEFAULT_PORTS = [[/\bnext\b|\breact-scripts\b|\bnuxi?\b/, 3000], [/\bng\b/, 4200], [/\bastro\b/, 4321], [/\bparcel\b/, 1234], [/\bvue-cli-service\b|\bwebpack\b/, 8080], [/\bvite\b|\bremix\b|\breact-router\b/, 5173]]
@@ -195,9 +197,8 @@ function playwrightScaffold(root, pkg, adapter, configs) {
   const installed = '@playwright/test' in deps
   const { pm, pnp } = packageManager(root, pkg)
   const app = devServer(root, pkg, pm)
-  const frontend = UI_DEPS.some(d => d in deps) || existsSync(join(root, 'index.html'))
   // With Vitest already, a frontend also needs a script that serves it: a UI library is tested with Vitest alone.
-  if (!installed && !(frontend && (adapter === null || (adapter === 'vitest' && app.command)))) return null
+  if (!installed && !(isFrontend(root, deps) && (adapter === null || (adapter === 'vitest' && app.command)))) return null
   const ts = existsSync(join(root, 'tsconfig.json'))
   // As npm init playwright does: the config reads process, which TypeScript knows from @types/node.
   const packages = ['@playwright/test', ...(ts && !('@types/node' in deps) ? ['@types/node'] : [])]
@@ -208,8 +209,61 @@ function playwrightScaffold(root, pkg, adapter, configs) {
     ...app,
     files: [`playwright.config.${ext}`, `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`],
   }
-  if (pnp) s.problem = "Yarn Plug'n'Play keeps no node_modules folder, which the checks run Playwright from: set nodeLinker: node-modules in .yarnrc.yml, then run setup again."
+  if (pnp) s.problem = pnpProblem('Playwright')
   return s
+}
+
+const isFrontend = (root, deps) => UI_DEPS.some(d => d in deps) || existsSync(join(root, 'index.html'))
+const pnpProblem = tool => `Yarn Plug'n'Play keeps no node_modules folder, which the checks run ${tool} from: set nodeLinker: node-modules in .yarnrc.yml, then run setup again.`
+
+/**
+ * What setup adds to a repo with no test runner that is not a frontend alone (a backend, a library, or a
+ * frontend with its server, which gets Playwright too): the install command and the Vitest config. Null
+ * when the repo has any runner, or no package.json.
+ */
+function vitestScaffold(root, pkg, adapter) {
+  if (!pkg || adapter !== null) return null
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+  if (isFrontend(root, deps) && !SERVER_DEPS.some(d => d in deps)) return null
+  const { pm, pnp } = packageManager(root, pkg)
+  const ext = existsSync(join(root, 'tsconfig.json')) ? 'ts' : 'js'
+  // ponytail: no SWC for NestJS: Vitest 5 compiles with oxc, which emits the decorator metadata Nest's injection
+  // reads. A repo held on Vitest 3 (esbuild) needs unplugin-swc in its config.
+  const s = { install: `${ADD_DEV[pm]} vitest`, files: vitestConfigs(root).length ? [] : [`vitest.config.${ext}`] }
+  const problem = vitestProblem(process.versions.node, deps.vite) ?? (pnp ? pnpProblem('Vitest') : null)
+  if (problem) s.problem = problem
+  return s
+}
+
+/**
+ * Why the Vitest an install gets (5) cannot run here, or null: it starts on Node 22.12 or newer, beside a
+ * Vite of 6.4 or newer. vite is the repo's own range for it (a frontend's), checked by its major only.
+ */
+export function vitestProblem(node, vite) {
+  const [major, minor] = String(node).split('.').map(Number)
+  if (major < 22 || (major === 22 && minor < 12)) return `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run setup again.`
+  if (Number(/\d+/.exec(String(vite ?? ''))?.[0]) < 6) return `Vitest needs Vite 6.4 or newer, and this repo has vite ${vite}: update Vite, then run setup again.`
+  return null
+}
+
+/** The Vitest config setup writes; next to Playwright, the e2e folder is left to Playwright. */
+export function vitestConfigText({ e2e }) {
+  const test = e2e ? `{ exclude: [...configDefaults.exclude, '${DEFAULT_E2E_FOLDER}**'] }` : '{}'
+  return `import { ${e2e ? 'configDefaults, ' : ''}defineConfig } from 'vitest/config'
+
+// Written by quality-code setup. Vitest runs every *.test.* and *.spec.* file${e2e ? `, but the Playwright specs in ${DEFAULT_E2E_FOLDER}` : ''}.
+export default defineConfig({
+  // Imports through the tsconfig's baseUrl or paths (src/…, @app/…) resolve as they do for tsc.
+  resolve: { tsconfigPaths: true },
+  test: ${test},
+})
+`
+}
+
+function vitestScaffoldProblems(config, v) {
+  if (v !== true) return ['vitestScaffold: must be true']
+  if (backendOf(config) !== 'vitest' || runnerOf(config, 'vitest') !== 'vitest') return ['vitestScaffold: only for "adapter": "vitest", or "fullstack" with a Vitest backend']
+  return []
 }
 
 const quote = s => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
@@ -412,6 +466,7 @@ export function detect(root, env = process.env) {
     specFolders: specFolders(root),
     playwrightConfigs: pwConfigs,
     scaffold: playwrightScaffold(root, pkg, adapter, pwConfigs),
+    vitestScaffold: vitestScaffold(root, pkg, adapter),
     here: here(root),
     projectCandidates: jiraCandidates(root),
     base: baseCandidate(root),
@@ -430,8 +485,11 @@ function pathProblem(root, label, p) {
   return null
 }
 
-/** scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test; an existing file is never replaced. */
-export function write(root, config, { templates, gitignoreLine, scaffold } = {}) {
+/**
+ * scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test, vitestScaffold
+ * (true) the Vitest config; an existing file is never replaced.
+ */
+export function write(root, config, { templates, gitignoreLine, scaffold, vitestScaffold } = {}) {
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
   const errors = []
@@ -439,6 +497,7 @@ export function write(root, config, { templates, gitignoreLine, scaffold } = {})
   for (const [label, p] of named) if (p !== undefined) { const m = pathProblem(root, label, p); if (m) errors.push(m) }
   if (gitignoreLine !== undefined && typeof gitignoreLine !== 'string') errors.push('gitignoreLine: must be text')
   if (scaffold !== undefined) errors.push(...scaffoldProblems(root, config, scaffold))
+  if (vitestScaffold !== undefined) errors.push(...vitestScaffoldProblems(config, vitestScaffold))
   if (errors.length) return { ok: false, errors }
 
   const { templates: found, here: h } = detect(root)
@@ -456,6 +515,10 @@ export function write(root, config, { templates, gitignoreLine, scaffold } = {})
     toWrite.push([`playwright.config.${ext}`, playwrightConfigText(scaffold)])
     const smoke = `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`
     if (!existsSync(join(root, smoke))) toWrite.push([smoke, SMOKE_TEXT])
+  }
+  if (vitestScaffold !== undefined && !vitestConfigs(root).length) {
+    const ext = existsSync(join(root, 'tsconfig.json')) ? 'ts' : 'js'
+    toWrite.push([`vitest.config.${ext}`, vitestConfigText({ e2e: config.adapter === 'fullstack' })])
   }
   const out = { ...config }
   if (out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
@@ -577,7 +640,7 @@ function main(argv) {
       process.stdout.write('ok\n')
       return 0
     }
-    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold })
+    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
     process.stdout.write('ok\n')
     return 0

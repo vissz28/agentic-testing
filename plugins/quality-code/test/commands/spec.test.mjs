@@ -27,6 +27,8 @@ test('the rules: scripts grade, never edit application code, never weaken or del
 test('step 1: config check, Vitest only, layers from vitest.layers with the unit default, connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes('ticket.mjs" config check'))
+  assert.ok(s.includes('ticket.mjs" config check --runner`'))
+  assert.match(s, /Each `missing:` line it prints names a test runner of the config that this project has not installed \(setup's `Not now`\), so tests written now could not run: show the lines and stop\./)
   assert.doesNotMatch(doc, /not available yet/)
   assert.doesNotMatch(doc, /part 3/)
   assert.match(s, /`vitest`/)

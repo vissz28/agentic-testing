@@ -83,7 +83,7 @@ a whole team on board: [Onboarding](ONBOARDING.md), one page with a team lead's 
 | You need | You do not need |
 |---|---|
 | A Jira Cloud project you can read (and comment on, to post refuse comments) | A specific folder layout, branch model or CI system |
-| A test runner in `package.json`: `vitest`, `jest`, `mocha`, or a script that runs `node --test`, for the tests of the code, `@playwright/test` or `cypress` for the tests of screens, or one of each (a fullstack repo). A frontend with no e2e runner (React, Vue, Angular, Svelte, Vite…), even one with Vitest unit tests: setup offers to add it | A dedicated Jira field: criteria can live in the description |
+| A test runner in `package.json`: `vitest`, `jest`, `mocha`, or a script that runs `node --test`, for the tests of the code, `@playwright/test` or `cypress` for the tests of screens, or one of each (a fullstack repo). A frontend with no e2e runner (React, Vue, Angular, Svelte, Vite…), even one with Vitest unit tests: setup offers to add Playwright. A repo with no test runner at all: setup offers Vitest (a backend or a library), Playwright (a frontend), or both (a frontend with its server: Express, NestJS, Fastify…); on `Not now` it still writes the config, so tickets can be checked | A dedicated Jira field: criteria can live in the description |
 | For Playwright: a Playwright config with a `baseURL`, and a `webServer` or the app already running. With no config, setup writes one from your dev script, a smoke test and, for an app behind a sign-in, a sign-in step every test starts from. Otherwise an app behind a login needs a fixture that signs in, used by your specs: `write` copies it from them | Existing specs: on a project with none, `write` uses plain `@playwright/test` |
 | Node 18 or newer | Feature labels or title prefixes: setup offers them, both are optional |
 | Claude Code with plugin support | Changes to your application code |
@@ -838,7 +838,8 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 | `Run /quality-code:setup.` | The repo has no config yet, or a field is wrong. Run setup. |
 | A command or config file from an older version is not recognised | Follow the upgrade steps for your version in the [CHANGELOG](../CHANGELOG.md). |
 | `jira.projects[0] … upper-case letters and digits` | Project keys are upper case: `ABC`, not `abc`. |
-| `This stack is not supported yet (v1: Playwright, Vitest).` | `package.json` has neither `@playwright/test` nor `vitest`. |
+| `This stack is not supported yet (…)` | The repo has no `package.json` and no pytest, JUnit, Go or .NET project files. |
+| `missing: Vitest is not installed in this project…` (or Playwright) | Setup was finished with `Not now`. Run `/quality-code:setup` again to add the runner, or run your package manager's install when it is already in `package.json`. |
 | `Sign in to Atlassian when prompted…` | Connect the Atlassian connector with `/mcp`, or paste the ticket text. |
 | "This ticket is from project X, not one of …" | Pick `1` to check it anyway, or add the project with setup. |
 | `marketplace add` fails | Make sure `git clone https://github.com/vissz28/agentic-testing` works on its own. |

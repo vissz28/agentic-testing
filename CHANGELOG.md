@@ -28,6 +28,17 @@ Update with `/plugin update quality-code@teamsystem`.
     Vitest and Playwright only.
   - With Jest or Mocha (`runners.unit`) the backend stays a JavaScript one: config refuses
     `runners.unit` beside a pytest, JUnit, Go or .NET backend, which runs its own tests.
+- **A repo with no test runner gets Vitest, Playwright or both** (AGT-109). Setup no longer stops at
+  "This stack is not supported yet" when a repo with a `package.json` has no runner. A backend or a
+  library gets Vitest (`vitest` with your package manager, and a `vitest.config`); a frontend gets
+  Playwright, as before; a frontend with its server (Express, NestJS, Fastify, Koa, Hono…) gets both
+  and becomes fullstack, its Vitest config leaving `e2e/` to Playwright. The config resolves imports
+  through the tsconfig's `baseUrl` or `paths` (`src/…`, `@app/…`) as `tsc` does, and NestJS needs no
+  extra compiler: Vitest 5 emits the decorator metadata its injection reads. Vitest 5 needs Node 22.12
+  or newer and, beside a frontend, Vite 6.4 or newer: setup says so instead of a failed install. On
+  `Not now` (or such a problem) nothing is installed, but the config is still written, so the ticket
+  checks work; `/quality-code:spec` and the `run-*` commands then stop before running a test and say
+  how to add the runner (`ticket.mjs config check --runner`).
 - **Setup adds Playwright to a frontend that has none.** On a frontend with no test runner (React,
   Vue, Angular, Svelte, Vite and the like), with Vitest unit tests only, or with Playwright but no
   config, setup no longer stops or settles for Vitest:

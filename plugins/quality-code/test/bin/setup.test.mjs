@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, write } from '../../bin/setup.mjs'
+import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
 import { filePattern } from '../../lib/pipeline/runners/playwright.mjs'
 import { calls, fakeBin, fakeCommand } from '../fake-bin.mjs'
@@ -661,4 +661,81 @@ test('detect: a script that runs node --test names Node\'s own runner; a runner 
   assert.deepEqual(detect(repo({ scripts: { test: 'npm run build && node --import tsx --test src/' } })).runners, { unit: 'node' })
   assert.deepEqual(detect(repo({ scripts: { test: 'node --test' }, devDependencies: { jest: '30' } })).runners, { unit: 'jest' })
   assert.deepEqual(detect(repo({ scripts: { start: 'node server.js', lint: 'eslint --test-mode' } })).runners, {}, 'no node --test')
+})
+
+test('detect: a repo with no test runner that is not a frontend alone gets Vitest; a frontend with its server gets both', () => {
+  const nest = repo({ dependencies: { '@nestjs/core': '11' }, scripts: { start: 'nest start' } })
+  writeFileSync(join(nest, 'tsconfig.json'), '{}')
+  assert.equal(detect(nest).adapter, null)
+  assert.deepEqual(detect(nest).vitestScaffold, { install: 'npm install --save-dev vitest', files: ['vitest.config.ts'] })
+  assert.equal(detect(nest).scaffold, null, 'a backend gets no Playwright')
+  assert.deepEqual(detect(repo({ dependencies: { express: '5' } })).vitestScaffold, { install: 'npm install --save-dev vitest', files: ['vitest.config.js'] })
+  assert.notEqual(detect(repo({ name: 'a-library' })).vitestScaffold, null, 'neither side: the tests of its code')
+  const both = repo({ dependencies: { react: '19', express: '5' }, scripts: { dev: 'vite' } })
+  assert.deepEqual([detect(both).vitestScaffold.install, detect(both).scaffold.install], ['npm install --save-dev vitest', 'npm install --save-dev @playwright/test'])
+  assert.equal(detect(repo({ dependencies: { react: '19' }, scripts: { dev: 'vite' } })).vitestScaffold, null, 'a frontend alone gets Playwright only')
+  for (const deps of [{ vitest: '3' }, { jest: '30' }, { '@playwright/test': '1' }, { cypress: '15' }]) assert.equal(detect(repo({ devDependencies: { ...deps, express: '5' } })).vitestScaffold, null, Object.keys(deps)[0])
+  assert.equal(detect(repo({ dependencies: { express: '5' }, scripts: { test: 'node --test' } })).vitestScaffold, null, 'node --test is a runner')
+  const py = repo({ dependencies: { express: '5' } })
+  writeFileSync(join(py, 'pytest.ini'), '[pytest]')
+  assert.equal(detect(py).vitestScaffold, null, 'another backend runs its own tests')
+  assert.equal(detect(mkdtempSync(join(tmpdir(), 'at-'))).vitestScaffold, null, 'no package.json')
+  const pnpm = repo({ dependencies: { fastify: '5' } })
+  writeFileSync(join(pnpm, 'pnpm-lock.yaml'), '')
+  assert.equal(detect(pnpm).vitestScaffold.install, 'pnpm add -D vitest', "the repo's package manager")
+  writeFileSync(join(pnpm, 'vitest.config.mjs'), 'export default {}')
+  assert.deepEqual(detect(pnpm).vitestScaffold.files, [], 'a Vitest config there is kept')
+  writeFileSync(join(pnpm, '.pnp.cjs'), '')
+  assert.match(detect(pnpm).vitestScaffold.problem, /Plug'n'Play keeps no node_modules folder, which the checks run Vitest from/)
+})
+test('write with vitestScaffold: the Vitest config, e2e/ left to Playwright on a fullstack project', () => {
+  const d = repo({ dependencies: { express: '5' } })
+  assert.equal(write(d, cfg, { vitestScaffold: true }).ok, true)
+  const c = readFileSync(join(d, 'vitest.config.js'), 'utf8')
+  assert.equal(c, vitestConfigText({ e2e: false }))
+  assert.doesNotMatch(c, /exclude/)
+  assert.ok(c.includes('resolve: { tsconfigPaths: true },'), "imports through the tsconfig's baseUrl or paths resolve")
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')), cfg)
+  const fs = repo({ dependencies: { react: '19', express: '5' } })
+  assert.equal(write(fs, { ...cfg, adapter: 'fullstack' }, { vitestScaffold: true, scaffold: SCAFFOLD }).ok, true)
+  assert.match(readFileSync(join(fs, 'vitest.config.js'), 'utf8'), /test: \{ exclude: \[\.\.\.configDefaults\.exclude, 'e2e\/\*\*'\] \}/)
+  assert.ok(existsSync(join(fs, 'playwright.config.js')) && existsSync(join(fs, SMOKE)))
+  const mine = repo({})
+  writeFileSync(join(mine, 'vitest.config.ts'), 'mine')
+  assert.equal(write(mine, cfg, { vitestScaffold: true }).ok, true)
+  assert.equal(readFileSync(join(mine, 'vitest.config.ts'), 'utf8'), 'mine', 'never replaced')
+})
+test('the generated Vitest configs are valid JavaScript', () => {
+  const d = mkdtempSync(join(tmpdir(), 'at-'))
+  for (const [i, o] of [{ e2e: false }, { e2e: true }].entries()) {
+    writeFileSync(join(d, `v${i}.mjs`), vitestConfigText(o))
+    assert.equal(spawnSync(process.execPath, ['--check', join(d, `v${i}.mjs`)]).status, 0, JSON.stringify(o))
+  }
+})
+test('write refuses vitestScaffold on a project whose tests are not Vitest\'s; nothing is written', () => {
+  for (const [label, c, v, re] of [
+    ['a frontend', pwCfg, true, /only for "adapter": "vitest", or "fullstack" with a Vitest backend/],
+    ['Jest', { ...cfg, runners: { unit: 'jest' } }, true, /only for "adapter": "vitest"/],
+    ['a pytest backend', { ...cfg, adapter: 'fullstack', backend: 'pytest' }, true, /only for "adapter": "vitest"/],
+    ['not true', cfg, 'yes', /vitestScaffold: must be true/],
+  ]) {
+    const d = repo({})
+    const r = write(d, c, { vitestScaffold: v })
+    assert.equal(r.ok, false, label)
+    assert.match(r.errors.join('\n'), re, label)
+    assert.equal(existsSync(join(d, '.claude/quality-code.json')), false, label)
+  }
+  const d = repo({})
+  const r = cli(d, '--write', JSON.stringify({ config: cfg, vitestScaffold: true }))
+  assert.deepEqual([r.status, r.stdout], [0, 'ok\n'])
+  assert.ok(existsSync(join(d, 'vitest.config.js')), 'the CLI passes the proposal\'s vitestScaffold')
+})
+test('vitestProblem: the Vitest an install gets needs Node 22.12 or newer, beside a Vite of 6.4 or newer', () => {
+  for (const node of ['18.20.4', '20.19.0', '22.11.0']) assert.equal(vitestProblem(node), `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run setup again.`, node)
+  for (const node of ['22.12.0', '24.12.0', '26.0.0']) assert.equal(vitestProblem(node), null, node)
+  assert.equal(vitestProblem('24.12.0', '^5.4.10'), 'Vitest needs Vite 6.4 or newer, and this repo has vite ^5.4.10: update Vite, then run setup again.')
+  for (const vite of ['^6.4.0', '^7.1.0', '8', 'latest', '*', undefined]) assert.equal(vitestProblem('24.12.0', vite), null, String(vite))
+  const old = repo({ dependencies: { react: '19', express: '5' }, devDependencies: { vite: '^5.4.0' }, scripts: { dev: 'vite' } })
+  assert.match(detect(old).vitestScaffold.problem, /^Vitest needs Vite 6\.4 or newer, and this repo has vite \^5\.4\.0/, "detect reads the repo's Vite")
+  assert.equal(detect(old).scaffold.problem, undefined, 'Playwright can still be added')
 })
