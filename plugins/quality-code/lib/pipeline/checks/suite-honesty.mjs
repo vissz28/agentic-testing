@@ -38,6 +38,15 @@ function closeAt(src, open) {
   return src.length
 }
 
+// A test skipped or marked todo by its options: test('x', { skip: true }, …) (node --test, Vitest).
+const OPTION_MOD = /^\s*,\s*\{([^{}]*)\}/
+
+/** The skip or todo an options object right after the title sets, or null. */
+function optionMod(after) {
+  const opts = OPTION_MOD.exec(after)?.[1] ?? ''
+  return /\bskip\s*:(?!\s*false\b)/.test(opts) ? 'skip' : /\btodo\s*:(?!\s*false\b)/.test(opts) ? 'todo' : null
+}
+
 /**
  * Test declarations in order: { mod, title, idx }. An each/for test takes the title after its table.
  * modOf: the dialect's reading of m[1], when its skip mark is no "skip" in the source (C#'s [Ignore]).
@@ -48,7 +57,7 @@ export function testMarks(src, re, modOf = null) {
   const out = []
   let m
   while ((m = all.exec(src))) {
-    if (!m[4]) { out.push({ mod: m.groups?.skip ? 'skip' : m.groups?.todo ? 'todo' : modOf ? modOf(m[1]) : m[1] || prefixed(m) || null, title: m[3], idx: m.index }); continue }
+    if (!m[4]) { out.push({ mod: m.groups?.skip ? 'skip' : m.groups?.todo ? 'todo' : modOf ? modOf(m[1]) : m[1] || prefixed(m) || optionMod(src.slice(m.index + m[0].length)) || null, title: m[3], idx: m.index }); continue }
     const title = /^\s*\(\s*(['"`])(.*?)\1/.exec(src.slice(closeAt(src, m.index + m[0].length - 1)))?.[2] ?? ''
     out.push({ mod: m[1] === 'skip' ? 'skip' : 'each', title, idx: m.index })
   }

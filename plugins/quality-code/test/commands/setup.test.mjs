@@ -275,7 +275,7 @@ test('the repo\'s own runner: setup names it in runners and on the Stack line, w
   const s = step(2)
   assert.match(s, /\*\*Runner\.\*\* `runners` in the detect result names the repo's own runner/)
   assert.match(s, /with the generic checks; Vitest and Playwright keep the specialized ones/)
-  assert.ok(s.includes('`This stack is not supported yet (Playwright or Cypress; for the backend Vitest, Jest, Mocha, pytest, JUnit, Go or .NET).`'))
+  assert.ok(s.includes('`This stack is not supported yet (Playwright or Cypress; for the backend Vitest, Jest, Mocha, node --test, pytest, JUnit, Go or .NET).`'))
   assert.ok(step(4).includes('for example `backend (Jest, generic checks)`'))
   assert.match(step(4), /`runners` \(only when the detect result has one\)/)
 })

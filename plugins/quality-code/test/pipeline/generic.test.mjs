@@ -175,7 +175,7 @@ test('runGeneric: Cypress through its Module API, with its artifacts kept out of
   assert.ok(!opts.config.screenshotsFolder.startsWith(d) && !opts.config.videosFolder.startsWith(d), 'screenshots and videos go to a temp folder')
   fake({ status: 'failed', message: 'Could not find Cypress test run results' }, 'Cypress could not verify that this server is running:\n  > http://localhost:5199')
   assert.deepEqual(await runGeneric(d, 'cypress', ['cypress/e2e/a.cy.js'], { timeoutMs: 20000 }), { ran: false, error: 'the app is not reachable at http://localhost:5199: start it, then run again' })
-  assert.deepEqual(Object.keys(HOW), ['jest', 'mocha', 'cypress'])
+  assert.deepEqual(Object.keys(HOW), ['jest', 'mocha', 'node', 'cypress'])
 })
 
 test('genericRunner: specs grouped by the config that runs them (vitest.configs for Jest)', async () => {

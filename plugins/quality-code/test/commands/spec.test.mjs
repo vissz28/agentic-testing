@@ -470,3 +470,8 @@ test('the project\'s runner: tests in its own syntax; Cypress specs end in .cy.t
   assert.match(step(6), /With Cypress, tag nothing \(it has no tags\)/)
   assert.ok(step(6).includes('`The tests open the app: it must already be running (Cypress does not start it).`'))
 })
+test('node --test: the runner rule names it, its asserts, and its .test file names', () => {
+  assert.match(doc, /`runners\.unit` \(`jest`, `mocha`, or `node` for Node's own `node --test`\)/)
+  assert.match(doc, /`node:assert\/strict` \(`assert\.strictEqual\(total, 108\)`\)/)
+  assert.match(step(5), /With node --test, `\.test` in place of `\.spec` \(`pricing\.abc-123\.test\.js`\)/)
+})

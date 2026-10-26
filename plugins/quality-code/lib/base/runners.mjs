@@ -9,6 +9,7 @@ export const RUNNERS = Object.freeze({
   vitest: Object.freeze({ kind: 'unit', label: 'Vitest', specialized: true }),
   jest: Object.freeze({ kind: 'unit', label: 'Jest' }),
   mocha: Object.freeze({ kind: 'unit', label: 'Mocha' }),
+  node: Object.freeze({ kind: 'unit', label: 'node --test' }),
   playwright: Object.freeze({ kind: 'e2e', label: 'Playwright', specialized: true }),
   cypress: Object.freeze({ kind: 'e2e', label: 'Cypress' }),
 })

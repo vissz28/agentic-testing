@@ -1,7 +1,8 @@
-// The generic tier's runner: runs specs with the project's own Jest, Mocha or Cypress and reads one
-// result per test, the runner contract of the shared checks. Jest's JSON report has the shape Vitest's
-// copies; Mocha has a JSON reporter; Cypress gives its results through its Module API. Never writes
-// into the project: reports and artifacts go to a temp folder that is always deleted.
+// The generic tier's runner: runs specs with the project's own Jest, Mocha, node --test or Cypress and
+// reads one result per test, the runner contract of the shared checks. Jest's JSON report has the shape
+// Vitest's copies; Mocha has a JSON reporter; node --test takes the plugin's own reporter; Cypress gives
+// its results through its Module API. Never writes into the project: reports and artifacts go to a temp
+// folder that is always deleted.
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -17,6 +18,31 @@ const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boole
 // Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
 const CYPRESS_RUN = fileURLToPath(new URL('./cypress-run.mjs', import.meta.url))
+const NODE_REPORTER = fileURLToPath(new URL('./node-test-reporter.mjs', import.meta.url))
+
+// The node flags a test script may need to load its specs (a TypeScript loader, a setup file, an env
+// file), each with its value when it takes one. Every other flag of the script is left out.
+const NODE_FLAG_VALUE = new Set(['--import', '--require', '-r', '--loader', '--experimental-loader', '--env-file', '--conditions', '-C'])
+const NODE_FLAG = /^(?:--import|--require|-r|--loader|--experimental-loader|--env-file|--conditions|-C|--experimental-[\w-]+|--no-warnings|--enable-source-maps)(?:=|$)/
+
+/** The loading flags of the project's node --test script (its "test" script first), so the specs load as they do there. */
+export function nodeFlags(root) {
+  let scripts = {}
+  try { scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {} } catch {}
+  const all = Object.entries(scripts).sort(([a], [b]) => (a === 'test' ? -1 : b === 'test' ? 1 : 0)).map(([, s]) => String(s))
+  for (const script of all) {
+    const command = script.split(/&&|\|\||;|\|/).map(c => c.trim().split(/\s+/)).find(t => t[0] === 'node' && t.includes('--test'))
+    if (!command) continue
+    const flags = []
+    for (let i = 1; i < command.length; i++) {
+      if (!NODE_FLAG.test(command[i])) continue
+      flags.push(command[i])
+      if (NODE_FLAG_VALUE.has(command[i]) && command[i + 1]) flags.push(command[++i])
+    }
+    return flags
+  }
+  return []
+}
 
 /** A path the runner reported, relative to the project (it may report the real path of a symlinked root). */
 function relativeTo(root) {
@@ -46,6 +72,15 @@ export function parseMocha(json, root) {
   // A failed hook (before all) is a failure with no test of its own: the tests of its file never ran.
   const broken = [...failed.values()].filter(f => !all.some(t => id(t) === id(f))).map(f => ({ file: rel(f.file), message: firstLine(f.err?.message) }))
   return { tests, broken }
+}
+
+/** The plugin's node --test reporter: { tests, broken } with absolute files. */
+export function parseNodeTest(json, root) {
+  const rel = relativeTo(root)
+  return {
+    tests: (json?.tests ?? []).map(t => ({ title: t.title, path: t.path ?? [], file: rel(t.file), status: t.status, message: firstLine(t.message) })),
+    broken: (json?.broken ?? []).map(b => ({ file: rel(b.file), message: firstLine(b.message) || 'the file did not load' })),
+  }
 }
 
 /** Cypress's Module API results: one run per spec, each test with its title path and state. */
@@ -78,6 +113,12 @@ export const HOW = Object.freeze({
     args: ({ files, out, config, testName }) => [...files, '--reporter', 'json', '--reporter-option', `output=${out}`, ...(config ? ['--config', config] : []), ...(testName !== undefined ? ['--grep', titlePattern(testName)] : [])],
     parse: parseMocha,
   },
+  // Node's own runner: no package, the plugin's reporter, and the loading flags of the project's script.
+  node: {
+    packages: null,
+    args: ({ files, out, testName, root }) => [...nodeFlags(root), '--test', `--test-reporter=${NODE_REPORTER}`, `--test-reporter-destination=${out}`, ...(testName !== undefined ? [`--test-name-pattern=${titlePattern(testName)}`] : []), ...files],
+    parse: parseNodeTest,
+  },
   // ponytail: Cypress has no title filter without the @cypress/grep plugin, so a mutant runs its whole spec file.
   cypress: {
     packages: ['cypress'],
@@ -92,11 +133,12 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
   const label = RUNNERS[runner]?.label ?? runner
   return new Promise(done => {
     if (!how) return done({ ran: false, error: `no runner for ${runner}` })
-    const bin = toolScript(root, how.packages, runner)
-    if (!bin) return done({ ran: false, error: `${label} is not installed in this project` })
+    // node --test is Node itself: nothing to install.
+    const bin = how.packages ? toolScript(root, how.packages, runner) : null
+    if (how.packages && !bin) return done({ ran: false, error: `${label} is not installed in this project` })
     const dir = mkdtempSync(join(tmpdir(), `qc-${runner}-`))
     const out = join(dir, 'report.json')
-    const args = [how.script ?? bin, ...how.args({ files, out, config, testName })]
+    const args = [...(how.script ? [how.script] : bin ? [bin] : []), ...how.args({ files, out, config, testName, root })]
     let output = ''
     let timedOut = false
     let settled = false
@@ -111,7 +153,11 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
     }
     let child
     try {
-      child = spawn(process.execPath, args, { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      // A run started from inside a node:test process must not inherit its marker: node --test would
+      // take itself for a nested run and run nothing.
+      const env = { ...process.env, NO_COLOR: '1', CI: '1' }
+      delete env.NODE_TEST_CONTEXT
+      child = spawn(process.execPath, args, { cwd: root, detached: true, windowsHide: true, env, stdio: ['ignore', 'pipe', 'pipe'] })
       untrack = track(child, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start ${label}: ${e.message}` })
