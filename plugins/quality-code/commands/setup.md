@@ -5,7 +5,7 @@ allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
-Set up this repo for the quality-code plugin. Setup asks only where the project lives, then shows what it found on one card to confirm; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. A clean setup takes two answers: the **Where** card and the **Confirm** card. Find every other value yourself and put it on the Confirm card; show another card only where a step below says so. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
+Set up this repo for the quality-code plugin. Setup asks only where the project lives, then shows what it found on one card to confirm; everything about how tickets are written has defaults, and the acceptance-criteria field is found the first time a ticket is checked with start or ticket-eval. You propose and ask; the scripts detect and write. The connectors come first, one at a time: the source code connector, Jira (required), Figma (optional). After them a clean setup takes two answers: the **Where** card and the **Confirm** card. Find every other value yourself and put it on the Confirm card; show another card only where a step below says so. Use short sentences and numbered cards. End your turn after every card and wait for the answer.
 
 **Rules**
 
@@ -19,7 +19,7 @@ Set up this repo for the quality-code plugin. Setup asks only where the project 
 
 If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
-0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. When every connector is ✅, it shows one line and no card: go on to step 1 in the same turn. Otherwise go on to step 1 only when its card lets you continue.
+0. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Follow its **Setup: one connector at a time** sequence, not the single card: the source code connector (GitLab, GitHub, both or none), then Jira (required, with your account), then Figma (optional). Go on to step 1 when the sequence says to continue.
 1. **Where.** Ask where the user will use Quality Code, as this card, and end the turn:
 
    ```

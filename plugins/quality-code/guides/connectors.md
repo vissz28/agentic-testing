@@ -1,12 +1,37 @@
 # Connectors check
 
-Shared by `/quality-code:setup` (step 0), and `/quality-code:spec`, `/quality-code:seed` and `/quality-code:xray` (their step 1), and `/quality-code:qa` (step 1, Jira only). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
+Shared by `/quality-code:setup` (step 0, as the one-at-a-time sequence below), and `/quality-code:spec`, `/quality-code:seed` and `/quality-code:xray` (their step 1), and `/quality-code:qa` (step 1, Jira only). Check, show one card, fix what the user picks. Never ask for a token, key or password in the chat, and never repeat one: personal values live in the plugin settings, which keep secrets in the system keychain. Nothing here is written to `.claude/quality-code.json`.
 
 **What may be asked in the chat.** Only what is not secret: your Jira email, your GitLab address, your GitLab username or email. Save them with `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs"` (below), never by editing a settings file yourself. A token is set only in the `/plugin` dialog (quality-code, configure), which hides it and stores it in the keychain. If the user pastes a token in the chat anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 
 **Values from the plugin settings.** The command that sent you here gives `jira_email`, `gitlab_username` and `gitlab_api_url` (each empty when not set).
 
 **Which connectors.** Jira (Atlassian) always. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read its `SETUP_JSON:` line. GitLab only when `here.gitlab` is set (the repo's `origin` is a GitLab project): otherwise (a GitHub or other remote, or none) leave GitLab off the card and say nothing about it, since merge-request links are GitLab's. `gitlab_api_url` always has a value (its default), so it never puts GitLab on the card. GitHub only when `here.github` is set (the `origin` is a GitHub repo, GitHub Enterprise included). Figma only when the adapter is `playwright` or `fullstack`: read `adapter` from `.claude/quality-code.json`; without a config, from the `SETUP_JSON:` line (`both` counts as `fullstack`). For `vitest`, leave Figma off the card.
+
+**Setup: one connector at a time.** `/quality-code:setup` does not use the single card below. It walks the connectors in this order, one question per turn, using the checks and fixes of this guide:
+
+1. **Source code.** Show this card and end the turn (add `(this repo)` after GitLab when `here.gitlab` is set, after GitHub when `here.github` is set):
+
+   ```
+   Choose your source code connector
+   1. GitLab
+   2. GitHub
+   3. Both
+   4. None for now
+   ```
+
+   For each one picked, run its check (the table below). ✅: say its line (`✅ GitLab <username> on <host>`, `✅ GitHub <login> on <host>`) and go on. Not ✅: run its fix (**GitLab fix**, **GitHub fix**); its `Continue without it` goes on to the next step. `4` goes on with none: merge-request and pull-request links stay off until one is connected (`/quality-code:config`).
+2. **Jira, required.** Run the Jira check. With no `jira_email` in the plugin settings, first ask `Your Atlassian email? (the one you sign in to Jira with)`, end the turn, and save it as the **Jira fix** does, so every ticket and comment is assigned to the right account. ✅ and the account matches: say `✅ Jira <email> on <site host>` and go on. Not ✅, or another account: the Jira card below (no way to continue), then the **Jira fix**. Setup never goes past this step without Jira.
+3. **Figma, optional.** Already ✅: say `✅ Figma <account>` and go on. Otherwise show this card and end the turn:
+
+   ```
+   Figma (optional): compares frontend tests with the design
+   1. Connect Figma
+   2. Skip
+   ```
+
+   `1` runs the **Figma fix**; `2` goes on.
+4. **Continue.** Say the connectors in one line (`Connectors: ✅ Jira … · ✅ GitLab … · ➖ Figma skipped`) and go on with setup's next step in the same turn.
 
 **Check each one with read-only calls:**
 

@@ -154,10 +154,10 @@ test('setup says plainly that Jira Server and Data Center sites cannot be used',
 })
 
 // AGT-112: a clean setup (Jira connected, one site, git history naming one project) takes two answers.
-test('a clean setup takes two answers: the Where card and the Confirm card', () => {
+test('after the connectors, a clean setup takes two answers: the Where card and the Confirm card', () => {
   const short = doc.slice(0, doc.indexOf('## Advanced'))
-  assert.match(short, /A clean setup takes two answers: the \*\*Where\*\* card and the \*\*Confirm\*\* card/)
-  assert.match(step(0), /every connector is ✅, it shows one line and no card: go on to step 1 in the same turn/)
+  assert.match(short, /After them a clean setup takes two answers: the \*\*Where\*\* card and the \*\*Confirm\*\* card/)
+  assert.match(step(0), /Setup: one connector at a time/)
   assert.match(step(2), /No card here/)
   assert.match(step(3), /No card when the values are clear/)
   assert.match(short, /Run `setup\.mjs --detect` once/)

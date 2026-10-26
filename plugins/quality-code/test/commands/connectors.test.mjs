@@ -57,10 +57,20 @@ test('setup step 0 reads the connectors check before the project card', () => {
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/connectors.md'))
   assert.ok(setup.indexOf('\n0. **Connectors.**') < setup.indexOf('\n2. **This project.**'))
 })
-test('setup: all connectors ✅ shows no card and goes on in the same turn; the sites are not fetched again', () => {
+test('setup walks the connectors one at a time: source code, then Jira (required), then Figma (optional)', () => {
   const s = step(setup, 0)
-  assert.match(s, /When every connector is ✅, it shows one line and no card: go on to step 1 in the same turn/)
+  assert.match(s, /\*\*Setup: one connector at a time\*\* sequence, not the single card/)
   assert.match(setup, /keep its `SETUP_JSON:` line and the sites `getAccessibleAtlassianResources` returned/)
+  const seq = doc.slice(doc.indexOf('**Setup: one connector at a time.**'), doc.indexOf('**Check each one with read-only calls:**'))
+  assert.ok(seq.includes('Choose your source code connector\n   1. GitLab\n   2. GitHub\n   3. Both\n   4. None for now'))
+  assert.match(seq, /\(this repo\)/)
+  assert.ok(seq.indexOf('**Source code.**') < seq.indexOf('**Jira, required.**'))
+  assert.ok(seq.indexOf('**Jira, required.**') < seq.indexOf('**Figma, optional.**'))
+  assert.match(seq, /Setup never goes past this step without Jira/)
+  assert.match(seq, /With no `jira_email` in the plugin settings, first ask `Your Atlassian email\?/)
+  assert.ok(seq.includes('Figma (optional): compares frontend tests with the design\n   1. Connect Figma\n   2. Skip'))
+  assert.match(seq, /`1` runs the \*\*Figma fix\*\*; `2` goes on/)
+  assert.match(seq, /go on with setup's next step in the same turn/)
 })
 test('GitLab browser sign-in is like Jira: /mcp, choose gitlab, sign in; an instance without the server says so', () => {
   assert.ok(doc.includes('type /mcp, choose `gitlab` and sign in in the browser'))
