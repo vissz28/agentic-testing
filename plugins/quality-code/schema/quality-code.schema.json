@@ -8,6 +8,11 @@
   "properties": {
     "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
     "version": { "const": 1 },
+    "root": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$",
+      "description": "The project's folder when it is not the repository's top, like \"web\": the config stays at the top, every script, runner and the boundary hook work in this folder, and every other path in the config and the paths the scripts print and take are relative to it. Inside the repository: no \"..\", not absolute, one line."
+    },
     "adapter": { "enum": ["playwright", "vitest", "pytest", "junit", "go", "dotnet", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest, pytest, junit, go or dotnet: a backend project (tests of the code), run by Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test. fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under the backend runner (backend, default vitest)." },
     "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "default": "vitest", "description": "Only with adapter fullstack: the runner of the backend side." },
     "runners": {

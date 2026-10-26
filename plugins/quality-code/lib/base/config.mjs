@@ -9,7 +9,7 @@ import { RUNNERS } from './runners.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -51,21 +51,41 @@ export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replac
 const hasConfig = dir => existsSync(join(dir, CONFIG_REL))
 
 /** The nearest folder at or above dir that holds the config, or null. */
-export function findRoot(dir) {
+function findHome(dir) {
   for (let d = resolve(dir); ; d = dirname(d)) {
     if (hasConfig(d)) return d
     if (dirname(d) === d) return null
   }
 }
 
+/** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
+function withRoot(home) {
+  let r
+  try { r = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8'))?.root } catch {}
+  return pathOk(r) ? resolve(home, r) : home
+}
+
+/** The project dir is in: that of the nearest config at or above it, or null. */
+export function findRoot(dir) {
+  const home = findHome(dir)
+  return home && withRoot(home)
+}
+
+/** The folder whose config governs the project at root: root itself, else the one above whose root field names it. */
+export function configHome(root) {
+  if (hasConfig(root)) return root
+  const up = findHome(dirname(resolve(root)))
+  return up && withRoot(up) === resolve(root) ? up : root
+}
+
 /**
  * The project: CLAUDE_PROJECT_DIR when it holds the config, else the nearest folder up from cwd that
  * does (a script run from src/, a package of a monorepo); with no config anywhere, CLAUDE_PROJECT_DIR
- * or cwd, where setup writes it.
+ * or cwd, where setup writes it. A config whose root field names a subfolder makes that the project.
  */
 export function projectRoot(env = process.env, cwd = process.cwd()) {
   const dir = env.CLAUDE_PROJECT_DIR
-  if (dir && hasConfig(dir)) return dir
+  if (dir && hasConfig(dir)) return withRoot(dir)
   return findRoot(cwd) ?? (dir || cwd)
 }
 export const configPath = root => join(root, CONFIG_REL)
@@ -146,6 +166,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
   for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
   if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
+  if (c.root !== undefined && !pathOk(c.root)) e.push(`root ${JSON.stringify(c.root)} must be a folder inside the repository, like "web" (no "..", not absolute, one line)`)
   if (!ADAPTERS.includes(c.adapter)) e.push(`adapter: must be "playwright" (frontend), ${orList(quoted(BACKEND_ADAPTERS))} (backend) or "fullstack" (both) (found ${JSON.stringify(c.adapter)})`)
   // The backend side of a fullstack project: the "backend" field, else Vitest.
   const backend = c.adapter === 'fullstack' ? (isBackend(c.backend) ? c.backend : 'vitest') : c.adapter
@@ -481,7 +502,7 @@ function readValidated(p, label, source, env) {
  * validateConfig's, plus where it came from: source "repo" | "personal" and its path.
  */
 export function loadConfig(root, env = process.env) {
-  const rp = configPath(root)
+  const rp = configPath(configHome(root))
   if (existsSync(rp)) return readValidated(rp, CONFIG_REL, 'repo', env)
   const pp = personalConfigPath(env)
   if (existsSync(pp)) return readValidated(pp, pp, 'personal', env)

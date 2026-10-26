@@ -223,7 +223,8 @@ typing a number:
    (optional), each by browser sign-in or token, with the fix for anything missing. Keys go in the plugin settings, never in the chat.
 2. **This project**: the folder (and subfolder, in a larger repo), the stack found in
    `package.json` (Playwright or Vitest; if both, you pick one) and the GitLab project of the
-   `origin` remote.
+   `origin` remote. When the repo's top has no `package.json` and a folder one down has one (an app
+   in `web/`), setup proposes that folder as the project root (`root`).
 3. **Jira**: the site and the project key(s) (`ABC`), picked from the projects you can see.
 
 It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
@@ -771,12 +772,13 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `vitest.layers` | the test folders `/quality-code:write` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
+| `root` | the project's folder when it is not the repository's top (`web`): the config stays at the top, the scripts, runners and the boundary hook work in the folder, and every other path here and in the scripts' output is relative to it | the top |
 | `ticketsDir` | where local ticket copies go, inside the project | `.quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
 
-Redaction patterns that would match empty text are rejected, and so are `ticketsDir` values with
-line breaks, `..` or an absolute path.
+Redaction patterns that would match empty text are rejected, and so are `root` and `ticketsDir`
+values with line breaks, `..` or an absolute path.
 
 ---
 

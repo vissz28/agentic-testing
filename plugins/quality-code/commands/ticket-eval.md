@@ -15,7 +15,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **The score is the script's.** Show it only as the script prints it (its report, the guided fill-in lines). Never compute, estimate, round or restate a score of your own.
-- Every script call is `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `GATE_JSON:`, `SAVED_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`).
+- Every script call is `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" <command> …`, run from the project root. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Show script output as printed, but drop the machine lines (`TICKET_EVAL_JSON:`, `GATE_JSON:`, `SAVED_JSON:`, `FILL_JSON:`, `JIRA_UPDATE_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`).
 - Redact customer ids in anything you echo.
 - End your turn after every card and wait for the answer. `--ci` never asks and never takes option 3.
 

@@ -127,11 +127,15 @@ export function onDisk(p) {
   }
 }
 
-export function hookDecision(payload, { root, config, now = Date.now() }) {
+/** home: the folder holding the config, above root when its root field names a subfolder. */
+export function hookDecision(payload, { root, home = root, config, now = Date.now() }) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   if (!target || !config || !runActive(root, now)) return { decision: 'allow' }
   // SRC/a.ts, a symlinked folder or the /tmp alias reach the same file as src/a.ts: compare the real paths.
-  const v = violation(relative(onDisk(root), onDisk(resolve(root, target))), rulesFor(config, root))
+  const file = onDisk(resolve(root, target))
+  const v = violation(relative(onDisk(root), file), rulesFor(config, root))
+    // The config and Claude's settings at home stay off limits, though outside the project.
+    ?? (home === root ? null : violation(relative(onDisk(home), file), { forbidden: [], allow: [] }))
   return v ? { decision: 'deny', path: v.path, why: v.why } : { decision: 'allow' }
 }
 
@@ -172,6 +176,8 @@ function writtenPaths(root, range) {
   return { ok: true, paths: paths.filter(p => !(p in before) || before[p] !== hashOf(root, p)) }
 }
 
+// ponytail: reads the project only; with a root field, the config and settings at the top are guarded by the
+// hook alone. Diff the top's ALWAYS paths here (with run start's snapshot) if a run writes them another way.
 export function run({ range = null }, ctx) {
   const c = writtenPaths(ctx.root, range)
   if (!c.ok) return result('boundary', 'not_run', `cannot read the changed files: ${c.error}`)

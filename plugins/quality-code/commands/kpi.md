@@ -15,7 +15,7 @@ Shows how the plugin is used in this project. You relay; the script reads and co
 - **Never read the log files yourself.** The card holds only counts, ticket keys, criterion names and dates.
 - **Local only.** The audit log lives in `.claude/quality-code/audit/`, git-ignored, on this machine. Nothing is sent anywhere. Run only the scripts below (`kpi.mjs`, and `consumption.mjs` for option 1); no other tool.
 - **Never ask for a token**, key or password in the chat.
-- The script runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" …`.
+- The script runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it.
 
 ## Steps
 

@@ -12,7 +12,7 @@ Shared by `/quality-code:run-frontend`, `/quality-code:run-backend` and `/qualit
 - **One run per request.** If the user wants another run, they ask again.
 - **Never read or show file contents or diffs.** Use only paths, kinds, counts and keys from `BRANCH_JSON`.
 - **Never ask for a token**, key or password in the chat.
-- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`.
+- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it.
 
 ## The suite
 

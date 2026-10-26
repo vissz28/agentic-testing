@@ -17,7 +17,7 @@ Writes the data setup for a ticket, and nothing else. It is the data-only siblin
 - **Never edit application code.** With `--path`, write only that one spec file, and only its setup. Builder files, fixtures, the dataset document, source files and config stay as they are. If the boundary hook denies a write, show its reason and print the block instead.
 - **Never ask for a token**, key or password in the chat, and never show one.
 - Refer to Jira tools by operation name on the Atlassian connector.
-- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`) when you show output.
+- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`) when you show output.
 - **Run marker.** Once `run start` has succeeded, every way out of this command runs `node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run stop` first. `run stop` is safe to run twice.
 
 ## Steps

@@ -16,7 +16,7 @@ Shows what the plugin's runs used. You relay; the script reads and counts. Plain
 - **Local only.** Nothing is sent anywhere. Run only the script below; no other tool.
 - **The cost is an estimate** at API list prices. Subscription plans are not billed this way; the card says so. Never present it as a bill.
 - **Never ask for a token**, key or password in the chat.
-- The script runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" …`.
+- The script runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it.
 
 ## Steps
 

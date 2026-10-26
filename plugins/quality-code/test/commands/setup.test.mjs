@@ -296,3 +296,10 @@ test('the repo\'s own runner: setup names it in runners and on the Stack line, w
   assert.ok(step(4).includes('for example `backend (Jest, generic checks)`'))
   assert.match(step(4), /`runners` \(only when the detect result has one\)/)
 })
+test('step 2: a project in a subfolder is proposed as root, and another one is picked with --detect --root', () => {
+  const s = step('2')
+  assert.ok(s.includes('`root.proposed`'))
+  assert.ok(s.includes('"root": "<root.proposed>"'))
+  assert.ok(s.includes('--detect --root <folder>'))
+  assert.ok(step('4').includes('5. Project root'))
+})

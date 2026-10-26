@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- **The project can live in a subfolder** (AGT-108). In a repo whose app is in a folder (`web/`) while Claude Code
+  starts at the top, `"root": "web"` in the config at the top
+  makes every script, runner and the boundary hook work in that folder; paths in the config, in cards
+  and in arguments are relative to it. Setup proposes the folder when the top has no `package.json`
+  (one with a test tool first), and `setup.mjs --detect --root <folder>` picks another. During a run
+  the hook still keeps the config and Claude's settings at the top off limits. A `root` outside the
+  repo (`..`, absolute) fails the config check.
+
 ## [0.16.1] - 2026-10-26
 
 ### Changed

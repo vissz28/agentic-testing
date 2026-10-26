@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { configHome, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import * as boundary from '../lib/base/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
@@ -66,7 +66,7 @@ async function hook(sessionRoot, stdin) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
   const c = loadConfig(root)
-  const d = boundary.hookDecision(payload, { root, config: c.ok ? c.config : null })
+  const d = boundary.hookDecision(payload, { root, home: configHome(root), config: c.ok ? c.config : null })
   if (d.decision !== 'deny') return 0
   boundary.logBlocked(root, { decision: 'deny', tool: payload.tool_name ?? null, path: d.path, session: payload.session_id ?? null })
   process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: boundary.hookReason(d.path, d.why) } })}\n`)

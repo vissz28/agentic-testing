@@ -15,7 +15,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language. Write the cases in the ticket's language. Script output and cards stay as printed.
 - **Never ask for a token**, key or password in the chat, and never show one.
 - Refer to Jira tools by operation name on the Atlassian connector.
-- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`, `E2E_FOLDER_JSON:`) when you show output.
+- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`, `E2E_FOLDER_JSON:`) when you show output.
 
 ## Steps
 

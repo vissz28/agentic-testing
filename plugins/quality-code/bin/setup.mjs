@@ -426,7 +426,35 @@ function personalState(env) {
   return state
 }
 
-export function detect(root, env = process.env) {
+// A tool in package.json that runs tests: a subfolder with one is proposed first as the project root.
+const TEST_DEPS = [...UNIT_RUNNERS, '@playwright/test', 'cypress']
+
+/** The folders one down that hold a package.json, those with a test tool first: where the project may live when the top has none. */
+function rootCandidates(top) {
+  let names = []
+  try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name)).map(e => e.name).sort() } catch {}
+  const tested = n => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
+  const found = names.filter(n => existsSync(join(top, n, 'package.json')))
+  return [...found.filter(tested), ...found.filter(n => !tested(n))]
+}
+
+/**
+ * What setup proposes, read from the project root: the subfolder sub names ("." the top), else the
+ * existing config's root, else the first candidate when the top shows no project of its own. The
+ * config, existing and personal stay at the top.
+ */
+export function detect(top, env = process.env, sub = null) {
+  let existing = null
+  let existingError
+  const cp = configPath(top)
+  if (existsSync(cp)) {
+    try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
+  }
+  const candidates = rootCandidates(top)
+  const bare = !existsSync(join(top, 'package.json')) && !detectBackends(top).length
+  const pick = sub ?? (typeof existing?.root === 'string' ? existing.root : bare ? candidates[0] ?? null : null)
+  const proposed = pick && resolve(top, pick) !== resolve(top) ? pick : null
+  const root = proposed ? resolve(top, proposed) : top
   let deps = {}
   let pkg = null
   const pkgPath = join(root, 'package.json')
@@ -451,13 +479,8 @@ export function detect(root, env = process.env) {
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
   }
-  let existing = null
-  let existingError
-  const cp = configPath(root)
-  if (existsSync(cp)) {
-    try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
-  }
   const result = {
+    root: { proposed, candidates },
     adapter, backend, backends, runners, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),
@@ -489,9 +512,12 @@ function pathProblem(root, label, p) {
  * scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test, vitestScaffold
  * (true) the Vitest config; an existing file is never replaced.
  */
-export function write(root, config, { templates, gitignoreLine, scaffold, vitestScaffold } = {}) {
+export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold } = {}) {
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
+  // The config stays at the top; every file it names, and what setup adds, is in the project root.
+  const root = resolve(top, config.root ?? '.')
+  if (!existsSync(root)) return { ok: false, errors: [`root "${config.root}" is not a folder of this repository`] }
   const errors = []
   const named = [['ticketsDir', config.ticketsDir], ...Object.entries(config.ticketTemplates ?? {}).filter(([, p]) => p !== null).map(([k, p]) => [`ticketTemplates.${k}`, p])]
   for (const [label, p] of named) if (p !== undefined) { const m = pathProblem(root, label, p); if (m) errors.push(m) }
@@ -500,7 +526,7 @@ export function write(root, config, { templates, gitignoreLine, scaffold, vitest
   if (vitestScaffold !== undefined) errors.push(...vitestScaffoldProblems(config, vitestScaffold))
   if (errors.length) return { ok: false, errors }
 
-  const { templates: found, here: h } = detect(root)
+  const { templates: found, here: h } = detect(root, process.env, '.')
   const home = TEMPLATE_HOME[templateHost(root, h.remote)]
   const toWrite = []
   const paths = { bug: found.bug, story: found.story }
@@ -532,8 +558,8 @@ export function write(root, config, { templates, gitignoreLine, scaffold, vitest
       writeFileSync(full, body.endsWith('\n') ? body : `${body}\n`, { flag: 'wx' })
     }
     step = CONFIG_REL
-    mkdirSync(join(root, dirname(CONFIG_REL)), { recursive: true })
-    writeFileSync(configPath(root), `${JSON.stringify(out, null, 2)}\n`)
+    mkdirSync(join(top, dirname(CONFIG_REL)), { recursive: true })
+    writeFileSync(configPath(top), `${JSON.stringify(out, null, 2)}\n`)
 
     const gi = join(root, '.gitignore')
     step = '.gitignore'
@@ -621,8 +647,11 @@ export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 12000
 function main(argv) {
   // Where the user set up: not a parent folder's project, which projectRoot would find.
   const root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
-  if (argv[0] === '--detect') {
-    process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root))}\n`)
+  if (argv[0] === '--detect' && (argv.length === 1 || (argv[1] === '--root' && argv.length === 3))) {
+    const sub = argv[2] ?? null
+    const bad = sub && sub !== '.' && (pathProblem(root, '--root', sub) ?? (existsSync(join(root, sub)) ? null : `--root "${sub}" is not a folder of this repository`))
+    if (bad) { process.stdout.write(`${bad}\n`); return 2 }
+    process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root, process.env, sub))}\n`)
     return 0
   }
   if ((argv[0] === '--write' || argv[0] === '--write-personal') && argv[1]) {
@@ -648,7 +677,7 @@ function main(argv) {
   if (argv[0] === '--smoke' && argv.slice(1).every(a => a === '--if-first')) {
     const cfg = loadConfig(root)
     if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
-    return smoke(root, cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { process.stdout.write(`${r.line}\n`); return r.code })
+    return smoke(resolve(root, cfg.config.root ?? '.'), cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { process.stdout.write(`${r.line}\n`); return r.code })
   }
   if (argv[0] === '--unit-overlap' && argv.length === 1) {
     const cfg = loadConfig(root)
@@ -657,14 +686,15 @@ function main(argv) {
     const backend = backendOf(cfg.config)
     const runner = backend && backend !== 'vitest' ? backend : runnerOf(cfg.config, 'vitest')
     const label = RUNNERS[runner]?.label ?? runnerLabel(runner)
-    const e2e = e2eFolder(root, cfg.config)
-    const r = e2e.ok ? unitOverlap(root, e2e.folder, runner) : { error: e2e.error }
+    const proj = resolve(root, cfg.config.root ?? '.')
+    const e2e = e2eFolder(proj, cfg.config)
+    const r = e2e.ok ? unitOverlap(proj, e2e.folder, runner) : { error: e2e.error }
     if (r.error) { process.stdout.write(`${r.error}\n`); return 2 }
     if (!r.files.length) { process.stdout.write(`ok: ${label} runs none of the specs in ${e2e.folder}\n`); return 0 }
     process.stdout.write(`${label} also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}\n`)
     return 1
   }
-  process.stdout.write("usage: setup.mjs --detect | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap\n")
+  process.stdout.write("usage: setup.mjs --detect [--root DIR] | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap\n")
   return 2
 }
 

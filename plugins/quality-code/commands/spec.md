@@ -21,7 +21,7 @@ The backend runner is the one the config names: `adapter` on a backend project, 
 - **Never weaken or delete a test** to make a check pass: no removed `expect`, no looser matcher, no `.skip`, no deleted `it` or `test`.
 - **Never ask for a token**, key or password in the chat, and never show one.
 - Refer to Jira tools by operation name on the Atlassian connector.
-- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. Drop the machine lines (`BRANCH_JSON:`, `MERGED_JSON:`, `TICKET_EVAL_JSON:`, `GATE_JSON:`, `SAVED_JSON:`, `E2E_FOLDER_JSON:`, `PIPELINE_JSON:`) when you show output.
+- Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Drop the machine lines (`BRANCH_JSON:`, `MERGED_JSON:`, `TICKET_EVAL_JSON:`, `GATE_JSON:`, `SAVED_JSON:`, `E2E_FOLDER_JSON:`, `PIPELINE_JSON:`) when you show output.
 - **Run marker.** Once `run start` has succeeded, every way out of this command runs `node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run stop` first: the card, a stop, an error, a crash of a script. `run stop` is safe to run twice.
 
 ## Steps
