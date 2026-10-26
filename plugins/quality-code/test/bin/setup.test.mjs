@@ -656,3 +656,9 @@ test('unitOverlap (Jest): the e2e specs Jest lists; Mocha is taken to leave the 
   const r = cli(d, '--unit-overlap')
   assert.deepEqual([r.status, r.stdout], [1, 'Jest also runs 1 spec(s) in e2e/, and fails on them:\n  e2e/smoke.spec.js\n'])
 })
+test('detect: a script that runs node --test names Node\'s own runner; a runner in the dependencies wins', () => {
+  assert.deepEqual([detect(repo({ scripts: { test: 'node --test' } })).adapter, detect(repo({ scripts: { test: 'node --test' } })).runners], ['vitest', { unit: 'node' }])
+  assert.deepEqual(detect(repo({ scripts: { test: 'npm run build && node --import tsx --test src/' } })).runners, { unit: 'node' })
+  assert.deepEqual(detect(repo({ scripts: { test: 'node --test' }, devDependencies: { jest: '30' } })).runners, { unit: 'jest' })
+  assert.deepEqual(detect(repo({ scripts: { start: 'node server.js', lint: 'eslint --test-mode' } })).runners, {}, 'no node --test')
+})

@@ -148,7 +148,10 @@ const ENV_FILE = '.env.e2e'
 const PLAYWRIGHT_GITIGNORE = ['test-results/', 'playwright-report/']
 const SIGN_IN_GITIGNORE = [`${dirname(AUTH_STATE)}/`, ENV_FILE]
 // The unit runners setup recognises, the first one found winning; Vitest is the specialized one.
+// Node's own runner is no dependency: a script that runs node --test names it.
 const UNIT_RUNNERS = ['vitest', 'jest', 'mocha']
+const NODE_TEST = /(?:^|&&|\|\||;|\|)\s*node\b[^&|;]*\s--test\b/
+const runsNodeTest = pkg => Object.values(pkg?.scripts ?? {}).some(s => NODE_TEST.test(String(s)))
 
 /** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
 function packageManager(root, pkg) {
@@ -379,8 +382,8 @@ export function detect(root, env = process.env) {
       deps = { ...pkg.dependencies, ...pkg.devDependencies }
     } catch { deps = {}; pkg = null }
   }
-  // The JavaScript unit runner (Vitest, else Jest or Mocha under the vitest adapter) and the e2e one.
-  const unit = UNIT_RUNNERS.find(r => r in deps) ?? null
+  // The JavaScript unit runner (Vitest, else Jest, Mocha or node --test under the vitest adapter) and the e2e one.
+  const unit = UNIT_RUNNERS.find(r => r in deps) ?? (runsNodeTest(pkg) ? 'node' : null)
   const e2e = '@playwright/test' in deps ? 'playwright' : 'cypress' in deps ? 'cypress' : null
   // The backend runner: the first one found; with an e2e runner too the repo is both (fullstack + backend).
   const backends = detectBackends(root, deps)

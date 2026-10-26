@@ -83,12 +83,12 @@ a whole team on board: [Onboarding](ONBOARDING.md), one page with a team lead's 
 | You need | You do not need |
 |---|---|
 | A Jira Cloud project you can read (and comment on, to post refuse comments) | A specific folder layout, branch model or CI system |
-| A test runner in `package.json`: `vitest`, `jest` or `mocha` for the tests of the code, `@playwright/test` or `cypress` for the tests of screens, or one of each (a fullstack repo). A frontend with no e2e runner (React, Vue, Angular, Svelte, Vite…), even one with Vitest unit tests: setup offers to add it | A dedicated Jira field: criteria can live in the description |
+| A test runner in `package.json`: `vitest`, `jest`, `mocha`, or a script that runs `node --test`, for the tests of the code, `@playwright/test` or `cypress` for the tests of screens, or one of each (a fullstack repo). A frontend with no e2e runner (React, Vue, Angular, Svelte, Vite…), even one with Vitest unit tests: setup offers to add it | A dedicated Jira field: criteria can live in the description |
 | For Playwright: a Playwright config with a `baseURL`, and a `webServer` or the app already running. With no config, setup writes one from your dev script, a smoke test and, for an app behind a sign-in, a sign-in step every test starts from. Otherwise an app behind a login needs a fixture that signs in, used by your specs: `write` copies it from them | Existing specs: on a project with none, `write` uses plain `@playwright/test` |
 | Node 18 or newer | Feature labels or title prefixes: setup offers them, both are optional |
 | Claude Code with plugin support | Changes to your application code |
 
-**Vitest and Playwright get the specialized checks; Jest, Mocha and Cypress the generic ones** (see
+**Vitest and Playwright get the specialized checks; Jest, Mocha, node --test and Cypress the generic ones** (see
 [Other runners](#other-runners)). **Not supported yet:** runners outside JavaScript (pytest, JUnit…),
 Jasmine and Karma, and ticket languages other than English and Italian. See [Known limits](#known-limits).
 
@@ -108,11 +108,12 @@ has both runners):
 ### Other runners
 
 A repo that tests with another runner keeps it: setup finds it and names it in the config, as
-`"runners": { "unit": "jest" }` (or `"mocha"`) for the tests of the code and `"runners": { "e2e":
+`"runners": { "unit": "jest" }` (or `"mocha"`, or `"node"` for Node's own `node --test`) for the tests of the code and `"runners": { "e2e":
 "cypress" }` for the tests of screens. The tests are written in that runner, like the specs already
 there, and the pipeline runs it with the **generic checks**: honesty, assertions, types, the tests,
 expected values, mutation and flaky read its specs as the JavaScript test syntax all these runners
-share (`describe`/`it`, `expect` matchers, Chai chains, Cypress's `.should`). The card names the runner
+share (`describe`/`it`, `expect` matchers, Chai chains, `node:assert` calls, Cypress's `.should`). node --test runs
+with the plugin's own reporter and the loading flags of your test script (`--import tsx`). The card names the runner
 with `(generic checks)`. What only the specialized suite has: Stryker on the code (Vitest), the
 Playwright-only assertion flips, XRay test cases and the red-test tags (Playwright; Cypress has no
 tags), and setup's smoke test (Playwright). Cypress specs live in `cypress/e2e/` and end in `.cy.ts`;
@@ -856,8 +857,8 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
   end-to-end tests.
 - **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, without a target
   file, or when the tests are red, the Stryker step is "not applicable".
-- **Stacks:** Vitest and Playwright with the specialized checks; Jest, Mocha and Cypress with the
-  generic ones; one runner per kind in a repo. A Cypress mutant runs its whole spec file (Cypress has no
+- **Stacks:** Vitest and Playwright with the specialized checks; Jest, Mocha, node --test and Cypress
+  with the generic ones; one runner per kind in a repo. A Cypress mutant runs its whole spec file (Cypress has no
   title filter without `@cypress/grep`), so mutation is slower there. Jasmine and Karma are not supported
   yet: neither writes a per-test report without a plugin.
 - **Not ported from the old warehouse harnesses, on purpose:** grading each spec file alone in the

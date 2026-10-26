@@ -9,8 +9,9 @@ import { redTagsOf } from '../../base/config.mjs'
 // Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition
 // (skipIf, runIf), an inline test.fixme(). A new test.fixme('title', …) declaration is the guides' "not
 // pinned down yet" and stays allowed; .only drops every other test.
-// xit, xdescribe (Jest, Jasmine, Mocha) skip; fit, fdescribe focus like .only.
-const SKIP = [/\b(?:it|test|describe|context|specify)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/, /(?<![.\w$])x(?:it|test|describe|context|specify)\s*\(/]
+// xit, xdescribe (Jest, Jasmine, Mocha) skip; fit, fdescribe focus like .only; { skip: true } on a
+// test's options skips it (node --test, Vitest).
+const SKIP = [/(?<![.\w$])(?:it|test|describe)\s*\(\s*(['"`]).*?\1\s*,\s*\{[^{}]*\bskip\s*:(?!\s*false\b)/, /\b(?:it|test|describe|context|specify)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/, /(?<![.\w$])x(?:it|test|describe|context|specify)\s*\(/]
 const ONLY = /(?<![.\w$])(?:(?:it|test|describe|suite|context|specify)(?:\.describe)?\.only\b|f(?:it|describe)\s*\()/
 const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', 'runIf'])
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -64,7 +64,7 @@ describe('ABC-123 Line totals round to the cent', () => {
 - An `expect` that cannot fail: `expect(true).toBe(true)`, or asserting the input you just built.
 - A change to application code, config or another team's test to make a test pass.
 
-## Other runners (Jest, Mocha)
+## Other runners (Jest, Mocha, node --test)
 
 With `runners.unit` in the config, these rules hold in that runner's own syntax. Copy the specs already
 there for imports and setup.
@@ -74,3 +74,8 @@ there for imports and setup.
 - **Mocha:** Chai's `expect(total).to.equal(108)`, `.to.deep.equal({ … })` for an object, `.to.throw('the
   message')`, and the stub library the repo already uses (often Sinon). Mocha has no `it.todo`: a
   behaviour the ticket does not pin down gets no test.
+- **node --test:** `import { describe, it, mock } from 'node:test'` and `import assert from
+  'node:assert/strict'`: `assert.strictEqual(total, 108)`, `assert.deepStrictEqual(row, { … })`,
+  `assert.throws(() => …, /the message/)`. Mocks with `mock.fn()` and `mock.method()`, time with
+  `mock.timers`; `it.todo` for a behaviour the ticket does not pin down. Name the file `.test.js` (or
+  `.test.ts`): Node's own run finds only those.

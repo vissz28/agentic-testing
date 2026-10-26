@@ -69,6 +69,13 @@ Update with `/plugin update quality-code@teamsystem`.
   whether the GitLab token, Figma key, Xray API key and GitHub sign-in are set. It reads this from the
   connectors, never from the token, and gives the steps to set one in `/plugin`, which keeps it in
   the keychain; tokens are never asked for in the chat.
+- **node --test, Node's own runner, with the generic checks** (AGT-119). A repo whose script runs
+  `node --test` gets `"runners": { "unit": "node" }`; the tests are written with `node:test` and
+  `node:assert/strict` and named `.test.js`, as Node's own run finds them. The pipeline runs Node with
+  the plugin's reporter and the loading flags of the team's script (`--import tsx`, `--env-file`), reads
+  each test with its describe path, and says why a file did not load. Mutation flips `assert.*` both
+  ways (`strictEqual` and `notStrictEqual`) and the value the second argument pins. A test skipped by its
+  options (`{ skip: true }`, also Vitest's) counts as skipped, and honesty flags it.
 - **Jest, Mocha and Cypress, with the generic checks.** A repo that tests with another runner keeps
   it: setup names it in the config (`"runners": { "unit": "jest" }`, `"mocha"`, or `"runners": {
   "e2e": "cypress" }`), `/quality-code:spec` writes the tests in it, like the specs already there, and

@@ -15,7 +15,7 @@
       "additionalProperties": false,
       "description": "The project's own runner when it is not Vitest or Playwright. Its tests get the generic checks; Vitest and Playwright keep the specialized ones.",
       "properties": {
-        "unit": { "enum": ["vitest", "jest", "mocha"], "description": "The runner of the tests of the code (the vitest adapter, or fullstack with backend vitest). Default vitest. Not with a pytest, junit, go or dotnet backend: they run their own tests." },
+        "unit": { "enum": ["vitest", "jest", "mocha", "node"], "description": "The runner of the tests of the code (the vitest adapter, or fullstack with backend vitest): node is Node's own runner, node --test. Default vitest. Not with a pytest, junit, go or dotnet backend: they run their own tests." },
         "e2e": { "enum": ["playwright", "cypress"], "description": "The runner of the e2e tests of screens (the playwright adapter). Default playwright." }
       }
     },
