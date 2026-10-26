@@ -48,6 +48,13 @@ Update with `/plugin update quality-code@teamsystem`.
   their paths), or `skip`. What a screen shows goes into the draft for the author to confirm, never
   personal data. Screenshots never count in the score: criteria only in a screenshot are still a
   refuse until a draft is confirmed.
+- **A ticket's `.docx` analysis is read and scored, and its screenshots are fetched** (AGT-117). A new
+  read-only connector, `jira-files`, downloads what the Atlassian connector cannot: set `jira_email`
+  and an Atlassian API token as `jira_api_token` in `/plugin`. `ticket-eval` then adds the text of up
+  to 3 attached Word files to the description (redacted, and scored like it), and the fill-in gets
+  the screenshots without asking. Without the token, it asks for the `.docx` paths on your computer
+  (`ticket.mjs docx <path>` reads them, with no new dependency) and for the screenshots to be pasted.
+  Other files (PDF, spreadsheets, `.zip`) are not read: the flags name them.
 - **`/quality-code:qa`, manual test runs for QA.** Lists the Xray test executions assigned to you,
   reads the run's tests and steps from the Xray API, an Xray export attached to the message (CSV), or
   the Jira page in the browser (Claude in Chrome), runs them in the app one at a time, and proposes

@@ -52,4 +52,8 @@ before they are scored (customer ids, emails), and everything else stays on your
 config, saved tickets, run logs and the audit log. Tokens live in your system keychain, never in the
 chat or the repository.
 
+With `jira_api_token` set, it also reads a ticket's `.docx` files and screenshots, which the Jira
+connector cannot download: read only, from your `*.atlassian.net` site, at most 3 of each per ticket,
+5 MB each, 20,000 characters per `.docx`. PDFs and spreadsheets are not read.
+
 Made by Elvis Zefaj. Full guide: [README](https://github.com/vissz28/agentic-testing#readme).

@@ -25,6 +25,14 @@
         "XRAY_CLIENT_ID": "${user_config.xray_client_id}",
         "XRAY_CLIENT_SECRET": "${user_config.xray_client_secret}"
       }
+    },
+    "jira-files": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs", "jira-files", "--", "node", "${CLAUDE_PLUGIN_ROOT}/bin/jira-files.mjs"],
+      "env": {
+        "JIRA_EMAIL": "${user_config.jira_email}",
+        "JIRA_API_TOKEN": "${user_config.jira_api_token}"
+      }
     }
   }
 }

@@ -47,6 +47,12 @@
       "title": "Jira email",
       "description": "The email of your Atlassian account. Optional. The connectors check confirms Jira is signed in with it and shows it on the card. The connectors card can ask for it in the chat and save it here."
     },
+    "jira_api_token": {
+      "type": "string",
+      "title": "Jira API token",
+      "description": "Optional: an Atlassian API token (id.atlassian.com, Security, API tokens) for the account of jira_email. With it the plugin reads a ticket's .docx files and screenshots, which the Atlassian connector cannot download; it only reads, and only from your *.atlassian.net site.",
+      "sensitive": true
+    },
     "figma_api_key": {
       "type": "string",
       "title": "Figma API key",
