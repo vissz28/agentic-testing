@@ -37,12 +37,26 @@ export function matches(pattern, path) {
 // The code folders of a workspace monorepo, when it has one.
 const WORKSPACE_SRC = ['packages/*/src/', 'apps/*/src/']
 
+// What a test run must leave alone besides the code, each with its reason: the packages a project
+// depends on, its secrets and environment, its CI.
+export const DEPENDENCY_FILES = [
+  '**/package.json', '**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/bun.lockb',
+  '**/pyproject.toml', '**/requirements*.txt', '**/Pipfile', '**/Pipfile.lock', '**/poetry.lock', '**/setup.py', '**/setup.cfg',
+  '**/pom.xml', '**/build.gradle', '**/build.gradle.kts', '**/settings.gradle', '**/settings.gradle.kts', '**/gradle.lockfile',
+  '**/go.mod', '**/go.sum',
+  '**/*.csproj', '**/*.fsproj', '**/*.sln', '**/Directory.Packages.props', '**/packages.lock.json',
+]
+const WHY_DEPENDENCIES = 'dependencies: a test run uses the project\'s own tools; it never adds, removes or upgrades a package.'
+const WHY_ENV = 'secrets and environment: a test run never changes the project\'s environment files.'
+const WHY_CI = 'CI configuration: a test run never changes how the project is built or checked.'
+
 export function defaultForbidden(root) {
   return [
     { path: 'src/' },
     ...WORKSPACE_SRC.filter(p => existsSync(join(root, p.split('/')[0]))).map(path => ({ path })),
-    { path: '**/.env' }, { path: '**/.env.*' },
-    ...CI_FILES.filter(p => existsSync(join(root, p))).map(path => ({ path })),
+    { path: '**/.env', why: WHY_ENV }, { path: '**/.env.*', why: WHY_ENV },
+    ...CI_FILES.filter(p => existsSync(join(root, p))).map(path => ({ path, why: WHY_CI })),
+    ...DEPENDENCY_FILES.map(path => ({ path, why: WHY_DEPENDENCIES })),
   ]
 }
 

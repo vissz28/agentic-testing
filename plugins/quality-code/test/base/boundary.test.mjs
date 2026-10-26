@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation } from '../../lib/base/boundary.mjs'
+import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation, DEPENDENCY_FILES } from '../../lib/base/boundary.mjs'
 import { startRun } from '../../lib/base/run.mjs'
 import { ENV } from '../git-env.mjs'
 
@@ -43,15 +43,29 @@ test('an env template is not caught by a .env.* pattern, only by a rule that nam
   assert.ok(violation('apps/web/.env.example', { forbidden: [{ path: 'apps/' }], allow: [] }), 'a folder rule still covers it')
   assert.ok(violation('.env.example', { forbidden: [{ path: '.env.*' }, { path: '.env.example' }], allow: [] }), 'named exactly, it stays forbidden')
 })
-test('defaults: src/, .env, .env.* and the CI file that exists', () => {
+test('defaults: src/, .env, .env.*, the CI file that exists and the dependency files', () => {
   const d = dir()
-  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '**/.env', '**/.env.*'])
+  const deps = DEPENDENCY_FILES
+  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', '**/.env', '**/.env.*', ...deps])
   put(d, '.gitlab-ci.yml'); put(d, '.github/workflows/ci.yml'); put(d, 'Jenkinsfile'); put(d, 'packages/api/package.json')
-  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', 'packages/*/src/', '**/.env', '**/.env.*', '.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile'])
+  assert.deepEqual(defaultForbidden(d).map(r => r.path), ['src/', 'packages/*/src/', '**/.env', '**/.env.*', '.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile', ...deps])
   for (const p of ['packages/api/src/x.ts', 'apps/web/.env', 'apps/web/.env.local']) assert.ok(violation(p, rulesFor({}, d)), p)
   assert.equal(violation('apps/web/.env.example', rulesFor({}, d)), null)
   assert.deepEqual(rulesFor(cfg(), d).allow, [])
   assert.deepEqual(rulesFor(cfg({ forbidden: [{ path: 'lib/' }] }), d).forbidden, [{ path: 'lib/' }])
+})
+test('dependency files of every stack are off limits, each kind with its own reason; a spec is not', () => {
+  const d = dir()
+  const r = rulesFor({}, d)
+  for (const p of ['package.json', 'apps/web/package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'pyproject.toml', 'requirements-dev.txt', 'pom.xml', 'module/build.gradle.kts', 'go.mod', 'go.sum', 'App/App.csproj', 'Demo.sln']) {
+    assert.match(violation(p, r)?.why ?? '', /^dependencies: /, p)
+  }
+  assert.match(violation('.env', r).why, /^secrets and environment: /)
+  assert.equal(violation('test/unit/order.spec.ts', r), null)
+  assert.equal(violation('tests/test_orders.py', r), null)
+  put(d, '.gitlab-ci.yml')
+  assert.match(violation('.gitlab-ci.yml', rulesFor({}, d)).why, /^CI configuration: /)
+  assert.match(violation('src/x.ts', r).why, /^application code: /)
 })
 test('hook: allows without a run, denies a forbidden write during a run, ignores a stale marker', () => {
   const d = dir()

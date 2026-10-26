@@ -79,6 +79,15 @@ Update with `/plugin update quality-code@teamsystem`.
   checks; Stryker stays Vitest's. Cypress's screenshots and videos go to a temp folder, never into the
   project, and a down app is said plainly.
 
+### Fixed
+
+- **A risk note only for a ticket below the bar** (AGT-129). `ticket.mjs risk-comment` on a ticket
+  that passes wrote "it has 100 of the 70 points it needs"; it now exits 2 with a plain line and no note.
+- **Dependency files are off limits in a test run** (AGT-129). `package.json`, the lock files,
+  `pyproject.toml`, `requirements*.txt`, `pom.xml`, the Gradle builds, `go.mod`/`go.sum` and the .NET
+  project files join the default boundary, each kind with its own reason (dependencies, secrets and
+  environment, CI) instead of "application code". `boundaries.forbidden` still replaces the defaults.
+
 ## [0.15.0] - 2026-10-23
 
 **Two things to do when you update** (see Upgrading): `/quality-code:check` is gone (use the

@@ -198,7 +198,10 @@ function run(argv, env, cwd) {
       return b.gate === 'refuse' ? 1 : 0
     }
     case 'risk-comment': {
-      out(formatRiskComment(config, buildBrief(config, ticket)))
+      // The risk note marks tests written past the gate ("continue anyway"): a ticket that passes has none.
+      const b = buildBrief(config, ticket)
+      if (b.gate === 'pass') { err(`risk-comment is for a ticket below the bar: ${b.key} has ${b.score} of the ${b.threshold} points it needs, so there is no risk note to post`); return 2 }
+      out(formatRiskComment(config, b))
       return 0
     }
     case 'fill-menu': {

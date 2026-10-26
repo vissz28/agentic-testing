@@ -356,3 +356,15 @@ test('saved: fill-in answers typed here that never reached Jira; jira-posted upd
   assert.equal(saved().unsent, 0)
   for (const bad of [['saved'], ['saved', '../x'], ['saved', 'DEMO-1', 'DEMO-2']]) assert.equal(run(d, ...bad).status, 2, bad.join(' '))
 })
+
+test('risk-comment is only for a ticket below the bar: a passing one exits 2 and prints no note', () => {
+  const d = proj()
+  writeFileSync(join(d, 'full.json'), story(`## User story\nAs a buyer I want VAT added so that I pay the right total.\n## Context\nCheckout computes it.\n${AC}`))
+  const pass = run(d, 'risk-comment', '--in', '@full.json')
+  assert.equal(pass.status, 2)
+  assert.equal(pass.stdout, '')
+  assert.match(pass.stderr, /risk-comment is for a ticket below the bar: DEMO-1 has \d+ of the 70 points it needs/)
+  const thin = run(d, 'risk-comment', '--in', '@t.json')
+  assert.equal(thin.status, 0)
+  assert.match(thin.stdout, /RISK \/ NOT RECOMMENDED/)
+})
