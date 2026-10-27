@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-27
+
+### Changed
+
+- The rollout spec (§8) records where each open decision stands (AGT-87): three built, the merge-request
+  proposal and the pilot teams waiting for the owner. No change to the plugin's behavior.
+
 ## [0.17.0] - 2026-10-27
 
 ### Added
