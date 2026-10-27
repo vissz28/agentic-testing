@@ -771,12 +771,28 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `root` | the project's folder when it is not the repository's top (`web`): the config stays at the top, the scripts, runners and the boundary hook work in the folder, and every other path here and in the scripts' output is relative to it | the top |
-| `ticketsDir` | where local ticket copies go, inside the project | `.quality-code/tickets` |
+| `ticketsDir` | where local ticket copies go, inside the project, when you keep files in the project repo (see "Where files and logs go" below) | `.quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
 
 Redaction patterns that would match empty text are rejected, and so are `root` and `ticketsDir`
 values with line breaks, `..` or an absolute path.
+
+### Where files and logs go
+
+The ticket copies, the run logs (`run.md`), the Xray files and the local audit log are yours, not the
+team's. After the first command of a project that saves files, Quality Code asks once where to keep them:
+
+1. **In the project repo** (git-ignored): the tickets folder above, and `.claude/quality-code/audit/`.
+   The default in a repo.
+2. **On this machine, outside the repo**: a folder per project under your Claude folder
+   (`~/.claude/quality-code/projects/<project>-<id>/`). The default with no repo.
+3. **Only in this chat**: results are shown in the chat only. The files a run needs between its steps
+   go to a temp folder, and no audit log is kept (`/quality-code:kpi` then has nothing to count).
+
+The pick is kept on your computer (`~/.claude/quality-code/save.json`), one per project, and never in
+the repo. Picking moves the files already saved to the new place. Change it any time with
+`/quality-code:config`, item 6. `config check` prints the tickets folder in force on its second line.
 
 ---
 

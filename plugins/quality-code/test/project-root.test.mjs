@@ -43,7 +43,7 @@ test('scripts work from the repository root: they read web/package.json and take
   // ticket-eval's first call: Vitest is in web/package.json (not installed), so that is the package.json read.
   const check = cli(top, 'ticket.mjs', ['config', 'check', '--runner'])
   assert.equal(check.status, 0, check.stderr)
-  assert.match(check.stdout, /^ok \(repo: .*\.claude\/quality-code\.json\)\nmissing: Vitest is in package.json but not installed/)
+  assert.match(check.stdout, /^ok \(repo: .*\.claude\/quality-code\.json\)\ntickets folder: .*\nmissing: Vitest is in package.json but not installed/)
 
   // check: a spec path is web's, and run start marks a run there.
   assert.equal(cli(top, 'checks.mjs', ['honesty', 'test/a.spec.ts']).status, 0)

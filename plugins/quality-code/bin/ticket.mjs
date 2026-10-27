@@ -4,7 +4,8 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
+import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.mjs'
+import { loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
@@ -44,6 +45,11 @@ function missingRunners(root, config) {
       : `${label} is not installed in this project: run /quality-code:setup to add it.`))
 }
 
+/** The ticketsDir the config file itself names, before the place moves it; undefined when it names none. */
+function rawTicketsDir(path) {
+  try { const c = JSON.parse(readFileSync(path, 'utf8')); return typeof c?.ticketsDir === 'string' ? c.ticketsDir : undefined } catch { return undefined }
+}
+
 function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
   for (let i = 0; i < argv.length; i++) {
@@ -73,17 +79,40 @@ function run(argv, env, cwd) {
   if (cmd === 'config' && a._[0] === 'check') {
     if (!cfg.ok) { cfg.errors.forEach(e => out(e)); return 2 }
     out(`ok (${cfg.source}: ${cfg.path})`)
+    // The folder the commands write ticket files in: the config's ticketsDir, where this person keeps files.
+    out(`tickets folder: ${cfg.config.ticketsDir} (files kept ${{ repo: 'in the project', local: 'on this machine', chat: 'only in the chat' }[cfg.place]})`)
     if (a.flags.has('--runner') && cfg.source === 'repo') missingRunners(root, cfg.config).forEach(m => out(`missing: ${m}`))
     return 0
   }
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   const config = cfg.config
-  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') })
+  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
   const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
   const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(ticketsRoot, key, 'ticket.json') : null)
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
   const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && /^[A-Z][A-Z0-9_]*-\d+$/.test(basename(dirname(p)))
+  if (cmd === 'save') {
+    // Where this person keeps the project's files and logs: asked once, after the first run that saved some.
+    const [sub, place] = a._
+    const options = placesFor(cfg.source)
+    const opts = { source: cfg.source, ticketsDir: rawTicketsDir(cfg.path), personalDefault: personalTicketsDir(env) }
+    const where = p => placeDirs(root, opts, p, env)
+    const show = p => { const d = where(p); return { place: p, ticketsDir: d.ticketsDir, auditDir: d.auditDir } }
+    if (sub === 'get' && a._.length === 1) {
+      out(`SAVE_JSON:${JSON.stringify({ ...show(cfg.place), asked: savedPlace(root, cfg.source, env) !== null, source: cfg.source, options: options.map(show) })}`)
+      return 0
+    }
+    if (sub === 'set' && a._.length === 2 && options.includes(place)) {
+      const r = pickPlace(root, opts, place, env)
+      const line = { repo: `in the project, in ${r.dirs.ticketsDir}/ (git-ignored)`, local: `on this machine, in ${r.dirs.ticketsDir}/`, chat: 'only in the chat: nothing is kept' }[place]
+      out(`ok: files and logs go ${line}.${r.moved ? ` Moved ${r.moved} file${r.moved === 1 ? '' : 's'} from the old place.` : ''}${r.kept ? ` ${r.kept} already there kept as they were.` : ''}`)
+      out(`SAVE_JSON:${JSON.stringify({ ...show(place), asked: true, source: cfg.source, moved: r.moved, kept: r.kept })}`)
+      return 0
+    }
+    err(`usage: ticket.mjs save get | save set ${options.join('|')}`)
+    return 2
+  }
   if (cmd === 'jira-posted') {
     // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note, or
     // after qa filed a defect, posted a retest comment or moved a status: the key and the kind only.

@@ -8,6 +8,7 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
 
 ## Rules
 
+- **Where files go.** When the command has ended (after its last card is answered, or its last step when it shows none), follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`: the first run of a project asks once where its files and logs are kept.
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The tester decides.** For each test you propose OK, KO or Not verified, with what you saw. The tester's answer is the verdict. Not verified means a step could not be done (an element not found, the page did not load, a step without an expected result). A browser problem is never a KO, and a step you did not see is never ✅.
 - **Jira is written only through the connector, after a yes.** Each write (defect, link, attachment, comment, status, Xray run status) is shown first, and sent only when the tester answers `1`. In the browser, Jira pages are read and nothing else: never click, type or change anything on a Jira page. **`--dry-run`:** no write at all. Every preview ends with `Not sent (--dry-run): copy it if you want it.`

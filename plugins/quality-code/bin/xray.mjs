@@ -202,9 +202,9 @@ export async function sync(root, x, only = null) {
     const rows = groups.get(key)
     if (!rows) { lines.push(`No XRay test case for ${key} in ${x.csv}.`); continue }
     const dir = join(x.folder, key).replace(/\\/g, '/')
-    mkdirSync(join(root, dir), { recursive: true })
-    writeFileSync(join(root, dir, 'case.csv'), `${[headerRow(x.headers), ...rows].map(toLine).join('\n')}\n`)
-    if (ExcelJS) await writeXlsx(ExcelJS, rows, x.headers, join(root, dir, 'case.xlsx'))
+    mkdirSync(resolve(root, dir), { recursive: true })
+    writeFileSync(resolve(root, dir, 'case.csv'), `${[headerRow(x.headers), ...rows].map(toLine).join('\n')}\n`)
+    if (ExcelJS) await writeXlsx(ExcelJS, rows, x.headers, resolve(root, dir, 'case.xlsx'))
     lines.push(`For QA: ${ExcelJS ? `${dir}/case.xlsx and ` : ''}${dir}/case.csv`)
   }
   if (!ExcelJS && lines.some(l => l.startsWith('For QA'))) lines.push('No exceljs in this project, so no case.xlsx: Xray imports case.csv as well.')
@@ -216,7 +216,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const usage = () => { stderr('usage: xray.mjs add <json|@file> | sync [KEY]\n'); return 2 }
   if (extra.length || !['add', 'sync'].includes(cmd) || (cmd === 'add' && !arg) || (cmd === 'sync' && arg && !TICKET.test(arg))) return usage()
   const root = projectRoot(env, cwd)
-  const c = loadConfig(root)
+  const c = loadConfig(root, env)
   if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
   const x = xrayOf(c.config)
   if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (docs/GUIDE.md, "XRay test cases").\n'); return 2 }

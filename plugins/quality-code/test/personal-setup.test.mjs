@@ -76,9 +76,9 @@ test('config check says which config it used', () => {
   const d = tmp(), claude = tmp()
   assert.equal(run(d, claude, 'config', 'check').status, 2)
   personalWith(claude, cfg('playwright'))
-  assert.equal(run(d, claude, 'config', 'check').stdout.trim(), `ok (personal: ${join(claude, 'quality-code.json')})`)
+  assert.equal(run(d, claude, 'config', 'check').stdout.trim(), `ok (personal: ${join(claude, 'quality-code.json')})\ntickets folder: ${join(claude, 'quality-code', 'tickets')} (files kept on this machine)`)
   repoWith(d, 'vitest')
-  assert.equal(run(d, claude, 'config', 'check').stdout.trim(), `ok (repo: ${join(d, '.claude/quality-code.json')})`)
+  assert.equal(run(d, claude, 'config', 'check').stdout.trim(), `ok (repo: ${join(d, '.claude/quality-code.json')})\ntickets folder: .quality-code/tickets (files kept in the project)`)
 })
 test('writePersonal writes the personal file only, and refuses an invalid config', () => {
   const claude = tmp()

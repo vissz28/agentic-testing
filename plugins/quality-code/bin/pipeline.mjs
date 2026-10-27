@@ -111,7 +111,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   // A fullstack run picks the dialect per spec.
   const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(runnerOf(config)), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
-  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit })
+  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit, dir: cfg.auditDir })
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
   let outcome
   try {

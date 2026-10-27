@@ -52,11 +52,14 @@ const SHAPE = {
 /** On unless QC_NO_AUDIT=1 or the caller's --no-audit. */
 export const auditOff = (env = process.env, flag = false) => flag === true || env.QC_NO_AUDIT === '1'
 
-/** Append one event. True when written; false when off, unknown or the write failed. */
-export function audit(root, kind, entry, { env = process.env, off = false, now = new Date() } = {}) {
-  if (auditOff(env, off) || !Object.hasOwn(SHAPE, kind)) return false
+/**
+ * Append one event. True when written; false when off, unknown or the write failed. `dir` is the log's
+ * folder when the person keeps it outside the repo (loadConfig's auditDir); null keeps no log (the chat).
+ */
+export function audit(root, kind, entry, { env = process.env, off = false, now = new Date(), dir: logDir } = {}) {
+  if (auditOff(env, off) || logDir === null || !Object.hasOwn(SHAPE, kind)) return false
   try {
-    const dir = join(root, AUDIT_DIR)
+    const dir = logDir ?? join(root, AUDIT_DIR)
     mkdirSync(dir, { recursive: true })
     // The folder ignores itself, so the log stays out of git even before setup adds its line.
     try { writeFileSync(join(dir, '.gitignore'), '*\n', { flag: 'wx' }) } catch {}
@@ -80,4 +83,5 @@ export function readJsonl(path) {
   })
 }
 
-export const readAudit = (root, kind) => (Object.hasOwn(SHAPE, kind) ? readJsonl(join(root, AUDIT_DIR, `${kind}.jsonl`)) : [])
+/** The events of one kind, from the repo's log or from `dir` (loadConfig's auditDir; null: none kept). */
+export const readAudit = (root, kind, dir) => (Object.hasOwn(SHAPE, kind) && dir !== null ? readJsonl(join(dir ?? join(root, AUDIT_DIR), `${kind}.jsonl`)) : [])

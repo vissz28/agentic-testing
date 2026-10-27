@@ -9,6 +9,24 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-27
+
+### Added
+
+- **You choose where files and logs go** (AGT-133). After the first command of a project that saves
+  files (ticket copies, run logs, Xray files, the audit log), a card asks once: in the project repo
+  (git-ignored, as before), on this machine outside the repo, or only in this chat (nothing kept: a
+  temp folder for the run, no audit log). The pick is yours, kept on your computer per project, and
+  moves the files already saved. `/quality-code:config` shows it as item 6 and changes it there; the
+  accounts and tokens items move down by one (7 to 13). A setup with no repo offers this machine or
+  the chat.
+
+### Changed
+
+- `ticket.mjs config check` prints a second line, `tickets folder: <path> (files kept …)`, and the
+  commands take the tickets folder from it, so a personal setup and a folder outside the repo work
+  without guessing the path.
+
 ## [0.16.2] - 2026-10-26
 
 ### Added

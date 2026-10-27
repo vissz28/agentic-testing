@@ -44,12 +44,12 @@ test('add rewrites the file only when accepted', () => {
   assert.match(readFileSync(join(d, 't.json'), 'utf8'), /Env: staging/)
 })
 test('config check', () => {
-  assert.match(run(proj(), 'config', 'check').stdout.trim(), /^ok \(repo: .+quality-code\.json\)$/)
+  assert.match(run(proj(), 'config', 'check').stdout.trim(), /^ok \(repo: .+quality-code\.json\)\ntickets folder: \.quality-code\/tickets \(files kept in the project\)$/)
 })
 test('config check --runner names a runner the config writes tests in that the project has not installed', () => {
   const d = proj()
-  const lines = (...extra) => run(d, 'config', 'check', ...extra).stdout.trim().split('\n').slice(1)
-  assert.deepEqual(lines(), [], 'without --runner: the ok line only')
+  const lines = (...extra) => run(d, 'config', 'check', ...extra).stdout.trim().split('\n').slice(2)
+  assert.deepEqual(lines(), [], 'without --runner: the ok and tickets folder lines only')
   assert.deepEqual(lines('--runner'), ['missing: Vitest is not installed in this project: run /quality-code:setup to add it.'])
   assert.equal(run(d, 'config', 'check', '--runner').status, 0)
   writeFileSync(join(d, 'package.json'), JSON.stringify({ devDependencies: { vitest: '3' } }))

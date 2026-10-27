@@ -32,11 +32,14 @@ function parse(argv) {
   return a
 }
 
-/** Every event of every kind, plus the boundary log, and the places read. */
-export function loadEvents(root) {
-  const events = Object.fromEntries(KINDS.map(k => [k, readAudit(root, k)]))
+/**
+ * Every event of every kind, plus the boundary log, and the places read. `auditDir` is the log's folder
+ * when this person keeps it outside the repo; null when they keep no log (the chat).
+ */
+export function loadEvents(root, auditDir) {
+  const events = Object.fromEntries(KINDS.map(k => [k, readAudit(root, k, auditDir)]))
   events.boundary = readJsonl(join(root, BOUNDARY_LOG))
-  events.looked = [`${join(root, AUDIT_DIR)}/`, join(root, BOUNDARY_LOG)]
+  events.looked = [...(auditDir === null ? [] : [`${auditDir ?? join(root, AUDIT_DIR)}/`]), join(root, BOUNDARY_LOG)]
   return events
 }
 
@@ -140,13 +143,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     period = parsePeriod(a, now)
   } catch (e) { stderr(`${e.message}. ${USAGE}\n`); return 2 }
   const root = projectRoot(env, cwd)
-  const events = loadEvents(root)
+  const cfg = loadConfig(root, env)
+  const events = loadEvents(root, cfg.ok ? cfg.auditDir : undefined)
   if (![...KINDS, 'boundary'].some(k => events[k].length)) {
-    stdout(`No quality-code audit data yet for ${root}.\nLooked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.\n`)
+    const chat = cfg.ok && cfg.place === 'chat' ? 'Files and logs are kept only in the chat for this project, so no log is kept (change it with /quality-code:config).\n' : ''
+    stdout(`No quality-code audit data yet for ${root}.\n${chat}Looked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.\n`)
     return 3
   }
   // The spec files are read for traceability and suite honesty; without a config there is nothing to find them by.
-  const cfg = loadConfig(root)
   const report = buildKpi(events, { period, project: basename(root), scan: cfg.ok ? scanSpecs(root, cfg.config) : null, coverage: readCoverage(root) })
   stdout(`${a.json ? JSON.stringify(report) : formatKpiCard(report)}\n`)
   return 0

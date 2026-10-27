@@ -54,7 +54,7 @@ const FULL = {
 async function run(args, root, env = {}) {
   let out = ''
   let err = ''
-  const code = await main(args, { CLAUDE_PROJECT_DIR: root, ...env }, '/', { now: NOW, stdout: s => { out += s }, stderr: s => { err += s } })
+  const code = await main(args, { CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: join(root, '.claude-home'), ...env }, '/', { now: NOW, stdout: s => { out += s }, stderr: s => { err += s } })
   return { code, out, err }
 }
 const kpiJson = out => JSON.parse(out.trim().split('\n').at(-1).replace(/^KPI_JSON:/, ''))

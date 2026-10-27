@@ -9,6 +9,7 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
 
 ## Rules
 
+- **Where files go.** When the command has ended (after its last card is answered, or its last step when it shows none), follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`: the first run of a project asks once where its files and logs are kept.
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session. If none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
 - **Read-only.** Only `searchJiraIssuesUsingJql` on the Atlassian connector. Never comment on, edit or transition a ticket here, and never write to Confluence.
@@ -19,7 +20,7 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (default `.quality-code/tickets`, with `/` separators and no trailing `/`) from it.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (the path on the `tickets folder:` line `config check` printed, used as it is: where this person keeps the project's files, in the repo or outside it) from it.
 2. **Parse.** From `$ARGUMENTS`:
    - `<PROJECT>`: the first word that is a project key (`[A-Z][A-Z0-9]*`), mandatory. Missing: `pass a project: /quality-code:tickets-eval <PROJECT>` and stop. It must be in `jira.projects` or `jira.trackingProjects`; if not, say `<PROJECT> is not one of <those keys>. Add it with /quality-code:setup, or pick one of them.` and stop.
    - `--user <name>`, `--status <status>` (a value with spaces is in quotes), `--limit N` (default 50, cap 200; not a whole number of 1 or more: say so and stop), `--json`.

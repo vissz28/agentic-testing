@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { matches } from './boundary.mjs'
 import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs'
 import { RUNNERS } from './runners.mjs'
+import { placeDirs, placeOf } from './places.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -488,23 +489,30 @@ export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'q
 /** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
 export const personalTicketsDir = (env = process.env) => normaliseTicketsDir(join(claudeDir(env), 'quality-code', 'tickets'))
 
-function readValidated(p, label, source, env) {
+function readValidated(p, label, source, env, root) {
   let obj
   try { obj = JSON.parse(readFileSync(p, 'utf8')) } catch (err) {
     return { ok: false, source, path: p, errors: [`${label} is not valid JSON (${err.message}). ${SETUP}`] }
   }
+  const own = isObject(obj) ? obj.ticketsDir : undefined
   if (source === 'personal' && isObject(obj) && obj.ticketsDir === undefined) obj = { ...obj, ticketsDir: personalTicketsDir(env) }
-  return { ...validateConfig(obj, { allowAbsoluteTicketsDir: source === 'personal' }), source, path: p }
+  const r = { ...validateConfig(obj, { allowAbsoluteTicketsDir: source === 'personal' }), source, path: p }
+  if (!r.ok) return r
+  // The tickets folder is where this person keeps the project's files: the repo, this machine or the chat.
+  const dirs = placeDirs(root, { source, ticketsDir: own, personalDefault: personalTicketsDir(env) }, placeOf(root, source, env), env)
+  return { ...r, config: { ...r.config, ticketsDir: dirs.ticketsDir }, place: dirs.place, auditDir: dirs.auditDir }
 }
 
 /**
  * The config in force: the repo's .claude/quality-code.json first, else the personal one. The result is
- * validateConfig's, plus where it came from: source "repo" | "personal" and its path.
+ * validateConfig's, plus where it came from: source "repo" | "personal" and its path, and where this
+ * person keeps the project's files: place "repo" | "local" | "chat", and auditDir (null in the chat).
+ * config.ticketsDir is that place's tickets folder.
  */
 export function loadConfig(root, env = process.env) {
   const rp = configPath(configHome(root))
-  if (existsSync(rp)) return readValidated(rp, CONFIG_REL, 'repo', env)
+  if (existsSync(rp)) return readValidated(rp, CONFIG_REL, 'repo', env, root)
   const pp = personalConfigPath(env)
-  if (existsSync(pp)) return readValidated(pp, pp, 'personal', env)
+  if (existsSync(pp)) return readValidated(pp, pp, 'personal', env, root)
   return { ok: false, missing: true, errors: [`This repo is not set up. ${SETUP}`] }
 }
