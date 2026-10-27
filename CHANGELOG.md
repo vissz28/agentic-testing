@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-10-27
+
+### Changed
+
+- The merge-request links decision is confirmed by the owner (AGT-87): the Jira dev panel is not
+  fetched. No change to the plugin's behavior.
+
 ## [0.17.1] - 2026-10-27
 
 ### Changed

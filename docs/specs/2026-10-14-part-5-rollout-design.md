@@ -83,11 +83,11 @@ generalized through the config.
 | Ticket-eval refuse option 3 ("continue anyway") | Kept for developers. It leads to `write` with every result marked: the pipeline gets `--incomplete-ticket <score>` and the card opens with `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/<bar>)`. The verdict is unchanged; the override is recorded in the audit log. | AGT-31 |
 | Run log, audit log, KPI rollup | Built: one JSON line per gate, pipeline run, Jira write and override in `.claude/quality-code/audit/`, **git-ignored** (the warehouse committed its logs and they grew with every run); `/quality-code:kpi` rolls them up. AI cost stays in `/quality-code:consumption`. | AGT-31, AGT-34 |
 | Seeding test data | Built: `/quality-code:seed <KEY>`, the data-only sibling of `write`: the project's own builders (Vitest) or network stubs copied from an existing spec (Playwright); an optional documented known dataset. | AGT-16, the warehouse `/seed` |
-| Merge-request links from the Jira dev panel | **Proposed 27 Oct, owner to confirm:** the dev panel itself is not fetched. `/quality-code:spec` finds the branch's merge request itself (GitLab connector) or pull request (`gh`), and `ticket-eval` reads the ticket's web links and any merge request URL in its text. A merge request that exists only in the dev panel is not seen. | — |
+| Merge-request links from the Jira dev panel | **Decided 27 Oct (owner):** the dev panel itself is not fetched. `/quality-code:spec` finds the branch's merge request itself (GitLab connector) or pull request (`gh`), and `ticket-eval` reads the ticket's web links and any merge request URL in its text. A merge request that exists only in the dev panel is not seen. | — |
 | Which teams follow warehouse | **Open, the owner's choice.** The pilot (§7) runs on warehouse first; the next one or two teams are named by the owner after the pilot criteria hold. | — |
 
 Status 27 Oct: three decisions are built and released (option 3, the audit log and KPI rollup, seeding;
-see the changelog). Two need the owner: confirm the merge-request proposal, and name the teams. The
+see the changelog). The merge-request proposal is confirmed by the owner. Still open: which teams follow warehouse. The
 pilot and `1.0.0` need the warehouse repos and GitLab access (§9) and are not started.
 
 ## 9. Access
