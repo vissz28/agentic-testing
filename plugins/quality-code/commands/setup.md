@@ -84,6 +84,15 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      `1` gives `adapter: "fullstack"` (plus `backend` when it is not `vitest`), `2` `"playwright"`, `3` `"<backend>"`.
+   - **Test flow.** `conventions.specs` in the detect result is above 0: the project already has tests (`conventions.pattern`, in `conventions.folders`). Ask nothing now: propose `testFlow: "project"` (`existing.testFlow` on a rerun) and show it on the Confirm card as `Tests`. To change it from the Confirm card, show this card and end the turn:
+
+     ```
+     This project already has <conventions.specs> tests (<conventions.pattern>, in <conventions.folders>).
+     1. Follow your project's flow: new tests use your naming, folders and style
+     2. Use Quality Code's flow: the ticket key in the file name, Quality Code's test folders
+     ```
+
+     `1` gives `testFlow: "project"`, `2` `"quality-code"`. With `conventions.specs` 0, leave `testFlow` out of the config and the card (Quality Code's flow is used until the project has tests; `/quality-code:config` changes it later).
    - **GitLab project.** If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks. The GitLab project is read from the remote every time; it is not written to the config.
    - **Base branch** (`git.base`: the branch feature branches start from and merge into; start, spec and check diff against it). On a rerun, keep `existing.git.base` when it is set. Else, when the GitLab project was found, make one read-only GitLab call for its 20 most recently merged merge requests and propose their most common target branch (from `recent merge requests`). Else propose `base.proposed` from the detect result: `base.source` `develop` reads `from origin/develop`, `origin-head` reads `from origin/HEAD`. When `base` is null and nothing else proposes one, leave `git.base` out and show `none found (main or master at run time)`.
 3. **Jira.** Using the Atlassian connector. No card when the values are clear:
@@ -100,6 +109,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend; a runner of `runners` in place of its default, with `generic checks`, for example `backend (Jest, generic checks)`>
      Adds     Vitest: <vitestScaffold.files, comma-separated>
      Adds     Playwright: <scaffold.files, comma-separated>; app <command> at <url>; sign-in <yes | no>
+     Tests    <follow your project's flow (<conventions.pattern>) | Quality Code's flow>
      Jira     <site host>, project(s) <keys>
      Base     <branch>   (from <where it was found>)
    Writes .claude/quality-code.json:
@@ -109,7 +119,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   The config is `version: 1`, `root` (only with `root.proposed`), `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `runners` (only when the detect result has one), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
+   The config is `version: 1`, `root` (only with `root.proposed`), `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `runners` (only when the detect result has one), `testFlow` (only when the project has tests), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
 
    - **Personal setup (option 2):** the card has no Folder, Remote, Stack or Base line, and shows `Tickets  <frontend | backend | both>` under Jira; in place of the `Writes` line it says `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` (inline, as below). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors, `2` and `3` work as below.
    - **1:** when setup adds Vitest or Playwright, do **Adding the runners** below first, up to the write. Build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on.
@@ -140,7 +150,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
        ```
 
        On `1`, run it again: the user fixed what the line says, or you fix the sign-in file you wrote (never the app's code or the Playwright config). On `2`, say `The setup is written. /quality-code:spec runs the smoke test first, until it passes.` and go to step 5.
-   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`, or setup adds Playwright to a `vitest` repo, or adds both; Project root only when `root.candidates` is not empty; for a personal setup, `Tickets` in place of Stack, and no Base or Project root):
+   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`, or setup adds Playwright to a `vitest` repo, or adds both; Project root only when `root.candidates` is not empty; Test flow only when `conventions.specs` is above 0; for a personal setup, `Tickets` in place of Stack, and no Base or Project root):
 
      ```
      Change what?
@@ -149,9 +159,10 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      3. Jira project
      4. Base branch
      5. Project root
+     6. Test flow
      ```
 
-     The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 0's personal setup, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Project root follows step 2's **Project root**. Ask nothing else again.
+     The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 0's personal setup, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Project root follows step 2's **Project root**; Test flow shows step 2's test flow card. Ask nothing else again.
    - **3:** stop. Nothing is written.
 5. **Done.** For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket-eval <KEY>, or a whole project: /quality-code:tickets-eval <PROJECT>. Writing tests needs a repo: run /quality-code:setup there.` Otherwise: setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Say: `Setup is done: <adapter>, Jira <site host>, project(s) <keys>, base <branch>. Commit .claude/quality-code.json. Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone. For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.` When setup added Playwright, say `Commit .claude/quality-code.json, the Playwright files, .gitignore, package.json and its lockfile.` (adding `, and the <runner> config` when the unit runner card changed it, or `, and the Vitest config` when it added Vitest too) in place of `Commit .claude/quality-code.json.`; when it added Vitest alone, `Commit .claude/quality-code.json, the Vitest config, package.json and its lockfile.` After `Not now` on a repo with no tests, add: `/quality-code:spec needs a test runner: run /quality-code:setup again to add it.`
 

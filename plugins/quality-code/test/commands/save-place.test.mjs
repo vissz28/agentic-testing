@@ -26,5 +26,5 @@ test('the card: asked once, the three places, chosen and moved by the script', (
   assert.ok(guide.includes('bin/ticket.mjs" save set <repo|local|chat>`'))
   assert.match(guide, /A setup with no repo has only `local` and `chat`/)
   assert.match(guide, /With `--ci` or `--json`, never show the card/)
-  assert.match(guide, /`\/quality-code:config`, item 6/)
+  assert.match(guide, /`\/quality-code:config`, item 7/)
 })

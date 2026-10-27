@@ -17,6 +17,7 @@ import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
+import { detectConventions } from '../lib/base/conventions.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -487,6 +488,7 @@ export function detect(top, env = process.env, sub = null) {
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     specFolders: specFolders(root),
+    conventions: detectConventions(root),
     playwrightConfigs: pwConfigs,
     scaffold: playwrightScaffold(root, pkg, adapter, pwConfigs),
     vitestScaffold: vitestScaffold(root, pkg, adapter),

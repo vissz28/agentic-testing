@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
+import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.mjs'
 import { loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
@@ -152,6 +153,22 @@ function run(argv, env, cwd) {
       out(`DOCX_JSON:${JSON.stringify(docxText(readFileSync(path)))}`)
       return 0
     } catch (e) { err(`${basename(path)}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`); return 2 }
+  }
+  if (cmd === 'config' && a._[0] === 'flow') {
+    // How this run writes tests: the project's own flow (its naming and folders) or Quality Code's.
+    // --flow project|quality-code (one run) wins over testFlow in the config; with neither, the project's
+    // when it has tests, else Quality Code's.
+    const flag = a._[1]
+    if (flag !== undefined && !['project', 'quality-code'].includes(flag)) { err('usage: ticket.mjs config flow [project|quality-code]'); return 2 }
+    const conv = detectConventions(root)
+    const flow = runFlow(config, conv, flag)
+    out(flow === 'project'
+      ? (conv.specs > 0
+        ? `flow: the project's own: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
+        : "flow: the project's own, but it has no tests yet: Quality Code's naming is used until it has")
+      : 'flow: Quality Code: the ticket key in the file name, the configured test folders')
+    out(`FLOW_JSON:${JSON.stringify({ flow, source: flag ? 'run' : config.testFlow ? 'config' : 'detected', configured: config.testFlow ?? null, ...conv })}`)
+    return 0
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
     const r = e2eFolder(root, config)

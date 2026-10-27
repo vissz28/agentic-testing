@@ -9,6 +9,24 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-27
+
+### Added
+
+- **Follow the project's own test flow, or use Quality Code's** (AGT-134). `testFlow` in the config is
+  `project` (new tests use the project's file naming, folders and the style of its nearest specs) or
+  `quality-code` (the ticket key in the file name, the configured test folders). The default is
+  `project` when the project already has tests, else `quality-code`. Options: a card in
+  `/quality-code:setup` (and "Test flow" in its change list), item 6 of `/quality-code:config`, and
+  `--flow project|quality-code` on `/quality-code:spec` for one run. `ticket.mjs config flow` says
+  which flow is in force and why; `setup.mjs --detect` reports `conventions` (the naming pattern, the
+  folders, tests next to the code).
+
+### Changed
+
+- `/quality-code:config`: Test flow is item 6, so Files and logs is item 7 and the accounts and tokens
+  move down by one (8 to 14).
+
 ## [0.17.3] - 2026-10-27
 
 ### Changed

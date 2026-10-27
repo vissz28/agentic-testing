@@ -23,4 +23,4 @@ With `--ci` or `--json`, never show the card: the place stays as it is.
 - **On this machine.** The same files, in a folder under your Claude folder, one per project, outside the repo. This is the default with no repo.
 - **Only in this chat.** Results are shown in the chat only. The files a run needs between steps go to a temp folder, and no audit log is kept, so `/quality-code:kpi` has nothing to count.
 
-To change it later: `/quality-code:config`, item 6.
+To change it later: `/quality-code:config`, item 7.
