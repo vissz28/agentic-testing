@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.17.3] - 2026-10-27
+
+### Changed
+
+- The README's "What's new" matches 0.17 (where files go, setup order, `spec` only), and the rollout
+  spec names the current commands and records the owner's decisions (AGT-80, AGT-85, AGT-86). No
+  change to the plugin's behavior.
+
 ## [0.17.2] - 2026-10-27
 
 ### Changed

@@ -1,6 +1,6 @@
 # Part 5: rollout
 
-Status: decisions in §8 taken 14 Oct; two still open · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-44 · Builds on:
+Status: decisions in §8 taken 14 Oct and 27 Oct (switch merge requests and pilot dropped, see §8) · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-44 · Builds on:
 parts [1](2026-10-12-part-1-core-config-design.md), [2](2026-10-14-part-2-shared-checks-design.md),
 [4a](2026-10-14-part-4a-vitest-pipeline-design.md), [4b](2026-10-14-part-4b-write-tests-design.md),
 [3](2026-10-14-part-3-playwright-design.md)
@@ -43,10 +43,10 @@ added:
 1. **Gate:** run `ticket-eval` on the 20 most recent tickets of each repo with both harnesses; scores
    and pass/refuse must match. The replay suite already covers 116 fixtures; add the frontend's own
    saved real tickets, which only the backend has today.
-2. **Checks:** run `/quality-code:check` on each repo's existing specs on a branch, and the old
+2. **Checks:** run `/quality-code:run-pipeline` on each repo's existing specs on a branch, and the old
    `check` on the same specs; the verdicts must match, or the difference must be one the specs record
    as deliberate (for example the mutation bar fixed at 100%, or one exit-code scheme).
-3. **Writing:** one real ticket per repo through `/quality-code:write` (backend) and the part 3 flow
+3. **Writing:** one real ticket per repo through `/quality-code:spec` (backend) and the part 3 flow
    (frontend); a developer reads the specs.
 
 ## 5. Switching a repo
@@ -86,9 +86,11 @@ generalized through the config.
 | Merge-request links from the Jira dev panel | **Decided 27 Oct (owner):** the dev panel itself is not fetched. `/quality-code:spec` finds the branch's merge request itself (GitLab connector) or pull request (`gh`), and `ticket-eval` reads the ticket's web links and any merge request URL in its text. A merge request that exists only in the dev panel is not seen. | — |
 | Which teams follow warehouse | **Open, the owner's choice.** The pilot (§7) runs on warehouse first; the next one or two teams are named by the owner after the pilot criteria hold. | — |
 
-Status 27 Oct: three decisions are built and released (option 3, the audit log and KPI rollup, seeding;
-see the changelog). The merge-request proposal is confirmed by the owner. Still open: which teams follow warehouse. The
-pilot and `1.0.0` need the warehouse repos and GitLab access (§9) and are not started.
+Status 27 Oct: the owner dropped the switch merge requests (§5) and the proofs (§4) for now: no
+merge request is opened on the warehouse repos, and the CI ticket gate (`ticket-eval <KEY> --ci`) is
+left for scripts to be added later. Any team can follow warehouse. Three decisions are built and released (option 3, the audit log and KPI rollup, seeding;
+see the changelog). The merge-request proposal is confirmed. Which teams follow warehouse: any team. The pilot and `1.0.0`
+need the warehouse repos and GitLab access (§9) and are not started.
 
 ## 9. Access
 

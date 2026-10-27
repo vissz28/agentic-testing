@@ -74,6 +74,11 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **You choose where files and logs go.** After the first command of a project that saves files, a
+  card asks once: in the project repo, on this machine outside the repo, or only in the chat. Change it
+  any time in `/quality-code:config`, item 6.
+- **Setup asks where you work first** (in a repo, or Jira only for QA and PO), then the connectors one
+  at a time: source code (GitLab, GitHub or both), Jira (required), Figma (optional).
 - **`run-frontend`, `run-backend` and `run-pipeline` replace `/quality-code:check`**, and
   `run-pipeline --branch` checks only the tests your branch changed.
 - **Setup in two answers**, with the Jira project keys and base branch detected for you; the fill-in
@@ -81,8 +86,8 @@ On Claude Code older than 2.1.275, use two steps:
 - **Ticket copies live in `.quality-code/tickets`**, outside `.claude/`, so a `--ci` run saves
   them with no approval prompt.
 - **`/quality-code:spec`: one command from ticket to checked tests.** It runs the gate, the plan, the
-  writing, the checks and the read-back, asking at most three questions. `start` and `write` are now
-  thin aliases of `spec`, kept so the old names work.
+  writing, the checks and the read-back, asking at most three questions. `start` and `write` are
+  gone: `spec` is the one command.
 - **GitHub pull requests, through the `gh` CLI.** A GitHub repo's open pull request gives the base
   branch and a ticket candidate, the same way a GitLab merge request does. `git.base` in the config
   covers projects whose merge requests target a branch other than the default.
@@ -92,7 +97,7 @@ On Claude Code older than 2.1.275, use two steps:
   can draft missing items from a linked **Figma** design.
 - **New install name: `quality-code@teamsystem`.** The marketplace is now called `teamsystem`.
 - **Cheaper, faster commands:** `kpi`, `consumption` and the run commands run on Haiku (about $0.007 a run
-  instead of $0.24), `setup`, `start` and `ticket-eval` on Sonnet; `write` keeps your model. The
+  instead of $0.24), `setup`, `ticket-eval` and `config` on Sonnet; `spec` keeps your model. The
   plugin's own scripts run without permission prompts.
 - **Settings asked in the chat:** the connectors card asks your Jira email, GitLab address and
   username, and saves them. Only tokens go through `/plugin`.
