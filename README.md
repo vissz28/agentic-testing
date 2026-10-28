@@ -74,6 +74,10 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`/quality-code:routine`: a check Claude runs by itself.** Pick a ticket or the whole suite, a time (a cron, or
+  once) and a period. Each run fetches what the others pushed, runs the tests and tells you when something went
+  from green to red, with the commits in between. With `--stability 5` every test runs 5 times and flaky tests
+  are named; `/quality-code:routine status` shows the pass rate and the flaky tests over time.
 - **`/quality-code:ci` for GitHub and GitLab.** In a pipeline it works out what the branch changed, backend
   or frontend, and runs only the tests that were added or changed, one run per module (a backend layer, an
   e2e folder). A side with code changes but no test change runs its whole suite; no change, nothing runs;

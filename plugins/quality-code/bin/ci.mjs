@@ -219,7 +219,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       continue
     }
     const tests = outcome.steps?.find(x => x.check === 'tests')?.data ?? {}
-    phases.push({ name: job.name, verdict: outcome.verdict, detail: formatCard(outcome, { specs }).replace(/\nPIPELINE_JSON:.*$/s, ''), runner: label, specs: specs.length, passed: tests.passed, failed: tests.failed })
+    const flaky = (outcome.steps?.find(x => x.check === 'flaky')?.data?.tests ?? []).filter(t => t.verdict === 'flaky').map(t => t.title)
+    phases.push({ name: job.name, verdict: outcome.verdict, detail: formatCard(outcome, { specs }).replace(/\nPIPELINE_JSON:.*$/s, ''), runner: label, specs: specs.length, passed: tests.passed, failed: tests.failed, ...(flaky.length ? { flaky } : {}) })
     show(`\n== ${job.name} (${label}) · ${WORDS[outcome.verdict] ?? outcome.verdict}\n${phases.at(-1).detail}\n`)
   }
   if (scope.mode === 'changes' && !jobs.length) show('\nNothing to test: no backend or frontend test or code changed.\n')

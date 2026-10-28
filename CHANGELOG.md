@@ -9,6 +9,21 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-28
+
+### Added
+
+- **`/quality-code:routine`: a check Claude runs on a schedule** (AGT-142). Pick a ticket or the whole suite, a
+  time (a cron in local time, or one moment) and a period (`--until`). The command creates the schedule with
+  Claude's scheduler (a scheduled task; `CronCreate` as a session-only fallback). Each run (`bin/routine.mjs run`)
+  fetches the watched branch, reports the new commits and integral changes (`package.json`, lockfiles, runner
+  config), runs the ticket's tests or the whole suite, and says REGRESSION, with the commits in between, when
+  the last kept result was green and this one is not. No new commit: nothing to check.
+- **Stability:** `--stability N` runs every test N times and names the flaky ones. Every run is kept in a local
+  history; `/quality-code:routine status` shows the pass rate, the flaky tests seen and green-to-red changes, and
+  says STABLE, UNSTABLE or NOT ENOUGH DATA. `list` and `stop` manage the routines.
+- `bin/ci.mjs` JSON now lists the flaky tests of each phase.
+
 ## [0.25.0] - 2026-10-28
 
 ### Changed

@@ -150,6 +150,7 @@ Playwright test).
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Run the testing phases in CI (GitHub Actions, GitLab CI): only the tests this branch touched, backend and frontend, per module | `/quality-code:ci` (`--init github\|gitlab` writes the CI file; `--all` runs everything) | ✅ available |
+| Schedule a check that runs by itself and tells you when the tests went red after others pushed, or became flaky | `/quality-code:routine` (`status`, `list`, `stop`) | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:run-pipeline --evals` | ✅ available |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
@@ -439,6 +440,26 @@ phase failing does not stop the next. On GitHub the run writes a step summary an
 test of the project's test folders** (`ci.mjs --all`): that is what a pipeline should guard. Add `--changed` for
 the variant that runs only what the branch touched. Run by hand, `/quality-code:ci` stays change-aware. The file
 fetches the plugin at the version that wrote it.
+
+**Routines: checks that run by themselves.** `/quality-code:routine` schedules, with Claude's scheduler, a check
+that runs at the times you pick, for a period or once. Each scheduled run (`routine.mjs run`):
+
+- fetches the watched branch (the project's base branch, or `--branch`) and sees what others pushed since the last
+  check: the new commits, how many authors, and **integral changes** (`package.json`, a lockfile, `tsconfig`, a
+  runner config, `pom.xml`, `go.mod`, `.claude/quality-code.json`). With no new commit it says so and stops (exit 0);
+- runs the tests of one ticket (`--task KEY`: the specs that name the key) or every test of the project;
+- with `--stability N` runs every test N times and names the **flaky** ones (passed and failed on the same code);
+- says **REGRESSION** when the last kept result was green and this one is not, with the commits in between (author
+  and subject), so the culprit is one line away;
+- keeps every run in a local history next to the audit log (so `/quality-code:config`, item 7, decides where; "only in
+  the chat" keeps none).
+
+`/quality-code:routine status [KEY]` reads that history: pass rate, the green-in-a-row count, green-to-red changes and
+the flaky tests seen, and a verdict: `STABLE`, `UNSTABLE` (a flaky test was seen, or fewer than 90% of the runs were
+green) or `NOT ENOUGH DATA` (fewer than 3 runs). `list` shows the routines, `stop <name>` removes one, and `--until`
+ends a routine on a date (its next run removes it). Scheduled tasks run while the Claude app is open; a run missed
+while it was closed happens when it opens again. Without the scheduler tools the command falls back to a
+session-only schedule that ends with the session (and after 7 days).
 
 **Frozen evals.** `/quality-code:run-pipeline --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or
