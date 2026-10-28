@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-28
+
+### Added
+
+- **The MCP server verifies callers with Microsoft Entra ID** (AGT-136). `quality-code-mcp --transport http`
+  serves over streamable HTTP and accepts only a valid Entra access token: signature, issuer, tenant,
+  audience, expiry and, when set, a required scope or app role. It refuses to start without the tenant,
+  client ID and public address. Over HTTP the scripts run only in `QUALITY_CODE_PROJECT_DIR`. Stdio (local,
+  one person) is unchanged. Setup steps are in the server's README.
+
 ## [0.19.0] - 2026-10-28
 
 ### Added

@@ -1,27 +1,41 @@
 """The MCP server: one tool per command, one to run the plugin's scripts, one to read its guides."""
 from __future__ import annotations
 
+import argparse
+import asyncio
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.auth.settings import AuthSettings
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
+from urllib.parse import urlparse
 
+from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
 
 TIMEOUT_S = 900
 MAX_OUT = 200_000
 
 
-def build(root: Path | None = None) -> MCPServer:
+def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None) -> MCPServer:
+    """`entra` turns on Entra ID verification (HTTP). `fixed_cwd` pins where scripts run, so a remote caller cannot pick the folder."""
     root = root or plugin_root()
     commands = load_commands(root)
     scripts = set(list_scripts(root))
     guides = set(list_guides(root))
+    extra: dict = {}
+    if entra:
+        extra = {
+            "auth": AuthSettings(issuer_url=entra.issuer_url, resource_server_url=entra.public_url, required_scopes=None, validate_token_resource=False),
+            "token_verifier": verifier or EntraTokenVerifier(entra),
+        }
     server = MCPServer(
         "quality-code",
+        **extra,
         instructions=(
             "Quality Code: from a Jira ticket to tests you can trust. Each quality_code_<command> tool returns that command's "
             "instructions for you to follow. Scripts do the scoring and checking: run them with quality_code_run_script, never compute a score yourself."
@@ -52,7 +66,7 @@ def build(root: Path | None = None) -> MCPServer:
         node = shutil.which("node")
         if not node:
             return "error: Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found."
-        work = Path(cwd).expanduser() if cwd else Path.cwd()
+        work = fixed_cwd or (Path(cwd).expanduser() if cwd else Path.cwd())
         if not work.is_dir():
             return f"error: {work} is not a folder."
         env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
@@ -91,8 +105,29 @@ def _guide_resource(root: Path, key: str):
     return FunctionResource(uri=f"quality-code://guides/{key}", name=f"guide-{key}", description=f"Quality Code guide: {key}", mime_type="text/markdown", fn=lambda: render_guide(root, key))
 
 
-def main() -> None:
-    build().run("stdio")
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(prog="quality-code-mcp", description="Quality Code MCP server")
+    ap.add_argument("--transport", choices=["stdio", "http"], default="stdio", help="stdio (local, no sign-in) or http (needs Entra ID)")
+    ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--port", type=int, default=8000)
+    a = ap.parse_args(argv)
+    if a.transport == "stdio":
+        build().run("stdio")
+        return
+    try:
+        entra = settings_from_env()
+    except EntraConfigError as e:
+        raise SystemExit(f"quality-code-mcp: {e}")
+    project = os.environ.get("QUALITY_CODE_PROJECT_DIR")
+    if not project or not Path(project).is_dir():
+        raise SystemExit("quality-code-mcp: over http the scripts run in one folder only. Set QUALITY_CODE_PROJECT_DIR to the project folder.")
+    host = urlparse(entra.public_url).netloc
+    security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[host, "127.0.0.1:*", "localhost:*"], allowed_origins=[f"https://{host}", "http://127.0.0.1:*", "http://localhost:*"],
+    )
+    server = build(entra=entra, fixed_cwd=Path(project).resolve())
+    asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
 
 
 if __name__ == "__main__":

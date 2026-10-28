@@ -25,6 +25,28 @@ It finds the plugin by its place in the repo. Installed elsewhere, set `QUALITY_
 
 The commands also use Jira, GitLab, Figma and file tools: the client brings those (connect the Atlassian MCP server next to this one).
 
+## Sign-in with Microsoft Entra ID (shared server)
+
+Over stdio the server runs on your own computer for you alone, with no sign-in. To share one server with a team, run it over HTTP: then **every request needs a valid Entra ID access token**, and the server refuses to start without the settings.
+
+1. In Entra, register an app for the server (App registrations). Note its **Application (client) ID** and your **Directory (tenant) ID**. Under *Expose an API*, set the Application ID URI (`api://<client id>`) and, if you want to limit who can call, add a scope or an app role (for example `QualityCode.Use`) and assign it to your users or groups.
+2. Start it:
+
+```bash
+QUALITY_CODE_ENTRA_TENANT_ID=<tenant id> \
+QUALITY_CODE_ENTRA_CLIENT_ID=<client id> \
+QUALITY_CODE_PUBLIC_URL=https://qc-mcp.example.com \
+QUALITY_CODE_PROJECT_DIR=/srv/project \
+QUALITY_CODE_ENTRA_REQUIRED_SCOPE=QualityCode.Use \
+.venv/bin/quality-code-mcp --transport http --port 8000
+```
+
+`QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is optional: when set, the token must carry that scope (`scp`) or app role (`roles`). Put the server behind HTTPS (the public address must be `https://`).
+
+What is checked on every request: the signature (against the tenant's published keys, cached), the issuer (v1.0 or v2.0 of your tenant), the tenant (`tid`), the audience (your client ID or `api://<client id>`), the expiry, and the scope or role when you require one. Anything else gets `401`.
+
+Over HTTP the scripts run only in `QUALITY_CODE_PROJECT_DIR`: a remote caller cannot choose the folder (`cwd` is ignored). Clients sign in through the usual MCP OAuth flow against Entra; the server never sees a password.
+
 ## Test
 
 ```bash
