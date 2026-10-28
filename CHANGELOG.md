@@ -9,6 +9,20 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-28
+
+### Added
+
+- **`/quality-code:ci` for GitHub Actions and GitLab CI** (AGT-140). A pipeline command (`bin/ci.mjs`, no
+  model) that reads what the branch changed against its target and runs only the backend or frontend tests
+  that were added or changed, one run per module (a backend layer, an e2e folder). Code changed with no spec
+  changed runs that side's whole suite; a shared file (`package.json`, a lockfile, a runner config) runs
+  both; docs only is `NOTHING TO TEST` (exit 0). The default branch, `--all` and an unreadable history run
+  everything, so nothing is silently left out. `--init github|gitlab [--write]` prints or writes the CI file,
+  `--junit FILE` writes a JUnit report for GitLab, and GitHub gets a step summary and error annotations.
+  Exit 0 green, 1 a check failed or a test is red, 2 usage or config, 3 not verified. It is also a tool of
+  the MCP server.
+
 ## [0.23.0] - 2026-10-28
 
 ### Added

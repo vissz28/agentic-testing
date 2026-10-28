@@ -35,6 +35,7 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | `/quality-code:run-frontend` | runs every frontend (Playwright) spec through the pipeline |
 | `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
 | `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
+| `/quality-code:ci` | for GitHub Actions and GitLab CI: detects whether the branch changed the backend or the frontend and runs only the tests it touched, per module (everything on the default branch or with `--all`); `--init github\|gitlab` writes the CI file |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | writes only the test data a ticket needs |
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |

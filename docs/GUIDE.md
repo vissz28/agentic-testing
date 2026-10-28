@@ -149,6 +149,7 @@ Playwright test).
 | Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
+| Run the testing phases in CI (GitHub Actions, GitLab CI): only the tests this branch touched, backend and frontend, per module | `/quality-code:ci` (`--init github\|gitlab` writes the CI file; `--all` runs everything) | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:run-pipeline --evals` | ✅ available |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
@@ -414,6 +415,28 @@ test…) and the tests are red, it says `Jira says <status>. This branch still h
 the run also writes the developer log next to the ticket's files (`<ticketsDir>/<KEY>/run.md`): the
 verdict in words, every test, every check with its numbers and findings, what to do and how to run it
 again. Like the audit log it is local, and off with `QC_NO_AUDIT=1`.
+
+**Testing in CI (GitHub Actions and GitLab CI).** `/quality-code:ci` is the command a pipeline runs
+(`node <plugin>/bin/ci.mjs`), no model involved. It reads what the branch changed against the pull or merge
+request's target and **runs only what was touched**:
+
+- **Specs added or changed** (by a developer or by Quality Code) run through the pipeline (tests, assertions,
+  types, mutation), one run per module: a backend layer (`unit`, `integration`) or the first folder under the
+  e2e folder. Deleted specs are not run.
+- **Code changed, no spec changed** on a side: that side's whole suite runs. The side comes from the project's
+  stack, then the file's extension and folder (`web/`, `components/`, `.vue` are frontend; `server/`, `api/`,
+  a Python or Java file are backend); a path that does not say counts for both.
+- **A shared file changed** (`package.json`, a lockfile, `tsconfig`, a runner config, `pom.xml`, `go.mod`,
+  `.claude/quality-code.json`): both sides' whole suites run.
+- **Nothing relevant changed** (docs only): `NOTHING TO TEST`, exit 0.
+- **Everything runs** on the default branch, with `--all`, or when the changes cannot be read (no history:
+  fetch the full clone, `fetch-depth: 0` on GitHub, `GIT_DEPTH: 0` on GitLab). Nothing is silently left out.
+
+Exit 0 green, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run. One
+phase failing does not stop the next. On GitHub the run writes a step summary and `::error` annotations; with
+`--junit FILE` it writes a JUnit report that GitLab shows in the merge request. `--init github` or
+`--init gitlab` prints the CI file (`--write` saves it, never over an existing one); it fetches the plugin at
+the version that wrote it.
 
 **Frozen evals.** `/quality-code:run-pipeline --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or

@@ -74,6 +74,11 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`/quality-code:ci` for GitHub and GitLab.** In a pipeline it works out what the branch changed, backend
+  or frontend, and runs only the tests that were added or changed, one run per module (a backend layer, an
+  e2e folder). A side with code changes but no test change runs its whole suite; no change, nothing runs;
+  the default branch and `--all` run everything. `/quality-code:ci --init github` or `--init gitlab` writes
+  the CI file.
 - **Quality Code as an MCP server.** A Python server (`plugins/quality-code/mcp-server`) exposes every
   command as a tool, plus the scripts and guides, for clients without the Claude Code plugin. Shared over HTTP, it verifies callers with Microsoft Entra ID.
 - **Your tests, your flow.** A project that already has tests keeps its own naming, folders and style:
