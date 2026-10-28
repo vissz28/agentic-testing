@@ -258,9 +258,9 @@ test('step 2: a repo with no tests gets Vitest; a frontend with its server gets 
 test('step 4: Playwright is installed only after Write it; --write writes its files; the sign-in never takes a secret from the chat', () => {
   const s = step(4)
   assert.ok(s.includes('Adds     Playwright: <scaffold.files, comma-separated>; app <command> at <url>; sign-in <yes | no>'))
-  assert.match(s, /when setup adds Vitest or Playwright, do \*\*Adding the runners\*\* below first, up to the write/)
+  assert.match(s, /when setup adds Vitest, Playwright or real databases, do \*\*Adding the runners\*\* below first, up to the write/)
   assert.match(s, /On the Confirm card's `1`, before the write/)
-  assert.match(s, /run `vitestScaffold\.install` when setup adds Vitest, then, when it adds Playwright, `scaffold\.install` when it is set and `scaffold\.browsers`; each as one command exactly as detect gave it/)
+  assert.match(s, /run `vitestScaffold\.install` when setup adds Vitest, then `containersScaffold\.install` when it adds real databases, then, when it adds Playwright, `scaffold\.install` when it is set and `scaffold\.browsers`; each as one command exactly as detect gave it/)
   assert.match(s, /If any fails, show its last lines and stop: nothing is written/)
   assert.ok(s.includes('"scaffold": { "command", "url", "signIn" }'))
   assert.ok(s.includes('`"vitestScaffold": true` (adding Vitest)'))
@@ -302,4 +302,13 @@ test('step 2: a project in a subfolder is proposed as root, and another one is p
   assert.ok(s.includes('"root": "<root.proposed>"'))
   assert.ok(s.includes('--detect --root <folder>'))
   assert.ok(step('4').includes('5. Project root'))
+})
+
+test('step 2: a Vitest backend with a database gets the real databases card; the integration tests run on their own config', () => {
+  const s = step(2)
+  assert.ok(s.includes('This backend uses <databases>. Setup can run its integration tests against real ones, in containers:'))
+  assert.ok(s.includes('Needs     Docker running when the tests run'))
+  for (const o of ['1. Add real databases', '2. Not now']) assert.ok(s.includes(o), o)
+  assert.match(s, /add '<containersScaffold\.folder>\*\*' to its exclude/)
+  assert.ok(step(4).includes('`"containersScaffold": true` (adding real databases)'))
 })

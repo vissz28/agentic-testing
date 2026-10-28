@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
+import { filesOf } from '../../lib/base/containers.mjs'
 import { filePattern } from '../../lib/pipeline/runners/playwright.mjs'
 import { calls, fakeBin, fakeCommand } from '../fake-bin.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
@@ -738,4 +739,125 @@ test('vitestProblem: the Vitest an install gets needs Node 22.12 or newer, besid
   const old = repo({ dependencies: { react: '19', express: '5' }, devDependencies: { vite: '^5.4.0' }, scripts: { dev: 'vite' } })
   assert.match(detect(old).vitestScaffold.problem, /^Vitest needs Vite 6\.4 or newer, and this repo has vite \^5\.4\.0/, "detect reads the repo's Vite")
   assert.equal(detect(old).scaffold.problem, undefined, 'Playwright can still be added')
+})
+
+test('detect: a Vitest backend with a database and no Testcontainers gets the integration layer on real databases', () => {
+  const d = repo({ devDependencies: { vitest: '5' }, dependencies: { pg: '8', ioredis: '5' } })
+  writeFileSync(join(d, 'tsconfig.json'), '{}')
+  assert.deepEqual(detect(d).containersScaffold, {
+    install: 'npm install --save-dev testcontainers @testcontainers/postgresql @testcontainers/redis',
+    databases: ['postgres', 'redis'],
+    folder: 'test/integration/',
+    files: ['vitest.integration.config.ts', 'test/integration/global-setup.ts', 'test/integration/databases.ts'],
+  })
+  const prisma = repo({ devDependencies: { vitest: '5', prisma: '7' } })
+  mkdirSync(join(prisma, 'prisma'))
+  writeFileSync(join(prisma, 'prisma/schema.prisma'), 'datasource db {\n  provider = "mysql"\n}\n')
+  assert.deepEqual(detect(prisma).containersScaffold.databases, ['mysql'], "the Prisma schema's provider")
+  assert.deepEqual(detect(repo({ dependencies: { express: '5', mongoose: '8' } })).containersScaffold.databases, ['mongodb'], 'with the Vitest setup adds')
+  assert.equal(detect(repo({ devDependencies: { vitest: '5', testcontainers: '12' }, dependencies: { pg: '8' } })).containersScaffold, null, 'Testcontainers is there')
+  assert.equal(detect(repo({ devDependencies: { vitest: '5', '@testcontainers/postgresql': '12' }, dependencies: { pg: '8' } })).containersScaffold, null, 'a module of it is there')
+  assert.equal(detect(repo({ devDependencies: { vitest: '5' } })).containersScaffold, null, 'no database')
+  assert.equal(detect(repo({ devDependencies: { jest: '30' }, dependencies: { pg: '8' } })).containersScaffold, null, 'Jest keeps its own setup')
+  assert.equal(detect(repo({ devDependencies: { '@playwright/test': '1' }, dependencies: { pg: '8' } })).containersScaffold, null, 'a frontend')
+})
+
+test('write with containersScaffold: the integration config on the project\'s own, its global setup and helper, and the layer in the config', () => {
+  const d = repo({ devDependencies: { vitest: '5' }, dependencies: { '@prisma/client': '7' } })
+  writeFileSync(join(d, 'tsconfig.json'), '{}')
+  writeFileSync(join(d, 'vitest.config.ts'), 'export default { test: {} }')
+  mkdirSync(join(d, 'prisma/migrations'), { recursive: true })
+  writeFileSync(join(d, 'prisma/schema.prisma'), 'datasource db {\n  provider = "postgresql"\n  url = env("APP_DB")\n}\n')
+  assert.equal(write(d, cfg, { containersScaffold: true }).ok, true)
+  const config = readFileSync(join(d, 'vitest.integration.config.ts'), 'utf8')
+  assert.ok(config.includes("import base from './vitest.config.ts'") && config.includes("globalSetup: ['test/integration/global-setup.ts']"), config)
+  assert.ok(config.includes('fileParallelism: false'), 'one database: the files take turns')
+  const setup = readFileSync(join(d, 'test/integration/global-setup.ts'), 'utf8')
+  assert.ok(setup.includes("new PostgreSqlContainer('postgres:17-alpine').start()"), setup)
+  assert.ok(setup.includes("execSync('npx prisma migrate deploy', { env: { ...process.env, APP_DB: postgres.getConnectionUri() }"), 'the schema, with the address Prisma reads')
+  assert.ok(setup.includes("project.provide('postgresUrl', postgres.getConnectionUri())"))
+  assert.match(setup, /is Docker running\?/)
+  assert.ok(readFileSync(join(d, 'test/integration/databases.ts'), 'utf8').includes("export const postgresUrl = () => inject('postgresUrl')"))
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).vitest, {
+    layers: [{ name: 'unit', folder: 'test/' }, { name: 'integration', folder: 'test/integration/' }],
+    configs: [{ match: 'test/integration/', config: 'vitest.integration.config.ts' }],
+  })
+  assert.equal(write(d, cfg, { containersScaffold: true }).ok, true, 'a rerun keeps the files there')
+
+  const own = repo({ devDependencies: { vitest: '5' }, dependencies: { pg: '8' } })
+  const layers = [{ name: 'unit', folder: 'test/unit/' }, { name: 'integration', folder: 'test/it/' }]
+  assert.equal(write(own, { ...cfg, vitest: { layers, configs: [{ match: 'test/**', config: 'vitest.config.js' }] } }, { containersScaffold: true }).ok, true)
+  assert.deepEqual(JSON.parse(readFileSync(join(own, '.claude/quality-code.json'), 'utf8')).vitest, { layers, configs: [{ match: 'test/it/', config: 'vitest.integration.config.js' }, { match: 'test/**', config: 'vitest.config.js' }] }, "the team's integration layer, its config first")
+  assert.ok(existsSync(join(own, 'test/it/global-setup.js')))
+
+  const fresh = repo({ dependencies: { express: '5', mysql2: '3' } })
+  assert.equal(write(fresh, cfg, { vitestScaffold: true, containersScaffold: true }).ok, true)
+  assert.match(readFileSync(join(fresh, 'vitest.config.js'), 'utf8'), /exclude: \[\.\.\.configDefaults\.exclude, 'test\/integration\/\*\*'\]/, 'the unit run leaves the integration specs to their config')
+  assert.ok(readFileSync(join(fresh, 'vitest.integration.config.js'), 'utf8').includes("import base from './vitest.config.js'"))
+
+  assert.deepEqual(write(repo({ devDependencies: { vitest: '5' } }), cfg, { containersScaffold: true }).errors, ['containersScaffold: this project uses no database Testcontainers starts here (Postgres, MySQL, MongoDB or Redis)'])
+  assert.deepEqual(write(own, { ...cfg, adapter: 'junit' }, { containersScaffold: true }).errors, ['containersScaffold: only for a Vitest, pytest, Go or .NET backend (this one is JUnit)'])
+  assert.match(write(own, { ...cfg, runners: { unit: 'jest' } }, { containersScaffold: true }).errors[0], /^containersScaffold: only for a Vitest backend, not Jest/)
+})
+
+test('the Vitest files: without a base config the integration config stands alone; without Prisma the schema is left to the team', () => {
+  const [[, config], [, setup]] = filesOf('vitest', [{ name: 'redis', cls: 'RedisContainer', module: '@testcontainers/redis', image: 'redis:7-alpine', url: 'getConnectionUrl' }], { ts: false, base: null, folder: 'test/integration/' })
+  assert.ok(config.includes('resolve: { tsconfigPaths: true },') && !config.includes('import base'), config)
+  assert.ok(!setup.includes('execSync') && !setup.includes('migrations'), 'Redis has no schema')
+})
+
+const dir = files => { const d = mkdtempSync(join(tmpdir(), 'at-')); for (const [p, body] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), body) } return d }
+const scaffoldOf = d => detect(d).containersScaffold
+
+test('detect: a pytest backend with a database gets a conftest that starts it; uv and Poetry add it to the project, pip only installs it', () => {
+  const d = dir({ 'pyproject.toml': '[project]\ndependencies = ["psycopg[binary]>=3", "redis>=5"]\n[tool.pytest.ini_options]\n' })
+  assert.deepEqual(scaffoldOf(d), {
+    databases: ['postgres', 'redis'], folder: 'tests/integration/',
+    install: 'python -m pip install "testcontainers[postgres,redis]"', files: ['tests/integration/conftest.py'],
+    note: 'pip installs it in this environment only: add testcontainers[postgres,redis] to the requirements your tests install.',
+  })
+  writeFileSync(join(d, 'uv.lock'), '')
+  assert.equal(scaffoldOf(d).install, 'uv add --dev "testcontainers[postgres,redis]"')
+  const poetry = dir({ 'pytest.ini': '[pytest]', 'requirements.txt': 'PyMySQL==1.1\n', 'poetry.lock': '' })
+  assert.deepEqual([scaffoldOf(poetry).databases, scaffoldOf(poetry).install], [['mysql'], 'poetry add --group dev "testcontainers[mysql]"'], 'names are case- and _-insensitive')
+  assert.equal(scaffoldOf(dir({ 'pytest.ini': '[pytest]', 'requirements.txt': 'psycopg2\ntestcontainers[postgres]\n' })), null, 'Testcontainers is there')
+  assert.equal(scaffoldOf(dir({ 'pytest.ini': '[pytest]', 'requirements.txt': 'redis-om-helpers\n' })), null, 'only the whole name counts')
+})
+
+test('detect: a Go backend gets the testdb helper; a .NET one a helper in its test project, or a problem with none', () => {
+  const go = dir({ 'go.mod': 'module example.com/shop\n\nrequire (\n\tgithub.com/jackc/pgx/v5 v5.7.0\n)\n' })
+  assert.deepEqual(scaffoldOf(go), { databases: ['postgres'], folder: null, install: 'go get github.com/testcontainers/testcontainers-go/modules/postgres', files: ['internal/testdb/testdb.go'] })
+  assert.equal(scaffoldOf(dir({ 'go.mod': 'module x\nrequire github.com/lib/pq v1\nrequire github.com/testcontainers/testcontainers-go v0.44.0\n' })), null)
+  const net = dir({
+    'Shop.sln': '',
+    'src/Shop/Shop.csproj': '<Project><ItemGroup><PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" /></ItemGroup></Project>',
+    'tests/Shop.Tests/Shop.Tests.csproj': '<Project><ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" /><PackageReference Include="StackExchange.Redis" Version="2" /></ItemGroup></Project>',
+  })
+  assert.deepEqual(scaffoldOf(net), {
+    databases: ['postgres', 'redis'], folder: 'tests/Shop.Tests/Integration/',
+    install: 'dotnet add tests/Shop.Tests/Shop.Tests.csproj package Testcontainers.PostgreSql && dotnet add tests/Shop.Tests/Shop.Tests.csproj package Testcontainers.Redis',
+    files: ['tests/Shop.Tests/Integration/TestDatabases.cs'],
+  })
+  assert.match(scaffoldOf(dir({ 'App.csproj': '<PackageReference Include="MongoDB.Driver" />' })).problem, /^This solution has no test project/)
+  assert.equal(scaffoldOf(dir({ 'go.mod': 'module x\n' })), null, 'no database')
+})
+
+test('write with containersScaffold on pytest, Go and .NET: the helper, and the integration layer in the backend block (Go: none)', () => {
+  const py = dir({ 'pytest.ini': '[pytest]', 'requirements.txt': 'pymongo\n' })
+  assert.equal(write(py, { ...cfg, adapter: 'pytest' }, { containersScaffold: true }).ok, true)
+  const conftest = readFileSync(join(py, 'tests/integration/conftest.py'), 'utf8')
+  for (const line of ['from testcontainers.community.mongodb import MongoDbContainer', 'def mongodb_url():', 'mongodb = _start("MongoDB", lambda: MongoDbContainer("mongo:8"))', 'yield mongodb.get_connection_url()', 'is Docker running?']) assert.ok(conftest.includes(line), line)
+  assert.deepEqual(JSON.parse(readFileSync(join(py, '.claude/quality-code.json'), 'utf8')).pytest, { layers: [{ name: 'unit', folder: 'tests/' }, { name: 'integration', folder: 'tests/integration/' }] })
+
+  const go = dir({ 'go.mod': 'module example.com/shop\nrequire github.com/redis/go-redis/v9 v9.7.0\n' })
+  assert.equal(write(go, { ...cfg, adapter: 'go' }, { containersScaffold: true }).ok, true)
+  const helper = readFileSync(join(go, 'internal/testdb/testdb.go'), 'utf8')
+  for (const line of ['package testdb', 'import it as example.com/shop/internal/testdb', '"github.com/testcontainers/testcontainers-go/modules/redis"', 'var RedisURL = start("Redis"', 'c, err := redis.Run(ctx, "redis:7-alpine")']) assert.ok(helper.includes(line), line)
+  assert.equal(JSON.parse(readFileSync(join(go, '.claude/quality-code.json'), 'utf8')).go, undefined, 'Go tests sit beside the code: no layer')
+
+  const net = dir({ 'Shop.Tests/Shop.Tests.csproj': '<Project><PropertyGroup><RootNamespace>Acme.Shop.Tests</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="xunit" /><PackageReference Include="MySqlConnector" /></ItemGroup></Project>' })
+  assert.equal(write(net, { ...cfg, adapter: 'dotnet', dotnet: { layers: [{ name: 'unit', folder: 'Shop.Tests/' }] } }, { containersScaffold: true }).ok, true)
+  const cs = readFileSync(join(net, 'Shop.Tests/Integration/TestDatabases.cs'), 'utf8')
+  for (const line of ['namespace Acme.Shop.Tests.Integration;', 'using Testcontainers.MySql;', 'Start("MySQL", () => new MySqlBuilder("mysql:8.4").Build(), c => c.GetConnectionString());', 'public static Task<string> MySqlAsync() => MySql.Value;']) assert.ok(cs.includes(line), line)
+  assert.deepEqual(JSON.parse(readFileSync(join(net, '.claude/quality-code.json'), 'utf8')).dotnet.layers, [{ name: 'unit', folder: 'Shop.Tests/' }, { name: 'integration', folder: 'Shop.Tests/Integration/' }], "the team's layers kept")
 })

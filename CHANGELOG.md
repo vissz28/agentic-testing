@@ -9,6 +9,26 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-28
+
+### Added
+
+- **Integration tests on real databases (Testcontainers).** On a Vitest, pytest, Go or .NET backend
+  that uses Postgres, MySQL, MongoDB or Redis (found from its drivers, or a Prisma schema) and has no
+  Testcontainers yet, `/quality-code:setup` offers to install Testcontainers and write a helper that
+  starts the databases in containers. The unit tests keep their mocks. Docker must be running when the
+  integration tests run.
+  - Vitest: `vitest.integration.config`, a global setup that starts the databases once per run (and
+    applies the Prisma schema), and `test/integration/databases` for their addresses.
+  - pytest: `tests/integration/conftest.py` with one session fixture per database (`postgres_url`, …).
+    Installed with uv or Poetry when the project uses one, else pip.
+  - Go: the `internal/testdb` package (`testdb.PostgresURL(t)`, …), with `go get`.
+  - .NET: `Integration/TestDatabases.cs` in the test project (`await TestDatabases.PostgresAsync()`,
+    …), with `dotnet add package`.
+  - JUnit gets nothing from setup: there is no command that adds a dependency to a Maven or Gradle build.
+  The Vitest, pytest, JUnit, Go and .NET writing guides now say: in the integration layer of a project
+  that runs containers, use the real database, never a mock of it.
+
 ## [0.26.0] - 2026-10-28
 
 ### Added

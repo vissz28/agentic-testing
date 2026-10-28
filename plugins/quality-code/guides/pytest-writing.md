@@ -75,6 +75,11 @@ class TestLineTotals:
 
 - **Mock only I/O boundaries**: the network, the database, the file system, the clock, a message
   queue, a third-party SDK. Use `monkeypatch.setattr` or `unittest.mock.patch` on that boundary only.
+- **The integration layer uses the real database.** When the project starts databases in containers
+  (`testcontainers` in its dependencies, a fixture that starts a `PostgresContainer` or the like), the
+  tests of its integration layer use that fixture (`postgres_url`, `redis_url` and so on from the
+  `conftest.py` setup writes, or the team's own) and never mock the database: arrange the rows the
+  test needs, and assert what the code reads or writes there. Unit tests keep mocking it.
 - Never mock the code under test or a pure helper it calls: the test must run the real logic.
 - `monkeypatch` undoes itself after each test; a `patch` is a `with` block or a decorator, never a
   `start()` without its `stop()`.

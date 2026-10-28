@@ -71,6 +71,11 @@ class LineTotalTest {
 
 - **Mock only I/O boundaries**: the network, the database, the file system, the clock, a message
   queue, a third-party client. Mockito `@Mock` on that boundary only.
+- **The integration layer uses the real database.** When the project starts databases in containers
+  (`org.testcontainers` in its build, `@Testcontainers` and `@Container` or `@ServiceConnection`), the
+  tests of its integration layer use the project's container setup (copy a test already there) and
+  never mock the repository or the database: arrange the rows the test needs, and assert what the
+  code reads or writes there. Unit tests keep their Mockito mocks.
 - Never mock the class under test or a pure helper it calls: the test must run the real logic.
 - **No Mockito-only test:** a test whose only check is `verify(…)` shows a call happened, not that the
   result is right. Assert the returned value or the saved state as well. The pipeline's mutation step

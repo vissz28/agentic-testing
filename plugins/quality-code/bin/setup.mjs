@@ -18,6 +18,7 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
+import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -247,12 +248,14 @@ export function vitestProblem(node, vite) {
   return null
 }
 
-/** The Vitest config setup writes; next to Playwright, the e2e folder is left to Playwright. */
-export function vitestConfigText({ e2e }) {
-  const test = e2e ? `{ exclude: [...configDefaults.exclude, '${DEFAULT_E2E_FOLDER}**'] }` : '{}'
-  return `import { ${e2e ? 'configDefaults, ' : ''}defineConfig } from 'vitest/config'
+/** The Vitest config setup writes; next to Playwright, the e2e folder is left to Playwright, and the integration folder to its own config. */
+export function vitestConfigText({ e2e, integration = null }) {
+  const out = [...(e2e ? [DEFAULT_E2E_FOLDER] : []), ...(integration ? [integration] : [])]
+  const test = out.length ? `{ exclude: [...configDefaults.exclude, ${out.map(f => `'${f}**'`).join(', ')}] }` : '{}'
+  const but = [e2e && `the Playwright specs in ${DEFAULT_E2E_FOLDER}`, integration && `the integration specs in ${integration} (vitest.integration.config)`].filter(Boolean).join(' and ')
+  return `import { ${out.length ? 'configDefaults, ' : ''}defineConfig } from 'vitest/config'
 
-// Written by quality-code setup. Vitest runs every *.test.* and *.spec.* file${e2e ? `, but the Playwright specs in ${DEFAULT_E2E_FOLDER}` : ''}.
+// Written by quality-code setup. Vitest runs every *.test.* and *.spec.* file${but ? `, but ${but}` : ''}.
 export default defineConfig({
   // Imports through the tsconfig's baseUrl or paths (src/…, @app/…) resolve as they do for tsc.
   resolve: { tsconfigPaths: true },
@@ -260,6 +263,15 @@ export default defineConfig({
 })
 `
 }
+
+function containersProblems(config, c) {
+  if (c !== true) return ['containersScaffold: must be true']
+  if (backendOf(config) === 'vitest' && runnerOf(config, 'vitest') !== 'vitest') return [`containersScaffold: only for a Vitest backend, not ${runnerLabel(runnerOf(config, 'vitest'))}`]
+  return []
+}
+
+const packageJson = root => { try { return readJson(join(root, 'package.json')) } catch { return {} } }
+const packageDeps = root => { const pkg = packageJson(root); return { ...pkg.dependencies, ...pkg.devDependencies } }
 
 function vitestScaffoldProblems(config, v) {
   if (v !== true) return ['vitestScaffold: must be true']
@@ -476,6 +488,9 @@ export function detect(top, env = process.env, sub = null) {
   // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
   const runners = { ...(backend === 'vitest' && unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
   const pwConfigs = playwrightConfigs(root)
+  const vitest = vitestScaffold(root, pkg, adapter)
+  // The backend that gets real databases: Vitest when it runs the tests (or setup adds it), else pytest, Go or .NET.
+  const containerBackend = unit === 'vitest' || (vitest && !vitest.problem) ? 'vitest' : backend && backend !== 'vitest' ? backend : null
   const templates = {}
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
@@ -491,7 +506,8 @@ export function detect(top, env = process.env, sub = null) {
     conventions: detectConventions(root),
     playwrightConfigs: pwConfigs,
     scaffold: playwrightScaffold(root, pkg, adapter, pwConfigs),
-    vitestScaffold: vitestScaffold(root, pkg, adapter),
+    vitestScaffold: vitest,
+    containersScaffold: containersScaffold(root, containerBackend, { deps, config: existing, cmd: pkg ? { add: ADD_DEV[packageManager(root, pkg).pm], ts: existsSync(join(root, 'tsconfig.json')) } : {} }),
     here: here(root),
     projectCandidates: jiraCandidates(root),
     base: baseCandidate(root),
@@ -512,9 +528,10 @@ function pathProblem(root, label, p) {
 
 /**
  * scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test, vitestScaffold
- * (true) the Vitest config; an existing file is never replaced.
+ * (true) the Vitest config, containersScaffold (true) the integration layer that runs on real databases;
+ * an existing file is never replaced.
  */
-export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold } = {}) {
+export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold } = {}) {
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
   // The config stays at the top; every file it names, and what setup adds, is in the project root.
@@ -526,6 +543,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   if (gitignoreLine !== undefined && typeof gitignoreLine !== 'string') errors.push('gitignoreLine: must be text')
   if (scaffold !== undefined) errors.push(...scaffoldProblems(root, config, scaffold))
   if (vitestScaffold !== undefined) errors.push(...vitestScaffoldProblems(config, vitestScaffold))
+  if (containersScaffold !== undefined) errors.push(...containersProblems(config, containersScaffold))
   if (errors.length) return { ok: false, errors }
 
   const { templates: found, here: h } = detect(root, process.env, '.')
@@ -544,11 +562,23 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     const smoke = `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`
     if (!existsSync(join(root, smoke))) toWrite.push([smoke, SMOKE_TEXT])
   }
-  if (vitestScaffold !== undefined && !vitestConfigs(root).length) {
-    const ext = existsSync(join(root, 'tsconfig.json')) ? 'ts' : 'js'
-    toWrite.push([`vitest.config.${ext}`, vitestConfigText({ e2e: config.adapter === 'fullstack' })])
+  const ts = existsSync(join(root, 'tsconfig.json'))
+  let out = { ...config }
+  const backend = backendOf(config)
+  // The project's own Vitest config, which the integration config builds on: the one there, else the one written now.
+  const own = vitestConfigs(root).filter(n => !n.startsWith('vitest.integration.config.'))
+  const containers = containersScaffold === undefined ? null
+    : containersWrite(root, backend, out, { deps: packageDeps(root), base: own[0] ?? (vitestScaffold !== undefined ? `vitest.config.${ts ? 'ts' : 'js'}` : null), cmd: { ts, exec: EXEC[packageManager(root, packageJson(root)).pm] } })
+  if (containers?.errors) return { ok: false, errors: containers.errors }
+  if (containers) {
+    const v2 = validateConfig(containers.config)
+    if (!v2.ok) return { ok: false, errors: v2.errors }
+    out = containers.config
   }
-  const out = { ...config }
+  if (vitestScaffold !== undefined && !own.length) {
+    toWrite.push([`vitest.config.${ts ? 'ts' : 'js'}`, vitestConfigText({ e2e: config.adapter === 'fullstack', integration: backend === 'vitest' ? containers?.folder ?? null : null })])
+  }
+  for (const [p, body] of containers?.files ?? []) if (!existsSync(join(root, p))) toWrite.push([p, body])
   if (out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
 
   let step = ''
@@ -671,7 +701,7 @@ function main(argv) {
       process.stdout.write('ok\n')
       return 0
     }
-    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold })
+    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold, containersScaffold: proposal?.containersScaffold })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
     process.stdout.write('ok\n')
     return 0

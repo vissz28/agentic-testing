@@ -108,6 +108,11 @@ func TestVAT(t *testing.T) {
 - Never fake the code under test or a pure helper it calls: the test must run the real logic.
 - **No network**: no real HTTP call, no real database. `httptest.NewServer` is a fake of the
   boundary and is fine.
+- **But the integration layer uses the real database.** When the project starts databases in
+  containers (`github.com/testcontainers/testcontainers-go` in `go.mod`), the tests of its
+  integration layer use the project's container helper (`testdb.PostgresURL(t)` and so on from the
+  `internal/testdb` package setup writes, or the team's own; copy a test already there) and no fake of
+  the database: arrange the rows the test needs, and assert what the code reads or writes there.
 
 ## Determinism
 

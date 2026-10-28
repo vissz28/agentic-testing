@@ -42,6 +42,11 @@ describe('ABC-123 Line totals round to the cent', () => {
 
 - **Mock only I/O boundaries**: the network, the database, the file system, the clock, a message
   queue, a third-party SDK. Use `vi.mock` or `vi.spyOn` on that boundary module only.
+- **The integration layer uses the real database.** When the project starts databases in containers
+  (Testcontainers: the `integration` layer setup adds, or the project's own container helper), the
+  specs of that layer never mock the database: connect the code to the address its helper gives
+  (`postgresUrl()` from `test/integration/databases`, or the team's own), arrange the rows the test
+  needs, and assert what the code reads or writes there. Unit specs keep mocking it.
 - Never mock the code under test or a pure helper it calls: the test must run the real logic.
 - Restore mocks after each test (`vi.restoreAllMocks()` in `afterEach`, or `restoreMocks` in the
   Vitest config).

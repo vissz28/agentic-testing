@@ -73,6 +73,12 @@ public class LineTotalTests
 - **Mock only I/O boundaries**: the database, HTTP clients, the file system, the clock, a message
   queue, a third-party SDK. Use the mocking library the project already has (Moq, NSubstitute,
   FakeItEasy) on the interface of that boundary only.
+- **The integration layer uses the real database.** When the project starts databases in containers
+  (a `Testcontainers` package in its test project, a fixture that builds a `PostgreSqlContainer` or
+  the like), the tests of its integration layer use that fixture (`await TestDatabases.PostgresAsync()`
+  and so on from the `Integration/TestDatabases.cs` setup writes, or the team's own) and never mock the
+  database or the `DbContext`: arrange the rows the test needs, and assert what the code reads or writes there. Unit
+  tests keep their mocks.
 - Never mock the code under test or a pure helper it calls: the test must run the real logic.
 - A new mock per test: no mock in a static field.
 
