@@ -74,6 +74,8 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **Quality Code as an MCP server.** A Python server (`plugins/quality-code/mcp-server`) exposes every
+  command as a tool, plus the scripts and guides, for clients without the Claude Code plugin.
 - **Your tests, your flow.** A project that already has tests keeps its own naming, folders and style:
   new tests are written like its nearest specs. Or choose Quality Code's flow. The option is in
   `/quality-code:setup`, in `/quality-code:config` (item 6) and per run with `/quality-code:spec --flow`.

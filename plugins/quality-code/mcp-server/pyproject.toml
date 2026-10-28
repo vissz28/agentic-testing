@@ -1,0 +1,22 @@
+[project]
+name = "quality-code-mcp"
+version = "0.19.0"
+description = "MCP server that exposes every Quality Code command as a tool, for clients that do not run the Claude Code plugin."
+requires-python = ">=3.10"
+dependencies = ["mcp>=2,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+quality-code-mcp = "quality_code_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["quality_code_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

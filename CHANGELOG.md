@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-28
+
+### Added
+
+- **A Python MCP server that exposes every command as a tool** (AGT-135), in `plugins/quality-code/mcp-server/`,
+  for clients that do not run the Claude Code plugin (Claude Desktop, Cursor, your own agent). One tool
+  per command (`quality_code_spec`, `quality_code_ticket_eval`, …) that returns the command's
+  instructions with your arguments filled in; `quality_code_run_script` runs the plugin's checked
+  scripts with no shell; `quality_code_guide` and `quality-code://guides/<name>` give the guides. New
+  commands appear on their own. Nothing changes for Claude Code users. See its README to run it.
+
 ## [0.18.0] - 2026-10-27
 
 ### Added
