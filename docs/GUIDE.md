@@ -435,8 +435,10 @@ request's target and **runs only what was touched**:
 Exit 0 green, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run. One
 phase failing does not stop the next. On GitHub the run writes a step summary and `::error` annotations; with
 `--junit FILE` it writes a JUnit report that GitLab shows in the merge request. `--init github` or
-`--init gitlab` prints the CI file (`--write` saves it, never over an existing one); it fetches the plugin at
-the version that wrote it.
+`--init gitlab` prints the CI file (`--write` saves it, never over an existing one). **The CI file runs every
+test of the project's test folders** (`ci.mjs --all`): that is what a pipeline should guard. Add `--changed` for
+the variant that runs only what the branch touched. Run by hand, `/quality-code:ci` stays change-aware. The file
+fetches the plugin at the version that wrote it.
 
 **Frozen evals.** `/quality-code:run-pipeline --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or

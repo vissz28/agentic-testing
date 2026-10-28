@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-28
+
+### Changed
+
+- **The generated GitHub and GitLab CI files run all the tests of the test folders** (AGT-141).
+  `/quality-code:ci --init github|gitlab` now writes a file that calls `ci.mjs --all`; add `--changed`
+  for the variant that runs only what the branch touched. Running `/quality-code:ci` by hand is still
+  change-aware. If you already wrote a CI file with 0.24.0, run `--init` again and replace its `ci.mjs`
+  line (or add `--all`).
+
 ## [0.24.0] - 2026-10-28
 
 ### Added

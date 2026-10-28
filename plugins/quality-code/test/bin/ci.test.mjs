@@ -28,8 +28,16 @@ test('the GitHub and GitLab files fetch the plugin at its own version and run on
   const gh = template('github', '9.8.7'), gl = template('gitlab', '9.8.7')
   for (const t of [gh, gl]) {
     assert.match(t, /--branch quality-code--v9\.8\.7 /)
-    assert.match(t, /bin\/ci\.mjs --junit quality-code-junit\.xml/)
+    assert.match(t, /bin\/ci\.mjs( --all)? --junit quality-code-junit\.xml/)
   }
+  for (const t of [gh, gl]) assert.match(t, /bin\/ci\.mjs --all --junit/, 'the file runs every test of the test folders')
+  for (const prov of ['github', 'gitlab']) {
+    const c = template(prov, '9.8.7', { changed: true })
+    assert.match(c, /bin\/ci\.mjs --junit/)
+    assert.doesNotMatch(c, /--all/)
+    assert.match(c, /only the tests the branch touched/)
+  }
+  assert.match(gh, /every test of the project's test folders/)
   assert.match(gh, /on: \[push, pull_request\]/)
   assert.match(gh, /actions\/upload-artifact@v4/)
   assert.match(gl, /junit: quality-code-junit\.xml/)
@@ -57,7 +65,7 @@ test('--init prints the file; --write writes it and never overwrites', async () 
 
 test('bad options and a missing config exit 2', async () => {
   const d = project()
-  for (const argv of [['--suite', 'all'], ['--flaky', '0'], ['--init', 'jenkins'], ['--write'], ['--nope'], ['--suite']]) assert.equal((await run(argv, d)).code, 2, argv.join(' '))
+  for (const argv of [['--changed'], ['--suite', 'all'], ['--flaky', '0'], ['--init', 'jenkins'], ['--write'], ['--nope'], ['--suite']]) assert.equal((await run(argv, d)).code, 2, argv.join(' '))
   const none = mkdtempSync(join(tmpdir(), 'qc-ci-none-'))
   const r = await run([], none)
   assert.equal(r.code, 2)
