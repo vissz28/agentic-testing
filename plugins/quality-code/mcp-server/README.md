@@ -51,7 +51,7 @@ docker run -d -p 8000:8000 -v /srv/project:/data \
 
 or without Docker: set the same variables plus `QUALITY_CODE_PROJECT_DIR=/srv/project` and run `quality-code-mcp --transport http --port 8000`.
 
-`QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is optional: when set, the token must carry that scope (`scp`) or app role (`roles`). Terminate HTTPS in front of the container (a load balancer or reverse proxy); the public address must be `https://`. The container runs as a non-root user and has a health check.
+`QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is optional: when set, the token must carry that scope (`scp`) or app role (`roles`). `QUALITY_CODE_ENTRA_AUTHORITY` is optional too: the login host, `https://login.microsoftonline.com` by default (for a sovereign cloud use for example `https://login.microsoftonline.us`). Terminate HTTPS in front of the container (a load balancer or reverse proxy); the public address must be `https://`. The container runs as a non-root user and has a health check.
 
 What is checked on every request: the signature (against the tenant's published keys, cached), the issuer (v1.0 or v2.0 of your tenant), the tenant (`tid`), the audience (your client ID or `api://<client id>`), the expiry, and the scope or role when you require one. Anything else gets `401`. Clients sign in through the usual MCP OAuth flow against Entra; the server never sees a password.
 

@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-28
+
+### Added
+
+- **The online MCP server is tested end to end** (AGT-139): a test starts the HTTP server in its own
+  process against a mock Entra tenant that serves the signing keys, then connects a real MCP client with a
+  bearer token. The signed-in client gets the Jira-only tools and runs a script; forged, wrong-audience
+  and expired tokens never connect.
+- `QUALITY_CODE_ENTRA_AUTHORITY` sets the login host for a sovereign cloud (default
+  `https://login.microsoftonline.com`).
+
 ## [0.22.0] - 2026-10-28
 
 ### Added

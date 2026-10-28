@@ -22,11 +22,12 @@ class EntraSettings:
     client_id: str  # the app registration of this server (its Application (client) ID)
     public_url: str  # where clients reach this server, for example https://qc-mcp.example.com
     required_scope: str | None = None  # a delegated scope (scp) or an app role (roles) the token must carry
+    authority: str = AUTHORITY  # the login host; another for a sovereign cloud (login.microsoftonline.us) or a test tenant
 
     @property
     def issuers(self) -> list[str]:
         # v2.0 tokens and v1.0 tokens carry different issuers.
-        return [f"{AUTHORITY}/{self.tenant_id}/v2.0", f"https://sts.windows.net/{self.tenant_id}/"]
+        return [f"{self.authority}/{self.tenant_id}/v2.0", f"https://sts.windows.net/{self.tenant_id}/"]
 
     @property
     def audiences(self) -> list[str]:
@@ -35,11 +36,11 @@ class EntraSettings:
 
     @property
     def jwks_uri(self) -> str:
-        return f"{AUTHORITY}/{self.tenant_id}/discovery/v2.0/keys"
+        return f"{self.authority}/{self.tenant_id}/discovery/v2.0/keys"
 
     @property
     def issuer_url(self) -> str:
-        return f"{AUTHORITY}/{self.tenant_id}/v2.0"
+        return f"{self.authority}/{self.tenant_id}/v2.0"
 
 
 def settings_from_env(env: dict[str, str] | None = None) -> EntraSettings:
@@ -51,7 +52,10 @@ def settings_from_env(env: dict[str, str] | None = None) -> EntraSettings:
     got = {v: env[k].strip() for k, v in need.items()}
     if not got["public_url"].startswith(("https://", "http://localhost", "http://127.0.0.1")):
         raise EntraConfigError("QUALITY_CODE_PUBLIC_URL must be an https:// address (http only for localhost).")
-    return EntraSettings(**got, required_scope=(env.get("QUALITY_CODE_ENTRA_REQUIRED_SCOPE") or "").strip() or None)
+    authority = (env.get("QUALITY_CODE_ENTRA_AUTHORITY") or AUTHORITY).strip().rstrip("/")
+    if not authority.startswith(("https://", "http://127.0.0.1", "http://localhost")):
+        raise EntraConfigError("QUALITY_CODE_ENTRA_AUTHORITY must be an https:// address (for example https://login.microsoftonline.us).")
+    return EntraSettings(**got, required_scope=(env.get("QUALITY_CODE_ENTRA_REQUIRED_SCOPE") or "").strip() or None, authority=authority)
 
 
 class EntraTokenVerifier:
