@@ -75,3 +75,14 @@ def test_over_stdio():
                 return res.content[0].text
 
     assert "ABC-1" in asyncio.run(go())
+
+
+def test_check_and_print_config(capsys):
+    from quality_code_mcp.server import check, client_config
+
+    assert check() == 0
+    assert "tools" in capsys.readouterr().out
+    cfg = client_config()
+    j = json.loads(cfg.split("\n\n")[0])
+    assert j["mcpServers"]["quality-code"]["env"]["QUALITY_CODE_PLUGIN_ROOT"] == str(ROOT)
+    assert "claude mcp add quality-code" in cfg

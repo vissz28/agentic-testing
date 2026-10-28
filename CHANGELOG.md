@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-28
+
+### Added
+
+- **One-command install of the local MCP server** (AGT-138). `mcp-server/install.sh` makes the virtual
+  environment, installs the server and checks it; `quality-code-mcp --check` checks Python, Node and the
+  tools; `quality-code-mcp --print-config` prints the config for Claude Desktop, Cursor and Claude Code
+  with this install's own paths.
+
 ## [0.21.0] - 2026-10-28
 
 ### Added

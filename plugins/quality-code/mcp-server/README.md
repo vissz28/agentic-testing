@@ -8,22 +8,17 @@ A Python MCP server that exposes Quality Code to any MCP client (Claude Desktop,
 
 Needs Python 3.10+ and Node.js 18+ (the scripts).
 
-## Run it
+## Install the local server (developers)
 
 ```bash
-cd plugins/quality-code/mcp-server
-python3 -m venv .venv && .venv/bin/pip install -e .
+plugins/quality-code/mcp-server/install.sh
 ```
 
-In the client's MCP settings:
+It makes a virtual environment next to the script, installs the server, runs a check (Python, Node 18+, all 16 tools) and prints the config for your client with this install's own paths: the JSON for Claude Desktop, Cursor or a `.mcp.json`, and the `claude mcp add …` line for Claude Code. Run `.venv/bin/quality-code-mcp --check` any time to check it again, and `--print-config` to print the config again.
 
-```json
-{ "mcpServers": { "quality-code": { "command": "/path/to/mcp-server/.venv/bin/quality-code-mcp" } } }
-```
+Your client starts the server itself when it needs it: nothing runs in the background and nothing is hosted. Then ask the client to run a command, for example "run quality_code_ticket_eval for ABC-123".
 
-It finds the plugin by its place in the repo. Installed elsewhere, set `QUALITY_CODE_PLUGIN_ROOT` to the `plugins/quality-code` folder. The plugin settings that Claude Code fills in are read from `QUALITY_CODE_JIRA_EMAIL`, `QUALITY_CODE_GITLAB_API_URL`, `QUALITY_CODE_GITLAB_USERNAME` and `QUALITY_CODE_XRAY_API_URL` when set.
-
-The commands also use Jira, GitLab, Figma and file tools: the client brings those (connect the Atlassian MCP server next to this one).
+The commands also use Jira, GitLab, Figma and file tools: the client brings those (connect the Atlassian MCP server next to this one). The plugin settings that Claude Code fills in are read from `QUALITY_CODE_JIRA_EMAIL`, `QUALITY_CODE_GITLAB_API_URL`, `QUALITY_CODE_GITLAB_USERNAME` and `QUALITY_CODE_XRAY_API_URL` when set.
 
 ## Two ways to run it
 

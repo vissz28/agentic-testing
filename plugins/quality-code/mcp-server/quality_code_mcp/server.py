@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 import asyncio
 import os
 import shutil
@@ -136,12 +138,50 @@ def _guide_resource(root: Path, key: str):
     return FunctionResource(uri=f"quality-code://guides/{key}", name=f"guide-{key}", description=f"Quality Code guide: {key}", mime_type="text/markdown", fn=lambda: render_guide(root, key))
 
 
+def check() -> int:
+    """0 when the local server can run: the plugin is found, Node is there, and every command is a tool."""
+    problems = []
+    try:
+        root = plugin_root()
+        n = len(asyncio.run(build(root).list_tools()))
+        print(f"ok: plugin {root}; {n} tools")
+    except SystemExit as e:
+        problems.append(str(e))
+    node = shutil.which("node")
+    if node:
+        major = subprocess.run([node, "-p", "process.versions.node.split('.')[0]"], capture_output=True, text=True).stdout.strip()
+        if major.isdigit() and int(major) < 18:
+            problems.append(f"Node.js {major} is too old: Quality Code's scripts need 18 or later.")
+        else:
+            print(f"ok: node {node} (v{major})")
+    else:
+        problems.append("Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found.")
+    for p in problems:
+        print("problem:", p)
+    return 1 if problems else 0
+
+
+def client_config() -> str:
+    """The JSON to paste into Claude Desktop, Cursor or `.mcp.json`, plus the Claude Code one-liner, with this install's own paths."""
+    cmd = shutil.which("quality-code-mcp") or str(Path(sys.argv[0]).resolve())
+    env = {"QUALITY_CODE_PLUGIN_ROOT": str(plugin_root())}
+    cfg = json.dumps({"mcpServers": {"quality-code": {"command": cmd, "args": [], "env": env}}}, indent=2)
+    return f"{cfg}\n\n# Claude Code:\nclaude mcp add quality-code --env QUALITY_CODE_PLUGIN_ROOT={env['QUALITY_CODE_PLUGIN_ROOT']} -- {cmd}"
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="quality-code-mcp", description="Quality Code MCP server")
     ap.add_argument("--transport", choices=["stdio", "http"], default="stdio", help="stdio (local, no sign-in) or http (needs Entra ID)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--check", action="store_true", help="check Python, Node and the tools, then exit")
+    ap.add_argument("--print-config", action="store_true", help="print the config to paste into an MCP client, then exit")
     a = ap.parse_args(argv)
+    if a.check:
+        raise SystemExit(check())
+    if a.print_config:
+        print(client_config())
+        return
     if a.transport == "stdio":
         build().run("stdio")
         return
