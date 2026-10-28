@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-28
+
+### Added
+
+- **A shared MCP server for QA and PO** (AGT-137). Over HTTP the server offers only the Jira-only
+  commands (`ticket`, `ticket-eval`, `tickets-eval`), the read-only scripts they call, and their
+  guides; the caller never picks the folder; at most 4 scripts run at once; `/health` answers without
+  a token. A `Dockerfile` (non-root, health check) builds it, and CI builds the image and checks it
+  starts, answers `/health` and refuses an unsigned request. The local (stdio) server for developers is
+  unchanged and still offers everything.
+
 ## [0.20.0] - 2026-10-28
 
 ### Added

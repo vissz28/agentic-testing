@@ -25,27 +25,42 @@ It finds the plugin by its place in the repo. Installed elsewhere, set `QUALITY_
 
 The commands also use Jira, GitLab, Figma and file tools: the client brings those (connect the Atlassian MCP server next to this one).
 
+## Two ways to run it
+
+| | Local (stdio) | Shared (HTTP) |
+|---|---|---|
+| For | developers | QA and PO |
+| Runs | on your computer, started by the client | one server for the team, behind HTTPS |
+| Sign-in | none: it is your machine | Microsoft Entra ID on every request |
+| Tools | every command and script | only the Jira-only ones: `ticket`, `ticket-eval`, `tickets-eval`, the read-only scripts `ticket` and `branch`, and the guides they use |
+
+The shared server cannot see anyone's checkout, so `spec`, the run commands, `seed`, `xray`, `qa`, `setup`, `config` and `kpi` stay on the local server. Over HTTP the caller never picks the folder (no `cwd`), at most 4 scripts run at once (more get `busy`), and `/health` answers without a token for the platform's health checks.
+
 ## Sign-in with Microsoft Entra ID (shared server)
 
-Over stdio the server runs on your own computer for you alone, with no sign-in. To share one server with a team, run it over HTTP: then **every request needs a valid Entra ID access token**, and the server refuses to start without the settings.
+The shared server accepts only a valid Entra ID access token, and refuses to start without its settings.
 
-1. In Entra, register an app for the server (App registrations). Note its **Application (client) ID** and your **Directory (tenant) ID**. Under *Expose an API*, set the Application ID URI (`api://<client id>`) and, if you want to limit who can call, add a scope or an app role (for example `QualityCode.Use`) and assign it to your users or groups.
-2. Start it:
+1. In Entra, register an app for the server (App registrations). Note its **Application (client) ID** and your **Directory (tenant) ID**. Under *Expose an API*, set the Application ID URI (`api://<client id>`) and, to limit who can call, add a scope or an app role (for example `QualityCode.Use`) and assign it to your users or groups.
+2. Put a project folder on the server with `.claude/quality-code.json` (the Jira site and projects; `/quality-code:setup` writes it). The scripts read it.
+3. Start it, in Docker (recommended):
 
 ```bash
-QUALITY_CODE_ENTRA_TENANT_ID=<tenant id> \
-QUALITY_CODE_ENTRA_CLIENT_ID=<client id> \
-QUALITY_CODE_PUBLIC_URL=https://qc-mcp.example.com \
-QUALITY_CODE_PROJECT_DIR=/srv/project \
-QUALITY_CODE_ENTRA_REQUIRED_SCOPE=QualityCode.Use \
-.venv/bin/quality-code-mcp --transport http --port 8000
+docker build -f mcp-server/Dockerfile -t quality-code-mcp .      # from plugins/quality-code
+docker run -d -p 8000:8000 -v /srv/project:/data \
+  -e QUALITY_CODE_ENTRA_TENANT_ID=<tenant id> \
+  -e QUALITY_CODE_ENTRA_CLIENT_ID=<client id> \
+  -e QUALITY_CODE_PUBLIC_URL=https://qc-mcp.example.com \
+  -e QUALITY_CODE_ENTRA_REQUIRED_SCOPE=QualityCode.Use \
+  quality-code-mcp
 ```
 
-`QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is optional: when set, the token must carry that scope (`scp`) or app role (`roles`). Put the server behind HTTPS (the public address must be `https://`).
+or without Docker: set the same variables plus `QUALITY_CODE_PROJECT_DIR=/srv/project` and run `quality-code-mcp --transport http --port 8000`.
 
-What is checked on every request: the signature (against the tenant's published keys, cached), the issuer (v1.0 or v2.0 of your tenant), the tenant (`tid`), the audience (your client ID or `api://<client id>`), the expiry, and the scope or role when you require one. Anything else gets `401`.
+`QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is optional: when set, the token must carry that scope (`scp`) or app role (`roles`). Terminate HTTPS in front of the container (a load balancer or reverse proxy); the public address must be `https://`. The container runs as a non-root user and has a health check.
 
-Over HTTP the scripts run only in `QUALITY_CODE_PROJECT_DIR`: a remote caller cannot choose the folder (`cwd` is ignored). Clients sign in through the usual MCP OAuth flow against Entra; the server never sees a password.
+What is checked on every request: the signature (against the tenant's published keys, cached), the issuer (v1.0 or v2.0 of your tenant), the tenant (`tid`), the audience (your client ID or `api://<client id>`), the expiry, and the scope or role when you require one. Anything else gets `401`. Clients sign in through the usual MCP OAuth flow against Entra; the server never sees a password.
+
+Known limits: the scripts see one shared project folder, so ticket copies that the commands save are shared by all callers; and Jira itself is reached by the caller's own Atlassian connector, not by this server. There is no rate limit beyond the 4 concurrent runs: put the server behind a gateway for that.
 
 ## Test
 

@@ -6,6 +6,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
@@ -19,14 +20,25 @@ from .catalog import Command, list_guides, list_scripts, load_commands, plugin_r
 
 TIMEOUT_S = 900
 MAX_OUT = 200_000
+MAX_RUNNING = 4  # script runs at once on a shared server
+
+# What a shared (HTTP) server offers: the Jira-only commands for QA and PO, the read-only scripts they call, the guides they point to.
+# Everything that needs a developer's checkout (spec, the run commands, seed, xray, qa, setup, config, kpi) stays on the local server.
+REMOTE_COMMANDS = {"ticket", "ticket-eval", "tickets-eval"}
+REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
+REMOTE_GUIDES = {"connectors", "save-place"}
 
 
-def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None) -> MCPServer:
-    """`entra` turns on Entra ID verification (HTTP). `fixed_cwd` pins where scripts run, so a remote caller cannot pick the folder."""
+def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False) -> MCPServer:
+    """`entra` turns on Entra ID verification (HTTP). `remote` is the shared-server profile: only the Jira-only commands and read-only scripts,
+    run in `fixed_cwd` (a caller cannot pick the folder), at most MAX_RUNNING at once, and an open /health."""
     root = root or plugin_root()
-    commands = load_commands(root)
-    scripts = set(list_scripts(root))
-    guides = set(list_guides(root))
+    commands = [c for c in load_commands(root) if not remote or c.name in REMOTE_COMMANDS]
+    scripts = set(list_scripts(root)) & (REMOTE_SCRIPTS if remote else set(list_scripts(root)))
+    guides = set(list_guides(root)) & (REMOTE_GUIDES if remote else set(list_guides(root)))
+    if remote and not fixed_cwd:
+        raise ValueError("the shared server runs its scripts in one folder: pass fixed_cwd")
+    running = threading.BoundedSemaphore(MAX_RUNNING)
     extra: dict = {}
     if entra:
         extra = {
@@ -70,14 +82,27 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         if not work.is_dir():
             return f"error: {work} is not a folder."
         env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
+        if not running.acquire(blocking=False):
+            return f"error: busy: {MAX_RUNNING} scripts are running already. Try again in a moment."
         try:
             p = subprocess.run([node, str(root / "bin" / name), *(args or [])], cwd=work, env=env, capture_output=True, text=True, timeout=TIMEOUT_S)
         except subprocess.TimeoutExpired:
             return f"error: {name} did not finish in {TIMEOUT_S} seconds."
+        finally:
+            running.release()
         out = (p.stdout + p.stderr)[:MAX_OUT]
         return f"{out}\n[exit code {p.returncode}]"
 
-    server.add_tool(quality_code_run_script, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
+    if remote:
+        # No `cwd` in the schema: a remote caller never picks the folder.
+        def quality_code_run_script_remote(script: str, args: list[str] | None = None) -> str:
+            """Run one of the plugin's checked read-only scripts (node bin/<script>). Each argument is its own list item."""
+            return quality_code_run_script(script, args)
+
+        server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
+        server.custom_route("/health", methods=["GET"])(_health)
+    else:
+        server.add_tool(quality_code_run_script, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
 
     def quality_code_guide(name: str = "") -> str:
         """Read one of the plugin's guides by name (the commands point to them). With no name, lists them."""
@@ -93,6 +118,12 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     for g in sorted(guides):
         server.add_resource(_guide_resource(root, g))
     return server
+
+
+async def _health(request):
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok"})
 
 
 def render_guide(root: Path, key: str) -> str:
@@ -126,7 +157,7 @@ def main(argv: list[str] | None = None) -> None:
         enable_dns_rebinding_protection=True,
         allowed_hosts=[host, "127.0.0.1:*", "localhost:*"], allowed_origins=[f"https://{host}", "http://127.0.0.1:*", "http://localhost:*"],
     )
-    server = build(entra=entra, fixed_cwd=Path(project).resolve())
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True)
     asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
 
 

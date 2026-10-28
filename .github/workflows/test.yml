@@ -72,3 +72,16 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: cd plugins/quality-code/mcp-server && pip install -e ".[test]" && python -m pytest
+  mcp-server-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd plugins/quality-code && docker build -f mcp-server/Dockerfile -t quality-code-mcp .
+      - name: refuses to start without Entra settings
+        run: "! docker run --rm quality-code-mcp"
+      - name: starts, answers /health, and refuses an unsigned request
+        run: |
+          docker run -d --name qc -p 8000:8000 -e QUALITY_CODE_ENTRA_TENANT_ID=11111111-1111-1111-1111-111111111111 -e QUALITY_CODE_ENTRA_CLIENT_ID=22222222-2222-2222-2222-222222222222 -e QUALITY_CODE_PUBLIC_URL=https://qc-mcp.example.com quality-code-mcp
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done
+          curl -sf localhost:8000/health | grep -q '"ok"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:8000/mcp -H 'Content-Type: application/json' -d '{}')" = 401
