@@ -7,7 +7,7 @@ const doc = readFileSync(new URL('../commands/tickets-eval.md', import.meta.url)
 const evalDoc = readFileSync(new URL('../commands/ticket-eval.md', import.meta.url), 'utf8')
 
 test('frontmatter', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <PROJECT> \[--user <name>\] \[--status <status>\] \[--limit N\] \[--json\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)\nmodel: sonnet\n---\n/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <PROJECT> \[--user <name>\] \[--status <status>\] \[--limit N \| --all\] \[--json\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)\nmodel: sonnet\n---\n/)
 })
 test('the run-scripts-as-written rule is copied word for word from ticket-eval', () => {
   const rule = l => l.startsWith('- **Run each plugin script exactly as written:**')

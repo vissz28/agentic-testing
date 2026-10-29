@@ -9,6 +9,38 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-29
+
+### Fixed
+
+Everything the fiscal-orchestrator pilot report (0.18.0, a monorepo with co-located specs) and a second pilot asked for (AGT-145):
+
+- **Spec discovery.** Specs next to the code (`*.unit.test.js(x)`) are found by name: the census, `run-backend` and
+  `--suite backend` see them (28 of 439 before). A layer may point at `src/` once `boundaries.allow` names the test files
+  there; `setup.mjs --detect` reports `colocated` and `--write` with `"colocated": true` wires it. A unit spec inside the e2e
+  folder is no longer a Playwright spec "that never ran". The project flow keeps `.unit.test.jsx` as its pattern.
+- **Expected check.** It reads only what follows the Then of a one-line Given / When / Then (the WHEN label is an input);
+  `--expected` values from the ticket's Notes are honoured; new `expected` config: `aliases`, `ignore`, `fields`.
+- **Honesty.** A skip with a condition that reads the environment, or whose reason names an environment variable or the
+  ticket under test, is honest.
+- **Assertions through page objects** (`page.expectGridVisible()`, `verify…`, `assert…`, and `assertionHelpers`) count.
+- **Mutation** says how many mutants were killed and where it could not run, instead of contradicting its own counts.
+- **`ticketAnchor: "branch"`**: a spec changed on the branch with no block of the key counts as the ticket's.
+- **Red verdict reason.** "For a bug whose fix isn't merged yet, red is the expected result" only for a Bug that is not
+  merged or done; a Task, Story or merged ticket gets the right reason.
+- **A red Playwright test** shows the failing line, the locator, and the page URL and text when Playwright recorded them
+  (`error-context.md`), or how to record them.
+- **Screens.** `/quality-code:spec` checks a route against the app's router (`bin/routes.mjs`), names the closest ones,
+  and the screen card says how to pass `--route`.
+- `consumption` finds sessions that ran at the repo top when `root` is set. `tickets-eval --all` scores every ticket and the
+  card says when the rate is only a sample. Setup proposes a workspace as `root` at the top of a monorepo and says what to do
+  with the ticket files. The seed guide covers GraphQL apps (stubs keyed by operation name).
+
+### Added
+
+- Config: `expected`, `assertionHelpers`, `ticketAnchor`, `gate` (`omit`, `contextFromIntro`), `roots` (with
+  `ticket.mjs root get|set`), `sides.default`.
+
 ## [0.27.0] - 2026-10-28
 
 ### Added

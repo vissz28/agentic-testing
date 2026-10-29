@@ -63,6 +63,17 @@ await seedOrder(db, { id: 'ord-1', customerId: customer.id, total: '150.00', sta
 - **Shape copied, never guessed.** Copy the response shape from an existing stub of the same endpoint:
   the keys, the nesting, the wrapper (`{ data, total }`, `{ count, items }`, or the bare body), the
   types. Fill it with the ticket's facts. No existing stub for an endpoint: stop and say so.
+- **A GraphQL app has one URL for every operation.** There the stub is told apart by the operation name inside the request body
+  (`postData().operationName`, or the name after `query`/`mutation`), not by the endpoint: match on it, and let every other
+  operation continue (`route.fallback()`). "Same endpoint" in the first rule then means the same operation. The first stub for an
+  operation the specs never stubbed is still written by hand; copy the response shape from the operation's type or a real response.
+
+  ```ts
+  await page.route('**/graphql', route => {
+    const body = route.request().postDataJSON()
+    return body?.operationName === 'StsDocumentsList' ? route.fulfill({ json: { data: { documents: [] } } }) : route.fallback()
+  })
+  ```
 - **Registration order:** Playwright uses the handler registered **last** among the routes that match
   a request. Register the broad route first (`**/orders**`) and the specific ones after it
   (`**/orders/ord-1**`), or the broad one swallows them.

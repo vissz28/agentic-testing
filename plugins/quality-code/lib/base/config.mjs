@@ -1,8 +1,8 @@
 // Find, load and validate the team config. The only module that knows where it lives.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { matches } from './boundary.mjs'
+import { allowCovers, matches } from './boundary.mjs'
 import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs'
 import { RUNNERS } from './runners.mjs'
 import { placeDirs, placeOf } from './places.mjs'
@@ -11,7 +11,7 @@ import { FLOWS } from './conventions.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -60,11 +60,49 @@ function findHome(dir) {
   }
 }
 
+const folderKey = f => String(f).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
+const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'quality-code', 'roots.json')
+
+/**
+ * The project one config serves out of several ("roots"): QUALITY_CODE_ROOT for one run, else the folder this
+ * person picked with `ticket.mjs root set` (kept on this computer, per repo). Only a folder the config lists counts.
+ */
+function chosenRoot(home, c, env = process.env) {
+  if (!Array.isArray(c?.roots)) return null
+  const allowed = new Set([...c.roots, c.root].filter(pathOk).map(folderKey))
+  let pick = env.QUALITY_CODE_ROOT
+  if (!pick) { try { pick = JSON.parse(readFileSync(activeRootsFile(env), 'utf8'))[resolve(home)] } catch {} }
+  return pick && allowed.has(folderKey(pick)) ? pick : null
+}
+
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
 function withRoot(home) {
-  let r
-  try { r = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8'))?.root } catch {}
+  let c
+  try { c = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8')) } catch {}
+  const r = chosenRoot(home, c) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
+}
+
+/** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
+export function rootsOf(home, env = process.env) {
+  let c
+  try { c = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8')) } catch {}
+  const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
+  return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
+}
+
+/** Picks the active root for the config in home (kept on this computer). Returns { ok, error? }. */
+export function setActiveRoot(home, folder, env = process.env) {
+  const { roots } = rootsOf(home, env)
+  if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
+  if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
+  const file = activeRootsFile(env)
+  let all = {}
+  try { all = JSON.parse(readFileSync(file, 'utf8')) } catch {}
+  all[resolve(home)] = folderKey(folder)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(all, null, 2))
+  return { ok: true }
 }
 
 /** The project dir is in: that of the nearest config at or above it, or null. */
@@ -122,7 +160,7 @@ function folderErrors(folder, name, rules, e) {
   if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
   if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
   const f = folder.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
-  const rule = rules.allow.some(a => matches(a, f)) ? null : rules.forbidden.find(r => matches(r.path.replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''), f))
+  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(r.path.replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''), f))
   if (rule) e.push(`${name} "${folder}" is inside the forbidden "${rule.path}"`)
 }
 
@@ -224,6 +262,33 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (typeof k !== 'string' || !SPACE_KEY.test(k)) e.push(`confluenceSpaces[${i}] ${JSON.stringify(k)} must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"`)
     })
   }
+  if (c.gate !== undefined) {
+    const g = c.gate
+    if (!isObj(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
+    else {
+      for (const k of Object.keys(g)) if (!['omit', 'contextFromIntro'].includes(k)) e.push(`gate.${k}: unknown field (only "omit" and "contextFromIntro")`)
+      const OMIT = ['attachments', 'links', 'context', 'environment']
+      if (g.omit !== undefined && (!Array.isArray(g.omit) || g.omit.some(k => !OMIT.includes(k)))) e.push(`gate.omit: must be a list of ${orList(quoted(OMIT))}: items that never count against a ticket of this project`)
+      if (g.contextFromIntro !== undefined && typeof g.contextFromIntro !== 'boolean') e.push('gate.contextFromIntro: must be true or false (true: the paragraph before the first heading counts as the Context)')
+    }
+  }
+  if (c.expected !== undefined) {
+    const x = c.expected
+    if (!isObj(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
+    else {
+      for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
+      const text = v => typeof v === 'string' && v.trim() !== '' && !/[\r\n]/.test(v)
+      if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(text))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
+      if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
+      if (x.aliases !== undefined) {
+        if (!isObj(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
+        else for (const [k, v] of Object.entries(x.aliases)) if (!text(k) || !(text(v) || (Array.isArray(v) && v.length > 0 && v.every(text)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
+      }
+    }
+  }
+  if (c.assertionHelpers !== undefined && (!Array.isArray(c.assertionHelpers) || !c.assertionHelpers.every(h => typeof h === 'string' && /^[A-Za-z_$][\w$]*$/.test(h)))) e.push('assertionHelpers: must be a list of method-name prefixes that assert for a test (page objects), like ["check", "ensure"]; expect, assert and verify always count')
+  if (c.ticketAnchor !== undefined && !['block', 'branch'].includes(c.ticketAnchor)) e.push(`ticketAnchor ${JSON.stringify(c.ticketAnchor)}: must be "block" (a group whose title names the ticket) or "branch" (also a spec changed on the branch)`)
+  if (c.roots !== undefined && (!Array.isArray(c.roots) || c.roots.length < 1 || !c.roots.every(pathOk))) e.push('roots: must be a list of folders inside the repository, like ["app", "backend-executor"] (the projects one config serves; ticket.mjs root set picks the active one)')
   if (c.testFlow !== undefined && !FLOWS.includes(c.testFlow)) e.push(`testFlow ${JSON.stringify(c.testFlow)}: must be "project" (follow the project's own tests) or "quality-code"`)
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
@@ -407,7 +472,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
     else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
     else for (const [k, v] of Object.entries(c.sides)) {
-      if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend" and "fullstack")`)
+      if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
+      else if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend", "fullstack" and "default")`)
       else if (!Array.isArray(v) || v.some(m => typeof m !== 'string' || !m.trim() || /[\[\]\r\n]/.test(m))) e.push(`sides.${k}: must be a list of title prefixes or labels, like ["FE"] (no brackets)`)
     }
   }

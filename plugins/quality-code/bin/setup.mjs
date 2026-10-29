@@ -16,7 +16,7 @@ import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
-import { backendOf } from '../lib/base/backends.mjs'
+import { backendOf, isBackend } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 
@@ -452,6 +452,19 @@ function rootCandidates(top) {
 }
 
 /**
+ * Tests that sit next to the code (src/**\/*.unit.test.jsx): the layer that finds them and the boundary rule that lets a run
+ * write their names, or null when the project keeps its tests apart. A layer in src/ needs the rule: src/ is otherwise protected.
+ */
+export function colocatedProposal(root) {
+  const c = detectConventions(root)
+  if (!c.beside || !c.specs || !c.pattern) return null
+  const top = [...new Set(c.folders.map(f => f.split('/')[0]))]
+  if (top.length !== 1 || top[0] === '.') return null
+  const folder = `${top[0]}/`
+  return { layer: { name: 'unit', folder }, allow: [`${folder}**/*${c.pattern.replace(/^\*/, '')}`], specs: c.specs, pattern: c.pattern }
+}
+
+/**
  * What setup proposes, read from the project root: the subfolder sub names ("." the top), else the
  * existing config's root, else the first candidate when the top shows no project of its own. The
  * config, existing and personal stay at the top.
@@ -464,7 +477,10 @@ export function detect(top, env = process.env, sub = null) {
     try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
   }
   const candidates = rootCandidates(top)
-  const bare = !existsSync(join(top, 'package.json')) && !detectBackends(top).length
+  // The top of an npm-workspaces monorepo only orchestrates: the project is one of its workspaces.
+  const topPkg = (() => { try { return readJson(join(top, 'package.json')) } catch { return null } })()
+  const orchestrates = Boolean(topPkg?.workspaces) && !TEST_DEPS.some(d => d in { ...topPkg.dependencies, ...topPkg.devDependencies })
+  const bare = (!existsSync(join(top, 'package.json')) && !detectBackends(top).length) || orchestrates
   const pick = sub ?? (typeof existing?.root === 'string' ? existing.root : bare ? candidates[0] ?? null : null)
   const proposed = pick && resolve(top, pick) !== resolve(top) ? pick : null
   const root = proposed ? resolve(top, proposed) : top
@@ -502,6 +518,7 @@ export function detect(top, env = process.env, sub = null) {
     boundaries: boundaryCandidates(root),
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
+    colocated: colocatedProposal(root),
     specFolders: specFolders(root),
     conventions: detectConventions(root),
     playwrightConfigs: pwConfigs,
@@ -531,7 +548,19 @@ function pathProblem(root, label, p) {
  * (true) the Vitest config, containersScaffold (true) the integration layer that runs on real databases;
  * an existing file is never replaced.
  */
-export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold } = {}) {
+export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated } = {}) {
+  // colocated (true): the project's tests sit next to its code: its test folder is the code folder, with the test names allowed.
+  if (colocated !== undefined) {
+    if (colocated !== true) return { ok: false, errors: ['colocated: must be true'] }
+    const proposal = colocatedProposal(resolve(top, config?.root ?? '.'))
+    if (!proposal) return { ok: false, errors: ['colocated: this project has no tests next to its code'] }
+    const block = isBackend(config?.adapter) ? config.adapter : backendOf(config) ?? 'vitest'
+    config = {
+      ...config,
+      [block]: { ...config[block], layers: config[block]?.layers ?? [proposal.layer] },
+      boundaries: { ...config.boundaries, allow: [...new Set([...(config.boundaries?.allow ?? []), ...proposal.allow])] },
+    }
+  }
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
   // The config stays at the top; every file it names, and what setup adds, is in the project root.
@@ -701,7 +730,7 @@ function main(argv) {
       process.stdout.write('ok\n')
       return 0
     }
-    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold, containersScaffold: proposal?.containersScaffold })
+    const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold, containersScaffold: proposal?.containersScaffold, colocated: proposal?.colocated })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
     process.stdout.write('ok\n')
     return 0

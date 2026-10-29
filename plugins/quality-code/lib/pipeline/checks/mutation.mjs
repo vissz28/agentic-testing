@@ -61,15 +61,15 @@ export function findTestBlocks(src, dialect) {
 }
 
 /** Mutants for the baseline-green tests; null when --key names a block that is not there. */
-export function planMutants(src, passedTitles, { key = null, thorough = false, ungraded = null } = {}, dialect) {
-  const range = key ? anchorRange(src, key, dialect) : null
+export function planMutants(src, passedTitles, { key = null, thorough = false, ungraded = null, whole = false } = {}, dialect) {
+  const range = key ? anchorRange(src, key, dialect, { whole }) : null
   if (key && !range) return null
   return dialect.mutation.plan({ src, passedTitles, range, thorough, ungraded, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
 }
 
 /** The baseline-green tests in range that got no mutant: nothing shows their assertions can fail. */
-export function unmutated(src, passedTitles, mutants, { key = null, ungraded = null } = {}, dialect) {
-  const range = key ? anchorRange(src, key, dialect) : null
+export function unmutated(src, passedTitles, mutants, { key = null, ungraded = null, whole = false } = {}, dialect) {
+  const range = key ? anchorRange(src, key, dialect, { whole }) : null
   const passed = new Set(passedTitles)
   const hit = new Set(mutants.map(m => m.title))
   const left = findTestBlocks(src, dialect).filter(b => (!range || (b.start >= range[0] && b.start < range[1])) && dialect.mutation.eligible(b, passed, ungraded) && !hit.has(b.title))
@@ -94,7 +94,7 @@ export function sweepStale(dir) {
   return n
 }
 
-export async function run({ spec, key = null, baseline = null, max = null, thorough = false, timeoutMs = 300_000 }, ctx) {
+export async function run({ spec, key = null, baseline = null, max = null, thorough = false, timeoutMs = 300_000, whole = false }, ctx) {
   const specPath = resolve(ctx.root, spec)
   const bytes = readFileSync(specPath)
   const src = bytes.toString('utf8')
@@ -107,9 +107,9 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   }
   if (!passed.length) return result('mutation', 'not_run', 'baseline had no passing test')
   const ungraded = ungradedTitlesOf(ctx.config, ctx.dialect)
-  let mutants = planMutants(src, passed, { key, thorough, ungraded }, ctx.dialect)
+  let mutants = planMutants(src, passed, { key, thorough, ungraded, whole }, ctx.dialect)
   if (mutants === null) return result('mutation', 'not_run', `no ${key} block in ${spec}`, [{ file: spec, kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
-  const bare = unmutated(src, passed, mutants, { key, ungraded }, ctx.dialect)
+  const bare = unmutated(src, passed, mutants, { key, ungraded, whole }, ctx.dialect)
   const bareFindings = bare.map(t => ({ file: spec, test: t, kind: 'not mutated', detail: 'passes, but has no assertion mutation can check' }))
   const rank = ctx.dialect.mutation.rank
   mutants = [...mutants].sort((a, b) => rank(a.kind) - rank(b.kind))
@@ -133,7 +133,7 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
       try { r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs }) } finally { if (inPlace) cleanup() }
       // A namesake in another ticket's block never kills this one's mutant. A result with no describe path
       // is taken as it is: it cannot be in another block.
-      const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || !t.path?.length || inKeyBlock(t, key))) : []
+      const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || whole || !t.path?.length || inKeyBlock(t, key))) : []
       if (!executed.length) outcomes.push({ ...m, error: true })
       else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
     }

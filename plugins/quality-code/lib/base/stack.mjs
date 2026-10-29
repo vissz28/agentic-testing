@@ -45,7 +45,7 @@ export function ticketSide(config, ticket) {
   const labels = new Set((ticket?.labels ?? []).map(l => String(l).toLowerCase()))
   const marked = SIDES.filter(s => (sides[s] ?? []).some(m => m.toLowerCase() === prefix || labels.has(m.toLowerCase())))
   if (marked.includes('fullstack') || (marked.includes('frontend') && marked.includes('backend'))) return 'fullstack'
-  return marked[0] ?? null
+  return marked[0] ?? (['frontend', 'backend', 'fullstack'].includes(config.sides?.default) ? config.sides.default : null)
 }
 
 /** The adapter a spec runs under. On a fullstack project: Playwright for the e2e folder or a Playwright config match, else the backend. */

@@ -439,7 +439,7 @@ test('fullstack: both blocks, both seed kinds and sides are allowed; sides only 
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.deepEqual(validateConfig({ ...good, sides: { frontend: ['FE'] } }).errors, ['sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)'])
   assert.deepEqual(validateConfig({ ...fs, sides: { mobile: ['MO'], backend: ['[BE]'], frontend: 'FE' } }).errors, [
-    'sides.mobile: unknown field (only "frontend", "backend" and "fullstack")',
+    'sides.mobile: unknown field (only "frontend", "backend", "fullstack" and "default")',
     'sides.backend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
     'sides.frontend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
   ])
@@ -527,7 +527,7 @@ test('the schema knows every top-level field the validator takes, fullstack incl
   for (const f of ['sides', 'qaPlans', 'xray', 'git', 'backend', 'pytest', 'junit', 'go', 'dotnet']) assert.ok(schema.properties[f], f)
   for (const b of ['pytest', 'junit', 'go', 'dotnet']) assert.deepEqual(Object.keys(schema.properties[b].properties), ['layers', 'timeoutSeconds', 'command', ...(b === 'pytest' ? ['typeCheck'] : [])], b)
   assert.equal(schema.properties.xray.properties.csv.pattern, schema.properties.qaPlans.pattern)
-  assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack'])
+  assert.deepEqual(Object.keys(schema.properties.sides.properties), ['frontend', 'backend', 'fullstack', 'default'])
   assert.equal(schema.properties.qaPlans.pattern, schema.properties.vitest.properties.tsconfig.pattern)
 })
 

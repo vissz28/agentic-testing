@@ -34,6 +34,15 @@ export function matches(pattern, path) {
   return path === pattern
 }
 
+/** True when an allow rule is about files inside `folder` (a rule on src/ files named *.unit.test.js covers the folder src/): the folder holds tests, whose names the rule lets through. */
+export function allowCovers(allow, folder) {
+  const f = String(folder).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
+  return (allow ?? []).some(a => {
+    const lit = String(a).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').split('*')[0]
+    return a.includes('*') && (lit.startsWith(f) || f.startsWith(lit))
+  })
+}
+
 // The code folders of a workspace monorepo, when it has one.
 const WORKSPACE_SRC = ['packages/*/src/', 'apps/*/src/']
 

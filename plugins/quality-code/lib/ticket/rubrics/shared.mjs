@@ -29,7 +29,14 @@ export const escapeRegExp = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, 
  * The keys this config can never credit: no features means no feature label to add. They are left
  * out of the score (it is scaled over the rest) and of the missing list, so nobody is asked for them.
  */
-export const omittedKeys = config => new Set((config.features ?? []).length ? [] : ['feature_label'])
+export const omittedKeys = config => new Set([...((config.features ?? []).length ? [] : ['feature_label']), ...(config.gate?.omit ?? [])])
+
+/** A paragraph before the first heading or list: what the story is for, though it has no "Context" heading. */
+export function introSignal(description) {
+  const text = stripComments(String(description ?? '')).trim()
+  const first = text.split(/\n[^\S\n]*(?=#{1,6}\s|h[1-6]\.\s|\*\*[^*]+\*\*[^\S\n]*:?[^\S\n]*(?:\n|$)|[-*•]\s|\d+[.)]\s)/)[0]
+  return first.length >= 80 && first.split(/\s+/).length >= 12
+}
 
 /** The configured feature label the ticket carries, whatever its case in Jira, or null. */
 export function featureOf(config, labels) {

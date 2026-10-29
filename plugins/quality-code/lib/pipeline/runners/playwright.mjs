@@ -33,8 +33,38 @@ function statusOf(t) {
   return 'failed'
 }
 
+const clipText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+
+/**
+ * What a red Playwright test can tell: the step it was on (the failing line), the locator it waited for, and the page it was on
+ * (URL and some text) when Playwright kept a snapshot (error-context.md). Only what is recorded: nothing is guessed. A timeout with
+ * none of it gets a hint on how to record it.
+ */
+export function contextOf(result, { read = () => null, rel = p => p } = {}) {
+  const err = result?.error ?? result?.errors?.[0] ?? {}
+  const msg = String(err.message ?? '').replace(ANSI, '')
+  const out = {}
+  const loc = err.location?.file ? `${rel(err.location.file)}:${err.location.line ?? '?'}` : null
+  const step = String(err.snippet ?? '').replace(ANSI, '').split('\n').find(l => /^\s*>\s*\d+\s*\|/.test(l))?.replace(/^\s*>\s*\d+\s*\|\s*/, '').trim()
+  if (loc || step) out.at = [loc, step && clipText(step, 100)].filter(Boolean).join(' · ')
+  const locator = /(?:^|\n)\s*Locator:\s*(.+)/.exec(msg)?.[1] ?? /waiting for ((?:getBy\w+|locator|frameLocator|page\.)[^\n]*)/.exec(msg)?.[1]
+  if (locator) out.locator = clipText(locator.trim(), 140)
+  const nav = /navigating to "([^"]+)"/.exec(msg)?.[1]
+  const attach = (result?.attachments ?? []).find(a => a?.name === 'error-context' && a.path)
+  const snap = attach ? read(attach.path) : null
+  if (snap) {
+    const url = /(?:page url|url)\s*[:=]\s*(\S+)/i.exec(snap)?.[1] ?? nav
+    if (url) out.url = url.replace(/[`'")\],]+$/, '')
+    const words = [...snap.matchAll(/(?:heading|button|link|text|textbox|cell|tab|option)\s+"([^"]{2,80})"/g)].map(m => m[1])
+    const text = [...new Set(words)].join(' · ')
+    if (text) out.text = clipText(text, 200)
+  } else if (nav) out.url = nav
+  if (!out.url && !out.text && /timeout/i.test(msg)) out.hint = "No page was recorded. Set use: { trace: 'retain-on-failure' } in the Playwright config (it also writes the page snapshot) and run again."
+  return Object.keys(out).length ? out : null
+}
+
 /** { tests, broken, error? }: one result per file and title path, merged across projects. */
-export function parseReport(json, root) {
+export function parseReport(json, root, { read } = {}) {
   let base = root
   try { base = realpathSync(root) } catch {}
   const rel = abs => {
@@ -56,7 +86,7 @@ export function parseReport(json, root) {
         const last = (t.results ?? []).at(-1) ?? {}
         const status = statusOf(t)
         const message = status === 'failed' ? firstLine(last.error?.message ?? last.errors?.[0]?.message) || String(last.status ?? 'failed') : ''
-        row.runs.push({ project: t.projectName ?? '', status, message })
+        row.runs.push({ project: t.projectName ?? '', status, message, context: status === 'failed' ? contextOf(last, { read, rel: p => fileOf(p) }) : null })
       }
       merged.set(id, row)
     }
@@ -68,7 +98,7 @@ export function parseReport(json, root) {
     const failed = runs.find(r => r.status === 'failed')
     const status = failed ? 'failed' : runs.some(r => r.status === 'passed') ? 'passed' : 'skipped'
     const message = failed ? `${several && failed.project ? `[${failed.project}] ` : ''}${failed.message}` : ''
-    return { title, path, file, status, message }
+    return { title, path, file, status, message, ...(failed?.context ? { context: failed.context } : {}) }
   })
   const broken = []
   let error
@@ -130,7 +160,7 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
         let json = null
         try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
         if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Playwright wrote no report' })
-        const r = parseReport(json, root)
+        const r = parseReport(json, root, { read: p => { try { return readFileSync(p, 'utf8') } catch { return null } } })
         if (r.error) return finish({ ran: false, error: r.error })
         const failed = r.tests.filter(t => t.status === 'failed')
         // Every test failed on a refused connection: the app is down, which says nothing about the tests.

@@ -10,12 +10,15 @@ import { runnerOf } from '../base/runners.mjs'
 import { keySource } from '../base/keys.mjs'
 import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../base/stack.mjs'
+import { detectConventions } from '../base/conventions.mjs'
 import { BACKENDS, isBackend } from '../base/backends.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
 // Cypress names its specs *.cy.ts.
 const SPEC = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
+// A unit spec by name (foo.unit.test.jsx): it runs under the unit runner even when it sits in the e2e folder.
+const UNIT = /\.unit\.(spec|test)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
 // The build output and environments of the other stacks: a walk of a whole repo (Go's "./") skips them.
 const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
@@ -38,16 +41,36 @@ function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 
   return out
 }
 
-/** The project's spec files, each with its adapter: the backend's layer folders and the e2e folder. */
+/**
+ * The project's spec files, each with its adapter: the backend's layer folders and the e2e folder, and
+ * when most of the project's tests sit next to the code (foo.unit.test.js next to foo.js), those too: a unit spec is
+ * found by its name wherever it is, as the runner's own include would find it. A unit spec inside the e2e
+ * folder runs under the unit runner, not Playwright.
+ */
 export function projectSpecs(root, config) {
   const seen = new Map()
-  for (const adapter of adaptersOf(config)) {
+  const has = adaptersOf(config)
+  const e2e = has.includes('playwright') ? e2eFolder(root, asAdapter(config, 'playwright')).folder : null
+  for (const adapter of has) {
     const view = asAdapter(config, adapter)
     const backend = isBackend(adapter)
-    const folders = backend ? layersOf(view).map(l => l.folder) : [e2eFolder(root, view).folder].filter(Boolean)
+    const folders = backend ? layersOf(view).map(l => l.folder) : [e2e].filter(Boolean)
     // Each backend's own test file names; Vitest and Playwright keep the JS/TS spec names.
     const names = backend && adapter !== 'vitest' ? { spec: BACKENDS[adapter].testFile, skip: SKIP_BUILD } : {}
-    for (const f of folders) for (const p of specsIn(root, f, names)) if (!seen.has(p)) seen.set(p, adapter)
+    const pw = !backend ? { spec: { test: n => SPEC.test(n) && !UNIT.test(n) } } : null
+    for (const f of folders) for (const p of specsIn(root, f, pw ?? names)) if (!seen.has(p)) seen.set(p, adapter)
+  }
+  // Tests beside the code: the JS/TS backend (Vitest, or Jest as the unit runner) owns them.
+  const js = has.find(a => isBackend(a) && (a === 'vitest' || BACKENDS[a].codeFile.test('x.js')))
+  if (js) {
+    const conv = detectConventions(root)
+    if (conv.specs > 0 && conv.beside) {
+      for (const p of specsIn(root, '', { spec: SPEC, skip: SKIP_BUILD })) {
+        if (seen.has(p)) continue
+        if (e2e && p.startsWith(e2e) && !UNIT.test(p)) continue
+        seen.set(p, js)
+      }
+    }
   }
   return [...seen].map(([path, adapter]) => ({ path, adapter }))
 }
@@ -72,7 +95,7 @@ export function scanSpecs(root, config) {
   let honest = 0
   for (const [adapter, files] of byAdapter) {
     const dialect = dialectFor(runnerOf(config, adapter))
-    const r = grade(files, { ungraded: ungradedTitlesOf(config, dialect) }, dialect)
+    const r = grade(files, { ungraded: ungradedTitlesOf(config, dialect), helpers: config.assertionHelpers ?? [] }, dialect)
     tests += r.data?.tests ?? 0
     honest += r.data?.withAssertion ?? 0
   }

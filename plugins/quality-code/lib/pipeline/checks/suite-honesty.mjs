@@ -85,9 +85,12 @@ function codeOnly(src) {
  * assert call. A bare expect(x) or an uncalled .toBeTruthy asserts nothing. chai (the generic tier) also
  * counts Chai's property chains (expect(ok).to.be.true) and Cypress's .should(…).
  */
-export function countAssertions(body, { chai = false } = {}) {
+export function countAssertions(body, { chai = false, helpers = [] } = {}) {
   const code = codeOnly(body)
   let n = (code.match(/(?<![.\w$])assert(?:\.\w+)?\s*\(/g) || []).length
+  // A page object asserts for the test: page.expectGridVisible(), dashboard.assertTitle(), and the project's own prefixes.
+  const prefixes = ['expect', 'assert', 'verify', ...helpers].filter(p => /^[A-Za-z_$][\w$]*$/.test(p))
+  n += (code.match(new RegExp(`\\.(?:${prefixes.join('|')})[A-Z_$][\\w$]*\\s*\\(`, 'g')) || []).length
   if (chai) n += (code.match(/\.should\b(?:\s*\.\s*\w+)*\s*\(/g) || []).length
   for (const m of code.matchAll(/(?<![.\w$])expect(?:\.(?:soft|poll))?\s*\(/g)) {
     const rest = code.slice(closeAt(code, m.index + m[0].length - 1))
@@ -103,11 +106,12 @@ export function skippedGroupRanges(src, dialect) {
 }
 
 /** [start, end) of the top-level group whose title holds the key, up to the next top-level group. */
-export function anchorRange(src, key, dialect) {
+/** With `whole` (ticketAnchor "branch"), a spec changed on the branch with no block of the key counts as a whole. */
+export function anchorRange(src, key, dialect, { whole = false } = {}) {
   const tops = groups(src, dialect)
   const keyRe = keyPattern(key)
   const start = tops.find(t => keyRe.test(t.title))
-  if (!start) return null
+  if (!start) return whole ? [0, src.length] : null
   const next = tops.find(t => t.idx > start.idx)
   return [start.idx, next ? next.idx : src.length]
 }
@@ -117,7 +121,7 @@ export function anchorRange(src, key, dialect) {
  * whose marks a regex cannot give (Go: a skip is a call in the body) brings its own suite.marks(src),
  * each mark with its end, and its own suite.countAssertions(body).
  */
-export function scoreSpec(src, dialect, ungraded = null) {
+export function scoreSpec(src, dialect, ungraded = null, helpers = []) {
   const s = dialect.suite
   const skipRanges = s.skippedGroups ? skippedGroupRanges(src, dialect) : []
   const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe, s.modOf)
@@ -125,13 +129,13 @@ export function scoreSpec(src, dialect, ungraded = null) {
   const count = s.countAssertions ?? dialect.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
     // A test's slice runs up to the next test (or to its own end, when the dialect knows it).
-    const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)), { chai: s.chai })
+    const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)), { chai: s.chai, helpers })
     const inSkipped = skipRanges.some(([a, b]) => mk.idx >= a && mk.idx < b)
     return { title: mk.title, mod: inSkipped ? 'skip' : mk.mod, expects, idx: mk.idx, capture: Boolean(ungraded?.test(mk.title)) }
   })
 }
 
-export function grade(files, { key = null, ungraded = null } = {}, dialect) {
+export function grade(files, { key = null, ungraded = null, helpers = [], whole = false } = {}, dialect) {
   let behavioral = 0
   let honest = 0
   let skipped = 0
@@ -140,10 +144,10 @@ export function grade(files, { key = null, ungraded = null } = {}, dialect) {
   const hollow = []
   const missingFiles = []
   for (const { path, src } of files) {
-    let tests = scoreSpec(src, dialect, ungraded)
+    let tests = scoreSpec(src, dialect, ungraded, helpers)
     if (key) {
       // The key's block, else (older specs: test('ABC-1-1 …') at the top level) the tests named with the key.
-      const r = anchorRange(src, key, dialect)
+      const r = anchorRange(src, key, dialect, { whole })
       const named = r ? [] : tests.filter(t => keyPattern(key).test(t.title))
       if (!r && !named.length) { missingFiles.push(path); continue }
       tests = r ? tests.filter(t => t.idx >= r[0] && t.idx < r[1]) : named
@@ -177,7 +181,7 @@ export function grade(files, { key = null, ungraded = null } = {}, dialect) {
   return result('suite-honesty', 'pass', `${honest}/${behavioral} tests carry assertions (${percent}%)${note}`, [], data)
 }
 
-export function run({ specs, key = null }, ctx) {
+export function run({ specs, key = null, whole = false }, ctx) {
   const files = specs.map(p => ({ path: p, src: readFileSync(resolve(ctx.root, p), 'utf8') }))
-  return grade(files, { key, ungraded: ungradedTitlesOf(ctx.config, ctx.dialect) }, ctx.dialect)
+  return grade(files, { key, whole, ungraded: ungradedTitlesOf(ctx.config, ctx.dialect), helpers: ctx.config?.assertionHelpers ?? [] }, ctx.dialect)
 }

@@ -47,13 +47,13 @@ test('what to do, per deciding step', () => {
   assert.equal(card('types', s('types', 'fail', 'a.ts(1,1): error TS1')), 'What to do: fix the compile error: a.ts(1,1): error TS1')
   assert.equal(card('mutation', s('mutation', 'fail', 'x', [{ test: 'adds' }, { test: 'subs' }])), "What to do: an assertion can't fail: bind the real expected value in 'adds', 'subs'.")
   assert.equal(card('flaky', s('flaky', 'fail', 'x', [{ test: 'a > t' }])), "What to do: fix the non-determinism in 'a > t', or skip them with a ticket.")
-  assert.equal(card('tests', s('tests', 'fail', 'x', [{ test: 'adds', detail: 'Expected 2' }]), 'tests_red'), "What to do: 'adds': Expected 2. For a bug whose fix isn't merged yet, red is the expected result.")
+  assert.equal(card('tests', s('tests', 'fail', 'x', [{ test: 'adds', detail: 'Expected 2' }]), 'tests_red'), "What to do: 'adds': Expected 2. Either the code does not do what the ticket says, or the test is wrong.")
   assert.equal(card('tests', s('tests', 'not_run', 'could not run: db down'), 'not_verified'), 'What to do: tests could not run: could not run: db down')
   assert.equal(formatCard({ verdict: 'green', decidedBy: null, steps: [] }, { specs: ['a'] }).includes('What to do'), false)
 })
 test('a failing test with an empty message gives no dangling colon', () => {
   const out = formatCard({ verdict: 'tests_red', decidedBy: 'tests', steps: [s('tests', 'fail', 'x', [{ test: 'adds', detail: '' }])] }, { specs: ['a'] })
-  assert.ok(out.includes("What to do: 'adds'. For a bug whose fix isn't merged yet, red is the expected result."))
+  assert.ok(out.includes("What to do: 'adds'. Either the code does not do what the ticket says, or the test is wrong."))
   assert.ok(!out.includes("'adds': ."))
 })
 test('a not-applicable boundary line is hidden from the card; an applicable one stays', () => {
@@ -154,4 +154,53 @@ test('run log: verdict in words, the tests table, every check with its numbers a
   assert.ok(log.includes("- a.spec.ts › 'adds' [survived]: expect(x).toBeDefined()"))
   assert.ok(log.includes('## What to do'))
   assert.ok(log.includes('`/quality-code:run-pipeline a.spec.ts --key ABC-1`'))
+})
+
+import { redAdvice } from '../../lib/pipeline/card.mjs'
+
+test('red: "the fix is not merged yet" only for a Bug that is not merged; a Task, or a merged ticket, gets the right reason', () => {
+  assert.equal(redAdvice({ issueType: 'Bug', status: 'In Progress' }), "For a bug whose fix isn't merged yet, red is the expected result.")
+  assert.match(redAdvice({ issueType: 'Task', status: 'Merged in MB' }), /^The ticket is a Task, not a bug: the code does not do what it says, or the test is wrong\.$/)
+  assert.match(redAdvice({ issueType: 'Bug', status: 'Merged in MB' }), /^Jira says Merged in MB: the fix should be on this branch/)
+  assert.match(redAdvice({ issueType: 'Bug', status: 'Done' }), /^Jira says Done: the fix should be on this branch/)
+  assert.match(redAdvice({ issueType: 'Story', status: 'To Do' }), /not a bug/)
+  assert.match(redAdvice({ issueType: 'Bug', status: 'Ready for test' }), /^Jira says Ready for test/)
+  assert.equal(redAdvice({}), 'Either the code does not do what the ticket says, or the test is wrong.', 'no ticket: nothing is said about bugs')
+  const out = formatCard({ verdict: 'tests_red', decidedBy: 'tests', steps: [s('tests', 'fail', 'x', [{ test: 'adds', detail: 'timeout' }])] }, { specs: ['a'], key: 'FIC-13569', issueType: 'Task', jiraStatus: 'Merged in MB' })
+  assert.match(out, /What to do: 'adds': timeout\. The ticket is a Task, not a bug/)
+  assert.doesNotMatch(out, /isn't merged yet/)
+})
+
+import { contextOf, parseReport } from '../../lib/pipeline/runners/playwright.mjs'
+import { contextLines } from '../../lib/pipeline/card.mjs'
+
+test('a red Playwright test says where it stopped: the step, the locator, the page, or how to record it', () => {
+  const timeout = {
+    status: 'timedOut',
+    error: { message: 'Test timeout of 30000ms exceeded.', location: { file: '/p/e2e/send.spec.js', line: 42 }, snippet: '  40 |\n> 42 |   await page.getByRole(\'button\', { name: \'Invia\' }).click()\n     |                                                       ^' },
+    attachments: [{ name: 'error-context', path: '/tmp/ctx.md' }],
+  }
+  const snap = '# Page snapshot\n```yaml\n- Page URL: https://app.test/transferDdt\n- heading "Documenti inviati" [level=1]\n- button "Reinvio per variazione"\n```'
+  const c = contextOf(timeout, { read: () => snap, rel: p => p.replace('/p/', '') })
+  assert.equal(c.at, "e2e/send.spec.js:42 · await page.getByRole('button', { name: 'Invia' }).click()")
+  assert.equal(c.url, 'https://app.test/transferDdt')
+  assert.match(c.text, /Documenti inviati · Reinvio per variazione/)
+  assert.deepEqual(contextLines(c, '> ').slice(0, 2), ["> at e2e/send.spec.js:42 · await page.getByRole('button', { name: 'Invia' }).click()", '> page https://app.test/transferDdt'])
+  // a locator timeout names the locator
+  const loc = contextOf({ error: { message: 'locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByRole(\'button\', { name: \'Invia\' })\n' } })
+  assert.equal(loc.locator, "getByRole('button', { name: 'Invia' })")
+  // nothing recorded: say how to get it, never invent a page
+  const bare = contextOf({ error: { message: 'Test timeout of 30000ms exceeded.' } })
+  assert.match(bare.hint, /trace: 'retain-on-failure'/)
+  assert.equal(bare.url, undefined)
+  assert.equal(contextOf({ error: { message: 'expect(received).toBe(expected)' } }), null, 'an assertion failure needs none of it')
+})
+
+test('parseReport carries the context of the failed run onto the test', () => {
+  const json = { config: { rootDir: '/p' }, suites: [{ title: 'a.spec.js', file: 'a.spec.js', specs: [{ title: 't', file: 'a.spec.js', tests: [{ projectName: 'chromium', status: 'unexpected', expectedStatus: 'passed', results: [{ status: 'timedOut', error: { message: 'Test timeout of 30000ms exceeded.' } }] }] }] }] }
+  const r = parseReport(json, '/p')
+  assert.equal(r.tests[0].status, 'failed')
+  assert.match(r.tests[0].context.hint, /retain-on-failure/)
+  const out = formatCard({ verdict: 'tests_red', decidedBy: 'tests', steps: [{ check: 'tests', status: 'fail', summary: 'x', findings: [{ test: 't', detail: 'Test timeout of 30000ms exceeded.' }], data: { passed: 0, failed: 1, skipped: 0, list: r.tests.map(t => ({ title: t.title, file: t.file, status: t.status, message: t.message, context: t.context })) } }] }, { specs: ['a.spec.js'] })
+  assert.match(out, /✗ t: Test timeout of 30000ms exceeded\.\n\s+No page was recorded/)
 })

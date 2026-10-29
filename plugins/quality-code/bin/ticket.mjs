@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.mjs'
-import { loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot } from '../lib/base/config.mjs'
+import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
@@ -112,6 +112,25 @@ function run(argv, env, cwd) {
       return 0
     }
     err(`usage: ticket.mjs save get | save set ${options.join('|')}`)
+    return 2
+  }
+  if (cmd === 'root') {
+    // One config serving several projects of a monorepo ("roots"): which one this person works on.
+    const home = configHome(root)
+    const [sub, folder] = a._
+    if (sub === 'get' && a._.length === 1) {
+      const r = rootsOf(home, env)
+      out(`ROOT_JSON:${JSON.stringify(r)}`)
+      return 0
+    }
+    if (sub === 'set' && a._.length === 2) {
+      const r = setActiveRoot(home, folder, env)
+      if (!r.ok) { err(r.error); return 2 }
+      out(`ok: the active root is ${folder.replace(/\/+$/, '')}. Every command now works in it.`)
+      out(`ROOT_JSON:${JSON.stringify(rootsOf(home, env))}`)
+      return 0
+    }
+    err('usage: ticket.mjs root get | root set <folder>')
     return 2
   }
   if (cmd === 'jira-posted') {

@@ -80,12 +80,20 @@ export function expectedChunks(ticket, v = buildVocabulary(['en', 'it'])) {
   ])]
 }
 
+/** The outcome of a criterion: after its last Then when one line holds Given, When and Then (the WHEN label is an input, not an expectation). */
+export function outcomeOf(chunk, v) {
+  const hits = [...chunk.matchAll(v.thenWord)]
+  const last = hits.at(-1)
+  return last && /\b(?:given|when|dato|data|quando)\b/i.test(chunk.slice(0, last.index)) ? chunk.slice(last.index + last[0].length) : chunk
+}
+
 export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
   const full = ticketText(ticket)
   const chunks = expectedChunks(ticket, v)
   const tokens = []
   const seen = new Set()
-  for (const from of chunks) {
+  for (const whole of chunks) {
+    const from = outcomeOf(whole, v)
     for (const s of quotedIn(from)) {
       const id = `s:${s}`
       if (seen.has(id) || !full.includes(s)) continue
@@ -150,8 +158,8 @@ export function stripCodeComments(src) {
  * assert 80. actual: false reads expect(...) itself only when its matcher takes no argument
  * (expect(getByText('80')).toBeVisible()): in expect(total([80])).toBeGreaterThan(0), 80 is an input.
  */
-export function surface(specSrc, key, dialect, { actual = true } = {}) {
-  const range = anchorRange(specSrc, key, dialect)
+export function surface(specSrc, key, dialect, { actual = true, whole = false } = {}) {
+  const range = anchorRange(specSrc, key, dialect, { whole })
   if (!range) return null
   // A dialect whose assertions are no matcher calls (pytest's assert statement) reads its block itself.
   if (dialect?.expected?.surface) return dialect.expected.surface(specSrc.slice(range[0], range[1]), { actual })
@@ -192,7 +200,8 @@ const fold = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')
 /** The field names a Then line names (unit_cost, unitCost), leaving out the negated ones ("not unit_price"). */
 export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
   const out = new Map()
-  for (const from of chunks) {
+  for (const chunk of chunks) {
+    const from = outcomeOf(chunk, v)
     for (const w of stripQuoted(from).replace(v.negatedWord, ' ').split(/[^\w-]+/)) {
       if (looksLikeField(w) && !out.has(fold(w))) out.set(fold(w), { token: w, kind: 'field', from })
     }
@@ -201,8 +210,9 @@ export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
 }
 
 /** The values the model says the tests pin, kept only when the ticket's expected text holds them. */
-export function groundCandidates(candidates, chunks, have = []) {
-  const text = chunks.join('\n')
+export function groundCandidates(candidates, chunks, have = [], ticketFull = '') {
+  // The ticket's own words: its expected lines, and (for a value from the Notes) the rest of the text. A candidate only makes the check stricter.
+  const text = [...chunks, ticketFull].filter(Boolean).join('\n')
   const nums = new Set(numbersIn(text).flatMap(normNum))
   const known = new Set(have.map(t => (t.kind === 'number' ? `n:${t.values.join('|')}` : fold(t.token))))
   const kept = []
@@ -217,7 +227,7 @@ export function groundCandidates(candidates, chunks, have = []) {
     const id = t.kind === 'number' ? `n:${t.values.join('|')}` : fold(c)
     if (known.has(id)) continue
     known.add(id)
-    kept.push({ ...t, from: chunks.find(ch => (isNum ? numbersIn(ch).some(n => normNum(n).some(x => t.values.includes(x))) : ch.includes(c))) ?? c })
+    kept.push({ ...t, from: [...chunks, ticketFull].find(ch => ch && (isNum ? numbersIn(ch).some(n => normNum(n).some(x => t.values.includes(x))) : ch.includes(c))) ?? c })
   }
   return { kept, ignored }
 }
@@ -233,7 +243,7 @@ export function asserted(token, surfaceText) {
 
 const short = s => (s.length > 80 ? `${s.slice(0, 77)}…` : s)
 
-export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) {
+export function run({ specs, key = null, ticket = null, candidates = [], whole = false }, ctx) {
   if (!key) return result('expected', 'not_run', 'no ticket key to find the block')
   let t
   try {
@@ -249,7 +259,7 @@ export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) 
   const surfaces = specs.map(p => {
     const src = readFileSync(resolve(ctx.root, p), 'utf8')
     const d = dialectOf(p)
-    return { dialect: d, text: surface(src, key, d, { actual: Boolean(d?.expected?.readsActual) }), fieldText: surface(src, key, d) }
+    return { dialect: d, text: surface(src, key, d, { actual: Boolean(d?.expected?.readsActual), whole }), fieldText: surface(src, key, d, { whole }) }
   })
   if (surfaces.every(s => s.text === null)) {
     return result('expected', 'not_run', `no ${key} block in ${specs.join(', ')}`, [{ file: specs.join(', '), kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
@@ -258,15 +268,22 @@ export function run({ specs, key = null, ticket = null, candidates = [] }, ctx) 
   const v = buildVocabulary(ctx.config?.languages ?? ['en', 'it'])
   const chunks = expectedChunks(t, v)
   // Field names bind a unit test to the right column; an e2e test asserts what the screen shows instead.
-  const fieldSpecs = surfaces.filter(s => s.text !== null && s.dialect?.expected?.fieldNames)
+  // The project's own say (config "expected"): names owned by another package (ignore), the UI's words for a criterion's
+  // words (aliases), and whether field names are looked for at all (fields: false, for a frontend workspace).
+  const own = ctx.config?.expected ?? {}
+  const skip = new Set((own.ignore ?? []).map(x => fold(x)))
+  const fieldSpecs = own.fields === false ? [] : surfaces.filter(s => s.text !== null && s.dialect?.expected?.fieldNames)
   const fields = fieldSpecs.length ? fieldTokensFrom(chunks, v) : []
-  const ticketTokens = [...tokensFrom(t, v), ...fields]
-  const { kept, ignored } = groundCandidates(candidates, chunks, ticketTokens)
-  const tokens = [...ticketTokens, ...kept.filter(x => x.kind !== 'field' || fieldSpecs.length)]
+  const ticketTokens = [...tokensFrom(t, v), ...fields].filter(x => !skip.has(fold(x.token)))
+  const { kept, ignored } = groundCandidates(candidates, chunks, ticketTokens, ticketText(t))
+  const tokens = [...ticketTokens, ...kept.filter(x => (x.kind !== 'field' || fieldSpecs.length) && !skip.has(fold(x.token)))]
   const extra = ignored.length ? { ignored } : {}
   if (!tokens.length) return result('expected', 'pass', 'no concrete expected values in the ticket', [], { tokens: 0, asserted: 0, ...extra })
   const fieldText = fieldSpecs.map(s => s.fieldText).join('\n')
-  const missing = tokens.filter(x => !asserted(x, x.kind === 'field' ? fieldText : all))
+  // An alias counts: the criterion says "Rectify demographic data", the screen says "Reinvio per variazione".
+  const aliasesOf = x => [].concat(Object.entries(own.aliases ?? {}).find(([k]) => fold(k) === fold(x.token))?.[1] ?? [])
+  const isAsserted = x => asserted(x, x.kind === 'field' ? fieldText : all) || aliasesOf(x).some(a => asserted({ kind: x.kind === 'number' ? 'string' : x.kind, token: a }, x.kind === 'field' ? fieldText : all))
+  const missing = tokens.filter(x => !isAsserted(x))
   const data = { tokens: tokens.length, asserted: tokens.length - missing.length, missing: missing.map(x => x.token), ...extra }
   if (!missing.length) return result('expected', 'pass', `all ${tokens.length} expected value(s) from the ticket are asserted`, [], data)
   // A bug test that pins the reported wrong result instead of the expected one.

@@ -94,3 +94,24 @@ test('runs as a script with the documented exit code', () => {
   assert.equal(ok.status, 0)
   assert.match(ok.stdout, /^quality-code consumption · 2026-10-01 to 2026-10-14 · my project/)
 })
+
+test('with "root" set, sessions that ran at the repo top are found too', async () => {
+  const { mkdirSync, mkdtempSync, writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { slugFor } = await import('../../lib/report/transcripts.mjs')
+  const top = mkdtempSync(join(tmpdir(), 'qc-cons-top-'))
+  const claude = mkdtempSync(join(tmpdir(), 'qc-cons-cfg-'))
+  mkdirSync(join(top, 'app', '.claude'), { recursive: true })
+  writeFileSync(join(top, '.claude-placeholder'), '')
+  mkdirSync(join(top, '.claude'), { recursive: true })
+  writeFileSync(join(top, '.claude/quality-code.json'), JSON.stringify({ version: 1, root: 'app', adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
+  // the transcript was recorded at the repo top, not in app/
+  const dir = join(claude, 'projects', slugFor(top))
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 's1.jsonl'), `${JSON.stringify({ type: 'user', cwd: top, sessionId: 's1', timestamp: new Date().toISOString(), message: { role: 'user', content: '/quality-code:kpi' } })}\n`)
+  let out = ''
+  const code = await main([], { CLAUDE_PROJECT_DIR: top, CLAUDE_CONFIG_DIR: claude }, top, { stdout: s => { out += s }, stderr: () => {} })
+  assert.notEqual(code, 3, out)
+  assert.doesNotMatch(out, /No Claude Code transcripts found/)
+})

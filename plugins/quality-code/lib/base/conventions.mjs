@@ -10,7 +10,7 @@ const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'target', 'bin', 
 // The marks a test file name carries, by language: foo.spec.ts, foo.test.js, foo.cy.ts, foo_test.go,
 // test_foo.py, foo_test.py, FooTest.java, FooTests.cs.
 const NAMES = [
-  { re: /^(.+)\.(spec|test|cy)\.([cm]?[jt]sx?)$/, mark: m => ({ pattern: `.${m[2]}.${m[3]}`, style: 'suffix' }) },
+  { re: /^(.+?)(?:\.(unit|int|integration|component|e2e|api))?\.(spec|test|cy)\.([cm]?[jt]sx?)$/, mark: m => ({ pattern: `${m[2] ? `.${m[2]}` : ''}.${m[3]}.${m[4]}`, style: 'suffix' }) },
   { re: /^(.+)_test\.go$/, mark: () => ({ pattern: '_test.go', style: 'suffix' }) },
   { re: /^test_(.+)\.py$/, mark: () => ({ pattern: 'test_*.py', style: 'prefix' }) },
   { re: /^(.+)_test\.py$/, mark: () => ({ pattern: '*_test.py', style: 'suffix' }) },

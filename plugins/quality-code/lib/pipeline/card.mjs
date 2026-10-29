@@ -17,7 +17,25 @@ function stepLine(step) {
   return `  ${ICON[step.status]} ${label(step.check).padEnd(15)}${text}`
 }
 
-function whatToDo(outcome) {
+const BUG = /\b(?:bug|defect|difetto|incident)\b/i
+const isDone = (status, done) => {
+  const s = String(status ?? '').trim().toLowerCase()
+  // A status that says the change was merged ("Merged in MB") is finished too, whatever the project calls it.
+  return Boolean(s) && (done.some(d => d.trim().toLowerCase() === s) || /\bmerg/.test(s))
+}
+
+/**
+ * Why a red test may be fine, or not, by what the ticket is: red is expected only for a Bug whose fix is not merged yet.
+ * Without a ticket (a suite run) nothing is said about bugs.
+ */
+export function redAdvice({ issueType = null, status = null, done = DEFAULT_DONE_STATUSES } = {}) {
+  if (!issueType) return 'Either the code does not do what the ticket says, or the test is wrong.'
+  if (!BUG.test(issueType)) return `The ticket is a ${issueType}, not a bug: the code does not do what it says, or the test is wrong.`
+  if (isDone(status, done)) return `Jira says ${String(status).trim()}: the fix should be on this branch, so the code still has the bug, or the test is wrong.`
+  return "For a bug whose fix isn't merged yet, red is the expected result."
+}
+
+function whatToDo(outcome, ctx = {}) {
   if (outcome.verdict === 'green') return null
   const steps = outcome.steps
   if (outcome.verdict === 'not_verified') {
@@ -43,7 +61,7 @@ function whatToDo(outcome) {
     case 'flaky': return `fix the non-determinism in ${quoted(fs)}, or skip them with a ticket.`
     case 'tests': {
       const f = fs.find(x => x.test) || fs[0] || {}
-      return `'${f.test}'${f.detail ? `: ${f.detail}` : ''}. For a bug whose fix isn't merged yet, red is the expected result.`
+      return `'${f.test}'${f.detail ? `: ${f.detail}` : ''}. ${redAdvice(ctx)}`
     }
     default: return null
   }
@@ -54,10 +72,22 @@ const EXTRA = /^\s*(?:extra\b|edge\b)/i
 const MARK = { passed: '✓', failed: '✗', skipped: '–' }
 const clip = (s, n = 120) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
+/** What a red test recorded about where it stopped: the step, the locator, the page. */
+export function contextLines(c, pad = '') {
+  if (!c) return []
+  return [
+    ...(c.at ? [`${pad}at ${c.at}`] : []),
+    ...(c.locator ? [`${pad}waiting for ${c.locator}`] : []),
+    ...(c.url ? [`${pad}page ${c.url}`] : []),
+    ...(c.text ? [`${pad}page text: ${c.text}`] : []),
+    ...(c.hint ? [`${pad}${c.hint}`] : []),
+  ]
+}
+
 /** One line per test, the ticket's first and the extra probes after; a red one says why. */
 function testLines(list) {
   if (!Array.isArray(list) || !list.length) return []
-  const row = (t, pad) => `${pad}${MARK[t.status] ?? '–'} ${t.title}${t.status === 'failed' && t.message ? `: ${clip(t.message)}` : ''}`
+  const row = (t, pad) => [`${pad}${MARK[t.status] ?? '–'} ${t.title}${t.status === 'failed' && t.message ? `: ${clip(t.message)}` : ''}`, ...(t.status === 'failed' ? contextLines(t.context, `${pad}    `) : [])].join('\n')
   const own = list.filter(t => !EXTRA.test(t.title))
   const extra = list.filter(t => EXTRA.test(t.title))
   if (!extra.length) return own.map(t => row(t, '  '))
@@ -74,7 +104,7 @@ export function riskLine({ score, bar }, color = false) {
   return color ? `\x1b[31m${text}\x1b[0m` : text
 }
 
-export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
+export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
   const n = specs.length
   const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
@@ -88,7 +118,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
     if (!counts) lines.push('')
     lines.push('Checks', ...outcome.steps.filter(x => x.data?.applicable !== false).map(stepLine))
   }
-  const todo = whatToDo(outcome)
+  const todo = whatToDo(outcome, { issueType, status: jiraStatus, done: doneStatuses })
   if (todo) lines.push('', `What to do: ${todo}`)
   if (log) lines.push('', `Full details: ${log}`)
   lines.push(`PIPELINE_JSON:${JSON.stringify(outcome)}`)
@@ -97,25 +127,25 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
 
 const VERDICT_TEXT = {
   green: 'every check passed: the tests run, assert the ticket\'s values and catch changes to them.',
-  tests_red: 'the checks passed and some tests fail. For a bug whose fix is not merged yet, that is the expected result; otherwise the code does not do what the ticket says.',
+  tests_red: 'the checks passed and some tests fail.',
   checks_failed: 'a check found a problem with the tests themselves; fix the tests, not the code.',
   not_verified: 'something could not run, so nothing was proved. This is never a pass.',
 }
 
 /** The developer log: everything the card says, with every finding and number, for a person to read later. */
-export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date() } = {}) {
+export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date() } = {}) {
   const md = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']
   if (outcome.incompleteTicket) out.push(riskLine(outcome.incompleteTicket), '')
   out.push(`- **Checked:** ${date.toISOString()}`, `- **Specs:** ${specs.map(s => `\`${s}\``).join(', ') || 'none'}`)
   if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.map(runnerLabel).join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
-  out.push(`- **Verdict:** ${VERDICT_TEXT[outcome.verdict] ?? outcome.verdict}`)
+  out.push(`- **Verdict:** ${VERDICT_TEXT[outcome.verdict] ?? outcome.verdict}${outcome.verdict === 'tests_red' ? ` ${redAdvice({ issueType, status: jiraStatus, done: doneStatuses })}` : ''}`)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
   const t = outcome.steps.find(x => x.check === 'tests')?.data
   if (Array.isArray(t?.list) && t.list.length) {
     out.push('', '## Tests', '', '| Test | Result | Why |', '|---|---|---|')
-    for (const x of t.list) out.push(`| ${md(x.title)}${EXTRA.test(x.title) ? ' (extra, not in the ticket)' : ''} | ${x.status} | ${md(x.message ?? '')} |`)
+    for (const x of t.list) out.push(`| ${md(x.title)}${EXTRA.test(x.title) ? ' (extra, not in the ticket)' : ''} | ${x.status} | ${md([x.message, ...contextLines(x.context)].filter(Boolean).join(' · '))} |`)
   }
   out.push('', '## Checks')
   for (const s of outcome.steps) {
@@ -126,7 +156,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
     for (const f of fs) out.push(`- ${[f.runner, f.file, f.test && `'${f.test}'`].filter(Boolean).join(' › ')}${f.kind ? ` [${f.kind}]` : ''}${f.detail ? `: ${md(f.detail)}` : ''}`)
     if ((s.findings ?? []).length > fs.length) out.push(`- …and ${s.findings.length - fs.length} more`)
   }
-  const todo = whatToDo(outcome)
+  const todo = whatToDo(outcome, { issueType, status: jiraStatus, done: doneStatuses })
   if (todo) out.push('', '## What to do', '', todo)
   out.push('', '## Run it again', '', `\`/quality-code:run-pipeline ${specs.join(' ')}${key ? ` --key ${key}` : ''}\``, '')
   return out.join('\n')

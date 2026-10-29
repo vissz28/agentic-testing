@@ -253,8 +253,43 @@
       "properties": {
         "frontend": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } },
         "backend": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } },
-        "fullstack": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } }
+        "fullstack": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } },
+        "default": { "enum": ["frontend", "backend", "fullstack"], "description": "The side of a ticket that carries no mark, so the side card is not asked on every ticket." }
       }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the readiness gate reads this project's tickets. omit: items that never count against a ticket (attachments for backend stories, for example); the score is scaled over the rest. contextFromIntro: the paragraph before the first heading counts as the Context.",
+      "properties": {
+        "omit": { "type": "array", "items": { "enum": ["attachments", "links", "context", "environment"] } },
+        "contextFromIntro": { "type": "boolean" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the expected-value check reads this project. aliases: the text the screen shows for a word in the ticket (the criterion says Rectify, the UI says Rettifica). ignore: words or field names that another package owns (a backend table). fields: false stops field names in the ticket from being looked for in the tests.",
+      "properties": {
+        "aliases": { "type": "object", "additionalProperties": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }] } },
+        "ignore": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "fields": { "type": "boolean" }
+      }
+    },
+    "assertionHelpers": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Za-z_$][\\w$]*$" },
+      "description": "Method-name prefixes that assert for a test (page objects), like check or ensure. expect, assert and verify always count: dashboard.expectGridVisible() is an assertion."
+    },
+    "ticketAnchor": {
+      "enum": ["block", "branch"],
+      "description": "Which tests count as the ticket's. block (default): a group whose title names the ticket. branch: also every test of a spec changed on the branch (a run with a range), for suites that do not name the key."
+    },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "The projects (folders) of a monorepo that this one config serves. ticket.mjs root set <folder> picks the active one on this computer; root stays the default."
     },
     "git": {
       "type": "object",

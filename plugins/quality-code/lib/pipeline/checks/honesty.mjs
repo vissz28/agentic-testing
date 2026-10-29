@@ -16,6 +16,19 @@ const ONLY = /(?<![.\w$])(?:(?:it|test|describe|suite|context|specify)(?:\.descr
 const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', 'runIf'])
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const ENV_READ = /\b(?:process\.env|import\.meta\.env|os\.environ|System\.getenv|Environment\.GetEnvironmentVariable|getenv)\b/
+const ENV_NAME = /\b(?:set|define|export|missing|requires?|needs?)\s+[`'"]?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/
+/**
+ * A skip with a condition and a reason (test.skip(!ids, "set STS_TAXPAYER_ID …")) is honest when the condition reads the
+ * environment, or its reason names an environment variable or the ticket under test: the test is not dropped, it waits
+ * for the data it needs, and says so. A bare test.skip('title') is never excused this way.
+ */
+export function envGatedSkip(body, own) {
+  const m = /\.(?:skip|fixme)\s*\(\s*([^'"`\s][^,]*?)\s*,\s*(['"`])(.*?)\2/.exec(body)
+  if (!m) return false
+  return ENV_READ.test(m[1]) || ENV_NAME.test(m[3]) || Boolean(own && new RegExp(`(?<![A-Za-z0-9_-])${esc(own)}(?!\\d)`).test(m[3]))
+}
+
 /** The modifier and title of a test(/it( declaration on the same line; else null. */
 function testDecl(line) {
   const m = /(?<![.\w$])(?:test|it)(?:\.(\w+))?\s*\(\s*(['"`])(.+?)\2/.exec(line)
@@ -80,7 +93,7 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
       }
       if (h.anchorTags && redTag?.test(body) && !taggedKey.test(body))
         out.push({ file, kind: 'anchor tag without a ticket tag', line: body.trim() })
-      if (((skips.some(re => re.test(body)) || h.skipRe?.test(body)) && !tracked.test(body)) || ONLY.test(body))
+      if (((skips.some(re => re.test(body)) || h.skipRe?.test(body)) && !tracked.test(body) && !envGatedSkip(body, own)) || ONLY.test(body))
         out.push({ file, kind: 'test newly skipped', line: body.trim() })
     }
   }

@@ -1,5 +1,5 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, hasListChecks, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, hasListChecks, introSignal, omittedKeys, stepsSignal } from './shared.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
@@ -25,7 +25,7 @@ function deriveSignals(v, config, ticket) {
   const hasExpected = hasHeading(v, description, v.expectedHeading) || v.expectedPhrase.test(description)
   const hasActual = hasHeading(v, description, v.actualHeading) || v.actualPhrase.test(description)
   const expected_defined = ac_present || (hasExpected && hasActual)
-  const context = hasHeading(v, description, v.contextHeadingBE) || v.contextPhrase.test(description)
+  const context = hasHeading(v, description, v.contextHeadingBE) || v.contextPhrase.test(description) || (config.gate?.contextFromIntro === true && introSignal(description))
   const prefixes = config.titlePrefixes ?? []
   // An empty list never matches (an empty alternation would accept a bare "[]").
   const title_prefix = prefixes.length > 0 &&

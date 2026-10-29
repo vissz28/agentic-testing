@@ -461,6 +461,27 @@ ends a routine on a date (its next run removes it). Scheduled tasks run while th
 while it was closed happens when it opens again. Without the scheduler tools the command falls back to a
 session-only schedule that ends with the session (and after 7 days).
 
+**Monorepos and co-located tests.** Tests that sit next to the code (`src/**/Foo.unit.test.jsx`) are found by their
+name wherever they are: the spec census, `run-backend` and `run-pipeline --suite backend` count them, a unit spec inside the
+e2e folder runs under the unit runner and not Playwright, and the project flow keeps a tag before `.test` (`.unit.test.jsx`).
+`setup.mjs --detect` reports `colocated`; `--write` with `"colocated": true` sets the test folder to the code folder and
+allows the test names in `boundaries.allow`, so a run can write them while the code stays protected (a layer inside a
+forbidden folder is accepted once an allow rule names test files there). At the top of an npm-workspaces monorepo setup proposes
+a workspace as the `root` instead of the orchestrating `package.json`. `consumption` looks under the repo top too.
+
+**Reading a red run.** The card says "for a bug whose fix isn't merged yet, red is the expected result" only for a Bug whose
+Jira status is not merged or done (`jira.doneStatuses`, or any status containing "merge"); for a Task or Story, or a merged bug,
+it says the code does not do what the ticket says, or the test is wrong. A red Playwright test shows what it recorded: the
+line it stopped on, the locator it waited for, the page URL and some of its text (from `error-context.md` when Playwright wrote
+it), or how to record them (`trace: 'retain-on-failure'`). An env-gated skip (`test.skip(!ids, "set STS_TAXPAYER_ID …")`, or
+a condition that reads the environment, or a reason that names the ticket under test) is honest; a bare skip is not. The
+mutation step says how many mutants were killed and in which specs it could not run. The expected check reads only what
+follows the Then of a one-line Given / When / Then, and honours `--expected` values that come from the ticket's Notes.
+
+**Screens.** `/quality-code:spec` checks every route (`--route`, a configured feature's, a typed one) against the router the
+code declares (`bin/routes.mjs check /path`: React Router, Vue Router, a routes array, Next/Nuxt/SvelteKit/Remix folders) and
+names the closest routes when it is not one; the screen card says how to pass one (`--route /orders`).
+
 **Frozen evals.** `/quality-code:run-pipeline --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or
 an edited guide that softens one shows up: one folder per ticket in `.claude/quality-code/evals/<KEY>/`
@@ -817,6 +838,12 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |
 | `ticketTemplates` | paths of your Bug/Story issue templates (named in the Jira comment) | none |
 | `root` | the project's folder when it is not the repository's top (`web`): the config stays at the top, the scripts, runners and the boundary hook work in the folder, and every other path here and in the scripts' output is relative to it | the top |
+| `expected` | How the expected-value check reads this project: `aliases` (the text the screen shows for a word in the ticket: `{ "Rectify demographic data": "Reinvio per variazione" }`), `ignore` (words or field names another package owns, like a backend table), `fields: false` (do not look for field names in the tests of a frontend workspace) | all three off |
+| `assertionHelpers` | Method-name prefixes that assert for a test (page objects): `["check", "ensure"]`. `expect`, `assert` and `verify` always count, so `dashboard.expectGridVisible()` is an assertion | none |
+| `ticketAnchor` | `"block"`: the ticket's tests are the group whose title names the key; `"branch"`: also every test of a spec changed on the branch (a run with a range), for suites that do not write the key in their titles | `block` |
+| `gate` | The readiness gate for this project: `omit` (`attachments`, `links`, `context`, `environment`: items that never count against a ticket, the score is scaled over the rest) and `contextFromIntro` (the paragraph before the first heading counts as the Context) | nothing omitted |
+| `roots` | The folders of a monorepo this one config serves (`["app", "backend-executor"]`). `ticket.mjs root set <folder>` picks the active one on this computer, `QUALITY_CODE_ROOT` for one run; `root` stays the default | none |
+| `sides.default` | The side (`frontend`, `backend`, `fullstack`) of a ticket with no FE/BE/FS mark, so the side card is not asked on every ticket | asked |
 | `testFlow` | `"project"`: new tests follow the project's own tests (its file naming, folders and the style of its nearest specs); `"quality-code"`: Quality Code's flow (the ticket key in the file name, the configured test folders). `/quality-code:spec --flow …` overrides it for one run | `project` when the project already has tests, else `quality-code` |
 | `ticketsDir` | where local ticket copies go, inside the project, when you keep files in the project repo (see "Where files and logs go" below) | `.quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |

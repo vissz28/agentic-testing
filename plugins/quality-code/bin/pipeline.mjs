@@ -78,6 +78,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const inside = rel => !(rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/'))
   let ticket = null
   let jiraStatus = null
+  let issueType = null
   if (a.ticket !== undefined) {
     const t = a.ticket.replace(/^@/, '')
     if (!t) return err('--ticket needs a file, like --ticket @path/ticket.json')
@@ -86,6 +87,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     try { obj = JSON.parse(readFileSync(ticket, 'utf8')) } catch (e) { return err(`--ticket ${t}: ${isFile(ticket) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
     jiraStatus = typeof obj.status === 'string' ? obj.status : null
+    issueType = typeof obj.issuetype === 'string' ? obj.issuetype : null
   }
   // --expected: the values the writer says its tests pin, as a JSON list; the check keeps only those the ticket's expected text holds.
   let candidates = []
@@ -136,12 +138,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const rel = `${config.ticketsDir}/${a.key}/run.md`
     try {
       mkdirSync(dirname(resolve(root, rel)), { recursive: true })
-      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, doneStatuses: doneStatusesOf(config) }))
+      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, issueType, doneStatuses: doneStatusesOf(config) }))
       logPath = rel
     } catch {}
   }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, doneStatuses: doneStatusesOf(config), log: logPath })}\n`)
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), log: logPath })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 

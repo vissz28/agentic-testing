@@ -3,7 +3,7 @@
 // text, never run. A Cypress project's specs are in cypress/e2e/ unless playwright.folder says otherwise.
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { ALWAYS, matches, rulesFor } from './boundary.mjs'
+import { ALWAYS, allowCovers, matches, rulesFor } from './boundary.mjs'
 import { runnerOf } from './runners.mjs'
 
 // Playwright's own lookup order for its default config file.
@@ -57,7 +57,7 @@ export function e2eFolder(root, config) {
   const always = ALWAYS.find(a => matches(a, f))
   if (always) return { ok: false, error: `the e2e folder "${out.folder}" is inside "${always}", which a test run never writes: set playwright.folder` }
   const rules = rulesFor(config, root)
-  const rule = rules.allow.some(a => matches(a, f)) ? null : rules.forbidden.find(r => matches(r.path, f))
+  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(r.path, f))
   if (rule) return { ok: false, error: `the e2e folder "${out.folder}" is inside the forbidden "${rule.path}": set playwright.folder, or allow it in boundaries.allow` }
   return out
 }

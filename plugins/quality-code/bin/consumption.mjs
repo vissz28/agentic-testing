@@ -4,7 +4,7 @@
 import { basename, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { keySource } from '../lib/base/keys.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { configHome, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { AS_OF, PRICES, SOURCE, loadPrices } from '../lib/report/prices.mjs'
 import { BY, buildReport, formatCard, parsePeriod } from '../lib/report/consumption.mjs'
 import { attribute, configDir, findProjectDirs, loadSessions } from '../lib/report/transcripts.mjs'
@@ -44,7 +44,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       priceInfo = { asOf: p.asOf ?? AS_OF, source: `${p.source}, then ${SOURCE}`, override: a.prices, models: p.models }
     } catch (e) { return err(e.message) }
   }
-  const { dirs, sessions: files, looked } = findProjectDirs(root, configDir(env))
+  // A project with "root" set (an app in a monorepo) is often worked on from the repo top: look under both.
+  const homes = [...new Set([root, configHome(root)])]
+  const found = homes.map(h => findProjectDirs(h, configDir(env)))
+  const dirs = [...new Set(found.flatMap(f => f.dirs))]
+  const files = Object.assign({}, ...found.map(f => f.sessions ?? {}))
+  const looked = found.flatMap(f => f.looked)
   const sessions = dirs.flatMap(d => loadSessions(d, files[d]))
   if (!sessions.length) {
     stdout(`No Claude Code transcripts found for ${root}.\nLooked in:\n${looked.map(l => `  ${l}`).join('\n')}\n`)

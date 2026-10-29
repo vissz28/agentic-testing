@@ -75,7 +75,7 @@ export function testsStep(run, requested = [], key = null) {
   const data = { ran: true, passed: count('passed'), failed: count('failed'), skipped: count('skipped'), ...(others ? { otherTickets: others } : {}) }
   const outside = others ? ` (${others} test(s) outside the ${key} block not counted)` : ''
   // Each test once, for the card's list and the developer log; a long suite keeps only its counts.
-  if (tests.length <= LIST_MAX) data.list = tests.map(t => ({ title: t.title, file: t.file, status: t.status, ...(t.message ? { message: t.message } : {}) }))
+  if (tests.length <= LIST_MAX) data.list = tests.map(t => ({ title: t.title, file: t.file, status: t.status, ...(t.message ? { message: t.message } : {}), ...(t.context ? { context: t.context } : {}) }))
   if ((run.broken ?? []).length) {
     const b = run.broken[0]
     return result('tests', 'not_run', `${run.broken.length} file(s) never ran: ${b.file}: ${b.message}`, run.broken.map(x => ({ file: x.file, kind: 'never ran', detail: x.message })), data)
@@ -92,7 +92,7 @@ export function testsStep(run, requested = [], key = null) {
   return result('tests', 'pass', `${data.passed} passed${outside}`, [], data)
 }
 
-async function mutationStep(specs, key, run, ctx, timeoutMs) {
+async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
   const per = []
   let redOnly = 0
   for (const spec of specs) {
@@ -100,14 +100,14 @@ async function mutationStep(specs, key, run, ctx, timeoutMs) {
     const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
     // A spec with failing tests and no passing one already shows its assertions can fail (spec §13).
     if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
-    let r = await mutation.run({ spec, key, baseline, timeoutMs }, ctx)
+    let r = await mutation.run({ spec, key, baseline, timeoutMs, whole }, ctx)
     // Nothing eligible in a spec that had passing tests: the pipeline cannot show its assertions bind.
     if (r.status === 'pass' && (r.data?.total ?? 0) === 0 && baseline.length) {
       r = result('mutation', 'not_run', `no assertion in ${spec} that mutation can check (snapshot, chai-style or custom matchers)`,
         [{ file: spec, kind: 'nothing to mutate', detail: `${baseline.length} passing test(s) unchecked` }])
     }
     if (key && r.status === 'not_run' && r.findings.some(f => f.kind === 'no anchor block')) continue
-    per.push(r)
+    per.push({ ...r, spec })
   }
   if (!per.length && redOnly) return result('mutation', 'pass', 'skipped: no passing test to mutate (see tests)', [], { killed: 0, survived: 0, errors: 0, total: 0, survivors: [] })
   if (!per.length) return result('mutation', 'not_run', key ? `no ${key} block in the specs` : 'nothing to mutate')
@@ -115,8 +115,13 @@ async function mutationStep(specs, key, run, ctx, timeoutMs) {
   const data = { killed: sum('killed'), survived: sum('survived'), errors: sum('errors'), total: sum('total'), survivors: per.flatMap(r => r.data?.survivors ?? []) }
   const findings = per.flatMap(r => r.findings)
   if (per.some(r => r.status === 'fail')) return result('mutation', 'fail', `${data.survived} of ${data.total} mutant(s) survived: an assertion that cannot fail`, findings, data)
-  const nr = per.find(r => r.status === 'not_run')
-  if (nr) return result('mutation', 'not_run', nr.summary, findings, data)
+  const notRun = per.filter(r => r.status === 'not_run')
+  if (notRun.length) {
+    // Mutants that did run are said too: the message and the counts must agree.
+    const why = notRun[0].summary
+    const where = notRun.map(r => r.spec).join(', ')
+    return result('mutation', 'not_run', data.total ? `${data.killed}/${data.total} mutants killed in the specs that ran; not checked in ${where}: ${why}` : why, findings, { ...data, unchecked: notRun.map(r => ({ spec: r.spec, why: r.summary })) })
+  }
   return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed`, findings, data)
 }
 
@@ -173,7 +178,7 @@ export async function runPipeline(opts, ctx) {
   }
   if (groups.length > 1 && opts.ticket) {
     const dialectOf = p => dialectFor(runnerOf(ctx.config, adapterOfSpec(ctx.config, ctx.root, p)))
-    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [] }, { ...ctx, dialectOf }))] })
+    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
   }
   return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }
 }
@@ -225,6 +230,8 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   const runTests = ctx.runTests ?? (isSpecialized(runner) ? adapter.runner(ctx.root, ctx.config) : genericRunner(ctx.root, ctx.config, runner))
   const typeCheck = ctx.typeCheck ?? (adapter.typeCheck === 'tsc' ? s => realTypeCheck(ctx.root, ctx.config, s) : noTsc(ctx.config.adapter, ctx))
   const c = { ...ctx, runTests }
+  // ticketAnchor "branch": a spec changed on the branch with no block of the key counts as a whole (an existing suite that does not name the key).
+  const whole = ctx.config.ticketAnchor === 'branch' && Boolean(range)
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
   const steps = []
   // Boundary guards a test-writing run: without the run marker there is nothing it can judge.
@@ -233,7 +240,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
       : result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
   }
   steps.push(await step('honesty', () => honesty.run({ specs, range, key }, c)))
-  steps.push(await step('suite-honesty', () => suite.run({ specs, key }, c)))
+  steps.push(await step('suite-honesty', () => suite.run({ specs, key, whole }, c)))
   const types = await step('types', () => typeCheck(specs))
   steps.push(types)
   let run = null
@@ -244,8 +251,8 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     steps.push(testsStep(run, specs, key))
   }
   const tests = steps.at(-1)
-  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates }, c)))
-  if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs)))
+  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
+  if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))

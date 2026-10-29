@@ -190,8 +190,12 @@ test('playwright step 3: --route, else the derived route with no card, else the 
   assert.ok(s.includes('--route PATH'))
   assert.ok(s.includes('`--route must be a path in the app starting with /, like /orders`'))
   assert.match(s, /the configured feature whose label is on the ticket\) is used, with no card/)
-  assert.ok(s.includes('Which screen does this ticket test?\n     1. <route>   (<feature label>)\n     2. <route>   (<feature label>)\n     3. Another screen\n     4. Stop'))
+  assert.ok(s.includes('Which screen does this ticket test?\n     1. <route>   (<feature label>)\n     2. <route>   (<feature label>)\n     3. Another screen (type its path)\n     4. Stop'))
   assert.ok(s.includes('`Which screen? Type its path in the app, for example /orders.`'))
+  // the route is checked against the router before it is used, and the card says how to pass one
+  assert.ok(s.includes('bin/routes.mjs" check <route>'))
+  assert.match(s, /Exit 1: show its line \(it names the closest routes\)/)
+  assert.ok(s.includes('You can also pass the screen: /quality-code:spec <KEY> --route /orders'))
   assert.match(s, /entry of `features` that has a `route`/)
 })
 test('playwright step 4: the plugin guide, the team guide, two existing specs, the extras and the plan card', () => {

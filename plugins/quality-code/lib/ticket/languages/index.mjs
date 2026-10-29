@@ -19,6 +19,8 @@ export function buildVocabulary(langs) {
   return {
     gherkinStep: new RegExp(`^${S}(?:${m('steps')})${W}`, 'im'),
     gherkinStepAll: new RegExp(`^${S}(?:${m('steps')})${W}`, 'gim'),
+    // The word that starts the outcome inside a one-line Given / When / Then.
+    thenWord: new RegExp(`\\b(?:${m('then')})\\b`, 'ig'),
     thenLine: new RegExp(`^${S}(?:${m('then')})${W}`, 'im'),
     thenLineCapture: new RegExp(`^${S}(?:${m('then')})${W}(.*)$`, 'im'),
     // The lines whose vagueness counts: Then and every continuation (and, but, e, ma).

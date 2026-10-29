@@ -1,6 +1,6 @@
 ---
 description: Score a Jira project's tickets for test-readiness in one run (the 70-point gate): one line per ticket, how much of the project passes, and what is missing most often. Read-only; sends nothing anywhere.
-argument-hint: <PROJECT> [--user <name>] [--status <status>] [--limit N] [--json]
+argument-hint: <PROJECT> [--user <name>] [--status <status>] [--limit N | --all] [--json]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
@@ -23,9 +23,9 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
 1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (the path on the `tickets folder:` line `config check` printed, used as it is: where this person keeps the project's files, in the repo or outside it) from it.
 2. **Parse.** From `$ARGUMENTS`:
    - `<PROJECT>`: the first word that is a project key (`[A-Z][A-Z0-9]*`), mandatory. Missing: `pass a project: /quality-code:tickets-eval <PROJECT>` and stop. It must be in `jira.projects` or `jira.trackingProjects`; if not, say `<PROJECT> is not one of <those keys>. Add it with /quality-code:setup, or pick one of them.` and stop.
-   - `--user <name>`, `--status <status>` (a value with spaces is in quotes), `--limit N` (default 50, cap 200; not a whole number of 1 or more: say so and stop), `--json`.
+   - `--user <name>`, `--status <status>` (a value with spaces is in quotes), `--limit N` (default 50, cap 200; not a whole number of 1 or more: say so and stop), `--all` (every ticket of the filter: page with `nextPageToken` until there is none, at most 1000; with `--limit` too, say `Give --limit or --all, not both.` and stop), `--json`.
    - **Criteria field.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" field get <PROJECT>` and read the `FIELD_JSON:` line. `source` `config` or `stored`: use its `field` (`null` means the project has no criteria field). `source` `unknown`: look it up once exactly as step 1 of `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` does (Story type, all fields, search the saved result, never read it whole) and remember it with `field set`.
-3. **Search.** Call `searchJiraIssuesUsingJql` once on the Atlassian connector. The JQL is `project = <PROJECT>`, then `AND assignee = "<user>"` when `--user` is given, then `AND status = "<status>"` when `--status` is given, then `ORDER BY updated DESC`. Escape `\` as `\\` and `"` as `\"` in the user and status values first. `maxResults` is the limit; `fields` are `summary,issuetype,status,labels,description,<criteria field>,issuelinks,attachment` (leave the criteria field out when it is `null`); `responseContentFormat` is `markdown`. If more results exist and fewer than the limit came back, call again with `nextPageToken` until you have the limit or no token is left. No ticket found: `No tickets found for <PROJECT> with these filters.` and stop.
+3. **Search.** Call `searchJiraIssuesUsingJql` once on the Atlassian connector. The JQL is `project = <PROJECT>`, then `AND assignee = "<user>"` when `--user` is given, then `AND status = "<status>"` when `--status` is given, then `ORDER BY updated DESC`. Escape `\` as `\\` and `"` as `\"` in the user and status values first. `maxResults` is the limit; `fields` are `summary,issuetype,status,labels,description,<criteria field>,issuelinks,attachment` (leave the criteria field out when it is `null`); `responseContentFormat` is `markdown`. If more results exist and fewer than the limit came back (with `--all`: until no token is left, at most 1000), call again with `nextPageToken`. Remember whether a next page was still left when you stopped. No ticket found: `No tickets found for <PROJECT> with these filters.` and stop.
 4. **Write the results.** Write one JSON array to `<ticketsDir>/tickets-eval.json` (create the folder if needed). The script deletes this file once it has scored it, so the raw text does not stay on disk. Each ticket is an object in the shape `ticket-eval` writes to `raw.json`:
 
    ```json
@@ -40,10 +40,11 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
    - `attachments`: the number of entries in the `attachment` field (`0` when there are none). Only the count: never a file name, an attachment URL or a file's contents.
    - `links`: one `{ "url", "title" }` per linked issue in `issuelinks` (inward or outward): `url` = `<jira.site>/browse/<linked KEY>`, `title` = the key and its summary. Only for a ticket with no linked issue, also read its web links: one `listJiraIssueRemoteIssueLinks` call (`getJiraIssueRemoteIssueLinks` on an older connection) for that key, each as `url` = `object.url`, `title` = `object.title`. A ticket that already has a linked issue needs no such call: one link is all the score needs. No links: `[]`.
 5. **Score.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" tickets-eval --in @<ticketsDir>/tickets-eval.json` (add `--json` if given; with `--json` print only the `TICKETS_EVAL_JSON:` line and stop). It exits 0 whatever the pass rate; exit 2 is bad input or config (show the message and stop). Show the card exactly as printed, and drop the `TICKETS_EVAL_JSON:` machine line.
-6. **End.** After the card, one sentence: how many tickets were read, and that nothing was sent to Jira. If the search hit the limit, add `Showing the latest <N>. Use --limit to read more (up to 200).` To fix one ticket: `/quality-code:ticket-eval <KEY>`. Stop.
+6. **End.** After the card, one sentence: how many tickets were read, and that nothing was sent to Jira. If a next page was still left, add `This is a sample: the latest <N> tickets, not the whole project, so the pass rate is a sample too. Use --all for every ticket.` (and, with `--all`, when it stopped at 1000, `Stopped at 1000 tickets.`) To fix one ticket: `/quality-code:ticket-eval <KEY>`. Stop.
 
 ## Examples
 
 - `/quality-code:tickets-eval ABC`: the latest 50 tickets of ABC
 - `/quality-code:tickets-eval ABC --user "Jane Doe" --status "To Do"`: one person's open tickets
 - `/quality-code:tickets-eval ABC --limit 200 --json`: machine result only
+- `/quality-code:tickets-eval ABC --all`: every ticket of the project (the rate is then the project's)
