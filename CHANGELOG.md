@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-10-29
+
+### Fixed
+
+- A whole-suite run with a ticket (for example `/quality-code:run-backend` on AGT-144) no longer says "not verified": mutation skips the spec files that hold none of the ticket's tests, instead of counting each one as "baseline had no passing test".
+
 ## [0.28.0] - 2026-10-29
 
 ### Fixed

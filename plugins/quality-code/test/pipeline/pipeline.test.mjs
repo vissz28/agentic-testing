@@ -60,6 +60,19 @@ test('a pure-red spec (no passing test) skips mutation and gives tests_red', asy
   assert.equal(r.steps.find(s => s.check === 'mutation').status, 'pass')
   assert.equal(mutated, 0)
 })
+test('a whole-suite run: specs without the key\'s tests are skipped by mutation, not unchecked', async () => {
+  const d = repo()
+  put(d, 'test/b.spec.ts', "describe('ABC-2 — other', () => {\n  it('subs', () => { expect(sub(1, 1)).toBe(0) })\n})\n")
+  const r0 = makeRunner(d)
+  const runTests = async a => a.testName ? r0(a)
+    : { ran: true, broken: [], tests: [
+      { title: 'adds', file: 'test/a.spec.ts', path: ['ABC-1 — anchor'], status: 'passed' },
+      { title: 'subs', file: 'test/b.spec.ts', path: ['ABC-2 — other'], status: 'passed' }] }
+  const r = await runPipeline({ specs: ['test/a.spec.ts', 'test/b.spec.ts'], key: 'ABC-1' }, ctx(d, { runTests }))
+  const m = r.steps.find(s => s.check === 'mutation')
+  assert.equal(m.status, 'pass', m.summary)
+  assert.equal(r.verdict, 'green')
+})
 test('a spec with passing tests whose assertions mutation cannot touch is not verified', async () => {
   const d = repo("describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n")
   const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d))

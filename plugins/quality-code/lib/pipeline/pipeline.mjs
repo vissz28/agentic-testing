@@ -97,6 +97,8 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
   let redOnly = 0
   for (const spec of specs) {
     const own = ownTests(run.tests, key).filter(t => t.file === spec)
+    // A whole-suite run: a spec with none of the key's tests is another ticket's, not unchecked.
+    if (key && !own.length) continue
     const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
     // A spec with failing tests and no passing one already shows its assertions can fail (spec §13).
     if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
