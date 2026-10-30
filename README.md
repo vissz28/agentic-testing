@@ -23,22 +23,293 @@ both in one repo (fullstack). Your application code is never changed.
 > **The rule everything is built on:** the model reads, drafts and writes, but it **never grades**.
 > Every score and every pass/fail comes from a deterministic script.
 
-## Features
+## Which commands do I run?
 
-| Feature | Command |
+New here? [Install](#installation) the plugin first. Then follow the path for your role, top to bottom.
+Every command is typed in Claude Code, inside your project folder. Each one answers with a card:
+reply with the number of the option you want.
+
+### Developer
+
+```mermaid
+flowchart TD
+    A["/quality-code:setup<br/><i>once per repo, by one person</i>"] --> B["git checkout -b ABC-123-my-feature"]
+    B --> C["/quality-code:spec<br/><i>finds ABC-123 from the branch name</i>"]
+    C --> D{"Ticket passes<br/>the gate? (70/100)"}
+    D -- no --> E["/quality-code:ticket-eval ABC-123<br/><i>comment on Jira, or fill the gaps</i>"]
+    E --> C
+    D -- yes --> F["Tests written and checked<br/>in your test folders"]
+    F --> G["/quality-code:seed ABC-123<br/><i>optional: mock data to try it by hand</i>"]
+    G --> H["/quality-code:run-pipeline --branch<br/><i>before you push</i>"]
+    H --> I["/quality-code:ci<br/><i>once per repo: the same checks in CI</i>"]
+```
+
+### QA
+
+```mermaid
+flowchart TD
+    A["/quality-code:setup<br/><i>option 1 in a repo, option 2 for Jira only</i>"] --> B["/quality-code:ticket assignee:me<br/><i>find the tickets to test</i>"]
+    B --> C["/quality-code:ticket-eval ABC-123<br/><i>is it clear enough to test?</i>"]
+    C -- refused --> D["Fill the gaps with the author<br/><i>guided fill-in, pushed to Jira after a preview</i>"]
+    D --> C
+    C -- passes --> E["/quality-code:xray ABC-123<br/><i>test cases to import into Xray</i>"]
+    E --> F["/quality-code:qa ABC-123<br/><i>run the manual tests with the agent</i>"]
+    F --> G["/quality-code:routine<br/><i>optional: nightly run, flaky tests</i>"]
+```
+
+QA in a repo can also write automated tests with `/quality-code:spec ABC-123`, like a developer.
+
+### Product owner / ticket author
+
+```mermaid
+flowchart TD
+    A["/quality-code:setup<br/><i>option 2: Jira only, no repo</i>"] --> B["/quality-code:tickets-eval ABC<br/><i>how the whole project scores</i>"]
+    B --> C["/quality-code:ticket-eval ABC-123<br/><i>one ticket: what is missing</i>"]
+    C --> D["Guided fill-in<br/><i>answer the questions, preview, push to Jira</i>"]
+    D --> E["Ticket passes:<br/>ready for dev and QA"]
+```
+
+### Team lead
+
+Run `/quality-code:setup` once and commit `.claude/quality-code.json`, then `/quality-code:ci` for the
+pipeline. Check adoption with `/quality-code:kpi` and cost with `/quality-code:consumption`.
+
+## Commands
+
+Click a command to see its options.
+
+| Command | What it does | You give it | You get back |
+|---|---|---|---|
+| [`setup`](#setup) | Connects Jira (and GitLab, GitHub, Figma) and saves the project's settings | nothing; answer the cards | `.claude/quality-code.json` to commit |
+| [`config`](#config) | Shows and changes the settings, one at a time | nothing; pick an item | the settings card; changes are checked before saving |
+| [`ticket`](#ticket) | Finds a Jira ticket and shows it in short | a key, words, or filters like `assignee:me` | the ticket in short, with tips for its author (never posted) |
+| [`ticket-eval`](#ticket-eval) | Scores one ticket for test-readiness (70/100 passes) | a ticket key | the score, what is missing, and a way to fix it on Jira |
+| [`tickets-eval`](#tickets-eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
+| [`spec`](#spec) | From a ticket to written and checked tests | a key, or nothing on a feature branch | test files in your test folders and a verdict card |
+| [`run-frontend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the Playwright tests | nothing, or spec paths | a verdict card |
+| [`run-backend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the backend tests (Vitest, pytest, JUnit, Go, .NET) | nothing, or spec paths | a verdict card |
+| [`run-pipeline`](#run-frontend--run-backend--run-pipeline) | Runs and grades both, frontend and backend | nothing, spec paths, or `--branch` | a verdict card |
+| [`seed`](#seed) | Loads realistic mock data for a ticket into your local database | a ticket key | rows in your local DB, to try the ticket by hand |
+| [`xray`](#xray) | Writes Xray test cases from a ticket | a ticket key | `case.csv` and `case.xlsx` to import into Xray |
+| [`qa`](#qa) | Runs your Xray manual tests in the browser with an agent | a test execution key, or nothing to list yours | a verdict per test you confirm, and drafted defects |
+| [`routine`](#routine) | Schedules test runs that run by themselves | a ticket key or nothing, and when | a report each run: green to red, flaky tests |
+| [`ci`](#ci) | Writes the CI file for GitHub Actions or GitLab CI | `github` or `gitlab` | a CI file with two jobs |
+| [`kpi`](#kpi) | Shows how the plugin is used and the Quality Program numbers | nothing, or a period | a KPI card (read-only) |
+| [`consumption`](#consumption) | Shows the AI usage and cost of the plugin's runs | nothing, or a period | a cost table (read-only) |
+| [`check-update`](#check-update) | Checks for a newer plugin version | nothing | what changed, and an update on your yes |
+
+Every command starts with `/quality-code:`, for example `/quality-code:spec`. Nothing is written to
+Jira without a preview and your yes.
+
+## Command reference
+
+`<KEY>` is a Jira ticket key such as `ABC-123`. `[...]` is optional.
+
+### setup
+
+`/quality-code:setup [advanced]`
+
+Asks where you work (in a repo, or Jira only for QA and PO), checks the connectors, detects the Jira
+project and base branch, and writes the config after you confirm. It never checks a ticket.
+
+| Option | What it does |
 |---|---|
-| **Readiness gate:** scores a ticket out of 100; 70 passes | `/quality-code:ticket-eval <KEY>` |
-| **Gaps fixed on the spot:** a Jira comment listing what is missing, or a guided fill-in pushed to the ticket after a preview | `ticket-eval`, when a ticket is refused |
-| **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:spec` |
-| **Tests written from the ticket:** Vitest, pytest, JUnit, Go, .NET and Playwright tests in your test folders, graded on the spot | `/quality-code:spec <KEY>` |
-| **Tests run and graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (both) |
-| **Mock data and QA cases:** realistic mock data for a ticket in your local database; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
-| **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
-| **A whole project at once:** every ticket scored, how many pass, what is most often missing | `/quality-code:tickets-eval <PROJECT>` |
-| **For QA and PO without a repo:** a personal Jira-only setup for the ticket commands | `/quality-code:setup`, option 2 |
-| **Numbers:** usage, Quality Program KPIs and AI cost, read locally | `/quality-code:kpi`, `/quality-code:consumption` |
-| **CI gate:** refuses untestable tickets in the pipeline | `ticket-eval <KEY> --ci` |
-| **Updates:** is a newer plugin version out, and what changed | `/quality-code:check-update` |
+| `advanced` | Extra questions: feature labels, QA plans, title prefixes, templates, redaction |
+
+### config
+
+`/quality-code:config`
+
+No options. Shows a numbered card: stack, Jira site and projects, base branch, test flow, where files
+and logs go, your Jira email, GitLab and Xray settings, and whether each token is set. Pick a number to
+change it. Tokens are set in `/plugin`, never in the chat.
+
+### ticket
+
+`/quality-code:ticket <KEY | number | words | filters>`
+
+| Input | Example | Finds |
+|---|---|---|
+| a key | `ABC-123` | that ticket |
+| a number | `123` | the ticket with that number in your project |
+| words | `export button` | tickets whose text matches |
+| `assignee:me` | `assignee:me` | tickets assigned to you |
+| `reporter:<name>` | `reporter:"Jane Doe"` | tickets opened by that person |
+| `status:<status>` | `status:"In Progress"` | tickets in that status |
+| `label:<label>` | `label:checkout` | tickets with that label |
+| `epic:<KEY>` | `epic:ABC-100` | tickets under that epic |
+| `text:<words>` | `text:refund` | full-text search |
+
+Filters can be combined: `/quality-code:ticket assignee:me status:"In Progress"`.
+
+### ticket-eval
+
+`/quality-code:ticket-eval <KEY> [--ci] [--json] [--refuse-comment]`
+
+Scores the ticket out of 100; 70 passes. Below 70 it offers three ways on: (1) post a Jira comment
+listing what is missing, (2) a guided fill-in that drafts the missing parts and pushes them to Jira
+after a preview, (3) continue anyway, marked as a risk.
+
+| Option | What it does |
+|---|---|
+| `--ci` | No questions. Exits 1 below the bar, so a pipeline can stop on it |
+| `--json` | Prints only the score as JSON, nothing else |
+| `--refuse-comment` | Prints the Jira comment for a refused ticket, without posting it |
+
+### tickets-eval
+
+`/quality-code:tickets-eval <PROJECT> [--user <name>] [--status <status>] [--limit N | --all] [--json]`
+
+Read-only. Scores the latest tickets of a project, one line each.
+
+| Option | What it does |
+|---|---|
+| `--user <name>` | Only tickets assigned to that person |
+| `--status <status>` | Only tickets in that status, e.g. `--status "To Do"` |
+| `--limit N` | How many of the latest tickets (default 50, max 200) |
+| `--all` | Every ticket that matches, so the pass rate is the project's, not a sample |
+| `--json` | Machine-readable result only |
+
+### spec
+
+`/quality-code:spec [KEY] [options]`
+
+With no key, it takes the ticket from your branch name (`ABC-123-add-export`). Steps: the readiness
+gate, a plan you confirm, the tests written in your test folders, the checks, a read-back. It asks at
+most three questions. Your application code is never changed.
+
+| Option | Works on | What it does |
+|---|---|---|
+| `--gate-only` | all | Only the readiness gate, no tests (same as `ticket-eval`) |
+| `--base BRANCH` | all | The branch to compare against, when it is not detected |
+| `--layer NAME` | backend | Write only in that test layer, e.g. `--layer unit` |
+| `--target PATH` | backend | The source file to test, e.g. `--target src/pricing.ts`; skips the question |
+| `--route PATH` | frontend | The screen to test, e.g. `--route /orders/new` |
+| `--no-extras` | frontend | Only the ticket's scenarios, no extra edge cases |
+| `--flow project\|quality-code` | all | Write tests like your existing ones (`project`) or Quality Code's way |
+| `--yes` | all | Skip the plan question |
+| `--dry-run` | all | The gate and the plan, then stop: nothing written, nothing posted |
+| `--ci` | all | No questions; stops where it would have to ask |
+
+On a fullstack repo every option works: `--layer`/`--target` for the backend part, `--route`/`--no-extras` for the frontend part.
+
+### run-frontend · run-backend · run-pipeline
+
+```
+/quality-code:run-frontend [spec…] [--key KEY] [--flaky N]
+/quality-code:run-backend  [spec…] [--key KEY] [--flaky N]
+/quality-code:run-pipeline [spec…] [--branch] [--key KEY] [--flaky N] | --evals
+```
+
+With no spec paths they run the whole suite: `run-frontend` the Playwright tests, `run-backend` the
+backend tests, `run-pipeline` both. The card shows a verdict, why, and one fix per failing check.
+
+| Option | What it does |
+|---|---|
+| `spec…` | Run only these test files |
+| `--key KEY` | Tie the run to a ticket, so its expected values are checked too |
+| `--flaky N` | Run each test N times to catch flaky ones |
+| `--branch` | `run-pipeline` only: just the tests your branch added or changed |
+| `--evals` | `run-pipeline` only: check that committed ticket specs still pin what they pinned |
+
+### seed
+
+`/quality-code:seed <KEY>`
+
+No options. The ticket must pass the gate. It writes mock data from the ticket's values (the rest
+realistic, never real) and loads it into your **local** database only; anything else is refused.
+Needs a one-time `seed` block in the config: see [Guide, "Mock data in your local database"](docs/GUIDE.md#mock-data-in-your-local-database).
+
+### xray
+
+`/quality-code:xray <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [KEY]`
+
+| Option | What it does |
+|---|---|
+| `--route PATH` | The screen the cases are for, e.g. `--route /orders/new` |
+| `--no-extras` | Only the ticket's scenarios, no extra edge cases |
+| `--dry-run` | The gate and the plan, then stop: no case written |
+| `--ci` | No questions |
+| `--sync [KEY]` | Rewrite the per-ticket `case.csv`/`case.xlsx` from the main CSV (after you edit it) |
+
+### qa
+
+`/quality-code:qa [KEY] [--app <url>] [--dry-run]`
+
+With no key it lists the test executions assigned to you. It runs each test in the browser, you give
+every verdict, and it drafts the defects. Every Jira write is previewed first.
+
+| Option | What it does |
+|---|---|
+| `KEY` | The test execution to run |
+| `--app <url>` | The app address to test on (sign in there first); asked when missing |
+| `--dry-run` | The whole run, with every defect and comment shown, nothing sent |
+
+### routine
+
+```
+/quality-code:routine [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--branch REF]
+/quality-code:routine status [KEY] | list | stop <name>
+```
+
+With no options it asks what, when and for how long. Each run fetches what others pushed, runs the
+tests, and says when they went from green to red, with the commits in between.
+
+| Option | What it does |
+|---|---|
+| `KEY` | Only that ticket's tests (default: the whole suite) |
+| `--cron "..."` | A repeating schedule in your local time, e.g. `"7 7 * * 1-5"` for weekdays at 07:07 |
+| `--at "..."` | Run once at that moment, e.g. `"tomorrow 09:15"` |
+| `--until YYYY-MM-DD` | The last day it runs |
+| `--stability N` | Run every test N times to track flaky tests and pass rate |
+| `--branch REF` | The branch to watch (default: the base branch) |
+| `status [KEY]` | Pass rate, flaky tests and green-to-red history of past runs |
+| `list` | Your routines, with next and last run |
+| `stop <name>` | Remove a routine; its results are kept |
+
+Routines run while the Claude app is open; a run missed while it was closed runs when it opens again.
+
+### ci
+
+`/quality-code:ci [github|gitlab] [--print]`
+
+Writes a CI file with two jobs per pull/merge request: `quality-gate` (seconds: honesty and assertion
+checks on the changed tests) and `quality-tests` (types, tests and mutation on what changed).
+
+| Option | What it does |
+|---|---|
+| `github` / `gitlab` | Which CI to write for (guessed from the repo when left out) |
+| `--print` | Show the file without writing it |
+
+### kpi
+
+`/quality-code:kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]`
+
+Read-only. Tickets gated, fill-ins, Jira comments, forced runs, verdicts, and the Quality Program
+numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate).
+
+| Option | What it does |
+|---|---|
+| `--since` | Start of the period: `7d`, `30d` or a date |
+| `--until` | End of the period |
+
+### consumption
+
+`/quality-code:consumption [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]`
+
+Read-only, from Claude Code's local transcripts. Default: the last 30 days, by command.
+
+| Option | What it does |
+|---|---|
+| `--since` / `--until` | The period |
+| `--by` | Group by `command`, `ticket`, `day` or `model` |
+| `--prices file.json` | Use your own prices per million tokens |
+
+### check-update
+
+`/quality-code:check-update`
+
+No options. Shows your version, the latest one and what changed, then updates on your yes.
 
 ## Works with
 
