@@ -36,6 +36,7 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
 | `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
 | `/quality-code:routine` | a check Claude runs by itself on a schedule (a time, for a period or once): fetches what others pushed, runs a ticket's tests or the whole suite, says when it went from green to red and which commits came in between, and with `--stability N` runs every test N times to watch flaky tests and the pass rate over time |
+| `/quality-code:check-update` | says whether a newer version of the plugin is out, lists what changed since yours, and gives the two commands to update; read-only, installs nothing |
 | `/quality-code:ci` | for GitHub Actions and GitLab CI: detects whether the branch changed the backend or the frontend and runs only the tests it touched, per module (everything on the default branch or with `--all`); `--init github\|gitlab` writes the CI file, which runs all the tests of the test folders (`--changed`: only the touched ones) |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | writes only the test data a ticket needs |

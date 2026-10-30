@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-30
+
+### Added
+
+- **`/quality-code:check-update`.** Says whether a newer version of the plugin is out. A script reads the installed
+  version and the latest one from the plugin's GitHub repository (the git tags when the files cannot be read), lists
+  what each newer version changed, and prints the two commands to type: `/plugin update quality-code@teamsystem`, then
+  `/reload-plugins`. Read-only: it installs nothing and sends nothing about you or the project. Exit 3 when the latest
+  version cannot be read (offline, or no access). Runs on Haiku. No action needed when you update; the MCP server picks the
+  command up on its own as `quality_code_check_update` (AGT-146).
+
 ## [0.28.1] - 2026-10-29
 
 ### Fixed

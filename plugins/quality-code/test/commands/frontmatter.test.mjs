@@ -12,11 +12,11 @@ const front = c => {
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
 // spec writes tests: it runs on the session model.
-const MODEL = { routine: 'sonnet', ci: 'haiku', kpi: 'haiku', consumption: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', setup: 'sonnet', config: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet', 'tickets-eval': 'sonnet' }
+const MODEL = { routine: 'sonnet', 'check-update': 'haiku', ci: 'haiku', kpi: 'haiku', consumption: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', setup: 'sonnet', config: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet', 'tickets-eval': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {
-  assert.deepEqual(commands.sort(), ['ci', 'config', 'consumption', 'kpi', 'qa', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'seed', 'setup', 'spec', 'ticket', 'ticket-eval', 'tickets-eval', 'xray'])
+  assert.deepEqual(commands.sort(), ['check-update', 'ci', 'config', 'consumption', 'kpi', 'qa', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'seed', 'setup', 'spec', 'ticket', 'ticket-eval', 'tickets-eval', 'xray'])
 })
 test('simple commands run on Haiku with low effort, the gate on Sonnet, writing on the session model', () => {
   for (const c of commands) {
@@ -32,6 +32,7 @@ const OWN = {
   'ticket-eval': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)',
   kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
   consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
+  'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
 }
