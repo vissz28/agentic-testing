@@ -89,7 +89,7 @@ test('summary: top-3 missing items by count, ties broken by name, at most 3', ()
 })
 test('an empty list gives an empty summary without dividing by zero', () => {
   const r = evalTickets(cfg(), [])
-  assert.deepEqual(r.summary, { scored: 0, passing: 0, passingPercent: 0, average: 0, mostMissing: [] })
+  assert.deepEqual(r.summary, { scored: 0, passing: 0, passingPercent: 0, average: 0, mostMissing: [], unreadFiles: 0, byTeam: [] })
   assert.equal(formatCard(r), 'No tickets to score.')
 })
 test('the card: one line per ticket, then the project lines', () => {

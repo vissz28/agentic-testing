@@ -72,8 +72,17 @@ export const envSignal = (v, hasHeading, description) =>
 /** A list of checks without a heading, however short: content enough that the ticket is not legacy. */
 export const hasListChecks = (v, description) => extractListCriteria(v, description).length > 0
 
-/** At least one file (a screenshot, a video, a document) is on the ticket. */
-export const attachmentsSignal = ticket => Number(ticket.attachments) >= 1
+/**
+ * At least one file (a screenshot, a video, a document) is on the ticket. Once files were read
+ * (`attach`), a file counts only when one gave text, or a file was added after the read: an empty
+ * or unrelated image no longer earns the points. Files never read count as before.
+ */
+export function attachmentsSignal(ticket) {
+  const n = Number(ticket.attachments)
+  if (!(n >= 1)) return false
+  const read = Number(ticket.attachmentsRead)
+  return !(read >= 1) || Number(ticket.attachmentsWithText) >= 1 || n > read
+}
 
 /** A linked issue or a web link is on the ticket, or the fill-in added a ## Links line with a URL. */
 export const linksSignal = ticket =>
