@@ -4,7 +4,7 @@ const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
 
-const label = check => LABEL[check] || check
+export const label = check => LABEL[check] || check
 const quoted = findings => findings.filter(f => f.test).map(f => `'${f.test}'`).join(', ')
 
 function stepLine(step) {

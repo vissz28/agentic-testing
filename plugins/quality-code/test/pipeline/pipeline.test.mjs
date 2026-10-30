@@ -50,6 +50,15 @@ test('green: every step ran and passed; mutation used the step-5 baseline withou
   assert.ok(m.data.total >= 1)
   assert.equal(m.data.killed, m.data.total)
 })
+test('mutation: false leaves mutation out (a whole-suite CI run): no mutant runs, the step is hidden as not applicable', async () => {
+  const d = repo()
+  let mutated = 0
+  const r0 = makeRunner(d)
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], mutation: false }, ctx(d, { runTests: async a => { if (a.testName) mutated++; return r0(a) } }))
+  assert.equal(r.verdict, 'green')
+  assert.equal(mutated, 0)
+  assert.deepEqual(r.steps.find(s => s.check === 'mutation').data, { applicable: false })
+})
 test('a pure-red spec (no passing test) skips mutation and gives tests_red', async () => {
   const d = repo()
   let mutated = 0

@@ -76,7 +76,7 @@ export function parseNameStatusZ(out) {
     const code = t[i]
     if (!code) continue
     if (/^[RC]/.test(code)) {
-      files.push({ path: t[i + 2], status: code[0] === 'R' ? 'R' : 'A' })
+      files.push(code[0] === 'R' ? { path: t[i + 2], status: 'R', from: t[i + 1] } : { path: t[i + 2], status: 'A' })
       i += 2
     } else {
       files.push({ path: t[i + 1], status: 'ADM'.includes(code[0]) ? code[0] : 'M' })
@@ -174,7 +174,7 @@ export function detect(root, config, { base: baseFlag } = {}) {
   out.files = [...files.values()]
     .filter(f => f.path.startsWith(prefix))
     .map(f => ({ ...f, path: f.path.slice(prefix.length) }))
-    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, playwright ? 'playwright' : config.adapter, dirs, backendOf(config)), committed: f.committed }))
+    .map(f => ({ path: clean(f.path), status: f.status, kind: kindOf(f.path, playwright ? 'playwright' : config.adapter, dirs, backendOf(config)), committed: f.committed, ...(f.from?.startsWith(prefix) ? { from: clean(f.from.slice(prefix.length)) } : {}) }))
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
   for (const f of out.files) {
     out.counts[f.kind]++

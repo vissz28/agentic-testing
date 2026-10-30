@@ -145,7 +145,7 @@ const DEV_SCRIPTS = ['dev', 'start', 'serve']
 const DEFAULT_PORTS = [[/\bnext\b|\breact-scripts\b|\bnuxi?\b/, 3000], [/\bng\b/, 4200], [/\bastro\b/, 4321], [/\bparcel\b/, 1234], [/\bvue-cli-service\b|\bwebpack\b/, 8080], [/\bvite\b|\bremix\b|\breact-router\b/, 5173]]
 const LOCKFILES = [['pnpm-lock.yaml', 'pnpm'], ['yarn.lock', 'yarn'], ['bun.lock', 'bun'], ['bun.lockb', 'bun'], ['package-lock.json', 'npm']]
 const ADD_DEV = { npm: 'npm install --save-dev', pnpm: 'pnpm add -D', yarn: 'yarn add -D', bun: 'bun add -d' }
-const EXEC = { npm: 'npx', pnpm: 'pnpm exec', yarn: 'yarn', bun: 'bunx' }
+export const EXEC = { npm: 'npx', pnpm: 'pnpm exec', yarn: 'yarn', bun: 'bunx' }
 const SMOKE_NAMES = ['smoke.spec.ts', 'smoke.spec.js']
 const AUTH_STATE = 'playwright/.auth/user.json'
 const ENV_FILE = '.env.e2e'
@@ -158,7 +158,7 @@ const NODE_TEST = /(?:^|&&|\|\||;|\|)\s*node\b[^&|;]*\s--test\b/
 const runsNodeTest = pkg => Object.values(pkg?.scripts ?? {}).some(s => NODE_TEST.test(String(s)))
 
 /** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
-function packageManager(root, pkg) {
+export function packageManager(root, pkg) {
   let pm = /^(npm|pnpm|yarn|bun)@/.exec(pkg.packageManager ?? '')?.[1] ?? null
   let pnp = false
   for (let dir = resolve(root); ; dir = dirname(dir)) {

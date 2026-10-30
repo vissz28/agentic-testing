@@ -149,7 +149,7 @@ Playwright test).
 | Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
-| Run the testing phases in CI (GitHub Actions, GitLab CI): only the tests this branch touched, backend and frontend, per module | `/quality-code:ci` (`--init github\|gitlab` writes the CI file; `--all` runs everything) | ✅ available |
+| Add Quality Code to CI (GitHub Actions, GitLab CI): the honesty gate, and types, tests and mutation on what each pull or merge request changed | `/quality-code:ci` (`github\|gitlab` to choose, `--print` to only show it) | ✅ available |
 | Find out whether a newer plugin version is out, and what it changes | `/quality-code:check-update` | ✅ available |
 | Schedule a check that runs by itself and tells you when the tests went red after others pushed, or became flaky | `/quality-code:routine` (`status`, `list`, `stop`) | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:run-pipeline --evals` | ✅ available |
@@ -182,7 +182,7 @@ Playwright test).
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
 | Other MCP clients (Windsurf, Cline, JetBrains, Claude Desktop) | `quality-code-mcp --print-config`, paste the JSON | the tools work; you start commands by asking for the tool |
-| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci --init github\|gitlab`, or `node bin/ci.mjs` | no agent needed: the scripts grade |
+| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci github\|gitlab` writes the CI file, which runs `node bin/ci.mjs` | no agent needed: the scripts grade |
 
 The scripts (`bin/*.mjs`) are plain Node and grade the same everywhere. Outside Claude Code the MCP server runs on your
 machine over stdio; install it with [`mcp-server/install.sh`](../plugins/quality-code/mcp-server/README.md#use-it-in-copilot-codex-cursor-or-gemini-cli).
@@ -434,29 +434,37 @@ the run also writes the developer log next to the ticket's files (`<ticketsDir>/
 verdict in words, every test, every check with its numbers and findings, what to do and how to run it
 again. Like the audit log it is local, and off with `QC_NO_AUDIT=1`.
 
-**Testing in CI (GitHub Actions and GitLab CI).** `/quality-code:ci` is the command a pipeline runs
-(`node <plugin>/bin/ci.mjs`), no model involved. It reads what the branch changed against the pull or merge
-request's target and **runs only what was touched**:
+**Quality Code in CI (GitHub Actions and GitLab CI).** `/quality-code:ci` writes a CI file with two jobs for
+every pull request (GitHub) or merge request (GitLab). No model is involved: scripts decide.
 
-- **Specs added or changed** (by a developer or by Quality Code) run through the pipeline (tests, assertions,
-  types, mutation), one run per module: a backend layer (`unit`, `integration`) or the first folder under the
-  e2e folder. Deleted specs are not run.
-- **Code changed, no spec changed** on a side: that side's whole suite runs. The side comes from the project's
-  stack, then the file's extension and folder (`web/`, `components/`, `.vue` are frontend; `server/`, `api/`,
-  a Python or Java file are backend); a path that does not say counts for both.
-- **A shared file changed** (`package.json`, a lockfile, `tsconfig`, a runner config, `pom.xml`, `go.mod`,
-  `.claude/quality-code.json`): both sides' whole suites run.
-- **Nothing relevant changed** (docs only): `NOTHING TO TEST`, exit 0.
-- **Everything runs** on the default branch, with `--all`, or when the changes cannot be read (no history:
-  fetch the full clone, `fetch-depth: 0` on GitHub, `GIT_DEPTH: 0` on GitLab). Nothing is silently left out.
+- **quality-gate** (git and node only, no install, seconds), on the specs the request changed: **honesty** (no
+  assertion or test removed, no test skipped without a ticket; a deleted spec and the old path of a renamed one
+  count), **assertions** (every test of a changed spec asserts something) and the **frozen evals**.
+- **quality-tests** (the project installed), what the request touched through the pipeline: the changed specs, one
+  run per module (a backend layer, the first folder under the e2e folder), with **types, tests and mutation**. A
+  side whose code changed but no spec did runs its whole suite **without mutation** (the slow step stays on the
+  changed specs); a shared file (`package.json`, a lockfile, `tsconfig`, a runner config, `pom.xml`, `go.mod`)
+  runs both sides; docs only, nothing. A push to the default branch, and a checkout whose changes cannot be read,
+  run the whole suite without mutation. GitLab shows each run in the merge request (JUnit); GitHub gets a step
+  summary and an annotation per failed run.
 
-Exit 0 green, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run. One
-phase failing does not stop the next. On GitHub the run writes a step summary and `::error` annotations; with
-`--junit FILE` it writes a JUnit report that GitLab shows in the merge request. `--init github` or
-`--init gitlab` prints the CI file (`--write` saves it, never over an existing one). **The CI file runs every
-test of the project's test folders** (`ci.mjs --all`): that is what a pipeline should guard. Add `--changed` for
-the variant that runs only what the branch touched. Run by hand, `/quality-code:ci` stays change-aware. The file
-fetches the plugin at the version that wrote it.
+The file fits the repo: the provider is guessed (`.gitlab-ci.yml`, a `.github` folder, else the origin remote) or
+given (`/quality-code:ci github` or `gitlab`). The tests job gets the toolchain of the backend (Node, Python, Java,
+Go, .NET; on GitLab its image, with Node added) and install lines guessed from the project: the package manager's
+install, `prisma generate`, the Playwright browsers, `pip install`, `go mod download`, `dotnet restore`. A project
+that uses Testcontainers gets Docker: nothing on GitHub's runners, Docker-in-Docker on GitLab (a privileged
+runner, Ryuk off). On GitLab a dead runner is retried twice; a red test never is. A project in a subfolder gets its
+jobs run there. Check the install lines before you commit: a private registry or the variables the tests need are
+yours to add.
+
+GitHub gets `.github/workflows/quality-code.yml`; GitLab gets `.gitlab-ci.yml`, or
+`.gitlab/quality-code.gitlab-ci.yml` plus the `include` line when the repo already has one. A file Quality Code did
+not write is never overwritten; `--print` shows the file instead. The jobs fetch the plugin at the version that
+wrote them: run `/quality-code:ci` again after an update (it rewrites the file). Commit
+`.claude/quality-code.json` with it, since the jobs read it. What a request is compared against: GitHub's
+`GITHUB_BASE_REF`, GitLab's `CI_MERGE_REQUEST_DIFF_BASE_SHA`, with the full history checked out. Exit 0 every check
+passed or nothing to check, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run:
+never a pass.
 
 **Routines: checks that run by themselves.** `/quality-code:routine` schedules, with Claude's scheduler, a check
 that runs at the times you pick, for a period or once. Each scheduled run (`routine.mjs run`):

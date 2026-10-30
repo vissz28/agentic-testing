@@ -61,11 +61,11 @@ test('parseStatusZ: untracked is A, renames skip the old path, paths keep spaces
   ])
   assert.deepEqual(parseStatusZ(''), [])
 })
-test('parseNameStatusZ: renames keep the new path, copies count as added', () => {
+test('parseNameStatusZ: renames keep the new path and the old one, copies count as added', () => {
   const out = ['M', 'src/a.ts', 'R100', 'src/old.ts', 'src/new.ts', 'D', 'src/gone.ts', 'C75', 'src/x.ts', 'src/y.ts', 'T', 'src/t.ts', ''].join('\0')
   assert.deepEqual(parseNameStatusZ(out), [
     { path: 'src/a.ts', status: 'M' },
-    { path: 'src/new.ts', status: 'R' },
+    { path: 'src/new.ts', status: 'R', from: 'src/old.ts' },
     { path: 'src/gone.ts', status: 'D' },
     { path: 'src/y.ts', status: 'A' },
     { path: 'src/t.ts', status: 'M' },

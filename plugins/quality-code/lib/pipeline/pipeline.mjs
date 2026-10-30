@@ -225,7 +225,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [] }, ctx, { boundary: withBoundary = true } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [], mutation: mutate = true }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
@@ -254,7 +254,9 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   }
   const tests = steps.at(-1)
   if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
-  if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
+  // A whole-suite CI run leaves mutation out (--no-mutation): it is the slow step, kept for the specs a change touched.
+  if (!mutate) steps.push(result('mutation', 'pass', 'not applicable: left out of this run (--no-mutation)', [], { applicable: false }))
+  else if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))

@@ -120,6 +120,17 @@ async function fullstackCheck(name, check, args, config, root) {
   return parts.length === 1 ? parts[0].steps[0] : mergeSides(parts)[0]
 }
 
+/** One check over a project's specs: each side of a fullstack project in its own dialect. */
+export const checkProject = (name, args, config, root) =>
+  isFullstack(config) ? fullstackCheck(name, CHECKS[name], args, config, root) : CHECKS[name].run(args, { config, dialect: dialectFor(runnerOf(config)), root })
+
+/** A result as lines: the verdict, then one line per finding. */
+export function formatResult(r) {
+  const lines = [`${ICON[r.status]} ${r.check}: ${r.summary}`]
+  for (const f of r.findings) lines.push(`   ${[f.file, f.test && `'${f.test}'`].filter(Boolean).join(' › ')}${f.kind ? ` [${f.kind}]` : ''}${f.detail ? `: ${f.detail}` : ''}`)
+  return lines.join('\n')
+}
+
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), stdin = null) {
   const err = m => { process.stderr.write(`${m}\n`); return 2 }
   const [name, ...rest] = argv
@@ -144,19 +155,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const args = { specs: a.specs, range: a.range ?? null, key: a.key ?? null, ticket }
   let r
   try {
-    r = isFullstack(config) ? await fullstackCheck(name, check, args, config, root) : await check.run(args, { config, dialect: dialectFor(runnerOf(config)), root })
+    r = await checkProject(name, args, config, root)
   } catch (e) {
     const msg = String(e?.message ?? e).split('\n')[0]
     process.stderr.write(`check ${name} crashed: ${msg}\n`)
     return 2
   }
   if (a.flags.has('--json')) process.stdout.write(`${JSON.stringify(r)}\n`)
-  else {
-    const lines = [`${ICON[r.status]} ${r.check}: ${r.summary}`]
-    for (const f of r.findings) lines.push(`   ${[f.file, f.test && `'${f.test}'`].filter(Boolean).join(' › ')}${f.kind ? ` [${f.kind}]` : ''}${f.detail ? `: ${f.detail}` : ''}`)
-    lines.push(`CHECK_JSON:${JSON.stringify(r)}`)
-    process.stdout.write(`${lines.join('\n')}\n`)
-  }
+  else process.stdout.write(`${formatResult(r)}\nCHECK_JSON:${JSON.stringify(r)}\n`)
   return EXIT[r.status]
 }
 

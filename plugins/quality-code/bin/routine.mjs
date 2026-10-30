@@ -20,8 +20,9 @@ import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { isProjectKey, keyPattern, projectKeys } from '../lib/base/keys.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
+import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
 import { SHARED_CONFIG } from '../lib/base/changes.mjs'
-import { junit } from './ci.mjs'
+import { ORDER, junit } from './ci.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--stability N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
@@ -85,21 +86,24 @@ export function stabilityOf(runs) {
   return { runs: runs.length, passed, failed: runs.length - passed, rate, streak, flips, flaky, verdict }
 }
 
-/** Runs the task's tests or the whole suite → { exit, verdict, phases, flaky }. */
-function realRun({ root, specs, key, stability, env }) {
-  const extra = stability ? ['--flaky', stability] : []
-  if (specs) {
-    const r = spawnSync(process.execPath, [join(HERE, 'pipeline.mjs'), ...specs, '--key', key, '--json', ...extra], { cwd: root, env: { ...env, CI: '1' }, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+/** Runs the task's tests, or the whole suite (each side the project has, and the frozen evals) → { exit, phases, flaky }. */
+function realRun({ root, config, specs, key, stability, env }) {
+  const phase = (name, args) => {
+    const r = spawnSync(process.execPath, [join(HERE, 'pipeline.mjs'), ...args, '--json', ...(stability ? ['--flaky', stability] : [])], { cwd: root, env: { ...env, CI: '1' }, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
     let o = null
     try { o = JSON.parse(r.stdout) } catch {}
     const t = o?.steps?.find(x => x.check === 'tests')?.data ?? {}
     const flaky = (o?.steps?.find(x => x.check === 'flaky')?.data?.tests ?? []).filter(x => x.verdict === 'flaky').map(x => x.title)
-    return { exit: o ? r.status : 3, verdict: o?.verdict ?? 'not_verified', flaky, phases: [{ name: key, verdict: o?.verdict ?? 'not_verified', passed: t.passed, failed: t.failed, detail: o ? '' : (r.stderr || r.stdout).trim() }] }
+    return { name, verdict: o?.verdict ?? 'not_verified', passed: t.passed, failed: t.failed, flaky, detail: o ? '' : (r.stderr || r.stdout).trim() }
   }
-  const r = spawnSync(process.execPath, [join(HERE, 'ci.mjs'), '--all', '--json', ...extra], { cwd: root, env: { ...env, CI: '1' }, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
-  let o = null
-  try { o = JSON.parse(r.stdout.split('\n').find(l => l.startsWith('{'))) } catch {}
-  return { exit: o?.exit ?? 3, verdict: o ? (o.exit === 0 ? 'green' : o.exit === 1 ? 'checks_failed' : 'not_verified') : 'not_verified', flaky: (o?.phases ?? []).flatMap(p => p.flaky ?? []), phases: o?.phases ?? [{ name: 'suite', verdict: 'not_verified', detail: (r.stderr || r.stdout).trim() }] }
+  const has = adaptersOf(config)
+  const phases = specs ? [phase(key, [...specs, '--key', key])]
+    : ['backend', 'frontend'].filter(side => adaptersForSide(side, config).some(x => has.includes(x))).map(side => phase(side, ['--suite', side]))
+  if (!specs) {
+    const e = spawnSync(process.execPath, [join(HERE, 'evals.mjs')], { cwd: root, env, encoding: 'utf8' })
+    if (e.status !== 3) phases.unshift({ name: 'evals', verdict: e.status === 0 ? 'green' : e.status === 1 ? 'checks_failed' : 'not_verified', detail: (e.stdout + e.stderr).trim() })
+  }
+  return { exit: Math.max(...phases.map(p => ORDER[p.verdict] ?? 3)), flaky: phases.flatMap(p => p.flaky ?? []), phases }
 }
 
 function status(a, cfg, dir, stdout) {
@@ -181,7 +185,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     }
     lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.stability ? `, each test ${a.stability} times` : ''}.`)
   } else lines.push(`Running every test of the project${a.stability ? `, each test ${a.stability} times` : ''}.`)
-  const result = await run({ root, specs, key: a.task, stability: a.stability, env })
+  const result = await run({ root, config, specs, key: a.task, stability: a.stability, env })
   const green = result.exit === 0
   const regression = !green && prev.verdict === 'green' && prev.sha && prev.sha !== tip
   lines.push('')

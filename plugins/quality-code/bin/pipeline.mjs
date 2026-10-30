@@ -1,4 +1,4 @@
-// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]
+// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
@@ -19,7 +19,7 @@ import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 
-const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-audit] [--json]'
+const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 // The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
 // full is whatever the project has.
@@ -28,7 +28,7 @@ const suiteAdapters = (suite, config) => (suite === 'full' ? null : adaptersForS
 const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite, config)[0])})`
 
 function parse(argv) {
-  const a = { json: false, noAudit: false, specs: [] }
+  const a = { json: false, noAudit: false, mutation: true, specs: [] }
   const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
@@ -38,6 +38,7 @@ function parse(argv) {
       a[x === '--incomplete-ticket' ? 'incomplete' : x.slice(2)] = v
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
+    else if (x === '--no-mutation') a.mutation = false
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
   }
@@ -117,7 +118,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
   let outcome
   try {
-    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates }, ctx)
+    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates, mutation: a.mutation }, ctx)
   } catch (e) {
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
     return 2

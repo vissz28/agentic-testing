@@ -9,6 +9,29 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-30
+
+### Changed
+
+- **`/quality-code:ci` writes the CI file with two jobs**, for each pull request (GitHub) or merge request (GitLab):
+  - `quality-gate`, git and node only, in seconds: on the changed specs, honesty (no assertion or test removed,
+    including a deleted spec or the old path of a renamed one; no skip without a ticket), assertions (every test
+    asserts something) and the frozen evals;
+  - `quality-tests`: types, tests and mutation on the changed specs, one run per module. A side whose code changed
+    but no spec did runs its whole suite without mutation, as does a push to the default branch.
+  The file fits the repo: the provider, the toolchain and the install lines (package manager, `prisma generate`,
+  Playwright browsers, pip, Go, .NET) are guessed; a project with Testcontainers gets Docker (Docker-in-Docker on
+  GitLab, Ryuk off); GitLab retries a dead runner, never a red test, and shows each run in the merge request. A
+  project in a subfolder gets its jobs run there. A file Quality Code wrote is replaced, so running it again after
+  an update moves the version. `--print` shows the file without writing it.
+- **What to do:** if you wrote a CI file with an earlier `--init`, run `/quality-code:ci` again and check the install
+  lines. The command no longer runs the tests in the chat; `ci.mjs --init github|gitlab --write`, `--changed`,
+  `--suite`, `--flaky` and `--json` are gone. `ci.mjs --tests [--all] [--junit FILE]` is what the tests job runs.
+
+### Added
+
+- `pipeline.mjs --no-mutation` leaves the mutation step out of a run (the CI's whole-suite runs).
+
 ## [0.32.0] - 2026-10-30
 
 ### Added

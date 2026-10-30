@@ -50,7 +50,7 @@ both in one repo (fullstack). Your application code is never changed.
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
 | Other MCP clients (Windsurf, Cline, JetBrains, Claude Desktop) | `quality-code-mcp --print-config`, paste the JSON | the tools work; you start commands by asking for the tool |
-| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci --init github\|gitlab`, or `node bin/ci.mjs` | no agent needed: the scripts grade |
+| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci github\|gitlab` writes the CI file, which runs `node bin/ci.mjs` | no agent needed: the scripts grade |
 
 The scripts (`bin/*.mjs`) are plain Node and grade the same everywhere. Outside Claude Code the MCP server runs on your
 machine over stdio; install it with [`mcp-server/install.sh`](plugins/quality-code/mcp-server/README.md#use-it-in-copilot-codex-cursor-or-gemini-cli).
@@ -101,11 +101,10 @@ On Claude Code older than 2.1.275, use two steps:
   once) and a period. Each run fetches what the others pushed, runs the tests and tells you when something went
   from green to red, with the commits in between. With `--stability 5` every test runs 5 times and flaky tests
   are named; `/quality-code:routine status` shows the pass rate and the flaky tests over time.
-- **`/quality-code:ci` for GitHub and GitLab.** In a pipeline it works out what the branch changed, backend
-  or frontend, and runs only the tests that were added or changed, one run per module (a backend layer, an
-  e2e folder). A side with code changes but no test change runs its whole suite; no change, nothing runs;
-  the default branch and `--all` run everything. `/quality-code:ci --init github` or `--init gitlab` writes
-  the CI file.
+- **`/quality-code:ci` for GitHub and GitLab.** Writes two CI jobs for every pull or merge request: a gate in
+  seconds (no assertion or test removed, no test skipped without a ticket, no test that asserts nothing) and the
+  tests (types, tests and mutation on the changed specs, the whole suite without mutation when only code changed).
+  The toolchain, install, Docker for Testcontainers and the provider are guessed from the repo.
 - **Quality Code as an MCP server.** A Python server (`plugins/quality-code/mcp-server`) exposes every
   command as a tool, plus the scripts and guides, for clients without the Claude Code plugin. Shared over HTTP, it verifies callers with Microsoft Entra ID.
 - **Your tests, your flow.** A project that already has tests keeps its own naming, folders and style:

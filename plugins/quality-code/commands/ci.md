@@ -1,30 +1,35 @@
 ---
-description: The testing phases for GitHub Actions or GitLab CI (or a terminal). It detects what the branch changed, backend or frontend, and runs only the tests that were added or changed, per module, through the pipeline (everything on the default branch or with --all). Also writes the CI file for GitHub or GitLab, which runs every test of the project's test folders (or, with --changed, only what the branch touched). The scripts decide; nothing is graded by the model.
-argument-hint: [--suite full|backend|frontend] [--all] [--base REF] [--flaky N] [--junit FILE] | --init github|gitlab [--changed] [--write]
+description: Writes the CI file for GitHub Actions or GitLab CI with two jobs for each pull or merge request. quality-gate (git and node only, seconds) checks the changed specs for honesty, assertions and the frozen evals. quality-tests installs the project and runs types, tests and mutation on the changed specs (a code-only change runs its side's whole suite without mutation), with Docker for Testcontainers and JUnit in the merge request. Toolchain and install are guessed from the repo; the provider too when not given.
+argument-hint: [github|gitlab] [--print]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: haiku
 effort: low
 ---
 
-Runs the testing phases in one command and shows the summary the script prints. It is the command a CI job runs (GitHub Actions, GitLab CI), and you can run it by hand to see what CI will see. It reads what the branch changed against its target and **runs** only what was touched: the specs that were added or changed (by you or by Quality Code), one run per module (a backend layer, an e2e folder); a side whose code changed but no spec did runs its whole suite; a side with no change is skipped; docs-only changes have nothing to test. On the default branch, with `--all`, or when the changes cannot be read (no git history), everything runs. Plain English, short lines.
+Writes the plugin's checks into the project's CI, so every pull request (GitHub) or merge request (GitLab) runs them. Two jobs, both fetching the plugin at this version and running `bin/ci.mjs`; no model is involved:
+
+- **quality-gate** (git and node only, seconds): on the specs the request changed, honesty (no assertion or test removed, a deleted or renamed spec included; no skip without a ticket), assertions (every test asserts something) and the frozen evals.
+- **quality-tests** (installs the project): the changed specs through the pipeline, one run per module, with types, tests and mutation. A side whose code changed but no spec did runs its whole suite without mutation, as does a push to the default branch. The toolchain and install lines are guessed from the repo (lockfile, Prisma, Playwright, pytest, Maven or Gradle, Go, .NET); Testcontainers gets Docker; a dead runner is retried, a red test never is.
+
+Plain English, short lines.
 
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" …` command, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code.
-- **The script decides.** Never compute, change or soften a verdict or a count. Never edit tests, source files or config, and never retry.
+- **The script decides.** Never write, edit or merge a CI file yourself, and never retry.
 - **Language.** Talk in the language of the user's messages. Script output stays as printed.
 
 ## Steps
 
-1. **CI file.** If `$ARGUMENTS` has `--init`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" $ARGUMENTS`. Without `--write` it prints the GitHub Actions or GitLab CI file, which runs every test of the project's test folders (`ci.mjs --all`); with `--changed` the file runs only the tests the branch touched: show it in a code block and say `Save it as .github/workflows/quality-code.yml (GitHub) or in .gitlab-ci.yml (GitLab), or run /quality-code:ci --init <github|gitlab> --write and I write it for you.` With `--write` it writes the file and never overwrites one (an existing `.gitlab-ci.yml` gets the job in `.gitlab/quality-code.gitlab-ci.yml`, with the `include` line to add): show its lines as printed. Stop.
-2. **Run.** Otherwise say `Checking what changed, then running those tests; this can take several minutes.` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" $ARGUMENTS`. If it exits with 2, show its lines as they are (for example `run /quality-code:setup`) and stop.
-3. **Result.** Show the output as printed: one section per phase and the summary. Exit 0 is green, 1 a check failed or a test is red, 3 something could not run (never a pass). Add nothing and grade nothing.
+1. **Write.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" --init $ARGUMENTS`.
+   - Exit 0 with `--print`: show the file in a code block and stop.
+   - Exit 0: show its lines as printed. If they include an `include:` block, say to add it to `.gitlab-ci.yml` (into its `include:` list if it has one).
+   - Exit 2 because neither provider could be guessed: ask `GitHub or GitLab?` and run step 1 again with the answer.
+   - Exit 2 because the file is there already: show the line and stop.
+2. **Next.** Say: `Check the install lines in quality-tests (a private registry, a generated file, the variables your tests need), then commit the file with .claude/quality-code.json (the jobs read it). It runs on the next pull or merge request; run /quality-code:ci again after a plugin update to move the version (it rewrites the file).`
 
 ## Examples
 
-- `/quality-code:ci`: only the tests this branch touched, per module
-- `/quality-code:ci --all`: every test, backend and frontend
-- `/quality-code:ci --suite backend --flaky 3`: backend only, each test run 3 times for flakiness
-- `/quality-code:ci --init github --write`: add the GitHub Actions file to the repo (it runs all the tests of the test folders)
-- `/quality-code:ci --init gitlab --changed`: the GitLab job that runs only what the merge request touched
-- `/quality-code:ci --init gitlab`: print the GitLab CI job
+- `/quality-code:ci`: write the two jobs for the CI this repo uses
+- `/quality-code:ci gitlab`: write the GitLab jobs (in `.gitlab/quality-code.gitlab-ci.yml` when `.gitlab-ci.yml` exists, with the `include` line to add)
+- `/quality-code:ci github --print`: show the GitHub Actions file without writing it

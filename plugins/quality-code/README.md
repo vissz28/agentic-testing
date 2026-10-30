@@ -25,7 +25,7 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
 | Other MCP clients (Windsurf, Cline, JetBrains, Claude Desktop) | `quality-code-mcp --print-config`, paste the JSON | the tools work; you start commands by asking for the tool |
-| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci --init github\|gitlab`, or `node bin/ci.mjs` | no agent needed: the scripts grade |
+| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci github\|gitlab` writes the CI file, which runs `node bin/ci.mjs` | no agent needed: the scripts grade |
 
 The scripts (`bin/*.mjs`) are plain Node and grade the same everywhere. Outside Claude Code the MCP server runs on your
 machine over stdio; install it with [`mcp-server/install.sh`](mcp-server/README.md#use-it-in-copilot-codex-cursor-or-gemini-cli).
@@ -53,7 +53,7 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 | `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
 | `/quality-code:routine` | a check Claude runs by itself on a schedule (a time, for a period or once): fetches what others pushed, runs a ticket's tests or the whole suite, says when it went from green to red and which commits came in between, and with `--stability N` runs every test N times to watch flaky tests and the pass rate over time |
 | `/quality-code:check-update` | says whether a newer version of the plugin is out, lists what changed since yours, and updates it on your pick (`claude plugin update`); then asks you to type `/reload-plugins` |
-| `/quality-code:ci` | for GitHub Actions and GitLab CI: detects whether the branch changed the backend or the frontend and runs only the tests it touched, per module (everything on the default branch or with `--all`); `--init github\|gitlab` writes the CI file, which runs all the tests of the test folders (`--changed`: only the touched ones) |
+| `/quality-code:ci` | writes the GitHub Actions or GitLab CI file: a gate on the specs each pull or merge request changes (honesty, assertions, frozen evals; git and node only) and the tests (types, tests and mutation on the changed specs; a code-only change runs its side's whole suite without mutation), install and Docker guessed from the repo |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | loads realistic mock data for a ticket into your local database, to test it by hand in the running app (local databases only; set up with the `seed` block) |
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |
