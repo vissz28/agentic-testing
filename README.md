@@ -77,7 +77,7 @@ On Claude Code older than 2.1.275, use two steps:
 
 - **`/quality-code:check-update`: is a newer version out?** It compares the version you run with the latest on GitHub,
   lists what changed in each newer version, and gives the two commands to type (`/plugin update quality-code@teamsystem`,
-  then `/reload-plugins`). It installs nothing itself.
+  then `/reload-plugins`) and, on your pick, runs the update for you.
 - **`/quality-code:routine`: a check Claude runs by itself.** Pick a ticket or the whole suite, a time (a cron, or
   once) and a period. Each run fetches what the others pushed, runs the tests and tells you when something went
   from green to red, with the commits in between. With `--stability 5` every test runs 5 times and flaky tests

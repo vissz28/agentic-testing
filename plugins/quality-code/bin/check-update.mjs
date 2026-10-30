@@ -1,10 +1,12 @@
 // Entry point for /quality-code:check-update: is a newer version of the plugin out, and what changed?
 // node bin/check-update.mjs [--json]
-// Reads the installed version from this plugin, the latest from the plugin's GitHub repository (raw files,
+// Reads the running version from this plugin and the one installed on disk (an update waits for /reload-plugins), the latest from the plugin's GitHub repository (raw files,
 // else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
 // 2 usage error, 3 the latest version could not be read.
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
@@ -55,6 +57,20 @@ function summarise(body) {
   return { items: items.slice(0, MAX_LINES), more: Math.max(0, items.length - MAX_LINES) }
 }
 
+/** The highest version of `name` that Claude Code has installed on disk (null when it cannot be read). */
+export function diskVersion(name, env = process.env) {
+  try {
+    const dir = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+    const plugins = JSON.parse(readFileSync(join(dir, 'plugins', 'installed_plugins.json'), 'utf8')).plugins ?? {}
+    const versions = Object.entries(plugins)
+      .filter(([k]) => k.startsWith(`${name}@`))
+      .flatMap(([, entries]) => entries.map(e => e.version))
+      .filter(v => SEMVER.test(v ?? ''))
+      .sort(compareVersions)
+    return versions.at(-1) ?? null
+  } catch { return null }
+}
+
 function readInstalled() {
   return JSON.parse(readFileSync(new URL('.claude-plugin/plugin.json', PLUGIN_DIR), 'utf8'))
 }
@@ -97,14 +113,20 @@ function defaultLs(repository) {
 }
 
 /** The status of an installed version against the latest one. */
-export function statusOf(installed, latest) {
+export function statusOf(installed, latest, running = installed) {
   const c = compareVersions(latest, installed)
-  return c > 0 ? 'update' : c === 0 ? 'current' : 'ahead'
+  if (c > 0) return 'update'
+  if (compareVersions(installed, running) > 0) return 'reload'
+  return c === 0 ? 'current' : 'ahead'
 }
 
-export function formatCard({ name, installed, latest, status, via, sections, hiddenVersions }) {
-  const lines = [`quality-code update check`, `  Installed  ${installed}`, `  Latest     ${latest}   (from ${via})`]
-  if (status === 'current') lines.push('', `You have the latest version.`)
+export function formatCard({ name, installed, running = installed, latest, status, via, sections, hiddenVersions }) {
+  const lines = ['quality-code update check']
+  if (status === 'reload') lines.push(`  Running    ${running}`, `  Installed  ${installed}   (on disk, not loaded yet)`)
+  else lines.push(`  Installed  ${installed}`)
+  lines.push(`  Latest     ${latest}   (from ${via})`)
+  if (status === 'reload') lines.push('', `Version ${installed} is installed. Type /reload-plugins (or open a new session) to use it.`)
+  else if (status === 'current') lines.push('', `You have the latest version.`)
   else if (status === 'ahead') lines.push('', `You are ahead of the published version (a local or development copy).`)
   else {
     lines.push('', `A new version is out: ${installed} -> ${latest}.`)
@@ -114,7 +136,7 @@ export function formatCard({ name, installed, latest, status, via, sections, hid
       if (s.lines.more) lines.push(`    ... and ${s.lines.more} more`)
     }
     if (hiddenVersions) lines.push('', `  ... and ${hiddenVersions} older version${hiddenVersions === 1 ? '' : 's'}: see the CHANGELOG.`)
-    lines.push('', 'To update, type these two commands in Claude Code, one after the other:',
+    lines.push('', 'To update by hand, type these two commands in Claude Code, one after the other:',
       `  /plugin update ${name}@teamsystem`, '  /reload-plugins')
   }
   return lines.join('\n')
@@ -126,7 +148,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const json = argv.includes('--json')
   const manifest = installedManifest ?? readInstalled()
   const name = manifest.name ?? 'quality-code'
-  const installed = manifest.version
+  const running = manifest.version
+  const onDisk = diskVersion(name, env)
+  const installed = onDisk && compareVersions(onDisk, running) > 0 ? onDisk : running
   let latest
   try {
     latest = await fetchLatest({ repository: manifest.repository, name, fetchImpl, ls })
@@ -134,12 +158,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     stdout(`Could not read the latest version: ${e.message}.\nInstalled: ${installed}. Check your connection, or type /plugin to look at the plugin there.\n`)
     return 3
   }
-  const status = statusOf(installed, latest.version)
+  const status = statusOf(installed, latest.version, running)
   const all = status === 'update' ? newerSections(latest.changelog, installed, latest.version) : []
   const sections = all.slice(0, MAX_VERSIONS)
-  const report = { name, installed, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
-  const card = formatCard({ name, installed, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
-  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\nCHECK_UPDATE_JSON:${JSON.stringify({ installed, latest: latest.version, status })}\n`)
+  const report = { name, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
+  const card = formatCard({ name, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
+  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\nCHECK_UPDATE_JSON:${JSON.stringify({ installed, running, latest: latest.version, status })}\n`)
   return 0
 }
 

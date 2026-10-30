@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { compareVersions, fetchLatest, githubRepo, main, newerSections, statusOf } from '../../bin/check-update.mjs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { compareVersions, diskVersion, fetchLatest, githubRepo, main, newerSections, statusOf } from '../../bin/check-update.mjs'
 
 const REPO = 'https://github.com/vissz28/agentic-testing'
 const MANIFEST = version => ({ name: 'quality-code', version, repository: REPO })
@@ -33,7 +36,7 @@ const remote = (version, changelog = CHANGELOG) => async url =>
 async function run(installed, opts = {}) {
   let out = ''
   let err = ''
-  const code = await main(opts.argv ?? [], {}, '/', { stdout: s => { out += s }, stderr: s => { err += s }, installedManifest: MANIFEST(installed), fetchImpl: opts.fetchImpl ?? remote('0.28.1'), ls: opts.ls })
+  const code = await main(opts.argv ?? [], opts.env ?? { CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-none-')) }, '/', { stdout: s => { out += s }, stderr: s => { err += s }, installedManifest: MANIFEST(installed), fetchImpl: opts.fetchImpl ?? remote('0.28.1'), ls: opts.ls })
   return { code, out, err }
 }
 
@@ -48,8 +51,29 @@ test('githubRepo reads https, ssh and .git addresses', () => {
   assert.equal(githubRepo('git@github.com:vissz28/agentic-testing.git'), 'vissz28/agentic-testing')
   assert.equal(githubRepo('https://gitlab.com/a/b'), null)
 })
-test('statusOf: update, current, ahead', () => {
+test('statusOf: update, current, ahead, and reload when the disk is newer than what runs', () => {
   assert.deepEqual(['0.27.0', '0.28.1', '0.29.0'].map(v => statusOf(v, '0.28.1')), ['update', 'current', 'ahead'])
+  assert.equal(statusOf('0.28.1', '0.28.1', '0.27.0'), 'reload')
+  assert.equal(statusOf('0.28.0', '0.28.1', '0.27.0'), 'update')
+})
+const configWith = entries => {
+  const dir = mkdtempSync(join(tmpdir(), 'qc-cfg-'))
+  mkdirSync(join(dir, 'plugins'))
+  writeFileSync(join(dir, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: entries }))
+  return { CLAUDE_CONFIG_DIR: dir }
+}
+test('diskVersion: the highest installed version of this plugin only; null when unreadable', () => {
+  const env = configWith({ 'quality-code@teamsystem': [{ version: '0.28.1' }, { version: '0.29.0' }], 'other@x': [{ version: '9.0.0' }] })
+  assert.equal(diskVersion('quality-code', env), '0.29.0')
+  assert.equal(diskVersion('quality-code', { CLAUDE_CONFIG_DIR: '/nonexistent-qc' }), null)
+})
+test('updated on disk but not reloaded: the card says so and asks for /reload-plugins', async () => {
+  const env = configWith({ 'quality-code@teamsystem': [{ version: '0.28.1' }] })
+  const r = await run('0.27.0', { env })
+  assert.match(r.out, /Running {4}0\.27\.0\n {2}Installed {2}0\.28\.1 {3}\(on disk, not loaded yet\)/)
+  assert.match(r.out, /Version 0\.28\.1 is installed\. Type \/reload-plugins/)
+  assert.match(r.out, /"status":"reload"/)
+  assert.doesNotMatch(r.out, /A new version is out/)
 })
 test('newerSections keeps only versions after the installed one, newest first, plain text', () => {
   const s = newerSections(CHANGELOG, '0.27.0', '0.28.1')
@@ -64,7 +88,7 @@ test('a newer version: card with the changes and the two commands, exit 0', asyn
   assert.match(r.out, /A new version is out: 0\.27\.0 -> 0\.28\.1\./)
   assert.match(r.out, /0\.28\.0 {2}\(2026-10-29\)\n {4}- Spec discovery/)
   assert.match(r.out, /\/plugin update quality-code@teamsystem\n {2}\/reload-plugins/)
-  assert.match(r.out, /CHECK_UPDATE_JSON:\{"installed":"0\.27\.0","latest":"0\.28\.1","status":"update"\}\n$/)
+  assert.match(r.out, /CHECK_UPDATE_JSON:\{"installed":"0\.27\.0","running":"0\.27\.0","latest":"0\.28\.1","status":"update"\}\n$/)
 })
 test('up to date: one line, no commands to type', async () => {
   const r = await run('0.28.1')

@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-30
+
+### Changed
+
+- **`/quality-code:check-update` now follows its card with a menu that fits the case** (AGT-147). A new version is out:
+  `1. Update to the latest version`, `2. Check the version again`, `3. Stop`. Up to date, ahead, or updated but not loaded
+  yet: `1. Check the version again`, `2. Stop`. Option 1 runs `claude plugin update quality-code@teamsystem` (the only
+  command besides its own script that it may run) and asks you to type `/reload-plugins`.
+- The script also reads the version installed on disk. After an update, checking again says `Version X is installed. Type
+  /reload-plugins` (status `reload`) instead of offering the same update again. The card's machine line gains `running`.
+
 ## [0.29.0] - 2026-10-30
 
 ### Added

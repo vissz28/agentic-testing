@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality Code",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes backend tests (Vitest, pytest, JUnit, Go, .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
   "homepage": "https://github.com/vissz28/agentic-testing#readme",
   "repository": "https://github.com/vissz28/agentic-testing",

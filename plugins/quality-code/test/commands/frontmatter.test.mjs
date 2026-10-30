@@ -32,7 +32,7 @@ const OWN = {
   'ticket-eval': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)',
   kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
   consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
-  'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*)',
+  'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
 }
