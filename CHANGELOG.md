@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- **Coverage on Java, Kotlin and .NET** (`/quality-code:kpi`): the coverage line now reads JaCoCo (Maven's
+  `jacoco.xml`, Gradle's `jacocoTestReport.xml` and `testCodeCoverageReport.xml`) and coverlet's
+  `coverage.cobertura.xml`, anywhere in the repo, summed over the modules. A JaCoCo aggregate report stands for the
+  modules; `jacoco-it` is left out; each `TestResults` folder counts only its newest run. Istanbul and lcov still
+  come first. Nothing runs the suite: the team's own build writes the reports.
+
 ### Changed
 
 - **The run cards say more when something fails** (`/quality-code:run-*`, `/quality-code:spec`, and the run log):

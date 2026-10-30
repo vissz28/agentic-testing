@@ -1,7 +1,7 @@
 // The Quality Program numbers (its §9) a repo can show by itself, as the old in-repo kpi.mjs did:
 // traceability, completeness of the tickets, suite honesty, gate integrity, adoption, coverage and the
 // mutation kill rate. Each is a number or "no data", never a made-up 100%.
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { layersOf, ungradedTitlesOf } from '../base/config.mjs'
 import { e2eFolder } from '../base/e2e-folder.mjs'
@@ -102,7 +102,7 @@ export function scanSpecs(root, config) {
   return { specs: specs.length, traced, tests, honest }
 }
 
-/** Line coverage from an Istanbul summary, else from an lcov report (most runners' default), when the project has one. */
+/** Line coverage from an Istanbul summary, else an lcov report (most runners' default), else the JaCoCo and Cobertura reports, when the project has one. */
 export function readCoverage(root) {
   const p = 'coverage/coverage-summary.json'
   try {
@@ -115,7 +115,63 @@ export function readCoverage(root) {
     const found = sum(/^LF:(\d+)/gm)
     if (found) return { pct: Math.round((100 * sum(/^LH:(\d+)/gm)) / found), file: l }
   } catch {}
-  return null
+  return xmlCoverage(root)
+}
+
+// Java and .NET write their reports inside the build output (target/, build/, TestResults/), so this walk enters it.
+const COVERAGE_SKIP = new Set([...SKIP, 'bin', 'obj', '.gradle', '.venv', 'venv', 'vendor', '__pycache__', '.tox'])
+// JaCoCo: Maven's jacoco.xml, Gradle's jacocoTestReport.xml and the aggregation plugin's testCodeCoverageReport.xml.
+// Cobertura: coverlet's coverage.cobertura.xml (dotnet test --collect "XPlat Code Coverage", or coverlet.msbuild).
+const COVERAGE_XML = /^(?:jacoco\.xml|jacocoTestReport\.xml|testCodeCoverageReport\.xml|coverage\.cobertura\.xml)$/
+const attr = (tag, name) => Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1])
+
+/** Covered and valid lines of one JaCoCo or Cobertura report, or null when it has no line totals. */
+function xmlLines(text) {
+  if (/<report\b/.test(text)) {
+    // The report's own counters come last, after every package (and group, in an aggregate report).
+    const tail = text.slice(Math.max(text.lastIndexOf('</package>'), text.lastIndexOf('</group>'), 0))
+    const tag = tail.match(/<counter\b[^>]*\btype="LINE"[^>]*>/)?.[0]
+    if (!tag) return null
+    const covered = attr(tag, 'covered')
+    const valid = covered + attr(tag, 'missed')
+    return valid > 0 ? { covered, valid } : null
+  }
+  const tag = text.match(/<coverage\b[^>]*>/)?.[0]
+  if (!tag) return null
+  const covered = attr(tag, 'lines-covered')
+  const valid = attr(tag, 'lines-valid')
+  return valid > 0 ? { covered, valid } : null
+}
+
+/**
+ * Line coverage from the JaCoCo (Java, Kotlin) and Cobertura (.NET) reports anywhere in the repo, summed over the
+ * modules. An aggregate JaCoCo report stands for the modules when there is one; JaCoCo's integration-test report
+ * (jacoco-it) is left out, as its lines are the unit report's too. Each TestResults folder keeps only its newest
+ * run, since coverlet writes a new one per run.
+ */
+function xmlCoverage(root) {
+  let files = specsIn(root, '', { spec: COVERAGE_XML, skip: COVERAGE_SKIP }).filter(p => !p.includes('jacoco-it/'))
+  const aggregate = files.filter(p => p.includes('jacoco-aggregate/') || p.endsWith('testCodeCoverageReport.xml'))
+  if (aggregate.length) files = aggregate
+  const newest = new Map()
+  for (const p of files) {
+    const run = p.replace(/(^|\/)TestResults\/[^/]+\//, '$1TestResults/')
+    let mtime = 0
+    try { mtime = statSync(join(root, p)).mtimeMs } catch {}
+    if (!newest.has(run) || newest.get(run).mtime < mtime) newest.set(run, { p, mtime })
+  }
+  let covered = 0, valid = 0
+  const used = []
+  for (const { p } of newest.values()) {
+    let lines = null
+    try { lines = xmlLines(readFileSync(join(root, p), 'utf8')) } catch {}
+    if (!lines) continue
+    covered += lines.covered
+    valid += lines.valid
+    used.push(p)
+  }
+  if (!valid) return null
+  return { pct: Math.round((100 * covered) / valid), file: used.length === 1 ? used[0] : `${used.length} reports (${used[0]}, …)` }
 }
 
 /** The numbers, from the period's audit events and the repo scan. */
@@ -156,7 +212,7 @@ export function formatQuality(q) {
     line('Suite honesty', q.suiteHonesty?.pct, t.suiteHonesty, q.suiteHonesty ? `${q.suiteHonesty.honest} of ${q.suiteHonesty.tests} tests assert something` : 'no project config to find the specs'),
     line('Gate integrity', q.gateIntegrity.pct, t.gateIntegrity, q.gateIntegrity.runs ? `${q.gateIntegrity.full} of ${q.gateIntegrity.runs} runs with every gate${q.gateIntegrity.relaxed ? ` (${q.gateIntegrity.relaxed} forced or without the ticket)` : ''}` : 'no run logged with its gates yet'),
     line('Adoption', q.adoption.pct, t.adoption, q.adoption.ready ? `${q.adoption.checked} of ${q.adoption.ready} ready ticket(s) have a pipeline run${q.adoption.ready < 10 ? ' (few tickets: a fact, not yet a rate)' : ''}` : 'no ticket passed the gate'),
-    line('Coverage', q.coverage?.pct, t.coverage, q.coverage ? `lines, from ${q.coverage.file}` : 'no coverage/coverage-summary.json or coverage/lcov.info (the suite is never run here)'),
+    line('Coverage', q.coverage?.pct, t.coverage, q.coverage ? `lines, from ${q.coverage.file}` : 'no coverage report: Istanbul, lcov, JaCoCo or Cobertura (the suite is never run here)'),
     line('Mutation kill', q.mutation.mean, null, q.mutation.runs ? `mean over ${q.mutation.runs} run(s)` : 'no run had assertions to mutate yet'),
   ]
 }

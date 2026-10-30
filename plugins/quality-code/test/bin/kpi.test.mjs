@@ -84,7 +84,7 @@ test('the card, exactly', async () => {
     '  —  Suite honesty   no data  target 100%  no project config to find the specs',
     '  —  Gate integrity  no data  target 100%  no run logged with its gates yet',
     '  —  Adoption        67%                   2 of 3 ready ticket(s) have a pipeline run (few tickets: a fact, not yet a rate)',
-    '  —  Coverage        no data  target 80%   no coverage/coverage-summary.json or coverage/lcov.info (the suite is never run here)',
+    '  —  Coverage        no data  target 80%   no coverage report: Istanbul, lcov, JaCoCo or Cobertura (the suite is never run here)',
     '  —  Mutation kill   no data               no run had assertions to mutate yet',
     '',
     'AI cost: /quality-code:consumption --since 2026-09-15 --until 2026-10-14',
@@ -206,4 +206,39 @@ test('coverage: an lcov report counts when there is no Istanbul summary', async 
   const root = project({ 'coverage/lcov.info': 'SF:a.ts\nLF:10\nLH:9\nend_of_record\nSF:b.ts\nLF:10\nLH:6\nend_of_record\n' })
   assert.deepEqual(readCoverage(root), { pct: 75, file: 'coverage/lcov.info' })
   assert.equal(readCoverage(project({})), null)
+})
+
+// A JaCoCo report: package and class counters first, the report's own totals last.
+const jacoco = (covered, missed) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd"><report name="demo"><sessioninfo id="x" start="1" dump="2"/><package name="demo/pricing"><class name="demo/pricing/LineTotal"><counter type="LINE" missed="99" covered="1"/></class><counter type="INSTRUCTION" missed="5" covered="50"/><counter type="LINE" missed="99" covered="1"/></package><counter type="INSTRUCTION" missed="5" covered="50"/><counter type="BRANCH" missed="1" covered="3"/><counter type="LINE" missed="${missed}" covered="${covered}"/><counter type="METHOD" missed="0" covered="4"/></report>`
+const cobertura = (covered, valid) => `<?xml version="1.0" encoding="utf-8"?><coverage line-rate="0.5" branch-rate="1" version="1.9" timestamp="1" lines-covered="${covered}" lines-valid="${valid}" branches-covered="0" branches-valid="0"><packages><package name="Demo" line-rate="0.1"><classes/></package></packages></coverage>`
+
+test('coverage: JaCoCo reports of a multi-module Maven or Gradle build, summed; the integration report left out', async () => {
+  const { readCoverage } = await import('../../lib/report/quality-program.mjs')
+  const root = project({
+    'orders/target/site/jacoco/jacoco.xml': jacoco(80, 20),
+    'billing/build/reports/jacoco/test/jacocoTestReport.xml': jacoco(40, 60),
+    'orders/target/site/jacoco-it/jacoco.xml': jacoco(0, 100),
+  })
+  assert.deepEqual(readCoverage(root), { pct: 60, file: '2 reports (billing/build/reports/jacoco/test/jacocoTestReport.xml, …)' })
+  // An aggregate report stands for the modules.
+  writeFileSync(join(root, 'orders/target/site/jacoco/jacoco.xml'), jacoco(80, 20))
+  mkdirSync(join(root, 'report/target/site/jacoco-aggregate'), { recursive: true })
+  writeFileSync(join(root, 'report/target/site/jacoco-aggregate/jacoco.xml'), jacoco(7, 3))
+  assert.deepEqual(readCoverage(root), { pct: 70, file: 'report/target/site/jacoco-aggregate/jacoco.xml' })
+})
+
+test('coverage: coverlet Cobertura reports per test project, the newest run of each TestResults folder', async () => {
+  const { utimesSync } = await import('node:fs')
+  const { readCoverage } = await import('../../lib/report/quality-program.mjs')
+  const root = project({
+    'tests/Api.Tests/TestResults/old-guid/coverage.cobertura.xml': cobertura(10, 100),
+    'tests/Api.Tests/TestResults/new-guid/coverage.cobertura.xml': cobertura(90, 100),
+    'tests/Core.Tests/coverage.cobertura.xml': cobertura(30, 100),
+    'tests/Core.Tests/bin/Debug/coverage.cobertura.xml': cobertura(0, 100),
+  })
+  utimesSync(join(root, 'tests/Api.Tests/TestResults/old-guid/coverage.cobertura.xml'), 1, 1)
+  assert.deepEqual(readCoverage(root), { pct: 60, file: '2 reports (tests/Api.Tests/TestResults/new-guid/coverage.cobertura.xml, …)' })
+  // An Istanbul summary still comes first.
+  assert.equal(readCoverage(project({ 'coverage/coverage-summary.json': JSON.stringify({ total: { lines: { pct: 12 } } }), 'a/coverage.cobertura.xml': cobertura(1, 1) })).pct, 12)
+  assert.equal(readCoverage(project({ 'a/coverage.cobertura.xml': '<coverage lines-valid="0">' })), null)
 })

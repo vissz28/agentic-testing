@@ -639,7 +639,8 @@ and boundary blocks. Then the Quality Program numbers the repo can show, each ag
 requirement traceability (spec files that name a ticket, in a group or test title or the file name),
 completeness (the mean readiness score), suite honesty (tests that assert something), gate integrity
 (runs not forced past the gate and run with the ticket), adoption (ready tickets with a pipeline run),
-coverage (`coverage/coverage-summary.json`, when present) and the mean mutation kill rate. A number
+coverage (lines, from `coverage/coverage-summary.json`, `coverage/lcov.info`, the JaCoCo reports of
+a Java or Kotlin build or the coverlet Cobertura reports of a .NET one, when present) and the mean mutation kill rate. A number
 with no data says so, never a made-up 100%. It reads the local audit log in
 `.claude/quality-code/audit/` (git-ignored; keys and numbers only, never ticket text; `QC_NO_AUDIT=1`
 turns it off) and the spec files.
