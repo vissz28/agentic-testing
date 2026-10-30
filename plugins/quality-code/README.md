@@ -73,6 +73,11 @@ chat or the repository.
 
 With `jira_api_token` set, it also reads a ticket's `.docx` files and screenshots, which the Jira
 connector cannot download: read only, from your `*.atlassian.net` site, at most 3 of each per ticket,
-5 MB each, 20,000 characters per `.docx`. PDFs and spreadsheets are not read.
+5 MB each, 20,000 characters per `.docx`. PDFs and spreadsheets are not read. Word files are
+always read. Screenshots and linked Confluence pages are read only when a ticket is refused without
+them, so a ticket that passes costs nothing extra. Their text (a screenshot's words, copied as shown)
+is scored like the description, and once screenshots are read, an attachment earns its points only
+when one gave text. `/quality-code:tickets-eval`
+reads no files; it shows the pass rate per Jira component.
 
 Made by Elvis Zefaj. Full guide: [README](https://github.com/vissz28/agentic-testing#readme).

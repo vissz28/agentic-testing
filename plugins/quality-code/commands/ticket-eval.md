@@ -43,7 +43,7 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    - `summary`, `issuetype`, `status`, `labels`; `browse` = `<jira.site>/browse/<KEY>`.
    - The raw description and the raw criteria field text. Do not judge them: the script reads them itself. Extract each `Scenario:` into `scenarios: [{ "name", "gherkin" }]`. Do not pad the list; write only what the ticket supports.
    - `figma`: a `figma.com/(design|file|proto|board)/…` URL in the description, labels or `issuelinks`, else `null`. Note the URL only. (The script finds every Figma link of the ticket itself, from `links`, the description and this field.)
-   - `attachments`: the number of entries in the `attachment` field (a number, `0` when there are none). Only the count: never a file name, never an attachment URL, never a file's contents, and do not open or download any attachment yourself; only the Word files below are read, through the plugin.
+   - `attachments`: the number of entries in the `attachment` field (a number, `0` when there are none). Only the count: never a file name, never an attachment URL, never a file's contents, and do not open or download any attachment yourself; only the Word files below are read, through the plugin (and, for a refused ticket, the screenshots in step 5b).
    - **Word files.** An `attachment` entry whose file name ends in `.docx` is often the ticket's analysis (PDFs and spreadsheets are not read). When there is one, and the `get_ticket_files` tool of the `jira-files` connector is there, call it with `site` = `jira.site`, the key and `kind` `docx`: it returns the text of up to 3 Word files. No such tool, or it answers with an error: unless `--ci`, show this card and end the turn:
 
      ```
@@ -97,7 +97,26 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
 
 5. **Score.** `ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json --next` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report with its `To pass:` line. `--next` adds that line and `GATE_JSON:` (`band`: `ready`, `borderline` or `refused`; `fix`: the fewest missing items that reach the bar). Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `ticket.mjs refuse-comment` instead, print its text, and stop (printing never posts; its exit 1 on a refused ticket is expected).
    - **pass:** say the ticket is ready and stop. (Other commands that build on this gate continue from here.)
-   - **refuse:** show the refuse card. (`/quality-code:spec` goes on without it for a `borderline` band.)
+   - **refuse:** first step 5b, once per run (never after a fill-in, never twice). Then show the refuse card. (`/quality-code:spec` goes on without it for a `borderline` band.)
+
+5b. **Read the screenshots and pages of a refused ticket.** Some teams put the criteria in a screenshot or a Confluence page instead of the description. Word files were already read in step 2 (their text is cheap: a script reads it, and the tests need it). Screenshots and pages cost more, so read them now, only now: a ticket that passed never gets here. Skip this step when the ticket has no image attached and no `<jira.site>/wiki/` link among its `links` other than the QA plan page already read in step 2. Every file goes through one script call, which redacts the text, adds it to the description and re-scores; the script decides what counts, never you.
+
+   For each text to add: write it, exactly as you have it, to `<ticketsDir>/<KEY>/attached.txt` (an empty file when there is nothing to add), then run `ticket.mjs attach --in @<ticketsDir>/<KEY>/ticket.json <kind> @<ticketsDir>/<KEY>/attached.txt` (it deletes `attached.txt`) and show its line. One file at a time, in this order:
+
+   - **Screenshots** (`screenshot`). When an `attachment` entry is an image and the `get_ticket_files` tool of the `jira-files` connector is there: call it with `site` = `jira.site`, the key and `kind` `images`; it shows you up to 3 images. For each, copy only the words it shows (titles, labels, buttons, messages, table headings, numbered steps), line by line as they appear. Do not describe the picture, do not guess what it means, never add a word it does not show. Leave out names, emails, customer codes and other personal data. An image with no such words: the empty file (the script then does not count it as an attachment with content).
+   - **Linked pages** (`page`). Each `<jira.site>/wiki/` URL of `links` (at most 3, not the QA plan page already read): read it with `getConfluencePage` on the Atlassian connector (`contentFormat` `markdown`); the page body is the text. A page that cannot be read: leave it.
+   - **Other files** (PDF, spreadsheets, videos) are not read; Word files were read in step 2.
+
+   For each entry of the tool's `skipped`, one line: `Not read: <name> (<why>)`. No `get_ticket_files` tool, or it answers with an error, and the ticket has images: unless `--ci`, show this card once and end the turn (with `--ci`, one line `<n> images on <KEY> were not read: set jira_api_token in /plugin to read them.` and go on):
+
+   ```
+   <KEY> has <n> images attached, and I cannot open them from Jira.
+   Paste up to 3 here, or type skip. (Set jira_api_token in /plugin to have them read for you.)
+   ```
+
+   A pasted screenshot: as above. `skip`: go on.
+
+   Then score again, exactly as step 5 (`ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json --next`, same flags). `pass`: say that the files carried what was missing, and the ticket is ready. Still `refuse`: the refuse card, with this score.
 
 ## The refuse card
 
@@ -165,16 +184,16 @@ Script calls with `--in @<ticketsDir>/<KEY>/ticket.json`, each shown as printed.
 
 ## Draft the criteria from the ticket
 
-The model drafts, the author confirms, the script scores. Only for the acceptance criteria items (`ac_present`, `ac_testable`) the user picked, and only when Figma is not drafting them (**Draft from Figma** below goes first). Only when the ticket itself has something to draft from: prose in the description or the criteria field (`text.description`, `text.acField` in `ticket.json`), `scenarios`, or XRay tests among its `links` (their titles). Screenshots in the description count too, once they are read or pasted (**Screenshots** below). Nothing of that: no draft, the item goes on the card as usual. Attachments are never opened: a file on the ticket gives nothing to draft from here.
+The model drafts, the author confirms, the script scores. Only for the acceptance criteria items (`ac_present`, `ac_testable`) the user picked, and only when Figma is not drafting them (**Draft from Figma** below goes first). Only when the ticket itself has something to draft from: prose in the description or the criteria field (`text.description`, `text.acField` in `ticket.json`), `scenarios`, or XRay tests among its `links` (their titles). Screenshots in the description count too, once they are read or pasted (**Screenshots** below). Text step 5b added (the `## Attached analysis`, `## Attached screenshot` and `## Linked page` sections of the description) is ticket text like the rest. Nothing of that: no draft, the item goes on the card as usual. Attachments are never opened: a file on the ticket gives nothing to draft from here.
 
-- **Screenshots.** They are the `![](…)` image lines in `text.description`: the Atlassian connector returns only these placeholders, never the image. When there are any and the `get_ticket_files` tool of the `jira-files` connector is there, call it with `site` = `jira.site`, the key and `kind` `images`: it shows you up to 3 of the ticket's images, and nothing is asked. No such tool, or it answers with an error: ask once before drafting, then end the turn:
+- **Screenshots.** They are the `![](…)` image lines in `text.description`: the Atlassian connector returns only these placeholders, never the image. When step 5b already added their words (the description has an `## Attached screenshot` section), do not read them again. Otherwise, when there are any and the `get_ticket_files` tool of the `jira-files` connector is there, call it with `site` = `jira.site`, the key and `kind` `images`: it shows you up to 3 of the ticket's images, and nothing is asked. No such tool, or it answers with an error: ask once before drafting, then end the turn:
 
   ```
   The description has <n> screenshots, and I cannot open them from Jira.
   Paste up to 3 here (or type their file paths) to draft from them too, or type skip.
   ```
 
-  Read at most 3 of what the tool returns, or the user pastes or names, and only for this draft: what a screen shows (a column, a button, a message, where a thing sits) may go into it, for the author to confirm. Never copy a name, an email, a customer code or other personal data from a screenshot: write a question such as `<which customer?>` instead. Never save a screenshot or send it anywhere. On `skip`, draft from the text alone, or no draft when there is none. A screenshot never changes the score: the script scores only the confirmed text, so a ticket whose criteria are only in screenshots stays refused until a draft is confirmed.
+  Read at most 3 of what the tool returns, or the user pastes or names, and only for this draft: what a screen shows (a column, a button, a message, where a thing sits) may go into it, for the author to confirm. Never copy a name, an email, a customer code or other personal data from a screenshot: write a question such as `<which customer?>` instead. Never save a screenshot or send it anywhere. On `skip`, draft from the text alone, or no draft when there is none. A screenshot read here never changes the score: the script scores only the confirmed text (step 5b's copied words are ticket text, scored as such).
 - **Draft the item** in the ticket's language, as Given / When / Then steps, one scenario per behaviour the ticket describes. Use only the ticket's own words, read from `ticket.json` (redacted; never the text as the connector returned it), and what its pasted screenshots show. Never invent values: a number, a text, a label, a state or a result the ticket does not state is a question inside the draft, such as `<which message?>`, which the user must fill. A draft with such a question is never sent as it is.
 - **Show the draft** exactly as it would be added, then end the turn:
 

@@ -11,8 +11,8 @@ import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
-import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
-import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
+import { redact, sanitizeTicket } from '../lib/ticket/sanitize.mjs'
+import { docxText, DOCX_MAX_CHARS, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
@@ -30,6 +30,9 @@ const err = s => process.stderr.write(`${s}\n`)
 // model's draft the author confirmed (the script still decides whether it counts). --runner adds to
 // `config check` the test runners the config names and the project has not installed.
 const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--runner'])
+
+// The heading `attach` puts each kind of read file under in the description.
+const ATTACHED = { screenshot: 'Attached screenshot', page: 'Linked page' }
 
 // The runners setup adds when a repo has none, and the packages that install each.
 const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', ['@playwright/test', 'playwright']]]
@@ -241,7 +244,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (!a.in) {
-    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -347,6 +350,34 @@ function run(argv, env, cwd) {
       const b = buildBrief(config, next)
       out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       out(`FILL_JSON:${JSON.stringify({ attachments: n, score: b.score, gate: b.gate })}`)
+      return 0
+    }
+    case 'attach': {
+      // A refused ticket's screenshot or linked page, read after the first score: the words a screenshot
+      // shows, or the page's text. The text comes in a file in the ticket's folder (deleted once read),
+      // is redacted and added to the description, so the script scores it like the description.
+      const [kind, from] = a._
+      const heading = ATTACHED[kind]
+      if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { err('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
+      const textPath = resolve(root, from.slice(1))
+      if (!ticket.key || dirname(textPath) !== join(ticketsRoot, ticket.key)) { err(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      let raw
+      try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { err(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const text = redact(config, raw.trim()).slice(0, DOCX_MAX_CHARS)
+      const description = ticket.text?.description ?? ''
+      const n = (description.match(new RegExp(`^## ${heading} \\d+$`, 'gm')) ?? []).length + 1
+      const next = {
+        ...ticket,
+        text: { ...ticket.text, description: text ? `${description}\n\n## ${heading} ${n}\n${text}` : description },
+        ...(kind === 'page' ? {} : {
+          attachmentsRead: (Number(ticket.attachmentsRead) || 0) + 1,
+          attachmentsWithText: (Number(ticket.attachmentsWithText) || 0) + (text ? 1 : 0),
+        }),
+      }
+      try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attach: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      const b = buildBrief(config, next)
+      out(`${text ? `Added ${heading.toLowerCase()} ${n}` : `Nothing to add from this ${kind === 'page' ? 'page' : 'file'}`}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      out(`ATTACH_JSON:${JSON.stringify({ kind, added: Boolean(text), score: b.score, gate: b.gate })}`)
       return 0
     }
     case 'side': {

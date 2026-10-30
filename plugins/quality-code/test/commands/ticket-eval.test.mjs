@@ -200,7 +200,7 @@ test('ticket draft: screenshots are pasted by the user, 3 at most, never scored,
   assert.match(draft, /Read at most 3/)
   assert.match(draft, /Never copy a name, an email, a customer code or other personal data from a screenshot/)
   assert.match(draft, /Never save a screenshot or send it anywhere/)
-  assert.match(draft, /A screenshot never changes the score/)
+  assert.match(draft, /A screenshot read here never changes the score/)
 })
 test('ticket draft: with the jira-files connector the screenshots are fetched, not asked for (AGT-121)', () => {
   const shots = draft.slice(draft.indexOf('- **Screenshots.**'), draft.indexOf('- **Draft the item**'))
@@ -222,6 +222,19 @@ test('step 2: Word files are read through the connector, or from paths the user 
   assert.match(word, /the flag `attachment not read: <name> \(<why>\)`/)
   assert.match(word, /the flag `Word files not read: <n>`/)
   assert.match(s2, /only the Word files below are read, through the plugin/)
+})
+test('step 5b: screenshots and linked pages are read only for a refused ticket, through attach, which scores them', () => {
+  const s5b = doc.slice(doc.indexOf('5b. **Read the screenshots and pages of a refused ticket.**'), doc.indexOf('## The refuse card'))
+  assert.ok(s5b.length > 0)
+  assert.match(doc, /\*\*refuse:\*\* first step 5b, once per run/)
+  assert.match(s5b, /Word files were already read in step 2/)
+  assert.ok(s5b.includes('ticket.mjs attach --in @<ticketsDir>/<KEY>/ticket.json <kind> @<ticketsDir>/<KEY>/attached.txt'))
+  assert.match(s5b, /the key and `kind` `images`/)
+  assert.doesNotMatch(s5b, /`kind` `docx`/)
+  assert.match(s5b, /copy only the words it shows/)
+  assert.match(s5b, /Leave out names, emails, customer codes and other personal data/)
+  assert.match(s5b, /`getConfluencePage`/)
+  assert.match(s5b, /Then score again, exactly as step 5/)
 })
 test('ticket draft: the card is Use it / Edit / Skip and the turn ends', () => {
   assert.ok(draft.includes('Drafted from the ticket. Check it before it counts.\n\n  <the draft>\n\n  1. Use it\n  2. Edit\n  3. Skip'))
