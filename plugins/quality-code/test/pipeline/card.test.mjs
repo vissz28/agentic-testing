@@ -19,6 +19,7 @@ test('the checks-failed card, exactly', () => {
     'quality-code check · 2 spec files · ticket ABC-123',
     '',
     'Verdict: ❌ checks failed',
+    '  A check found a problem with the tests themselves; fix the tests, not the code. Your code was not judged.',
     '',
     'Tests     8 passed · 0 failed · 1 to do',
     'Checks',
@@ -29,7 +30,7 @@ test('the checks-failed card, exactly', () => {
     '  ✅ tests          8 passed',
     '  ⚠️ mutation       not run: the tests did not run',
     '',
-    "What to do: add a real expect(...) to 'cancels', or mark it todo if the behaviour isn't known yet.",
+    "What to do: add a real expect(...) to orders.spec.ts › 'cancels', or mark it todo if the behaviour isn't known yet.",
   ])
   assert.ok(lines.at(-1).startsWith('PIPELINE_JSON:'))
   assert.equal(JSON.parse(lines.at(-1).slice(14)).verdict, 'checks_failed')
@@ -50,6 +51,25 @@ test('what to do, per deciding step', () => {
   assert.equal(card('tests', s('tests', 'fail', 'x', [{ test: 'adds', detail: 'Expected 2' }]), 'tests_red'), "What to do: 'adds': Expected 2. Either the code does not do what the ticket says, or the test is wrong.")
   assert.equal(card('tests', s('tests', 'not_run', 'could not run: db down'), 'not_verified'), 'What to do: tests could not run: could not run: db down')
   assert.equal(formatCard({ verdict: 'green', decidedBy: null, steps: [] }, { specs: ['a'] }).includes('What to do'), false)
+})
+test('a whole-suite run: one fix per failing check, the deciding one first; long lists are capped', () => {
+  const tests = s('tests', 'fail', 'x', ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map(t => ({ file: 'x.spec.ts', test: t })))
+  const mut = s('mutation', 'fail', 'x', [{ file: 'y.spec.ts', test: 'adds' }])
+  const honest = s('suite-honesty', 'fail', 'x', [{ file: 'z.spec.ts', test: 'cancels' }])
+  const out = formatCard({ verdict: 'checks_failed', decidedBy: 'mutation', steps: [tests, mut, honest] }, { specs: ['x.spec.ts', 'y.spec.ts'] })
+  assert.ok(out.includes([
+    'Verdict: ❌ checks failed',
+    '  A check found a problem with the tests themselves; fix the tests, not the code.',
+    '  Some tests also fail: the code may not do what the ticket says, or the test is wrong.',
+  ].join('\n')), out)
+  assert.ok(out.includes([
+    'What to do:',
+    "  • mutation: an assertion can't fail: bind the real expected value in y.spec.ts › 'adds'.",
+    "  • assertions: add a real expect(...) to z.spec.ts › 'cancels', or mark it todo if the behaviour isn't known yet.",
+    '',
+    "Failing tests: 7 tests fail: x.spec.ts › 'a', x.spec.ts › 'b', x.spec.ts › 'c', x.spec.ts › 'd', x.spec.ts › 'e' and 2 more. Either the code does not do what the ticket says, or the test is wrong.",
+  ].join('\n')), out)
+  assert.match(formatRunLog({ verdict: 'checks_failed', decidedBy: 'mutation', steps: [tests, mut] }), /## What to do\n\n.+bind the real expected value.+\n\n## Failing tests\n\n7 tests fail/)
 })
 test('a failing test with an empty message gives no dangling colon', () => {
   const out = formatCard({ verdict: 'tests_red', decidedBy: 'tests', steps: [s('tests', 'fail', 'x', [{ test: 'adds', detail: '' }])] }, { specs: ['a'] })

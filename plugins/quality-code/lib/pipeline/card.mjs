@@ -5,7 +5,13 @@ const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
 
 export const label = check => LABEL[check] || check
-const quoted = findings => findings.filter(f => f.test).map(f => `'${f.test}'`).join(', ')
+// ponytail: a whole-suite run can have dozens; the log lists every finding.
+const MAX_NAMED = 5
+const quoted = findings => {
+  const named = findings.filter(f => f.test)
+  const list = named.slice(0, MAX_NAMED).map(f => `${f.file ? `${f.file} › ` : ''}'${f.test}'`).join(', ')
+  return named.length > MAX_NAMED ? `${list} and ${named.length - MAX_NAMED} more` : list
+}
 
 function stepLine(step) {
   let text = step.summary
@@ -35,15 +41,20 @@ export function redAdvice({ issueType = null, status = null, done = DEFAULT_DONE
   return "For a bug whose fix isn't merged yet, red is the expected result."
 }
 
+/** One fix per failing check, the deciding one first: a whole-suite run can fail several checks at once. */
 function whatToDo(outcome, ctx = {}) {
-  if (outcome.verdict === 'green') return null
+  if (outcome.verdict === 'green') return []
   const steps = outcome.steps
   if (outcome.verdict === 'not_verified') {
     const nr = steps.find(x => x.status === 'not_run')
-    return nr ? `${label(nr.check)} could not run: ${String(nr.summary).replace(/^skipped: /, '')}` : null
+    return nr ? [{ check: nr.check, text: `${label(nr.check)} could not run: ${String(nr.summary).replace(/^skipped: /, '')}` }] : []
   }
-  const step = steps.find(x => x.check === outcome.decidedBy) || steps.find(x => x.status === 'fail')
-  if (!step) return null
+  const first = steps.find(x => x.check === outcome.decidedBy)
+  const failed = [...(first ? [first] : []), ...steps.filter(x => x.status === 'fail' && x !== first)]
+  return failed.map(step => ({ check: step.check, text: fixFor(step, ctx) })).filter(t => t.text)
+}
+
+function fixFor(step, ctx) {
   const fs = step.findings || []
   switch (step.check) {
     case 'boundary': return `undo the changes to ${fs.map(f => f.file).filter(Boolean).join(', ')}: tests never change application code.`
@@ -60,12 +71,33 @@ function whatToDo(outcome, ctx = {}) {
     case 'stryker': return `the tests miss changes in ${step.data?.target}: assert the values the code computes`
     case 'flaky': return `fix the non-determinism in ${quoted(fs)}, or skip them with a ticket.`
     case 'tests': {
-      const f = fs.find(x => x.test) || fs[0] || {}
-      return `'${f.test}'${f.detail ? `: ${f.detail}` : ''}. ${redAdvice(ctx)}`
+      const named = fs.filter(x => x.test)
+      if (named.length > 1) return `${named.length} tests fail: ${quoted(named)}. ${redAdvice(ctx)}`
+      const f = named[0] || fs[0] || {}
+      return `${f.test ? quoted([f]) : `'${f.test}'`}${f.detail ? `: ${f.detail}` : ''}. ${redAdvice(ctx)}`
     }
     default: return null
   }
 }
+
+/** One fix on one line; several as a list, each named by its check. */
+const todoLines = (todo, bullet) => todo.length === 1 ? [todo[0].text] : todo.map(t => `${bullet}${label(t.check)}: ${t.text}`)
+
+/** Problems in the tests and red tests are two messages: fix the tests, and look at the code. */
+function todoSections(todo) {
+  const red = todo.filter(t => t.check === 'tests')
+  const fix = todo.filter(t => t.check !== 'tests')
+  return fix.length && red.length ? [['What to do', fix], ['Failing tests', red]] : todo.length ? [['What to do', todo]] : []
+}
+
+const ALSO_RED = 'Some tests also fail: the code may not do what the ticket says, or the test is wrong.'
+/** What the verdict means, in words; a checks-failed run with red tests says both. */
+function verdictText(outcome) {
+  const red = outcome.steps.some(x => x.check === 'tests' && x.status === 'fail')
+  if (outcome.verdict !== 'checks_failed') return [VERDICT_TEXT[outcome.verdict]].filter(Boolean)
+  return red ? [VERDICT_TEXT.checks_failed, ALSO_RED] : [`${VERDICT_TEXT.checks_failed} Your code was not judged.`]
+}
+const capital = t => `${t[0].toUpperCase()}${t.slice(1)}`
 
 // A probe the ticket did not ask for: the writing guides name it "Extra: …" (old backend specs: "edge …").
 const EXTRA = /^\s*(?:extra\b|edge\b)/i
@@ -110,6 +142,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
+  lines.push(...verdictText(outcome).map(t => `  ${capital(t)}`))
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) lines.push(`Jira says ${String(jiraStatus).trim()}. This branch still has the bug.`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data
   const counts = d && typeof d.passed === 'number' && typeof d.failed === 'number'
@@ -119,7 +152,9 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
     lines.push('Checks', ...outcome.steps.filter(x => x.data?.applicable !== false).map(stepLine))
   }
   const todo = whatToDo(outcome, { issueType, status: jiraStatus, done: doneStatuses })
-  if (todo) lines.push('', `What to do: ${todo}`)
+  for (const [head, items] of todoSections(todo)) {
+    lines.push('', ...(items.length === 1 ? [`${head}: ${items[0].text}`] : [`${head}:`, ...todoLines(items, '  • ')]))
+  }
   if (log) lines.push('', `Full details: ${log}`)
   lines.push(`PIPELINE_JSON:${JSON.stringify(outcome)}`)
   return lines.join('\n')
@@ -127,7 +162,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
 
 const VERDICT_TEXT = {
   green: 'every check passed: the tests run, assert the ticket\'s values and catch changes to them.',
-  tests_red: 'the checks passed and some tests fail.',
+  tests_red: 'the tests themselves are sound and some fail: the code may not do what the ticket says, or the test is wrong.',
   checks_failed: 'a check found a problem with the tests themselves; fix the tests, not the code.',
   not_verified: 'something could not run, so nothing was proved. This is never a pass.',
 }
@@ -140,7 +175,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   out.push(`- **Checked:** ${date.toISOString()}`, `- **Specs:** ${specs.map(s => `\`${s}\``).join(', ') || 'none'}`)
   if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.map(runnerLabel).join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
-  out.push(`- **Verdict:** ${VERDICT_TEXT[outcome.verdict] ?? outcome.verdict}${outcome.verdict === 'tests_red' ? ` ${redAdvice({ issueType, status: jiraStatus, done: doneStatuses })}` : ''}`)
+  out.push(`- **Verdict:** ${verdictText(outcome).join(' ') || outcome.verdict}${outcome.verdict === 'tests_red' ? ` ${redAdvice({ issueType, status: jiraStatus, done: doneStatuses })}` : ''}`)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
   const t = outcome.steps.find(x => x.check === 'tests')?.data
   if (Array.isArray(t?.list) && t.list.length) {
@@ -157,7 +192,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
     if ((s.findings ?? []).length > fs.length) out.push(`- …and ${s.findings.length - fs.length} more`)
   }
   const todo = whatToDo(outcome, { issueType, status: jiraStatus, done: doneStatuses })
-  if (todo) out.push('', '## What to do', '', todo)
+  for (const [head, items] of todoSections(todo)) out.push('', `## ${head}`, '', ...todoLines(items, '- '))
   out.push('', '## Run it again', '', `\`/quality-code:run-pipeline ${specs.join(' ')}${key ? ` --key ${key}` : ''}\``, '')
   return out.join('\n')
 }

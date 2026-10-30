@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Changed
+
+- **The run cards say more when something fails** (`/quality-code:run-*`, `/quality-code:spec`, and the run log):
+  - under the verdict, one line says what it means; a run whose checks fail and whose tests are red says both;
+  - "What to do" gives one fix per failing check, not only the first, each test as `file › 'test'` (5 per check,
+    then "and N more"; the run log has them all);
+  - red tests have their own "Failing tests" block, apart from the fixes to the tests themselves.
+  `/quality-code:spec` rewrites tests only for the "What to do" block, never to make a failing test pass.
+
 ## [0.33.0] - 2026-10-30
 
 ### Changed

@@ -116,7 +116,7 @@ test('playwright: a red test is exit 1; a mutant that survives is exit 1', () =>
   const r = run(d, ['test/a.spec.ts'])
   assert.equal(r.status, 1, r.stderr + r.stdout)
   assert.match(r.stdout, /Verdict: 🔴 tests red/)
-  assert.match(r.stdout, /What to do: 'shows': Error: expect\(locator\)\.toBeVisible\(\) failed/)
+  assert.match(r.stdout, /What to do: test\/a\.spec\.ts › 'shows': Error: expect\(locator\)\.toBeVisible\(\) failed/)
   const s = repo({ adapter: 'playwright', spec: PW })
   pwBins(s, [pwTest('shows', 'passed')], { mutantReport: { title: 'shows', status: 'passed' } })
   const m = run(s, ['test/a.spec.ts', '--key', 'ABC-1'])
