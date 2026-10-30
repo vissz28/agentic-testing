@@ -1,97 +1,72 @@
-# Seeding test data from a ticket
+# Mock data for a local database
 
-The generic rules `/quality-code:seed` always follows. Vitest projects seed rows through the
-project's own builders; Playwright projects seed the network with route stubs. A team's dataset
-document (`seed.dataset`) adds the known rows on top of these rules and wins where it gives an id or
-a value.
+The generic rules `/quality-code:seed` always follows when it writes a dataset. The data is for QA testing a
+ticket by hand in the running app, on a local database. A team's guide (`seed.guide`) adds its own rules on top
+and wins where they differ.
 
-## What to seed
+## What to load
 
-- **One row per named fact.** Each entity the ticket names is one builder call or one row in a stub.
-  Add rows only when the expected result depends on *how many* rows exist: a count, pagination or
-  page size, ordering, filtering out of a larger set, a sum over rows, an empty state. Gut check: if
-  the test would pass the same with one row, seed one.
-- **Every field the ticket names** appears on the row, including fields the code does not read yet.
-  A field the ticket does not name keeps the builder's default, or the value the copied stub already
-  has. Never fill it with a made-up value to look complete.
-- **Exact values from the ticket**, written as the ticket writes them. A value the ticket does not
-  give is a gap: list it, do not invent it.
-- **Seed the cause, not only the result.** When the ticket says something already happened (an order
-  reserved stock, an invoice was paid), seed the row that records that event too, not only the total
-  it produced. Data the application could never produce gives tests that fail against correct code.
-- **Several rows of one kind need unique ids**, built from the row's index (`'item-' + i`), or they
-  collide on the primary key.
+- **The tables the ticket's screen reads,** the parents their foreign keys need, and nothing else. A table only
+  the reset touches gets no rows.
+- **About 25 rows per main table:** enough to fill a page, sort, filter and page through. A parent most screens
+  have one of (a company, a store, a site) gets one row, unless the ticket needs more.
+- **Spread the values** so the screen shows its states: some rows below a threshold and some above, a few
+  zeros, some old dates and some recent ones, every status the enum has.
+- **The ticket's case** uses the ticket's values exactly, on a row with a code or name QA can find among the
+  others (`BUG-<KEY>`, or the ticket's own product name). Seed the cause too: when the ticket says something
+  already happened (an order reserved stock, an invoice was paid), load the row that records it, not only the
+  total it produced.
 
-## Values as the API stores them
+## Realistic, never real
 
-- **Decimals** exactly as the API returns them. When the API sends money or quantities as strings
-  (`"150.00"`, `"2325.00000000"`), write strings with the same number of decimals; when it sends
-  numbers, write numbers. Copy the format from the builder's types or the existing stub, never
-  convert.
-- **Dates** in the format the API uses (an ISO string `2026-01-15T10:00:00Z`, or a date `2026-01-15`),
-  fixed, never today's date.
-- **Enums** with the exact value the code uses, from the builder's types or the existing stub.
+- **Plausible values** for the domain, in the ticket's language: real-sounding product names, company names,
+  document numbers (an invoice `FT-2026/0142`, a delivery note `DDT 318`), prices with cents, quantities that
+  fit the unit. Never `Item 1` to `Item 25`, never names a series function makes up.
+- **Fictional, not real:** no real customer, person or production id. E-mails at `example.com`, phones `555-…`.
+  Customer ids stay redacted as the sanitized ticket shows them.
+- **Dates** fixed (`2026-03-14`), spread over the last months. Never `now()` for a value the screen shows; it
+  is fine for `created_at` and `updated_at`.
 
-## No real data
+## Shapes from the schema
 
-- **No production ids, no customer data.** Customer ids stay redacted (`U######` as the sanitized
-  ticket shows them); names, e-mails and phone numbers are test values (`user@example.test`).
-- **Tenant, workspace or account ids are placeholders**: the constant the project's tests already
-  use (a fixture export, a test helper constant), else a clearly fake UUID such as
-  `00000000-0000-4000-8000-000000000001`. Never paste a real tenant id from the ticket.
-- **Never write to a developer's own database.** Builders run inside the tests, against the test
-  database the project's test setup provides. This command writes code; it never runs a seed.
+- **Names as the database has them,** not as the code does: a Prisma `@map` or `@@map`, an ORM's table name.
+- **Every required column** without a database default gets a value. Defaults the ORM fills in the app (a
+  Prisma `@default(uuid())`, `@updatedAt`) are not database defaults: give `id`, `created_at` and `updated_at`.
+- **Types as stored:** decimals as numbers, enums with the exact value (and a cast where the database needs
+  one, like `'incoming'::"MovementType"` in Postgres), booleans, JSON.
+- **Ids fixed and readable,** with a prefix (`mock-item-01`). An id column that is unique across all tenants
+  needs a prefix no other tenant's dataset uses, or a re-run collides.
 
-## Builder calls (Vitest)
+## The file
 
-- **Only functions that exist.** Call the builders the configured files export, with the parameters
-  their signatures take. Never write a new builder or a raw insert next to them.
-- **Foreign-key order:** parents before children. A builder that takes another row's id needs that
-  row seeded first; reuse the id you seeded, never a placeholder, when the row is in play.
-- **Idempotent:** the block can run before every test. Use fixed ids, not random ones, and rely on the
-  project's own reset (a `beforeEach` that restores or truncates) rather than deleting rows yourself.
-- **Prefer the known dataset.** When the dataset document already has a row that matches a fact, use
-  its id and values instead of seeding a new one. Never change the dataset document.
+One transaction, in this order:
 
-```ts
-const customer = await seedCustomer(db, { id: 'cust-1', name: 'Test Customer' })
-await seedOrder(db, { id: 'ord-1', customerId: customer.id, total: '150.00', status: 'paid' })
-```
+1. `BEGIN;`
+2. **The reset:** `DELETE FROM` every table the dataset fills and every table that points at them, child
+   tables first. With `seed.tenant`, every `DELETE` and `UPDATE` ends with `WHERE <column> = '<id>'`: the
+   loader refuses one that does not. Leave alone the rows the app needs to start (settings, an activated
+   tenant, users, migrations).
+3. **The inserts,** parents first. A temporary table of `VALUES` and an `INSERT … SELECT` keeps 25 rows readable.
+   With `seed.tenant`, every row of a tenant's table carries its id.
+4. A `SELECT count(*)` per table filled, so the load shows what it holds.
+5. `COMMIT;`
 
-## Route stubs (Playwright)
+The ticket's file has no reset: only its inserts (or an `UPDATE` of a dataset row, kept to the tenant), loaded
+after the dataset.
 
-- **Shape copied, never guessed.** Copy the response shape from an existing stub of the same endpoint:
-  the keys, the nesting, the wrapper (`{ data, total }`, `{ count, items }`, or the bare body), the
-  types. Fill it with the ticket's facts. No existing stub for an endpoint: stop and say so.
-- **A GraphQL app has one URL for every operation.** There the stub is told apart by the operation name inside the request body
-  (`postData().operationName`, or the name after `query`/`mutation`), not by the endpoint: match on it, and let every other
-  operation continue (`route.fallback()`). "Same endpoint" in the first rule then means the same operation. The first stub for an
-  operation the specs never stubbed is still written by hand; copy the response shape from the operation's type or a real response.
-
-  ```ts
-  await page.route('**/graphql', route => {
-    const body = route.request().postDataJSON()
-    return body?.operationName === 'StsDocumentsList' ? route.fulfill({ json: { data: { documents: [] } } }) : route.fallback()
-  })
-  ```
-- **Registration order:** Playwright uses the handler registered **last** among the routes that match
-  a request. Register the broad route first (`**/orders**`) and the specific ones after it
-  (`**/orders/ord-1**`), or the broad one swallows them.
-- **Shared endpoints are already stubbed.** Endpoints a shared fixture or a shared `beforeEach`
-  already stubs (sign-in, current user, menus, settings) are not stubbed again: stub only the data the
-  ticket's screen reads.
-- **Several stubs** go in one helper, `async function stub<Feature>(page)`, as the existing specs do.
-
-```ts
-async function stubOrders(page) {
-  await page.route('**/api/orders**', route => route.fulfill({ json: { data: [{ id: 'ord-1', total: '150.00', status: 'paid' }], total: 1 } }))
-  await page.route('**/api/orders/ord-1**', route => route.fulfill({ json: { id: 'ord-1', total: '150.00', status: 'paid' } }))
-}
+```sql
+BEGIN;
+DELETE FROM order_lines WHERE tenant_id = '00000000-0000-4000-8000-000000000001';
+DELETE FROM orders WHERE tenant_id = '00000000-0000-4000-8000-000000000001';
+INSERT INTO orders (id, tenant_id, number, customer_name, total, status, ordered_on, created_at, updated_at) VALUES
+  ('mock-ord-01', '00000000-0000-4000-8000-000000000001', 'ORD-2026/0142', 'Bianchi Forniture Srl', 1250.40, 'paid', '2026-03-14', now(), now());
+SELECT 'orders' AS t, count(*) FROM orders WHERE tenant_id = '00000000-0000-4000-8000-000000000001';
+COMMIT;
 ```
 
 ## Never
 
-- A test, an `it`, a `describe` or an `expect`: this is data only.
-- A value, a field, a builder or a response shape that is not in the ticket, the builder files, the
-  dataset document or an existing stub.
-- A change to application code, to a builder file, to a fixture or to the dataset document.
+- `DROP`, `TRUNCATE` or `ALTER`: mock data deletes and inserts rows, it never changes the schema. The loader
+  refuses them.
+- A `DELETE` or `UPDATE` that reaches another tenant's rows.
+- A value that stands for the ticket's case but is not in the ticket.

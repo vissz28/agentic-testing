@@ -26,7 +26,11 @@ test('the backend config keeps the old harness layers and Vitest configs', () =>
   assert.deepEqual(layersOf(c).map(l => l.folder), ['test/unit/', 'test/integration/', 'test/range/', 'test/api/', 'test/repro/'])
   assert.deepEqual(c.vitest.configs.map(x => x.config), ['vitest.config.e2e.ts', 'vitest.config.repro.ts', 'vitest.config.db.ts'])
   assert.ok(layersOf(c).every(l => l.guide === '.claude/quality-code/guides/layers.md'), 'every layer reads the old layers guide')
-  assert.deepEqual(c.seed, { builders: ['test/helpers/seed.ts'], guide: '.claude/quality-code/guides/seed.md' })
+  // /quality-code:seed loads mock data into the stack's postgres container, for the workspace the mocked SDK selects.
+  assert.equal(c.seed.schema, 'prisma/schema.prisma')
+  assert.match(c.seed.target, /^docker exec postgres /)
+  assert.match(c.seed.apply, /^docker exec -i postgres psql .* < \{file\}/)
+  assert.deepEqual(c.seed.tenant, { column: 'workspace_id', id: '16475e6a-2a9f-4b99-98c9-b3dcdc74b582' })
   assert.equal(c.qaPlans, 'test/qa-plans/')
   assert.ok(c.boundaries.forbidden.every(r => r.why), 'every boundary says why')
   // tsconfig.json leaves the specs out; tsconfig.db.json has the @test/* alias the specs import.
@@ -67,5 +71,5 @@ test('the frontend features use the app\'s routes and carry their QA-plan search
   assert.ok(c.features.every(f => f.qaPlanSearch), 'without search words a ticket loses the QA-plan points')
   assert.ok(c.features.every(f => !f.route || /^\/[a-z][A-Za-z]*$/.test(f.route)), 'app routes, not folder names')
   assert.equal(c.playwright.guide, '.claude/quality-code/guides/playwright.md')
-  assert.deepEqual(c.seed, { stubsFrom: 'e2e/tests/', guide: '.claude/quality-code/guides/seed.md' })
+  assert.equal(c.seed, undefined, 'the frontend has no database to load mock data into')
 })

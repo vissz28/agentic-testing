@@ -161,10 +161,6 @@
     "guide": ".claude/quality-code/guides/playwright.md",
     "ungradedTitles": "conformance|capture"
   },
-  "seed": {
-    "stubsFrom": "e2e/tests/",
-    "guide": ".claude/quality-code/guides/seed.md"
-  },
   "xray": {
     "csv": ".claude/harness/warehouse-testcases.csv",
     "folder": "e2e/tickets/",

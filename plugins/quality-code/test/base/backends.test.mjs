@@ -98,11 +98,9 @@ test('config: a backend block only on its own project, with only its own fields'
     'pytest.layers[0].name "Unit" must be lower-case letters, digits and "-", starting with a letter, like "unit"',
     'pytest.layers[0].folder "tests" must end with "/"',
   ])
-  // The vitest block and seed builders stay Vitest's: a fullstack project on another backend has neither.
+  // The vitest block stays Vitest's: a fullstack project on another backend has none.
   const fsPy = { adapter: 'fullstack', backend: 'pytest' }
   assert.deepEqual(valid({ ...fsPy, vitest: {} }).errors, ['vitest: only allowed with "adapter": "vitest" or "fullstack"'])
-  assert.equal(valid({ ...fsPy, seed: { builders: ['t/seed.py'] } }).ok, false)
-  assert.equal(valid({ adapter: 'pytest', seed: { builders: ['t/seed.py'] } }).ok, false)
 })
 
 test('config: backend only on fullstack, and only a backend runner', () => {

@@ -1,5 +1,8 @@
 # Seeding test data from a ticket: `/quality-code:seed`
 
+> **Superseded (2026-10-29).** `/quality-code:seed` no longer writes test data: it loads mock data into a
+> local database for testing by hand (`commands/seed.md`, `guides/seed-data.md`). Kept for the history.
+
 Status: decided by the owner (Jira AGT-87) · Date: 2026-10-14 · Owner: Elvis Zefaj · Jira: AGT-87,
 AGT-16 (the known dataset), commits tagged AGT-44 · Builds on: [part 4b](2026-10-14-part-4b-write-tests-design.md),
 [part 3](2026-10-14-part-3-playwright-design.md), [part 1](2026-10-12-part-1-core-config-design.md)

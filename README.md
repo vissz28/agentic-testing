@@ -32,7 +32,7 @@ both in one repo (fullstack). Your application code is never changed.
 | **Daily start from your branch:** connectors, what the branch changed, the ticket from the branch name, then the gate and the tests | `/quality-code:spec` |
 | **Tests written from the ticket:** Vitest, pytest, JUnit, Go, .NET and Playwright tests in your test folders, graded on the spot | `/quality-code:spec <KEY>` |
 | **Tests run and graded:** honesty, assertions, expected values, types, mutation, Stryker, flakiness | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (both) |
-| **Test data and QA cases:** seed builders or route stubs; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
+| **Mock data and QA cases:** realistic mock data for a ticket in your local database; XRay test cases to import | `/quality-code:seed <KEY>`, `/quality-code:xray <KEY>` |
 | **Ticket lookup:** a ticket in short, with suggestions for its author | `/quality-code:ticket <KEY or words>` |
 | **A whole project at once:** every ticket scored, how many pass, what is most often missing | `/quality-code:tickets-eval <PROJECT>` |
 | **For QA and PO without a repo:** a personal Jira-only setup for the ticket commands | `/quality-code:setup`, option 2 |

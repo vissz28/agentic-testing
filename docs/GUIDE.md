@@ -155,7 +155,7 @@ Playwright test).
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:run-pipeline --evals` | ✅ available |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
-| Write only the test data a ticket needs: seed builder calls (Vitest) or route stubs (Playwright) | `/quality-code:seed <KEY> [--path <spec>]` | ✅ available |
+| Load realistic mock data for a ticket into your local database, to test it by hand | `/quality-code:seed <KEY>` | ✅ available |
 | XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
 | How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:kpi` | ✅ available |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
@@ -571,14 +571,19 @@ gives `e2e/tests/`), else `e2e/` (`node <plugin>/bin/ticket.mjs config e2e-folde
 `/quality-code:setup` finds a Playwright config up to two folders down and offers it as
 `playwright.configs`.
 
-### Seed test data
+### Mock data in your local database
 
-`/quality-code:seed ABC-123` reads the ticket (no readiness gate: nothing is graded) and writes only
-the data setup. On Vitest: calls to your own seed builders (`seed.builders`), in foreign-key order,
-with the ticket's exact values. On Playwright: `page.route` stubs whose response shapes are copied
-from a stub you already have (`seed.stubsFrom`). With `seed.dataset`, a documented known dataset's
-ids and values come first, and `seed.guide` adds the team's own seeding rules. It prints the block,
-or puts it into an existing spec's setup with `--path`. It never invents a builder, a shape or a value, and never writes to a database.
+`/quality-code:seed ABC-123` loads realistic mock data for a ticket into your **local** database, so QA
+can open the running app and test the ticket by hand. It reads and gates the ticket, finds the tables the
+ticket's screen reads in your schema (`seed.schema`), and writes one SQL file per feature (about 25
+realistic rows per table, reused by every ticket of that feature) plus one for the ticket's own case. A
+card shows the target database and the tables the reset empties; only on `1` is anything loaded.
+
+The project sets, once, how to reach its local database: `seed.target` (a command that prints the
+database it reaches) and `seed.apply` (a command that loads `{file}`). The loader refuses any database
+that is not `localhost`, `127.x.x.x`, `::1` or a container name, never runs in CI, and refuses a file
+that drops, truncates or alters a table. With `seed.tenant`, every reset and update must keep to that
+tenant's rows. `seed.guide` adds the team's own rules.
 
 ### XRay test cases
 
@@ -833,7 +838,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions. A pattern with `*` (like `.env.*`) never forbids an env template (`.env.example`, `.env.sample`, `.env.template`); name one exactly to forbid it | `src/`, `.env`, `.env.*`, the CI file |
 | `playwright` | Playwright and fullstack: `configs` (`[{ "match": "e2e/admin/**", "config": "playwright.admin.config.ts" }]`, first match wins), `projects` (`["chromium"]`, 1 to 10 names), `tsconfig` (path), `timeoutSeconds` (10 to 3600), `folder` (where `write` puts new specs, ending in `/`, not in a forbidden boundary), `guide` (a `.md` with your e2e conventions) | default Playwright config, every project, `tsconfig.json`, 600; folder: your config's `testDir` when it is a plain string, else `e2e/`; no guide |
-| `seed` | optional: `builders` (Vitest: the files with your seed builders), `dataset` (a `.md` documenting a known test dataset), `stubsFrom` (Playwright: the folder whose specs hold your route stubs), `guide` (a `.md` with your own seeding rules) | none |
+| `seed` | optional, for `/quality-code:seed`: `target` (a command that prints the local database it reaches, like `echo localhost:5432/app`), `apply` (a command that loads `{file}` into it), `schema` (the file or folder that describes the database), `tenant` (`{ "column", "id" }`: the local app's tenant; every reset keeps to it), `guide` (a `.md` with your own rules). The old `builders`, `dataset` and `stubsFrom` are ignored | none |
 | `vitest` | Vitest and fullstack: `configs` (`[{ "match": "test/integration/**", "config": "vitest.config.db.ts" }]`, first match wins), `tsconfig` (path), `timeoutSeconds` (10 to 3600) | default Vitest config, `tsconfig.json`, 300 |
 | `vitest.layers` | the test folders `/quality-code:spec` writes in: 1 to 5 `{ "name", "folder", "guide"? }`. `name`: lower-case letters, digits and `-`, starting with a letter, used once. `folder`: ends in `/`, not inside a forbidden boundary. `guide`: an optional `.md` file with the team's own conventions | `[{ "name": "unit", "folder": "test/" }]` |
 | `vitest.stryker` | `threshold`: the share of Stryker's code changes the tests must catch, a whole number from 0 to 100. `timeoutSeconds`: how long one Stryker run may take, 60 to 7200 (it reruns the tests once per code change). Used only when the project has `node_modules/.bin/stryker` | `60`; `1800` |

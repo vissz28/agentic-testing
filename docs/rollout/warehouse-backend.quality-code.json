@@ -211,10 +211,13 @@
     ]
   },
   "seed": {
-    "builders": [
-      "test/helpers/seed.ts"
-    ],
-    "guide": ".claude/quality-code/guides/seed.md"
+    "schema": "prisma/schema.prisma",
+    "target": "docker exec postgres psql -U postgres -d warehouse -Atc \"select 'postgres/' || current_database()\"",
+    "apply": "docker exec -i postgres psql -U postgres -d warehouse -v ON_ERROR_STOP=1 < {file} && (docker exec redis redis-cli -p 6371 FLUSHALL > /dev/null || true)",
+    "tenant": {
+      "column": "workspace_id",
+      "id": "16475e6a-2a9f-4b99-98c9-b3dcdc74b582"
+    }
   },
   "qaPlans": "test/qa-plans/"
 }

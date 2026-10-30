@@ -9,6 +9,23 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-30
+
+### Changed
+
+- **`/quality-code:seed` now loads mock data into your local database** instead of writing test data.
+  It reads and gates the ticket, finds the tables in your schema, writes a realistic dataset per feature
+  (about 25 rows per table, reused by the feature's tickets) plus the ticket's own case, shows the target
+  and what the reset empties, and loads only on `1`. The test-data printer (builder calls, route stubs,
+  `--path`) is gone.
+- Safety: the new `bin/seed.mjs` loader writes only to `localhost`, `127.x.x.x`, `::1` or a container name,
+  never in CI, refuses a file that drops, truncates or alters a table, and with `seed.tenant` refuses a
+  reset or update that reaches another tenant.
+
+**What to do:** to use it, add `seed.target` and `seed.apply` to `.claude/quality-code.json` (and
+`seed.schema`, `seed.tenant` as needed; see `/quality-code:seed`'s "Setting it up"). The old
+`seed.builders`, `seed.dataset` and `seed.stubsFrom` are ignored; remove them when convenient.
+
 ## [0.30.0] - 2026-10-30
 
 ### Changed

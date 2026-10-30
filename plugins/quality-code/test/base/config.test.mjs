@@ -416,26 +416,26 @@ test('the schema documents the playwright block with the validator\'s path patte
   for (const bad of ['-x', 'a\nb', '', '  ']) assert.ok(!name.test(bad), JSON.stringify(bad))
 })
 
-test('seed block: absent gives the defaults; a valid block for each adapter', () => {
-  assert.deepEqual(seedOf(validateConfig(vgood).config), { builders: [], dataset: null, stubsFrom: null, guide: null })
-  assert.deepEqual(seedOf(null), { builders: [], dataset: null, stubsFrom: null, guide: null })
-  const v = validateConfig({ ...vgood, seed: { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md' } })
-  assert.equal(v.ok, true, v.errors?.join(' | '))
-  assert.deepEqual(seedOf(v.config), { builders: ['test/helpers/seed.ts', 'test/helpers/more.ts'], dataset: 'docs/testing/dataset.md', stubsFrom: null, guide: null })
-  const p = validateConfig({ ...good, seed: { stubsFrom: 'e2e/tests/', dataset: 'docs/testing/dataset.md' } })
-  assert.equal(p.ok, true, p.errors?.join(' | '))
-  assert.equal(seedOf(p.config).stubsFrom, 'e2e/tests/')
+test('seed block: absent gives the defaults; a valid block on any adapter', () => {
+  const none = { schema: null, target: null, apply: null, tenant: null, guide: null }
+  assert.deepEqual(seedOf(validateConfig(vgood).config), none)
+  assert.deepEqual(seedOf(null), none)
+  const block = { schema: 'prisma/schema.prisma', target: 'echo localhost:5432/app', apply: 'psql -d app -f {file}', tenant: { column: 'tenant_id', id: 't-1' }, guide: 'docs/mock.md' }
+  for (const cfg of [vgood, good, { ...good, adapter: 'pytest' }]) {
+    const v = validateConfig({ ...cfg, seed: block })
+    assert.equal(v.ok, true, v.errors?.join(' | '))
+    assert.deepEqual(seedOf(v.config), block)
+  }
   assert.equal(validateConfig({ ...good, seed: {} }).ok, true)
 })
-test('seed block: builders only with vitest, stubsFrom only with playwright', () => {
-  assert.deepEqual(validateConfig({ ...good, seed: { builders: ['test/seed.ts'] } }).errors,
-    ['seed.builders: only allowed with "adapter": "vitest" or "fullstack" (Playwright seeds with route stubs, see seed.stubsFrom)'])
-  assert.deepEqual(validateConfig({ ...vgood, seed: { stubsFrom: 'e2e/' } }).errors,
-    ['seed.stubsFrom: only allowed with "adapter": "playwright" or "fullstack" (Vitest seeds with builder calls, see seed.builders)'])
+test('seed block: the test-data printer\'s old fields are ignored, so an old config keeps working', () => {
+  const v = validateConfig({ ...vgood, seed: { builders: ['test/seed.ts'], dataset: 'd.md', stubsFrom: 'e2e/' } })
+  assert.equal(v.ok, true, v.errors?.join(' | '))
+  assert.deepEqual(seedOf(v.config), { schema: null, target: null, apply: null, tenant: null, guide: null })
 })
-test('fullstack: both blocks, both seed kinds and sides are allowed; sides only on fullstack', () => {
+test('fullstack: both blocks and sides are allowed; sides only on fullstack', () => {
   const fs = { ...good, adapter: 'fullstack' }
-  const r = validateConfig({ ...fs, vitest: { tsconfig: 'tsconfig.json' }, playwright: { folder: 'e2e/' }, seed: { builders: ['test/seed.ts'], stubsFrom: 'e2e/mocks/' }, sides: { frontend: ['FE', 'web'], backend: ['BE'] } })
+  const r = validateConfig({ ...fs, vitest: { tsconfig: 'tsconfig.json' }, playwright: { folder: 'e2e/' }, sides: { frontend: ['FE', 'web'], backend: ['BE'] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.deepEqual(validateConfig({ ...good, sides: { frontend: ['FE'] } }).errors, ['sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)'])
   assert.deepEqual(validateConfig({ ...fs, sides: { mobile: ['MO'], backend: ['[BE]'], frontend: 'FE' } }).errors, [
@@ -457,38 +457,36 @@ test('git.base: a branch name, optional; the config keeps it as given', () => {
   assert.deepEqual(validateConfig({ ...good, git: 'develop' }).errors, ['git: must be an object with an optional "base"'])
 })
 test('seed block: each wrong part is named', () => {
-  for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "builders", "dataset", "stubsFrom" and "guide"'], JSON.stringify(v))
-  const list = 'seed.builders: must be a list of 1 to 10 files that hold the seed builders'
-  const eleven = Array.from({ length: 11 }, (_, i) => `t/s${i}.ts`)
-  for (const b of [[], 'test/seed.ts', {}, eleven]) assert.deepEqual(validateConfig({ ...vgood, seed: { builders: b } }).errors, [list], JSON.stringify(b))
-  const r = validateConfig({ ...vgood, seed: { builders: ['a.ts', 'a.ts', '../x.ts', '/abs.ts', 'test/helpers/', 3], dataset: 'docs/data.json', extra: 1 } })
+  for (const v of ['x', 5, null, ['a']]) assert.deepEqual(validateConfig({ ...vgood, seed: v }).errors, ['seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"'], JSON.stringify(v))
+  const r = validateConfig({ ...vgood, seed: { schema: '../db.prisma', target: 'a\nb', apply: 'psql -f seed.sql', tenant: { column: 'tenant id', id: 't' }, extra: 1 } })
   assert.deepEqual(r.errors, [
-    'seed.extra: unknown field (only "builders", "dataset", "stubsFrom" and "guide")',
-    'seed.builders[1] "a.ts" appears twice',
-    'seed.builders[2] "../x.ts" must be a relative path inside the project (no "..", not absolute, one line)',
-    'seed.builders[3] "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
-    'seed.builders[4] "test/helpers/" must be a file, not a folder',
-    'seed.builders[5] 3 must be a relative path inside the project (no "..", not absolute, one line)',
-    'seed.dataset "docs/data.json" must be a relative path to a .md file inside the project',
+    'seed.extra: unknown field (only "schema", "target", "apply", "tenant" or "guide")',
+    'seed.schema "../db.prisma" must be a relative path inside the project (no "..", not absolute, one line)',
+    'seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"',
+    'seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"',
+    'seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }',
   ])
-  for (const d of ['../d.md', '/d.md', 'a\nb.md', '']) assert.ok(validateConfig({ ...vgood, seed: { dataset: d } }).errors[0].startsWith('seed.dataset '), JSON.stringify(d))
-  assert.deepEqual(validateConfig({ ...good, seed: { stubsFrom: 'e2e/tests' } }).errors, ['seed.stubsFrom "e2e/tests" must be a folder ending with "/"'])
-  assert.deepEqual(validateConfig({ ...good, seed: { stubsFrom: '../e2e/' } }).errors, ['seed.stubsFrom "../e2e/" must be a relative path inside the project (no "..", not absolute, one line)'])
+  const tenant = 'seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }'
+  for (const t of ['t-1', { column: 'tenant_id' }, { column: 'tenant_id', id: "x' OR '1'='1" }, { column: 'tenant_id', id: '' }, { column: 'tenant_id', id: 't', extra: 1 }]) {
+    assert.deepEqual(validateConfig({ ...vgood, seed: { tenant: t } }).errors, [tenant], JSON.stringify(t))
+  }
+  for (const t of ['', '  ', 5]) assert.ok(validateConfig({ ...vgood, seed: { target: t } }).errors[0].startsWith('seed.target: '), JSON.stringify(t))
 })
-test('the schema documents the seed block with the validator\'s path pattern', () => {
+test('the schema documents the seed block with the validator\'s rules', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   const s = schema.properties.seed
   assert.equal(s.type, 'object')
   assert.equal(s.additionalProperties, false)
   assert.equal(s.required, undefined)
-  assert.deepEqual(Object.keys(s.properties).sort(), ['builders', 'dataset', 'guide', 'stubsFrom'])
+  assert.deepEqual(Object.keys(s.properties).sort(), ['apply', 'guide', 'schema', 'target', 'tenant'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
-  assert.equal(s.properties.builders.items.pattern, path)
-  assert.equal(s.properties.dataset.pattern, path)
-  assert.equal(s.properties.stubsFrom.pattern, path)
+  assert.equal(s.properties.schema.pattern, path)
   assert.equal(s.properties.guide.pattern, path)
-  assert.equal(s.properties.builders.minItems, 1)
-  assert.equal(s.properties.builders.maxItems, 10)
+  const re = k => new RegExp(s.properties[k].pattern)
+  assert.ok(re('apply').test('psql -f {file}') && !re('apply').test('psql -f seed.sql'))
+  assert.ok(re('target').test('echo localhost/app') && !re('target').test('  ') && !re('target').test('a\nb'))
+  assert.deepEqual(s.properties.tenant.required, ['column', 'id'])
+  assert.ok(!new RegExp(s.properties.tenant.properties.id.pattern).test("x'y"))
 })
 
 test('playwright.folder and playwright.guide: a valid block', () => {

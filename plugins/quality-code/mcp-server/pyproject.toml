@@ -1,6 +1,6 @@
 [project]
 name = "quality-code-mcp"
-version = "0.30.0"
+version = "0.31.0"
 description = "MCP server that exposes every Quality Code command as a tool, for clients that do not run the Claude Code plugin."
 requires-python = ">=3.10"
 dependencies = ["mcp>=2,<3", "pyjwt[crypto]>=2.8"]

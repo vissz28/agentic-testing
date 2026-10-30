@@ -39,13 +39,13 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 | `/quality-code:check-update` | says whether a newer version of the plugin is out, lists what changed since yours, and updates it on your pick (`claude plugin update`); then asks you to type `/reload-plugins` |
 | `/quality-code:ci` | for GitHub Actions and GitLab CI: detects whether the branch changed the backend or the frontend and runs only the tests it touched, per module (everything on the default branch or with `--all`); `--init github\|gitlab` writes the CI file, which runs all the tests of the test folders (`--changed`: only the touched ones) |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
-| `/quality-code:seed <KEY>` | writes only the test data a ticket needs |
+| `/quality-code:seed <KEY>` | loads realistic mock data for a ticket into your local database, to test it by hand in the running app (local databases only; set up with the `seed` block) |
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |
 | `/quality-code:qa [KEY]` | for QA: lists your Xray test executions, runs one in the browser and drafts each defect; you give every verdict, and nothing reaches Jira without a yes |
 | `/quality-code:config` | shows the settings and changes one at a time: the project config and your own plugin settings |
 | `/quality-code:kpi`, `/quality-code:consumption` | usage numbers and AI cost, read locally |
 
-The commands that run tests (`spec`, the run commands, `seed`) work in Claude Code, where your repository is.
+The commands that run tests or load data (`spec`, the run commands, `seed`) work in Claude Code, where your repository is.
 
 ## Privacy
 

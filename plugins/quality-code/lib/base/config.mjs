@@ -419,30 +419,17 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.seed !== undefined) {
-    if (!isObj(c.seed)) e.push('seed: must be an object with optional "builders", "dataset", "stubsFrom" and "guide"')
+    const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
+    if (!isObj(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
     else {
       const s = c.seed
-      for (const k of Object.keys(s)) if (!['builders', 'dataset', 'stubsFrom', 'guide'].includes(k)) e.push(`seed.${k}: unknown field (only "builders", "dataset", "stubsFrom" and "guide")`)
+      // The test-data printer's fields (before 0.31.0): ignored, so an old config keeps working.
+      for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
       if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
-      if (s.builders !== undefined) {
-        if (!uses('vitest')) e.push('seed.builders: only allowed with "adapter": "vitest" or "fullstack" (Playwright seeds with route stubs, see seed.stubsFrom)')
-        else if (!Array.isArray(s.builders) || s.builders.length < 1 || s.builders.length > 10) e.push('seed.builders: must be a list of 1 to 10 files that hold the seed builders')
-        else {
-          const seen = new Set()
-          s.builders.forEach((b, i) => {
-            if (!pathOk(b)) e.push(`seed.builders[${i}] ${JSON.stringify(b)} ${PATH_RULE}`)
-            else if (b.endsWith('/') || b.endsWith('\\')) e.push(`seed.builders[${i}] "${b}" must be a file, not a folder`)
-            else if (seen.has(b)) e.push(`seed.builders[${i}] "${b}" appears twice`)
-            else seen.add(b)
-          })
-        }
-      }
-      if (s.dataset !== undefined && !(pathOk(s.dataset) && /\.md$/i.test(s.dataset))) e.push(`seed.dataset ${JSON.stringify(s.dataset)} must be a relative path to a .md file inside the project`)
-      if (s.stubsFrom !== undefined) {
-        if (!uses('playwright')) e.push('seed.stubsFrom: only allowed with "adapter": "playwright" or "fullstack" (Vitest seeds with builder calls, see seed.builders)')
-        else if (!pathOk(s.stubsFrom)) e.push(`seed.stubsFrom ${JSON.stringify(s.stubsFrom)} ${PATH_RULE}`)
-        else if (!s.stubsFrom.endsWith('/')) e.push(`seed.stubsFrom "${s.stubsFrom}" must be a folder ending with "/"`)
-      }
+      if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
+      if (s.target !== undefined && !lineOk(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
+      if (s.apply !== undefined && !(lineOk(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
+      if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && lineOk(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
     }
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
@@ -516,10 +503,10 @@ export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds 
 /** The project's own test command of a backend block (a template with {files}, {report}, {test}), or null. */
 export const commandOf = config => adapterOptions(config).command ?? null
 
-/** The seed block with its defaults: no builder files, no dataset, no stub folder. */
+/** The seed block with its defaults: every field null. */
 export const seedOf = config => {
   const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
-  return { builders: s.builders ?? [], dataset: s.dataset ?? null, stubsFrom: s.stubsFrom ?? null, guide: s.guide ?? null }
+  return { schema: s.schema ?? null, target: s.target ?? null, apply: s.apply ?? null, tenant: s.tenant ?? null, guide: s.guide ?? null }
 }
 
 /** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
