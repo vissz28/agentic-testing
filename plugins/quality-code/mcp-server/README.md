@@ -20,6 +20,24 @@ Your client starts the server itself when it needs it: nothing runs in the backg
 
 The commands also use Jira, GitLab, Figma and file tools: the client brings those (connect the Atlassian MCP server next to this one). The plugin settings that Claude Code fills in are read from `QUALITY_CODE_JIRA_EMAIL`, `QUALITY_CODE_GITLAB_API_URL`, `QUALITY_CODE_GITLAB_USERNAME` and `QUALITY_CODE_XRAY_API_URL` when set.
 
+## Use it in Copilot, Codex, Cursor or Gemini CLI
+
+One command writes the MCP config and one small wrapper per command for the agent you use, from the plugin's own commands (the instructions stay in the plugin, so there is one source). Local only: the server runs on your machine over stdio.
+
+```bash
+.venv/bin/quality-code-mcp --init copilot --dir /path/to/your/project           # shows what it would write
+.venv/bin/quality-code-mcp --init copilot --dir /path/to/your/project --write   # writes it
+```
+
+| Agent | `--init` | What it writes | Then |
+|---|---|---|---|
+| GitHub Copilot (VS Code) | `copilot` | `.vscode/mcp.json`, `.github/prompts/quality-code-<command>.prompt.md` | start the server from `mcp.json`; in agent mode type `/quality-code-spec` |
+| OpenAI Codex | `codex` | `.agents/skills/quality-code-<command>/SKILL.md`; prints the TOML for `~/.codex/config.toml` (never written for you) | add the TOML, restart, call `$quality-code-spec` |
+| Cursor | `cursor` | `.cursor/mcp.json`, `.cursor/commands/quality-code-<command>.md` | reload, enable the server, type `/quality-code-spec` |
+| Gemini CLI | `gemini` | `quality-code-gemini/` (a `gemini-extension.json` and `commands/quality-code/<command>.toml`) | `gemini extensions link quality-code-gemini`, type `/quality-code:spec` |
+
+A file that already exists is kept, never replaced. `routine` (Claude's scheduler) and `check-update` (Claude's plugin manager) are not written: they need Claude Code. The file formats follow each tool's documentation as I know it; they are tested here as files, not yet inside the four tools, so try one command first (`ticket`) and tell us what your tool does differently.
+
 ## Two ways to run it
 
 | | Local (stdio) | Shared (HTTP) |

@@ -15,6 +15,22 @@ with the model. For frontend, backend and fullstack projects at TeamSystem.
 On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-testing`, then
 `/plugin install quality-code@teamsystem`.
 
+## Other platforms
+
+| Platform | How | Status |
+|---|---|---|
+| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `check-update` |
+| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `check-update`; not yet tried inside Copilot |
+| **OpenAI Codex** (CLI, IDE) | `quality-code-mcp --init codex --write`: skills, plus a TOML for `~/.codex/config.toml` | same; not yet tried inside Codex |
+| **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
+| **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
+| Other MCP clients (Windsurf, Cline, JetBrains, Claude Desktop) | `quality-code-mcp --print-config`, paste the JSON | the tools work; you start commands by asking for the tool |
+| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci --init github\|gitlab`, or `node bin/ci.mjs` | no agent needed: the scripts grade |
+
+The scripts (`bin/*.mjs`) are plain Node and grade the same everywhere. Outside Claude Code the MCP server runs on your
+machine over stdio; install it with [`mcp-server/install.sh`](mcp-server/README.md#use-it-in-copilot-codex-cursor-or-gemini-cli).
+Without Claude Code's hook, the block on editing code, CI and dependency files during a test-writing run is an instruction to the model only.
+
 ## Try it
 
 - "Is ABC-123 ready to test?"

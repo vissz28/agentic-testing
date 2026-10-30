@@ -40,6 +40,22 @@ both in one repo (fullstack). Your application code is never changed.
 | **CI gate:** refuses untestable tickets in the pipeline | `ticket-eval <KEY> --ci` |
 | **Updates:** is a newer plugin version out, and what changed | `/quality-code:check-update` |
 
+## Works with
+
+| Platform | How | Status |
+|---|---|---|
+| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `check-update` |
+| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `check-update`; not yet tried inside Copilot |
+| **OpenAI Codex** (CLI, IDE) | `quality-code-mcp --init codex --write`: skills, plus a TOML for `~/.codex/config.toml` | same; not yet tried inside Codex |
+| **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
+| **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
+| Other MCP clients (Windsurf, Cline, JetBrains, Claude Desktop) | `quality-code-mcp --print-config`, paste the JSON | the tools work; you start commands by asking for the tool |
+| Any CI (GitHub Actions, GitLab CI) | `/quality-code:ci --init github\|gitlab`, or `node bin/ci.mjs` | no agent needed: the scripts grade |
+
+The scripts (`bin/*.mjs`) are plain Node and grade the same everywhere. Outside Claude Code the MCP server runs on your
+machine over stdio; install it with [`mcp-server/install.sh`](plugins/quality-code/mcp-server/README.md#use-it-in-copilot-codex-cursor-or-gemini-cli).
+Without Claude Code's hook, the block on editing code, CI and dependency files during a test-writing run is an instruction to the model only.
+
 ## Installation
 
 **Requirements:** Claude Code with plugin support, Node 20+ (22.12+ when setup adds Vitest), a repo
@@ -75,6 +91,9 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **Copilot, Codex, Cursor and Gemini CLI.** `quality-code-mcp --init copilot|codex|cursor|gemini --write` writes the
+  local MCP config and one wrapper per command for that agent (prompt files, skills, commands, a Gemini extension).
+  See [the MCP server README](plugins/quality-code/mcp-server/README.md). Not yet tried inside those tools.
 - **`/quality-code:check-update`: is a newer version out?** It compares the version you run with the latest on GitHub,
   lists what changed in each newer version, and gives the two commands to type (`/plugin update quality-code@teamsystem`,
   then `/reload-plugins`) and, on your pick, runs the update for you.

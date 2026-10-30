@@ -176,11 +176,18 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--check", action="store_true", help="check Python, Node and the tools, then exit")
     ap.add_argument("--print-config", action="store_true", help="print the config to paste into an MCP client, then exit")
+    ap.add_argument("--init", choices=["copilot", "codex", "cursor", "gemini"], help="plugin-style files for that agent (local stdio server), then exit; add --write to write them")
+    ap.add_argument("--dir", default=".", help="with --init: the folder to write into (default: here)")
+    ap.add_argument("--write", action="store_true", help="with --init: write the files (never replaces an existing one)")
     a = ap.parse_args(argv)
     if a.check:
         raise SystemExit(check())
     if a.print_config:
         print(client_config())
+        return
+    if a.init:
+        from .agents import report
+        print(report(a.init, Path(a.dir).resolve(), write=a.write))
         return
     if a.transport == "stdio":
         build().run("stdio")

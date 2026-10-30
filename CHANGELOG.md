@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-30
+
+### Added
+
+- **Plugin-style files for GitHub Copilot, OpenAI Codex, Cursor and Gemini CLI** (AGT-148). `quality-code-mcp --init
+  copilot|codex|cursor|gemini [--dir DIR] [--write]` shows, or with `--write` writes, the local MCP config (stdio only)
+  and one thin wrapper per command: Copilot prompt files, Codex skills, Cursor commands, a Gemini extension. Each wrapper
+  calls the command's MCP tool and follows what it returns, so the instructions stay in the plugin. Nothing is written
+  without `--write`, an existing file is never replaced, and the Codex TOML is printed, not written to your home folder.
+  `routine` and `check-update` stay Claude-only. Tested as generated files; not yet tried inside the four tools.
+
 ## [0.31.0] - 2026-10-30
 
 ### Changed
