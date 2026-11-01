@@ -853,6 +853,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
 | `xray` | Playwright and fullstack: XRay test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
+| `centralContext.hub` | the Central Context hub the three quality rules the checks answer to are read from (`http://localhost:8080` for the local preview, or the hosted hub), or `off`. Each run records the rules' id, status and release on the card, in the run log and in the audit log; `CC_HUB_URL` overrides it | none: the plugin's pinned snapshot of the rules, said so on the card |
 | `jira.site` | your Jira site, `https://…`, no path | required |
 | `jira.projects` | project keys whose tickets you check (`ABC`) | required |
 | `jira.acceptanceCriteriaField` | id of the criteria field, or `null` for none. Leave it out to find it by name per project | found at ticket time |

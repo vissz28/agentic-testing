@@ -565,3 +565,23 @@ test('$schema is accepted; git.base; ticketsDir stays inside and drops ./; jira.
   assert.equal(validateConfig({ ...b, jira: { site: 'https://jira.example.com/jira', projects: ['ABC'] } }).ok, true)
   assert.deepEqual(validateConfig({ ...b, git: { base: '-x', other: 1 } }).errors, ['git.other: unknown field (only "base")', 'git.base "-x" must be a branch name, like "develop"'])
 })
+
+test('centralContext: an object with hub, a base URL or "off"; nothing else; optional', () => {
+  const base = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const ok = v => validateConfig({ ...base, centralContext: v })
+  assert.equal(ok({ hub: 'http://localhost:8080' }).ok, true)
+  assert.equal(ok({ hub: 'https://hub.teamsystem.com/' }).ok, true)
+  assert.equal(ok({ hub: 'off' }).ok, true)
+  assert.equal(ok({}).ok, true)
+  assert.equal(validateConfig(base).ok, true)
+  assert.equal(ok({ hub: 'http://localhost:8080' }).config.centralContext.hub, 'http://localhost:8080', 'kept as given')
+  assert.match(ok({ hub: 'localhost:8080' }).errors[0], /^centralContext\.hub: must be the hub's base URL/)
+  assert.match(ok({ hub: 'ftp://x' }).errors[0], /^centralContext\.hub: /)
+  assert.match(ok({ hub: 'http://localhost:8080', rules: {} }).errors[0], /^centralContext\.rules: unknown field/)
+  assert.match(ok('http://localhost:8080').errors[0], /^centralContext: must be an object with "hub"/)
+  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  assert.equal(schema.properties.centralContext.additionalProperties, false)
+  assert.deepEqual(Object.keys(schema.properties.centralContext.properties), ['hub'])
+  const re = new RegExp(schema.properties.centralContext.properties.hub.pattern)
+  assert.ok(re.test('http://localhost:8080') && re.test('off') && !re.test('localhost'))
+})
