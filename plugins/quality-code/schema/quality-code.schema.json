@@ -216,18 +216,6 @@
         "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's own rules for mock data (values, tables to leave alone), read by /quality-code:seed on top of the plugin's guide." }
       }
     },
-    "centralContext": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Optional: the TeamSystem Central Context hub the rules are read from. The checks answer to three quality rules by id (readiness, fail evidence, honesty); each run reads their text from the hub and records id, status and release on the card, in the run log and in the audit log. Without it, or with \"off\", the plugin's pinned snapshot of the rules stands in and the record says so. CC_HUB_URL in the environment overrides it.",
-      "properties": {
-        "hub": {
-          "type": "string",
-          "pattern": "^(?:off|https?://[^\\s/]+(?:/\\S*)?)$",
-          "description": "The hub's base URL, like http://localhost:8080 for the local preview (cc-hub serve) or HoT's hosted address, or \"off\"."
-        }
-      }
-    },
     "qaPlans": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional folder, ending in /, of QA plans written as Markdown, one <feature label>.md per feature. /quality-code:spec reads the ticket's feature plan as extra rules; the ticket's Then wins. Never scored." },
     "xray": {
       "type": "object",
