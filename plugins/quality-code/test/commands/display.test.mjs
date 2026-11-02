@@ -40,3 +40,14 @@ test('progress is a live checklist, Central Context one of its steps, and no nar
   assert.match(guide, /\*\*No narration\.\*\* Never write a sentence that says what you are about to do or what just worked/)
   assert.match(guide, /Where a command says to "say" such a line, update the checklist instead/)
 })
+
+test('the report output style: keeps the coding instructions, is never forced, and shows a finished run', () => {
+  const style = read('output-styles/report.md')
+  const front = style.split('---')[1]
+  assert.match(front, /^name: report$/m)
+  assert.match(front, /^keep-coding-instructions: true$/m)
+  assert.doesNotMatch(front, /force-for-plugin/)
+  assert.match(style, /It never changes the content: every score, verdict, count, rule, path, test name and option is exactly what the scripts and the commands give you/)
+  assert.match(style, /## A finished run, as it should look/)
+  assert.match(style, /A choice is the question picker \(`AskUserQuestion`\), never a numbered list in the text/)
+})

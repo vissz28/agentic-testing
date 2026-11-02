@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-02
+
+### Added
+
+- **The `report` output style** (`quality-code:report`): every reply laid out for a reader who is not technical,
+  with bold headlines, a section per result, tables, colour marks, a readiness bar, advice in quotes and no
+  narration, shown by one finished `/quality-code:spec` run. It keeps Claude Code's coding instructions and is never
+  forced: turn it on per project with `"outputStyle": "quality-code:report"` in `.claude/settings.local.json`.
+
 ## [0.35.4] - 2026-11-02
 
 ### Changed
