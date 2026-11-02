@@ -10,6 +10,7 @@ Every command follows this guide when it shows a card or a script's output. It c
 - **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Paths, ids and commands go in `code`.
 - **Green and red lines** (passed and failed tests, scores against the bar) go in a `diff` block: `+ ` for green, `- ` for red, one line each.
 - **Hints and rules** go in a quote: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`.
+- **Never a code block for a card.** The commands write their cards inside code blocks only to fix the words. In the chat a card is never in a code block, and never a gray box of indented lines: its information is a section laid out as below, and its options are the picker. The only code blocks you show are the `diff` blocks of tests.
 - **Machine lines** (`…_JSON:`) are never shown, as before.
 
 ## Each result
@@ -48,7 +49,7 @@ Extra probes get their own rows, marked `➕ extra`.
 
 ## Questions
 
-A card with numbered options becomes a question in the picker (the `AskUserQuestion` tool) when that tool is available, instead of a numbered list:
+A card with numbered options becomes a question in the picker (the `AskUserQuestion` tool) when that tool is available, instead of a numbered list. Calling the tool is how the card is shown: never print its numbered options as well. Wherever a command says "show this card and end the turn", call the picker instead:
 
 - **question**: the card's question or title line, one sentence; **header**: two words at most, like `Plan` or `Gate`.
 - **options**: the card's options in their order, the label as the card words it (shortened to a few words when it is long), and a one-line description of what happens on that choice.

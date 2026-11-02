@@ -27,3 +27,9 @@ test('every read of Central Context is shown as a completed step, and rules.mjs 
   assert.match(guide, /Never skip it or fold it into another section, and never list the rules under it/)
   assert.match(read('commands/spec.md'), /`rules\.mjs` is the only way this command reads Central Context, and every time it runs its line is shown to the person as a completed step/)
 })
+
+test('a card is never a code block, and a card with options is the picker, not a printed list', () => {
+  assert.match(guide, /In the chat a card is never in a code block/)
+  assert.match(guide, /Calling the tool is how the card is shown: never print its numbered options as well/)
+  assert.match(guide, /Wherever a command says "show this card and end the turn", call the picker instead/)
+})

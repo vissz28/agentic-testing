@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.35.3] - 2026-11-02
+
+### Changed
+
+- **Cards are never code blocks** (every command): a card's information is laid out as a section, and its options
+  are asked with Claude's question picker wherever a command says to show a card and end the turn.
+
 ## [0.35.2] - 2026-11-02
 
 ### Changed
