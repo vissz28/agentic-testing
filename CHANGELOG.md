@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-11-02
+
+### Changed
+
+- **Every read of Central Context is shown** (`/quality-code:spec`): the Central Context section appears each time
+  the rules are read, in full (every rule, never shortened), with the hub, the release and the side, and also when
+  nothing was read, with the reason. `rules.mjs` is the only way the plugin reads Central Context.
+
 ## [0.35.0] - 2026-11-02
 
 ### Changed

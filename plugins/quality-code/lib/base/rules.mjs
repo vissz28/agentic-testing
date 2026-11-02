@@ -65,7 +65,7 @@ export async function readRules({ side, config = null, env = process.env, fetchI
 /** The block spec shows before the plan: where the rules come from, then one rule per entry. */
 export function formatRules(r) {
   if (r.source !== 'hub') return `From Central Context: ${r.error}, so no rule is applied.`
-  const head = `From Central Context (release ${r.release}): testing rules for the ${r.side} side (${r.stacks.join(', ')})`
+  const head = `From Central Context (${r.hub}, release ${r.release}): testing rules for the ${r.side} side (${r.stacks.join(', ')})`
   if (!r.rules.length) return `${head}: none applies.`
   return [`${head}`, ...r.rules.flatMap(x => [`  ${x.id} · ${x.severity ?? 'no severity'}`, `    ${x.summary}`])].join('\n')
 }

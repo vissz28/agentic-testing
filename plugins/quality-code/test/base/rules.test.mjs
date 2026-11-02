@@ -49,7 +49,7 @@ test('readRules: the hub\'s release and rules; no hub, "off" or a failing hub re
   assert.equal(r.source, 'hub')
   assert.equal(r.release, 'local-abc')
   assert.deepEqual(ids(r.rules), ['isolated-tests', 'coverage', 'node-only'])
-  assert.match(formatRules(r), /^From Central Context \(release local-abc\): testing rules for the backend side \(all, node, typescript, javascript, rest\)\n  quality\.isolated-tests · high\n    isolated-tests summary\./)
+  assert.match(formatRules(r), /^From Central Context \(http:\/\/hub, release local-abc\): testing rules for the backend side \(all, node, typescript, javascript, rest\)\n  quality\.isolated-tests · high\n    isolated-tests summary\./)
   const none = async (c, f) => formatRules(await readRules({ side: 'backend', config: c, env: {}, fetchImpl: f }))
   assert.equal(await none({ adapter: 'vitest' }), 'From Central Context: not configured (centralContext.hub), so no rule is applied.')
   assert.equal(await none({ adapter: 'vitest', centralContext: { hub: 'off' } }), 'From Central Context: off (centralContext.hub: "off"), so no rule is applied.')

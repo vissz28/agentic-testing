@@ -16,7 +16,7 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 **Connectors.** One line: `✅ Jira · ✅ GitLab · ⚠️ Figma (not connected)`, from the connector check, nothing more.
 
-**Central Context rules** (`rules.mjs`). The release on one small line, then a table:
+**Central Context rules** (`rules.mjs`). Central Context is the company's own source of rules, so the reader always sees what came from it. Every time it is read, show this section right then, never folded into another one, shortened or skipped: every rule read (no `… and N more` here), and the same section when nothing was read, with the reason. First one small line with where it came from: the hub, the release and the side asked for. Then a table:
 
 | Rule | Severity | What it asks |
 |---|---|---|
