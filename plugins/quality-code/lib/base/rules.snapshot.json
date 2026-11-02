@@ -1,0 +1,31 @@
+{
+  "_comment": "Pinned fallback for lib/base/rules.mjs when the Central Context hub is not configured or not reachable. Refresh from a running hub: GET /v1/manifest for release_id, GET /v1/documents/<id> for each rule in GATE_RULES.",
+  "release_id": "dir-632bdedae733",
+  "pinned_at": "2026-10-29",
+  "rules": [
+    {
+      "id": "quality.ready-requirement-before-test-generation",
+      "title": "Ready requirement before test generation",
+      "summary": "A test is generated from a requirement only when the requirement states the expected outcome in checkable terms, and every expected value in the generated test comes from the requirement, not from the generator.",
+      "status": "active",
+      "severity": "medium",
+      "owner": "@e-pelivani"
+    },
+    {
+      "id": "quality.generated-test-fail-evidence",
+      "title": "Fail evidence for generated tests",
+      "summary": "A test produced by an AI agent enters a suite only with recorded evidence that it fails when the behaviour it checks is broken, and a test for a bug fix fails on the code before the fix.",
+      "status": "active",
+      "severity": "high",
+      "owner": "@e-pelivani"
+    },
+    {
+      "id": "quality.test-assertion-honesty",
+      "title": "Honest test assertions",
+      "summary": "Every test asserts an observable outcome of the code under test, and a suite turns green by changing that code, never by loosening, deleting or silently skipping a test.",
+      "status": "active",
+      "severity": "high",
+      "owner": "@e-pelivani"
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import { adaptersForSide, adaptersOf, isFullstack } from '../lib/base/stack.mjs'
 import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
+import { auditRules, hubOf, resolveRules as realResolveRules } from '../lib/base/rules.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -53,7 +54,7 @@ function parse(argv) {
 
 const isFile = p => { try { return statSync(p).isFile() } catch { return false } }
 
-export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { runPipeline = realRunPipeline } = {}) {
+export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { runPipeline = realRunPipeline, resolveRules = realResolveRules } = {}) {
   const err = m => { process.stderr.write(`${m}\n`); return 2 }
   let a
   try { a = parse(argv) } catch (e) { return err(e.message) }
@@ -116,6 +117,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit, dir: cfg.auditDir })
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
+  // The Central Context rules this run answers to: read by the pipeline itself (hub, else the pinned
+  // snapshot), never taken from the model, and recorded with the verdict. Never a reason to stop.
+  const rules = await resolveRules({ hub: hubOf(config, env) })
   let outcome
   try {
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates, mutation: a.mutation }, ctx)
@@ -124,6 +128,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     return 2
   }
   if (incompleteTicket) outcome = { ...outcome, incompleteTicket }
+  outcome = { ...outcome, rules }
   const specs = [...new Set(a.specs.map(s => normalizeSpec(root, s)))]
   const tests = (outcome.steps || []).find(x => x.check === 'tests')?.data ?? {}
   log('pipeline', {
@@ -132,6 +137,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     counts: { specs: specs.length, passed: tests.passed, failed: tests.failed, skipped: tests.skipped },
     incompleteTicket,
     flags: { ticket: Boolean(ticket), expected: candidates.length > 0, target: Boolean(target), range: Boolean(a.range), flaky: a.flaky ? Number(a.flaky) : null },
+    rules: auditRules(rules),
   })
   // The developer log, next to the ticket's other files: local like the audit log, and off with it.
   let logPath = null

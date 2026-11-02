@@ -130,7 +130,7 @@ This ticket needs a bit more information. We cannot start yet.
 4. Stop
 ```
 
-The `To pass:` line leads the card: it is the cheapest way over the bar. Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 2: it skips the send-preview, posts the comment, and exits 1. It never takes 3.
+The `To pass:` line leads the card: it is the cheapest way over the bar. Under the card, before the options, one line says where the gate comes from: `Central Context: quality.ready-requirement-before-test-generation, a requirement without a checkable expected outcome gets no test` (the rule the gate answers to; the plugin cites it by id, the hub holds its text). Option 3 is always shown with that red tag, word for word. Chat cannot color text, so the emoji is the red. `--ci` takes 2: it skips the send-preview, posts the comment, and exits 1. It never takes 3.
 
 - **1:** the guided fill-in. Do not ask your own questions and do not invent what is missing: the script decides both.
 - **2:** do not post yet. Run `ticket.mjs refuse-comment --in @<ticketsDir>/<KEY>/ticket.json` (it exits 1 for a refused ticket: that is expected, not an error), then show the send-preview card and end the turn.

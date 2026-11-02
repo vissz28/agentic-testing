@@ -241,7 +241,7 @@ test('--ticket and --target: checked before anything runs, passed to the pipelin
 })
 
 // main() with a stub pipeline; returns the exit code, stdout, stderr and whether the stub ran.
-async function stubbed(d, args, env = {}) {
+async function stubbed(d, args, env = {}, extra = {}) {
   const outcome = {
     verdict: 'tests_red', decidedBy: 'tests',
     steps: [{ check: 'tests', status: 'fail', summary: '1 failed', findings: [{ file: 'test/a.spec.ts', test: 'adds', detail: 'Expected 2' }], data: { ran: true, passed: 1, failed: 1, skipped: 0 } }],
@@ -253,7 +253,7 @@ async function stubbed(d, args, env = {}) {
   process.stderr.write = m => { e.push(String(m)); return true }
   let code
   try {
-    code = await main(['test/a.spec.ts', ...args], { CLAUDE_PROJECT_DIR: d, ...env }, d, { runPipeline: async () => { ran = true; return structuredClone(outcome) } })
+    code = await main(['test/a.spec.ts', ...args], { CLAUDE_PROJECT_DIR: d, ...env }, d, { runPipeline: async () => { ran = true; return structuredClone(outcome) }, ...extra })
   } finally { [process.stdout.write, process.stderr.write] = w }
   return { code, out: o.join(''), err: e.join(''), ran }
 }
@@ -297,8 +297,13 @@ test('audit: one pipeline line per run (statuses and counts, no findings), and a
     steps: [{ check: 'tests', status: 'fail', passed: 1, failed: 1, skipped: 0 }],
     flags: { ticket: false, expected: false, target: false, range: false, flaky: null },
     counts: { specs: 1, passed: 1, failed: 1, skipped: 0 },
-    incompleteTicket: null, date: 'x',
+    incompleteTicket: null, date: 'x', rules: p[0].rules,
   })
+  // No hub in this config: the pinned snapshot, said so, with the three ids and their status.
+  assert.equal(p[0].rules.source, 'snapshot')
+  assert.match(p[0].rules.release, /^dir-[0-9a-f]+$/)
+  assert.deepEqual(p[0].rules.ids.map(x => x.split('@')[1]), ['active', 'active', 'active'])
+  assert.deepEqual(p[0].rules.missing, [])
   assert.deepEqual(p[1].incompleteTicket, { score: 45, bar: 70 })
   assert.doesNotMatch(JSON.stringify(p), /a\.spec|Expected 2|adds/)
   const o = auditLines(d, 'override')
@@ -458,4 +463,22 @@ test('--suite backend on another backend runner takes its own test files; --targ
   const none = await suiteRun(fs, ['--suite', 'backend'])
   assert.equal(none.code, 2)
   assert.match(none.err, /No backend \(Go\) spec files found/)
+})
+
+test('rules: the hub of the config is asked, the outcome and the card carry the provenance, the audit line keeps ids only', async () => {
+  const d = repo()
+  put(d, '.claude/quality-code.json', JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub.test:8080' } }))
+  const asked = []
+  const prov = { source: 'hub', hub: 'http://hub.test:8080', release: 'dir-abc', pinnedAt: null, missing: [], error: null, rules: [{ id: 'quality.test-assertion-honesty', title: 'Honest', summary: 'S', status: 'active', severity: 'high', owner: '@o' }] }
+  const r = await stubbed(d, ['--key', 'ABC-1'], {}, { resolveRules: async o => { asked.push(o.hub); return structuredClone(prov) } })
+  assert.deepEqual(asked, ['http://hub.test:8080'])
+  assert.match(r.out, /\nRules: Central Context release dir-abc, 1 rule read live\.\n/)
+  const json = JSON.parse(r.out.trim().split('\n').at(-1).slice('PIPELINE_JSON:'.length))
+  assert.deepEqual(json.rules, prov)
+  assert.deepEqual(auditLines(d, 'pipeline')[0].rules, { source: 'hub', release: 'dir-abc', ids: ['quality.test-assertion-honesty@active'], missing: [] })
+  assert.match(readFileSync(join(d, '.quality-code/tickets/ABC-1/run.md'), 'utf8'), /## Rules \(Central Context\)\n\nRead live from `http:\/\/hub\.test:8080`, release `dir-abc`/)
+  // CC_HUB_URL wins over the config.
+  const e = await stubbed(d, ['--key', 'ABC-1'], { CC_HUB_URL: 'http://env.test' }, { resolveRules: async o => { asked.push(o.hub); return structuredClone(prov) } })
+  assert.equal(asked.at(-1), 'http://env.test')
+  assert.equal(e.code, 1)
 })
