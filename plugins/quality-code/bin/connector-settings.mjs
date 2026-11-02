@@ -1,16 +1,19 @@
 // Connector settings asked for in the chat: the GitLab address and username or email, the Jira
 // email and the Xray API address. They are saved where Claude Code keeps plugin options
 // (pluginConfigs in the user settings file). No token is ever handled here: secrets go through the
-// /plugin dialog into the keychain.
+// /plugin dialog into the keychain. Also the reply style: the project's outputStyle, in its shared
+// .claude/settings.json.
 //
 //   node bin/connector-settings.mjs --gitlab-check <address>
 //   node bin/connector-settings.mjs --gitlab-save <address> <username or email>
 //   node bin/connector-settings.mjs --jira-save <email>
 //   node bin/connector-settings.mjs --xray-save <address>
+//   node bin/connector-settings.mjs --style [on|off]
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { projectRoot } from '../lib/base/config.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -53,24 +56,58 @@ export function validEmail(value) {
   return v.length <= 255 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 }
 
-/** Merges `options` into pluginConfigs[<quality-code id>].options; nothing else in the file changes. */
-export function saveOptions({ file = userSettings(), options }) {
-  let data = {}
-  if (existsSync(file)) {
-    try { data = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { return { ok: false, reason: `could not read ${file}: ${e.message}` } }
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: `could not read ${file}: not a settings object` }
-  }
-  const plugin = Object.keys(data.enabledPlugins ?? {}).find(k => k.startsWith('quality-code@')) ?? 'quality-code@teamsystem'
-  const configs = data.pluginConfigs && typeof data.pluginConfigs === 'object' ? data.pluginConfigs : {}
-  const entry = configs[plugin] && typeof configs[plugin] === 'object' ? configs[plugin] : {}
-  data.pluginConfigs = { ...configs, [plugin]: { ...entry, options: { ...(entry.options ?? {}), ...options } } }
+/** A settings file as an object ({} when absent), or { reason } when it cannot be read. */
+function readSettings(file) {
+  if (!existsSync(file)) return { data: {} }
+  let data
+  try { data = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { return { reason: `could not read ${file}: ${e.message}` } }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { reason: `could not read ${file}: not a settings object` }
+  return { data }
+}
+
+function writeSettings(file, data) {
   // A settings.json that links into a dotfiles repo is written through the link, not replaced by a file.
   if (existsSync(file)) file = realpathSync(file)
   mkdirSync(dirname(file), { recursive: true })
   const tmp = `${file}.qc-${process.pid}.tmp`
   writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`)
   renameSync(tmp, file)
+}
+
+/** Merges `options` into pluginConfigs[<quality-code id>].options; nothing else in the file changes. */
+export function saveOptions({ file = userSettings(), options }) {
+  const { data, reason } = readSettings(file)
+  if (reason) return { ok: false, reason }
+  const plugin = Object.keys(data.enabledPlugins ?? {}).find(k => k.startsWith('quality-code@')) ?? 'quality-code@teamsystem'
+  const configs = data.pluginConfigs && typeof data.pluginConfigs === 'object' ? data.pluginConfigs : {}
+  const entry = configs[plugin] && typeof configs[plugin] === 'object' ? configs[plugin] : {}
+  data.pluginConfigs = { ...configs, [plugin]: { ...entry, options: { ...(entry.options ?? {}), ...options } } }
+  writeSettings(file, data)
   return { ok: true, plugin, options }
+}
+
+/** The plugin's output style (output-styles/report.md), as Claude Code names it in outputStyle. */
+export const REPORT_STYLE = 'quality-code:report'
+
+/**
+ * The reply style of the project at root. `on` true or false writes it to the shared
+ * .claude/settings.json: on sets outputStyle to the report style, off removes it only when it is
+ * ours (another style the team chose stays). Without `on`, only reads. `inForce` is what Claude
+ * Code applies: .claude/settings.local.json (where /output-style writes) wins over the shared file.
+ */
+export function outputStyle({ root = projectRoot(), on } = {}) {
+  const shared = join(root, '.claude', 'settings.json')
+  const read = readSettings(shared)
+  if (read.reason) return { ok: false, reason: read.reason }
+  if (on !== undefined) {
+    if (on) read.data.outputStyle = REPORT_STYLE
+    else if (read.data.outputStyle === REPORT_STYLE) delete read.data.outputStyle
+    writeSettings(shared, read.data)
+  }
+  const local = readSettings(join(root, '.claude', 'settings.local.json')).data?.outputStyle ?? null
+  const value = read.data.outputStyle ?? null
+  const inForce = local ?? value
+  return { ok: true, file: shared, shared: value, local, report: inForce === REPORT_STYLE }
 }
 
 /** Saves gitlab_api_url and gitlab_username. */
@@ -119,7 +156,8 @@ export async function main(argv = process.argv.slice(2)) {
   if (cmd === '--gitlab-save' && a && b) return out(saveGitlabSettings({ url: a, user: b }))
   if (cmd === '--jira-save' && a && !b) return out(saveJiraSettings({ email: a }))
   if (cmd === '--xray-save' && a && !b) return out(saveXraySettings({ url: a }))
-  console.error('usage: connector-settings.mjs --gitlab-check <address> | --gitlab-save <address> <username or email> | --jira-save <email> | --xray-save <address>')
+  if (cmd === '--style' && !b && (a === undefined || a === 'on' || a === 'off')) return out(outputStyle({ on: a === undefined ? undefined : a === 'on' }))
+  console.error('usage: connector-settings.mjs --gitlab-check <address> | --gitlab-save <address> <username or email> | --jira-save <email> | --xray-save <address> | --style [on|off]')
   return 2
 }
 

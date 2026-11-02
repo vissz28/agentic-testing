@@ -9,6 +9,25 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-02
+
+### Added
+
+- **Reply style in `/quality-code:config`** (item 15): turns the `report` output style on or off for the project,
+  in its shared `.claude/settings.json`, so the whole team gets it once that file is committed. Setup turns it on
+  for every new repo setup. A personal `/output-style` choice in `.claude/settings.local.json` still wins on that
+  computer, and the card says so.
+
+### Changed
+
+- **No status lines when Claude Code asks for an update.** When Claude Code reminds Claude that the user has not
+  heard from it in a while, the checklist is the update: no more sentences like "I'm now fetching its remote links".
+  A line is written only for a finding or a change of plan.
+
+### What to do
+
+- In a project already set up: run `/quality-code:config`, pick 15, then commit `.claude/settings.json`.
+
 ## [0.36.0] - 2026-11-02
 
 ### Added

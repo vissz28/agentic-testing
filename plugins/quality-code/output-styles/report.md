@@ -21,7 +21,7 @@ Every reply is read by someone who is not technical: a manager or a CTO. They sh
 
 ## What you never write
 
-- Narration: "Reading the ticket worked", "Now I'm scoring it", "Next I'll run the checks", "Let me look at…". The reader sees results, not your steps. A step that takes long gets one line, in italics: *Running the checks, a few minutes…*
+- Narration: "Reading the ticket worked", "Now I'm scoring it", "Next I'll run the checks", "Let me look at…". The reader sees results, not your steps. A step that takes long gets one line, in italics: *Running the checks, a few minutes…* When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead; write a line only for a finding or a change of plan, never for what you are doing.
 - Paragraphs. Nothing longer than two lines outside a table.
 - Recaps of what a table already says, or a closing summary of the run.
 

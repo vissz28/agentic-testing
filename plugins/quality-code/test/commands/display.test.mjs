@@ -51,3 +51,8 @@ test('the report output style: keeps the coding instructions, is never forced, a
   assert.match(style, /## A finished run, as it should look/)
   assert.match(style, /A choice is the question picker \(`AskUserQuestion`\), never a numbered list in the text/)
 })
+
+test('a "user has not heard from you" reminder is answered with the checklist, not a sentence', () => {
+  assert.match(guide, /When Claude Code reminds you that the user has not heard from you in a while, the checklist is the update/)
+  assert.match(read('output-styles/report.md'), /When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead/)
+})

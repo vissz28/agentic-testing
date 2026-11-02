@@ -86,3 +86,11 @@ test('item 6: the test flow is read with config flow and written as testFlow thr
   assert.match(s, /with only testFlow set/)
   assert.match(s, /--flow project\|quality-code/)
 })
+test('item 15: the reply style is read and written by connector-settings --style, in the shared project settings', () => {
+  assert.ok(step(1).includes(`${BIN}/connector-settings.mjs" --style\``))
+  assert.ok(step(2).includes('15. Reply style'))
+  assert.match(step(2), /Replies · in \.claude\/settings\.json, shared with your team/)
+  assert.ok(step(3).includes(`${BIN}/connector-settings.mjs" --style on\``))
+  assert.ok(step(4).includes('`Commit .claude/settings.json so your team gets it too. It applies from your next message.`'))
+  assert.ok(readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8').includes(`${BIN}/connector-settings.mjs" --style on\``), 'setup turns it on')
+})

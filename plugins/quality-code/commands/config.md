@@ -18,8 +18,8 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 
 1. **Read.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. It prints `ok (<repo|personal>: <path>)`, or the problems. If the config is missing, say `Quality Code is not set up here yet: run /quality-code:setup.` and stop. If the config is broken, show the problems; the plugin settings (items 8 to 10 below) can still be changed. Read the config at that path. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get` and read its `SAVE_JSON:` line: `place`, `ticketsDir` and `options` (where this person keeps the project's files and logs; see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`). The plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`, `gitlab_username` is `${user_config.gitlab_username}`, `xray_api_url` is `${user_config.xray_api_url}`.
 
-   **Tokens and keys, without reading them.** A token connector offers tools only when its token is set, so look at which tools this session has. GitLab token: the plugin's `gitlab-token` connector has tools. Figma key: `figma-token` has tools. Xray API key: `xray` offers `get_test_run`. Each one is `✅ set` or `not set`. GitHub: run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `here.github` in its `SETUP_JSON:` line: `✅ <login> (gh)`, or `<reason>`. Leave GitHub off the card when `here.github` is not set (the repo is not on GitHub).
-2. **The card.** Show it and end the turn. Show `not set` for an empty value, and leave out item 4 for a personal config:
+   **Tokens and keys, without reading them.** A token connector offers tools only when its token is set, so look at which tools this session has. GitLab token: the plugin's `gitlab-token` connector has tools. Figma key: `figma-token` has tools. Xray API key: `xray` offers `get_test_run`. Each one is `✅ set` or `not set`. GitHub: run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `here.github` in its `SETUP_JSON:` line: `✅ <login> (gh)`, or `<reason>`. Leave GitHub off the card when `here.github` is not set (the repo is not on GitHub). For a repo config, run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style` and read `report` in its `CONNECTOR_SETTINGS_JSON:` line.
+2. **The card.** Show it and end the turn. Show `not set` for an empty value, and leave out items 4 and 15 (and the Replies line) for a personal config:
 
    ```
    Quality Code settings
@@ -41,6 +41,8 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
     12. Figma key       <✅ set | not set>
     13. Xray API key    <✅ set | not set>
     14. GitHub          <✅ login (gh) | reason>
+   Replies · in .claude/settings.json, shared with your team, commit it
+    15. Reply style     <report: results only, no step-by-step lines | Claude Code's default>
    Feature labels, QA plans, title prefixes, templates, redaction, test folders: /quality-code:setup advanced.
    Type a number to change it, or stop.
    ```
@@ -87,11 +89,21 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
      | 13 | `xray_client_id` and `xray_client_secret` | Xray, API Keys: the Client ID and Client Secret of a key a Jira admin creates |
 
      `1` looks at that connector's tools again (step 1) and says `✅ set` or `Still not set: did you run /reload-plugins?`. `2` shows the card.
+   - **15 (reply style).** Show this card and end the turn, `(now)` after the one in force:
+
+     ```
+     How should Claude write while Quality Code runs?
+     1. Report: results only, no step-by-step lines
+     2. Claude Code's default
+     ```
+
+     Run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style on` (`1`) or `--style off` (`2`) and read its `CONNECTOR_SETTINGS_JSON:` line. If it is not `ok`, show its `reason` and stop. When `local` is set and `report` does not match the pick, add `Your own choice on this computer (<local>, in .claude/settings.local.json) still wins here: run /output-style to change it.`
    - **14 (GitHub).** The plugin has no GitHub token: it uses the `gh` sign-in. Say `In a terminal, run gh auth login --hostname <host>, then come back.` with the host from `here.remote.host`, then show `1. Check again / 2. Back` and end the turn. `1` runs `setup.mjs --detect` again.
 4. **Done.** Say what changed, in one line, plus:
    - after a repo config change: `Commit .claude/quality-code.json so your team gets it too.`
    - after a plugin setting: `Type /reload-plugins for it to take effect.`
    - after item 6 or 7: nothing more; it takes effect on the next run.
+   - after item 15: `Commit .claude/settings.json so your team gets it too. It applies from your next message.`
 
    Then show the card again (step 2), with the new value.
 

@@ -5,7 +5,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFile
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { apiUrlOf, checkGitlab, saveGitlabSettings, saveJiraSettings, validEmail, validUser } from '../../bin/connector-settings.mjs'
+import { apiUrlOf, checkGitlab, outputStyle, REPORT_STYLE, saveGitlabSettings, saveJiraSettings, validEmail, validUser } from '../../bin/connector-settings.mjs'
 
 test('apiUrlOf: a host, a site or an API address all give the API address', () => {
   for (const a of ['gitlab.example.com', 'https://gitlab.example.com', 'https://gitlab.example.com/', 'https://gitlab.example.com/api/v4', ' https://gitlab.example.com/api/v4/ '])
@@ -101,4 +101,24 @@ test('save: a settings.json that links into a dotfiles folder is written through
   assert.ok(lstatSync(join(d, 'cfg/settings.json')).isSymbolicLink(), 'still a link')
   assert.equal(JSON.parse(readFileSync(join(d, 'dot/settings.json'), 'utf8')).theme, 'dark')
   assert.ok(readFileSync(join(d, 'dot/settings.json'), 'utf8').includes('a@b.co'))
+})
+
+test('reply style: on writes the shared project settings, off removes only ours, settings.local wins', () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-style-'))
+  const shared = join(root, '.claude/settings.json')
+  const json = f => JSON.parse(readFileSync(f, 'utf8'))
+  assert.deepEqual(outputStyle({ root }), { ok: true, file: shared, shared: null, local: null, report: false })
+  assert.equal(outputStyle({ root, on: true }).report, true)
+  assert.equal(json(shared).outputStyle, REPORT_STYLE)
+  writeFileSync(shared, JSON.stringify({ outputStyle: REPORT_STYLE, permissions: { allow: ['Bash(ls)'] } }))
+  assert.equal(outputStyle({ root, on: false }).report, false)
+  assert.deepEqual(json(shared), { permissions: { allow: ['Bash(ls)'] } }, 'the rest of the file stays')
+  writeFileSync(shared, JSON.stringify({ outputStyle: 'Explanatory' }))
+  outputStyle({ root, on: false })
+  assert.equal(json(shared).outputStyle, 'Explanatory', 'a style the team chose is not ours to remove')
+  outputStyle({ root, on: true })
+  writeFileSync(join(root, '.claude/settings.local.json'), JSON.stringify({ outputStyle: 'default' }))
+  assert.deepEqual(outputStyle({ root }), { ok: true, file: shared, shared: REPORT_STYLE, local: 'default', report: false })
+  writeFileSync(shared, '{oops')
+  assert.match(outputStyle({ root, on: true }).reason, /could not read/)
 })
