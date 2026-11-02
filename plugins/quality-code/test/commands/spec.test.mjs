@@ -469,3 +469,10 @@ test('node --test: the runner rule names it, its asserts, and its .test file nam
   assert.match(doc, /`node:assert\/strict` \(`assert\.strictEqual\(total, 108\)`\)/)
   assert.match(step(5), /With node --test, `\.test` in place of `\.spec` \(`pricing\.abc-123\.test\.js`\)/)
 })
+test('Central Context: step 4 reads the testing rules for the ticket\'s side, which never give a value or stop a run', () => {
+  assert.ok(step(4).startsWith('\n4. **Plan.** First run `node "${CLAUDE_PLUGIN_ROOT}/bin/rules.mjs" --side <side>`'))
+  assert.match(step(4), /`Central Context: <n> testing rules applied \(release <release>\)`, or `Central Context: no rule applied \(<reason>\)`/)
+  assert.ok(doc.includes('`RULES_JSON:`'))
+  assert.match(doc, /A rule never gives an expected value, never outranks the ticket's Then or a team guide, and never changes a score or a check/)
+  assert.match(doc, /the rules never stop a run/)
+})

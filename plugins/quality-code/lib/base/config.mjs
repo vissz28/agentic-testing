@@ -11,7 +11,7 @@ import { FLOWS } from './conventions.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -453,6 +453,16 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
           if (new Set(texts).size !== texts.length) e.push('xray.headers: two columns have the same header')
         }
       }
+    }
+  }
+  // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
+  if (c.centralContext !== undefined) {
+    const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
+    if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
+    else {
+      for (const k of Object.keys(c.centralContext)) if (k !== 'hub') e.push(`centralContext.${k}: unknown field (only "hub")`)
+      const h = c.centralContext.hub
+      if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
     }
   }
   if (c.sides !== undefined) {
