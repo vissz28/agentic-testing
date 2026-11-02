@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-02
+
 ### Changed
 
 - **Easier to read in the chat** (every command): results are laid out by the new `guides/display.md`, one section
