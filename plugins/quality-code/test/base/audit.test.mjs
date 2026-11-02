@@ -119,11 +119,11 @@ test('readAudit: entries in order, bad lines skipped, a missing file is empty', 
 
 test('a pipeline entry keeps the rules record: source, release, ids with status, missing ids; never text; absent when not given', () => {
   const d = dir()
-  const rules = { source: 'hub', release: 'dir-632bdedae733', ids: ['quality.test-assertion-honesty@active', 'bad id', 'quality.generated-test-fail-evidence@active'], missing: ['quality.ready-requirement-before-test-generation', 'Not An Id'], text: 'never' }
+  const rules = { source: 'hub', release: 'dir-632bdedae733', ids: ['quality.test-weakening-justified@active', 'bad id', 'quality.generated-test-fail-evidence@active'], missing: ['quality.ready-requirement-before-test-generation', 'Not An Id'], text: 'never' }
   audit(d, 'pipeline', { key: 'ABC-1', verdict: 'green', decidedBy: null, adapter: 'vitest', steps: [], counts: {}, flags: {}, rules }, { env: {}, now: NOW })
   audit(d, 'pipeline', { key: 'ABC-1', verdict: 'green', decidedBy: null, adapter: 'vitest', steps: [], counts: {}, flags: {} }, { env: {}, now: NOW })
   const [withRules, without] = lines(d, 'pipeline')
-  assert.deepEqual(withRules.rules, { source: 'hub', release: 'dir-632bdedae733', ids: ['quality.test-assertion-honesty@active', 'quality.generated-test-fail-evidence@active'], missing: ['quality.ready-requirement-before-test-generation'] })
+  assert.deepEqual(withRules.rules, { source: 'hub', release: 'dir-632bdedae733', ids: ['quality.test-weakening-justified@active', 'quality.generated-test-fail-evidence@active'], missing: ['quality.ready-requirement-before-test-generation'] })
   assert.ok(!('text' in withRules.rules))
   assert.ok(!('rules' in without))
   audit(d, 'pipeline', { key: 'ABC-1', verdict: 'green', decidedBy: null, adapter: 'vitest', steps: [], counts: {}, flags: {}, rules: { source: 'elsewhere', release: 'x y', ids: 'no', missing: null } }, { env: {}, now: NOW })

@@ -231,12 +231,13 @@ const RULES = {
   rules: [
     { id: 'quality.ready-requirement-before-test-generation', title: 'Ready requirement', summary: 'S1', status: 'active', severity: 'medium', owner: '@o' },
     { id: 'quality.generated-test-fail-evidence', title: 'Fail evidence', summary: 'S2', status: 'active', severity: 'high', owner: '@o' },
-    { id: 'quality.test-assertion-honesty', title: 'Honest assertions', summary: 'S3', status: 'active', severity: 'high', owner: '@o' },
+    { id: 'quality.test-asserts-observable-outcome', title: 'Observable outcome', summary: 'S3', status: 'active', severity: 'high', owner: '@o' },
+    { id: 'quality.test-weakening-justified', title: 'Justified changes', summary: 'S4', status: 'active', severity: 'high', owner: '@o' },
   ],
 }
 test('the card ends with the rules line, before the log path; without rules, nothing is added', () => {
   const out = formatCard({ verdict: 'green', decidedBy: null, steps: base.map(x => ({ ...x, status: 'pass' })), rules: RULES }, { specs: ['a.spec.ts'], key: 'ABC-1', log: 'tickets/ABC-1/run.md' }).split('\n')
-  assert.deepEqual(out.slice(-4, -1), ['', 'Rules: Central Context release dir-abc, 3 rules read live.', 'Full details: tickets/ABC-1/run.md'])
+  assert.deepEqual(out.slice(-4, -1), ['', 'Rules: Central Context release dir-abc, 4 rules read live.', 'Full details: tickets/ABC-1/run.md'])
   const bare = formatCard({ verdict: 'green', decidedBy: null, steps: [] }, { specs: ['a.spec.ts'], key: null }).split('\n')
   assert.ok(!bare.some(l => l.startsWith('Rules:')))
   const snap = formatCard({ verdict: 'green', decidedBy: null, steps: [], rules: { ...RULES, source: 'snapshot', hub: null, error: 'Central Context not configured (centralContext.hub)' } }, { specs: ['a'], key: null }).split('\n')
@@ -245,9 +246,10 @@ test('the card ends with the rules line, before the log path; without rules, not
 test('the run log: a Rules section after the header, and the rule under each check that answers to one', () => {
   const log = formatRunLog({ verdict: 'checks_failed', decidedBy: 'suite-honesty', steps: base, rules: RULES }, { specs: ['a.spec.ts'], key: 'ABC-1' })
   assert.ok(log.indexOf('## Rules (Central Context)') < log.indexOf('## Checks'), 'rules come before the checks')
-  assert.match(log, /\| honesty \| `quality\.test-assertion-honesty` Honest assertions \| active \| high \| @o \|/)
-  assert.match(log, /### ✅ honesty\n\n[^\n]+\n\nRule: `quality\.test-assertion-honesty`/)
-  assert.match(log, /### ❌ assertions\n\n[^\n]+\n\nRule: `quality\.test-assertion-honesty`/)
+  assert.match(log, /\| assertion \| `quality\.test-asserts-observable-outcome` Observable outcome \| active \| high \| @o \|/)
+  assert.match(log, /\| weakening \| `quality\.test-weakening-justified` Justified changes \| active \| high \| @o \|/)
+  assert.match(log, /### ✅ honesty\n\n[^\n]+\n\nRule: `quality\.test-weakening-justified`/)
+  assert.match(log, /### ❌ assertions\n\n[^\n]+\n\nRule: `quality\.test-asserts-observable-outcome`/)
   assert.match(log, /### ✅ tests\n\n[^\n]+\n\nRule: `quality\.generated-test-fail-evidence`/)
   assert.doesNotMatch(log, /### ✅ boundary\n\n[^\n]+\n\nRule:/, 'boundary is the plugin\'s own')
   const bare = formatRunLog({ verdict: 'green', decidedBy: null, steps: base }, { specs: ['a.spec.ts'], key: 'ABC-1' })

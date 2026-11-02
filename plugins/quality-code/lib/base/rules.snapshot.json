@@ -1,28 +1,36 @@
 {
   "_comment": "Pinned fallback for lib/base/rules.mjs when the Central Context hub is not configured or not reachable. Refresh from a running hub: GET /v1/manifest for release_id, GET /v1/documents/<id> for each rule in GATE_RULES.",
-  "release_id": "dir-632bdedae733",
-  "pinned_at": "2026-10-29",
+  "release_id": "dir-33d459e533da",
+  "pinned_at": "2026-11-02",
   "rules": [
     {
       "id": "quality.ready-requirement-before-test-generation",
       "title": "Ready requirement before test generation",
-      "summary": "A test is generated from a requirement only when the requirement states the expected outcome in checkable terms, and every expected value in the generated test comes from the requirement, not from the generator.",
-      "status": "active",
-      "severity": "medium",
-      "owner": "@e-pelivani"
-    },
-    {
-      "id": "quality.generated-test-fail-evidence",
-      "title": "Fail evidence for generated tests",
-      "summary": "A test produced by an AI agent enters a suite only with recorded evidence that it fails when the behaviour it checks is broken, and a test for a bug fix fails on the code before the fix.",
+      "summary": "A test is derived from a requirement only when the requirement states the expected outcome in checkable terms, in its acceptance criteria or in the Xray test case linked to it, and every expected value in the test is stated by the requirement or follows from its rule.",
       "status": "active",
       "severity": "high",
       "owner": "@e-pelivani"
     },
     {
-      "id": "quality.test-assertion-honesty",
-      "title": "Honest test assertions",
-      "summary": "Every test asserts an observable outcome of the code under test, and a suite turns green by changing that code, never by loosening, deleting or silently skipping a test.",
+      "id": "quality.generated-test-fail-evidence",
+      "title": "Fail evidence for generated tests",
+      "summary": "A test derived from a requirement enters the suite only with recorded evidence that it fails when the behaviour it checks is broken: a failing run on the code before a bug fix, or a run in which the test kills a mutant of the code under test. Coverage is not that evidence.",
+      "status": "active",
+      "severity": "high",
+      "owner": "@e-pelivani"
+    },
+    {
+      "id": "quality.test-asserts-observable-outcome",
+      "title": "Every test asserts an observable outcome",
+      "summary": "Every test asserts at least one observable outcome of the code under test: a returned value, a stored state, an error, a displayed text, or an outbound call together with its arguments.",
+      "status": "active",
+      "severity": "high",
+      "owner": "@e-pelivani"
+    },
+    {
+      "id": "quality.test-weakening-justified",
+      "title": "Justified changes to existing tests",
+      "summary": "A change that loosens an assertion, removes a test or skips one carries, in the same merge request, the requirement change or the ticket that justifies it; a red suite otherwise turns green by a change to the code under test.",
       "status": "active",
       "severity": "high",
       "owner": "@e-pelivani"
