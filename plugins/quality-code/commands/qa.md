@@ -4,7 +4,7 @@ argument-hint: [<KEY>] [--app <url>] [--dry-run]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
-For QA. Lists the Xray test executions assigned to you, runs the one you pick in the browser one test at a time, and drafts a defect for each KO. You see every result first, and you decide. The tests come from the Xray API when its key is set in the plugin settings; otherwise from an Xray export you attach to the message (CSV), or from the Jira page in the browser. Without the API, you set the run statuses in Xray yourself, and the command tells you which. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+For QA. Lists the Xray test executions assigned to you, runs the one you pick in the browser one test at a time, and drafts a defect for each KO. You see every result first, and you decide. The tests come from the Xray API when its key is set in the plugin settings; otherwise from an Xray export you attach to the message (CSV), or from the Jira page in the browser. Without the API, you set the run statuses in Xray yourself, and the command tells you which. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 

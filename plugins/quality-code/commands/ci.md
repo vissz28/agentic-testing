@@ -11,7 +11,7 @@ Writes the plugin's checks into the project's CI, so every pull request (GitHub)
 - **quality-gate** (git and node only, seconds): on the specs the request changed, honesty (no assertion or test removed, a deleted or renamed spec included; no skip without a ticket), assertions (every test asserts something) and the frozen evals.
 - **quality-tests** (installs the project): the changed specs through the pipeline, one run per module, with types, tests and mutation. A side whose code changed but no spec did runs its whole suite without mutation, as does a push to the default branch. The toolchain and install lines are guessed from the repo (lockfile, Prisma, Playwright, pytest, Maven or Gradle, Go, .NET); Testcontainers gets Docker; a dead runner is retried, a red test never is.
 
-Plain English, short lines.
+Plain English, short lines. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions.
 
 ## Rules
 

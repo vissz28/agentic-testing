@@ -4,7 +4,7 @@ argument-hint: <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [K
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
-Writes XRay test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:spec` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Writes XRay test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:spec` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 

@@ -1,6 +1,6 @@
 # Running the tests through the pipeline
 
-Shared by `/quality-code:run-frontend`, `/quality-code:run-backend` and `/quality-code:run-pipeline`: the same steps, one suite each. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Shared by `/quality-code:run-frontend`, `/quality-code:run-backend` and `/quality-code:run-pipeline`: the same steps, one suite each. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 

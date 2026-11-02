@@ -5,7 +5,7 @@ allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
 
-Finds tickets and shows one in short. Read-only on Jira: nothing is ever written, commented or changed. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Finds tickets and shows one in short. Read-only on Jira: nothing is ever written, commented or changed. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 

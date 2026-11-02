@@ -4,7 +4,7 @@ argument-hint: [KEY] [--gate-only] [--base BRANCH] [--layer NAME] [--target PATH
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
-Takes a ticket to checked tests. You write the tests; the scripts gate the ticket and grade the tests. A person is asked three times at most: at the gate, only when the ticket is refused; at the plan; and at the read-back after the card. Everything else runs without stopping. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Takes a ticket to checked tests. You write the tests; the scripts gate the ticket and grade the tests. A person is asked three times at most: at the gate, only when the ticket is refused; at the plan; and at the read-back after the card. Everything else runs without stopping. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 The steps are the same for both adapters. Where a **Vitest** project (unit tests against a source file) and a **Playwright** project (e2e tests against a screen of the app) differ, the step says so. A **fullstack** project (`adapter: fullstack`) has both: a backend ticket takes the Vitest parts of each step, a frontend ticket the Playwright parts, and a fullstack ticket both, the Vitest part first. Its specs are checked together, in one run (step 6).
 

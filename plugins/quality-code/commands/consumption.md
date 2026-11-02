@@ -6,7 +6,7 @@ model: haiku
 effort: low
 ---
 
-Shows what the plugin's runs used. You relay; the script reads and counts. Plain English, short sentences, numbered cards. End your turn after every card and wait for the answer.
+Shows what the plugin's runs used. You relay; the script reads and counts. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 

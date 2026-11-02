@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Easier to read in the chat** (every command): results are laid out by the new `guides/display.md`, one section
+  per step with an emoji heading, a bold headline, tables for rules, missing items, the plan and the checks, colour
+  marks (✅ ❌ ⚠️ 🔴), a readiness bar, passed and failed tests in green and red, and hints in quotes. Choice cards
+  become Claude's question picker where it is available (numbered cards otherwise, and never with `--ci`). The
+  content does not change: every score, verdict, rule, path and option is the scripts' own.
+
 ## [0.34.0] - 2026-11-02
 
 ### Added
