@@ -18,7 +18,7 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 **Central Context** (`rules.mjs`). Central Context is the company's own source of rules, so every time it is read the reader sees it, right then, as a completed step: the line `rules.mjs` prints, on its own, as printed (`✅ Read from Central Context: 6 testing rules for the backend side (release …, …)`, or `⚠️ Central Context not read: <reason>. No rule applied.`). Never skip it or fold it into another section, and never list the rules under it: the tests follow them, the reader does not need to read them.
 
-**Ticket readiness** (the gate). The headline is the key, the score and the band: `**AGT-144 · 85% · ✅ ready** (bar 70%)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
+**Ticket readiness** (the gate). The headline is the key, the score and the band: `**ABC-123 · 85% · ✅ ready** (bar 70%)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
 
 | Missing | Points |
 |---|---|
@@ -26,13 +26,13 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 then the `To pass:` line in a 💡 quote, and the flags in one short list.
 
-**Target and side.** Two lines: `🎯 **Target:** \`src/…/kpi.repository.ts\` (why, in a few words)` and `🧭 **Side:** backend (Vitest tests)`.
+**Target and side.** Two lines: `🎯 **Target:** \`src/pricing/discount.ts\` (why, in a few words)` and `🧭 **Side:** backend (Vitest tests)`.
 
 **The plan.** A table with one row per test:
 
 | Layer | Test | We check |
 |---|---|---|
-| unit | Incoming movement with unit cost 0 | the KPI lastCost is 0 |
+| unit | Discount over 100 € | the total is 108.00 |
 
 Extra probes get their own rows, marked `➕ extra`.
 
