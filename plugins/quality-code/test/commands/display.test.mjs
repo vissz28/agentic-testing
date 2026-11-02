@@ -23,8 +23,8 @@ test('the guide keeps every word, number and verdict; questions use the picker w
 })
 
 test('every read of Central Context is shown as a completed step, and rules.mjs is the only way spec reads it', () => {
-  assert.match(guide, /every time it is read the reader sees it, right then, as a completed step: the line `rules\.mjs` prints/)
-  assert.match(guide, /Never skip it or fold it into another section, and never list the rules under it/)
+  assert.match(guide, /every time it is read the reader sees it, right then, as a completed step: the `Read from Central Context` item/)
+  assert.match(guide, /Without the checklist, the line `rules\.mjs` prints, on its own, as printed\. Never skip it or fold it into another step, and never list the rules/)
   assert.match(read('commands/spec.md'), /`rules\.mjs` is the only way this command reads Central Context, and every time it runs its line is shown to the person as a completed step/)
 })
 
@@ -32,4 +32,11 @@ test('a card is never a code block, and a card with options is the picker, not a
   assert.match(guide, /In the chat a card is never in a code block/)
   assert.match(guide, /Calling the tool is how the card is shown: never print its numbered options as well/)
   assert.match(guide, /Wherever a command says "show this card and end the turn", call the picker instead/)
+})
+
+test('progress is a live checklist, Central Context one of its steps, and no narration', () => {
+  assert.match(guide, /shows its progress as a live checklist, with the to-do list tool \(`TodoWrite`, or `TaskCreate` and `TaskUpdate`/)
+  assert.match(guide, /`Readiness gate`, `Read from Central Context`, `Find the code to test`/)
+  assert.match(guide, /\*\*No narration\.\*\* Never write a sentence that says what you are about to do or what just worked/)
+  assert.match(guide, /Where a command says to "say" such a line, update the checklist instead/)
 })

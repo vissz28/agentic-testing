@@ -2,10 +2,19 @@
 
 Every command follows this guide when it shows a card or a script's output. It changes the look, never the content: every number, score, verdict, rule id, path, test name and option stays exactly as the script or the card gives it. Nothing is added that the output does not say, and nothing is graded. Where a command says to show something "exactly as printed" or "as printed", that holds for its words, numbers and order; how it is laid out is this guide's. A reader who is not technical (a manager, a CTO) should get each result at a glance.
 
+## Progress
+
+A command with more than two steps shows its progress as a live checklist, with the to-do list tool (`TodoWrite`, or `TaskCreate` and `TaskUpdate` where those are the ones available), not with sentences:
+
+- **At the start**, before the first script runs, write the whole list, one item per step the reader cares about, in plain words. For `/quality-code:spec`: `Check the setup`, `Read the ticket`, `Readiness gate`, `Read from Central Context`, `Find the code to test`, `Plan the tests`, `Write the tests`, `Run the checks`, `Result`. Another command takes its own steps the same way.
+- **As you go**, set the step you start to in progress and the one you finish to completed, and put its result in the item, short: `Readiness gate · 85% ✅`, `Read from Central Context · 6 testing rules ✅`, `Find the code to test · discount.ts`. A step the run skips is completed with `· skipped`; a step that stops the run says why, `Readiness gate · 15% ❌`.
+- **No narration.** Never write a sentence that says what you are about to do or what just worked ("Reading the ticket worked", "Now I'm scoring it", "Running the checks: this can take a few minutes"): the checklist says it. Where a command says to "say" such a line, update the checklist instead. Lines that carry a result the reader needs (the target and why, a clash with the QA plan, a warning) stay, as one short line each.
+- Without the tool, one short line per finished step, `✅ Readiness gate · 85%`, and nothing else.
+
 ## The shape
 
-- **One section per thing that happens**, with a heading of three hashes, an emoji and two or three words: `### 🔌 Connectors`, `### 🎫 Ticket`, `### 🎯 Target`, `### 🧪 Plan`, `### ⚙️ Running the checks`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Headings are in the language of the conversation.
-- **The headline first.** Right under the heading, one bold line with the outcome, then the details. Never a paragraph of more than two lines; between sections at most one short sentence.
+- **A section only where the reader reads or decides**: the gate's score, the plan, the result, a Jira post, a warning. Its heading has three hashes, an emoji and two or three words: `### 🎫 Ticket`, `### 🧪 Plan`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Every other step is only its checklist item. Headings are in the language of the conversation.
+- **The headline first.** Right under the heading, one bold line with the outcome, then the details. Never a paragraph of more than two lines; between sections nothing but the checklist.
 - **Lists become tables** when they have two or more columns of meaning. At most 8 rows; then a last row `… and N more` (the run log has them all).
 - **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Paths, ids and commands go in `code`.
 - **Green and red lines** (passed and failed tests, scores against the bar) go in a `diff` block: `+ ` for green, `- ` for red, one line each.
@@ -15,9 +24,9 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 ## Each result
 
-**Connectors.** One line: `✅ Jira · ✅ GitLab · ⚠️ Figma (not connected)`, from the connector check, nothing more.
+**Connectors.** In the `Check the setup` item: `Check the setup · ✅ Jira · ⚠️ GitLab`. A connector the run needs and lacks is a warning line too.
 
-**Central Context** (`rules.mjs`). Central Context is the company's own source of rules, so every time it is read the reader sees it, right then, as a completed step: the line `rules.mjs` prints, on its own, as printed (`✅ Read from Central Context: 6 testing rules for the backend side (release …, …)`, or `⚠️ Central Context not read: <reason>. No rule applied.`). Never skip it or fold it into another section, and never list the rules under it: the tests follow them, the reader does not need to read them.
+**Central Context** (`rules.mjs`). Central Context is the company's own source of rules, so every time it is read the reader sees it, right then, as a completed step: the `Read from Central Context` item, `Read from Central Context · 6 testing rules ✅`, or `Read from Central Context · not read ⚠️` with the reason after it. Without the checklist, the line `rules.mjs` prints, on its own, as printed. Never skip it or fold it into another step, and never list the rules: the tests follow them, the reader does not need to read them.
 
 **Ticket readiness** (the gate). The headline is the key, the score and the band: `**ABC-123 · 85% · ✅ ready** (bar 70%)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
 
@@ -27,7 +36,7 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 then the `To pass:` line in a 💡 quote, and the flags in one short list.
 
-**Target and side.** Two lines: `🎯 **Target:** \`src/pricing/discount.ts\` (why, in a few words)` and `🧭 **Side:** backend (Vitest tests)`.
+**Target and side.** In the `Find the code to test` item: `Find the code to test · discount.ts (backend)`. Why that file, and where the spec goes when it is not the usual place, in one short line under the plan.
 
 **The plan.** A table with one row per test:
 

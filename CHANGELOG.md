@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.35.4] - 2026-11-02
+
+### Changed
+
+- **Progress as a live checklist** (every command with more than two steps): Claude's to-do list shows each step
+  as it runs and ticks it off with its result (`Readiness gate · 85% ✅`, `Read from Central Context · 6 testing
+  rules ✅`). No more sentences about what is being done; sections only where the reader reads or decides.
+
 ## [0.35.3] - 2026-11-02
 
 ### Changed
