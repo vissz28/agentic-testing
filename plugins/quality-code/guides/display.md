@@ -4,25 +4,19 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 ## The shape
 
-- **One section per thing that happens**, with a heading of three hashes, an emoji and two or three words: `### 🔌 Connectors`, `### 📚 Central Context`, `### 🎫 Ticket`, `### 🎯 Target`, `### 🧪 Plan`, `### ⚙️ Running the checks`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Headings are in the language of the conversation.
+- **One section per thing that happens**, with a heading of three hashes, an emoji and two or three words: `### 🔌 Connectors`, `### 🎫 Ticket`, `### 🎯 Target`, `### 🧪 Plan`, `### ⚙️ Running the checks`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Headings are in the language of the conversation.
 - **The headline first.** Right under the heading, one bold line with the outcome, then the details. Never a paragraph of more than two lines; between sections at most one short sentence.
 - **Lists become tables** when they have two or more columns of meaning. At most 8 rows; then a last row `… and N more` (the run log has them all).
 - **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Paths, ids and commands go in `code`.
 - **Green and red lines** (passed and failed tests, scores against the bar) go in a `diff` block: `+ ` for green, `- ` for red, one line each.
-- **Hints and rules** go in a quote: `> 💡 **To pass:** …`, `> 📚 Central Context: …`, `> 🛠️ **What to do:** …`.
+- **Hints and rules** go in a quote: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`.
 - **Machine lines** (`…_JSON:`) are never shown, as before.
 
 ## Each result
 
 **Connectors.** One line: `✅ Jira · ✅ GitLab · ⚠️ Figma (not connected)`, from the connector check, nothing more.
 
-**Central Context rules** (`rules.mjs`). Central Context is the company's own source of rules, so the reader always sees what came from it. Every time it is read, show this section right then, never folded into another one, shortened or skipped: every rule read (no `… and N more` here), and the same section when nothing was read, with the reason. First one small line with where it came from: the hub, the release and the side asked for. Then a table:
-
-| Rule | Severity | What it asks |
-|---|---|---|
-| `quality.repeatable-isolated-tests` | **high** | Tests are isolated and independent… |
-
-With no rule read: one line, `> 📚 Central Context: no rule applied (<reason>)`.
+**Central Context** (`rules.mjs`). Central Context is the company's own source of rules, so every time it is read the reader sees it, right then, as a completed step: the line `rules.mjs` prints, on its own, as printed (`✅ Read from Central Context: 6 testing rules for the backend side (release …, …)`, or `⚠️ Central Context not read: <reason>. No rule applied.`). Never skip it or fold it into another section, and never list the rules under it: the tests follow them, the reader does not need to read them.
 
 **Ticket readiness** (the gate). The headline is the key, the score and the band: `**AGT-144 · 85% · ✅ ready** (bar 70%)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
 
@@ -40,7 +34,7 @@ then the `To pass:` line in a 💡 quote, and the flags in one short list.
 |---|---|---|
 | unit | Incoming movement with unit cost 0 | the KPI lastCost is 0 |
 
-Extra probes get their own rows, marked `➕ extra`. The `Central Context:` lines go in a 📚 quote under the table.
+Extra probes get their own rows, marked `➕ extra`.
 
 **The pipeline card.** The headline is the verdict with its mark: `**✅ green**`, `**❌ checks failed**`, `**⚠️ not verified**` or `**🔴 tests red**`, then the line under it that says what it means. The tests as a count, then a `diff` block, `+ ✓ <test>` for each passed test and `- ✗ <test>` for each failed one (at most 8, then `… and N more`). The checks as a table:
 

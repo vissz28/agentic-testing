@@ -22,7 +22,8 @@ test('the guide keeps every word, number and verdict; questions use the picker w
   assert.match(guide, /`--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either\. Without the tool, show the numbered card as written and end the turn\./)
 })
 
-test('every read of Central Context is shown in full, and rules.mjs is the only way spec reads it', () => {
-  assert.match(guide, /Every time it is read, show this section right then, never folded into another one, shortened or skipped: every rule read \(no `… and N more` here\), and the same section when nothing was read, with the reason/)
-  assert.match(read('commands/spec.md'), /`rules\.mjs` is the only way this command reads Central Context, and every time it runs its result is shown to the person, in full/)
+test('every read of Central Context is shown as a completed step, and rules.mjs is the only way spec reads it', () => {
+  assert.match(guide, /every time it is read the reader sees it, right then, as a completed step: the line `rules\.mjs` prints/)
+  assert.match(guide, /Never skip it or fold it into another section, and never list the rules under it/)
+  assert.match(read('commands/spec.md'), /`rules\.mjs` is the only way this command reads Central Context, and every time it runs its line is shown to the person as a completed step/)
 })

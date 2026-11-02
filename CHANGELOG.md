@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.35.2] - 2026-11-02
+
+### Changed
+
+- **Central Context is one completed step** (`/quality-code:spec`): each read shows a single line,
+  `✅ Read from Central Context: 6 testing rules for the backend side (release …, …)`, or `⚠️ Central Context not
+  read: <reason>. No rule applied.`, in place of the list of rules. The tests still follow every rule read; the
+  plan card no longer repeats it.
+
 ## [0.35.1] - 2026-11-02
 
 ### Changed

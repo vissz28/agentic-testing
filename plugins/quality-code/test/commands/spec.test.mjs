@@ -471,7 +471,7 @@ test('node --test: the runner rule names it, its asserts, and its .test file nam
 })
 test('Central Context: step 4 reads the testing rules for the ticket\'s side, which never give a value or stop a run', () => {
   assert.ok(step(4).startsWith('\n4. **Plan.** First run `node "${CLAUDE_PLUGIN_ROOT}/bin/rules.mjs" --side <side>`'))
-  assert.match(step(4), /`Central Context: <n> testing rules applied \(release <release>\)`, or `Central Context: no rule applied \(<reason>\)`/)
+  assert.match(step(4), /Show its first line as printed, as a completed step, and keep the rules of its `RULES_JSON:` line/)
   assert.ok(doc.includes('`RULES_JSON:`'))
   assert.match(doc, /A rule never gives an expected value, never outranks the ticket's Then or a team guide, and never changes a score or a check/)
   assert.match(doc, /the rules never stop a run/)
