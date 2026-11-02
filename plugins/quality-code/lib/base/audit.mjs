@@ -29,6 +29,14 @@ const stepNumbers = data => Object.fromEntries(STEP_NUMBERS
   .filter(k => typeof data?.[k] === 'number' && Number.isFinite(data[k]) && data[k] >= 0)
   .map(k => [k, Math.round(data[k])]))
 const FLAGS = ['ticket', 'expected', 'target', 'range']
+// The rules a run was checked against: source, release and ids with their status, never text.
+const RULE = /^[a-z][a-z0-9-]*\.[a-z0-9-]+@[a-z]{1,20}$/
+const RELEASE = /^[A-Za-z0-9._-]{1,64}$/
+const RULE_ID = /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/
+const rulesShape = r => (r && typeof r === 'object' ? {
+  source: oneOf(['hub', 'snapshot', 'none'])(r.source), release: typeof r.release === 'string' && RELEASE.test(r.release) ? r.release : null,
+  ids: Array.isArray(r.ids) ? r.ids.filter(x => typeof x === 'string' && RULE.test(x)) : [], missing: Array.isArray(r.missing) ? r.missing.filter(x => typeof x === 'string' && RULE_ID.test(x)) : [],
+} : null)
 
 const SHAPE = {
   gate: e => ({
@@ -42,6 +50,7 @@ const SHAPE = {
     flags: { ...Object.fromEntries(FLAGS.map(f => [f, e.flags?.[f] === true])), flaky: num(e.flags?.flaky) },
     counts: { specs: num(e.counts?.specs), passed: num(e.counts?.passed), failed: num(e.counts?.failed), skipped: num(e.counts?.skipped) },
     incompleteTicket: scored(e.incompleteTicket),
+    ...(e.rules !== undefined ? { rules: rulesShape(e.rules) } : {}),
   }),
   jira: e => ({ key: key(e.key), action: oneOf(['comment', 'update', 'risk', 'defect', 'retest', 'status'])(e.action) }),
   override: e => ({ key: key(e.key), score: score(e.score), bar: score(e.bar) }),

@@ -1,5 +1,6 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
+import { ruleOfCheck, rulesCardLine, rulesLogLines } from '../base/rules.mjs'
 const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
@@ -155,7 +156,11 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
   for (const [head, items] of todoSections(todo)) {
     lines.push('', ...(items.length === 1 ? [`${head}: ${items[0].text}`] : [`${head}:`, ...todoLines(items, '  • ')]))
   }
-  if (log) lines.push('', `Full details: ${log}`)
+  // Which Central Context rules this run answered to, and from which release: provenance, not a grade.
+  const rules = rulesCardLine(outcome.rules)
+  if (rules || log) lines.push('')
+  if (rules) lines.push(rules)
+  if (log) lines.push(`Full details: ${log}`)
   lines.push(`PIPELINE_JSON:${JSON.stringify(outcome)}`)
   return lines.join('\n')
 }
@@ -177,6 +182,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
   out.push(`- **Verdict:** ${verdictText(outcome).join(' ') || outcome.verdict}${outcome.verdict === 'tests_red' ? ` ${redAdvice({ issueType, status: jiraStatus, done: doneStatuses })}` : ''}`)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
+  out.push(...rulesLogLines(outcome.rules))
   const t = outcome.steps.find(x => x.check === 'tests')?.data
   if (Array.isArray(t?.list) && t.list.length) {
     out.push('', '## Tests', '', '| Test | Result | Why |', '|---|---|---|')
@@ -185,6 +191,8 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   out.push('', '## Checks')
   for (const s of outcome.steps) {
     out.push('', `### ${ICON[s.status]} ${label(s.check)}`, '', md(s.summary))
+    const rule = outcome.rules ? ruleOfCheck(s.check) : null
+    if (rule) out.push('', `Rule: \`${rule}\``)
     const nums = Object.entries(s.data ?? {}).filter(([k, v]) => typeof v === 'number' || (Array.isArray(v) && v.length && v.length <= 20 && v.every(x => typeof x === 'string') && k !== 'list'))
     if (nums.length) out.push('', nums.map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' · '))
     const fs = (s.findings ?? []).slice(0, 20)
