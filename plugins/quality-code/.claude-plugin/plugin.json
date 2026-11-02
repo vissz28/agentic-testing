@@ -53,6 +53,12 @@
       "description": "Optional: an Atlassian API token (id.atlassian.com, Security, API tokens) for the account of jira_email. With it the plugin reads a ticket's .docx files and screenshots, which the Atlassian connector cannot download; it only reads, and only from your *.atlassian.net site.",
       "sensitive": true
     },
+    "central_context_url": {
+      "type": "string",
+      "title": "Central Context hub URL",
+      "description": "The base address of the TeamSystem Central Context hub the rules are read from: the local preview (cc-hub serve, http://localhost:8080) or HoT's hosted hub. The checks answer to its quality rules by id; each run records which release it read them from.",
+      "default": "http://localhost:8080"
+    },
     "figma_api_key": {
       "type": "string",
       "title": "Figma API key",

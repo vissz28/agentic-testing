@@ -469,3 +469,14 @@ test('node --test: the runner rule names it, its asserts, and its .test file nam
   assert.match(doc, /`node:assert\/strict` \(`assert\.strictEqual\(total, 108\)`\)/)
   assert.match(step(5), /With node --test, `\.test` in place of `\.spec` \(`pricing\.abc-123\.test\.js`\)/)
 })
+
+// What comes from Central Context is printed as such: a labelled block after the read, and a prefixed line under the cards that follow from a rule.
+test('central context: the printed block names release, id, status, severity and the hub summary; cards carry a Central Context: line', () => {
+  const spec = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
+  assert.match(spec, /From Central Context \(release <release_id>\)\n\s+<id> · <status> · <severity>\n\s+<summary>/)
+  assert.match(spec, /<id> · missing on the hub/)
+  assert.match(spec, /From Central Context: not connected, pinned rules of the plugin/)
+  for (const id of ['quality.ready-requirement-before-test-generation', 'quality.generated-test-fail-evidence', 'quality.test-assertion-honesty']) assert.match(spec, new RegExp(`Central Context: ${id.replace(/\\./g, '\\\\.')}, `), id)
+  const evalMd = readFileSync(new URL('../../commands/ticket-eval.md', import.meta.url), 'utf8')
+  assert.match(evalMd, /Central Context: quality\.ready-requirement-before-test-generation, a requirement without a checkable expected outcome gets no test/)
+})
