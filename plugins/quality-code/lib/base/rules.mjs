@@ -14,14 +14,15 @@ export const HUB_TIMEOUT_MS = 3000
 export const GATE_RULES = Object.freeze({
   readiness: 'quality.ready-requirement-before-test-generation',
   fail_evidence: 'quality.generated-test-fail-evidence',
-  honesty: 'quality.test-assertion-honesty',
+  assertion: 'quality.test-asserts-observable-outcome',
+  weakening: 'quality.test-weakening-justified',
 })
 export const RULE_IDS = Object.freeze(Object.values(GATE_RULES))
 
 /** Which gate each pipeline check answers to; a check with no rule (boundary, types, flaky) is the plugin's own. */
 export const CHECK_GATES = Object.freeze({
-  honesty: 'honesty',
-  'suite-honesty': 'honesty',
+  honesty: 'weakening',
+  'suite-honesty': 'assertion',
   expected: 'readiness',
   tests: 'fail_evidence',
   mutation: 'fail_evidence',

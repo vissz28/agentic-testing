@@ -476,7 +476,7 @@ test('central context: the printed block names release, id, status, severity and
   assert.match(spec, /From Central Context \(release <release_id>\)\n\s+<id> · <status> · <severity>\n\s+<summary>/)
   assert.match(spec, /<id> · missing on the hub/)
   assert.match(spec, /From Central Context: not connected, pinned rules of the plugin/)
-  for (const id of ['quality.ready-requirement-before-test-generation', 'quality.generated-test-fail-evidence', 'quality.test-assertion-honesty']) assert.match(spec, new RegExp(`Central Context: ${id.replace(/\\./g, '\\\\.')}, `), id)
+  for (const id of ['quality.ready-requirement-before-test-generation', 'quality.generated-test-fail-evidence', 'quality.test-asserts-observable-outcome', 'quality.test-weakening-justified']) assert.match(spec, new RegExp(`Central Context: ${id.replace(/\\./g, '\\\\.')}, `), id)
   const evalMd = readFileSync(new URL('../../commands/ticket-eval.md', import.meta.url), 'utf8')
   assert.match(evalMd, /Central Context: quality\.ready-requirement-before-test-generation, a requirement without a checkable expected outcome gets no test/)
 })

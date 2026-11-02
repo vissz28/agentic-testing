@@ -13,12 +13,12 @@ const fakeFetch = (have, { release = 'dir-abc', manifest = true } = {}) => async
   return have.includes(id) ? { ok: true, status: 200, json: async () => doc(id) } : { ok: false, status: 404 }
 }
 
-test('three gates, three distinct rule ids, and every check that answers to one', () => {
-  assert.deepEqual(Object.keys(GATE_RULES), ['readiness', 'fail_evidence', 'honesty'])
-  assert.equal(new Set(RULE_IDS).size, 3)
+test('four gates, four distinct rule ids, and every check that answers to one', () => {
+  assert.deepEqual(Object.keys(GATE_RULES), ['readiness', 'fail_evidence', 'assertion', 'weakening'])
+  assert.equal(new Set(RULE_IDS).size, 4)
   assert.ok(RULE_IDS.every(id => /^quality\.[a-z0-9-]+$/.test(id)))
-  assert.equal(ruleOfCheck('honesty'), GATE_RULES.honesty)
-  assert.equal(ruleOfCheck('suite-honesty'), GATE_RULES.honesty)
+  assert.equal(ruleOfCheck('honesty'), GATE_RULES.weakening)
+  assert.equal(ruleOfCheck('suite-honesty'), GATE_RULES.assertion)
   assert.equal(ruleOfCheck('expected'), GATE_RULES.readiness)
   for (const c of ['tests', 'mutation', 'stryker']) assert.equal(ruleOfCheck(c), GATE_RULES.fail_evidence, c)
   for (const c of ['boundary', 'types', 'flaky']) assert.equal(ruleOfCheck(c), null, c)
@@ -47,19 +47,19 @@ test('live: all three rules, the release from the manifest, the card says live',
   const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS]) })
   assert.equal(p.source, 'hub')
   assert.equal(p.release, 'dir-abc')
-  assert.equal(p.rules.length, 3)
+  assert.equal(p.rules.length, 4)
   assert.deepEqual(p.missing, [])
   assert.equal(p.error, null)
-  assert.equal(rulesCardLine(p), 'Rules: Central Context release dir-abc, 3 rules read live.')
+  assert.equal(rulesCardLine(p), 'Rules: Central Context release dir-abc, 4 rules read live.')
   assert.deepEqual(auditRules(p), { source: 'hub', release: 'dir-abc', ids: RULE_IDS.map(id => `${id}@active`), missing: [] })
 })
 
 test('live with a rule the hub does not know: reported missing, never invented, and said on the card', async () => {
-  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([GATE_RULES.honesty]) })
+  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([GATE_RULES.weakening]) })
   assert.equal(p.source, 'hub')
-  assert.deepEqual(p.rules.map(r => r.id), [GATE_RULES.honesty])
-  assert.deepEqual(p.missing, [GATE_RULES.readiness, GATE_RULES.fail_evidence])
-  assert.match(rulesCardLine(p), /1 rule read live, 2 missing\.$/)
+  assert.deepEqual(p.rules.map(r => r.id), [GATE_RULES.weakening])
+  assert.deepEqual(p.missing, [GATE_RULES.readiness, GATE_RULES.fail_evidence, GATE_RULES.assertion])
+  assert.match(rulesCardLine(p), /1 rule read live, 3 missing\.$/)
   const log = rulesLogLines(p).join('\n')
   assert.match(log, /\| readiness \| `quality\.ready-requirement-before-test-generation` \| \*\*missing\*\* \|/)
   assert.match(log, /A missing rule is not a passed rule/)
@@ -69,7 +69,7 @@ test('a 500 on the manifest is a transport error: snapshot, with the reason kept
   const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS], { manifest: false }) })
   assert.equal(p.source, 'snapshot')
   assert.match(p.error, /not reachable at http:\/\/hub\.test \(\/v1\/manifest: HTTP 500\)/)
-  assert.equal(p.rules.length, 3)
+  assert.equal(p.rules.length, 4)
   assert.equal(p.hub, 'http://hub.test')
 })
 
@@ -111,8 +111,8 @@ test('fetchFromHub asks the manifest and each rule by id, with a timeout signal'
 test('the log section: every gate once, each rule summary once, the mapping sentence', async () => {
   const lines = rulesLogLines(await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS]) }))
   assert.equal(lines[1], '## Rules (Central Context)')
-  assert.equal(lines.filter(l => l.startsWith('| ')).length, 1 + 3, 'header row and three gate rows')
-  assert.equal(lines.filter(l => l.startsWith('- `quality.')).length, 3)
+  assert.equal(lines.filter(l => l.startsWith('| ')).length, 1 + 4, 'header row and four gate rows')
+  assert.equal(lines.filter(l => l.startsWith('- `quality.')).length, 4)
   assert.match(lines.at(-1), /^Checks and gates: /)
   assert.deepEqual(rulesLogLines(null), [])
   assert.equal(rulesCardLine(null), null)
