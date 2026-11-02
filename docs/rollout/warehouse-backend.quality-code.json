@@ -219,8 +219,5 @@
       "id": "16475e6a-2a9f-4b99-98c9-b3dcdc74b582"
     }
   },
-  "qaPlans": "test/qa-plans/",
-  "centralContext": {
-    "hub": "http://localhost:8080"
-  }
+  "qaPlans": "test/qa-plans/"
 }

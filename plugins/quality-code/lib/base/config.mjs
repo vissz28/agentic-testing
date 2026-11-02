@@ -455,7 +455,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
     }
   }
-  // Central Context: the hub the rules are read from. "off" keeps the pinned snapshot on purpose.
+  // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
   if (c.centralContext !== undefined) {
     const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
     if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
