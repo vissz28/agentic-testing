@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-02
+
 ### Added
 
 - **Central Context testing rules** (`/quality-code:spec`): before the plan, the new `bin/rules.mjs` reads the
