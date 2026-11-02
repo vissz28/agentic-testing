@@ -1,119 +1,75 @@
-// The Central Context rules: read live by id, the snapshot when the hub is off or away, and a record
-// that always says which. A rule the hub does not have is reported missing, never invented.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { auditRules, CHECK_GATES, fetchFromHub, GATE_RULES, hubOf, loadSnapshot, resolveRules, ruleOfCheck, RULE_IDS, rulesCardLine, rulesLogLines, SNAPSHOT_URL } from '../../lib/base/rules.mjs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { formatRules, hubOf, readRules, stacksFor, testingRules } from '../../lib/base/rules.mjs'
+import { main } from '../../bin/rules.mjs'
 
-const doc = (id, status = 'active') => ({ id, title: `Title of ${id}`, summary: `Summary of ${id}`, status, severity: 'high', owner: '@owner', release_id: 'dir-abc' })
-const fakeFetch = (have, { release = 'dir-abc', manifest = true } = {}) => async url => {
-  const u = new URL(url)
-  if (u.pathname === '/v1/manifest') return manifest ? { ok: true, status: 200, json: async () => ({ release: { id: release } }) } : { ok: false, status: 500 }
-  const id = decodeURIComponent(u.pathname.split('/').pop())
-  return have.includes(id) ? { ok: true, status: 200, json: async () => doc(id) } : { ok: false, status: 404 }
-}
+const doc = (id, o = {}) => ({ id: `quality.${id}`, domain: 'quality', status: 'active', severity: 'medium', summary: `${id} summary.`, tags: ['test'], applies_to: ['all'], ...o })
+const DOCS = [
+  doc('isolated-tests', { severity: 'high' }),
+  doc('coverage'),
+  doc('node-only', { applies_to: ['node'] }),
+  doc('web-only', { applies_to: ['web'] }),
+  doc('pipeline-naming', { applies_to: ['ci'] }),
+  doc('iac', { applies_to: ['iac', 'ci'], tags: ['testing'] }),
+  doc('sprints', { tags: ['scrum'] }),
+  doc('old', { status: 'deprecated' }),
+  { ...doc('x'), id: 'security.x', domain: 'security' },
+]
+const MANIFEST = { release: { release_id: 'local-abc' }, documents: DOCS }
+const fetchOk = async () => ({ ok: true, status: 200, json: async () => MANIFEST })
+const ids = r => r.map(x => x.id.replace('quality.', ''))
 
-test('three gates, three distinct rule ids, and every check that answers to one', () => {
-  assert.deepEqual(Object.keys(GATE_RULES), ['readiness', 'fail_evidence', 'honesty'])
-  assert.equal(new Set(RULE_IDS).size, 3)
-  assert.ok(RULE_IDS.every(id => /^quality\.[a-z0-9-]+$/.test(id)))
-  assert.equal(ruleOfCheck('honesty'), GATE_RULES.honesty)
-  assert.equal(ruleOfCheck('suite-honesty'), GATE_RULES.honesty)
-  assert.equal(ruleOfCheck('expected'), GATE_RULES.readiness)
-  for (const c of ['tests', 'mutation', 'stryker']) assert.equal(ruleOfCheck(c), GATE_RULES.fail_evidence, c)
-  for (const c of ['boundary', 'types', 'flaky']) assert.equal(ruleOfCheck(c), null, c)
-  assert.ok(Object.values(CHECK_GATES).every(g => g in GATE_RULES))
+test('stacksFor: each side matches its stacks and "all"; the backend follows the project runner', () => {
+  assert.deepEqual(stacksFor('backend'), ['all', 'node', 'typescript', 'javascript', 'rest'])
+  assert.deepEqual(stacksFor('frontend'), ['all', 'web', 'typescript', 'javascript'])
+  assert.deepEqual(stacksFor('fullstack'), ['all', 'node', 'typescript', 'javascript', 'rest', 'web'])
+  assert.deepEqual(stacksFor('backend', { adapter: 'pytest' }), ['all', 'python', 'rest'])
+  assert.deepEqual(stacksFor('fullstack', { adapter: 'fullstack', backend: 'junit' }), ['all', 'java', 'rest', 'web', 'typescript', 'javascript'])
 })
 
-test('the hub: environment first, then the config, trailing slash dropped, nothing when neither names one', () => {
-  assert.equal(hubOf({ centralContext: { hub: 'http://hub.test:8080/' } }, {}), 'http://hub.test:8080')
-  assert.equal(hubOf({ centralContext: { hub: 'http://hub.test' } }, { CC_HUB_URL: 'http://env.test' }), 'http://env.test')
-  assert.equal(hubOf({}, {}), null)
-  assert.equal(hubOf({ centralContext: { hub: '  ' } }, {}), null)
-  assert.equal(hubOf({ centralContext: { hub: 'off' } }, {}), 'off')
+test('testingRules: active quality rules about testing for the side only, most severe first; never CI or infrastructure', () => {
+  assert.deepEqual(ids(testingRules(DOCS, stacksFor('backend'))), ['isolated-tests', 'coverage', 'node-only'])
+  assert.deepEqual(ids(testingRules(DOCS, stacksFor('frontend'))), ['isolated-tests', 'coverage', 'web-only'])
+  assert.deepEqual(ids(testingRules(DOCS, stacksFor('fullstack'))), ['isolated-tests', 'coverage', 'node-only', 'web-only'])
+  assert.deepEqual(testingRules(undefined, ['all']), [])
 })
 
-test('the snapshot holds every rule, active, with a release id', () => {
-  const s = loadSnapshot()
-  assert.equal(s.source, 'snapshot')
-  assert.deepEqual(s.missing, [])
-  assert.ok(s.rules.every(r => r.status === 'active' && r.summary && r.owner), 'each rule has status, summary and owner')
-  assert.match(s.release, /^dir-[0-9a-f]+$/)
-  const raw = JSON.parse(readFileSync(SNAPSHOT_URL, 'utf8'))
-  assert.deepEqual(raw.rules.map(r => r.id).sort(), [...RULE_IDS].sort())
+test('hubOf: CC_HUB_URL wins over the config; a trailing slash is dropped; nothing named is null', () => {
+  assert.equal(hubOf({ centralContext: { hub: 'http://a:1/' } }, {}), 'http://a:1')
+  assert.equal(hubOf({ centralContext: { hub: 'http://a:1' } }, { CC_HUB_URL: 'http://b:2' }), 'http://b:2')
+  assert.equal(hubOf(null, {}), null)
 })
 
-test('live: all three rules, the release from the manifest, the card says live', async () => {
-  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS]) })
-  assert.equal(p.source, 'hub')
-  assert.equal(p.release, 'dir-abc')
-  assert.equal(p.rules.length, 3)
-  assert.deepEqual(p.missing, [])
-  assert.equal(p.error, null)
-  assert.equal(rulesCardLine(p), 'Rules: Central Context release dir-abc, 3 rules read live.')
-  assert.deepEqual(auditRules(p), { source: 'hub', release: 'dir-abc', ids: RULE_IDS.map(id => `${id}@active`), missing: [] })
+test('readRules: the hub\'s release and rules; no hub, "off" or a failing hub read none and say why, never throw', async () => {
+  const config = { adapter: 'vitest', centralContext: { hub: 'http://hub' } }
+  const r = await readRules({ side: 'backend', config, env: {}, fetchImpl: fetchOk })
+  assert.equal(r.source, 'hub')
+  assert.equal(r.release, 'local-abc')
+  assert.deepEqual(ids(r.rules), ['isolated-tests', 'coverage', 'node-only'])
+  assert.match(formatRules(r), /^From Central Context \(release local-abc\): testing rules for the backend side \(all, node, typescript, javascript, rest\)\n  quality\.isolated-tests · high\n    isolated-tests summary\./)
+  const none = async (c, f) => formatRules(await readRules({ side: 'backend', config: c, env: {}, fetchImpl: f }))
+  assert.equal(await none({ adapter: 'vitest' }), 'From Central Context: not configured (centralContext.hub), so no rule is applied.')
+  assert.equal(await none({ adapter: 'vitest', centralContext: { hub: 'off' } }), 'From Central Context: off (centralContext.hub: "off"), so no rule is applied.')
+  assert.equal(await none(config, async () => { throw new Error('fetch failed') }), 'From Central Context: not reachable at http://hub (fetch failed), so no rule is applied.')
+  assert.equal(await none(config, async () => ({ ok: false, status: 503 })), 'From Central Context: not reachable at http://hub (HTTP 503), so no rule is applied.')
+  const empty = await readRules({ side: 'frontend', config, env: {}, fetchImpl: async () => ({ ok: true, json: async () => ({ release: { release_id: 'r' }, documents: [] }) }) })
+  assert.match(formatRules(empty), /: none applies\.$/)
 })
 
-test('live with a rule the hub does not know: reported missing, never invented, and said on the card', async () => {
-  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([GATE_RULES.honesty]) })
-  assert.equal(p.source, 'hub')
-  assert.deepEqual(p.rules.map(r => r.id), [GATE_RULES.honesty])
-  assert.deepEqual(p.missing, [GATE_RULES.readiness, GATE_RULES.fail_evidence])
-  assert.match(rulesCardLine(p), /1 rule read live, 2 missing\.$/)
-  const log = rulesLogLines(p).join('\n')
-  assert.match(log, /\| readiness \| `quality\.ready-requirement-before-test-generation` \| \*\*missing\*\* \|/)
-  assert.match(log, /A missing rule is not a passed rule/)
-})
-
-test('a 500 on the manifest is a transport error: snapshot, with the reason kept', async () => {
-  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS], { manifest: false }) })
-  assert.equal(p.source, 'snapshot')
-  assert.match(p.error, /not reachable at http:\/\/hub\.test \(\/v1\/manifest: HTTP 500\)/)
-  assert.equal(p.rules.length, 3)
-  assert.equal(p.hub, 'http://hub.test')
-})
-
-test('hub down: the snapshot, the error on the card and in the log', async () => {
-  const p = await resolveRules({ hub: 'http://hub.test', fetchImpl: async () => { throw new Error('ECONNREFUSED') } })
-  assert.equal(p.source, 'snapshot')
-  assert.match(p.error, /^Central Context not reachable at http:\/\/hub\.test \(ECONNREFUSED\)$/)
-  assert.match(rulesCardLine(p), /^Rules: pinned Central Context snapshot dir-[0-9a-f]+ \(Central Context not reachable/)
-  assert.match(rulesLogLines(p).join('\n'), /\*\*Hub not used:\*\* Central Context not reachable/)
-})
-
-test('not configured and off: the snapshot without a network call, each with its own reason', async () => {
-  const never = async () => { throw new Error('must not be called') }
-  const none = await resolveRules({ hub: null, fetchImpl: never })
-  assert.equal(none.source, 'snapshot')
-  assert.match(none.error, /not configured \(centralContext\.hub\)/)
-  const off = await resolveRules({ hub: 'off', fetchImpl: never })
-  assert.equal(off.source, 'snapshot')
-  assert.match(off.error, /off \(centralContext\.hub: "off"\)/)
-})
-
-test('no hub and no snapshot: a record that says so, every rule missing', async () => {
-  const p = await resolveRules({ hub: null, snapshotUrl: new URL('./nowhere.json', import.meta.url) })
-  assert.equal(p.source, 'none')
-  assert.deepEqual(p.missing, [...RULE_IDS])
-  assert.match(rulesCardLine(p), /^Rules: no Central Context source/)
-  assert.match(rulesLogLines(p).join('\n'), /\*\*No rule source:\*\*/)
-  assert.deepEqual(auditRules(p), { source: 'none', release: null, ids: [], missing: [...RULE_IDS] })
-})
-
-test('fetchFromHub asks the manifest and each rule by id, with a timeout signal', async () => {
-  const calls = []
-  const p = await fetchFromHub('http://hub.test', { fetchImpl: async (url, init) => { calls.push(url); assert.ok(init.signal instanceof AbortSignal); return fakeFetch([...RULE_IDS])(url) }, timeoutMs: 50 })
-  assert.equal(calls[0], 'http://hub.test/v1/manifest')
-  assert.deepEqual(calls.slice(1).sort(), RULE_IDS.map(id => `http://hub.test/v1/documents/${encodeURIComponent(id)}`).sort())
-  assert.equal(p.release, 'dir-abc')
-})
-
-test('the log section: every gate once, each rule summary once, the mapping sentence', async () => {
-  const lines = rulesLogLines(await resolveRules({ hub: 'http://hub.test', fetchImpl: fakeFetch([...RULE_IDS]) }))
-  assert.equal(lines[1], '## Rules (Central Context)')
-  assert.equal(lines.filter(l => l.startsWith('| ')).length, 1 + 3, 'header row and three gate rows')
-  assert.equal(lines.filter(l => l.startsWith('- `quality.')).length, 3)
-  assert.match(lines.at(-1), /^Checks and gates: /)
-  assert.deepEqual(rulesLogLines(null), [])
-  assert.equal(rulesCardLine(null), null)
+test('rules.mjs: the project side by default, --side for a ticket, a RULES_JSON line, exit 2 on a bad side', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-rules-'))
+  mkdirSync(join(root, '.claude'))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
+  const run = async argv => { let out = ''; let err = ''; const code = await main(argv, { CLAUDE_PROJECT_DIR: root }, root, { fetchImpl: fetchOk, stdout: s => { out += s }, stderr: s => { err += s } }); return { code, out, err } }
+  const fe = await run([])
+  assert.equal(fe.code, 0)
+  assert.match(fe.out, /testing rules for the frontend side/)
+  assert.equal(JSON.parse(fe.out.split('RULES_JSON:')[1]).rules.length, 3)
+  assert.match((await run(['--side', 'fullstack'])).out, /fullstack side/)
+  const bad = await run(['--side', 'mobile'])
+  assert.equal(bad.code, 2)
+  assert.match(bad.err, /^--side must be frontend, backend, fullstack/)
 })

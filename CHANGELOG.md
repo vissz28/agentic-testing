@@ -9,22 +9,19 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-02
+
 ### Added
 
-- **Central Context rules** (`/quality-code:spec`, `/quality-code:run-*`, the run log, the audit log): the gate and the
-  checks answer to three rules of the TeamSystem Central Context quality domain, cited by id, never by copied text:
-  `quality.ready-requirement-before-test-generation` (the gate, the expected-value check),
-  `quality.generated-test-fail-evidence` (tests, mutation, Stryker) and `quality.test-assertion-honesty` (honesty,
-  assertions). Each pipeline run reads them from the hub named in the new optional `centralContext.hub` of
-  `.claude/quality-code.json` (the local preview, `cc-hub serve` at `http://localhost:8080`, or HoT's hosted hub;
-  `CC_HUB_URL` overrides it) and records id, status, severity and release: one `Rules:` line on the card, a
-  `## Rules (Central Context)` section and a `Rule:` line under each check in the run log, and `rules` on the
-  pipeline audit event. Without a hub, or with `"off"`, the plugin's pinned snapshot of the three rules stands in and
-  the record says so; a rule the hub does not know is reported missing and never skips a check. A new
-  `central-context` connector (`central_context_url` in the plugin settings, default `http://localhost:8080`) lets
-  the model read the same rules over MCP before the gate. Nothing is graded by a rule: the scripts grade, the rules
-  say what they answer to.
-
+- **Central Context testing rules** (`/quality-code:spec`): before the plan, the new `bin/rules.mjs` reads the
+  company's Central Context hub (`GET /v1/manifest`) and keeps the active rules of the quality domain about testing
+  (tagged `test`, `testing`, `testability`, `unit-test` and the like) whose `applies_to` fits the ticket's side:
+  `all` plus `node`, `typescript`, `javascript` and `rest` for a Vitest backend (`python`, `java`, `dotnet` for the
+  other runners), `web`, `typescript` and `javascript` for the frontend, both for a fullstack ticket. CI and
+  infrastructure rules are left out. The plan shows them with the hub's release and the tests follow them; a rule
+  never gives an expected value, changes a score or skips a check. The hub is the new optional `centralContext.hub`
+  in `.claude/quality-code.json` (`CC_HUB_URL` overrides it, `"off"` reads none); without one, or when it does not
+  answer, the plan says so and the run goes on.
 - **Coverage on Java, Kotlin and .NET** (`/quality-code:kpi`): the coverage line now reads JaCoCo (Maven's
   `jacoco.xml`, Gradle's `jacocoTestReport.xml` and `testCodeCoverageReport.xml`) and coverlet's
   `coverage.cobertura.xml`, anywhere in the repo, summed over the modules. A JaCoCo aggregate report stands for the

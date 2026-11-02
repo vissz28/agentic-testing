@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality Code",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes backend tests (Vitest, pytest, JUnit, Go, .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
   "homepage": "https://github.com/vissz28/agentic-testing#readme",
   "repository": "https://github.com/vissz28/agentic-testing",
@@ -52,12 +52,6 @@
       "title": "Jira API token",
       "description": "Optional: an Atlassian API token (id.atlassian.com, Security, API tokens) for the account of jira_email. With it the plugin reads a ticket's .docx files and screenshots, which the Atlassian connector cannot download; it only reads, and only from your *.atlassian.net site.",
       "sensitive": true
-    },
-    "central_context_url": {
-      "type": "string",
-      "title": "Central Context hub URL",
-      "description": "The base address of the TeamSystem Central Context hub the rules are read from: the local preview (cc-hub serve, http://localhost:8080) or HoT's hosted hub. The checks answer to its quality rules by id; each run records which release it read them from.",
-      "default": "http://localhost:8080"
     },
     "figma_api_key": {
       "type": "string",
