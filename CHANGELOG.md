@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-03
+
+### Changed
+
+- **A wrap-up you read in one go.** What Claude writes after the last card is at most 250 words, in a fixed order:
+  the verdict in bold, `What we made` as a table, `Needs you` as numbered steps, `Good to know` as at most three lines.
+- **Plain words, files as `HERE` links.** Results are written so a 12-year-old follows them, and a file shows as a
+  clickable `HERE` instead of its whole path.
+
 ## [0.37.0] - 2026-11-02
 
 ### Added

@@ -1,6 +1,6 @@
 # How results look in the chat
 
-Every command follows this guide when it shows a card or a script's output. It changes the look, never the content: every number, score, verdict, rule id, path, test name and option stays exactly as the script or the card gives it. Nothing is added that the output does not say, and nothing is graded. Where a command says to show something "exactly as printed" or "as printed", that holds for its words, numbers and order; how it is laid out is this guide's. A reader who is not technical (a manager, a CTO) should get each result at a glance.
+Every command follows this guide when it shows a card or a script's output. It changes the look, never the content: every number, score, verdict, rule id, path, test name and option stays exactly as the script or the card gives it (a file's path may sit behind a `HERE` link, see **Files are links**). Nothing is added that the output does not say, and nothing is graded. Where a command says to show something "exactly as printed" or "as printed", that holds for its words, numbers and order; how it is laid out is this guide's. A reader who is not technical (a manager, a CTO) should get each result at a glance, and so should a developer: plain words, the result in bold, nothing to read twice.
 
 ## Progress
 
@@ -15,8 +15,11 @@ A command with more than two steps shows its progress as a live checklist, with 
 
 - **A section only where the reader reads or decides**: the gate's score, the plan, the result, a Jira post, a warning. Its heading has three hashes, an emoji and two or three words: `### 🎫 Ticket`, `### 🧪 Plan`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Every other step is only its checklist item. Headings are in the language of the conversation.
 - **The headline first.** Right under the heading, one bold line with the outcome, then the details. Never a paragraph of more than two lines; between sections nothing but the checklist.
+- **Plain words.** Write so a 12-year-old follows it: short sentences, everyday words, one idea per line. A technical word the reader needs (a tag, a test name, a command) stays as it is, with a few plain words after it the first time: `@anchor` *(the tests that catch the bug)*. Say "fails" and "passes", not "red" and "green", outside the verdict.
+- **Bold carries the result**: the verdict, the count that matters, the thing the reader has to do. One or two bold phrases per line, never a whole sentence.
+- **Files are links.** A file is never shown as its path: name it in plain words and link the word `HERE` to it, `the test file [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts)`. The link target is the file's full path on this computer, so a click opens it. Two files on one line: `Excel [HERE](…) · CSV [HERE](…)`. A folder works the same way.
 - **Lists become tables** when they have two or more columns of meaning. At most 8 rows; then a last row `… and N more` (the run log has them all).
-- **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Paths, ids and commands go in `code`.
+- **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Ids, tags and commands go in `code`; files are `HERE` links.
 - **Green and red lines** (passed and failed tests, scores against the bar) go in a `diff` block: `+ ` for green, `- ` for red, one line each.
 - **Hints and rules** go in a quote: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`.
 - **Never a code block for a card.** The commands write their cards inside code blocks only to fix the words. In the chat a card is never in a code block, and never a gray box of indented lines: its information is a section laid out as below, and its options are the picker. The only code blocks you show are the `diff` blocks of tests.
@@ -52,9 +55,43 @@ Extra probes get their own rows, marked `➕ extra`.
 |---|---|---|
 | honesty | ✅ | no assertion or test removed |
 
-`What to do` as a numbered list in a 🛠️ quote. A `🔴 [RISK / NOT RECOMMENDED]` line stays as it is, on its own line, never softened. The `Rules:` line and `Full details:` path last, on two small lines.
+`What to do` as a numbered list in a 🛠️ quote. A `🔴 [RISK / NOT RECOMMENDED]` line stays as it is, on its own line, never softened. The `Rules:` line and `Full details: [HERE](…)` last, on two small lines.
 
 **Anything else a script prints** (a setup summary, a KPI or consumption report, a list of tickets): the same way, a headline, then a table for what has columns and a short list for the rest.
+
+## The wrap-up
+
+What you write after the last card (what was made, what went wrong, what is left) is read in one go: **at most 250 words**, the card above it not counted. It never repeats the card's tests or checks. Always in this order, leaving out a section with nothing in it:
+
+1. **The verdict**, one bold line with its mark, then one plain sentence on what it means for the reader.
+2. `### 📄 What we made`: a table, one row per thing made, with what it is, what it does in a few words, and its `HERE` link.
+3. `### 🛠️ Needs you`: a numbered list, only what the reader has to do, each starting with a bold verb. Nothing to do: leave it out.
+4. `### ℹ️ Good to know`: at most three one-line bullets, each with a bold label: what was fixed on the way, what could not be checked, what is not committed.
+
+Over 250 words: cut **Good to know** first, then shorten rows. Never cut a step from **Needs you**, a ❌ or a 🔴 line.
+
+For example, after a `tests red` card:
+
+---
+
+**❌ Checks failed**, but not because of the tests. **4 of 5 tests fail on the bug**, as they should; one setting from outside this run tripped the checks.
+
+### 📄 What we made
+| | What | Where |
+|---|---|---|
+| 🧪 | **5 tests** for the order form: 4 catch the bug `@anchor`, 1 control passes | [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts) |
+| 📋 | **5 Xray cases** (TC 1 to TC 5) | [HERE](/Users/me/shop/.claude/harness/testcases.csv) |
+| 📊 | **QA files** | Excel [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.xlsx) · CSV [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.csv) |
+
+### 🛠️ Needs you
+1. **Remove** the `outputStyle` setting [HERE](/Users/me/shop/.claude/settings.json) (not added by this run), then run `/quality-code:run-frontend` again for a clean result.
+
+### ℹ️ Good to know
+- **Fixed on the way:** the form needs a date the ticket does not mention, so the tests fill one in.
+- **Not checked:** the Confluence QA plan (no access).
+- **Not committed:** nothing is committed yet.
+
+---
 
 ## Questions
 
