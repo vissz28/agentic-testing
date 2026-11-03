@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml"><img src="https://github.com/vissz28/agentic-testing/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+  <a href="https://teamsystem.ghe.com/teamsystem/quality-code/actions/workflows/test.yml"><img src="https://teamsystem.ghe.com/teamsystem/quality-code/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin-0090D1" alt="Claude Code plugin">
   <img src="https://img.shields.io/badge/Vitest%20%C2%B7%20pytest%20%C2%B7%20JUnit%20%C2%B7%20Go%20%C2%B7%20.NET%20%C2%B7%20Playwright-005075" alt="Vitest, pytest, JUnit, Go, .NET and Playwright">
 </p>
@@ -346,13 +346,13 @@ Go or .NET project, and access to your Jira site.
 In Claude Code, inside your repo:
 
 ```
-/plugin install quality-code --marketplace vissz28/agentic-testing
+/plugin install quality-code --marketplace https://teamsystem.ghe.com/teamsystem/quality-code.git
 ```
 
 On Claude Code older than 2.1.275, use two steps:
 
 ```
-/plugin marketplace add vissz28/agentic-testing
+/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
 /plugin install quality-code@teamsystem
 ```
 
@@ -361,7 +361,7 @@ On Claude Code older than 2.1.275, use two steps:
 ```json
 {
   "extraKnownMarketplaces": {
-    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "git", "url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" } }
   },
   "enabledPlugins": { "quality-code@teamsystem": true }
 }
@@ -444,7 +444,7 @@ Switch once, in Claude Code:
 ```
 /plugin uninstall quality-code@quality-code
 /plugin marketplace remove quality-code
-/plugin install quality-code --marketplace vissz28/agentic-testing
+/plugin install quality-code --marketplace https://teamsystem.ghe.com/teamsystem/quality-code.git
 ```
 
 Then `/reload-plugins`, and run `/quality-code:spec`: the connectors card asks again for the
@@ -486,5 +486,5 @@ Details: [Guide, "Safety and privacy"](docs/GUIDE.md#safety-and-privacy).
 
 ## Support
 
-Questions and problems: [issues](https://github.com/vissz28/agentic-testing/issues). Made by Elvis
+Questions and problems: [issues](https://teamsystem.ghe.com/teamsystem/quality-code/issues). Made by Elvis
 Zefaj.

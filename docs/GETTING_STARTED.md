@@ -18,7 +18,7 @@ You need:
 - **Node 18 or newer.**
 - A repo whose `package.json` has `@playwright/test` or `vitest`.
 - Access to your **Jira** site. Claude Code will ask you to sign in to Atlassian the first time.
-- Access to the plugin repo: `git clone https://github.com/vissz28/agentic-testing` must work on
+- Access to the plugin repo: `git clone https://teamsystem.ghe.com/teamsystem/quality-code` must work on
   your machine (keychain login, `gh auth login` or SSH).
 
 ---
@@ -28,7 +28,7 @@ You need:
 Open Claude Code in your repo and type:
 
 ```
-/plugin marketplace add vissz28/agentic-testing
+/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
 /plugin install quality-code@teamsystem
 ```
 
@@ -48,7 +48,7 @@ repo's `.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "git", "url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" } }
   },
   "enabledPlugins": { "quality-code@teamsystem": true }
 }
@@ -290,7 +290,7 @@ What does **not** count:
 | `This stack is not supported yet` | `package.json` has neither Playwright nor Vitest |
 | `Sign in to Atlassian when prompted…` | type `/mcp` and connect Atlassian, or paste the ticket text |
 | "This ticket is from project X…" | pick `1` to check it anyway, or add the project with setup |
-| `marketplace add` fails | check that `git clone https://github.com/vissz28/agentic-testing` works on its own |
+| `marketplace add` fails | check that `git clone https://teamsystem.ghe.com/teamsystem/quality-code` works on its own |
 
 ---
 

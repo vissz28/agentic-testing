@@ -132,7 +132,7 @@ Add, so everyone who opens the repo is offered the plugin:
 ```json
 {
   "extraKnownMarketplaces": {
-    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
+    "teamsystem": { "source": { "source": "git", "url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" } }
   },
   "enabledPlugins": { "quality-code@teamsystem": true }
 }
@@ -180,7 +180,7 @@ Proofs (AGT-85):
 - Checks: <branch>, same verdicts: <table>, deliberate differences: <list or none>.
 - Writing: <KEY>, specs read by <name>.
 
-How to install: /plugin marketplace add vissz28/agentic-testing, then
+How to install: /plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git, then
 /plugin install quality-code@teamsystem (0.8.0 or later).
 ```
 

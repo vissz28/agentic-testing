@@ -11,14 +11,14 @@ The [Guide](GUIDE.md) and [Getting started](GETTING_STARTED.md) have more.
 | Node 18 or newer | `node --version` |
 | A repo whose `package.json` has `vitest` or `@playwright/test` | that is the stack the plugin will use |
 | Access to your Jira site | you can open a ticket of your project in the browser |
-| Read access to `vissz28/agentic-testing` | `git clone https://github.com/vissz28/agentic-testing` works |
+| Read access to `teamsystem/quality-code` | `git clone https://teamsystem.ghe.com/teamsystem/quality-code` works |
 
 ## 1. Install (each person, once)
 
 In Claude Code, inside your repo:
 
 ```
-/plugin marketplace add vissz28/agentic-testing
+/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
 /plugin install quality-code@teamsystem
 ```
 

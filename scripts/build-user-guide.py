@@ -94,7 +94,7 @@ def cover(canvas, doc):
     canvas.rect(0, h - 111 * mm, w * 0.35, 2 * mm, stroke=0, fill=1)
     canvas.setFont('Sans', 8)
     canvas.setFillColor(GREY)
-    canvas.drawString(20 * mm, 12 * mm, f'quality-code {VERSION} · github.com/vissz28/agentic-testing')
+    canvas.drawString(20 * mm, 12 * mm, f'quality-code {VERSION} · teamsystem.ghe.com/teamsystem/quality-code')
     canvas.restoreState()
 
 
@@ -144,7 +144,7 @@ story += [p('1. Install (each person, once)', 'h1'),
           *steps([
               'In a Claude Code session, inside your repo, add the marketplace and install the plugin:',
           ]),
-          code('/plugin marketplace add vissz28/agentic-testing\n/plugin install quality-code@teamsystem'),
+          code('/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git\n/plugin install quality-code@teamsystem'),
           *steps([
               f'Open <font name="Mono">/plugin</font> and check that quality-code shows version <b>{VERSION}</b>. '
               'If it shows an older one, go to <b>Marketplaces</b>, pick quality-code, choose <b>Update marketplace</b> '
@@ -166,7 +166,7 @@ story += [p('1. Install (each person, once)', 'h1'),
           p('To offer the plugin to everyone who opens the repo, commit this in '
             '<font name="Mono">.claude/settings.json</font>:'),
           code('{\n  "extraKnownMarketplaces": {\n    "teamsystem": { "source": { "source": "github", '
-               '"repo": "vissz28/agentic-testing" } }\n  },\n  "enabledPlugins": { "quality-code@teamsystem": true }\n}'),
+               '"url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" } }\n  },\n  "enabledPlugins": { "quality-code@teamsystem": true }\n}'),
           PageBreak()]
 
 story += [p('3. Every day: start from your branch', 'h1'),
@@ -282,7 +282,7 @@ story += [p('9. Bringing a team on board', 'h1'),
               ['A write is blocked by the boundary', 'The test tried to change application code. Tests never do; ask a person if it really belongs there.'],
           ], [62, 108]),
           Spacer(1, 6),
-          p('More: the README and docs/GETTING_STARTED.md in github.com/vissz28/agentic-testing; what changed in each '
+          p('More: the README and docs/GETTING_STARTED.md in teamsystem.ghe.com/teamsystem/quality-code; what changed in each '
             'version is in CHANGELOG.md.', 'small')]
 
 doc = SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=20 * mm,

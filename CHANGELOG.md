@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.44.2] - 2026-11-03
+
+### Changed
+
+- The plugin now lives in the TeamSystem organization: `https://teamsystem.ghe.com/teamsystem/quality-code`. The listing links, the guides, the user guide PDF script and the CI file the `ci` command writes (it clones the plugin from there) point to the new address.
+- New `mcp-server/DEPLOY.md`: how to run the shared MCP server in dev, test and main with Microsoft Entra ID sign-in (AGT-157, HWS-1334).
+
+### What to do
+
+The marketplace address changed. Run `/plugin marketplace remove teamsystem`, then `/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git`, then `/plugin update quality-code@teamsystem`. You need access to the repository on teamsystem.ghe.com (SSO authorized). If you pinned the marketplace in `settings.json`, use `{ "source": "git", "url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" }`. A CI job that cloned the plugin from the old address needs a token for the new one.
+
 ## [0.44.1] - 2026-11-03
 
 ### Fixed

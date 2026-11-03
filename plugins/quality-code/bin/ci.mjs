@@ -115,7 +115,7 @@ const JS_STACK = { backend: 'vitest', playwright: false, pm: 'npm', lock: true, 
 
 /** The CI file: the gate and the tests, the plugin fetched at the version this one is. */
 export function template(provider, version, s = JS_STACK) {
-  const fetch = `git clone --quiet --depth 1 --branch quality-code--v${version} https://github.com/vissz28/agentic-testing.git /tmp/quality-code`
+  const fetch = `git clone --quiet --depth 1 --branch quality-code--v${version} https://teamsystem.ghe.com/teamsystem/quality-code.git /tmp/quality-code`
   const ci = 'node /tmp/quality-code/plugins/quality-code/bin/ci.mjs'
   const native = s.backend && s.backend !== 'vitest' ? s.backend : null
   const install = installLines(s)

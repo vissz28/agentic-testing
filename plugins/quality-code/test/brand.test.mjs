@@ -35,5 +35,5 @@ test('the icon is the logo PNG inside the plugin, with its SVG source next to it
   assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [512, 512])
 })
 test('the listing links point at this repository', () => {
-  for (const k of ['homepage', 'repository', 'documentationUrl', 'supportUrl']) assert.match(plugin[k], /^https:\/\/github\.com\/vissz28\/agentic-testing/, k)
+  for (const k of ['homepage', 'repository', 'documentationUrl', 'supportUrl']) assert.match(plugin[k], /^https:\/\/teamsystem\.ghe\.com\/teamsystem\/quality-code/, k)
 })

@@ -73,6 +73,8 @@ or without Docker: set the same variables plus `QUALITY_CODE_PROJECT_DIR=/srv/pr
 
 What is checked on every request: the signature (against the tenant's published keys, cached), the issuer (v1.0 or v2.0 of your tenant), the tenant (`tid`), the audience (your client ID or `api://<client id>`), the expiry, and the scope or role when you require one. Anything else gets `401`. Clients sign in through the usual MCP OAuth flow against Entra; the server never sees a password.
 
+To run it in dev, test and main, see [DEPLOY.md](DEPLOY.md).
+
 Known limits: the scripts see one shared project folder, so ticket copies that the commands save are shared by all callers; and Jira itself is reached by the caller's own Atlassian connector, not by this server. There is no rate limit beyond the 4 concurrent runs: put the server behind a gateway for that.
 
 ## Test
