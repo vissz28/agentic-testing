@@ -9,6 +9,11 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-03
+
+### Added
+- `/quality-code:spec` searches Central Context with the `central-context` connector on every run: one search on the ticket's topic (a second only for a topic the first missed), shown as the `Searched Central Context` step. A hit that fits the tests is read in full and applied; none that fits is dropped and the run goes on with the rules `rules.mjs` reads. Each call names the project and the ticket in `client_context`, which Central Context records. The two connector tools are pre-approved for spec.
+
 ## [0.45.0] - 2026-11-03
 
 ### Added
