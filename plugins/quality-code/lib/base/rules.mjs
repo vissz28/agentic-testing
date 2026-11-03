@@ -12,6 +12,7 @@
 // tests it writes for the ticket, and says how many it applied from each.
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { backendOf } from './backends.mjs'
 
 export const HUB_TIMEOUT_MS = 3000
@@ -77,42 +78,65 @@ export function parseRule(text) {
  * The team's own rules from a folder of rule files: every one that is active (the default) and whose applies_to
  * (default all) meets the stacks. Every rule in the folder is the team's testing rule, whatever its domain or tags.
  */
+const LOCAL_STATUSES = new Set(['active', 'draft'])
+
 export function localRules(root, dir, stacks) {
   let files
   try { files = readdirSync(join(root, dir)).filter(f => f.endsWith('.md') && !/^(README|CHANGELOG)\.md$/i.test(f)).sort() } catch { return { dir, rules: [], error: `folder not found: ${dir}` } }
   const want = new Set(stacks)
   const docs = files.map(f => parseRule(readFileSync(join(root, dir, f), 'utf8'))).filter(d => d?.id && d.summary)
-  const rules = docs.filter(d => (d.status ?? 'active') === 'active' && (d.applies_to ?? ['all']).some(a => want.has(a))).map(pick).sort(bySeverity)
+  // The team's own drafts count: the folder is the team's choice. Deprecated and retired rules do not.
+  const rules = docs.filter(d => LOCAL_STATUSES.has(d.status ?? 'active') && (d.applies_to ?? ['all']).some(a => want.has(a)))
+    .map(d => ({ ...pick(d), status: d.status ?? 'active' })).sort(bySeverity)
   return { dir, rules, error: null }
 }
 
-/** The rules for a side, read from the hub. Never throws: without a hub, or when it fails, there are no rules and the reason says why. */
-export async function readRules({ side, config = null, root = null, env = process.env, fetchImpl = globalThis.fetch, timeoutMs = HUB_TIMEOUT_MS } = {}) {
+// The rules the plugin ships (rules/ next to lib/): drafts that hold until Central Context publishes them.
+export const BUILTIN_ROOT = fileURLToPath(new URL('../../', import.meta.url))
+export const BUILTIN_DIR = 'rules/'
+
+/**
+ * The rules for a side, from three sources: the project's own (`centralContext.local`), Central Context's and the
+ * plugin's built-in ones. One id is one rule: the project's wins, then Central Context's (a published rule replaces
+ * the plugin's draft of it), then the built-in one. Never throws: a source that fails has no rules and says why.
+ */
+export async function readRules({ side, config = null, root = null, env = process.env, fetchImpl = globalThis.fetch, timeoutMs = HUB_TIMEOUT_MS, builtinRoot = BUILTIN_ROOT } = {}) {
   const hub = hubOf(config, env)
   const stacks = stacksFor(side, config)
   const dir = config?.centralContext?.local
   const local = dir && root ? localRules(root, dir, stacks) : null
-  const none = error => ({ source: 'none', hub, release: null, side, stacks, rules: [], error, local })
+  const shipped = localRules(builtinRoot, BUILTIN_DIR, stacks)
+  const taken = new Set(local?.rules.map(x => x.id))
+  const done = r => {
+    for (const x of r.rules) taken.add(x.id)
+    return { ...r, local, builtin: { ...shipped, rules: shipped.rules.filter(x => !taken.has(x.id)) } }
+  }
+  const none = error => done({ source: 'none', hub, release: null, side, stacks, rules: [], error })
   if (hub === null) return none('not configured (centralContext.hub)')
   if (hub === 'off') return none('off (centralContext.hub: "off")')
   try {
     const res = await fetchImpl(`${hub}/v1/manifest`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const manifest = await res.json()
-    return { source: 'hub', hub, release: manifest?.release?.release_id ?? null, side, stacks, rules: testingRules(manifest?.documents, stacks), error: null, local }
+    return done({ source: 'hub', hub, release: manifest?.release?.release_id ?? null, side, stacks, rules: testingRules(manifest?.documents, stacks).filter(x => !taken.has(x.id)), error: null })
   } catch (e) {
     return none(`not reachable at ${hub} (${String(e?.message ?? e).split('\n')[0]})`)
   }
 }
 
 const count = n => `${n || 'no'} testing rule${n === 1 ? '' : 's'}`
+const draftNote = rules => {
+  const d = rules.filter(x => x.status === 'draft').length
+  return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : `${d} draft${d === 1 ? '' : 's'}`}`
+}
 
 /** One line per source spec shows as a completed step: what was read, what for, and from where. The rules themselves travel in RULES_JSON. */
 export function formatRules(r) {
-  const own = r.local?.rules.length ?? 0
-  const hub = r.source !== 'hub'
-    ? `⚠️ Central Context not read: ${r.error}.${own ? '' : ' No rule applied.'}`
-    : `✅ Read from Central Context: ${count(r.rules.length)} for the ${r.side} side (release ${r.release}, ${r.hub})`
-  if (!r.local) return hub
-  return `${hub}\n${r.local.error ? `⚠️ Local rules not read: ${r.local.error}.` : `✅ Read from local rules: ${count(own)} for the ${r.side} side (${r.local.dir})`}`
+  const others = (r.local?.rules.length ?? 0) + (r.builtin?.rules.length ?? 0)
+  const lines = [r.source !== 'hub'
+    ? `⚠️ Central Context not read: ${r.error}.${others ? '' : ' No rule applied.'}`
+    : `✅ Read from Central Context: ${count(r.rules.length)} for the ${r.side} side (release ${r.release}, ${r.hub})`]
+  if (r.builtin && !r.builtin.error && r.builtin.rules.length) lines.push(`✅ Read the plugin's built-in rules: ${count(r.builtin.rules.length)} for the ${r.side} side${draftNote(r.builtin.rules)}`)
+  if (r.local) lines.push(r.local.error ? `⚠️ Local rules not read: ${r.local.error}.` : `✅ Read from local rules: ${count(r.local.rules.length)} for the ${r.side} side (${r.local.dir})${draftNote(r.local.rules)}`)
+  return lines.join('\n')
 }

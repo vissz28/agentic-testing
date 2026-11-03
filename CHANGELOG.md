@@ -17,6 +17,11 @@ Update with `/plugin update quality-code@teamsystem`.
   candidates: the spec applies only the rules that fit the tests it writes for the ticket and says how many
   (`Read from Central Context · 6 rules, 2 apply`, `Read from local rules · 3 rules, 1 applies`). Where the two
   disagree, the team's rule wins. A hub that is down still leaves the local rules.
+- **Built-in rules shipped with the plugin** (`rules/`): five draft quality rules every developer gets with the
+  plugin, read on every run on their own line: ready requirement before test generation, fail evidence for generated
+  tests, every test asserts an observable outcome, justified changes to existing tests, and requirement, story and
+  test traceability. A rule Central Context publishes with the same id replaces the plugin's draft, and the team's
+  own rule replaces both.
 
 ## [0.39.0] - 2026-11-03
 
