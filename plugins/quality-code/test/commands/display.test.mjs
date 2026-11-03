@@ -52,13 +52,14 @@ test('the report output style: keeps the coding instructions, is never forced, a
   assert.match(style, /A choice is the question picker \(`AskUserQuestion`\), never a numbered list in the text/)
 })
 
-test('plain words, files behind HERE links, and a wrap-up of at most 250 words', () => {
-  assert.match(guide, /\*\*Plain words\.\*\* Write so a 12-year-old follows it/)
+test('clear words, nothing obvious, files behind HERE links, and a wrap-up of at most 400 words', () => {
+  assert.match(guide, /\*\*Never state the obvious\.\*\* No line for what the command always does or never does/)
   assert.match(guide, /\*\*Files are links\.\*\* A file is never shown as its path: name it in plain words and link the word `HERE` to it/)
-  assert.match(guide, /\*\*at most 250 words\*\*, the card above it not counted/)
+  assert.match(guide, /\*\*at most 400 words\*\*, the card above it not counted/)
   assert.match(guide, /Never cut a step from \*\*Needs you\*\*, a ❌ or a 🔴 line/)
   const example = guide.split('## The wrap-up')[1].split('\n---\n')[1]
-  assert.ok(example.replace(/\([^)]*\)/g, '').split(/\s+/).filter(Boolean).length <= 250)
+  assert.ok(example.replace(/\([^)]*\)/g, '').split(/\s+/).filter(Boolean).length <= 400)
+  assert.doesNotMatch(example, /^### \p{Extended_Pictographic}/mu, 'no emoji in the wrap-up headings')
   assert.doesNotMatch(example, /`[^`]*\/[^`]*\.\w+`/, 'no file path in code in the example')
   assert.match(read('output-styles/report.md'), /link the word `HERE` to its full path/)
 })

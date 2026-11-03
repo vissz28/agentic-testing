@@ -15,7 +15,8 @@ A command with more than two steps shows its progress as a live checklist, with 
 
 - **A section only where the reader reads or decides**: the gate's score, the plan, the result, a Jira post, a warning. Its heading has three hashes, an emoji and two or three words: `### 🎫 Ticket`, `### 🧪 Plan`, `### 🏁 Result`, `### 📝 Jira`. Other steps pick a fitting emoji the same way. Every other step is only its checklist item. Headings are in the language of the conversation.
 - **The headline first.** Right under the heading, one bold line with the outcome, then the details. Never a paragraph of more than two lines; between sections nothing but the checklist.
-- **Plain words.** Write so a 12-year-old follows it: short sentences, everyday words, one idea per line. A technical word the reader needs (a tag, a test name, a command) stays as it is, with a few plain words after it the first time: `@anchor` *(the tests that catch the bug)*. Say "fails" and "passes", not "red" and "green", outside the verdict.
+- **Clear words, technical where it is precise.** Short sentences, one idea per line. Use the right technical term (spec, assertion, stub, route, mutation, control test) rather than a vague plain one; the first line of a result says the outcome so anyone gets it, the rest is for the developer.
+- **Never state the obvious.** No line for what the command always does or never does ("I did not edit the app code", "the values come from the ticket", "nothing was deleted"): write only what differs from a normal run or what the reader acts on.
 - **Bold carries the result**: the verdict, the count that matters, the thing the reader has to do. One or two bold phrases per line, never a whole sentence.
 - **Files are links.** A file is never shown as its path: name it in plain words and link the word `HERE` to it, `the test file [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts)`. The link target is the file's full path on this computer, so a click opens it. Two files on one line: `Excel [HERE](…) · CSV [HERE](…)`. A folder works the same way.
 - **Lists become tables** when they have two or more columns of meaning. At most 8 rows; then a last row `… and N more` (the run log has them all).
@@ -61,35 +62,36 @@ Extra probes get their own rows, marked `➕ extra`.
 
 ## The wrap-up
 
-What you write after the last card (what was made, what went wrong, what is left) is read in one go: **at most 250 words**, the card above it not counted. It never repeats the card's tests or checks. Always in this order, leaving out a section with nothing in it:
+What you write after the last card (what was made, what went wrong, what is left) is read in one go: **at most 400 words**, the card above it not counted. It never repeats the card's tests or checks. Its headings have no emoji, and its rows and bullets none either: the only marks are the verdict's and a ❌ or 🔴 a line already has. Always in this order, leaving out a section with nothing in it:
 
-1. **The verdict**, one bold line with its mark, then one plain sentence on what it means for the reader.
-2. `### 📄 What we made`: a table, one row per thing made, with what it is, what it does in a few words, and its `HERE` link.
-3. `### 🛠️ Needs you`: a numbered list, only what the reader has to do, each starting with a bold verb. Nothing to do: leave it out.
-4. `### ℹ️ Good to know`: at most three one-line bullets, each with a bold label: what was fixed on the way, what could not be checked, what is not committed.
+1. **The verdict**, one bold line with its mark, then one sentence on why.
+2. `### What we made`: a table, one row per thing made, with what it is, what it covers, and its `HERE` link.
+3. `### Needs you`: a numbered list, only what the reader has to do, each starting with a bold verb. Nothing to do: leave it out.
+4. `### Notes`: at most four one-line bullets, each with a bold label: what was changed on the way and why, what could not be checked, what is not committed.
 
-Over 250 words: cut **Good to know** first, then shorten rows. Never cut a step from **Needs you**, a ❌ or a 🔴 line.
+Over 400 words: cut **Notes** first, then shorten rows. Never cut a step from **Needs you**, a ❌ or a 🔴 line.
 
 For example, after a `tests red` card:
 
 ---
 
-**❌ Checks failed**, but not because of the tests. **4 of 5 tests fail on the bug**, as they should; one setting from outside this run tripped the checks.
+**❌ Checks failed**: the boundary check flagged a file outside this run; the tests themselves are as intended.
 
-### 📄 What we made
-| | What | Where |
+### What we made
+| What | Covers | Where |
 |---|---|---|
-| 🧪 | **5 tests** for the order form: 4 catch the bug `@anchor`, 1 control passes | [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts) |
-| 📋 | **5 Xray cases** (TC 1 to TC 5) | [HERE](/Users/me/shop/.claude/harness/testcases.csv) |
-| 📊 | **QA files** | Excel [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.xlsx) · CSV [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.csv) |
+| **Playwright spec, 5 tests** | fills and saves the real *new order* form against a stubbed API; 4 assert the ticket's expected totals and fail on the bug (`@anchor` ×3, `@finding` ×1), 1 control test passes | [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts) |
+| **5 Xray cases** | TC 1 to TC 5, one per test | [HERE](/Users/me/shop/.claude/harness/testcases.csv) |
+| **QA files** | the same cases for manual QA | Excel [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.xlsx) · CSV [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.csv) |
 
-### 🛠️ Needs you
-1. **Remove** the `outputStyle` setting [HERE](/Users/me/shop/.claude/settings.json) (not added by this run), then run `/quality-code:run-frontend` again for a clean result.
+### Needs you
+1. **Remove or move** `{"outputStyle": "quality-code:report"}` from the project settings [HERE](/Users/me/shop/.claude/settings.json) (written when the report style was turned on), then run `/quality-code:run-frontend` again for a clean card.
 
-### ℹ️ Good to know
-- **Fixed on the way:** the form needs a date the ticket does not mention, so the tests fill one in.
-- **Not checked:** the Confluence QA plan (no access).
-- **Not committed:** nothing is committed yet.
+### Notes
+- **Changed on the way:** the first run failed at save, because the form requires a date the ticket's steps omit. The save step now fills one; the card above is the second run.
+- **Not checked:** the Confluence QA plan (Confluence is not connected).
+- **Route:** the router check does not know `/orders`; used on your OK, as the existing specs do.
+- **Not committed.**
 
 ---
 

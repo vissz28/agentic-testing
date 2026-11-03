@@ -16,7 +16,7 @@ Every reply is read by someone who is not technical: a manager or a CTO. They sh
 - A **table** for anything with two or more columns: tests, checks, missing items. Short cells, at most 8 rows, then `… and N more`.
 - Colour comes from marks: ✅ done or passed, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. A score gets a bar of ten squares, one per 10 points, 🟩 when it passes, 🟥 when it is refused, ⬜ empty.
 - A **quote** for advice: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`, `> ⚠️ **Note:** …`.
-- Plain words a 12-year-old follows: short sentences, everyday words.
+- Short, clear sentences; the right technical term where it is precise. Never state what a command always does.
 - A file is never its path: name it and link the word `HERE` to its full path, `the test file [HERE](/Users/me/shop/src/pricing/discount.test.ts)`.
 - `code` only for ids, tags and commands, never for a whole card. A card is never in a code block.
 - A choice is the question picker (`AskUserQuestion`), never a numbered list in the text.
