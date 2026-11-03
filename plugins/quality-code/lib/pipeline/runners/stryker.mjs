@@ -2,10 +2,11 @@
 // and reads its JSON mutation report. Stryker's sandbox has to live inside the project (outside it Vitest
 // finds no tests), so the runner names one per run and always removes it.
 import { execFileSync, spawn } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { extname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine } from '../../core/text.mjs'
@@ -41,6 +42,40 @@ export function parseStrykerReport(json) {
   const score = total ? Math.round(((n.Killed + n.Timeout) / total) * 1000) / 10 : null
   return { killed: n.Killed, survived: n.Survived, timeout: n.Timeout, noCoverage: n.NoCoverage, untested, score }
 }
+
+/**
+ * The 1-based line spans of the named functions or methods in a TypeScript or JavaScript file, read with
+ * the project's own TypeScript parser, so Stryker mutates only the code the ticket is about. null when the
+ * project has no TypeScript or the file cannot be read; a name not found is left out.
+ */
+export function functionLines(root, file, names) {
+  let ts, text
+  try {
+    ts = createRequire(join(root, 'package.json'))('typescript')
+    text = readFileSync(join(root, file), 'utf8')
+  } catch { return null }
+  const src = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+  const want = new Set(names)
+  const line = pos => src.getLineAndCharacterOfPosition(pos).line + 1
+  const isFn = n => n && (ts.isArrowFunction(n) || ts.isFunctionExpression(n))
+  const found = []
+  const visit = n => {
+    const named = n.name && ts.isIdentifier(n.name) ? n.name.text : null
+    const body = ts.isFunctionDeclaration(n) || ts.isMethodDeclaration(n) ? n.body
+      : (ts.isVariableDeclaration(n) || ts.isPropertyDeclaration(n) || ts.isPropertyAssignment(n)) && isFn(n.initializer) ? n.initializer : null
+    if (named && body && want.has(named)) found.push({ name: named, start: line(n.getStart(src)), end: line(n.getEnd()) })
+    else ts.forEachChild(n, visit)
+  }
+  visit(src)
+  return found
+}
+
+/**
+ * Where Stryker keeps a target's results between runs (its incremental mode), so a run of the same ticket only
+ * tries again the code changes whose code or tests changed. node_modules/.cache is never committed.
+ * ponytail: a change to a test helper or seed file alone is not seen; delete the file to start over.
+ */
+export const incrementalFileOf = (root, target) => join(root, 'node_modules', '.cache', 'quality-code', `stryker-${createHash('sha1').update(target).digest('hex').slice(0, 12)}.json`)
 
 // The project's default Vitest config, as Vitest looks for it.
 const VITEST_CONFIGS = ['vitest', 'vite'].flatMap(n => ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map(e => `${n}.config.${e}`))
@@ -83,7 +118,7 @@ export function strykerConfigSource(root, out, { testFiles = [], tempDirName, vi
   return `${load}\nconst fileName = ${JSON.stringify(out)}\nconst run = ${JSON.stringify({ ...(testFiles.length ? { testFiles } : {}), ...(tempDirName ? { tempDirName, cleanTempDir: 'always' } : {}) })}\nexport default { ...base, ...run${extra}, jsonReporter: { ...(base.jsonReporter ?? {}), fileName } }\n`
 }
 
-export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig = null, key = null }) {
+export function runStryker(root, { target, mutate = [target], specs = [], timeoutMs, vitestConfig = null, key = null }) {
   return new Promise(done => {
     const bin = toolScript(root, ['@stryker-mutator/core'], 'stryker')
     if (!bin) return done({ ran: false, error: 'Stryker is not installed' })
@@ -98,7 +133,8 @@ export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig =
     const base = vitestConfig ?? VITEST_CONFIGS.find(n => existsSync(join(root, n))) ?? null
     // mut-tmp-*: the name setup already git-ignores; removed after every run.
     const scoped = ownVitest ? null : `mut-tmp-stryker-${randomBytes(4).toString('hex')}.vitest.config${base ? extname(base) : '.mjs'}`
-    const args = ['run', cfg, '--mutate', target, '--testRunner', 'vitest', '--reporters', 'json', '--concurrency', '2']
+    const incremental = incrementalFileOf(root, target)
+    const args = ['run', cfg, '--mutate', mutate.join(','), '--testRunner', 'vitest', '--reporters', 'json', '--concurrency', '2', '--incremental', '--incrementalFile', incremental]
     let stderr = ''
     let timedOut = false
     let settled = false
@@ -117,6 +153,7 @@ export function runStryker(root, { target, specs = [], timeoutMs, vitestConfig =
     }
     let child
     try {
+      mkdirSync(dirname(incremental), { recursive: true })
       if (scoped) writeFileSync(join(root, scoped), vitestConfigSource(base, specs, key))
       writeFileSync(cfg, strykerConfigSource(root, out, { testFiles: scoped ? [] : specs, tempDirName: sandbox, vitestConfig: scoped, ignore: linkedFolders(root) }))
       child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })

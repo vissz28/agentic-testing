@@ -15,7 +15,7 @@ import { anchorRange } from './checks/suite-honesty.mjs'
 import { readFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
-import { runStryker as realRunStryker } from './runners/stryker.mjs'
+import { functionLines as realFunctionLines, runStryker as realRunStryker } from './runners/stryker.mjs'
 import { playwrightRunner } from './runners/playwright.mjs'
 import { configFor } from './runners/vitest.mjs'
 import * as vitestRunners from './runners/vitest.mjs'
@@ -131,7 +131,7 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
 }
 
 /** Stryker over the target file: a pass that says "not applicable" when it has nothing to run on. */
-export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key = null) {
+export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key = null, functions = []) {
   const na = why => result('stryker', 'pass', `not applicable: ${why}`, [], { applicable: false, target })
   if (!target) return na('no target file')
   if (tests.status === 'not_run') return result('stryker', 'not_run', 'skipped: the tests did not run', [], { applicable: true, target })
@@ -142,19 +142,26 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key
   // ponytail: specs under two configs mutate against the first group only; one run per config if that bites.
   const vitestConfig = configFor(specs[0] ?? '', ctx.config ?? {})
   const own = specs.filter(s => configFor(s, ctx.config ?? {}) === vitestConfig)
-  const r = await runStryker(ctx.root, { target, specs: own, timeoutMs, vitestConfig, key })
+  // The functions the ticket is about, when named: only their lines are mutated. A name not in the file mutates the whole file and says so.
+  const spans = functions.length ? (ctx.functionLines ?? realFunctionLines)(ctx.root, target, functions) ?? [] : []
+  const missing = functions.filter(f => !spans.some(x => x.name === f))
+  const mutate = spans.length ? spans.map(x => `${target}:${x.start}-${x.end}`) : null
+  const where = spans.length ? ` in ${spans.map(x => x.name).join(', ')}` : ''
+  const note = missing.length ? ` (${missing.join(', ')} not found in ${target}: ${spans.length ? 'left out' : 'the whole file'})` : ''
+  const scope = functions.length ? { scope: { functions: spans.map(x => x.name), lines: spans.map(x => `${x.start}-${x.end}`), missing } } : {}
+  const r = await runStryker(ctx.root, { target, specs: own, timeoutMs, vitestConfig, key, ...(mutate ? { mutate } : {}) })
   if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
   if (!r.ran) return result('stryker', 'not_run', `could not run: ${r.error}`, [], { applicable: true, target })
   // A survivor no test ran against is no verdict: Stryker found no test to run for it.
   if (!r.killed && !r.timeout && r.survived && r.untested === r.survived) return result('stryker', 'not_run', `Stryker ran no test against the ${r.survived} code change(s) it made`, [], { applicable: true, target, untested: r.untested })
   const threshold = strykerThreshold(ctx.config)
-  const data = { applicable: true, target, threshold, score: r.score, killed: r.killed, survived: r.survived, timeout: r.timeout, noCoverage: r.noCoverage }
+  const data = { applicable: true, target, threshold, score: r.score, killed: r.killed, survived: r.survived, timeout: r.timeout, noCoverage: r.noCoverage, ...scope }
   if ((r.score === null || r.score === undefined) && r.noCoverage) return result('stryker', 'not_run', `the tests run none of the code in ${target} (${r.noCoverage} code change(s), none covered)`, [], data)
   if (r.score === null || r.score === undefined) return result('stryker', 'not_run', `Stryker found no code change to try in ${target}`, [], data)
   // The score is over the code the tests run; the rest of the file is shown, not judged.
   const rest = r.noCoverage ? `; ${r.noCoverage} in code these tests do not run` : ''
-  if (r.score >= threshold) return result('stryker', 'pass', `${r.score}% of code changes caught (bar ${threshold}%)${rest}`, [], data)
-  return result('stryker', 'fail', `${r.score}% of code changes caught, the bar is ${threshold}%${rest}`,
+  if (r.score >= threshold) return result('stryker', 'pass', `${r.score}% of code changes caught${where} (bar ${threshold}%)${rest}${note}`, [], data)
+  return result('stryker', 'fail', `${r.score}% of code changes caught${where}, the bar is ${threshold}%${rest}${note}`,
     [{ file: target, kind: 'code changes not caught', detail: `${r.survived ?? 0} survived in the code the tests run` }], data)
 }
 
@@ -249,7 +256,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, functions = [], candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
@@ -297,7 +304,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   }
   // ponytail: Stryker runs under Vitest only; Jest and Mocha have Stryker runners too, add them when a team asks.
   if (adapter.stryker && runner !== 'vitest') steps.push(result('stryker', 'pass', `not applicable: Stryker runs with Vitest only, not ${RUNNERS[runner]?.label ?? runner}`, [], { applicable: false, target }))
-  else if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key)))
+  else if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key, functions)))
   // A backend Stryker cannot run on still shows the step, as Vitest's does with nothing to mutate.
   else if (BACKENDS[ctx.config.adapter]) steps.push(result('stryker', 'pass', 'not applicable: Stryker is for JavaScript and TypeScript', [], { applicable: false, target }))
   return steps

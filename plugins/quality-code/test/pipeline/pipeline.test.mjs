@@ -467,3 +467,26 @@ test('no ticket anchor: a spec that names no ticket is checked whole, expected v
     assert.ok(m.data.total >= 1)
   }
 })
+
+test('stryker: named functions mutate only their lines and say so; a name not in the file mutates the whole file and says that too', async () => {
+  const d = repo()
+  put(d, 'src/add.ts', 'export const add = (a, b) => a + b\n')
+  const lines = (spans) => () => spans
+  const go = async (functions, spans) => {
+    const calls = []
+    const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts', functions }, ctx(d, { runStryker: stryker({ ran: true, score: 80, killed: 8, survived: 2, timeout: 0, noCoverage: 0 }, calls), functionLines: lines(spans) }))
+    return { s: r.steps.at(-1), call: calls[0] }
+  }
+  const one = await go(['add'], [{ name: 'add', start: 3, end: 9 }])
+  assert.deepEqual(one.call.mutate, ['src/add.ts:3-9'])
+  assert.equal(one.s.summary, '80% of code changes caught in add (bar 60%)')
+  assert.deepEqual(one.s.data.scope, { functions: ['add'], lines: ['3-9'], missing: [] })
+  const lost = await go(['nope'], [])
+  assert.equal(lost.call.mutate, undefined, 'the whole file')
+  assert.equal(lost.s.summary, '80% of code changes caught (bar 60%) (nope not found in src/add.ts: the whole file)')
+  const part = await go(['add', 'nope'], [{ name: 'add', start: 3, end: 9 }])
+  assert.match(part.s.summary, /caught in add \(bar 60%\) \(nope not found in src\/add\.ts: left out\)$/)
+  const none = await go([], [])
+  assert.equal(none.call.mutate, undefined)
+  assert.equal(none.s.data.scope, undefined)
+})

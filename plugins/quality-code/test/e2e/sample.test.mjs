@@ -10,6 +10,7 @@ import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ENV } from '../git-env.mjs'
 import { typeCheck } from '../../lib/pipeline/types.mjs'
+import { functionLines } from '../../lib/pipeline/runners/stryker.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLI = join(HERE, '../../bin/pipeline.mjs')
@@ -149,4 +150,16 @@ test('tsc checks a spec its tsconfig leaves out, and grades only the specs', { s
   } finally {
     rmSync(copy, { recursive: true, force: true })
   }
+})
+
+test('functionLines: the TypeScript of the sample finds a function declaration and an arrow constant, not a missing name', { skip }, () => {
+  installed()
+  const src = readFileSync(join(SAMPLE, 'src/pricing.ts'), 'utf8').split('\n')
+  const found = functionLines(SAMPLE, 'src/pricing.ts', ['orderTotal', 'toCents', 'nope'])
+  assert.deepEqual(found.map(f => f.name).sort(), ['orderTotal', 'toCents'])
+  for (const f of found) {
+    assert.match(src[f.start - 1], new RegExp(`\\b${f.name}\\b`), `${f.name} starts on its own line`)
+    assert.ok(f.end >= f.start)
+  }
+  assert.equal(found.find(f => f.name === 'toCents').end, found.find(f => f.name === 'toCents').start, 'a one-line arrow is one line')
 })

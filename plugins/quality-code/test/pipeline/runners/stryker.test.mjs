@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFile
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { linkedFolders, parseStrykerReport, projectStrykerConfig, runStryker, strykerConfigSource, vitestConfigSource } from '../../../lib/pipeline/runners/stryker.mjs'
+import { incrementalFileOf, linkedFolders, parseStrykerReport, projectStrykerConfig, runStryker, strykerConfigSource, vitestConfigSource } from '../../../lib/pipeline/runners/stryker.mjs'
 import { execFileSync } from 'node:child_process'
 import { calls, fakeBin } from '../../fake-bin.mjs'
 
@@ -47,9 +47,9 @@ test('runner: argv, cwd, score read from the report, temp dir removed, nothing w
   const tmp = dirname(out)
   assert.ok(!out.startsWith(d))
   assert.equal(out, join(tmp, 'mutation.json'))
-  assert.deepEqual(argv, ['run', join(tmp, 'stryker.config.mjs'), '--mutate', 'src/my a.ts', '--testRunner', 'vitest', '--reporters', 'json', '--concurrency', '2'])
+  assert.deepEqual(argv, ['run', join(tmp, 'stryker.config.mjs'), '--mutate', 'src/my a.ts', '--testRunner', 'vitest', '--reporters', 'json', '--concurrency', '2', '--incremental', '--incrementalFile', incrementalFileOf(d, 'src/my a.ts')])
   assert.equal(existsSync(tmp), false)
-  assert.deepEqual(readdirSync(d).sort(), before.concat(['.fake-stryker.calls']).sort())
+  assert.deepEqual(readdirSync(d).filter(f => f !== 'node_modules').sort(), before.filter(f => f !== 'node_modules').concat(['.fake-stryker.calls']).sort())
 })
 // Stryker has no command-line option for the JSON report file: the runner hands it a temp config
 // module that keeps the project's own config and only sets jsonReporter.fileName.
@@ -220,4 +220,17 @@ test('runner: Stryker runs a scoped Vitest config next to the project\'s, remove
   fakeBin(d2, 'stryker', { report: report('Killed') })
   await runStryker(d2, { target: 'src/a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000, vitestConfig: 'vitest.config.db.ts' })
   assert.deepEqual(readdirSync(d2).filter(n => n.startsWith('mut-tmp-')), [])
+})
+
+test('runner: line ranges go to --mutate; the incremental file is kept per target in node_modules/.cache', async () => {
+  const d = proj()
+  fakeBin(d, 'stryker', { report: report('Killed') })
+  await runStryker(d, { target: 'src/a.ts', mutate: ['src/a.ts:10-20', 'src/a.ts:40-52'], specs: ['test/a.spec.ts'], timeoutMs: 10000 })
+  const [argv] = calls(d, 'stryker')
+  assert.equal(argv[argv.indexOf('--mutate') + 1], 'src/a.ts:10-20,src/a.ts:40-52')
+  const inc = argv[argv.indexOf('--incrementalFile') + 1]
+  assert.equal(inc, incrementalFileOf(d, 'src/a.ts'))
+  assert.match(inc, /node_modules\/\.cache\/quality-code\/stryker-[0-9a-f]{12}\.json$/)
+  assert.ok(existsSync(dirname(inc)), 'its folder exists for Stryker to write in')
+  assert.notEqual(incrementalFileOf(d, 'src/a.ts'), incrementalFileOf(d, 'src/b.ts'), 'one file per target')
 })

@@ -164,6 +164,8 @@ test('usage and config errors: exit 2', () => {
   assert.match(bad(['test/a.spec.ts', '--flaky', '1.5']), /--flaky/)
   assert.match(bad(['test/a.spec.ts', '--range', '--json']), /--range needs a value/)
   assert.match(bad(['test/a.spec.ts', '--nope']), /unknown option --nope/)
+  assert.match(bad(['test/a.spec.ts', '--function', 'add']), /--function names code in the --target file: give --target too/)
+  assert.match(bad(['test/a.spec.ts', '--target', 'src/a.ts', '--function', 'add total']), /--function must be one or more function names/)
   assert.match(bad([]), /usage/)
   assert.match(run(repo({ config: false }), ['test/a.spec.ts']).stderr, /quality-code/)
 })

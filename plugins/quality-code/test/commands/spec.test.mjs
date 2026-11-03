@@ -342,7 +342,7 @@ test('fullstack: the side picks the parts; every flag is allowed; one run with b
   const six = step(6)
   const fs = six.slice(six.indexOf('**Fullstack:**'), six.indexOf('After option 3'))
   assert.ok(fs.includes("`node \"${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs\" '<spec>' '<spec>' --key <KEY> --ticket @<ticketsDir>/<KEY>/ticket.json --expected @<ticketsDir>/<KEY>/expected.json`"))
-  assert.match(fs, /plus `--target '<target>'` when there is a Vitest part/)
+  assert.match(fs, /plus `--target '<target>'` \(and `--function '<functions>'` when step 3 named some\) when there is a Vitest part/)
   assert.match(fs, /the value check reads the specs of both sides together/)
   assert.ok(doc.includes('`/quality-code:spec ABC-123 --target src/pricing.ts --route /orders`: fullstack'))
 })
@@ -567,4 +567,11 @@ test('step 1: a missing runner no longer stops the run; it is offered at the pla
 test('a key in the arguments is the ticket and skips the branch name; without one the branch name gives it', () => {
   assert.match(doc, /is the key: that Jira ticket is the one, and the branch name is not read for it/)
   assert.match(doc, /Without one, take the ticket of the branch you are on \(a branch named `ABC-123-…` gives `ABC-123`/)
+})
+
+test('Stryker on the ticket\'s functions: step 3 names them, step 6 passes them, none means the whole file', () => {
+  assert.match(step(3), /Then name the function or method of the target that holds the ticket's behaviour[^\n]*at most two, as `<functions>`/)
+  assert.match(step(3), /Name none when the behaviour is spread over the file; Stryker then takes the whole file\./)
+  assert.ok(step(6).includes("--target '<target>' --function '<functions>'`, without `--function` when step 3 named none"))
+  assert.ok(step(6).includes("(and `--function '<functions>'` when step 3 named some)"))
 })

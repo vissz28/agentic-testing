@@ -1,4 +1,4 @@
-// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--no-audit] [--json]
+// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
@@ -21,7 +21,7 @@ import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
 
-const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
+const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 // The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
 // full is whatever the project has.
@@ -31,7 +31,7 @@ const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite
 
 function parse(argv) {
   const a = { json: false, noAudit: false, mutation: true, specs: [] }
-  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite', '--regression-before', '--url'])
+  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--function', '--incomplete-ticket', '--expected', '--suite', '--regression-before', '--url'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
@@ -50,6 +50,8 @@ function parse(argv) {
   if (a.regressionBefore !== undefined && !['red', 'green'].includes(a.regressionBefore)) throw new Error(`--regression-before must be red or green, not "${a.regressionBefore}"`)
   if (a.url !== undefined && !a.smoke) throw new Error('--url goes with --smoke')
   if (a.smoke && a.suite !== undefined && a.suite !== 'frontend') throw new Error('--smoke runs the frontend (Playwright) suite')
+  if (a.function !== undefined && a.target === undefined) throw new Error('--function names code in the --target file: give --target too')
+  if (a.function !== undefined && !/^[A-Za-z_$][\w$]*(?:,[A-Za-z_$][\w$]*)*$/.test(a.function)) throw new Error(`--function must be one or more function names, comma-separated, like upsertTotal,applyDiscount, not "${a.function}"`)
   if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
     throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
@@ -143,7 +145,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const restore = () => { for (const k of Object.keys(smokeVars ?? {})) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k] } }
   if (smokeVars) Object.assign(process.env, smokeVars)
   try {
-    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates, mutation: a.mutation }, ctx)
+    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, ctx)
   } catch (e) {
     restore()
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)

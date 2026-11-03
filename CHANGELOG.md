@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Stryker is faster and scores the ticket's own code** (`/quality-code:spec`, `pipeline.mjs --function`): the
+  spec names the function or method of the target that holds the ticket's behaviour, and Stryker mutates only its
+  lines, found with the project's own TypeScript parser (a name not in the file mutates the whole file, and the
+  card says so). Stryker also keeps its results per target in `node_modules/.cache/quality-code/` (its incremental
+  mode), so the next run of the ticket only tries again what changed. On a 753-line repository file: 8½ minutes
+  before, under 2 minutes on the first run and about half a minute after.
+
 ## [0.73.0] - 2026-11-12
 
 ### Changed
