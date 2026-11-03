@@ -9,6 +9,27 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-03
+
+### Fixed
+
+From the PFO-2556 pilot report (AGT-154):
+
+- **Setup no longer picks the project by name.** In a repo with several projects, the candidates are ranked by what this
+  branch changed and by spec files, and setup shows a card (`Which project is this work in?`, each with its evidence) when
+  nothing decides. Before, the first folder alphabetically was taken and the pilot had to run setup twice.
+- **The choice of where files go, and a Jira project's criteria field, are asked once per repo,** not again each time the
+  project root changes. A pick saved before still counts.
+- **`/quality-code:spec` can write the tests first.** The target card has a new option, `The code is not written yet`: you
+  name the path where the code will live, the tests import it, run without Stryker, and are expected to fail until the code
+  exists. Run `/quality-code:spec` again once it does.
+- **Setup costs fewer requests.** Every request re-reads the whole conversation, so setup's cost is how many requests it
+  makes, not how long its text is. It now makes independent calls (detect, site lookup, connector checks) together.
+
+### What to do
+
+- Nothing is required. Run `/quality-code:setup` again in a repo with several projects to see the new project card.
+
 ## [0.41.0] - 2026-11-03
 
 ### Added

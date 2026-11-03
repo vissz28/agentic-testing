@@ -9,14 +9,15 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readF
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { claudeDir, normaliseTicketsDir } from './config.mjs'
+import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
 
 export const PLACES = ['repo', 'local', 'chat']
 export const AUDIT_REL = '.claude/quality-code/audit'
 
 const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
-// A personal setup has no project: one pick for every folder.
-const prefKey = (root, source) => (source === 'personal' ? 'personal' : resolve(root))
+// A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
+// the config), not one per project folder: changing the project root of setup does not ask again.
+const prefKey = (root, source) => (source === 'personal' ? 'personal' : resolve(configHome(root)))
 const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
 const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
 
@@ -29,7 +30,9 @@ function readPrefs(env) {
 
 /** The pick for this project, or null when it was never asked. */
 export function savedPlace(root, source, env = process.env) {
-  const v = readPrefs(env)[prefKey(root, source)]
+  const prefs = readPrefs(env)
+  // A pick saved for the project folder before picks were per repo still counts.
+  const v = prefs[prefKey(root, source)] ?? (source === 'personal' ? undefined : prefs[resolve(root)])
   return PLACES.includes(v) ? v : null
 }
 

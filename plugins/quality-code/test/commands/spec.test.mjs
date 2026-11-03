@@ -64,7 +64,7 @@ test('step 3: the target comes from the branch diff and the ticket, with no card
   assert.ok(s.includes('Target: <path> (changed on this branch'))
   assert.doesNotMatch(s, /One clear candidate still gets the card/)
   // The card only when it cannot be told, or with --ask.
-  assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. Stop'))
+  assert.ok(s.includes('Which code does this ticket change?\n     1. <path>\n     2. <path>\n     3. Another file\n     4. The code is not written yet: write the tests first\n     5. Stop'))
   assert.match(s, /only when no changed code file matches the ticket, or when two match equally well/)
   assert.doesNotMatch(doc, /--ask/)
 })
@@ -500,4 +500,12 @@ test('spec follows the feature\'s testing approach: e2e, unit or both, and the t
   assert.match(doc, /When `guideFound` is true, read the file at `guide` before the plan/)
   assert.match(doc, /How do you test <feature>\?/)
   assert.match(guide, /## Frontend unit tests/)
+})
+
+test('spec can write tests first, for code that does not exist yet', () => {
+  assert.match(doc, /4\. The code is not written yet: write the tests first/)
+  assert.match(doc, /Where will the new code live\?/)
+  assert.match(doc, /\*\*Tests first:\*\* the tests import the code at that path, the pipeline runs without `--target`/)
+  assert.match(doc, /the tests fail until it is written/)
+  assert.match(doc, /a target marked `new` whose file does not exist yet is reused too/)
 })

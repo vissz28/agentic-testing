@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { audit, readAudit } from '../../lib/base/audit.mjs'
 import { loadConfig } from '../../lib/base/config.mjs'
-import { pickPlace, placeDirs, placeOf, placesFor, savedPlace } from '../../lib/base/places.mjs'
+import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/base/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const tmp = () => mkdtempSync(join(tmpdir(), 'qc-place-'))
@@ -112,4 +112,19 @@ test('a setup with no repo offers this machine and the chat only', () => {
   assert.equal(j.place, 'chat')
   assert.deepEqual(j.options.map(o => o.place), ['local', 'chat'])
   assert.equal(run(root, claude, 'save', 'set', 'repo').status, 2)
+})
+
+test('a monorepo: the pick and the criteria field are one per repo, not one per project folder', async () => {
+  const { storeField, resolveField } = await import('../../lib/ticket/fields.mjs')
+  const top = tmp(), claude = tmp(), env = { CLAUDE_CONFIG_DIR: claude, QUALITY_CODE_PLACE: '' }
+  mkdirSync(join(top, '.claude'), { recursive: true })
+  mkdirSync(join(top, 'a'), { recursive: true })
+  mkdirSync(join(top, 'b'), { recursive: true })
+  const write = root => writeFileSync(join(top, '.claude/quality-code.json'), JSON.stringify({ ...CFG, root }))
+  write('a')
+  rememberPlace(join(top, 'a'), 'repo', 'local', env)
+  assert.equal(storeField(join(top, 'a'), 'ABC', 'customfield_11707').ok, true)
+  write('b')
+  assert.equal(placeOf(join(top, 'b'), 'repo', env), 'local', 'the pick follows the repo to the new project root')
+  assert.deepEqual(resolveField(join(top, 'b'), CFG, 'ABC'), { field: 'customfield_11707', source: 'stored' }, 'and so does the field')
 })

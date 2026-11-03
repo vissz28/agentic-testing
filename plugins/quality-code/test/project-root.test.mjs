@@ -76,7 +76,9 @@ test('setup proposes the subfolder with a package.json, a test tool first, and w
   put(top, 'web/package.json', JSON.stringify({ devDependencies: { vitest: '3' } }))
   put(top, 'web/src/app.ts')
   const d = detect(top)
-  assert.deepEqual(d.root, { proposed: 'web', candidates: ['web', 'docs'] })
+  assert.equal(d.root.proposed, 'web')
+  assert.deepEqual(d.root.candidates, ['web', 'docs'])
+  assert.equal(d.root.ask, false, 'only web can run tests: nothing to ask')
   assert.equal(d.adapter, 'vitest', 'read from web/package.json')
   assert.deepEqual(d.boundaries, ['src/'], 'paths from the project root')
   assert.equal(detect(top, process.env, 'docs').root.proposed, 'docs', 'the user picked another folder')
@@ -113,4 +115,29 @@ test('a root outside the repository is refused, and the check names the root fie
     assert.match(r.stdout, /^root ".*" must be a folder inside the repository/m, root)
     assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: top }, top), top, 'a bad root never moves the project')
   }
+})
+
+test('several projects and nothing says which: the candidates are ranked by the branch\'s changes and spec files, and setup asks', () => {
+  const top = mkdtempSync(join(tmpdir(), 'qc-rank-'))
+  for (const n of ['anomaly-detector', 'backend-executor', 'app']) put(top, `${n}/package.json`, JSON.stringify({ devDependencies: { jest: '29' } }))
+  put(top, 'backend-executor/src/a.unit.test.js')
+  put(top, 'backend-executor/src/b.unit.test.js')
+  put(top, 'anomaly-detector/src/x.unit.test.js')
+  execFileSync('git', ['init', '-q', '-b', 'develop'], { cwd: top })
+  execFileSync('git', ['add', '-A'], { cwd: top })
+  execFileSync('git', ['-c', 'user.email=a@b', '-c', 'user.name=n', 'commit', '-qm', 'init'], { cwd: top })
+  let r = detect(top).root
+  assert.equal(r.proposed, 'backend-executor', 'most spec files, not the first name alphabetically')
+  assert.deepEqual(r.candidates, ['backend-executor', 'anomaly-detector', 'app'])
+  assert.equal(r.ask, true, 'two folders could be the one: the person says')
+  assert.deepEqual(r.evidence['backend-executor'], { changed: 0, specs: 2 })
+  // Work in progress in exactly one folder decides it.
+  put(top, 'anomaly-detector/src/new.js')
+  r = detect(top).root
+  assert.equal(r.proposed, 'anomaly-detector')
+  assert.equal(r.ask, false)
+  // A person who already chose keeps the choice.
+  put(top, '.claude/quality-code.json', JSON.stringify({ ...CFG, root: 'app' }))
+  assert.equal(detect(top).root.proposed, 'app')
+  assert.equal(detect(top).root.ask, false)
 })

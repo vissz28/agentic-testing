@@ -442,13 +442,42 @@ function personalState(env) {
 // A tool in package.json that runs tests: a subfolder with one is proposed first as the project root.
 const TEST_DEPS = [...UNIT_RUNNERS, '@playwright/test', 'cypress']
 
+/** The folder has a package.json that names a test tool or runs node --test. */
+const hasTestTool = (top, n) => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
+
 /** The folders one down that hold a package.json, those with a test tool first: where the project may live when the top has none. */
 function rootCandidates(top) {
   let names = []
   try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name)).map(e => e.name).sort() } catch {}
-  const tested = n => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
+  const tested = n => hasTestTool(top, n)
   const found = names.filter(n => existsSync(join(top, n, 'package.json')))
   return [...found.filter(tested), ...found.filter(n => !tested(n))]
+}
+
+/**
+ * Where the work is, for a repo with several projects: the folders this branch changed (against the base, and not yet
+ * committed) come first, then those with the most spec files. Each candidate gets its evidence; nothing is guessed by name.
+ */
+export function rankRoots(top, candidates) {
+  if (candidates.length < 2) return { ordered: candidates, evidence: {}, decisive: candidates.length === 1 }
+  const evidence = Object.fromEntries(candidates.map(c => [c, { changed: 0, specs: 0 }]))
+  const folderOf = path => path.split('/')[0]
+  for (const f of (gitOut(top, ['ls-files']) ?? '').split('\n')) {
+    const c = folderOf(f)
+    if (c in evidence && /\.(?:test|spec)\.[^/]+$|(?:^|\/)test_[^/]+\.py$|_test\.(?:go|py)$/.test(f)) evidence[c].specs++
+  }
+  const base = baseCandidate(top)
+  const touched = [
+    ...(base ? (gitOut(top, ['diff', '--name-only', `origin/${base.proposed}...HEAD`]) ?? '').split('\n') : []),
+    ...(gitOut(top, ['status', '--porcelain']) ?? '').split('\n').map(l => l.slice(3)),
+  ].filter(Boolean)
+  for (const f of touched) { const c = folderOf(f); if (c in evidence) evidence[c].changed++ }
+  const ordered = [...candidates].sort((a, b) => evidence[b].changed - evidence[a].changed || evidence[b].specs - evidence[a].specs || candidates.indexOf(a) - candidates.indexOf(b))
+  // Decisive: exactly one folder holds this branch's work. Otherwise the person says which service this is.
+  // Or exactly one folder can run tests at all (a test tool or spec files): the others cannot be where tests are written.
+  const changed = ordered.filter(c => evidence[c].changed > 0)
+  const testable = ordered.filter(c => evidence[c].specs > 0 || hasTestTool(top, c))
+  return { ordered, evidence, decisive: changed.length === 1 || (changed.length === 0 && testable.length === 1) }
 }
 
 /**
@@ -481,7 +510,8 @@ export function detect(top, env = process.env, sub = null) {
   const topPkg = (() => { try { return readJson(join(top, 'package.json')) } catch { return null } })()
   const orchestrates = Boolean(topPkg?.workspaces) && !TEST_DEPS.some(d => d in { ...topPkg.dependencies, ...topPkg.devDependencies })
   const bare = (!existsSync(join(top, 'package.json')) && !detectBackends(top).length) || orchestrates
-  const pick = sub ?? (typeof existing?.root === 'string' ? existing.root : bare ? candidates[0] ?? null : null)
+  const ranking = bare && !sub && typeof existing?.root !== 'string' ? rankRoots(top, candidates) : null
+  const pick = sub ?? (typeof existing?.root === 'string' ? existing.root : bare ? ranking.ordered[0] ?? null : null)
   const proposed = pick && resolve(top, pick) !== resolve(top) ? pick : null
   const root = proposed ? resolve(top, proposed) : top
   let deps = {}
@@ -512,7 +542,8 @@ export function detect(top, env = process.env, sub = null) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
   }
   const result = {
-    root: { proposed, candidates },
+    // ask: several projects and nothing decides which one is this work: the person picks (setup shows the card).
+    root: { proposed, candidates: ranking?.ordered ?? candidates, ask: Boolean(ranking && ranking.ordered.length > 1 && !ranking.decisive), evidence: ranking?.evidence ?? {} },
     adapter, backend, backends, runners, templates, existing,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root),

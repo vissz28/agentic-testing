@@ -4,19 +4,24 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
+import { configHome } from '../base/config.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
 const FIELD = /^customfield_\d+$/
 
-function stored(root) {
+function storedAt(dir) {
   try {
-    const d = JSON.parse(readFileSync(join(root, FIELDS_REL), 'utf8'))
+    const d = JSON.parse(readFileSync(join(dir, FIELDS_REL), 'utf8'))
     return d && typeof d.projects === 'object' && d.projects !== null && !Array.isArray(d.projects) ? d.projects : {}
   } catch {
     return {}
   }
 }
+
+// A Jira project's criteria field is one fact for the repo, not for each project folder of a monorepo: it is kept
+// where the config is, and a file saved in the project folder before that still counts.
+const stored = root => ({ ...storedAt(configHome(root)), ...storedAt(root) })
 
 /** { field, source }: source "config" or "stored" (field is an id or null), else "unknown". */
 export function resolveField(root, config, project) {
@@ -30,8 +35,9 @@ export function resolveField(root, config, project) {
 export function storeField(root, project, value) {
   if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters, digits and "_", like "ABC"` }
   if (value !== 'none' && !FIELD.test(String(value))) return { ok: false, error: `the field must be customfield_<digits> or none (got "${value}")` }
-  const projects = { ...stored(root), [project]: value === 'none' ? null : value }
-  const p = join(root, FIELDS_REL)
+  const home = configHome(root)
+  const projects = { ...storedAt(home), [project]: value === 'none' ? null : value }
+  const p = join(home, FIELDS_REL)
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, `${JSON.stringify({ projects }, null, 2)}\n`)
   return { ok: true }

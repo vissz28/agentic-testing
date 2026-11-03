@@ -320,3 +320,18 @@ test('advanced setup asks how each feature is tested and for the team\'s own gui
   assert.match(setup, /4\. Choose per feature/)
   assert.match(setup, /becomes that feature's `guide`/)
 })
+
+test('setup asks which project the work is in when several could be, ranked by evidence', async () => {
+  const { readFileSync } = await import('node:fs')
+  const setup = readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8')
+  assert.match(setup, /When `root\.ask` is `true`/)
+  assert.match(setup, /Which project is this work in\?/)
+  assert.match(setup, /`root\.evidence`/)
+})
+
+test('setup makes independent calls together: its cost is its number of requests', async () => {
+  const { readFileSync } = await import('node:fs')
+  const setup = readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8')
+  assert.match(setup, /\*\*Fewer requests, lower cost\.\*\*/)
+  assert.match(setup, /Make independent calls together in one message/)
+})
