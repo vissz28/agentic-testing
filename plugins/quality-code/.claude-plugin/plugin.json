@@ -25,6 +25,12 @@
     "name": "Elvis Zefaj"
   },
   "userConfig": {
+    "central_context_url": {
+      "type": "string",
+      "title": "Central Context hub URL",
+      "description": "The base address of the TeamSystem Central Context hub the central-context connector searches in chat (its /mcp endpoint): TeamSystem's hosted hub by default, or a local preview such as http://localhost:8080. The rules /quality-code:spec reads come from centralContext.hub in .claude/quality-code.json.",
+      "default": "https://centralcontext-dev.teamsystem.cloud"
+    },
     "gitlab_api_url": {
       "type": "string",
       "title": "GitLab API URL",

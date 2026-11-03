@@ -25,7 +25,7 @@ test('the guide keeps every word, number and verdict; questions use the picker w
 test('every read of Central Context is shown as a completed step, and rules.mjs is the only way spec reads it', () => {
   assert.match(guide, /every time it is read the reader sees it, right then, as a completed step: the `Read from Central Context` item/)
   assert.match(guide, /Without the checklist, the line `rules\.mjs` prints, on its own, as printed\. Never skip it or fold it into another step, and never list the rules/)
-  assert.match(read('commands/spec.md'), /`rules\.mjs` is the only way this command reads Central Context, and every time it runs its line is shown to the person as a completed step/)
+  assert.match(read('commands/spec.md'), /Every read from Central Context, by `rules\.mjs` or by the connector, is shown to the person as a completed step/)
 })
 
 test('a card is never a code block, and a card with options is the picker, not a printed list', () => {
@@ -66,4 +66,14 @@ test('plain words, files behind HERE links, and a wrap-up of at most 250 words',
 test('a "user has not heard from you" reminder is answered with the checklist, not a sentence', () => {
   assert.match(guide, /When Claude Code reminds you that the user has not heard from you in a while, the checklist is the update/)
   assert.match(read('output-styles/report.md'), /When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead/)
+})
+
+test('the central-context connector: an optional search for topics the testing rules miss, bounded, shown, checked with the connectors', () => {
+  const spec = read('commands/spec.md')
+  assert.match(spec, /you may search Central Context with the connector's `search_knowledge`[^\n]*with `domain` `security` or `architecture`, at most two searches a run/)
+  assert.match(spec, /Those rules are candidates the same way, and the team's own rules still win\. Without the connector, skip the search\./)
+  assert.match(guide, /Each search with the `central-context` connector is its own item too, with what was searched: `Searched Central Context · "access token check" · 3 rules, 1 applies ✅`/)
+  const c = read('guides/connectors.md')
+  assert.match(c, /\| Central Context \| find the tools of the `central-context` connector; call `search_knowledge` with the query `test` and `max_results` 1 \|/)
+  assert.match(c, /It is optional, like GitHub: not ✅ is `⚠️ Central Context not connected` in the line, never a card, and the run goes on/)
 })

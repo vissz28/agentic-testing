@@ -41,6 +41,7 @@ Shared by `/quality-code:setup` (step 0, as the one-at-a-time sequence below), a
 | GitLab | find the tools of the `gitlab` connector (browser sign-in, GitLab's own MCP server at `<gitlab_api_url>/mcp`) and of `gitlab-token` (token); make one read-only call with each that is present: the current user | either connector answers |
 | GitHub | none to make: `setup.mjs --detect` already asked the `gh` CLI, which reads the branch's pull request | `here.github.login` is set |
 | Figma | find the tools of the `figma` connector (browser sign-in) and of `figma-token` (token); make one read-only call with each that is present: the current user (whoami) | either connector answers |
+| Central Context | find the tools of the `central-context` connector; call `search_knowledge` with the query `test` and `max_results` 1 | it answers, with or without a hit |
 
 A connector whose tools are missing, that asks to sign in, or whose call errors is not ✅. `gitlab-token` and `figma-token` start even when their token is not set, so they never show as failed: without the token they are connected with no tools, which means not set up (➖), not ✅. Do not retry a failed call during this check. GitLab and Figma each have two ways in and need only one: the unused one stays disconnected, and that is fine; show the service as ✅ and do not mention the other.
 
@@ -50,6 +51,7 @@ A connector whose tools are missing, that asks to sign in, or whose call errors 
 - **GitLab.** Compare `gitlab_username` (a username, with or without `@`, or an email) with the username and the email the current-user call returned, ignoring case. Same, or no `gitlab_username`: the line shows `<username> on <host>`. Different: ⚠️ `signed in as <actual>, not <gitlab_username>`. A token that belongs to <actual>, not <gitlab_username> is never used silently.
 - **GitHub.** The line shows `<here.github.login> on <here.remote.host>`. Not ✅: ⚠️ `<here.github.reason>`.
 - **Figma.** Show the handle or email the current-user call returned. Nothing to compare.
+- **Central Context.** No sign-in: the line shows the hub's host (`✅ Central Context centralcontext-dev.teamsystem.cloud`). It is optional, like GitHub: not ✅ is `⚠️ Central Context not connected` in the line, never a card, and the run goes on (the rules `rules.mjs` reads do not need the connector).
 
 **When everything is set up, say so in one line.** Every service ✅: show only that line and go on, with no card:
 

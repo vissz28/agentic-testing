@@ -22,6 +22,11 @@ Update with `/plugin update quality-code@teamsystem`.
   tests, every test asserts an observable outcome, justified changes to existing tests, and requirement, story and
   test traceability. A rule Central Context publishes with the same id replaces the plugin's draft, and the team's
   own rule replaces both.
+- **The Central Context connector** (`central-context`, plugin setting `central_context_url`, TeamSystem's hosted
+  hub by default): the hub's MCP tools `search_knowledge` and `get_knowledge_document`, for the model to look further
+  when a ticket touches a topic the testing rules do not cover (input checks, auth, secrets, data access, an API
+  contract), at most two searches a run, each shown as a completed step with what was searched. The connector check
+  shows it as an optional line. The testing rules are still read by `rules.mjs`, without the connector.
 
 ## [0.39.0] - 2026-11-03
 
