@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-03
+
 ### Added
 
 - **The team's own rules next to Central Context's** (`centralContext.local` in `.claude/quality-code.json`): a
@@ -27,6 +29,11 @@ Update with `/plugin update quality-code@teamsystem`.
   when a ticket touches a topic the testing rules do not cover (input checks, auth, secrets, data access, an API
   contract), at most two searches a run, each shown as a completed step with what was searched. The connector check
   shows it as an optional line. The testing rules are still read by `rules.mjs`, without the connector.
+
+### Changed
+
+- **The wrap-up is up to 400 words, with technical terms where they are precise** (spec, assertion, stub, control
+  test), no emoji in its headings or rows, and no lines that state what a command always does.
 
 ## [0.39.0] - 2026-11-03
 
