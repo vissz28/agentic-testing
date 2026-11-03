@@ -1,8 +1,9 @@
 // Where a project's files and logs go: the ticket copies, run logs and Xray files (the tickets folder)
 // and the audit log. Each person picks once per project, on this machine:
-//   repo   in the project, git-ignored (the default in a repo)
-//   local  on this machine, outside the repo, under the Claude folder (the default with no repo)
-//   chat   only in the chat: the files a run needs go to a temp folder, and no audit log is kept
+//   chat   this session: a temp folder, outside the repo (the default until a person picks another place)
+//   local  on this machine, outside the repo, under the Claude folder
+//   repo   in the project, git-ignored
+// Setup ends by asking which one. The files a run needs between steps and the audit log both go to the place.
 // The pick lives in <Claude folder>/quality-code/save.json, never in the repo: it is one person's choice.
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -35,10 +36,18 @@ export function savedPlace(root, source, env = process.env) {
 /** The places this project can pick from: a setup with no repo has no repo to keep files in. */
 export const placesFor = source => (source === 'personal' ? ['local', 'chat'] : PLACES)
 
-/** The place in force: the pick, else repo in a repo and local with no repo. */
+/**
+ * The place in force: the pick, else this session (chat) until setup's last step or /quality-code:config picks one.
+ * QUALITY_CODE_PLACE (repo, local or chat) sets the default for a run with no pick, for a CI job or a script.
+ */
 export function placeOf(root, source, env = process.env) {
   const p = savedPlace(root, source, env)
-  return p && placesFor(source).includes(p) ? p : source === 'personal' ? 'local' : 'repo'
+  if (p && placesFor(source).includes(p)) return p
+  const forced = env.QUALITY_CODE_PLACE ?? process.env.QUALITY_CODE_PLACE
+  if (!PLACES.includes(forced)) return 'chat'
+  // A personal setup has no repo: "repo" means this machine there.
+  const place = source === 'personal' && forced === 'repo' ? 'local' : forced
+  return placesFor(source).includes(place) ? place : 'chat'
 }
 
 /** The folder a place keeps this project's files in, outside the repo; null for repo. */
@@ -50,7 +59,7 @@ function baseOf(root, source, place, env) {
 
 /**
  * The folders a place uses: `ticketsDir` (relative to the root in the repo, else absolute) and `auditDir`
- * (absolute; null in the chat, where no log is kept). The config's own ticketsDir applies in the repo,
+ * (absolute, in every place: the session's audit log lives in its temp folder). The config's own ticketsDir applies in the repo,
  * and for a personal setup that names one.
  */
 export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place = placeOf(root, source), env = process.env) {
@@ -61,7 +70,7 @@ export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault }
   return {
     place,
     ticketsDir: normaliseTicketsDir(keepOwn ? own : join(base, 'tickets')),
-    auditDir: place === 'chat' ? null : join(base, 'audit'),
+    auditDir: join(base, 'audit'),
   }
 }
 
@@ -108,8 +117,6 @@ export function pickPlace(root, opts, place, env = process.env) {
     const abs = d => resolve(root, d)
     if (abs(old.ticketsDir) !== abs(next.ticketsDir)) moveTree(abs(old.ticketsDir), abs(next.ticketsDir), counts)
     if (old.auditDir && next.auditDir && old.auditDir !== next.auditDir) moveTree(old.auditDir, next.auditDir, counts)
-    // Into the chat: the log is not kept, so it goes to the temp folder with the rest.
-    if (old.auditDir && !next.auditDir) moveTree(old.auditDir, join(resolve(root, next.ticketsDir), '..', 'audit'), counts)
   }
   return { from, to: place, ...counts, dirs: next }
 }

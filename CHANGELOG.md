@@ -9,6 +9,36 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-03
+
+### Added
+
+- **Frontend unit tests, per feature** (AGT-151). A feature can be tested end to end (Playwright, the default), with unit
+  tests of its components and code, or with both: `features[].approach`. `features[].guide` points to a file in the project
+  that says how your team tests that feature; `/quality-code:spec` reads it before it plans, and it wins over the plugin's
+  guide where they differ. `ticket.mjs approach <feature>` reads both. `/quality-code:setup advanced` asks for them;
+  `spec` asks once when the feature has no approach and the repo already has frontend unit specs. Unit tests need a
+  JavaScript unit runner (Vitest, Jest, Mocha or node --test); config check says so when there is none.
+- **The whole feature, not only the branch** (AGT-152). `branch.mjs --detect` now also gives `integration` (the main line),
+  `baseKind`, `needsConfirm` and `wholeFeature` (what the branch changed since it left the main line). When a pull or merge
+  request goes into another feature branch, `/quality-code:spec` shows a card: check only this branch against that branch,
+  check the whole feature against the main line, or type another branch. `--yes` and `--ci` go on with the target. When the
+  target is not fetched here, the merge request's changed files are read from GitLab (paths only). New flag `--mr-base`.
+
+### Changed
+
+- **Files and the audit log stay in the session until you choose** (AGT-153). The default place is now the session (a temp
+  folder), not the project repo, and the session keeps an audit log too. `/quality-code:setup` ends with the question:
+  the project repo, this machine, or only this session. Other commands ask only for projects set up before this.
+  `QUALITY_CODE_PLACE=repo|local|chat` sets the default for a CI job or a script.
+
+### What to do
+
+- If you had no saved choice, your files and audit log now go to a temp folder. To keep them, run `/quality-code:config`,
+  item 7 (or answer the question at the end of `/quality-code:setup`). Files already in the repo stay where they are until you pick.
+- To test a frontend feature with unit tests, set `"approach": "unit"` (or `"both"`) on it in `.claude/quality-code.json`,
+  and `"guide": "docs/testing/<feature>.md"` if your team has a file about it.
+
 ## [0.40.0] - 2026-11-03
 
 ### Added

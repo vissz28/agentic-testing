@@ -2,5 +2,5 @@
   "name": "quality-code-core",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test \"test/**/*.test.mjs\"" }
+  "scripts": { "test": "QUALITY_CODE_PLACE=repo node --test \"test/**/*.test.mjs\"" }
 }

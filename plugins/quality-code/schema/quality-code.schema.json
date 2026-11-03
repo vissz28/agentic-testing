@@ -70,7 +70,9 @@
         "properties": {
           "label": { "type": "string", "minLength": 1 },
           "route": { "type": "string", "pattern": "^/" },
-          "qaPlanSearch": { "type": "string" }
+          "qaPlanSearch": { "type": "string" },
+          "approach": { "enum": ["e2e", "unit", "both"], "default": "e2e", "description": "How the team tests this frontend feature: Playwright (e2e), unit tests of its components and code (needs a JavaScript unit runner), or both." },
+          "guide": { "type": "string", "description": "A file in the project that describes the team's own approach to testing this feature, for example docs/testing/orders.md. spec reads it before it plans the tests; it wins over the plugin's guide where they differ." }
         }
       }
     },

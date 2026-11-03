@@ -69,6 +69,17 @@ describe('ABC-123 Line totals round to the cent', () => {
 - An `expect` that cannot fail: `expect(true).toBe(true)`, or asserting the input you just built.
 - A change to application code, config or another team's test to make a test pass.
 
+## Frontend unit tests
+
+For a frontend feature whose approach is `unit` or `both` (`features[].approach`): the unit under test is a component, a hook or a helper of the screen, not the running app.
+
+- Use what the project already has: its component testing library (Testing Library with `@testing-library/react`, `vue`, `angular`... when it is in `package.json`) and its Vitest environment (`jsdom` or `happy-dom`). Do not add a library.
+- Find elements as a user does: by role, label or visible text. Never by class name, test id invented for the test, or component internals.
+- Assert what the user sees or what the component calls: rendered text and values, a disabled button, a callback called with the ticket's value. Not state, not the number of renders.
+- Fake only what leaves the component: the network (`fetch`, the API client), the router, the clock. Render the real child components.
+- One behaviour per test, with the ticket's real numbers and texts, as for any Vitest test above.
+- A team guide for the feature (`features[].guide`) is read first and wins where it differs from this one.
+
 ## Other runners (Jest, Mocha, node --test)
 
 With `runners.unit` in the config, these rules hold in that runner's own syntax. Copy the specs already

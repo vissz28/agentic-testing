@@ -312,3 +312,11 @@ test('step 2: a Vitest backend with a database gets the real databases card; the
   assert.match(s, /add '<containersScaffold\.folder>\*\*' to its exclude/)
   assert.ok(step(4).includes('`"containersScaffold": true` (adding real databases)'))
 })
+
+test('advanced setup asks how each feature is tested and for the team\'s own guide', async () => {
+  const { readFileSync } = await import('node:fs')
+  const setup = readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8')
+  assert.match(setup, /\*\*Approach\*\* \(only `playwright` and `fullstack`\)/)
+  assert.match(setup, /4\. Choose per feature/)
+  assert.match(setup, /becomes that feature's `guide`/)
+})

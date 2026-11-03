@@ -9,7 +9,7 @@ import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.
 import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
-import { isFullstack, SIDES, ticketSide } from '../lib/base/stack.mjs'
+import { approachOf, isFullstack, SIDES, ticketSide, unitRunnerOf } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { redact, sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { docxText, DOCX_MAX_CHARS, MAX_BYTES } from '../lib/ticket/docx.mjs'
@@ -84,7 +84,7 @@ function run(argv, env, cwd) {
     if (!cfg.ok) { cfg.errors.forEach(e => out(e)); return 2 }
     out(`ok (${cfg.source}: ${cfg.path})`)
     // The folder the commands write ticket files in: the config's ticketsDir, where this person keeps files.
-    out(`tickets folder: ${cfg.config.ticketsDir} (files kept ${{ repo: 'in the project', local: 'on this machine', chat: 'only in the chat' }[cfg.place]})`)
+    out(`tickets folder: ${cfg.config.ticketsDir} (files kept ${{ repo: 'in the project', local: 'on this machine', chat: 'in this session (a temp folder)' }[cfg.place]})`)
     if (a.flags.has('--runner') && cfg.source === 'repo') missingRunners(root, cfg.config).forEach(m => out(`missing: ${m}`))
     return 0
   }
@@ -109,7 +109,7 @@ function run(argv, env, cwd) {
     }
     if (sub === 'set' && a._.length === 2 && options.includes(place)) {
       const r = pickPlace(root, opts, place, env)
-      const line = { repo: `in the project, in ${r.dirs.ticketsDir}/ (git-ignored)`, local: `on this machine, in ${r.dirs.ticketsDir}/`, chat: 'only in the chat: nothing is kept' }[place]
+      const line = { repo: `in the project, in ${r.dirs.ticketsDir}/ (git-ignored)`, local: `on this machine, in ${r.dirs.ticketsDir}/`, chat: `in this session, in ${r.dirs.ticketsDir}/ (a temp folder: the machine may clear it)` }[place]
       out(`ok: files and logs go ${line}.${r.moved ? ` Moved ${r.moved} file${r.moved === 1 ? '' : 's'} from the old place.` : ''}${r.kept ? ` ${r.kept} already there kept as they were.` : ''}`)
       out(`SAVE_JSON:${JSON.stringify({ ...show(place), asked: true, source: cfg.source, moved: r.moved, kept: r.kept })}`)
       return 0
@@ -197,6 +197,20 @@ function run(argv, env, cwd) {
     if (!r.ok) { err(r.error); return 2 }
     out(e2eFolderLine(r))
     out(`E2E_FOLDER_JSON:${JSON.stringify(r)}`)
+    return 0
+  }
+  if (cmd === 'approach') {
+    // How the team tests a frontend feature: e2e (Playwright), unit (the JavaScript unit runner) or both, and the
+    // team's own file about it. `approach <feature label>`; a label the config does not list gets the default, e2e.
+    const [label] = a._
+    if (!label || a._.length > 1) { err('usage: ticket.mjs approach <feature label>'); return 2 }
+    const feature = (config.features ?? []).find(f => f.label.toLowerCase() === label.toLowerCase()) ?? null
+    const approach = approachOf(config, label)
+    const guide = feature?.guide ?? null
+    const guideFound = guide ? existsSync(resolve(root, guide)) : false
+    const r = { feature: feature?.label ?? null, approach, unitRunner: unitRunnerOf(config), guide, guideFound, set: feature?.approach ?? null }
+    out(`${label}: ${approach === 'e2e' ? 'end-to-end tests (Playwright)' : approach === 'unit' ? 'unit tests' : 'unit tests and end-to-end tests'}${feature?.approach ? '' : ' (the default: no approach set for it)'}${guide ? `; team guide ${guide}${guideFound ? '' : ' (not found)'}` : ''}`)
+    out(`APPROACH_JSON:${JSON.stringify(r)}`)
     return 0
   }
   if (cmd === 'field') {

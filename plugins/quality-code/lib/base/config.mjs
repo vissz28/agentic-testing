@@ -11,6 +11,10 @@ import { FLOWS } from './conventions.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
+/** How a team tests a frontend feature: Playwright (e2e), unit tests of its components and code, or both. */
+export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
+/** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
+const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
 const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
@@ -243,6 +247,11 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       else if (seen.has(f.label)) e.push(`features[${i}].label "${f.label}" appears twice`)
       else seen.add(f.label)
       if (f?.qaPlanSearch !== undefined && (typeof f.qaPlanSearch !== 'string' || !f.qaPlanSearch.trim())) e.push(`features[${i}].qaPlanSearch: must be a non-empty text (the words to search for the QA plan)`)
+      if (f?.approach !== undefined) {
+        if (!FEATURE_APPROACHES.includes(f.approach)) e.push(`features[${i}].approach: must be "e2e", "unit" or "both" (how the team tests this feature)`)
+        else if (f.approach !== 'e2e' && !hasUnitRunner(c)) e.push(`features[${i}].approach "${f.approach}" needs a JavaScript unit test runner (Vitest, Jest, Mocha or node --test): run /quality-code:setup to add one`)
+      }
+      if (f?.guide !== undefined && !(typeof f.guide === 'string' && pathOk(f.guide) && !f.guide.endsWith('/'))) e.push(`features[${i}].guide ${JSON.stringify(f.guide)} must be a file inside the project (the team's own approach to testing this feature, for example docs/testing/orders.md)`)
       if (f?.route != null) {
         if (typeof f.route !== 'string') e.push(`features[${i}].route: must be text starting with "/"`)
         else if (!f.route.startsWith('/')) e.push(`features[${i}].route "${f.route}" must start with "/"`)
@@ -610,7 +619,7 @@ function readValidated(p, label, source, env, root) {
 /**
  * The config in force: the repo's .claude/quality-code.json first, else the personal one. The result is
  * validateConfig's, plus where it came from: source "repo" | "personal" and its path, and where this
- * person keeps the project's files: place "repo" | "local" | "chat", and auditDir (null in the chat).
+ * person keeps the project's files: place "repo" | "local" | "chat" (this session), and auditDir.
  * config.ticketsDir is that place's tickets folder.
  */
 export function loadConfig(root, env = process.env) {

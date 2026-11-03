@@ -108,12 +108,12 @@ function pullRequest(root, branch) {
   }
 }
 
-export function detect(root, config, { base: baseFlag } = {}) {
+export function detect(root, config, { base: baseFlag, mrBase } = {}) {
   const projects = [...config.jira.projects, ...(config.jira.trackingProjects ?? [])]
   const clean = t => redact(config, t)
   const out = {
     repo: basename(root), remote: null, isRepo: false, branch: null, detached: false, head: null,
-    base: null, baseSource: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
+    base: null, baseSource: null, integration: null, baseKind: null, needsConfirm: false, wholeFeature: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
     files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], subjects: [], pullRequest: null, branches: [],
   }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
@@ -127,29 +127,35 @@ export function detect(root, config, { base: baseFlag } = {}) {
     .split('\n').filter(b => b && b !== 'origin' && b !== 'origin/HEAD')
 
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
-  // Priority: an explicit --base flag, then an open pull request's base, then the configured
-  // git.base (a merge request's target branch can differ from origin/HEAD, the repo's default
-  // branch), then origin/HEAD, then a guess.
+  // The integration branch: where finished work lands (git.base, else origin/HEAD, else a guess). A pull or merge
+  // request can target another feature branch instead; the base then differs from it.
   const local = name => (exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null)
   const configured = config.git?.base
-  const pr = rawBranch === null ? null : pullRequest(root, rawBranch)
-  const prBase = typeof pr?.baseRefName === 'string' ? local(pr.baseRefName) : null
-  if (baseFlag) {
-    const ref = local(baseFlag)
-    if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
-  } else if (prBase) Object.assign(out, { base: prBase, baseSource: 'pull-request' })
-  else if (configured && local(configured)) Object.assign(out, { base: local(configured), baseSource: 'config' })
+  let integration = null
+  if (configured && local(configured)) integration = { ref: local(configured), source: 'config' }
   else {
     const originHead = git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
-    if (originHead && exists(originHead)) Object.assign(out, { base: originHead, baseSource: 'origin-head' })
+    if (originHead && exists(originHead)) integration = { ref: originHead, source: 'origin-head' }
     else {
       const preferred = git(root, ['config', '--get', 'init.defaultBranch'])
       for (const name of [...new Set([preferred, ...FALLBACK_BASES].filter(Boolean))]) {
         const ref = local(name)
-        if (ref) { Object.assign(out, { base: ref, baseSource: 'fallback' }); break }
+        if (ref) { integration = { ref, source: 'fallback' }; break }
       }
     }
   }
+  out.integration = integration?.ref ?? null
+  // Priority: an explicit --base flag, then the merge request's target (--mr-base, found through GitLab), then an
+  // open GitHub pull request's base, then the integration branch.
+  const pr = rawBranch === null ? null : pullRequest(root, rawBranch)
+  const prBase = typeof pr?.baseRefName === 'string' ? local(pr.baseRefName) : null
+  const mrRef = mrBase ? local(mrBase) : null
+  if (baseFlag) {
+    const ref = local(baseFlag)
+    if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
+  } else if (mrRef) Object.assign(out, { base: mrRef, baseSource: 'merge-request' })
+  else if (prBase) Object.assign(out, { base: prBase, baseSource: 'pull-request' })
+  else if (integration) Object.assign(out, { base: integration.ref, baseSource: integration.source })
 
   const files = new Map()
   if (out.base && out.head) {
@@ -179,6 +185,22 @@ export function detect(root, config, { base: baseFlag } = {}) {
   for (const f of out.files) {
     out.counts[f.kind]++
     if (!f.committed) out.counts.uncommitted++
+  }
+  // The whole feature: when the base is another feature branch (a pull or merge request into it), this
+  // branch's own changes are only a part. Everything since the branch left the integration branch is the feature.
+  out.baseKind = !out.base ? null : out.integration && out.base !== out.integration ? 'feature' : 'integration'
+  out.needsConfirm = out.baseKind === 'feature' && (out.baseSource === 'pull-request' || out.baseSource === 'merge-request')
+  if (out.baseKind === 'feature' && out.head && !out.onBase) {
+    const mb = git(root, ['merge-base', out.integration, 'HEAD'])
+    if (mb) {
+      const whole = parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', mb, 'HEAD']))
+        .filter(f => f.path.startsWith(prefix))
+        .map(f => ({ path: clean(f.path.slice(prefix.length)), status: f.status, kind: kindOf(f.path.slice(prefix.length), playwright ? 'playwright' : config.adapter, dirs, backendOf(config)) }))
+      const counts = { code: 0, test: 0, other: 0 }
+      for (const f of whole) counts[f.kind]++
+      const [, ahead] = (git(root, ['rev-list', '--left-right', '--count', `${out.integration}...HEAD`]) ?? '0 0').split(/\s+/).map(Number)
+      out.wholeFeature = { base: out.integration, mergeBase: mb.slice(0, 7), ahead, counts, files: whole.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)) }
+    }
   }
   const subjects = out.mergeBase && !out.onBase ? (git(root, ['log', '--format=%s', `${out.mergeBase}..HEAD`]) ?? '').split('\n') : []
   out.branch = rawBranch === null ? null : clean(rawBranch)
@@ -237,7 +259,7 @@ export function merged(root, config, key) {
   return out
 }
 
-const USAGE = 'usage: branch.mjs --detect [--base <branch>] | --merged <KEY>'
+const USAGE = 'usage: branch.mjs --detect [--base <branch>] [--mr-base <branch>] | --merged <KEY>'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
   if (argv[0] === '--merged') {
@@ -255,6 +277,9 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     if (argv[i] === '--base' && argv[i + 1] !== undefined) {
       opts.base = argv[++i]
       if (opts.base.startsWith('-') || !opts.base.trim()) { process.stderr.write(`--base needs a branch name, not "${opts.base}"\n`); return 2 }
+    } else if (argv[i] === '--mr-base' && argv[i + 1] !== undefined) {
+      opts.mrBase = argv[++i]
+      if (opts.mrBase.startsWith('-') || !opts.mrBase.trim()) { process.stderr.write(`--mr-base needs a branch name, not "${opts.mrBase}"\n`); return 2 }
     } else { process.stderr.write(`${USAGE}\n`); return 2 }
   }
   const root = projectRoot(env, cwd)

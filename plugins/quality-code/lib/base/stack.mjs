@@ -33,6 +33,19 @@ export function adaptersForSide(side, config = null) {
   return of[side] ?? of.fullstack
 }
 
+/**
+ * How a frontend feature is tested: the feature's own `approach` ("e2e", "unit" or "both"), else e2e. "unit"
+ * and "both" need a JavaScript unit runner; where there is none the feature falls back to e2e.
+ */
+export function approachOf(config, label) {
+  const f = (config?.features ?? []).find(x => String(x.label).toLowerCase() === String(label ?? '').toLowerCase())
+  const approach = f?.approach ?? 'e2e'
+  return approach !== 'e2e' && !unitRunnerOf(config) ? 'e2e' : approach
+}
+
+/** The JavaScript unit runner a frontend feature can use for its unit tests: Vitest, else null. */
+export const unitRunnerOf = config => (config?.adapter === 'vitest' || (config?.adapter === 'fullstack' && backendOf(config) === 'vitest') || config?.runners?.unit !== undefined ? 'vitest' : null)
+
 /** The project config as a single-adapter project sees it, so every one-adapter module works unchanged. */
 export const asAdapter = (config, adapter) => (config.adapter === adapter ? config : { ...config, adapter })
 

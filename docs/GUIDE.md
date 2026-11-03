@@ -861,7 +861,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `jira.acceptanceCriteriaField` | id of the criteria field, or `null` for none. Leave it out to find it by name per project | found at ticket time |
 | `jira.trackingProjects` | other projects whose tickets may be linked | `[]` |
 | `languages` | `en`, `it`, or both | both |
-| `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text) | `[]` |
+| `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text); `approach` (`e2e`, `unit` or `both`: how the team tests the feature; unit needs a JavaScript unit runner) and `guide` (a file in the project that describes the team's own approach, read by spec before it plans) | `[]` |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions. A pattern with `*` (like `.env.*`) never forbids an env template (`.env.example`, `.env.sample`, `.env.template`); name one exactly to forbid it | `src/`, `.env`, `.env.*`, the CI file |
@@ -889,14 +889,17 @@ values with line breaks, `..` or an absolute path.
 ### Where files and logs go
 
 The ticket copies, the run logs (`run.md`), the Xray files and the local audit log are yours, not the
-team's. After the first command of a project that saves files, Quality Code asks once where to keep them:
+team's. Until you choose, they stay in the session, in a temp folder. The last question of
+`/quality-code:setup` asks where to keep them:
 
 1. **In the project repo** (git-ignored): the tickets folder above, and `.claude/quality-code/audit/`.
-   The default in a repo.
 2. **On this machine, outside the repo**: a folder per project under your Claude folder
-   (`~/.claude/quality-code/projects/<project>-<id>/`). The default with no repo.
-3. **Only in this chat**: results are shown in the chat only. The files a run needs between its steps
-   go to a temp folder, and no audit log is kept (`/quality-code:kpi` then has nothing to count).
+   (`~/.claude/quality-code/projects/<project>-<id>/`). It lasts across sessions.
+3. **Only in this session** (the default): the files a run needs between its steps, and the audit log,
+   go to a temp folder outside the repo. `/quality-code:kpi` counts what was logged there, until the
+   machine clears the folder.
+
+`QUALITY_CODE_PLACE=repo|local|chat` sets the default for a run with no pick (for a CI job or a script).
 
 The pick is kept on your computer (`~/.claude/quality-code/save.json`), one per project, and never in
 the repo. Picking moves the files already saved to the new place. Change it any time with

@@ -22,9 +22,18 @@ test('the commands take the tickets folder from config check, never a default of
 test('the card: asked once, the three places, chosen and moved by the script', () => {
   assert.ok(guide.includes('bin/ticket.mjs" save get`'))
   assert.match(guide, /When `asked` is `true`, say nothing and stop/)
-  for (const l of ['1. In the project repo: <ticketsDir>/ (git-ignored)', '2. On this machine, outside the repo: <ticketsDir>/', '3. Only in this chat: nothing is kept']) assert.ok(guide.includes(l), l)
+  for (const l of ['1. In the project repo: <ticketsDir>/ (git-ignored)', '2. On this machine, outside the repo: <ticketsDir>/', '3. Only in this session: <ticketsDir>/ (a temp folder, the default)']) assert.ok(guide.includes(l), l)
   assert.ok(guide.includes('bin/ticket.mjs" save set <repo|local|chat>`'))
   assert.match(guide, /A setup with no repo has only `local` and `chat`/)
   assert.match(guide, /With `--ci` or `--json`, never show the card/)
   assert.match(guide, /`\/quality-code:config`, item 7/)
+})
+
+test('setup asks where the files go as its last question, and the session is the default', () => {
+  const setup = read('commands/setup.md')
+  assert.match(setup, /\*\*The last question, before any Done text:\*\*/)
+  assert.ok(setup.includes('guides/save-place.md'))
+  assert.match(setup, /bin\/ticket\.mjs" save get/)
+  assert.match(guide, /Until a person picks, everything stays in the session/)
+  assert.match(guide, /\*\*Only in this session\.\*\* The default/)
 })

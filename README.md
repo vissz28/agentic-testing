@@ -396,9 +396,16 @@ On Claude Code older than 2.1.275, use two steps:
 - **Your tests, your flow.** A project that already has tests keeps its own naming, folders and style:
   new tests are written like its nearest specs. Or choose Quality Code's flow. The option is in
   `/quality-code:setup`, in `/quality-code:config` (item 6) and per run with `/quality-code:spec --flow`.
-- **You choose where files and logs go.** After the first command of a project that saves files, a
-  card asks once: in the project repo, on this machine outside the repo, or only in the chat. Change it
-  any time in `/quality-code:config`, item 7.
+- **You choose where files and logs go.** Until you choose, they stay in the session (a temp folder).
+  The last question of `/quality-code:setup` asks: in the project repo, on this machine outside the repo,
+  or only in this session. Change it any time in `/quality-code:config`, item 7.
+- **Frontend unit tests, per feature.** A feature can be tested end to end (the default), with unit
+  tests, or both: `features[].approach`. `features[].guide` points to your own file about how you test
+  it, and `/quality-code:spec` reads it first.
+- **The whole feature, not only the branch.** When a pull or merge request goes into another feature
+  branch, `/quality-code:spec` asks which base to check against and shows what the whole feature
+  touches next to this branch's changes. The merge request's files come from GitLab when the target is
+  not fetched here.
 - **Setup asks where you work first** (in a repo, or Jira only for QA and PO), then the connectors one
   at a time: source code (GitLab, GitHub or both), Jira (required), Figma (optional).
 - **`run-frontend`, `run-backend` and `run-pipeline` replace `/quality-code:check`**, and
