@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-03
+
+### Fixed
+
+- The KPI's traceability result keeps its old shape when there is no branch number (0.44.0 added an empty `branch` field that a
+  test of the old shape rejected). No change to what the card shows.
+
 ## [0.44.0] - 2026-11-03
 
 ### Changed

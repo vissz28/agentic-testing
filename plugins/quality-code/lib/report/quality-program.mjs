@@ -214,7 +214,7 @@ export function qualityKpi({ finals, runs, scan, coverage }) {
   const killRate = s => (typeof s?.score === 'number' ? s.score : s?.total > 0 && typeof s.killed === 'number' ? (100 * s.killed) / s.total : null)
   const mutation = runs.map(r => killRate((r.steps ?? []).find(s => s.check === 'mutation'))).filter(v => v !== null)
   return {
-    traceability: scan ? { pct: pct(scan.traced, scan.specs), traced: scan.traced, specs: scan.specs, branch: scan.branch ? { ...scan.branch, pct: pct(scan.branch.traced, scan.branch.specs) } : null } : null,
+    traceability: scan ? { pct: pct(scan.traced, scan.specs), traced: scan.traced, specs: scan.specs, ...(scan.branch ? { branch: { ...scan.branch, pct: pct(scan.branch.traced, scan.branch.specs) } } : {}) } : null,
     completeness: { mean: scored.length ? Math.round(scored.reduce((n, g) => n + g.score, 0) / scored.length) : null, tickets: scored.length },
     suiteHonesty: scan ? { pct: pct(scan.honest, scan.tests), honest: scan.honest, tests: scan.tests } : null,
     gateIntegrity: { pct: pct(known.length - relaxed.length, known.length), full: known.length - relaxed.length, runs: known.length, relaxed: relaxed.length },
