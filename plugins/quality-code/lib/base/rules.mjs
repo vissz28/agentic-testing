@@ -6,6 +6,12 @@
 // The hub: `centralContext.hub` in .claude/quality-code.json (the base URL; "off" reads nothing), or the
 // CC_HUB_URL environment variable, which wins. One read of GET /v1/manifest, which carries every rule's
 // summary, tags and applies_to.
+//
+// The team's own rules: `centralContext.local`, a folder of rule files in the knowledge repository's format,
+// read next to the hub's on every run. Both lists are candidates: spec applies only the rules that fit the
+// tests it writes for the ticket, and says how many it applied from each.
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { backendOf } from './backends.mjs'
 
 export const HUB_TIMEOUT_MS = 3000
@@ -34,6 +40,9 @@ export function hubOf(config, env = process.env) {
 const SEVERITY = ['critical', 'high', 'medium', 'low']
 const rank = s => (SEVERITY.includes(s) ? SEVERITY.indexOf(s) : SEVERITY.length)
 
+const pick = d => ({ id: d.id, title: d.title ?? d.id, summary: d.summary ?? '', severity: d.severity ?? null, applies_to: d.applies_to ?? [] })
+const bySeverity = (a, b) => rank(a.severity) - rank(b.severity) || a.id.localeCompare(b.id)
+
 /** The active testing rules of the quality domain whose applies_to meets the stacks, most severe first. */
 export function testingRules(documents, stacks) {
   const want = new Set(stacks)
@@ -41,30 +50,69 @@ export function testingRules(documents, stacks) {
     .filter(d => d.domain === DOMAIN && d.status === 'active')
     .filter(d => (d.tags ?? []).some(t => TESTING_TAGS.has(String(t).toLowerCase())))
     .filter(d => (d.applies_to ?? []).some(a => want.has(a)))
-    .map(d => ({ id: d.id, title: d.title ?? d.id, summary: d.summary ?? '', severity: d.severity ?? null, applies_to: d.applies_to ?? [] }))
-    .sort((a, b) => rank(a.severity) - rank(b.severity) || a.id.localeCompare(b.id))
+    .map(pick)
+    .sort(bySeverity)
+}
+
+const unquote = v => (/^".*"$/.test(v) ? JSON.parse(v) : /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v)
+const scalar = v => (v === '' || v === 'null' ? null : v.startsWith('[') && v.endsWith(']') ? v.slice(1, -1).split(',').map(x => unquote(x.trim())).filter(Boolean) : unquote(v))
+
+/**
+ * The frontmatter of a rule file, in the knowledge repository's shape: one `key: value` per line, a value a plain
+ * or quoted string, `null` or a `[a, b]` list. null without frontmatter.
+ * ponytail: one-line values only, as the repository writes them; a multi-line YAML value is not read.
+ */
+export function parseRule(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(text))
+  if (!m) return null
+  const out = {}
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line)
+    if (kv) out[kv[1]] = scalar(kv[2].trim())
+  }
+  return out
+}
+
+/**
+ * The team's own rules from a folder of rule files: every one that is active (the default) and whose applies_to
+ * (default all) meets the stacks. Every rule in the folder is the team's testing rule, whatever its domain or tags.
+ */
+export function localRules(root, dir, stacks) {
+  let files
+  try { files = readdirSync(join(root, dir)).filter(f => f.endsWith('.md') && !/^(README|CHANGELOG)\.md$/i.test(f)).sort() } catch { return { dir, rules: [], error: `folder not found: ${dir}` } }
+  const want = new Set(stacks)
+  const docs = files.map(f => parseRule(readFileSync(join(root, dir, f), 'utf8'))).filter(d => d?.id && d.summary)
+  const rules = docs.filter(d => (d.status ?? 'active') === 'active' && (d.applies_to ?? ['all']).some(a => want.has(a))).map(pick).sort(bySeverity)
+  return { dir, rules, error: null }
 }
 
 /** The rules for a side, read from the hub. Never throws: without a hub, or when it fails, there are no rules and the reason says why. */
-export async function readRules({ side, config = null, env = process.env, fetchImpl = globalThis.fetch, timeoutMs = HUB_TIMEOUT_MS } = {}) {
+export async function readRules({ side, config = null, root = null, env = process.env, fetchImpl = globalThis.fetch, timeoutMs = HUB_TIMEOUT_MS } = {}) {
   const hub = hubOf(config, env)
   const stacks = stacksFor(side, config)
-  const none = error => ({ source: 'none', hub, release: null, side, stacks, rules: [], error })
+  const dir = config?.centralContext?.local
+  const local = dir && root ? localRules(root, dir, stacks) : null
+  const none = error => ({ source: 'none', hub, release: null, side, stacks, rules: [], error, local })
   if (hub === null) return none('not configured (centralContext.hub)')
   if (hub === 'off') return none('off (centralContext.hub: "off")')
   try {
     const res = await fetchImpl(`${hub}/v1/manifest`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const manifest = await res.json()
-    return { source: 'hub', hub, release: manifest?.release?.release_id ?? null, side, stacks, rules: testingRules(manifest?.documents, stacks), error: null }
+    return { source: 'hub', hub, release: manifest?.release?.release_id ?? null, side, stacks, rules: testingRules(manifest?.documents, stacks), error: null, local }
   } catch (e) {
     return none(`not reachable at ${hub} (${String(e?.message ?? e).split('\n')[0]})`)
   }
 }
 
-/** The one line spec shows as a completed step: that Central Context was read, what for, and from where. The rules themselves travel in RULES_JSON. */
+const count = n => `${n || 'no'} testing rule${n === 1 ? '' : 's'}`
+
+/** One line per source spec shows as a completed step: what was read, what for, and from where. The rules themselves travel in RULES_JSON. */
 export function formatRules(r) {
-  if (r.source !== 'hub') return `⚠️ Central Context not read: ${r.error}. No rule applied.`
-  const n = r.rules.length
-  return `✅ Read from Central Context: ${n || 'no'} testing rule${n === 1 ? '' : 's'} for the ${r.side} side (release ${r.release}, ${r.hub})`
+  const own = r.local?.rules.length ?? 0
+  const hub = r.source !== 'hub'
+    ? `⚠️ Central Context not read: ${r.error}.${own ? '' : ' No rule applied.'}`
+    : `✅ Read from Central Context: ${count(r.rules.length)} for the ${r.side} side (release ${r.release}, ${r.hub})`
+  if (!r.local) return hub
+  return `${hub}\n${r.local.error ? `⚠️ Local rules not read: ${r.local.error}.` : `✅ Read from local rules: ${count(own)} for the ${r.side} side (${r.local.dir})`}`
 }

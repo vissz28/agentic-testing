@@ -225,6 +225,11 @@
           "type": "string",
           "pattern": "^(?:off|https?://[^\\s/]+(?:/\\S*)?)$",
           "description": "The hub's base URL, like http://localhost:8080 for the local preview (cc-hub serve) or HoT's hosted address, or \"off\"."
+        },
+        "local": {
+          "type": "string",
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+/$",
+          "description": "Optional folder, ending in /, of the team's own rules: one .md file per rule in the Central Context rule format (id, summary, status, severity, applies_to, tags). Read next to the hub's rules on every run; /quality-code:spec applies only the ones that fit the ticket's tests."
         }
       }
     },

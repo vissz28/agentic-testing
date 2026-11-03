@@ -17,7 +17,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   const cfg = loadConfig(projectRoot(env, cwd), env)
   const config = cfg.ok ? cfg.config : null
-  const r = await readRules({ side: side ?? stackOf(config) ?? 'fullstack', config, env, fetchImpl })
+  const root = projectRoot(env, cwd)
+  const r = await readRules({ side: side ?? stackOf(config) ?? 'fullstack', config, root, env, fetchImpl })
   stdout(`${formatRules(r)}\nRULES_JSON:${JSON.stringify(r)}\n`)
   return 0
 }

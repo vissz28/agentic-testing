@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { formatRules, hubOf, readRules, stacksFor, testingRules } from '../../lib/base/rules.mjs'
+import { formatRules, hubOf, localRules, parseRule, readRules, stacksFor, testingRules } from '../../lib/base/rules.mjs'
 import { main } from '../../bin/rules.mjs'
 
 const doc = (id, o = {}) => ({ id: `quality.${id}`, domain: 'quality', status: 'active', severity: 'medium', summary: `${id} summary.`, tags: ['test'], applies_to: ['all'], ...o })
@@ -72,4 +72,41 @@ test('rules.mjs: the project side by default, --side for a ticket, a RULES_JSON 
   const bad = await run(['--side', 'mobile'])
   assert.equal(bad.code, 2)
   assert.match(bad.err, /^--side must be frontend, backend, fullstack/)
+})
+
+const RULE = (id, o = '') => `---\nid: ${id}\ntitle: "Title of ${id}"\nsummary: "The ${id} rule, in one sentence."\nseverity: high\n${o}---\n## Rule\n\nBody.\n`
+
+test('parseRule: the knowledge repository\'s frontmatter, quoted strings, lists and null; none without frontmatter', () => {
+  const d = parseRule(RULE('team.mocks', 'status: active\napplies_to: [node, rest]\ntags: [test, "mock, stub"]\nsuperseded_by: null\nowner: \'@a\'\n'))
+  assert.deepEqual([d.id, d.title, d.status, d.applies_to, d.superseded_by, d.owner], ['team.mocks', 'Title of team.mocks', 'active', ['node', 'rest'], null, '@a'])
+  assert.equal(parseRule('## no frontmatter'), null)
+})
+
+test('localRules: active rules for the stacks (status active and applies_to all by default), most severe first; a missing folder says so', () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-local-rules-'))
+  mkdirSync(join(root, 'rules'))
+  writeFileSync(join(root, 'rules/a.md'), RULE('team.default'))
+  writeFileSync(join(root, 'rules/b.md'), RULE('team.web-only', 'applies_to: [web]\n'))
+  writeFileSync(join(root, 'rules/c.md'), RULE('team.old', 'status: deprecated\n'))
+  writeFileSync(join(root, 'rules/d.md'), '---\nid: team.no-summary\n---\n')
+  writeFileSync(join(root, 'rules/README.md'), RULE('team.readme'))
+  writeFileSync(join(root, 'rules/notes.txt'), RULE('team.txt'))
+  assert.deepEqual(localRules(root, 'rules/', stacksFor('backend')).rules.map(r => r.id), ['team.default'])
+  assert.deepEqual(localRules(root, 'rules/', stacksFor('frontend')).rules.map(r => r.id), ['team.default', 'team.web-only'])
+  assert.deepEqual(localRules(root, 'nope/', ['all']), { dir: 'nope/', rules: [], error: 'folder not found: nope/' })
+})
+
+test('readRules with local rules: both sources, one line each; a hub that fails still shows the local rules', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-local-read-'))
+  mkdirSync(join(root, 'rules'))
+  writeFileSync(join(root, 'rules/a.md'), RULE('team.mocks'))
+  const config = { adapter: 'vitest', centralContext: { hub: 'http://hub', local: 'rules/' } }
+  const both = await readRules({ side: 'backend', config, root, env: {}, fetchImpl: fetchOk })
+  assert.deepEqual(both.local.rules.map(r => r.id), ['team.mocks'])
+  assert.equal(formatRules(both), '✅ Read from Central Context: 3 testing rules for the backend side (release local-abc, http://hub)\n✅ Read from local rules: 1 testing rule for the backend side (rules/)')
+  const down = await readRules({ side: 'backend', config, root, env: {}, fetchImpl: async () => { throw new Error('fetch failed') } })
+  assert.equal(formatRules(down), '⚠️ Central Context not read: not reachable at http://hub (fetch failed).\n✅ Read from local rules: 1 testing rule for the backend side (rules/)')
+  const lost = await readRules({ side: 'backend', config: { ...config, centralContext: { hub: 'off', local: 'gone/' } }, root, env: {} })
+  assert.equal(formatRules(lost), '⚠️ Central Context not read: off (centralContext.hub: "off"). No rule applied.\n⚠️ Local rules not read: folder not found: gone/.')
+  assert.equal((await readRules({ side: 'backend', config: { adapter: 'vitest' }, root, env: {} })).local, null, 'no local folder configured')
 })

@@ -482,9 +482,12 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
     if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
     else {
-      for (const k of Object.keys(c.centralContext)) if (k !== 'hub') e.push(`centralContext.${k}: unknown field (only "hub")`)
+      for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
       const h = c.centralContext.hub
       if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
+      // The team's own rules, read next to the hub's on every run.
+      const l = c.centralContext.local
+      if (l !== undefined && !(pathOk(l) && l.endsWith('/'))) e.push(`centralContext.local ${JSON.stringify(l)} must be a folder inside the project, ending with "/" (one rule per .md file, in the Central Context rule format)`)
     }
   }
   if (c.sides !== undefined) {

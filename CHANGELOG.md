@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- **The team's own rules next to Central Context's** (`centralContext.local` in `.claude/quality-code.json`): a
+  folder of rule files in the Central Context rule format (`id`, `summary`, `status`, `severity`, `applies_to`,
+  `tags`), read on every `/quality-code:spec` run next to the hub's, each source on its own line. Both lists are
+  candidates: the spec applies only the rules that fit the tests it writes for the ticket and says how many
+  (`Read from Central Context · 6 rules, 2 apply`, `Read from local rules · 3 rules, 1 applies`). Where the two
+  disagree, the team's rule wins. A hub that is down still leaves the local rules.
+
 ## [0.39.0] - 2026-11-03
 
 ### Added

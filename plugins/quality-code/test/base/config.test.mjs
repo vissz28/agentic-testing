@@ -581,7 +581,15 @@ test('centralContext: an object with hub, a base URL or "off"; nothing else; opt
   assert.match(ok('http://localhost:8080').errors[0], /^centralContext: must be an object with "hub"/)
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.equal(schema.properties.centralContext.additionalProperties, false)
-  assert.deepEqual(Object.keys(schema.properties.centralContext.properties), ['hub'])
+  assert.deepEqual(Object.keys(schema.properties.centralContext.properties), ['hub', 'local'])
   const re = new RegExp(schema.properties.centralContext.properties.hub.pattern)
   assert.ok(re.test('http://localhost:8080') && re.test('off') && !re.test('localhost'))
+})
+
+test('centralContext.local: a folder inside the project, ending with /', () => {
+  const base = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const ok = v => validateConfig({ ...base, centralContext: { hub: 'off', local: v } })
+  assert.equal(ok('.claude/quality-code/rules/').ok, true)
+  for (const bad of ['rules', '/abs/rules/', '../up/', '']) assert.match(ok(bad).errors[0], /^centralContext\.local .* must be a folder inside the project, ending with "\/"/, bad)
+  assert.match(validateConfig({ ...base, centralContext: { other: 1 } }).errors[0], /unknown field \(only "hub" and "local"\)/)
 })
