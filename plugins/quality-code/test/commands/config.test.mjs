@@ -94,3 +94,13 @@ test('item 15: the reply style is read and written by connector-settings --style
   assert.ok(step(4).includes('`Commit .claude/settings.json so your team gets it too. It applies from your next message.`'))
   assert.ok(readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8').includes(`${BIN}/connector-settings.mjs" --style on\``), 'setup turns it on')
 })
+
+test('item 16: the qa block is changed through setup --write, one setting at a time, with only that block touched', () => {
+  assert.ok(step(2).includes('16. QA runs'))
+  const s = step(3)
+  assert.match(s, /\*\*16 \(QA runs\)\.\*\*/)
+  for (const o of ['1. The app address to test', '2. The names of your statuses (KO, ready to test, done)', '3. The issue types of a test execution, and the sprint', '4. Auto-pass and when to stop']) assert.ok(s.includes(o), o)
+  assert.match(s, /with only its qa block changed/)
+  assert.ok(s.includes(`${BIN}/setup.mjs" --write '<proposal JSON>'`))
+  assert.match(step(4), /after item 16/)
+})

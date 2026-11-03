@@ -149,3 +149,26 @@ test('with the project\'s exceljs, case.xlsx is written next to case.csv', { ski
   assert.match(r.out, /For QA: e2e\/tickets\/ABC-1\/case\.xlsx and e2e\/tickets\/ABC-1\/case\.csv\n$/)
   assert.ok(readFileSync(join(d, 'e2e/tickets/ABC-1/case.xlsx')).subarray(0, 2).equals(Buffer.from('PK')), 'an xlsx is a zip')
 })
+
+test('created: the cases already created in Xray are kept per ticket, so none is created twice', async () => {
+  const { main } = await import('../../bin/xray.mjs')
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const root = mkdtempSync(join(tmpdir(), 'qc-xc-'))
+  mkdirSync(join(root, '.claude'))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, xray: { csv: 'xray/cases.csv' } }))
+  const run = async (...args) => {
+    let out = ''
+    let err = ''
+    const code = await main(args, { CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-cfg-')) }, root, { stdout: s => { out += s }, stderr: s => { err += s } })
+    return { code, out, err }
+  }
+  assert.match((await run('created', 'ABC-5')).out, /0 cases of ABC-5 created in Xray\nXRAY_CREATED_JSON:\{"key":"ABC-5","created":\{\}\}/)
+  assert.equal((await run('created', 'ABC-5', 'add', 'Filter by week', 'ABC-31')).code, 0)
+  const r = await run('created', 'ABC-5', 'add', 'Extra: empty week', 'ABC-32')
+  assert.match(r.out, /2 cases of ABC-5 created in Xray/)
+  assert.deepEqual(JSON.parse(r.out.split('XRAY_CREATED_JSON:')[1]).created, { 'Filter by week': 'ABC-31', 'Extra: empty week': 'ABC-32' })
+  assert.ok(readFileSync(join(root, '.quality-code/tickets/ABC-5/xray-created.json'), 'utf8').includes('ABC-31'))
+  for (const bad of [['created'], ['created', 'abc'], ['created', 'ABC-5', 'add', 'name'], ['created', 'ABC-5', 'add', 'name', 'x'], ['created', 'ABC-5', 'remove', 'n', 'ABC-1']]) assert.equal((await run(...bad)).code, 2, bad.join(' '))
+})

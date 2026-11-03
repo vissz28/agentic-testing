@@ -222,19 +222,20 @@ Needs a one-time `seed` block in the config: see [Guide, "Mock data in your loca
 
 ### xray
 
-`/quality-code:xray <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [KEY]`
+`/quality-code:xray <KEY> [--route PATH] [--no-extras] [--run KEY] [--dry-run] [--ci] | --sync [KEY]`
 
 | Option | What it does |
 |---|---|
 | `--route PATH` | The screen the cases are for, e.g. `--route /orders/new` |
 | `--no-extras` | Only the ticket's scenarios, no extra edge cases |
 | `--dry-run` | The gate and the plan, then stop: no case written |
+| `--run KEY` | With the Xray API key, also add the new tests to that test execution |
 | `--ci` | No questions |
 | `--sync [KEY]` | Rewrite the per-ticket `case.csv`/`case.xlsx` from the main CSV (after you edit it) |
 
 ### qa
 
-`/quality-code:qa [KEY] [--app <url>] [--dry-run]`
+`/quality-code:qa [KEY] [--app <url>] [--first] [--resume] [--auto-pass] [--dry-run] | --watch`
 
 With no key it lists the test executions assigned to you. It runs each test in the browser, you give
 every verdict, and it drafts the defects. Every Jira write is previewed first.
@@ -242,8 +243,17 @@ every verdict, and it drafts the defects. Every Jira write is previewed first.
 | Option | What it does |
 |---|---|
 | `KEY` | The test execution to run |
-| `--app <url>` | The app address to test on (sign in there first); asked when missing |
+| `--app <url>` | The app address to test on (sign in there first); else `qa.app` of the config, else the last one used, else asked |
+| `--first` | Take your first open execution (open sprint, board order) without asking |
+| `--resume` | Go on from the answers saved for that run |
+| `--auto-pass` | Record a test the agent finds OK without a card; stop at the first KO or blocked test |
+| `--watch` | A schedule that tells you when a story you sent back is ready to retest |
 | `--dry-run` | The whole run, with every defect and comment shown, nothing sent |
+
+A test you cannot do is **Blocked** (set BLOCKED in Xray), never KO; after 2 blocked in a row the run offers to stop. A KO
+saves a screenshot, files the defect (under the story's epic, in the active sprint, to its developer) and sets FAILED.
+Your answers are saved after every test. Set `qa` in `.claude/quality-code.json` (or `/quality-code:config`, item 16) for
+your execution issue types, status names and app address.
 
 ### routine
 
@@ -362,6 +372,11 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **QA and Xray, from the QA tester flow.** `/quality-code:qa` finds your executions in the open sprint, resumes a run from
+  saved answers, marks a test you cannot do as Blocked (BLOCKED in Xray) and stops when the environment looks down, saves a
+  screenshot per failing step, can open a new defect when a retest still fails, goes on to your next execution, and
+  `--watch` tells you when a story is ready to retest. With the Xray API key, `/quality-code:xray` creates the tests in
+  Xray itself. New `qa` config block and item 16 of `/quality-code:config`.
 - **Copilot, Codex, Cursor and Gemini CLI.** `quality-code-mcp --init copilot|codex|cursor|gemini --write` writes the
   local MCP config and one wrapper per command for that agent (prompt files, skills, commands, a Gemini extension).
   See [the MCP server README](plugins/quality-code/mcp-server/README.md). Not yet tried inside those tools.

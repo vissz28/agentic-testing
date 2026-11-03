@@ -229,6 +229,27 @@
       }
     },
     "qaPlans": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional folder, ending in /, of QA plans written as Markdown, one <feature label>.md per feature. /quality-code:spec reads the ticket's feature plan as extra rules; the ticket's Then wins. Never scored." },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional. How /quality-code:qa finds and closes your Xray test executions. Every field is optional.",
+      "properties": {
+        "executionTypes": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "pattern": "^[^\\r\\n\"\\\\]+$", "maxLength": 80 }, "description": "The Jira issue types of a test execution, as the JQL search uses them. Default: Test Execution and Sub Test Execution. Set it when your team's test execution sub-task has another type name." },
+        "sprint": { "enum": ["open", "any"], "description": "open (default): only executions in the open sprint. any: every open execution assigned to you." },
+        "app": { "type": "string", "pattern": "^https?://\\S+$", "description": "The address of the app to test, so qa does not ask for it on every run. --app overrides it." },
+        "statuses": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ko": { "type": "string", "pattern": "^[^\\r\\n\"\\\\]+$", "description": "The status a run and its story move to when a test fails, like TEST KO. Left out: the status whose name contains KO or fail." },
+            "ready": { "type": "string", "pattern": "^[^\\r\\n\"\\\\]+$", "description": "The status of a story that is ready to retest, like Ready to test. Used by qa --watch." },
+            "done": { "type": "string", "pattern": "^[^\\r\\n\"\\\\]+$", "description": "The status a run moves to when every test passes. Left out: a status in the Done category." }
+          }
+        },
+        "blockedStop": { "type": "integer", "minimum": 0, "maximum": 20, "description": "Stop suggesting more tests after this many blocked tests in a row (the environment is probably down). Default 2; 0 never stops." },
+        "autoPass": { "type": "boolean", "description": "true: a test the agent proposes as OK is recorded without a card, and the run stops at the first KO or blocked test. Nothing is written to Jira or Xray until the close card. Default false." }
+      }
+    },
     "xray": {
       "type": "object",
       "additionalProperties": false,

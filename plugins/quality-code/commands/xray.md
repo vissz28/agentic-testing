@@ -1,6 +1,6 @@
 ---
 description: Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:spec adds the same cases for the tests it writes.
-argument-hint: <KEY> [--route PATH] [--no-extras] [--dry-run] [--ci] | --sync [KEY]
+argument-hint: <KEY> [--route PATH] [--no-extras] [--run KEY] [--dry-run] [--ci] | --sync [KEY]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
 
@@ -58,10 +58,24 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
    Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs" add @<ticketsDir>/<KEY>/xray.json`. Exit 2 is a config or input error: show its lines; when it names a case, fix that case in `xray.json` once and run again.
 6. **Report.** Show the script's lines as printed: the case numbers, a case that was already there, and the files for QA. Add one line: `QA imports the case file in Xray: Test Repository, Import, Excel or CSV.` Nothing is graded and no test is written: say `/quality-code:spec <KEY>` writes the tests with the same names when you need them.
 
+7. **Create them in Xray** (only when the plugin's `xray` connector offers `create_tests`, which means the Xray API key is set; otherwise stop at step 6). The tests are already in Xray's import file; this puts them in Xray itself. Skip it with `--dry-run` (show the card without its options) and with `--ci`. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs" created <KEY>` and leave out the cases it already lists: they exist in Xray, and are never created twice. Nothing left: say `Every case of <KEY> is already in Xray.` and stop. Show this card and end the turn:
+
+   ```
+   Create <n> test(s) in Xray for [KEY](url)?
+     <case name>: <steps> steps
+   Project <project key>, linked to [KEY](url)<, and added to [RUN](url) when --run gave one>
+   1. Create them in Xray
+   2. Only the file, I import it myself
+   3. Stop
+   ```
+
+   On `1`: call `create_tests` with the project (the key's project) and the cases (each `summary` and `steps` with `action`, `data` and `result` from `xray.json`, and the ticket key as its label). Never call it twice for the same cases: if it fails or says it is still running, show that and tell the tester to look in Xray's Test Repository before trying again. For each test created, run `node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs" created <KEY> add "<case name>" <TEST KEY>` (the case order matches `created[].index`). Then link each test to the ticket: from `listJiraIssueLinkTypes`, the link type named `Test` or `Tests` (ignoring case), with `createJiraIssueLink` (the ticket is tested by the test). With no such type, skip the links and say `No Test link type on this site: link them by hand if your team does.` With `--run <RUN KEY>` (a key), call `add_tests_to_test_execution` with it and the new test keys. Say which tests were created, as links. Nothing here runs a test or changes a status.
+
 ## Examples
 
 - `/quality-code:xray ABC-123`: gate the ticket, plan the cases, write them for QA
 - `/quality-code:xray ABC-123 --no-extras`: only the ticket's scenarios
 - `/quality-code:xray ABC-123 --route /orders/new`: cases for this screen
 - `/quality-code:xray ABC-123 --dry-run`: the gate and the plan, then stop; no case is written and nothing is posted
+- `/quality-code:xray ABC-123 --run ABC-200`: with the Xray API key, also create the tests in Xray, link them to the ticket and add them to that test execution
 - `/quality-code:xray --sync ABC-123`: rewrite the ticket's case.csv and case.xlsx from the CSV

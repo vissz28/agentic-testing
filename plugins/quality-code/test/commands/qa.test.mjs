@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const TICKET = 'node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs"'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[<KEY>\] \[--app <url>\] \[--dry-run\]\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[<KEY>\] \[--app <url>\] \[--first\] \[--resume\] \[--auto-pass\] \[--dry-run\] \| --watch \| --watch-check\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: check, pick, context, run, defect, retest, close', () => {
   const at = ['Check', 'Pick a run', 'Context', 'Run, one test at a time', 'Defect', 'Retest', 'Close'].map((s, i) => doc.indexOf(`\n${i + 1}. **${s}`))
@@ -38,7 +38,12 @@ test('step 1: config check (repo or personal), Jira only from the connectors gui
   assert.ok(s.includes('1. I test by hand and tell you what I saw'))
 })
 test('step 2: my open runs across the site, by JQL', () => {
-  assert.ok(step(2).includes('`assignee = currentUser() AND issuetype in ("Test Execution", "Sub Test Execution") AND statusCategory != Done ORDER BY updated DESC`'))
+  const s = step(2)
+  assert.ok(s.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" jql runs'), 'the JQL comes from the script, which reads the qa block')
+  assert.match(s, /sprint in openSprints\(\)/)
+  assert.ok(s.includes('Nothing in the open sprint: showing your other open executions.'), 'no hit in the sprint falls back, it never ends the run')
+  assert.match(s, /qa\.executionTypes/)
+  assert.match(s, /With `--first`, take the first run without asking/)
 })
 test('step 3: the sources in order: the Xray API, an attached export (no flag), the browser, then attach or paste', () => {
   const s = step(3)
@@ -69,7 +74,7 @@ test('steps 6 and 7: retest comment and status moves are logged; Xray statuses b
   assert.match(s, /In Xray, set these by hand/)
   assert.match(s, /the story is not changed/)
   assert.ok(s.indexOf('1. Set them') < s.indexOf('`set_test_run_status`'), 'the card comes before the write')
-  assert.match(s, /If none matches, or more than one, ask once/)
+  assert.match(s, /it gives one name, or `ask` with the candidates: then ask the tester once/)
   assert.ok(s.includes(`${TICKET} jira-posted <TEST KEY> status`))
 })
 test('Xray API: step 1 says when it is on; step 5 adds the defect to the test\'s run', () => {
@@ -77,7 +82,7 @@ test('Xray API: step 1 says when it is on; step 5 adds the defect to the test\'s
   assert.match(step(5), /With the Xray API: `add_defect_to_test_run` with the test's run id and the defect key/)
   assert.ok(step(5).indexOf('It is also added to the run') < step(5).indexOf('1. Create it'), 'the preview says so before the yes')
 })
-test('Jira tools are named by operation, never by an mcp__ tool name', () => {
-  assert.doesNotMatch(doc, /mcp__/)
+test('Jira tools are named by operation, never by an mcp__ tool name (only the allowed-tools line has them)', () => {
+  assert.doesNotMatch(doc.slice(doc.indexOf('\n---\n', 4)), /mcp__/)
   assert.ok(doc.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'))
 })

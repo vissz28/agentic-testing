@@ -1,18 +1,19 @@
 ---
 description: Run your Xray manual tests with an agent. Lists the test executions assigned to you, runs one in the browser test by test, and drafts each defect for the developer. You give every verdict, and nothing is written to Jira without a preview and a yes.
-argument-hint: [<KEY>] [--app <url>] [--dry-run]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+argument-hint: [<KEY>] [--app <url>] [--first] [--resume] [--auto-pass] [--dry-run] | --watch | --watch-check
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate
 ---
 
-For QA. Lists the Xray test executions assigned to you, runs the one you pick in the browser one test at a time, and drafts a defect for each KO. You see every result first, and you decide. The tests come from the Xray API when its key is set in the plugin settings; otherwise from an Xray export you attach to the message (CSV), or from the Jira page in the browser. Without the API, you set the run statuses in Xray yourself, and the command tells you which. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
+For QA. Lists the Xray test executions assigned to you, runs the one you pick in the browser one test at a time, and drafts a defect for each KO. You see every result first, and you decide. The tests come from the Xray API when its key is set in the plugin settings; otherwise from an Xray export you attach to the message (CSV), or from the Jira page in the browser. Without the API, you set the run statuses in Xray yourself, and the command tells you which. Your answers are saved as you go, so a run can be resumed, and `--watch` tells you when a story you sent back is ready to retest. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. End your turn after every card and wait for the answer.
 
 ## Rules
 
 - **Where files go.** When the command has ended (after its last card is answered, or its last step when it shows none), follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`: the first run of a project asks once where its files and logs are kept.
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- **The tester decides.** For each test you propose OK, KO or Not verified, with what you saw. The tester's answer is the verdict. Not verified means a step could not be done (an element not found, the page did not load, a step without an expected result). A browser problem is never a KO, and a step you did not see is never ✅.
-- **Jira is written only through the connector, after a yes.** Each write (defect, link, attachment, comment, status, Xray run status) is shown first, and sent only when the tester answers `1`. In the browser, Jira pages are read and nothing else: never click, type or change anything on a Jira page. **`--dry-run`:** no write at all. Every preview ends with `Not sent (--dry-run): copy it if you want it.`
+- **The tester decides.** For each test you propose OK, KO or Blocked, with what you saw. The tester's answer is the verdict. Blocked means a step could not be done (an element not found, the page did not load, the sign-in failed, no test data, a step without an expected result). A browser problem is never a KO, and a step you did not see is never ✅. **Auto-pass** (`--auto-pass`, or `qa.autoPass` in the config): the tester chose beforehand that an OK you propose is recorded without a card, one line `✅ <TEST> OK`. A KO or a Blocked test always gets its card, and the run stops there. It changes the cards only: every write still waits for a preview and a yes, and a test you did not fully see is never proposed as OK.
+- **Jira is written only through the connector, after a yes.** Each write (defect, link, attachment, comment, status, Xray run status) is shown first, and sent only when the tester answers `1`. In the browser, Jira pages are read and nothing else: never click, type or change anything on a Jira page. **`--dry-run`:** no write at all. Every preview ends with `Not sent (--dry-run): copy it if you want it.` With `--dry-run`, do not save progress either (skip every `qa.mjs state` call). **One exception to "after a yes":** a test's own Xray status (with the Xray API) is covered by the test's card, which names it (`Xray: PASSED`): the tester's answer to that card is the yes.
 - **The app.** Act only on the app address of this run. The tester signs in to the app in the browser. Never ask for a password, never type one, and never put a password, token or cookie in a defect, a comment or the chat.
+- **Progress is saved.** After every answer, run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" state record …` (steps 4 to 6). A run is resumed from that file, and the script, not you, says what is still to do and when the environment looks down. Never edit the saved files.
 - **Never invent.** An expected result comes from the test case's steps, or, on a retest, from the defect's expected result. If the test case does not give the steps or data, ask the tester, or mark the test Not verified.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option. Read only the first word for this; a sentence that says what happened is a typed answer.
 - **Language.** Talk in the language of the user's messages. Write defects and comments in the language of the tester's last defect (step 5); without one, in the test case's language. Quote the app's texts exactly as the screen shows them.
@@ -20,24 +21,27 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
 
 ## Steps
 
+With `--watch` or `--watch-check` in `$ARGUMENTS`: run only `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check` (if it does not print `ok`, show its lines and stop), skip the rest of step 1 and go to step 9. No browser and no connectors card there.
+
 1. **Check.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`; with no repo it offers a personal setup). Read `jira.site` from the config it names. Then read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and do only its Jira parts: the check, who is signed in (with `jira_email` = `${user_config.jira_email}`), and the Jira card. Leave GitLab, GitHub and Figma out. Go on only when Jira is ✅. The line shows who the work is done as: `Connectors: ✅ Jira <email> on <site host>`. **Xray API:** when the plugin's `xray` connector offers `get_test_run`, the API is on: add `· ✅ Xray API` to the line. Without it, say nothing about Xray here.
 
-   **Browser.** If this session has no browser tools (Claude in Chrome, or a Playwright browser connector), show this card and end the turn:
+   **Browser.** Use the first browser this session has: the built-in browser pane of the Claude desktop app (where the tester signs in once and stays signed in), Claude in Chrome, or a Playwright browser connector. If it has none, show this card and end the turn:
 
    ```
-   No browser is connected. Run /chrome to connect Claude in Chrome, then run /quality-code:qa again.
+   No browser is connected. Open the browser pane in the Claude app, or run /chrome to connect Claude in Chrome, then run /quality-code:qa again.
    1. I test by hand and tell you what I saw
    2. Stop
    ```
 
    `1` is manual mode: step 4 asks the tester for each result instead of using the browser.
-2. **Pick a run.** If `$ARGUMENTS` contains a key (`[A-Z][A-Z0-9_]*-\d+`), use it. Otherwise call `searchJiraIssuesUsingJql` with `assignee = currentUser() AND issuetype in ("Test Execution", "Sub Test Execution") AND statusCategory != Done ORDER BY updated DESC`, `maxResults` 20 and fields `summary,status,issuetype,parent`. No hit: say `No open test executions assigned to you.` and stop. Otherwise show one line per run, `<n>. [KEY](url) · <status> · <summary> · for [PARENT](url)` (no parent: leave out the `for` part), then `Which one? Type its number, or stop.` and end the turn.
+2. **Pick a run.** If `$ARGUMENTS` contains a key (`[A-Z][A-Z0-9_]*-\d+`), use it. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" jql runs`, take the JQL on its first line and call `searchJiraIssuesUsingJql` with it, `maxResults` 20 and fields `summary,status,issuetype,parent`. The JQL follows the `qa` block of the config: the execution types (default `Test Execution` and `Sub Test Execution`), the open sprint, the board order. If it has `sprint in openSprints()` and finds nothing, search again without that part and say `Nothing in the open sprint: showing your other open executions.` No hit: say `No open test executions assigned to you. If your test execution has another issue type, set qa.executionTypes in .claude/quality-code.json.` and stop. With `--first`, take the first run without asking and go on. Otherwise show one line per run, `<n>. [KEY](url) · <status> · <summary> · for [PARENT](url)` (no parent: leave out the `for` part), then `Which one? Type its number, or stop.` and end the turn.
 3. **Context.** Read, with `getJiraIssue`:
    - **The run:** fields `summary,status,issuetype,parent,assignee,issuelinks`.
    - **The story it tests:** the run's parent. With no parent, the issue the run links with `tests`. With neither, ask `Which story does this run test? (its key)` and end the turn. Read it with view `evidence` (which maps the Sprint field) and fields `summary,description,status,assignee,components,parent`.
-   - **Open defects:** issues linked to the run, or to its tests, by a link type named `Defect`, whose status category is not Done.
+   - **Open defects:** the bugs of earlier runs, whose status category is not Done: issues linked to the run, or to its tests, by a link type named `Defect`, and the children of the story (`searchJiraIssuesUsingJql` with `parent = <STORY> AND statusCategory != Done`), keeping those whose issue type name contains `bug` or `defect`, ignoring case. Each defect once.
    - **Test cases.** First from the Xray API, when it is on: `get_test_run` with the run's key gives each test's run id, status and steps (action, data, expected result), and Xray's run statuses. If it answers with an error, say `Xray API: <the error>. Reading the tests another way.` and go on. Next, from an Xray export, when the user's message carries one: a file attached in the app, or a file path in the message (a dropped file shows up as its path). Read each test's key, summary, steps (action, data, expected result) and, when the file has it, its status. Column names vary between exports: go by what each column means. For an `.xlsx`, ask `Save it as CSV (in Excel: File, Save as, CSV UTF-8) and attach that.` and end the turn. Without a file, use the browser: open `<jira.site>/browse/<KEY>` and read the Xray tests panel (each test's key, summary and status), then open each test (`<jira.site>/browse/<TEST KEY>`) and read its steps. Only read these pages. If you cannot read them (Jira is not signed in in this browser, the panel does not load, or manual mode), ask `Attach this run's Xray export (CSV), or paste the test cases (key, steps and expected results), then send.` and end the turn.
-   - **App address:** `--app <url>` from `$ARGUMENTS`; it must start with `http://` or `https://`. Without one, ask `Which app address do I test on? Sign in there in the browser first.` and end the turn.
+   - **App address:** `--app <url>` from `$ARGUMENTS`; it must start with `http://` or `https://`. Without one, run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" app get`: it gives `qa.app` of the config, else the address of the last run. With neither, look in the story's description for a link to the app (not Jira, Confluence or Figma) and offer it, else ask `Which app address do I test on? Sign in there in the browser first.` and end the turn. Whichever address you end up with, unless it came from the config, save it with `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" app set <url>`, so the next run does not ask.
+   - **Saved progress:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" state show <RUN> --tests <the test keys, comma-separated>`. When `exists` is true, show its counts in the card (`Saved progress: <k> of <N> answered: <ok> OK, <ko> KO, <blocked> blocked`) and its `pending` tests are the ones option 1 runs; the tests already answered stay as they are. `--resume` takes option 1 without asking. If the tester asks to start over, run `qa.mjs state reset <RUN>` first. With `--dry-run`, skip this call.
 
    Show this card and end the turn:
 
@@ -49,14 +53,14 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
      1. [TEST](url) <summary> · <Xray status> · <n> steps
    Open defects (<M>)
      [BUG](url) · <status> · <summary>
-   1. Run the tests still To Do, in order
+   1. Run the tests still To Do, in order (with saved progress: Resume with the <m> tests left)
    2. Retest the open defects first
    3. Pick tests (type their numbers)
    4. Stop
    ```
 
    With no open defects, leave out that block and option 2.
-4. **Run, one test at a time.** At the app address, do the test's steps in order, with their data. After each step, compare what the screen shows with the step's expected result. Keep the URL path, a short note of what the screen showed, any browser console errors, and a screenshot of the failing step (or the last one). Then show this card, end the turn, and never start the next test before an answer:
+4. **Run, one test at a time.** At the app address, do the test's steps in order, with their data. After each step, compare what the screen shows with the step's expected result. Keep the URL path, a short note of what the screen showed, any browser console errors, and the evidence of the failing step (or the last one): run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" evidence <RUN> <TEST KEY> --step <n>`, which prints the file path for it, and save the screenshot there with the browser tool when it can save a file. If it cannot, say `Evidence: this browser tool cannot save a screenshot to a file.` in the card, and keep the page text and the console errors in the note. Then show this card, end the turn, and never start the next test before an answer:
 
    ```
    Test <i>/<N> [TEST](url) <summary>
@@ -65,16 +69,26 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
      ✅ 2. <step>
      ❌ 3. <step>
    Console: <errors, or none>
+   Evidence: <file path, or why there is none>
+   Xray: <status it will set, with the Xray API; leave the line out without it>
    1. KO: draft the defect
    2. OK
    3. Run it again
-   4. Not verified: skip it
-   5. Stop
+   4. Blocked: a step could not be done
+   5. Skip it (leave it To Do)
+   6. Stop
    ```
 
-   `Proposed:` is `OK`, `KO` with the first failing step (expected, then what the screen shows), or `Not verified` with the reason. `1` goes to step 5, then the next test. `2` and `4` record the answer and go to the next test. `3` runs the test again. `5` goes to step 7.
+   `Proposed:` is `OK`, `KO` with the first failing step (expected, then what the screen shows), or `Blocked` with the reason. The `Xray:` line names the status the answer sets, from `qa.mjs pick ok|ko|blocked --from "<the status names of get_test_run>"` (`ask` in its result: ask the tester which one, once). Record every answer: `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" state record <RUN> <TEST KEY> ok|ko|blocked|skipped --story <STORY KEY> [--step <n>] [--note "<one line>"] [--evidence <path>] [--run-id <id>]`.
+   - `1` goes to step 5, then the next test.
+   - `2`: record `ok`; with the Xray API, set the status with `set_test_run_status` (it is on the card) and record it with `--xray set`. Go on with the next test.
+   - `4`: record `blocked` with the reason as the note; with the Xray API, set the BLOCKED (or ABORTED) status the same way. The script's answer says when the environment looks down (`blockedInARow`, `stopSuggested`): then show `<n> tests blocked in a row: the environment looks down. 1. Stop the run / 2. Keep going`, and end the turn. `1` goes to step 7.
+   - `5`: record `skipped`. Nothing is set in Xray.
+   - `3` runs the test again. `6` goes to step 7.
 
-   **Manual mode:** do not use the browser. Show the test's steps and expected results, ask `What happened? (OK, or what you saw instead)` and end the turn. The reply is the verdict, and its text is the actual result.
+   **Auto-pass:** when it is on, a test you propose as OK is recorded with no card: show one line `✅ <TEST> OK` and go on to the next test, with no answer needed. A KO or Blocked test shows its card as above. With auto-pass, the Xray statuses of the OK tests are set at the close (step 7), on the close card's yes, not one by one.
+
+   **Manual mode:** do not use the browser. Show the test's steps and expected results, ask `What happened? (OK, or what you saw instead)` and end the turn. The reply is the verdict, and its text is the actual result. Record it the same way.
 5. **Defect.** Once per run, before the first defect:
    - **Type.** From `getJiraProjectIssueTypesMetadata` for the run's project, take the types that are not subtasks and whose name contains `bug` or `defect`, ignoring case. If more than one, keep those that also contain `QA` or `test`. If there is still more than one, or none, ask with a numbered card.
    - **Style.** The tester's last defect: `searchJiraIssuesUsingJql` with `project = <PROJECT> AND reporter = currentUser() AND issuetype = "<type>" ORDER BY created DESC`, `maxResults` 1, fields `summary,description`. Follow its summary pattern, its headings and its language. With none, use the default below.
@@ -115,9 +129,9 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
    End the turn. On `1`:
    1. `createJiraIssue` with the type, summary, description, parent, components, assignee and sprint. If the parent is rejected, retry once without it and say so.
    2. Links: from `listJiraIssueLinkTypes`, a type named `Defect` (ignoring case). `createJiraIssueLink` from the run to the defect and from the test to the defect (`inwardIssue` the run or the test, `outwardIssue` the defect). With no such type, skip the links and say `No Defect link type on this site: link it by hand if your team does.`
-   3. Attach the screenshot with `uploadAttachmentToJiraIssue`, if the browser saved one to a file (run its upload command in the shell). If not, say `Attach the screenshot by hand.`
-   4. With the Xray API: `add_defect_to_test_run` with the test's run id and the defect key.
-   5. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <DEFECT KEY> defect`.
+   3. Attach the evidence file of the test (`qa.mjs state show` has its path; the one step 4 saved) with `uploadAttachmentToJiraIssue`. If there is none, say `Attach the screenshot by hand.` The description's Actual result says which file is attached.
+   4. With the Xray API: `add_defect_to_test_run` with the test's run id and the defect key, then `set_test_run_status` with the FAILED status (`qa.mjs pick ko`).
+   5. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <DEFECT KEY> defect`, then `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" state record <RUN> <TEST KEY> ko --defect <DEFECT KEY> [--xray set]` (`--xray set` when the status was set).
 
    Say `Filed [BUG](url), assigned to <developer>.` and go on with the next test.
 6. **Retest** (option 2 of step 3). For each open defect, follow its steps to reproduce at the app address and compare the result with its expected result. Show this card and end the turn:
@@ -125,13 +139,14 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
    ```
    Retest [BUG](url) <summary>
    Proposed: NOT FIXED. <what the screen shows>
-   1. Not fixed: draft the comment
-   2. Fixed: draft the comment
-   3. Run it again
-   4. Skip
+   1. Not fixed: comment on the defect
+   2. Not fixed: file a new defect, linked to this one
+   3. Fixed: draft the comment
+   4. Run it again
+   5. Skip
    ```
 
-   `Proposed:` is `FIXED`, `NOT FIXED` or `Not verified`, with the reason. The comment follows the tester's last comment on the defect that starts with `Retest`. Without one, use:
+   `Proposed:` is `FIXED`, `NOT FIXED` or `Blocked`, with the reason. The comment follows the tester's last comment on the defect that starts with `Retest`. Without one, use:
 
    ```
    Retest - <FIXED | NOT FIXED>
@@ -141,18 +156,20 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
    Path: <URL path>
    ```
 
-   Show it with `1. Post it / 2. Change something / 3. Don't post`. On `1`, post it with `addCommentToJiraIssue`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <BUG KEY> retest`. After `Fixed`, list the defect's transitions (`getTransitionsForJiraIssue`) as a numbered card of the statuses they lead to, plus `Leave it`. Apply the one picked with `transitionJiraIssue`, then run `ticket.mjs jira-posted <BUG KEY> status`. Then go on with the tests (step 4).
+   Show it with `1. Post it / 2. Change something / 3. Don't post`. On `1`, post it with `addCommentToJiraIssue`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <BUG KEY> retest`. After `Fixed`, list the defect's transitions (`getTransitionsForJiraIssue`) as a numbered card of the statuses they lead to, plus `Leave it`. Apply the one picked with `transitionJiraIssue`, then run `ticket.mjs jira-posted <BUG KEY> status`.
+
+   **A new defect** (option 2): file it as step 5 does, pre-filled in the tester's usual structure (type, style, parent, components, sprint and assignee as there), with `Re-found after [BUG](url): <what still fails>` under Notes and the old bug's steps and expected result as its steps and expected result. Link it to the old one with a link type named `Relates` (ignoring case) from `listJiraIssueLinkTypes`; with none, skip the link and say so. Then go on with the tests (step 4).
 7. **Close.** Show:
 
    ```
-   [RUN](url): <k> KO · <o> OK · <v> not verified · <r> not run
+   [RUN](url): <k> KO · <o> OK · <b> blocked · <s> skipped · <r> not run
    Defects filed: [BUG](url), …
    In Xray, set these by hand (no Xray API key here):
      [TEST](url) FAIL, and add [BUG](url) under Findings
      [TEST](url) PASS
    ```
 
-   The Xray lines are each test answered OK or KO, plus the test of each retested defect (FIXED is PASS, NOT FIXED is FAIL). **With the Xray API**, these are a write instead of a by-hand list (and the defects are already on their runs, from step 5). Take the statuses from `get_test_run`: for OK, the final status whose name starts with `PASS`; for KO, the one that starts with `FAIL`, ignoring case. If none matches, or more than one, ask once. Show this card and end the turn:
+   The Xray lines are each test answered OK, KO or Blocked, plus the test of each retested defect (FIXED is PASS, NOT FIXED is FAIL). Take the counts from `qa.mjs state show <RUN>`: a test whose status was already set in the run (`xraySet`) is left out of the list below. **With the Xray API**, these are a write instead of a by-hand list (and the defects are already on their runs, from step 5). Take the status names from `get_test_run` and pick each with `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" pick ok|ko|blocked --from "<the names, comma-separated>"`: it gives one name, or `ask` with the candidates: then ask the tester once. Only the tests not yet set are listed. Show this card and end the turn:
 
    ```
    Set in Xray:
@@ -164,7 +181,9 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
 
    On `1`, call `set_test_run_status` for each test, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <TEST KEY> status` for each status set.
 
-   If every test of the run is now OK or KO, offer the status change. If any test is KO: the run, and the story, go to the status whose name contains `KO` or `fail` (ignoring case) among their transitions (`getTransitionsForJiraIssue`). If all are OK: the run goes to a status in the Done category, and the story is not changed. Show the proposal and end the turn:
+   Save the outcome: `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" state close <RUN> ko` when any test is KO, `ok` when every test is OK, else `open`.
+
+   If every test of the run is now OK or KO, offer the status change. Read the run's and the story's transitions (`getTransitionsForJiraIssue`) and pick with `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" pick run-ko|run-done --from "<the transition names>"`: if any test is KO, `run-ko` for the run and for the story (the `qa.statuses.ko` of the config, else the one name with `KO` or `fail`); if all are OK, `run-done` for the run (the `qa.statuses.done`, else ask which Done-category status), and the story is not changed. `ask` in a result: list the transitions and let the tester pick one or leave it. Show the proposal and end the turn:
 
    ```
    Move [RUN](url) to <status> and [STORY](url) to <status>?
@@ -173,11 +192,18 @@ For QA. Lists the Xray test executions assigned to you, runs the one you pick in
    3. Leave both
    ```
 
-   If no transition matches, list the transitions and let the tester pick one or leave it. Apply with `transitionJiraIssue`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <KEY> status` for each issue moved. If any test is not run or not verified, there is no status card: stop after the summary.
+   Apply with `transitionJiraIssue`, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" jira-posted <KEY> status` for each issue moved. If any test is not run, blocked or skipped, there is no status card: say `Blocked and skipped tests stay To Do or Blocked: run /quality-code:qa <RUN> --resume when the environment is back.`
+
+8. **Next.** After step 7, take the next run: search again as step 2 does, leave out the run just done, and show `Next: [KEY](url) · <status> · <summary>` with `1. Run it / 2. Stop`, ending the turn. `1` starts again at step 3 with that key. No other run: say `No more open test executions assigned to you.`
+9. **Watch** (`--watch`). The stories you sent back, and when they are ready to retest. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" jql watch`: exit 2 shows its message (it asks for `qa.statuses.ready`, the name of your "ready to test" status) and stops; with no story (`jql` is null) say `Nothing to watch yet: no closed run with a failed test.` and stop. Otherwise show the stories and the JQL, and ask when to look, with a numbered card: `1. Every weekday at 09:00 / 2. Every 2 hours on weekdays / 3. Type a cron`, then end the turn. Nothing is scheduled without a yes. With Claude's scheduler, `create_scheduled_task` with `taskId` `quality-code-qa-watch`, `title` `Quality Code QA watch`, `cronExpression` in the user's local time, and this `prompt`, which must stand on its own: `In the project folder <absolute project path>, run /quality-code:qa --watch-check and show its output exactly as printed.` If the scheduler tools are not available, use `CronCreate` and say `This lasts only while this Claude session is open.` Say in one line when it looks next.
+   **`--watch-check`** (what each scheduled run does): run `qa.mjs jql watch`; with no `jql`, stop silently. Call `searchJiraIssuesUsingJql` with that JQL and fields `summary,status`. No hit: say `Nothing is ready to retest.` and stop. Otherwise run `node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" watch fresh --found <the keys found, comma-separated>`; for each key in `fresh`, say `[STORY](url) is ready to retest. Run /quality-code:qa <RUN from the watch> and pick "Retest the open defects first".` Nothing fresh: `Nothing new.` Never retest, post or move anything here: it only tells.
 
 ## Examples
 
 - `/quality-code:qa`: list my test executions, then pick one
 - `/quality-code:qa ABC-123 --app https://app-test.example.com`: run that one on that app
 - `/quality-code:qa ABC-123` with the run's Xray export (CSV) attached: the tests come from the file, not the Jira page
+- `/quality-code:qa --first --auto-pass`: take my first open execution, record the tests that pass without a card, stop at the first failure
+- `/quality-code:qa ABC-123 --resume`: go on from the saved answers of that run
+- `/quality-code:qa --watch`: tell me when a story I sent back is ready to retest
 - `/quality-code:qa ABC-123 --dry-run`: the whole run, with every defect and comment shown and nothing sent

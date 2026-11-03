@@ -9,6 +9,36 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-03
+
+### Added
+
+From the QA tester flow, compared with `/quality-code:qa` and `/quality-code:xray` (AGT-150):
+
+- **Blocked is not failed.** A test that cannot be done (app down, sign-in failed, no data) is recorded as Blocked and sets
+  BLOCKED (or ABORTED) in Xray. After `qa.blockedStop` (default 2) blocked tests in a row the run offers to stop. The script
+  decides this, and which Xray status a verdict maps to (`bin/qa.mjs`).
+- **Evidence.** Each failing step gets a file path for its screenshot; the file is attached to the defect.
+- **Resume.** Answers are saved after every test (`<audit folder>/qa/`, ignored by git); `--resume` goes on from them. A test's
+  Xray status is set right after its card. `--auto-pass` records an OK without a card and stops at the first KO or blocked test.
+- **Retest** can file a new defect, linked to the old one, besides commenting. `--watch` schedules a check that tells you when a
+  story you sent back reaches your "ready to test" status.
+- **Pick-up.** The search uses your open sprint and board order, and `--first` takes the first run. Earlier bugs that are
+  children of the story are found too. The app address is remembered. The built-in browser is accepted. After a run, the next
+  execution is offered.
+- **`qa` config block** (`executionTypes`, `sprint`, `app`, `statuses`, `blockedStop`, `autoPass`) and item 16 of
+  `/quality-code:config`. Names of your statuses (`TEST KO`, `Ready to test`) are set there instead of guessed.
+- **`/quality-code:xray` creates the tests in Xray** when the API key is set: the Xray connector gains `create_tests` and
+  `add_tests_to_test_execution`; the tests are linked to the ticket and, with `--run KEY`, added to that execution. Cases created
+  are remembered per ticket, so none is created twice. Not tried against a real Xray tenant: tested with mocks only.
+
+### What to do
+
+- In `.claude/quality-code.json`, add `qa` if your test execution sub-task has another issue type, or to name your statuses:
+  `"qa": { "executionTypes": ["<your type>"], "statuses": { "ko": "TEST KO", "ready": "Ready to test", "done": "DONE" } }`
+  (or run `/quality-code:config`, item 16). Without it everything still works with the defaults.
+- Try one real run on a test execution of your own before relying on it: the Xray writes have only been tested with mocks.
+
 ## [0.38.0] - 2026-11-03
 
 ### Changed

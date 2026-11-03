@@ -6,6 +6,7 @@
 // ticket; the Playwright test a case belongs to is the "Automated: <test name>" line of its Description.
 //   node bin/xray.mjs add <json|@file>   one case or a list of cases, then the ticket's files
 //   node bin/xray.mjs sync [KEY]         rebuild the per-ticket files from the CSV
+//   node bin/xray.mjs created KEY [add "<case name>" TEST-KEY]   the cases already created in Xray through the API, so none is created twice
 // A case: { key, summary, ticket, steps: [{ action, data?, expected? }], description?, feature?,
 //           label?, priority?, epic?, testType? }   key is the Playwright test's name.
 // Exit 0 done, 2 usage, config or input error.
@@ -211,9 +212,32 @@ export async function sync(root, x, only = null) {
   return lines
 }
 
+/** The cases of a ticket already created in Xray: { "<case name>": "<test key>" }, kept next to the ticket's case files. */
+export function createdOf(root, x, key) {
+  try { return JSON.parse(readFileSync(resolve(root, x.folder, key, 'xray-created.json'), 'utf8')) } catch { return {} }
+}
+
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  if (argv[0] === 'created') {
+    const [, key, verb, name, testKey, ...more] = argv
+    const bad = !TICKET.test(key ?? '') || more.length || (verb !== undefined && (verb !== 'add' || !name || !name.trim() || /[\r\n]/.test(name) || !TICKET.test(testKey ?? '')))
+    if (bad) { stderr('usage: xray.mjs created <KEY> [add "<case name>" <TEST KEY>]\n'); return 2 }
+    const root = projectRoot(env, cwd)
+    const c = loadConfig(root, env)
+    if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
+    const x = xrayOf(c.config)
+    if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to .claude/quality-code.json (docs/GUIDE.md, "XRay test cases").\n'); return 2 }
+    const created = createdOf(root, x, key)
+    if (verb === 'add') {
+      created[name.trim()] = testKey
+      mkdirSync(resolve(root, x.folder, key), { recursive: true })
+      writeFileSync(resolve(root, x.folder, key, 'xray-created.json'), `${JSON.stringify(created, null, 2)}\n`)
+    }
+    stdout(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\nXRAY_CREATED_JSON:${JSON.stringify({ key, created })}\n`)
+    return 0
+  }
   const [cmd, arg, ...extra] = argv
-  const usage = () => { stderr('usage: xray.mjs add <json|@file> | sync [KEY]\n'); return 2 }
+  const usage = () => { stderr('usage: xray.mjs add <json|@file> | sync [KEY] | created <KEY> [add "<case name>" <TEST KEY>]\n'); return 2 }
   if (extra.length || !['add', 'sync'].includes(cmd) || (cmd === 'add' && !arg) || (cmd === 'sync' && arg && !TICKET.test(arg))) return usage()
   const root = projectRoot(env, cwd)
   const c = loadConfig(root, env)

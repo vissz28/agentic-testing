@@ -35,6 +35,8 @@ const OWN = {
   'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
+  // qa also schedules its watch with Claude's scheduler and nothing else.
+  qa: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
 }
 test('every command pre-approves only the plugin\'s own scripts', () => {
   for (const c of commands) assert.equal(front(c).fields['allowed-tools'], OWN[c] ?? SCRIPTS, c)

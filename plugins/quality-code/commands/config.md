@@ -43,6 +43,8 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
     14. GitHub          <✅ login (gh) | reason>
    Replies · in .claude/settings.json, shared with your team, commit it
     15. Reply style     <report: results only, no step-by-step lines | Claude Code's default>
+   QA runs · in the project config (/quality-code:qa)
+    16. QA runs         <qa.app, or "asked each run"> · KO <qa.statuses.ko, or "detected"> · ready <qa.statuses.ready, or "not set"> · <qa.executionTypes, or "Xray's"> · <open sprint | any sprint><, auto-pass when on>
    Feature labels, QA plans, title prefixes, templates, redaction, test folders: /quality-code:setup advanced.
    Type a number to change it, or stop.
    ```
@@ -71,6 +73,17 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
    - **10.** Ask `Xray Cloud's address? (https://xray.cloud.getxray.app, or a regional one like https://eu.xray.cloud.getxray.app)` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --xray-save "<address>"`.
 
    For 8 to 10, read the `CONNECTOR_SETTINGS_JSON:` line. If it is not `ok`, show its `reason` and ask again.
+   - **16 (QA runs).** Ask which one, and end the turn:
+
+     ```
+     Which QA setting?
+     1. The app address to test
+     2. The names of your statuses (KO, ready to test, done)
+     3. The issue types of a test execution, and the sprint
+     4. Auto-pass and when to stop
+     ```
+
+     Then ask for the value: `1` an address starting with `http://` or `https://` (`none` removes it); `2` the status names `TEST KO`, `Ready to test` and `Done` as they are in Jira (any of them can be left empty); `3` the issue types of your test execution separated by commas (like `Test Execution, Sub Test Execution`), then `open sprint or any?`; `4` `Record a test the agent finds OK without asking? yes or no`, then `Stop after how many blocked tests in a row? (0 never, 2 is the default)`. Build the proposal `{ "config": <the config file exactly as it is, with only its qa block changed> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). If it does not print `ok`, show its errors and ask again. Nothing else in the file changes.
    - **11 to 13 (tokens and keys).** Never ask for one here: what is typed in the chat is kept in the conversation. Show these steps, with the item's settings and where to get the token, and end the turn:
 
      ```
@@ -104,6 +117,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
    - after a plugin setting: `Type /reload-plugins for it to take effect.`
    - after item 6 or 7: nothing more; it takes effect on the next run.
    - after item 15: `Commit .claude/settings.json so your team gets it too. It applies from your next message.`
+   - after item 16: the repo config line above; it applies from the next `/quality-code:qa` run.
 
    Then show the card again (step 2), with the new value.
 

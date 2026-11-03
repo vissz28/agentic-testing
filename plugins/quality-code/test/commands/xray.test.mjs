@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const XRAY = 'node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs"'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--route PATH\] \[--no-extras\] \[--dry-run\] \[--ci\] \| --sync \[KEY\]\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--route PATH\] \[--no-extras\] \[--run KEY\] \[--dry-run\] \[--ci\] \| --sync \[KEY\]\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: check, ticket and gate, screen, plan, write, report', () => {
   const at = ['\n1. **Check.**', '\n2. **Ticket and gate.**', '\n3. **Screen.**', '\n4. **Plan.**', '\n5. **Write.**', '\n6. **Report.**'].map(s => doc.indexOf(s))
@@ -69,4 +69,18 @@ test('examples use neutral keys', () => {
 test('--dry-run says what it still saves and never reaches a Jira post', () => {
   assert.match(doc, /then stop: no case written, nothing posted\. The gate still saves the sanitized ticket/)
   assert.match(doc, /A refused ticket ends the dry run at the gate's report/)
+})
+
+test('step 7: with the Xray API the tests are created in Xray after a yes, once, linked to the ticket and to a run', () => {
+  const s = step(7)
+  assert.match(s, /only when the plugin's `xray` connector offers `create_tests`/)
+  assert.ok(s.includes(`${XRAY} created <KEY>`))
+  assert.match(s, /never created twice/)
+  assert.ok(s.indexOf('1. Create them in Xray') < s.indexOf('call `create_tests`'), 'the card comes before the write')
+  assert.ok(s.includes(`${XRAY} created <KEY> add "<case name>" <TEST KEY>`))
+  assert.match(s, /link type named `Test` or `Tests`/)
+  assert.match(s, /`add_tests_to_test_execution`/)
+  assert.match(s, /Never call it twice for the same cases/)
+  assert.match(s, /Nothing here runs a test or changes a status/)
+  assert.doesNotMatch(doc, /mcp__/)
 })

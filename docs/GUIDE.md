@@ -156,6 +156,7 @@ Playwright test).
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
 | Load realistic mock data for a ticket into your local database, to test it by hand | `/quality-code:seed <KEY>` | ✅ available |
+| QA: run your Xray executions in the browser, with blocked tests, evidence, resume and a retest watch | `/quality-code:qa` | ✅ available |
 | XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
 | How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:kpi` | ✅ available |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
@@ -851,6 +852,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `version` | always `1` | required |
 | `adapter` | `playwright` (frontend), `vitest` (backend) or `fullstack` (both) | required |
 | `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
+| `qa` | optional, for `/quality-code:qa`: `executionTypes` (the Jira issue types of a test execution; default `Test Execution`, `Sub Test Execution`), `sprint` (`open`, the default, or `any`), `app` (the address to test), `statuses` (`ko`, `ready`, `done`: your status names, like `TEST KO` and `Ready to test`), `blockedStop` (stop after this many blocked tests in a row; default 2, 0 never), `autoPass` (record a test found OK without a card; default false) | Xray's types, open sprint, names detected |
 | `xray` | Playwright and fullstack: XRay test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
 | `centralContext.hub` | the Central Context hub (`http://localhost:8080` for the local preview, or the hosted hub), or `off`. `spec` reads from it the active testing rules of the quality domain that apply to the ticket's side and follows them while writing; `CC_HUB_URL` overrides it | none: no Central Context rule, said so on the plan |

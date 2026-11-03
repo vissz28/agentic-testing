@@ -92,10 +92,10 @@ test('setStatus and addDefect send one mutation each, with checked values', asyn
   await assert.rejects(c.addDefect('5acc', 'not a key'), /not a Jira key/)
 })
 
-test('MCP: initialize and the three tools; a call answers JSON text, a failure isError, an unknown tool an error', async () => {
+test('MCP: initialize and the five tools; a call answers JSON text, a failure isError, an unknown tool an error', async () => {
   const h = handler({ testRun: async key => ({ key, runs: [] }), setStatus: async () => { throw new Error('Xray answered 500') }, addDefect: async () => ({}) })
   assert.equal((await h({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })).result.serverInfo.name, 'quality-code-xray')
-  assert.deepEqual((await h({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).result.tools.map(t => t.name), ['get_test_run', 'set_test_run_status', 'add_defect_to_test_run'])
+  assert.deepEqual((await h({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).result.tools.map(t => t.name), ['get_test_run', 'set_test_run_status', 'add_defect_to_test_run', 'create_tests', 'add_tests_to_test_execution'])
   const ok = await h({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_test_run', arguments: { key: 'ABC-1' } } })
   assert.deepEqual(JSON.parse(ok.result.content[0].text), { key: 'ABC-1', runs: [] })
   const bad = await h({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'set_test_run_status', arguments: {} } })
@@ -107,4 +107,66 @@ test('MCP: initialize and the three tools; a call answers JSON text, a failure i
 test('the write tools say they need the tester\'s yes', () => {
   for (const t of TOOLS.filter(t => t.name !== 'get_test_run')) assert.match(t.description, /only after the tester said yes/)
   assert.match(TOOLS[0].description, /Read-only/)
+})
+
+/** A fake Xray for the REST import: answers each call in turn and records method, path and body. */
+function fakeRest(answers) {
+  const calls = []
+  const json = (status, body) => ({ ok: status < 400, status, json: async () => body })
+  const fetch = async (url, init) => {
+    const path = url.replace(DEFAULT_XRAY_API, '')
+    calls.push({ method: init.method, path, auth: init.headers.Authorization, body: init.body ? JSON.parse(init.body) : undefined })
+    if (path === '/api/v2/authenticate') return json(200, 'tok')
+    const a = answers.shift()
+    return typeof a === 'number' ? json(a, {}) : json(200, a)
+  }
+  return { fetch, calls }
+}
+const CASE = { summary: 'Filter by week', steps: [{ action: 'Open Timesheet', data: 'week 18', result: 'The week loads' }, { action: 'Pick week 19' }], labels: ['ABC-5'] }
+
+test('createTests: bulk import of manual tests, waits for the job, returns the new keys', async () => {
+  const x = fakeRest([{ jobId: 'job-1' }, { status: 'working' }, { status: 'successful', result: { issues: [{ elementIndex: 0, id: '1001', key: 'ABC-31' }], errors: [], warnings: [] } }])
+  const r = await xrayClient({ id: 'i', secret: 's', fetch: x.fetch, sleep: async () => {} }).createTests('ABC', [CASE])
+  assert.deepEqual(r, { ok: true, status: 'successful', jobId: 'job-1', created: [{ index: 0, key: 'ABC-31', id: '1001' }], errors: [], warnings: [] })
+  const post = x.calls.find(c => c.method === 'POST' && c.path.includes('import'))
+  assert.equal(post.path, '/api/v2/import/test/bulk')
+  assert.equal(post.auth, 'Bearer tok')
+  assert.deepEqual(post.body, [{ testtype: 'Manual', fields: { summary: 'Filter by week', project: { key: 'ABC' }, labels: ['ABC-5'] }, steps: [{ action: 'Open Timesheet', data: 'week 18', result: 'The week loads' }, { action: 'Pick week 19', data: '', result: '' }] }])
+  assert.deepEqual(x.calls.filter(c => c.method === 'GET').map(c => c.path), ['/api/v2/import/test/bulk/job-1/status', '/api/v2/import/test/bulk/job-1/status'])
+})
+test('createTests: a failed or partly failed job says what went wrong', async () => {
+  const x = fakeRest([{ jobId: 'j2' }, { status: 'failed', result: { errors: [{ error: 'Project ABC not found' }], issues: [] } }])
+  const r = await xrayClient({ id: 'i', secret: 's', fetch: x.fetch, sleep: async () => {} }).createTests('ABC', [CASE])
+  assert.equal(r.ok, false)
+  assert.deepEqual(r.errors, ['Project ABC not found'])
+})
+test('createTests: refuses bad input before any call, and a job that never ends says not to create again', async () => {
+  const x = fakeRest([])
+  const c = xrayClient({ id: 'i', secret: 's', fetch: x.fetch, sleep: async () => {}, polls: 2 })
+  await assert.rejects(c.createTests('abc', [CASE]), /not a Jira project key/)
+  await assert.rejects(c.createTests('ABC', []), /give 1 to 50 tests/)
+  await assert.rejects(c.createTests('ABC', [{ ...CASE, summary: 'two\nlines' }]), /summary must be one line/)
+  await assert.rejects(c.createTests('ABC', [{ summary: 'x', steps: [] }]), /give 1 to 40 steps/)
+  await assert.rejects(c.createTests('ABC', [{ summary: 'x', steps: [{ action: ' ' }] }]), /action is needed/)
+  assert.equal(x.calls.length, 0)
+  const slow = fakeRest([{ jobId: 'j3' }, { status: 'working' }, { status: 'working' }])
+  await assert.rejects(xrayClient({ id: 'i', secret: 's', fetch: slow.fetch, sleep: async () => {}, polls: 2 }).createTests('ABC', [CASE]), /still running.*do not create the tests again/)
+})
+test('addTestsToExecution: resolves the issue ids, then adds the tests in one mutation', async () => {
+  const x = fakeXray([
+    { data: { getTestExecutions: { results: [{ issueId: '500' }] } } },
+    { data: { getTests: { results: [{ issueId: '1001', jira: { key: 'ABC-31' } }, { issueId: '1002', jira: { key: 'ABC-32' } }] } } },
+    { data: { addTestsToTestExecution: { addedTests: ['1001', '1002'], warning: null } } },
+  ])
+  const r = await xrayClient({ id: 'i', secret: 's', fetch: x.fetch }).addTestsToExecution('ABC-7', ['ABC-31', 'ABC-32'])
+  assert.deepEqual(r, { ok: true, execution: 'ABC-7', added: ['1001', '1002'], warning: null })
+  assert.match(x.calls.at(-1).body.query, /addTestsToTestExecution\(issueId: "500", testIssueIds: \["1001", "1002"\]\)/)
+})
+test('addTestsToExecution: a key that is no Xray test, or no execution, is an error and nothing is added', async () => {
+  const none = fakeXray([{ data: { getTestExecutions: { results: [] } } }])
+  await assert.rejects(xrayClient({ id: 'i', secret: 's', fetch: none.fetch }).addTestsToExecution('ABC-7', ['ABC-31']), /ABC-7 is not an Xray test execution/)
+  const part = fakeXray([{ data: { getTestExecutions: { results: [{ issueId: '500' }] } } }, { data: { getTests: { results: [{ issueId: '1001', jira: { key: 'ABC-31' } }] } } }])
+  await assert.rejects(xrayClient({ id: 'i', secret: 's', fetch: part.fetch }).addTestsToExecution('ABC-7', ['ABC-31', 'ABC-99']), /not Xray tests: ABC-99/)
+  assert.ok(!part.calls.some(c => /mutation/.test(c.body?.query ?? '')))
+  await assert.rejects(xrayClient({ id: 'i', secret: 's', fetch: none.fetch }).addTestsToExecution('ABC-7', ['x" ) { }']), /give 1 to 100 test keys/)
 })

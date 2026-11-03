@@ -11,7 +11,7 @@ import { FLOWS } from './conventions.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -434,6 +434,28 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
+  if (c.qa !== undefined) {
+    const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
+    if (!isObj(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
+    else {
+      const q = c.qa
+      // Names go into JQL between double quotes: one line, no quote, no backslash.
+      const nameOk = v => lineOk(v) && !/["\\]/.test(v) && v.length <= 80
+      for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
+      if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
+      if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')
+      if (q.app !== undefined && !(typeof q.app === 'string' && /^https?:\/\/[^\s]+$/.test(q.app))) e.push('qa.app: must be the address of the app to test, starting with http:// or https://')
+      if (q.statuses !== undefined) {
+        if (!isObj(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
+        else for (const [k, v] of Object.entries(q.statuses)) {
+          if (!['ko', 'ready', 'done'].includes(k)) e.push(`qa.statuses.${k}: unknown field (only "ko", "ready" and "done")`)
+          else if (!nameOk(v)) e.push(`qa.statuses.${k}: must be a Jira status name (one line, no double quote), like "TEST KO"`)
+        }
+      }
+      if (q.blockedStop !== undefined && !(Number.isInteger(q.blockedStop) && q.blockedStop >= 0 && q.blockedStop <= 20)) e.push('qa.blockedStop: must be a whole number from 0 to 20 (0 never stops)')
+      if (q.autoPass !== undefined && typeof q.autoPass !== 'boolean') e.push('qa.autoPass: must be true or false')
+    }
+  }
   if (c.xray !== undefined) {
     if (!uses('playwright')) e.push('xray: only allowed with "adapter": "playwright" or "fullstack" (XRay test cases are written for Playwright tests)')
     else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
@@ -517,6 +539,20 @@ export const commandOf = config => adapterOptions(config).command ?? null
 export const seedOf = config => {
   const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
   return { schema: s.schema ?? null, target: s.target ?? null, apply: s.apply ?? null, tenant: s.tenant ?? null, guide: s.guide ?? null }
+}
+
+/** The qa block with its defaults: Xray's execution types, the open sprint, no fixed app or status names, stop after 2 blocked tests in a row. */
+export const qaOf = config => {
+  const q = isObject(config?.qa) ? config.qa : {}
+  const s = isObject(q.statuses) ? q.statuses : {}
+  return {
+    executionTypes: Array.isArray(q.executionTypes) ? q.executionTypes : ['Test Execution', 'Sub Test Execution'],
+    sprint: q.sprint ?? 'open',
+    app: q.app ?? null,
+    statuses: { ko: s.ko ?? null, ready: s.ready ?? null, done: s.done ?? null },
+    blockedStop: q.blockedStop ?? 2,
+    autoPass: q.autoPass ?? false,
+  }
 }
 
 /** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
