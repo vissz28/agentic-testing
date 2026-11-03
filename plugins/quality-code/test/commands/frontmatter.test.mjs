@@ -35,6 +35,8 @@ const OWN = {
   'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
+  // spec also searches and reads Central Context with the plugin's own connector, and nothing else.
+  spec: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document',
   // qa also schedules its watch with Claude's scheduler and nothing else.
   qa: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
 }

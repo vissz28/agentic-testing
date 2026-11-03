@@ -36,7 +36,7 @@ test('a card is never a code block, and a card with options is the picker, not a
 
 test('progress is a live checklist, Central Context one of its steps, and no narration', () => {
   assert.match(guide, /shows its progress as a live checklist, with the to-do list tool \(`TodoWrite`, or `TaskCreate` and `TaskUpdate`/)
-  assert.match(guide, /`Readiness gate`, `Read from Central Context`, `Find the code to test`/)
+  assert.match(guide, /`Readiness gate`, `Search Central Context`, `Read from Central Context`, `Find the code to test`/)
   assert.match(guide, /\*\*No narration\.\*\* Never write a sentence that says what you are about to do or what just worked/)
   assert.match(guide, /Where a command says to "say" such a line, update the checklist instead/)
   assert.match(guide, /or `update_plan` in the desktop app\), not with sentences\. Its items are the steps named below, never your own/)
@@ -77,10 +77,13 @@ test('a "user has not heard from you" reminder is answered with the checklist, n
   assert.match(read('output-styles/report.md'), /When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead/)
 })
 
-test('the central-context connector: an optional search for topics the testing rules miss, bounded, shown, checked with the connectors', () => {
+test('the central-context connector: one search on the ticket\'s topic every run, dropped when nothing fits, shown, checked with the connectors', () => {
   const spec = read('commands/spec.md')
-  assert.match(spec, /you may search Central Context with the connector's `search_knowledge`[^\n]*with `domain` `security` or `architecture`, at most two searches a run/)
-  assert.match(spec, /Those rules are candidates the same way, and the team's own rules still win\. Without the connector, skip the search\./)
+  assert.match(spec, /Step 4 always starts with that search: `search_knowledge` with what the code under test does in a few English words[^\n]*no `domain`, `max_results` 5, and `client_context` the project folder's name and the key/)
+  assert.match(spec, /A second search only for a topic the ticket touches that the first missed[^\n]*never more\./)
+  assert.match(spec, /a hit that does not, or no hit at all, is dropped, and the run goes on with the rules `rules\.mjs` reads/)
+  assert.match(spec, /Those rules are candidates the same way, and the team's own rules still win\. Without the connector, the search is skipped and said so\./)
+  assert.match(spec, /4\. \*\*Plan\.\*\* First search Central Context with the connector, as the Rules section says, and show it as a completed step/)
   assert.match(guide, /Each search with the `central-context` connector is its own item too, with what was searched: `Searched Central Context · "access token check" · 3 rules, 1 applies ✅`/)
   const c = read('guides/connectors.md')
   assert.match(c, /\| Central Context \| find the tools of the `central-context` connector; call `search_knowledge` with the query `test` and `max_results` 1 \|/)

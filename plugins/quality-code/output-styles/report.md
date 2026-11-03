@@ -36,6 +36,8 @@ This is a whole `/quality-code:spec ABC-123` run, from start to end. Write every
 ### 🎫 ABC-123 · *Discount is not applied over 100 €*
 **85%** 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ ✅ **Ready** *(bar 70%)*
 
+✅ **Searched Central Context** · *"discount over threshold" · 5 rules, none apply*
+
 ✅ **Read from Central Context** · *6 rules, 2 apply*
 
 🎯 **Testing** `src/pricing/discount.ts` · *backend, Vitest*

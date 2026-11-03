@@ -22,7 +22,7 @@ test('the rules: scripts grade, never edit application code, never weaken or del
   assert.match(doc, /[Nn]ever weaken or delete a test/)
   assert.match(doc, /never say a test is good/)
   assert.match(doc, /Never ask for a token/)
-  assert.doesNotMatch(doc, /mcp__/)
+  assert.doesNotMatch(doc.slice(doc.indexOf('\n---\n', 4)), /mcp__/)
 })
 test('step 1: config check, Vitest only, layers from vitest.layers with the unit default, connectors with Jira', () => {
   const s = step(1)
@@ -470,7 +470,8 @@ test('node --test: the runner rule names it, its asserts, and its .test file nam
   assert.match(step(5), /With node --test, `\.test` in place of `\.spec` \(`pricing\.abc-123\.test\.js`\)/)
 })
 test('Central Context: step 4 reads the testing rules for the ticket\'s side, which never give a value or stop a run', () => {
-  assert.ok(step(4).startsWith('\n4. **Plan.** First run `node "${CLAUDE_PLUGIN_ROOT}/bin/rules.mjs" --side <side> --key <KEY>`'))
+  assert.ok(step(4).startsWith('\n4. **Plan.** First search Central Context with the connector'))
+  assert.match(step(4), /Then run `node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/rules\.mjs" --side <side> --key <KEY>`/)
   assert.match(step(4), /Show its lines as printed, as completed steps, one per source\. From its `RULES_JSON:` line \(`rules`, Central Context's, `builtin\.rules`, the plugin's, and `local\.rules`, the team's\) decide which rules apply to the tests of this ticket/)
   assert.match(step(4), /`Read from Central Context · 6 rules, 2 apply`, `Built-in rules · 5 drafts, 2 apply`, `Read from local rules · 3 rules, 1 applies`/)
   assert.match(doc, /Every list is candidates, never orders: apply only the rules that bear on the tests you write for this ticket, from any list/)
