@@ -12,6 +12,8 @@ import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../base/stack.mjs'
 import { detectConventions } from '../base/conventions.mjs'
 import { BACKENDS, isBackend } from '../base/backends.mjs'
+import { changedPaths } from '../base/git.mjs'
+import { execFileSync } from 'node:child_process'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -80,6 +82,7 @@ export function scanSpecs(root, config) {
   const specs = projectSpecs(root, config)
   const key = new RegExp(keySource(config))
   let traced = 0
+  const tracedPaths = new Set()
   const byAdapter = new Map()
   for (const s of specs) {
     let src
@@ -87,7 +90,7 @@ export function scanSpecs(root, config) {
     const d = dialectFor(runnerOf(config, s.adapter))
     // Linked to a ticket: its key in a group's or a test's title, or in the file name (ABC-123.spec.ts).
     const titles = [...src.matchAll(new RegExp(d.groupRe.source, 'gm')), ...src.matchAll(new RegExp(d.suite.testRe.source, 'g'))].map(m => m[3] ?? '')
-    if ([...titles, s.path.split('/').at(-1)].some(t => key.test(t.toUpperCase()))) traced++
+    if ([...titles, s.path.split('/').at(-1)].some(t => key.test(t.toUpperCase()))) { traced++; tracedPaths.add(s.path) }
     if (!byAdapter.has(s.adapter)) byAdapter.set(s.adapter, [])
     byAdapter.get(s.adapter).push({ path: s.path, src })
   }
@@ -99,7 +102,32 @@ export function scanSpecs(root, config) {
     tests += r.data?.tests ?? 0
     honest += r.data?.withAssertion ?? 0
   }
-  return { specs: specs.length, traced, tests, honest }
+  return { specs: specs.length, traced, tests, honest, branch: branchTrace(root, config, specs, tracedPaths) }
+}
+
+// The ref of the branch the work started from (git.base), local or on origin; null when the config names none or git has none.
+function baseRef(root, config) {
+  const name = config.git?.base
+  if (!name) return null
+  for (const ref of [`origin/${name}`, name]) {
+    try { execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: root, stdio: 'ignore' }); return ref } catch {}
+  }
+  return null
+}
+
+/**
+ * Traceability of the work in progress: of the spec files this branch changed (against git.base, plus uncommitted and new
+ * ones), how many name a ticket. An old suite pulls the whole-repo number down for years; this one judges new work.
+ * Null when there is no base or no changed spec file.
+ */
+export function branchTrace(root, config, specs, tracedPaths) {
+  const ref = baseRef(root, config)
+  if (!ref) return null
+  const c = changedPaths(root, `${ref}...HEAD`)
+  if (!c.ok) return null
+  const changed = new Set(c.paths)
+  const mine = specs.filter(s => changed.has(s.path))
+  return mine.length ? { base: ref.replace(/^origin\//, ''), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
 }
 
 /** Line coverage from an Istanbul summary, else an lcov report (most runners' default), else the JaCoCo and Cobertura reports, when the project has one. */
@@ -186,7 +214,7 @@ export function qualityKpi({ finals, runs, scan, coverage }) {
   const killRate = s => (typeof s?.score === 'number' ? s.score : s?.total > 0 && typeof s.killed === 'number' ? (100 * s.killed) / s.total : null)
   const mutation = runs.map(r => killRate((r.steps ?? []).find(s => s.check === 'mutation'))).filter(v => v !== null)
   return {
-    traceability: scan ? { pct: pct(scan.traced, scan.specs), traced: scan.traced, specs: scan.specs } : null,
+    traceability: scan ? { pct: pct(scan.traced, scan.specs), traced: scan.traced, specs: scan.specs, branch: scan.branch ? { ...scan.branch, pct: pct(scan.branch.traced, scan.branch.specs) } : null } : null,
     completeness: { mean: scored.length ? Math.round(scored.reduce((n, g) => n + g.score, 0) / scored.length) : null, tickets: scored.length },
     suiteHonesty: scan ? { pct: pct(scan.honest, scan.tests), honest: scan.honest, tests: scan.tests } : null,
     gateIntegrity: { pct: pct(known.length - relaxed.length, known.length), full: known.length - relaxed.length, runs: known.length, relaxed: relaxed.length },
@@ -207,7 +235,7 @@ export function formatQuality(q) {
     `  ${mark(value, target)} ${name.padEnd(16)}${shown(value, unit).padEnd(9)}${(target === null ? '' : `target ${target}${unit}`).padEnd(13)}${detail}`
   return [
     'Quality (the Quality Program numbers this repo can show)',
-    line('Traceability', q.traceability?.pct, t.traceability, q.traceability ? `${q.traceability.traced} of ${q.traceability.specs} spec files name a ticket` : 'no project config to find the specs'),
+    line('Traceability', q.traceability?.pct, t.traceability, q.traceability ? `${q.traceability.traced} of ${q.traceability.specs} spec files name a ticket${q.traceability.branch ? `; on this branch ${q.traceability.branch.traced} of ${q.traceability.branch.specs} (${q.traceability.branch.pct}%, since ${q.traceability.branch.base})` : ''}` : 'no project config to find the specs'),
     line('Completeness', q.completeness.mean, t.completeness, q.completeness.tickets ? `mean readiness score of ${q.completeness.tickets} ticket(s)` : 'no ticket gated', ''),
     line('Suite honesty', q.suiteHonesty?.pct, t.suiteHonesty, q.suiteHonesty ? `${q.suiteHonesty.honest} of ${q.suiteHonesty.tests} tests assert something` : 'no project config to find the specs'),
     line('Gate integrity', q.gateIntegrity.pct, t.gateIntegrity, q.gateIntegrity.runs ? `${q.gateIntegrity.full} of ${q.gateIntegrity.runs} runs with every gate${q.gateIntegrity.relaxed ? ` (${q.gateIntegrity.relaxed} forced or without the ticket)` : ''}` : 'no run logged with its gates yet'),

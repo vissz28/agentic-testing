@@ -9,6 +9,20 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-03
+
+### Changed
+
+- **Traceability shows the work on this branch next to the whole suite** (AGT-156). `/quality-code:kpi` kept one number: the
+  share of all spec files that name a ticket. On an old suite that stays low for years (15% in the PFO-2556 pilot: 61 of 416
+  files). The line now adds the spec files this branch changed against `git.base`, including uncommitted and new ones:
+  `61 of 416 spec files name a ticket; on this branch 3 of 3 (100%, since develop)`. The whole-suite number and its 100%
+  target are unchanged. With no `git.base` in the config, or no changed spec file, the line stays as it was.
+
+### What to do
+
+- Nothing. Set `git.base` (setup does) so the branch number can be worked out.
+
 ## [0.43.0] - 2026-11-03
 
 ### Changed
