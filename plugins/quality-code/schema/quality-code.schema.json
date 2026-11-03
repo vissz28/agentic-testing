@@ -76,6 +76,12 @@
         }
       }
     },
+    "externalChecks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Tests that run outside the unit tests and check what a unit test over a mock cannot: a pgTAP file for a seeded table, for example [\"hasura-migrations/tests/default/*.test.sql\"]. Relative to the folder that holds this config. Quality Code reads them (it does not run them): a ticket value they assert counts as checked, and the verdict names the file."
+    },
     "titlePrefixes": {
       "type": "array",
       "default": [],

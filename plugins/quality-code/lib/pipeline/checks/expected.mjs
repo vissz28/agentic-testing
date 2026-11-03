@@ -8,6 +8,8 @@ import { extractExpectedChunks, extractNaturalAC } from '../../ticket/criteria.m
 import { buildVocabulary } from '../../ticket/languages/index.mjs'
 import { anchorRange } from './suite-honesty.mjs'
 import { result } from '../../base/result.mjs'
+import { configHome } from '../../base/config.mjs'
+import { externalChecks } from './external.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
@@ -152,6 +154,79 @@ export function stripCodeComments(src) {
   return out
 }
 
+/** Index just past the bracket closing the one at `open` ( ( [ { ), skipping strings and comments. */
+function closeBracket(src, open) {
+  const pairs = { '(': ')', '[': ']', '{': '}' }
+  const stack = []
+  for (let i = open; i < src.length; i++) {
+    const c = src[i]
+    if (c === '"' || c === "'" || c === '`') {
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++
+    } else if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++
+    } else if (c === '/' && src[i + 1] === '*') {
+      const e = src.indexOf('*/', i + 2)
+      i = e < 0 ? src.length : e + 1
+    } else if (pairs[c]) stack.push(pairs[c])
+    else if (c === stack.at(-1)) { stack.pop(); if (!stack.length) return i + 1 }
+  }
+  return src.length
+}
+
+const hasAssertion = (text, dialect) => new RegExp(callRe(dialect).source).test(text)
+
+/**
+ * The values a test feeds to its assertions without typing them inside the matcher: a list or table the loop runs
+ * over (it.each([...]), for (const c of [...]), [...].forEach), and a variable an assertion reads (const expected = {...}).
+ * A table counts only when the loop body holds an assertion; a variable only when an assertion reads it.
+ */
+function feeders(block, parts, dialect) {
+  const out = []
+  const expression = (text, from) => {
+    // The value expression that starts at `from`: a bracketed literal, or up to the end of the statement.
+    let i = from
+    while (/\s/.test(text[i] ?? '')) i++
+    if ('[{('.includes(text[i])) return text.slice(i, closeBracket(text, i))
+    const end = text.slice(i).search(/[;\n]/)
+    return text.slice(i, end < 0 ? text.length : i + end)
+  }
+  // 1. Tables and loops whose body asserts.
+  for (const m of block.matchAll(/\b(?:it|test|describe)(?:\.\w+)*\.each\s*\(/g)) {
+    const open = m.index + m[0].length - 1
+    const table = block.slice(open + 1, closeBracket(block, open) - 1)
+    const next = block.indexOf('(', closeBracket(block, open))
+    const body = next < 0 ? '' : block.slice(next, closeBracket(block, next))
+    if (hasAssertion(body, dialect)) out.push(table)
+  }
+  for (const m of block.matchAll(/\bfor\s*\(\s*(?:const|let|var)\s+[^)]*?\bof\s+/g)) {
+    const from = m.index + m[0].length
+    const head = closeBracket(block, block.indexOf('(', m.index))
+    const list = expression(block.slice(0, head - 1), from)
+    const brace = block.indexOf('{', head)
+    const body = brace < 0 ? '' : block.slice(brace, closeBracket(block, brace))
+    if (hasAssertion(body, dialect)) out.push(list)
+  }
+  for (const m of block.matchAll(/([\w$.]+|\[[^\]]*\])\s*\.forEach\s*\(/g)) {
+    const open = m.index + m[0].length - 1
+    if (hasAssertion(block.slice(open, closeBracket(block, open)), dialect)) out.push(m[1])
+  }
+  // 2. Variables the assertions read, and the ones those are built from (three levels).
+  const seen = new Set()
+  let pending = [...parts, ...out].join('\n')
+  for (let depth = 0; depth < 3 && pending; depth++) {
+    const names = [...new Set([...pending.matchAll(/(?<![\w$'"`])(?<![\w$)\]]\.)[A-Za-z_$][\w$]*/g)].map(x => x[0]))].filter(n => !seen.has(n))
+    let found = ''
+    for (const name of names) {
+      seen.add(name)
+      const decl = new RegExp(`\\b(?:const|let|var)\\s+${name.replace(/[$]/g, '\\$&')}\\s*=\\s*`).exec(block)
+      if (decl) found += `\n${expression(block, decl.index + decl[0].length)}`
+    }
+    out.push(found)
+    pending = found
+  }
+  return out.filter(Boolean)
+}
+
 /**
  * The argument text of every assertion call inside the key block; null when there is no block. A
  * commented-out call is not read, nor the argument of a negated matcher: .not.toBe(80) does not
@@ -175,7 +250,7 @@ export function surface(specSrc, key, dialect, { actual = true, whole = false } 
     parts.push(block.slice(open + 1, close - 1))
   }
   // A dialect may read its literals as the ticket writes them (C#'s 13.50m is 13.50).
-  const text = parts.join('\n')
+  const text = [...parts, ...feeders(block, parts, dialect)].join('\n')
   return dialect?.expected?.literals ? dialect.expected.literals(text) : text
 }
 
@@ -283,9 +358,18 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
   // An alias counts: the criterion says "Rectify demographic data", the screen says "Reinvio per variazione".
   const aliasesOf = x => [].concat(Object.entries(own.aliases ?? {}).find(([k]) => fold(k) === fold(x.token))?.[1] ?? [])
   const isAsserted = x => asserted(x, x.kind === 'field' ? fieldText : all) || aliasesOf(x).some(a => asserted({ kind: x.kind === 'number' ? 'string' : x.kind, token: a }, x.kind === 'field' ? fieldText : all))
-  const missing = tokens.filter(x => !isAsserted(x))
-  const data = { tokens: tokens.length, asserted: tokens.length - missing.length, missing: missing.map(x => x.token), ...extra }
-  if (!missing.length) return result('expected', 'pass', `all ${tokens.length} expected value(s) from the ticket are asserted`, [], data)
+  // A value only a test outside the unit tests can check (a seeded row): config externalChecks names those files. They are
+  // read, not run, and the verdict says which file carries the value.
+  const external = tokens.some(x => x.kind !== 'field' && !isAsserted(x)) ? externalChecks(configHome(ctx.root), ctx.config?.externalChecks) : []
+  const carriedBy = x => (x.kind === 'field' ? [] : external.filter(f => asserted(x, f.text)).map(f => f.file))
+  const outside = tokens.filter(x => !isAsserted(x) && carriedBy(x).length)
+  const missing = tokens.filter(x => !isAsserted(x) && !carriedBy(x).length)
+  const files = [...new Set(outside.flatMap(carriedBy))]
+  const data = { tokens: tokens.length, asserted: tokens.length - missing.length, missing: missing.map(x => x.token), ...(outside.length ? { outside: outside.map(x => x.token), outsideFiles: files } : {}), ...extra }
+  if (!missing.length) {
+    const note = outside.length ? ` (${outside.length} checked in ${files.join(', ')}, outside the unit tests: read, not run by Quality Code)` : ''
+    return result('expected', 'pass', `all ${tokens.length} expected value(s) from the ticket are asserted${note}`, [], data)
+  }
   // A bug test that pins the reported wrong result instead of the expected one.
   const expectedNums = new Set(tokens.filter(x => x.kind === 'number').flatMap(x => x.values))
   const wrong = actualValues(t, v).filter(a => !a.values.some(x => expectedNums.has(x)) && asserted({ kind: 'number', values: a.values }, all))

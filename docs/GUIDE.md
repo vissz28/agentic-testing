@@ -862,6 +862,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `jira.trackingProjects` | other projects whose tickets may be linked | `[]` |
 | `languages` | `en`, `it`, or both | both |
 | `features[]` | `label`; Playwright also `route` (`/orders`) and `qaPlanSearch` (Confluence search text); `approach` (`e2e`, `unit` or `both`: how the team tests the feature; unit needs a JavaScript unit runner) and `guide` (a file in the project that describes the team's own approach, read by spec before it plans) | `[]` |
+| `externalChecks` | files of tests that run outside the unit tests (a pgTAP file for a seeded table), relative to the folder that holds the config. Read, not run: a ticket value they assert counts as checked, and the verdict names the file. spec writes no unit test over a mock for such a scenario | none |
 | `titlePrefixes` | title prefixes without brackets, matched literally; `[]` for none | `[]` |
 | `confluenceSpaces` | Playwright: Confluence space keys the QA-plan search is limited to (`["ABC"]`) | all spaces |
 | `boundaries` | paths a test run may never write: `forbidden` (`{ path, why? }`) and `allow` exceptions. A pattern with `*` (like `.env.*`) never forbids an env template (`.env.example`, `.env.sample`, `.env.template`); name one exactly to forbid it | `src/`, `.env`, `.env.*`, the CI file |

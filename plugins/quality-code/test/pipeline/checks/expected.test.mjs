@@ -226,3 +226,38 @@ test('run: a ticket value that is only an input inside expect(...) is not assert
   const read = proj({ 't.json': field, 'test/a.spec.ts': spec("  it('a', () => { expect(row.unit_cost).toBe(5) })") })
   assert.equal(run({ specs: ['test/a.spec.ts'], key: 'ABC-7', ticket: 't.json' }, read).status, 'pass', 'a field is still read inside expect(...)')
 })
+
+test('surface: values a test feeds to its assertions through a table, a loop or a variable count', () => {
+  const sp = body => `describe('ABC-7 codes', () => {\n${body}\n})\n`
+  const read = body => surface(sp(body), 'ABC-7', V)
+  // it.each table whose body asserts
+  assert.match(read("  it.each([['000', 'OK'], ['110', 'BLOCKING']])('maps %s', (code, severity) => {\n    expect(lookup(code).severity).toBe(severity)\n  })"), /110/)
+  // a list the loop runs over
+  assert.match(read("  it('maps all', () => {\n    for (const code of ['002', '9000']) {\n      expect(lookup(code)).toBeDefined()\n    }\n  })"), /9000/)
+  assert.match(read("  it('maps all', () => {\n    ['999', '101'].forEach(code => expect(lookup(code)).toBeDefined())\n  })"), /101/)
+  // a variable an assertion reads, and the one it is built from
+  assert.match(read("  it('maps', () => {\n    const row = { code: '110', severity: 'BLOCKING' }\n    const expected = { ...row }\n    expect(lookup('110')).toEqual(expected)\n  })"), /BLOCKING/)
+  assert.match(read("  const CODES = ['E001', 'E016']\n  it('has them', () => {\n    const rows = CODES\n    expect(rows).toHaveLength(2)\n  })"), /E016/)
+})
+
+test('surface: a value that nothing asserts still does not count', () => {
+  const sp = body => `describe('ABC-7 codes', () => {\n${body}\n})\n`
+  const read = body => surface(sp(body), 'ABC-7', V)
+  // a list in a loop that asserts nothing
+  assert.doesNotMatch(read("  it('x', () => {\n    for (const code of ['002', '9000']) {\n      log(code)\n    }\n    expect(lookup('000')).toBeDefined()\n  })"), /9000/)
+  // an it.each table whose body never asserts
+  assert.doesNotMatch(read("  it.each([['110', 'BLOCKING']])('x %s', (c, s) => {\n    run(c)\n  })\n  it('y', () => { expect(1).toBe(1) })"), /BLOCKING/)
+  // a variable no assertion reads
+  assert.doesNotMatch(read("  it('x', () => {\n    const unused = { code: '9000' }\n    expect(lookup('000')).toBeDefined()\n  })"), /9000/)
+  // a negated matcher still asserts nothing
+  assert.doesNotMatch(read("  it('x', () => {\n    const bad = ['999']\n    expect(lookup('1')).not.toEqual(bad)\n  })"), /999/)
+})
+
+test('run: the PFO-2556 shape passes when every code sits in a table the test asserts over', () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-exp-'))
+  mkdirSync(join(root, 'src'), { recursive: true })
+  writeFileSync(join(root, 'src/a.unit.test.js'), "describe('ABC-7 codes', () => {\n  it.each([['000', 'OK'], ['110', 'BLOCKING'], ['9000', 'BLOCKING']])('maps %s', (code, severity) => {\n    expect(lookup(code).severity).toBe(severity)\n  })\n})\n")
+  const t = ticket('## Acceptance criteria\nGiven a code\nThen code 000 is OK, 110 and 9000 are BLOCKING\n')
+  const r = run({ specs: ['src/a.unit.test.js'], key: 'ABC-7', ticket: t }, { root, dialect: V, config: {} })
+  assert.equal(r.status, 'pass', JSON.stringify(r))
+})

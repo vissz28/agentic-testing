@@ -9,6 +9,28 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-03
+
+### Changed
+
+From the PFO-2556 pilot report (AGT-155):
+
+- **The expected-value check reads the values a test feeds to its assertions,** not only those typed inside the matcher.
+  A list or table the test loops over (`it.each([...])`, `for (const c of [...])`, `[...].forEach`) counts when the loop
+  body asserts, and so does a variable an assertion reads (`const expected = {...}`; three levels deep). A list nothing
+  asserts, an `it.each` whose body has no assertion, an unused variable and a negated matcher still count for nothing.
+- **Scenarios only a database can check no longer become tests over a mock.** The new config `externalChecks` lists the files
+  of tests that run outside the unit tests (a pgTAP file for a seeded table), relative to the folder that holds the config.
+  Quality Code reads them (it does not run them): a ticket value they assert counts as checked, and the verdict says
+  `(N checked in <file>, outside the unit tests: read, not run by Quality Code)`. `/quality-code:spec` marks such a
+  scenario `checked outside the unit tests, in <file>` and writes no restating test; without `externalChecks` it says
+  what to add.
+
+### What to do
+
+- If your service has database tests for seeded data, add them: `"externalChecks": ["db/tests/**/*.test.sql"]` in
+  `.claude/quality-code.json`. Without it everything works as before.
+
 ## [0.42.0] - 2026-11-03
 
 ### Fixed

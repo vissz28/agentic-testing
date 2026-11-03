@@ -509,3 +509,10 @@ test('spec can write tests first, for code that does not exist yet', () => {
   assert.match(doc, /the tests fail until it is written/)
   assert.match(doc, /a target marked `new` whose file does not exist yet is reused too/)
 })
+
+test('spec does not restate a mock for a property only a database test can check', () => {
+  assert.match(doc, /\*\*Scenarios only a database can check\.\*\*/)
+  assert.match(doc, /checked outside the unit tests, in <file> \(read, not run by Quality Code\)/)
+  assert.match(doc, /Never turn such a scenario into a unit test over mocked rows only to satisfy the expected-value check/)
+  assert.match(doc, /`externalChecks`/)
+})

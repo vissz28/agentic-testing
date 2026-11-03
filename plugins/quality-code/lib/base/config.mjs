@@ -15,7 +15,7 @@ const KEY = /^[A-Z][A-Z0-9_]+$/
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
 /** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
 const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -443,6 +443,10 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
+  if (c.externalChecks !== undefined) {
+    if (!Array.isArray(c.externalChecks) || !c.externalChecks.length) e.push('externalChecks: must be a non-empty list of files or globs (tests run outside the unit tests, like a pgTAP file), relative to the folder that holds the config')
+    else c.externalChecks.forEach((p, i) => { if (!pathOk(p)) e.push(`externalChecks[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
+  }
   if (c.qa !== undefined) {
     const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
     if (!isObj(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
