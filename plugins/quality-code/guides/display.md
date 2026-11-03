@@ -4,7 +4,7 @@ Every command follows this guide when it shows a card or a script's output. It c
 
 ## Progress
 
-A command with more than two steps shows its progress as a live checklist, with the to-do list tool (`TodoWrite`, or `TaskCreate` and `TaskUpdate` where those are the ones available), not with sentences:
+A command with more than two steps shows its progress as a live checklist, with the to-do list tool (`TodoWrite`, or `TaskCreate` and `TaskUpdate` where those are the ones available, or `update_plan` in the desktop app), not with sentences. Its items are the steps named below, never your own: a plan tool that can only advance still gets each finished item rewritten with its result.
 
 - **At the start**, before the first script runs, write the whole list, one item per step the reader cares about, in plain words. For `/quality-code:spec`: `Check the setup`, `Read the ticket`, `Readiness gate`, `Read from Central Context`, `Find the code to test`, `Plan the tests`, `Write the tests`, `Run the checks`, `Result`. Another command takes its own steps the same way.
 - **As you go**, set the step you start to in progress and the one you finish to completed, and put its result in the item, short: `Readiness gate · 85% ✅`, `Read from Central Context · 6 rules, 2 apply ✅`, `Find the code to test · discount.ts`. A step the run skips is completed with `· skipped`; a step that stops the run says why, `Readiness gate · 15% ❌`.
@@ -50,13 +50,13 @@ then the `To pass:` line in a 💡 quote, and the flags in one short list.
 
 Extra probes get their own rows, marked `➕ extra`.
 
-**The pipeline card.** The headline is the verdict with its mark: `**✅ green**`, `**❌ checks failed**`, `**⚠️ not verified**` or `**🔴 tests red**`, then the line under it that says what it means. The tests as a count, then a `diff` block, `+ ✓ <test>` for each passed test and `- ✗ <test>` for each failed one (at most 8, then `… and N more`). The checks as a table:
+**The pipeline card.** The headline is the verdict with its mark: `**✅ green**`, `**❌ checks failed**`, `**⚠️ not verified**` or `**🔴 tests red**`, then the line under it that says what it means. Then the card's `Rules` line on its own line, as printed, with its label in bold: `**Rules:** ✅ Central Context (centralcontext-dev.teamsystem.cloud) · 9 testing rules, release …` or `**Rules:** ⚠️ Fallback: Central Context not used (…) · written with 4 built-in rules`. It is how the reader sees whether the tests were written with Central Context or without it: never drop, shorten or move it. The tests as a count, then a `diff` block, `+ ✓ <test>` for each passed test and `- ✗ <test>` for each failed one (at most 8, then `… and N more`). The checks as a table:
 
 | Check | | Result |
 |---|---|---|
 | honesty | ✅ | no assertion or test removed |
 
-`What to do` as a numbered list in a 🛠️ quote. A `🔴 [RISK / NOT RECOMMENDED]` line stays as it is, on its own line, never softened. The `Rules:` line and `Full details: [HERE](…)` last, on two small lines.
+`What to do` as a numbered list in a 🛠️ quote. A `🔴 [RISK / NOT RECOMMENDED]` line stays as it is, on its own line, never softened. `Full details: [HERE](…)` last, on a small line.
 
 **Anything else a script prints** (a setup summary, a KPI or consumption report, a list of tickets): the same way, a headline, then a table for what has columns and a short list for the rest.
 

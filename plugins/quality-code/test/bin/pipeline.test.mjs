@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { loadConfig } from '../../lib/base/config.mjs'
 import { fileURLToPath } from 'node:url'
 import { main } from '../../bin/pipeline.mjs'
 import { ENV } from '../git-env.mjs'
@@ -458,4 +459,18 @@ test('--suite backend on another backend runner takes its own test files; --targ
   const none = await suiteRun(fs, ['--suite', 'backend'])
   assert.equal(none.code, 2)
   assert.match(none.err, /No backend \(Go\) spec files found/)
+})
+
+test('the card and the run log say whether Central Context or the fallback wrote the tests (rules.json from rules.mjs --key)', async () => {
+  const d = repo()
+  const env = {}
+  const none = await stubbed(d, ['--key', 'ABC-1'], env)
+  assert.doesNotMatch(none.out, /^Rules /m)
+  const dir = resolve(d, loadConfig(d).config.ticketsDir, 'ABC-1')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'rules.json'), JSON.stringify({ source: 'none', hub: 'https://cc.example.com', release: null, error: 'not reachable at https://cc.example.com (HTTP 502)', hubRules: 0, builtinRules: 4, localRules: 0, ids: ['a'], date: '2026-11-03T00:00:00.000Z' }))
+  const r = await stubbed(d, ['--key', 'ABC-1'], env)
+  assert.match(r.out, /^Rules {5}⚠️ Fallback: Central Context not used \(not reachable at https:\/\/cc\.example\.com \(HTTP 502\)\) · written with 4 built-in rules$/m)
+  assert.match(readFileSync(join(dir, 'run.md'), 'utf8'), /- \*\*Rules:\*\* ⚠️ Fallback: Central Context not used/)
+  assert.match(r.out, /PIPELINE_JSON:/)
 })

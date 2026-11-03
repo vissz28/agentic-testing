@@ -111,6 +111,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (!isFile(resolve(root, target))) return err(`--target not found: ${a.target}`)
     if (a.specs.some(s => normalizeSpec(root, resolve(root, s)) === target)) return err(`--target ${a.target} is one of the specs: name the code the tests check`)
   }
+  // What /quality-code:spec read before it wrote these tests (rules.mjs --key): Central Context, or the fallback.
+  let rules = null
+  if (a.key) try { rules = JSON.parse(readFileSync(resolve(root, config.ticketsDir, a.key, 'rules.json'), 'utf8')) } catch {}
   // A fullstack run picks the dialect per spec.
   const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(runnerOf(config)), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
@@ -131,6 +134,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     steps: outcome.steps || [],
     counts: { specs: specs.length, passed: tests.passed, failed: tests.failed, skipped: tests.skipped },
     incompleteTicket,
+    rules: rules && { source: rules.source, hub: rules.hub, release: rules.release },
     flags: { ticket: Boolean(ticket), expected: candidates.length > 0, target: Boolean(target), range: Boolean(a.range), flaky: a.flaky ? Number(a.flaky) : null },
   })
   // The developer log, next to the ticket's other files: local like the audit log, and off with it.
@@ -139,12 +143,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const rel = `${config.ticketsDir}/${a.key}/run.md`
     try {
       mkdirSync(dirname(resolve(root, rel)), { recursive: true })
-      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, issueType, doneStatuses: doneStatusesOf(config) }))
+      writeFileSync(resolve(root, rel), formatRunLog(outcome, { specs, key: a.key, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), rules }))
       logPath = rel
     } catch {}
   }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), log: logPath })}\n`)
+  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), log: logPath, rules })}\n`)
   return EXIT[outcome.verdict] ?? 2
 }
 

@@ -9,6 +9,21 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-03
+
+### Added
+
+- **The result card says whether Central Context was used.** `rules.mjs --key` saves what it read next to the ticket,
+  and the card, the run log and the audit log show it on a `Rules` line: `✅ Central Context (<host>) · 9 testing
+  rules, release …`, or `⚠️ Fallback: Central Context not used (<why>) · written with 4 built-in rules`.
+
+### Fixed
+
+- **No more italic progress lines** (*Running the checks, a few minutes…*): the `report` style no longer allows them;
+  a long step is its to-do item. The desktop app's `update_plan` checklist now carries the steps and their results.
+- **The wrap-up after a spec run**: `/quality-code:spec` now ends with the display guide's wrap-up (what was made, what
+  needs you, notes on what changed on the way) instead of a list of paths.
+
 ## [0.44.1] - 2026-11-03
 
 ### Fixed

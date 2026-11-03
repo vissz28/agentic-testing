@@ -39,6 +39,7 @@ test('progress is a live checklist, Central Context one of its steps, and no nar
   assert.match(guide, /`Readiness gate`, `Read from Central Context`, `Find the code to test`/)
   assert.match(guide, /\*\*No narration\.\*\* Never write a sentence that says what you are about to do or what just worked/)
   assert.match(guide, /Where a command says to "say" such a line, update the checklist instead/)
+  assert.match(guide, /or `update_plan` in the desktop app\), not with sentences\. Its items are the steps named below, never your own/)
 })
 
 test('the report output style: keeps the coding instructions, is never forced, and shows a finished run', () => {
@@ -62,6 +63,13 @@ test('clear words, nothing obvious, files behind HERE links, and a wrap-up of at
   assert.doesNotMatch(example, /^### \p{Extended_Pictographic}/mu, 'no emoji in the wrap-up headings')
   assert.doesNotMatch(example, /`[^`]*\/[^`]*\.\w+`/, 'no file path in code in the example')
   assert.match(read('output-styles/report.md'), /link the word `HERE` to its full path/)
+})
+
+test('a long step is its to-do item, never an italic line, and spec ends with the wrap-up', () => {
+  const style = read('output-styles/report.md')
+  assert.match(style, /A step that takes long is its to-do item in progress, never a line of its own, not even in italics/)
+  assert.doesNotMatch(style, /^\*[^*\n]+…\*$/m)
+  assert.match(read('commands/spec.md'), /Then the wrap-up, as the display guide lays it out:[^\n]*whatever this run changed on the way \(a rewrite of the tests, a re-run, and why\) goes in its `Notes`/)
 })
 
 test('a "user has not heard from you" reminder is answered with the checklist, not a sentence', () => {
