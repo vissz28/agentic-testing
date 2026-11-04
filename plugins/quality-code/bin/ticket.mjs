@@ -52,7 +52,7 @@ function missingRunners(root, config) {
     .filter(([adapter, , packages]) => wants[adapter] && runnerOf(config, adapter) === adapter && !toolScript(root, packages, adapter))
     .map(([, label, packages]) => (packages.some(p => p in deps)
       ? `${label} is in package.json but not installed: run your package manager's install.`
-      : `${label} is not installed in this project: run /quality-code:setup to add it.`))
+      : `${label} is not installed in this project: run /quality-code:spec to add it.`))
 }
 
 /** The ticketsDir the config file itself names, before the place moves it; undefined when it names none. */

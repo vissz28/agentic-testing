@@ -216,7 +216,7 @@ function playwrightScaffold(root, pkg, adapter, configs) {
 }
 
 const isFrontend = (root, deps) => UI_DEPS.some(d => d in deps) || existsSync(join(root, 'index.html'))
-const pnpProblem = tool => `Yarn Plug'n'Play keeps no node_modules folder, which the checks run ${tool} from: set nodeLinker: node-modules in .yarnrc.yml, then run setup again.`
+const pnpProblem = tool => `Yarn Plug'n'Play keeps no node_modules folder, which the checks run ${tool} from: set nodeLinker: node-modules in .yarnrc.yml, then run /quality-code:spec again.`
 
 /**
  * What setup adds to a repo with no test runner that is not a frontend alone (a backend, a library, or a
@@ -243,8 +243,8 @@ function vitestScaffold(root, pkg, adapter) {
  */
 export function vitestProblem(node, vite) {
   const [major, minor] = String(node).split('.').map(Number)
-  if (major < 22 || (major === 22 && minor < 12)) return `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run setup again.`
-  if (Number(/\d+/.exec(String(vite ?? ''))?.[0]) < 6) return `Vitest needs Vite 6.4 or newer, and this repo has vite ${vite}: update Vite, then run setup again.`
+  if (major < 22 || (major === 22 && minor < 12)) return `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run /quality-code:spec again.`
+  if (Number(/\d+/.exec(String(vite ?? ''))?.[0]) < 6) return `Vitest needs Vite 6.4 or newer, and this repo has vite ${vite}: update Vite, then run /quality-code:spec again.`
   return null
 }
 

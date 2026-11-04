@@ -732,9 +732,9 @@ test('write refuses vitestScaffold on a project whose tests are not Vitest\'s; n
   assert.ok(existsSync(join(d, 'vitest.config.js')), 'the CLI passes the proposal\'s vitestScaffold')
 })
 test('vitestProblem: the Vitest an install gets needs Node 22.12 or newer, beside a Vite of 6.4 or newer', () => {
-  for (const node of ['18.20.4', '20.19.0', '22.11.0']) assert.equal(vitestProblem(node), `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run setup again.`, node)
+  for (const node of ['18.20.4', '20.19.0', '22.11.0']) assert.equal(vitestProblem(node), `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run /quality-code:spec again.`, node)
   for (const node of ['22.12.0', '24.12.0', '26.0.0']) assert.equal(vitestProblem(node), null, node)
-  assert.equal(vitestProblem('24.12.0', '^5.4.10'), 'Vitest needs Vite 6.4 or newer, and this repo has vite ^5.4.10: update Vite, then run setup again.')
+  assert.equal(vitestProblem('24.12.0', '^5.4.10'), 'Vitest needs Vite 6.4 or newer, and this repo has vite ^5.4.10: update Vite, then run /quality-code:spec again.')
   for (const vite of ['^6.4.0', '^7.1.0', '8', 'latest', '*', undefined]) assert.equal(vitestProblem('24.12.0', vite), null, String(vite))
   const old = repo({ dependencies: { react: '19', express: '5' }, devDependencies: { vite: '^5.4.0' }, scripts: { dev: 'vite' } })
   assert.match(detect(old).vitestScaffold.problem, /^Vitest needs Vite 6\.4 or newer, and this repo has vite \^5\.4\.0/, "detect reads the repo's Vite")

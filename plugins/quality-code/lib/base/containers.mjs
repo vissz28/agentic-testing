@@ -120,7 +120,7 @@ export function containersScaffold(root, backend, { deps = {}, config = null, cm
   const dbs = databasesOf(root, backend, deps, found)
   if (!dbs.length) return null
   const base = { databases: dbs.map(d => d.name) }
-  if (backend === 'dotnet' && !found.test) return { ...base, problem: 'This solution has no test project (one with Microsoft.NET.Test.Sdk, xUnit, NUnit or MSTest): add one, then run setup again.' }
+  if (backend === 'dotnet' && !found.test) return { ...base, problem: 'This solution has no test project (one with Microsoft.NET.Test.Sdk, xUnit, NUnit or MSTest): add one, then run /quality-code:spec again.' }
   if (backend === 'go' && !found.module) return { ...base, problem: 'go.mod names no module: setup cannot write the import path of the test helper.' }
   const folder = integrationFolder(backend, config, found)
   return { ...base, folder, ...plan(root, backend, dbs, folder, found, cmd) }
