@@ -70,6 +70,10 @@ describe('ABC-123 Line totals round to the cent', () => {
 
 Each input or action gets its negative cases, only from what the ticket names: a wrong type, an empty required field, a value over a stated limit, a call that fails, a role that is refused. Assert the rejection the ticket states (the error type, the message, the status), never a guess. A limit, message or role the ticket does not name gets no test; ask.
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: `@testcontainers/<db>` started in `beforeAll`, tables cleaned in `beforeEach`. The project's own habits come first.
+
 ## Never
 
 - `.only` (`it.only`, `describe.only`): it silently drops every other test.

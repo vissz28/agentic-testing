@@ -128,6 +128,10 @@ func TestVAT(t *testing.T) {
   `t.Parallel()` is fine when the scenarios share nothing.
 - No sleeps: wait on a channel or a fake clock instead.
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: `testcontainers-go` started once in `TestMain`, tables truncated between tests. The project's own habits come first.
+
 ## Never
 
 - `t.Skip` without a ticket key in its message (`t.Skip("ABC-9 flaky on CI")` is tracked), except the

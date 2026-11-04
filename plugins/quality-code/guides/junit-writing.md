@@ -124,6 +124,10 @@ class LineTotalTest {
   `-Dtest=…` for Maven, `--tests …` for Gradle), `{files}` and `{report}` (a folder for the JUnit XML
   reports; left out, the build's own report folder is read).
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: JUnit 5 with Testcontainers (`@Testcontainers`, `@Container`), the migration tool (Flyway, Liquibase) to prepare rows. The project's own habits come first.
+
 ## Never
 
 - A change to application code, the build file or another team's test to make a test pass.

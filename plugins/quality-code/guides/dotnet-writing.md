@@ -96,6 +96,10 @@ public class LineTotalTests
 - No order between tests: each test arranges its own data. No shared mutable state in static fields.
 - No real network, no `Thread.Sleep` or `Task.Delay` waits: advance the fake clock instead.
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: an xUnit fixture (`IAsyncLifetime`) that starts the Testcontainers database, one database per test class. The project's own habits come first.
+
 ## Never
 
 - A `// <KEY>` comment that is not right above its class, or two classes for one ticket.
