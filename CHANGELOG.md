@@ -9,6 +9,21 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-04
+
+### Added
+
+- **`config-set` and `config-get` as their own commands (AGT-180).** `/quality-code:config-set <key> <value>` and `/quality-code:config-get <key>` run the same checks as `config set` and `config get`: preview old and new, one yes, nothing written on an error or a secret. With no key, `config-set` lists the settable keys with an example (`ticket.mjs config keys`). A token or plugin setting is never set here; it shows the exact `/plugin configure quality-code@teamsystem` steps (for GitLab, the `read_api` scope). `/quality-code:config set ...` keeps working.
+- **Setup ends with what is connected (AGT-179).** `/quality-code:setup` finishes with `Setup completed`: a table of Jira, GitLab or GitHub (a warning and the reason when sign-in fails, for example 401), Figma, repo, stack, base branch, config path and where files go, then `Next: /quality-code:spec`.
+
+### Changed
+
+- **Setup no longer offers to add Playwright, Vitest or a database test setup (AGT-179).** It only connects and configures, and never installs a package or writes a test. `/quality-code:spec` shows the runner card (what it installs and writes, app command and address, sign-in, `Add it` / `Not now`) at the plan stage when the repo lacks the runner, and installs only after you pick it, never with `--ci` or `--yes`.
+
+### What to do
+
+Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`. If a repo has no Playwright or Vitest yet, pick `Add it` when `/quality-code:spec` shows the runner card. For a GitLab 401, set the token in `/plugin configure quality-code@teamsystem`.
+
 ## [0.54.0] - 2026-11-04
 
 ### Added

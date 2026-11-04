@@ -72,6 +72,8 @@ def page(canvas, doc):
 
 
 new = [
+    ('Setup only connects (0.55).', 'Setup no longer offers to add Playwright or Vitest; it ends with Setup completed and a table of what is connected. spec offers the runner card (Add it / Not now) at the plan stage when the repo lacks the runner.'),
+    ('config-set and config-get (0.55).', 'Their own commands; tokens are never set there and show the /plugin configure steps instead.'),
     ('Richer cards and report pages (0.54).', 'Result cards get a headline row (verdict, score, bar with the gate, counts), a Next line and collapsible detail. kpi, tickets-eval and consumption take --report and write one self-contained HTML page with charts. The newer commands follow the same layout.'),
     ('Clear the cache, or undo the setup (0.53).', 'clean-cache deletes only the local cache. clean removes what the plugin created (setup files, saved output, cache; your tests and personal config only if you pick them) and always asks one explicit yes.'),
     ('config set (0.53).', 'Change one setting directly, for example config set git.base develop. Checked by the setup rules; nothing is written on an error or a secret.'),
@@ -91,7 +93,7 @@ story += [p('Update first', 'h1'), p(M('/plugin update quality-code@teamsystem')
 story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:setup', 'Checks the connectors, finds the project, its stack, Jira project and base branch, shows one card to confirm and writes .claude/quality-code.json. Option 2 is a personal setup for QA and PO with no repo.', '/quality-code:setup\n/quality-code:setup advanced'),
     ('/quality-code:config', 'Shows a short summary and changes one setting at a time. Tokens and plugin settings (Jira email, GitLab, Xray) are checked, never echoed.', '/quality-code:config'),
-    ('/quality-code:config set / get', 'Change or read one setting directly. Dotted keys, lists with commas, typed values; --personal, --project, --yes.', '/quality-code:config set git.base develop\n/quality-code:config get jira.site'),
+    ('/quality-code:config-set, config-get', 'Change or read one setting directly. Dotted keys, lists with commas, typed values; --personal, --project, --yes.', '/quality-code:config set git.base develop\n/quality-code:config get jira.site'),
     ('/quality-code:check-update', 'Says whether a newer version is out and what changed; offers to update.', '/quality-code:check-update'),
     ('/quality-code:clean-cache', 'Deletes only the plugin\'s local cache (saved stops, reused facts, language) for this project, or every project with --all.', '/quality-code:clean-cache --all'),
     ('/quality-code:clean', 'Removes what the plugin created in the project. A script lists it by group; you pick the groups and say yes once. Never skipped by --yes or --ci. --dry-run only lists.', '/quality-code:clean --dry-run'),
