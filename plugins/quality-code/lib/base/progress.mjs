@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { claudeDir } from './config.mjs'
 
-export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
+export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
 // `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
 const LANGUAGE = /^[a-z]{2}$/
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
