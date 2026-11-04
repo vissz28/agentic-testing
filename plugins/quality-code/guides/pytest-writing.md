@@ -97,6 +97,10 @@ class TestLineTotals:
 - No order between tests: each test arranges its own data. No module-level mutable state.
 - No real network, no `time.sleep`.
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: a session-scoped Testcontainers fixture, tables truncated or a rolled-back transaction per test. The project's own habits come first.
+
 ## Never
 
 - `@pytest.mark.skip`, `@pytest.mark.skipif` or `pytest.skip()` without a ticket key in its reason.

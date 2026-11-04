@@ -66,6 +66,10 @@ describe('ABC-123 Line totals round to the cent', () => {
   file.
 - No real network, no sleeps (`setTimeout` waits): advance fake timers instead.
 
+## Database tests
+
+When the ticket touches tables, queries or migrations, the plan has a `Database` section: constraints, migration up on an empty and a filled database, data integrity after the operation. Rules: `${CLAUDE_PLUGIN_ROOT}/guides/database-tests.md`. Here: `@testcontainers/<db>` started in `beforeAll`, tables cleaned in `beforeEach`. The project's own habits come first.
+
 ## Never
 
 - `.only` (`it.only`, `describe.only`): it silently drops every other test.
