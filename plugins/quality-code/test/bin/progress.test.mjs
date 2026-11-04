@@ -44,7 +44,7 @@ test('a stop older than 7 days is ignored', () => {
 })
 test('secrets are refused: a token value, a token field, a private key', () => {
   const e = env()
-  for (const data of [{ note: {FAKE_EXPR} }, { token: 'x' }, { nested: { password: 'p' } }, { k: '-----BEGIN RSA PRIVATE KEY-----' }]) {
+  for (const data of [{ note: ['ghp', 'x'.repeat(36)].join('_') }, { token: 'x' }, { nested: { password: 'p' } }, { k: '-----BEGIN RSA PRIVATE KEY-----' }]) {
     const r = setProgress(root, 'setup', { step: 1, data }, e)
     assert.equal(r.ok, false, JSON.stringify(data))
     assert.match(r.reason, /secret/)

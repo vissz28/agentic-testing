@@ -17,9 +17,9 @@ const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const SECRET = /(ghp_|gho_|github_pat_|glpat-|xox[abp]-|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY)/
 const SECRET_FIELD = /^(token|password|passwd|secret|api[_-]?key|authorization)$/i
 
-const dirOf = env => join(claudeDir(env), 'quality-code', 'progress')
-const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
-const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
+export const dirOf = env => join(claudeDir(env), 'quality-code', 'progress')
+export const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
+export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
 export const fileOf = (root, command, key, env = process.env) =>
   join(dirOf(env), `${slug(root)}-${short(root)}`, `${command}${key ? `.${key}` : ''}.json`)
 
@@ -30,7 +30,7 @@ function check(command, key) {
   return null
 }
 
-function secretIn(value, path = '') {
+export function secretIn(value, path = '') {
   if (typeof value === 'string') return SECRET.test(value) ? path || 'value' : null
   if (Array.isArray(value)) { for (const [i, v] of value.entries()) { const r = secretIn(v, `${path}[${i}]`); if (r) return r } return null }
   if (value && typeof value === 'object') {

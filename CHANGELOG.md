@@ -9,6 +9,23 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-04
+
+### Added
+
+- **A memory for commands (AGT-159, AGT-164).** `setup` and `spec` remember the step they reached and your answers, and ask `Go on from there / Start over / Stop` the next time. The plugin also keeps what it learned about the project: the flow, the tests (naming, folders, per-unit files or a central file, base classes, assertion library), the style of the nearest specs, the stack, the base branch and the connectors. Each fact keeps its source and goes stale when the source changes (a new commit, a changed ticket, 24 hours for connectors); a stale fact is read again, and a rerun says `Reusing from your last run: …`. Files are kept as a path and a hash, never as a copy. `--fresh` reads everything again; `progress.mjs context list|clear` shows or forgets it. Local to your machine, never in the repo, never sent anywhere, and it refuses tokens, keys and passwords.
+- **Your language is kept (AGT-163).** A pick, a number or a command run no longer switches the plugin back to English: it keeps the language of your last sentence and remembers it between commands and sessions (`guides/language.md`).
+
+### Changed
+
+- **Existing test structure first (AGT-160).** `spec` looks for where the project already tests the target: the file that tests the same unit, or the project's central test file or class, and adds the new tests there. A new file is created only when there is no such home, never one new class per ticket. `ticket.mjs config test-home <target>` shows what it found.
+- **Project conventions before the stack's defaults (AGT-161).** When the project already has tests, its naming, folders, base classes, annotations and assertion library win over the JUnit (and pytest, Go, .NET, Vitest) guides. For Java, detection now reads the class suffix, the package layout, the base class, the annotations and the assertion library (`testStyle`).
+- **Every question is a clickable picker (AGT-162).** The commands ask with `AskUserQuestion` (click, or arrows and Enter, with `Other` for your own words): more than four options are paged, and cards that allow several answers use multi-select. A numbered text card is only for a client without the tool.
+
+### What to do
+
+Nothing. Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`.
+
 ## [0.49.0] - 2026-11-04
 
 ### Changed
