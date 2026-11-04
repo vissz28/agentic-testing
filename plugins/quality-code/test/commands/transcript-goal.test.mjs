@@ -34,7 +34,7 @@ test('never invent: what was not said becomes a clarification, asked with the pi
 })
 test('review cards: summary, tasks, open questions, then the four-way destination picker', () => {
   const s = step(7)
-  for (const w of ['**Summary:**', '**Tasks:**', '**Open questions:**']) assert.ok(s.includes(w), w)
+  for (const w of ['### 🎯 Summary', '### 📋 Tasks', '### ❓ Open questions']) assert.ok(s.includes(w), w)
   assert.match(s, /1\. Create in Jira.*2\. Save locally.*3\. Edit more.*4\. Cancel/)
   assert.match(s, /remove a task by its number, add a task/)
 })
@@ -42,7 +42,7 @@ test('Jira is written only after a preview and an explicit yes; never with --ci 
   const s = step(8)
   assert.ok(s.indexOf('searchJiraIssuesUsingJql') < s.indexOf('**Preview.**'))
   assert.ok(s.indexOf('**Preview.**') < s.indexOf('createJiraIssue'))
-  assert.match(s, /Jira preview, nothing is created yet/)
+  assert.match(s, /\*\*Nothing is created yet\*\*/)
   assert.match(s, /Only on `1`/)
   assert.match(s, /do not create a second one/)
   assert.match(s, /Link to <KEY>/)
