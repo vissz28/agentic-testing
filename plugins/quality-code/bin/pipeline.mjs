@@ -17,9 +17,10 @@ import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/p
 import { adaptersForSide, adaptersOf, isFullstack } from '../lib/base/stack.mjs'
 import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
+import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 
-const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--no-audit] [--json]'
+const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 // The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
 // full is whatever the project has.
@@ -29,13 +30,13 @@ const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite
 
 function parse(argv) {
   const a = { json: false, noAudit: false, mutation: true, specs: [] }
-  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite'])
+  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite', '--regression-before'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
       const v = argv[++i]
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
-      a[x === '--incomplete-ticket' ? 'incomplete' : x.slice(2)] = v
+      a[x === '--incomplete-ticket' ? 'incomplete' : x === '--regression-before' ? 'regressionBefore' : x.slice(2)] = v
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
     else if (x === '--no-mutation') a.mutation = false
@@ -44,6 +45,7 @@ function parse(argv) {
   }
   if (a.suite !== undefined && !SUITES.includes(a.suite)) throw new Error(`--suite must be frontend, backend or full, not "${a.suite}"`)
   if (a.suite !== undefined && a.specs.length) throw new Error('give spec paths or --suite, not both')
+  if (a.regressionBefore !== undefined && !['red', 'green'].includes(a.regressionBefore)) throw new Error(`--regression-before must be red or green, not "${a.regressionBefore}"`)
   if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
     throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
@@ -127,6 +129,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     return 2
   }
   if (incompleteTicket) outcome = { ...outcome, incompleteTicket }
+  const proof = regressionProof(a.regressionBefore, outcome.verdict)
+  if (proof) outcome = { ...outcome, regression: proof }
   const specs = [...new Set(a.specs.map(s => normalizeSpec(root, s)))]
   const tests = (outcome.steps || []).find(x => x.check === 'tests')?.data ?? {}
   log('pipeline', {

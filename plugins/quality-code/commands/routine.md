@@ -1,6 +1,6 @@
 ---
 description: Schedule a check that runs by itself, at a time you choose, for a period or once, with Claude's scheduler. It fetches what the others pushed, runs a task's tests or the whole suite, says when the result went from green to red (with the commits in between), and can run every test several times to watch stability (flaky tests, pass rate over time). Also lists, shows the stability of, and stops routines.
-argument-hint: [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--branch REF] | status [KEY] | list | stop <name> | run …
+argument-hint: [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--regression] [--branch REF] | status [KEY] | list | stop <name> | run …
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate
 model: sonnet
 ---
@@ -23,6 +23,7 @@ Makes a **routine**: a check that Claude runs on its own at the times you pick, 
    What should the routine check?
    1. The whole suite, backend and frontend
    2. The tests of one ticket (type its key, for example ABC-123)
+   3. The regression tests of fixed bugs (the specs tagged `@regression`; run as `--regression`)
    ```
 
    ```
@@ -52,7 +53,7 @@ Makes a **routine**: a check that Claude runs on its own at the times you pick, 
 
    ```
    Routine <name>
-     Checks     <the whole suite | the tests of KEY> on <branch>
+     Checks     <the whole suite | the tests of KEY | the @regression suite> on <branch>
      When       <in words, local time> (<cron or the date>)
      Until      <date | no end date | single run>
      Stability  <each test N times | one run>
@@ -65,7 +66,7 @@ Makes a **routine**: a check that Claude runs on its own at the times you pick, 
    `<name>` is `quality-code-routine-<KEY or suite>`.
 3. **Schedule it.** On `1`, create it with Claude's scheduler: `create_scheduled_task` (`mcp__scheduled-tasks__create_scheduled_task`) with `taskId` the name, `title` `Quality Code routine · <what>`, `description` one line, `cronExpression` (a recurring schedule) or `fireAt` (once), and this `prompt`, which must stand on its own because each run starts fresh:
 
-   `In the project folder <absolute project path>, run /quality-code:routine run [--task KEY] [--branch REF] [--until YYYY-MM-DD] [--stability N] --since-last --id <name> and show its output exactly as printed. If the first line of the result says Result: FAILED or NOT VERIFIED, or it contains REGRESSION or Flaky, start your reply with one plain sentence saying what is wrong.`
+   `In the project folder <absolute project path>, run /quality-code:routine run [--task KEY | --regression] [--branch REF] [--until YYYY-MM-DD] [--stability N] --since-last --id <name> and show its output exactly as printed. If the first line of the result says Result: FAILED or NOT VERIFIED, or it contains REGRESSION or Flaky, start your reply with one plain sentence saying what is wrong.`
 
    The scheduled run calls this command's `run` mode, so it keeps working after the plugin updates. If the scheduler tools are not available, use `CronCreate` instead (`recurring` false for a single run) and say plainly: `This lasts only while this Claude session is open, and a recurring one ends after 7 days.` Tell the user in one line: `Scheduled tasks run while the Claude app is open; a run missed while it was closed happens when it opens again.` and show the next run time the scheduler gives. Stop.
 4. **A scheduled run (`run …`).** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/routine.mjs" run <the arguments without --id>` and show its output as printed. If the output starts with `routine ended on`, find the scheduled task named by `--id` with `list_scheduled_tasks` and remove it with `delete_scheduled_task`, then say `The routine reached its end date and was removed.` Stop.
