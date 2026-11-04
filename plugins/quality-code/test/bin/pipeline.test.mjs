@@ -283,6 +283,18 @@ test('--incomplete-ticket must be a whole number below the bar; refused before a
   }
   assert.equal(existsSync(join(d, '.claude/quality-code/audit')), false, 'a refused run is not logged')
 })
+test('--regression-before: the outcome and the card carry the proof; a bad value is refused', async () => {
+  const d = repo()
+  const r = await stubbed(d, ['--regression-before', 'green'])
+  assert.match(r.out, /No proof: the test already passed before the fix/)
+  const j = await stubbed(d, ['--regression-before', 'red', '--json'])
+  assert.equal(JSON.parse(j.out).regression.status, 'waiting')
+  const bad = await stubbed(d, ['--regression-before', 'blue'])
+  assert.equal(bad.code, 2)
+  assert.match(bad.err, /must be red or green/)
+  assert.equal(bad.ran, false)
+  assert.equal('regression' in JSON.parse((await stubbed(d, ['--json'])).out), false)
+})
 test('without --incomplete-ticket the outcome has no incompleteTicket field', async () => {
   const r = await stubbed(repo(), ['--json'])
   assert.equal('incompleteTicket' in JSON.parse(r.out), false)

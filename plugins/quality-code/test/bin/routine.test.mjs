@@ -88,6 +88,17 @@ test('the text names the integral change and the commits in between', async () =
   assert.match(r.out, /Result: FAILED \(exit 1\)/)
 })
 
+test('--regression runs only the specs that carry @regression; none means not verified', async () => {
+  const d = repo(); let seen
+  const none = await go(['run', '--regression'], d, async () => green)
+  assert.equal(none.code, 3)
+  assert.match(none.out, /No spec carries @regression, so nothing was verified\./)
+  push(d, 'e2e/bug.spec.ts', "test('ABC-3 fixed', { tag: ['@regression'] }, () => {})")
+  const r = await go(['run', '--regression', '--force'], d, async job => { seen = job; return green })
+  assert.deepEqual(seen.specs, ['e2e/bug.spec.ts'])
+  assert.match(r.out, /Running the @regression suite: 1 spec\./)
+  assert.equal((await go(['run', '--regression', '--task', 'ABC-1'], d, async () => green)).code, 2)
+})
 test('a task runs only the specs that name its key; none means not verified', async () => {
   const d = repo(); let seen
   const r = await go(['run', '--task', 'ABC-1'], d, async job => { seen = job; return green })

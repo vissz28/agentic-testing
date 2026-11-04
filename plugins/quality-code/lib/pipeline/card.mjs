@@ -144,6 +144,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   lines.push(...verdictText(outcome).map(t => `  ${capital(t)}`))
+  if (outcome.regression) lines.push(outcome.regression.text)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) lines.push(`Jira says ${String(jiraStatus).trim()}. This branch still has the bug.`)
   if (rules) lines.push('', `Rules     ${rulesLine(rules)}`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data

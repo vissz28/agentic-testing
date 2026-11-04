@@ -2,7 +2,7 @@
 // A routine: a check that runs on a schedule and says whether the tests still pass after other people pushed,
 // and whether they are stable (the same code passing and failing). The schedule itself is made by
 // /quality-code:routine with Claude's scheduler; this script is what each scheduled run executes.
-//   node bin/routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
+//   node bin/routine.mjs run [--task KEY | --regression] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
 //                            [--stability N] [--force] [--json] [--junit FILE]
 //   node bin/routine.mjs status [--task KEY] [--last N] [--json]
 // run:    fetches the watched branch, sees what others pushed (new commits, shared files such as package.json or a
@@ -47,12 +47,14 @@ function parse(argv) {
     } else if (x === '--force') a.force = true
     else if (x === '--json') a.json = true
     else if (x === '--since-last') a.sinceLast = true
+    else if (x === '--regression') a.regression = true
     else throw new Error(`unknown option ${x}`)
   }
   // --id names the scheduled task that calls this; the script only accepts it.
   a.stability ??= a.flaky
   for (const k of ['stability', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
   if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
+  if (a.regression && (a.task || cmd === 'status')) throw new Error('--regression runs the @regression suite: give it without --task, and only to run')
   if (a.since !== undefined && a.sinceLast) throw new Error('give --since or --since-last, not both')
   if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.stability || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')
   return a
@@ -97,7 +99,7 @@ function realRun({ root, config, specs, key, stability, env }) {
     return { name, verdict: o?.verdict ?? 'not_verified', passed: t.passed, failed: t.failed, flaky, detail: o ? '' : (r.stderr || r.stdout).trim() }
   }
   const has = adaptersOf(config)
-  const phases = specs ? [phase(key, [...specs, '--key', key])]
+  const phases = specs ? [phase(key ?? '@regression', key ? [...specs, '--key', key] : specs)]
     : ['backend', 'frontend'].filter(side => adaptersForSide(side, config).some(x => has.includes(x))).map(side => phase(side, ['--suite', side]))
   if (!specs) {
     const e = spawnSync(process.execPath, [join(HERE, 'evals.mjs')], { cwd: root, env, encoding: 'utf8' })
@@ -112,7 +114,7 @@ function status(a, cfg, dir, stdout) {
   else runs = runs.filter(r => !r.task)
   runs = runs.slice(-Number(a.last ?? 20))
   const s = stabilityOf(runs)
-  if (a.json) { stdout(`${JSON.stringify({ task: a.task ?? null, ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })}\n`); return 0 }
+  if (a.json) { stdout(`${JSON.stringify({ task: a.task ?? (a.regression ? '@regression' : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })}\n`); return 0 }
   const lines = [`quality-code routine status · ${a.task ? `task ${a.task}` : 'whole suite'} · ${s.runs ? `last ${s.runs} run${s.runs === 1 ? '' : 's'}, ${runs[0].at.slice(0, 10)} to ${runs.at(-1).at.slice(0, 10)}` : 'no runs kept yet'}`]
   if (!dir) lines.push('Files and logs are kept only in the chat, so there is no history. Change it with /quality-code:config, item 7.')
   if (s.runs) {
@@ -150,7 +152,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const ref = [`origin/${bare}`, bare].find(r => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null)
   if (!ref) { stderr(`Branch ${branch} was not found (fetch it, or give --branch).\n`); return 2 }
   const tip = git(root, ['rev-parse', ref])
-  const stateName = `last${a.task ? `-${a.task}` : ''}.json`
+  const stateName = `last${a.task ? `-${a.task}` : a.regression ? '-regression' : ''}.json`
   const prev = dir && existsSync(join(dir, stateName)) ? readState(join(dir, stateName)) : {}
 
   // What is new: since the last check (--since-last, needs the kept result), or since a date (--since); else everything counts.
@@ -160,7 +162,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (known) newCommits = prev.sha === tip ? [] : log([`${prev.sha}..${tip}`])
   else if (a.since) newCommits = log([`--since=${a.since}`, ref])
   const filtering = a.sinceLast ? known : Boolean(a.since)
-  const lines = [`quality-code routine · ${a.task ? `task ${a.task}` : 'whole suite'} · ${ref}${fetched ? '' : ' (could not fetch: using what is here)'}`]
+  const lines = [`quality-code routine · ${a.task ? `task ${a.task}` : a.regression ? '@regression suite' : 'whole suite'} · ${ref}${fetched ? '' : ' (could not fetch: using what is here)'}`]
   if (filtering && !newCommits.length && !a.force) {
     lines.push(`No new commits on ${ref} ${a.sinceLast ? `since the last check (${prev.sha.slice(0, 7)}, ${prev.verdict})` : `since ${a.since}`}: nothing to check.`)
     stdout(`${lines.join('\n')}\n`)
@@ -184,6 +186,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       return 3
     }
     lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.stability ? `, each test ${a.stability} times` : ''}.`)
+  } else if (a.regression) {
+    specs = projectSpecs(root, config).map(s => s.path).filter(p => /@regression\b/.test(readFileSync(join(root, p), 'utf8')))
+    if (!specs.length) {
+      lines.push('No spec carries @regression, so nothing was verified.')
+      stdout(`${lines.join('\n')}\n`)
+      return 3
+    }
+    lines.push(`Running the @regression suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.stability ? `, each test ${a.stability} times` : ''}.`)
   } else lines.push(`Running every test of the project${a.stability ? `, each test ${a.stability} times` : ''}.`)
   const result = await run({ root, config, specs, key: a.task, stability: a.stability, env })
   const green = result.exit === 0
@@ -200,11 +210,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (between.length > 15) lines.push(`  … and ${between.length - 15} more`)
   }
   if (dir && result.exit !== 2) {
-    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tip, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? null }), false)
-    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tip, task: a.task ?? null, exit: result.exit, stability: a.stability ? Number(a.stability) : null, flaky })}\n`, true)
+    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tip, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? '@regression' : null) }), false)
+    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tip, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.stability ? Number(a.stability) : null, flaky })}\n`, true)
   }
   if (a.junit) { try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(result.phases.map(p => ({ ...p, detail: p.detail || lines.join('\n') })))) } catch {} }
-  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tip, task: a.task ?? null, regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
+  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tip, task: a.task ?? (a.regression ? '@regression' : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
   else stdout(`${lines.join('\n')}\n`)
   return result.exit
 }
