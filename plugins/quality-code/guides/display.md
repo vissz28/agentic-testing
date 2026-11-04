@@ -60,6 +60,28 @@ Extra probes get their own rows, marked `➕ extra`.
 
 **Anything else a script prints** (a setup summary, a KPI or consumption report, a list of tickets): the same way, a headline, then a table for what has columns and a short list for the rest.
 
+## Richer cards
+
+These four rules sit on top of everything above and change none of it: the same headline-first card, sections, tables, marks and links, a little richer. Each is only laid out from what the script printed; a number the script does not print is never added.
+
+**Headline row.** The bold headline of a result carries, in this order and only what the output gives: the verdict with its mark, the score, the bar, and the short counts. The bar is ten squares, one per 10 points of the printed score, rounded down (`■` filled, `□` empty), then the score and the gate: `**✅ ready** · ■■■■■■■■□□ 82% · gate 70`. The gate is the printed bar of the command (70 for a ticket); a result with no score and no gate has no bar. The counts follow in plain words, only those the output prints and that are not zero: `5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`. This is the only arithmetic allowed, and only on the printed score.
+
+**The Next line.** Under the result, on its own line, `Next:` and the one or two likeliest commands, as code: for example `Next: ` `/quality-code:run-frontend`, the command in code. After a green or ready result the command that widens the check (the suite, the next ticket); after a red, refused or not verified one the command that fixes or reruns it. Never more than two, never a command that was not named by the command's own text, and none with `--ci`.
+
+**Collapsible detail.** A list of more than 8 rows, and the per-test details of a run, go in a collapsible block after the table, so the card stays short:
+
+```
+<details><summary>All 14 tests</summary>
+
+(the table or the `diff` block, as above)
+
+</details>
+```
+
+The table above it still shows at most 8 rows and ends with `… and N more`; the block holds all of them, with a blank line after the `<summary>` line and before `</details>` so the table renders. The summary says what is inside and how many (`All 14 tests`, `12 more tickets`). A card with nothing to fold has no block.
+
+**Marks.** The same mark means the same in every command: ✅ pass or ready, ❌ failed or refused, ⚠️ not run, not verified or a warning, 🔴 tests red or a risk, ➖ not applicable. A count line, a table cell, a checklist item and a headline use the same mark for the same state. Never a second mark for a state that has one, and never a mark the output does not support.
+
 ## The wrap-up
 
 What you write after the last card (what was made, what went wrong, what is left) is read in one go: **at most 400 words**, the card above it not counted. It never repeats the card's tests or checks. Its headings have no emoji, and its rows and bullets none either: the only marks are the verdict's and a ❌ or 🔴 a line already has. Always in this order, leaving out a section with nothing in it:

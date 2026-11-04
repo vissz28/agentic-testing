@@ -22,7 +22,7 @@ Shows how the plugin is used in this project. You relay; the script reads and co
 1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`); with none, the script shows the last 30 days. Do not pass `--json`.
    - Exit 3: no audit data yet. Show its lines as they are (they say where it looked) and stop.
    - Exit 2: show its lines as they are and stop.
-2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Then show this card and end the turn:
+2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the counts the card prints, tables with the same marks as the other commands, any list of more than 8 rows in a `<details>` block, and a `Next:` line with `/quality-code:consumption` and `/quality-code:kpi --since 7d`. Then show this card and end the turn:
 
    ```
    What next?

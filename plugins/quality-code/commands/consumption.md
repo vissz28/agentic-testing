@@ -23,7 +23,7 @@ Shows what the plugin's runs used. You relay; the script reads and counts. Plain
 1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`, `--by`, `--prices`); with none, the script shows the last 30 days by command. Do not pass `--json`.
    - Exit 3: no transcripts were found. Show its lines as they are (they say where it looked) and stop.
    - Exit 2: show its lines as they are and stop.
-2. **Card.** Show the card exactly as printed. Drop the `CONSUMPTION_JSON:` line. Add nothing, explain nothing, grade nothing. Then show this card and end the turn:
+2. **Card.** Show the card exactly as printed. Drop the `CONSUMPTION_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the totals the card prints (the cost stays an estimate, as printed), a table of at most 8 rows with the rest in a `<details>` block, and a `Next:` line with `/quality-code:consumption --by ticket` and `/quality-code:kpi`. Then show this card and end the turn:
 
    ```
    See it another way?

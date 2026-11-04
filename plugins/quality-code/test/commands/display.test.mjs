@@ -99,3 +99,33 @@ test('ci checks the file it wrote against Central Context\'s CI rules, shown as 
   assert.match(ci, /A rule never changes the file: never edit it to meet one/)
   assert.match(ci, /Without the connector: `Searched Central Context · not connected ⚠️`, and go on\./)
 })
+
+test('richer cards: headline row with bar and gate, Next line, collapsible detail, consistent marks', () => {
+  const rich = guide.split('## Richer cards')[1].split('## The wrap-up')[0]
+  assert.match(rich, /change none of it/)
+  assert.match(rich, /ten squares, one per 10 points of the printed score, rounded down \(`■` filled, `□` empty\)/)
+  assert.match(rich, /`\*\*✅ ready\*\* · ■■■■■■■■□□ 82% · gate 70`/)
+  assert.match(rich, /`5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`/)
+  assert.match(rich, /a number the script does not print is never added/)
+  assert.match(rich, /\*\*The Next line\.\*\*[^\n]*`Next: `[^\n]*Never more than two[^\n]*none with `--ci`/)
+  assert.match(rich, /<details><summary>All 14 tests<\/summary>/)
+  assert.match(rich, /<\/details>/)
+  assert.match(rich, /more than 8 rows[^\n]*after the table/)
+  assert.match(rich, /✅ pass or ready, ❌ failed or refused, ⚠️ not run, not verified or a warning, 🔴 tests red or a risk, ➖ not applicable/)
+  // the old rules are untouched
+  assert.match(guide, /At most 8 rows; then a last row `… and N more`/)
+  assert.match(guide, /\*\*at most 400 words\*\*/)
+  assert.doesNotMatch(rich, /\b(?!ABC-123)[A-Z]{2,}-\d+\b/)
+})
+
+test('the result commands lay their cards out with the richer cards', () => {
+  for (const f of ['commands/spec.md', 'guides/run.md', 'commands/ticket-eval.md', 'commands/tickets-eval.md', 'commands/kpi.md', 'commands/consumption.md', 'commands/ci.md']) {
+    const s = read(f)
+    assert.match(s, /\*\*Richer cards\*\* of the display guide/, f)
+    assert.match(s, /`Next:`/, f)
+  }
+  // run-frontend, run-backend, run-pipeline and run-smoke share guides/run.md
+  for (const f of ['run-frontend', 'run-backend', 'run-pipeline', 'run-smoke']) assert.ok(read(`commands/${f}.md`).includes('guides/run.md'), f)
+  assert.match(read('guides/run.md'), /`<details>` block after the table/)
+  assert.match(read('commands/ticket-eval.md'), /`■■■■■■■■□□ 82% · gate 70`/)
+})
