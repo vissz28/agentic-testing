@@ -105,3 +105,9 @@ A card with numbered options becomes a question in the picker (the `AskUserQuest
 - The picked option is that option's number; a typed answer is read as the command's Replies rule says. The answer comes back in the same turn: go on as the command says for that answer, without ending the turn first.
 - Information the card shows above its options (a plan, a score, a preview) goes above the picker as its own section, laid out as above.
 - `--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either. Without the tool, show the numbered card as written and end the turn.
+
+## Language
+
+Talk in the language of the person's last sentence. A pick, a number, a click on an option, a slash command with no words, a script's output or a card does not change it. Script lines and cards keep their fixed words; everything around them (explanations, questions, summaries, option descriptions, the Done text) stays in the person's language.
+
+The rule and the saved language are in `${CLAUDE_PLUGIN_ROOT}/guides/language.md`.

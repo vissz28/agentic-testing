@@ -14,7 +14,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 - **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket-eval`; never say a score here.
 - Redact in everything you show: the config's `redact` patterns (without a `redact` in the config, the default customer id `\bU\d{5,}\b`; a `redact` in the config replaces it), e-mails and UUIDs.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
-- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Before they write a sentence, the ticket's language.
 - When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`). Every key you show is a link: `[KEY](<jira.site>/browse/KEY)`.
 
 ## Steps

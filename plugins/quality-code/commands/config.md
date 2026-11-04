@@ -12,7 +12,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 - **Scripts write, never you.** The project config is written only by `setup.mjs`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit `.claude/quality-code.json`, the personal config or a settings file yourself.
 - **Never ask for a token**, key or password in the chat, and never show one. If the user pastes one anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
-- **Language.** Talk in the language of the user's messages.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output.
 
 ## Steps
 

@@ -15,7 +15,7 @@ Fills the local database with mock data for a ticket: about 25 realistic rows pe
 - **Never edit application code.** Write only the SQL files in the tickets folder. The schema, migrations, source files and config stay as they are.
 - **Never ask for a token**, key or password in the chat, and never show one or a connection string.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
-- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Before they write a sentence, the ticket's language (Italian for an Italian ticket). Script output and cards keep their fixed words.
 - Refer to Jira tools by operation name on the Atlassian connector.
 - Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`) when you show output.
 

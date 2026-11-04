@@ -7,7 +7,9 @@ import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { claudeDir } from './config.mjs'
 
-export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'xray', 'seed', 'qa', 'ci', 'config', 'routine']
+export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
+// `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
+const LANGUAGE = /^[a-z]{2}$/
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 export const MAX_DATA_BYTES = 16 * 1024
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
@@ -23,6 +25,7 @@ export const fileOf = (root, command, key, env = process.env) =>
 
 function check(command, key) {
   if (!COMMANDS.includes(command)) return `unknown command "${command}" (${COMMANDS.join(', ')})`
+  if (command === 'session' && key != null) return 'session has no ticket key'
   if (key != null && !KEY.test(key)) return `"${key}" is not a ticket key`
   return null
 }
@@ -48,7 +51,7 @@ export function getProgress(root, command, key = null, env = process.env, now = 
   try { saved = JSON.parse(readFileSync(fileOf(root, command, key, env), 'utf8')) } catch { return { ok: true, found: false } }
   const at = Date.parse(saved?.updated)
   if (!saved || !Number.isInteger(saved.step) || !Number.isFinite(at)) return { ok: true, found: false }
-  if (now - at > MAX_AGE_MS) return { ok: true, found: false, expired: true }
+  if (command !== 'session' && now - at > MAX_AGE_MS) return { ok: true, found: false, expired: true }
   return { ok: true, found: true, command, key, step: saved.step, label: saved.label ?? '', data: saved.data ?? {}, updated: saved.updated, ageMinutes: Math.max(0, Math.round((now - at) / 60000)) }
 }
 
@@ -59,6 +62,11 @@ export function setProgress(root, command, { key = null, step, label = '', data 
   if (!Number.isInteger(step) || step < 0 || step > 99) return { ok: false, reason: 'the step is a whole number from 0 to 99' }
   if (typeof label !== 'string' || label.length > 80 || /[\r\n]/.test(label)) return { ok: false, reason: 'the label is one line of 80 characters at most' }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'the data is a JSON object' }
+  if (command === 'session') {
+    const extra = Object.keys(data).filter(k => k !== 'language')
+    if (extra.length) return { ok: false, reason: `session holds only language, not ${extra.join(', ')}` }
+    if ('language' in data && !(typeof data.language === 'string' && LANGUAGE.test(data.language))) return { ok: false, reason: 'language is a lowercase two-letter ISO 639-1 code (it, en, sq)' }
+  }
   const where = secretIn({ label, data })
   if (where) return { ok: false, reason: `${where} looks like a secret: the cache keeps answers, never tokens, keys or passwords` }
   const before = getProgress(root, command, key, env, now)

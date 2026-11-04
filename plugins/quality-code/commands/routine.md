@@ -12,7 +12,7 @@ Makes a **routine**: a check that Claude runs on its own at the times you pick, 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/routine.mjs" …` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code.
 - **The script decides.** Never compute, change or soften a verdict, a count, a flaky list or a regression. Never edit tests, source files or config, and never retry.
 - **Nothing is scheduled without a yes.** Show what will run and when, and wait for the user to confirm.
-- **Language.** Talk in the language of the user's messages. Script output stays as printed.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Script output keeps its fixed words.
 
 ## Steps
 

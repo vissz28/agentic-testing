@@ -13,7 +13,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 - **The script writes.** `xray.mjs` numbers the cases, writes the CSV and the per-ticket files, and skips a case that is already there. Never edit those files yourself.
 - **Never invent.** An expected result comes from the ticket (its Then, its QA plan) or from the guide's extra probes; a step whose result the ticket does not give has no expected result. Never a value the ticket does not give.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
-- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language. Write the cases in the ticket's language. Script output and cards stay as printed.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Write the cases in the ticket's language. Script output and cards keep their fixed words.
 - **Never ask for a token**, key or password in the chat, and never show one.
 - Refer to Jira tools by operation name on the Atlassian connector.
 - Every script call runs from the project root: `node "${CLAUDE_PLUGIN_ROOT}/bin/<script>" …`. With `root` in `.claude/quality-code.json` the project root is that folder: every path the scripts print or take is relative to it, so the files you read and write are under it. Drop the machine lines (`TICKET_EVAL_JSON:`, `PROJECT_MISMATCH:`, `SIDE_JSON:`, `E2E_FOLDER_JSON:`) when you show output.

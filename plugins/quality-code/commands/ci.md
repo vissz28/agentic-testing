@@ -17,7 +17,7 @@ Plain English, short lines. Show every card and output the way `${CLAUDE_PLUGIN_
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" …` command, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code.
 - **The script decides.** Never write, edit or merge a CI file yourself, and never retry.
-- **Language.** Talk in the language of the user's messages. Script output stays as printed.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Script output keeps its fixed words.
 
 ## Steps
 

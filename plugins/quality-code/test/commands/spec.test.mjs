@@ -351,7 +351,7 @@ test('step 5 saves the pinned values; step 6 passes them to the check', () => {
 
 test('replies and language; --dry-run and --ci; the card after the run never weakens a test', () => {
   assert.match(doc, /\*\*Replies\.\*\* Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `no`, `stop` and `basta` mean the card's No, Stop or Cancel option; on the plan card, a sentence that asks for another change \(not a number, not a result\) means `Something else`/)
-  assert.match(doc, /\*\*Language\.\*\* Talk in the language of the user's messages; before they write one, in the ticket's language/)
+  assert.match(doc, /\*\*Language\.\*\* Follow `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/language\.md`/)
   const one = step(1)
   assert.match(one, /\*\*`--dry-run`:\*\* go through steps 1 to 4 as usual, show the plan card .* and stop: no run marker, no test written, no `target` saved, nothing posted\. The gate still saves the sanitized ticket/)
   assert.match(one, /A refused ticket ends the dry run at the gate's report: no refuse card, so no comment, fill-in or Jira update/)

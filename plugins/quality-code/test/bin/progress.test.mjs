@@ -92,3 +92,39 @@ test('setup and spec follow the progress guide; the guide names the three calls 
   assert.match(guide, /Never save a token, key, password or ticket text/)
   assert.match(guide, /1\. Go on from there\n2\. Start over\n3\. Stop/)
 })
+
+test('session keeps the language, per project folder', () => {
+  const e = env()
+  assert.equal(setProgress(root, 'session', { step: 0, label: 'language', data: { language: 'it' } }, e).ok, true)
+  assert.equal(getProgress(root, 'session', null, e).data.language, 'it')
+  const other = mkdtempSync(join(tmpdir(), 'qc-root-'))
+  assert.equal(getProgress(other, 'session', null, e).found, false)
+})
+test('session language does not expire after 7 days, other commands do', () => {
+  const e = env()
+  const t0 = Date.parse('2026-11-01T10:00:00Z')
+  setProgress(root, 'session', { step: 0, data: { language: 'sq' } }, e, t0)
+  setProgress(root, 'setup', { step: 1 }, e, t0)
+  const later = t0 + 30 * 24 * 60 * 60 * 1000
+  assert.equal(getProgress(root, 'session', null, e, later).data.language, 'sq')
+  assert.equal(getProgress(root, 'setup', null, e, later).found, false)
+})
+test('session accepts only a lowercase two-letter language and nothing else', () => {
+  const e = env()
+  for (const language of ['IT', 'ita', 'i', '', 5, null]) assert.equal(setProgress(root, 'session', { step: 0, data: { language } }, e).ok, false, String(language))
+  const r = setProgress(root, 'session', { step: 0, data: { language: 'it', site: 'x' } }, e)
+  assert.equal(r.ok, false)
+  assert.match(r.reason, /only language/)
+  assert.equal(setProgress(root, 'session', { key: 'ABC-1', step: 0, data: { language: 'it' } }, e).ok, false)
+})
+test('progress.mjs set and get session from the command line', async () => {
+  const e = env()
+  const out = []
+  const run = argv => main(argv, { env: e, cwd: root, stdout: s => out.push(s), stderr: s => out.push(s) })
+  assert.equal(await run(['set', 'session', '--step', '0', '--label', 'language', '--data', '{"language":"it"}']), 0)
+  out.length = 0
+  assert.equal(await run(['get', 'session']), 0)
+  const line = out.join('').split('\n').find(l => l.startsWith('PROGRESS_JSON:'))
+  assert.equal(JSON.parse(line.slice('PROGRESS_JSON:'.length)).data.language, 'it')
+  assert.equal(await run(['set', 'session', '--step', '0', '--data', '{"language":"Italian"}']), 2)
+})
