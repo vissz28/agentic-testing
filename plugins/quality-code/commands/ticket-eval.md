@@ -97,9 +97,8 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    Then run `ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json <frontend|backend|fullstack>` (1, 2, 3) and show its line. The side is saved in `ticket.json`; later steps read it from there.
 
 5. **Score.** `ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json --next` (add `--ci` or `--json` if given; with `--json` print only the JSON and stop). Relay the report with its `To pass:` line. `--next` adds that line and `GATE_JSON:` (`band`: `ready`, `borderline` or `refused`; `fix`: the fewest missing items that reach the bar). Exit 0 is `pass`, 1 is `refuse`, 2 is a config or input error (show the message and stop). With `--refuse-comment`, run `ticket.mjs refuse-comment` instead, print its text, and stop (printing never posts; its exit 1 on a refused ticket is expected).
-   - **pass:** say the ticket is ready and stop. (Other commands that build on this gate continue from here.)
-   - **refuse:** first step 5b, once per run (never after a fill-in, never twice). Then show the refuse card. (`/quality-code:spec` goes on without it for a `borderline` band.)
-
+   - **pass:** say the ticket is ready, then step 5c (the story check), then stop. (Other commands that build on this gate continue from here.)
+   - **refuse:** first step 5b, once per run (never after a fill-in, never twice). Then step 5c (the story check), once per run. Then show the refuse card. (`/quality-code:spec` goes on without it for a `borderline` band.)
 5b. **Read the screenshots and pages of a refused ticket.** Some teams put the criteria in a screenshot or a Confluence page instead of the description. Word files were already read in step 2 (their text is cheap: a script reads it, and the tests need it). Screenshots and pages cost more, so read them now, only now: a ticket that passed never gets here. Skip this step when the ticket has no image attached and no `<jira.site>/wiki/` link among its `links` other than the QA plan page already read in step 2. Every file goes through one script call, which redacts the text, adds it to the description and re-scores; the script decides what counts, never you.
 
    For each text to add: write it, exactly as you have it, to `<ticketsDir>/<KEY>/attached.txt` (an empty file when there is nothing to add), then run `ticket.mjs attach --in @<ticketsDir>/<KEY>/ticket.json <kind> @<ticketsDir>/<KEY>/attached.txt` (it deletes `attached.txt`) and show its line. One file at a time, in this order:
@@ -118,6 +117,56 @@ From `$ARGUMENTS`: read the ticket, run the readiness gate with the plugin's scr
    A pasted screenshot: as above. `skip`: go on.
 
    Then score again, exactly as step 5 (`ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json --next`, same flags). `pass`: say that the files carried what was missing, and the ticket is ready. Still `refuse`: the refuse card, with this score.
+
+5c. **Story check.** After the score (and 5b), once per run. Not with `--ci`, `--yes`, `--json` or `--refuse-comment`: those ask nothing and skip this step. Run `ticket.mjs story-check --in @<ticketsDir>/<KEY>/ticket.json` and read its `STORY_JSON:` line. The script decides: `flagged` false, say nothing and go on. `flagged` true, show its first line and offer the rewrite, as in **Rewrite the story** below. The thresholds (too long, no structure, too thin) are the script's; never judge the description yourself.
+
+## Rewrite the story
+
+Only when step 5c flagged the story. Cards follow display.md: the AskUserQuestion picker, four options at most (page the rest with `More…`; Stop and Cancel are reachable by typing `stop` or `cancel` in `Other`). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" get ticket-eval --key <KEY>` first: when its `data` holds a `storySource`, say `Last time you rewrote it from <source>.` in the question.
+
+```
+This story could be clearer: <the reasons, from the check>. Rewrite it?
+1. From the ticket description
+2. From Figma
+3. From Confluence
+4. From another source (a link, or text you paste)
+5. Not now
+```
+
+Five options: page them (options 1 to 3 and `More…`, then 4 and 5). Save the pick with `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" set ticket-eval --key <KEY> --step 6 --label "story source" --data '{"storySource":"<description|figma|confluence|other>"}'` (the source name only, never text). `5`: say nothing more and go on.
+
+- **Sources.** Draft only from what the source holds. 1: `text.description` and `text.acField` of `ticket.json` (redacted, never the connector's raw text). 2: the Figma flow of **Draft from Figma and my changes** (read the design with the Figma connector, read-only; no Figma link on the ticket or no Figma connector: say so and offer the picker again without it). 3: the Confluence page the ticket links (`links`, `<jira.site>/wiki/`), or one the person names, read with `getConfluencePage` (`markdown`); connector as in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. 4: a link (a Confluence or Figma link goes the 3 or 2 way) or text they paste.
+- **Never invent.** A fact the source does not state (a number, a text, a label, a state, a result) is a question: ask the person about every gap, in one picker or one message, before the draft. Keep the person's language (`${CLAUDE_PLUGIN_ROOT}/guides/language.md`, the ticket's language before they write a sentence).
+- **The draft** uses the project's story shape, as markdown headings: `## Goal`, `## What`, `## Acceptance criteria` (Gherkin or one observable result per line), `## Done when`. Write it to `<ticketsDir>/<KEY>/story-draft.md`, then run `ticket.mjs story-check --in @<ticketsDir>/<KEY>/ticket.json --draft @<ticketsDir>/<KEY>/story-draft.md` and read its `STORY_SCORE_JSON:` line.
+- **The card.** Show it in the message, not in a file:
+
+  ```
+  ### 📝 Story draft for <KEY>
+  <the draft, exactly as it would be saved or posted>
+
+  What changed: <2 to 4 short bullets: what was cut, reordered or added>
+  Still missing: <the open questions and the `Still missing:` line of the script>
+  Score: <the `Score:` line of the script, as printed>
+  ```
+
+  The score is the script's: never compute or restate one.
+
+Then the destination, in the picker (end the turn after it):
+
+```
+Where does the new story go?
+1. Post to Jira (replaces the description, and the criteria field when the project has one)
+2. Save locally at <ticketsDir>/<KEY>/story.md
+3. Edit more
+4. Cancel
+```
+
+- **1:** nothing is written without the preview and a yes. The card above is the preview. Ask once more in the picker: `Post this story to <KEY>? 1. Yes, update the ticket 2. No`. Only on an explicit yes: the Jira write rules of the end of this file apply (fetch the ticket fresh with `getJiraIssue`, one `editJiraIssue` with `contentFormat` `markdown`): `description` = the draft; when the project has a criteria field (step 1), its text = the draft's `## Acceptance criteria` section, else nothing else is touched. Then `The Jira ticket has been updated.` and run `ticket.mjs jira-posted <KEY> update` (show nothing of it). On failure: `Could not update the Jira ticket.` Never with `--ci` or `--yes`, which never get here. The old description stays in the ticket's Jira history; say so in the preview.
+- **2:** run `ticket.mjs story-save --in @<ticketsDir>/<KEY>/ticket.json` (it moves `story-draft.md` to `story.md`, redacted) and show its line. Nothing is sent to Jira.
+- **3:** ask what to change (picker with `Other`), edit the draft, rewrite `story-draft.md`, re-run the `--draft` score and show the card and this picker again.
+- **4:** nothing is saved or posted; delete nothing. Go on.
+
+When the story was posted or saved, tell the person the new score and go on at the step that follows (the pass or refuse outcome of step 5 stands as the script scored the ticket on Jira; to score the new text, run `/quality-code:ticket-eval <KEY>` again). When the person ends the command (its Done text), clear the saved stop as `${CLAUDE_PLUGIN_ROOT}/guides/progress.md` says.
 
 ## The refuse card
 

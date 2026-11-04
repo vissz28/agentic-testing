@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-04
+
+### Added
+
+- **Rewrite a weak story (AGT-165).** After `/quality-code:ticket-eval` scores a ticket, a script check (`ticket.mjs story-check`) tells whether the description is too long, has no structure (no goal, no acceptance criteria) or is too thin. When it does, the command offers to rewrite the story from the ticket description, Figma, Confluence or another source (a link or pasted text), asking about every gap and never inventing facts. The draft (Goal, What, Acceptance criteria, Done when) is shown as a card with what changed, what is still missing and the re-scored result. You then pick: post it to Jira (only after the preview and a yes), save it at `<ticketsDir>/<KEY>/story.md`, edit more or cancel. Nothing is asked with `--ci` or `--yes`. The thresholds sit in one block in `lib/ticket/story.mjs`.
+
+### What to do
+
+Nothing. Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`.
+
 ## [0.50.0] - 2026-11-04
 
 ### Added

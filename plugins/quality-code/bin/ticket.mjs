@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -20,6 +20,7 @@ import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
+import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
@@ -61,7 +62,7 @@ function parseArgs(argv) {
     const t = argv[i]
     // `--` ends the flags: everything after it is positional, so an answer may start with "--".
     if (t === '--') { a._.push(...argv.slice(i + 1)); break }
-    if (t === '--in' || t === '--out') a[t.slice(2)] = argv[++i]
+    if (t === '--in' || t === '--out' || t === '--draft') a[t.slice(2)] = argv[++i]
     else if (t.startsWith('--')) {
       if (!KNOWN_FLAGS.has(t)) throw new Error(`unknown arg: ${t}`)
       a.flags.add(t)
@@ -267,7 +268,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (!a.in) {
-    err("usage: ticket.mjs <score|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|story-check|story-save|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -315,6 +316,39 @@ function run(argv, env, cwd) {
         if (next) out(`GATE_JSON:${JSON.stringify(next)}`)
       }
       return b.gate === 'refuse' ? 1 : 0
+    }
+    case 'story-check': {
+      // After the score: is the story too long, unstructured or too thin? Without --draft it decides whether to offer a
+      // rewrite. With --draft @<file> it checks the draft, re-scores it as the ticket's story and prints old and new score.
+      if (!a.draft) {
+        const check = checkStory(ticket)
+        if (a.flags.has('--json')) out(JSON.stringify(check))
+        else { out(formatStoryCheck(check)); out(`STORY_JSON:${JSON.stringify(check)}`) }
+        return 0
+      }
+      let draft
+      try { draft = readFileSync(resolve(root, a.draft.replace(/^@/, '')), 'utf8') } catch (e) { err(`story-check: cannot read the draft (${e.code ?? e.message})`); return 2 }
+      draft = redact(config, draft)
+      const drafted = draftTicket(ticket, draft)
+      const before = buildBrief(config, ticket)
+      const after = buildBrief(config, drafted)
+      const shape = storyShape(draft)
+      const r = { key: ticket.key ?? null, before: { score: before.score, gate: before.gate }, after: { score: after.score, gate: after.gate, missing: after.missing.map(m => m.label) }, threshold: after.threshold, shape, check: checkStory(drafted) }
+      if (a.flags.has('--json')) { out(JSON.stringify(r)); return 0 }
+      out(`Score: ${before.score} before, ${after.score} with the new story (the bar is ${after.threshold}).`)
+      if (shape.missing.length) out(`Missing sections: ${shape.missing.join(', ')}.`)
+      if (after.missing.length) out(`Still missing: ${after.missing.map(m => m.label).join('; ')}.`)
+      out(`STORY_SCORE_JSON:${JSON.stringify(r)}`)
+      return 0
+    }
+    case 'story-save': {
+      // Saves the confirmed draft (<ticketsDir>/<KEY>/story-draft.md) as <ticketsDir>/<KEY>/story.md. Local only.
+      const from = draftPath(ticketsRoot, ticket.key), to = storyPath(ticketsRoot, ticket.key)
+      if (!from) { err('story-save needs a ticket with a valid key'); return 2 }
+      if (!existsSync(from)) { err(`story-save: no draft at ${from}`); return 2 }
+      try { mkdirSync(dirname(to), { recursive: true }); writeFileSync(from, redact(config, readFileSync(from, 'utf8'))); renameSync(from, to) } catch (e) { err(`story-save: cannot write (${e.code ?? e.message})`); return 2 }
+      out(`Saved the story at ${to}.`)
+      return 0
     }
     case 'refuse-comment': {
       const b = buildBrief(config, ticket)
