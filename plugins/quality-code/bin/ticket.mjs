@@ -5,6 +5,7 @@ import { homedir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
+import { findTestHome } from '../lib/base/test-home.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.mjs'
 import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
@@ -190,6 +191,14 @@ function run(argv, env, cwd) {
         : "flow: the project's own, but it has no tests yet: Quality Code's naming is used until it has")
       : 'flow: Quality Code: the ticket key in the file name, the configured test folders')
     out(`FLOW_JSON:${JSON.stringify({ flow, source: flag ? 'run' : config.testFlow ? 'config' : 'detected', configured: config.testFlow ?? null, ...conv })}`)
+    return 0
+  }
+  if (cmd === 'config' && a._[0] === 'test-home') {
+    // Where a new test for this source file goes: the file that tests it, the central test file, or a new one.
+    if (!a._[1] || a._.length > 2) { err('usage: ticket.mjs config test-home <target>'); return 2 }
+    const home = findTestHome(root, a._[1])
+    out(home.kind === 'none' ? `test home: none yet: ${home.reason}` : `test home: ${home.file} (${home.kind === 'unit-file' ? 'tests this file' : "the project's central tests"}): ${home.reason}`)
+    out(`TEST_HOME_JSON:${JSON.stringify(home)}`)
     return 0
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
