@@ -60,6 +60,7 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 | `/quality-code:xray <KEY>` | writes XRay test cases for QA |
 | `/quality-code:qa [KEY]` | for QA: lists your Xray test executions, runs one in the browser and drafts each defect; you give every verdict, and nothing reaches Jira without a yes |
 | `/quality-code:config` | shows the settings and changes one at a time: the project config and your own plugin settings |
+| `/quality-code:clean [--dry-run]` | removes what Quality Code created in the project (setup files, saved output, cache; your own tests only if you pick them): a script lists it, you pick the groups and say yes once; `--dry-run` only lists |
 | `/quality-code:kpi`, `/quality-code:consumption` | usage numbers and AI cost, read locally |
 
 The commands that run tests or load data (`spec`, the run commands, `seed`) work in Claude Code, where your repository is.
