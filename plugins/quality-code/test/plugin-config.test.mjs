@@ -12,6 +12,7 @@ test('the eight connectors: Jira, Figma, GitLab and Central Context by address, 
   assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'central-context', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'jira-files', 'xray'])
   // The hub's MCP surface, for the model to search in chat; TeamSystem's hosted hub unless the person sets another.
   assert.deepEqual(mcp['central-context'], { type: 'http', url: '${user_config.central_context_url}/mcp' })
+  // Same address as DEFAULT_HUB in lib/base/rules.mjs: a new hub URL changes both (that file lists every place).
   assert.equal(settings.central_context_url.default, 'https://centralcontext-dev.teamsystem.cloud')
   assert.ok(!settings.central_context_url.sensitive)
   assert.deepEqual(mcp['atlassian-rovo'], { type: 'http', url: 'https://mcp.atlassian.com/v1/mcp' })

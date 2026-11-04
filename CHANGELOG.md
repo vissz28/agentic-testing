@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-04
+
+### Changed
+
+- `/quality-code:spec` reads its testing rules from TeamSystem's hosted Central Context hub by default, so everyone who runs setup is connected with nothing to set. `centralContext.hub` still picks another hub, `"off"` still turns it off, and `CC_HUB_URL` still wins. To move the default to a new URL, see the comment on `DEFAULT_HUB` in `lib/base/rules.mjs`.
+
 ## [0.56.0] - 2026-11-04
 
 ### Added

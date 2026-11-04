@@ -4,7 +4,7 @@
 // The rules inform how tests are written; they never add an expected value, change a score or skip a check.
 //
 // The hub: `centralContext.hub` in .claude/quality-code.json (the base URL; "off" reads nothing), or the
-// CC_HUB_URL environment variable, which wins. One read of GET /v1/manifest, which carries every rule's
+// CC_HUB_URL environment variable, which wins; TeamSystem's hosted hub when neither names one. One read of GET /v1/manifest, which carries every rule's
 // summary, tags and applies_to.
 //
 // The team's own rules: `centralContext.local`, a folder of rule files in the knowledge repository's format,
@@ -32,10 +32,19 @@ export function stacksFor(side, config = null) {
   return [...new Set(['all', ...(of[side] ?? of.fullstack)])]
 }
 
-/** The hub base URL for this project: the environment first, then the config; null when neither names one. */
+// The hub every user reads when the project names none: TeamSystem's hosted Central Context.
+// To move to a new URL, change it here AND in these places, which hold the same address:
+//   - .claude-plugin/plugin.json: userConfig.central_context_url.default (the connector's hub; JSON, so no comment there)
+//   - test/plugin-config.test.mjs: the assert on that default
+//   - docs/GUIDE.md: the centralContext.hub row of the config table
+//   - guides/connectors.md, guides/display.md, output-styles/report.md: example lines showing the host
+// grep -rn "centralcontext-dev.teamsystem.cloud" finds them all.
+export const DEFAULT_HUB = 'https://centralcontext-dev.teamsystem.cloud'
+
+/** The hub base URL for this project: the environment first, then the config, then TeamSystem's hosted hub. */
 export function hubOf(config, env = process.env) {
-  const v = env.CC_HUB_URL ?? config?.centralContext?.hub ?? null
-  return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : null
+  const v = env.CC_HUB_URL ?? config?.centralContext?.hub
+  return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : DEFAULT_HUB
 }
 
 const SEVERITY = ['critical', 'high', 'medium', 'low']
@@ -112,7 +121,6 @@ export async function readRules({ side, config = null, root = null, env = proces
     return { ...r, local, builtin: { ...shipped, rules: shipped.rules.filter(x => !taken.has(x.id)) } }
   }
   const none = error => done({ source: 'none', hub, release: null, side, stacks, rules: [], error })
-  if (hub === null) return none('not configured (centralContext.hub)')
   if (hub === 'off') return none('off (centralContext.hub: "off")')
   try {
     const res = await fetchImpl(`${hub}/v1/manifest`, { signal: AbortSignal.timeout(timeoutMs) })
