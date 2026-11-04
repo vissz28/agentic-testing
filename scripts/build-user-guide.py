@@ -31,9 +31,13 @@ GREY = colors.HexColor('#5A6872')
 RULE = colors.HexColor('#C9D9E3')
 
 FONT_DIR = Path('/usr/share/fonts/truetype/dejavu')
-pdfmetrics.registerFont(TTFont('Sans', FONT_DIR / 'DejaVuSans.ttf'))
-pdfmetrics.registerFont(TTFont('Sans-Bold', FONT_DIR / 'DejaVuSans-Bold.ttf'))
-pdfmetrics.registerFont(TTFont('Mono', FONT_DIR / 'DejaVuSansMono.ttf'))
+if FONT_DIR.exists():
+    FONTS = {'Sans': 'DejaVuSans.ttf', 'Sans-Bold': 'DejaVuSans-Bold.ttf', 'Mono': 'DejaVuSansMono.ttf'}
+else:  # macOS, where DejaVu is not installed
+    FONT_DIR = Path('/System/Library/Fonts/Supplemental')
+    FONTS = {'Sans': 'Arial.ttf', 'Sans-Bold': 'Arial Bold.ttf', 'Mono': 'Courier New.ttf'}
+for name, file in FONTS.items():
+    pdfmetrics.registerFont(TTFont(name, FONT_DIR / file))
 pdfmetrics.registerFontFamily('Sans', normal='Sans', bold='Sans-Bold', italic='Sans', boldItalic='Sans-Bold')
 
 S = {
@@ -134,6 +138,10 @@ story += [p('What it is', 'h1'),
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
               ['See how the team uses it', '<font name="Mono">/quality-code:kpi</font>'],
               ['See what the AI runs cost', '<font name="Mono">/quality-code:consumption</font>'],
+              ['Turn a Teams planning meeting into tasks', '<font name="Mono">/quality-code:transcript-goal</font>'],
+              ['Run the few critical tests', '<font name="Mono">/quality-code:run-smoke</font>'],
+              ['Change one setting', '<font name="Mono">/quality-code:config set git.base develop</font>'],
+              ['Clear the cache, or undo the setup', '<font name="Mono">/quality-code:clean-cache</font>, <font name="Mono">/quality-code:clean</font>'],
           ], [80, 90]),
           PageBreak()]
 
@@ -253,6 +261,36 @@ story += [p('6. Have tests written from a ticket', 'h1'),
           p('<b>kpi</b>: tickets gated, fill-ins, Jira comments, forced runs, verdicts, boundary blocks (from a local, '
             'git-ignored audit log; keys and numbers only). <b>consumption</b>: AI tokens and an estimated cost per '
             'command, ticket, day or model, read from Claude Code\'s local logs. Both send nothing anywhere.'),
+          PageBreak()]
+
+story += [p('More commands', 'h1'),
+          p('Rewrite a weak story', 'h2'),
+          p('After <font name="Mono">ticket-eval</font> scores a ticket, a script checks whether the description is too long, '
+            'has no structure or is too thin. If so you pick a source (the description, Figma, Confluence or your own text), '
+            'see the draft as a card with its new score, and choose: post to Jira (after a preview and your yes), save '
+            'locally, edit more, or cancel.'),
+          p('Sprint goal from a Teams transcript', 'h2'),
+          code('/quality-code:transcript-goal --file planning.vtt'),
+          p('Reads a transcript file, pasted text or the meeting through the Microsoft 365 connector. It drafts the sprint '
+            'goal, decisions, tasks and risks, asks only what was not said, and shows review cards. Tasks are created in '
+            'Jira only after a preview and your yes; existing tickets are linked, not duplicated. Or save it locally.'),
+          p('More kinds of tests', 'h2'),
+          table(['What', 'How it works'], [
+              ['Negative cases', 'spec proposes tests for invalid input, errors and denied permissions on every ticket (Negative: N cases on the plan card).'],
+              ['Accessibility', 'Each Playwright screen test gets an axe scan (WCAG 2.1 AA). It asks before installing; --no-axe turns it off.'],
+              ['Visual regression', 'Optional screenshot checks against a baseline that you confirm before it is created or updated.'],
+              ['Database checks', 'Backend tickets that touch data get constraint, migration and integrity tests on a real database (Testcontainers).'],
+              ['Regression from a bug', 'A Bug ticket becomes a @regression test that fails first and passes after the fix. routine --regression runs them.'],
+              ['Smoke suite', 'run-smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
+          ], [38, 132]),
+          p('Settings, cache and clean-up', 'h2'),
+          code('/quality-code:config set git.base develop\n/quality-code:config get jira.site\n'
+               '/quality-code:clean-cache --all\n/quality-code:clean --dry-run'),
+          p('<b>config set</b> changes one setting, checked by the setup rules; it shows old and new and writes nothing '
+            'on an error or a secret. Tokens and the Jira email stay in /plugin. <b>clean-cache</b> deletes only the '
+            'plugin\'s local cache. <b>clean</b> removes what the plugin created in the project (setup files, saved output, '
+            'cache; your tests and the personal config only if you pick them). It always asks one explicit yes and is '
+            'never skipped by --yes or --ci.'),
           PageBreak()]
 
 story += [p('9. Bringing a team on board', 'h1'),

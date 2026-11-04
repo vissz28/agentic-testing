@@ -9,6 +9,23 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-04
+
+### Added
+
+- **Clear the cache (AGT-173).** `/quality-code:clean-cache [--all] [--yes]` lists, then deletes only the plugin's local cache (saved stops, reused facts, language) for this project or every project, after a Delete/Cancel question. Config, tickets and specs are never touched.
+- **Undo Quality Code in a project (AGT-174).** `/quality-code:clean [--dry-run]` removes what the plugin created: setup files, saved output, the cache and, only if you pick them, the personal config and the tests `spec` wrote. A script lists it, you pick the groups, and one explicit yes is always asked (never skipped by `--yes` or `--ci`). Tracked files are flagged; git history is never touched.
+- **Change one setting directly (AGT-175).** `/quality-code:config set <key> <value>` and `config get <key>`, for example `config set git.base develop`. Dotted keys, lists with commas and typed values are checked by the setup rules; nothing is written on an error or a secret. `--personal`, `--project` and `--yes` are supported.
+
+### Changed
+
+- `/quality-code:config` opens with a short summary card and shows `set` as the quick way.
+- Project names (a Jira site and key, a ticket id) are kept out of the plugin's guides and scripts, which the CI check requires.
+
+### What to do
+
+Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`. Try `/quality-code:clean --dry-run` before `/quality-code:clean`, and check `git status` if the preview lists tracked files. Tokens and the Jira email, GitLab and Xray settings stay in `/plugin`.
+
 ## [0.52.0] - 2026-11-04
 
 ### Added
