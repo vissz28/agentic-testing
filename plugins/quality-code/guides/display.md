@@ -97,11 +97,12 @@ For example, after a `tests red` card:
 
 ## Questions
 
-A card with numbered options becomes a question in the picker (the `AskUserQuestion` tool) when that tool is available, instead of a numbered list. Calling the tool is how the card is shown: never print its numbered options as well. Wherever a command says "show this card and end the turn", call the picker instead:
+Calling the picker (the `AskUserQuestion` tool) is THE rule for every card with options. A numbered text card is only the fallback, for a client where the tool is not available. Never print a card's numbered options as text when the tool is there. Calling the tool is how the card is shown: never print its numbered options as well. Wherever a command says "show this card and end the turn", call the picker instead:
 
 - **question**: the card's question or title line, one sentence; **header**: two words at most, like `Plan` or `Gate`.
 - **options**: the card's options in their order, the label as the card words it (shortened to a few words when it is long), and a one-line description of what happens on that choice.
-- The picker takes four options at most and always offers a typed answer (`Other`). A card with more than four drops its Stop or Cancel option: a person who types `stop` there still stops. Still more than four: show the numbered card as written.
-- The picked option is that option's number; a typed answer is read as the command's Replies rule says. The answer comes back in the same turn: go on as the command says for that answer, without ending the turn first.
+- The picker takes four options at most and always offers a typed answer (`Other`). **More than four options: page them, never print text.** Ask with 3 options and a fourth option `More…`; when it is picked, ask the next page the same way (the last page may hold four). A card's Stop or Cancel option is not paged: it stays reachable by typing `stop` or `cancel` in `Other`, and the question says so.
+- **Several answers allowed.** When the card says more than one answer may be given (project picks, labels, Confluence spaces, features), set `multiSelect` to true. The paging above applies to it too.
+- The picked option is that option's number; a typed answer is read as the command's Replies rule says. In `Other` the person may also type two or more numbers (for example `1,3`): read them as those options. The answer comes back in the same turn: go on as the command says for that answer, without ending the turn first.
 - Information the card shows above its options (a plan, a score, a preview) goes above the picker as its own section, laid out as above.
-- `--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either. Without the tool, show the numbered card as written and end the turn.
+- `--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either. Only without the tool, show the numbered card as written and end the turn.
