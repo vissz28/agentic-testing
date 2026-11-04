@@ -36,3 +36,5 @@ Besides where a command stopped, the same local store keeps what was learned abo
 **Files.** The target the tests check and the specs a run wrote: `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" context file <path> --role target|spec`. On a rerun for the same ticket, `context changed <path>` says if the file changed: unchanged, the plan and the written tests stand; changed, read the file again and say what changed.
 
 **See and clear.** `context list` shows everything saved for this project. `context clear` forgets it all, `context clear <fact>` one fact.
+
+`/quality-code:clean-cache` deletes this cache (this project, or every project with `--all`) through `bin/clean-cache.mjs`, and nothing else.
