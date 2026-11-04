@@ -191,6 +191,7 @@ The backend runner is the one the config names: `adapter` on a backend project, 
    On Playwright, also add one line in these two cases:
    - The card is `tests red` and the test it names starts with `Extra:`: `A red extra test is a case the ticket does not cover: show it to the ticket's author. Do not change the test to make it pass.`
    - The card is `not verified` because the app is not reachable: `Start the app (or check the webServer in your Playwright config), then run /quality-code:run-frontend with the spec path above.`
+   **Next step.** After the wrap-up, add one line that names the command for the side of this ticket (step 2's side), so the person runs the whole suite and not only this spec: backend (Vitest, pytest, JUnit, Go or .NET): `Next: /quality-code:run-backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers (Docker must be running).`; frontend (Playwright or Cypress): `Next: /quality-code:run-frontend runs every frontend spec against the running app.`; fullstack: both lines, backend first. Leave the Testcontainers words out when the project has no integration layer or container helper. With `--ci`, leave the line out.
 8. **Risk note on Jira.** Only after option 3 in step 2 (the run had `--incomplete-ticket`), and only when step 7 showed a card. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" risk-comment --in @<ticketsDir>/<KEY>/ticket.json`; never write the note yourself. Show it as printed, then this card and end the turn:
 
    ```

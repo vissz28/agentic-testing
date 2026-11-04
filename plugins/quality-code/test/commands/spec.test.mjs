@@ -519,3 +519,11 @@ test('spec does not restate a mock for a property only a database test can check
   assert.match(doc, /Never turn such a scenario into a unit test over mocked rows only to satisfy the expected-value check/)
   assert.match(doc, /`externalChecks`/)
 })
+
+test('step 7 ends with the next command for the ticket side: run-backend (Testcontainers, Docker) or run-frontend', () => {
+  const s = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
+  assert.match(s, /\*\*Next step\.\*\*/)
+  assert.match(s, /`Next: \/quality-code:run-backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers \(Docker must be running\)\.`/)
+  assert.match(s, /`Next: \/quality-code:run-frontend runs every frontend spec against the running app\.`/)
+  assert.match(s, /fullstack: both lines, backend first/)
+})

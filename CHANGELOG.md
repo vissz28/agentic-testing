@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-04
+
+### Changed
+
+- `/quality-code:spec` ends with the next command for the ticket's side: `/quality-code:run-backend` for a backend ticket (the whole backend suite, including the integration tests that use real databases in Testcontainers; Docker must be running), `/quality-code:run-frontend` for a frontend one, both for a fullstack one. Left out with `--ci`.
+
+### What to do
+
+Nothing.
+
 ## [0.48.0] - 2026-11-04
 
 ### Changed
