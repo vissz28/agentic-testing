@@ -85,6 +85,7 @@ Click a command to see its options.
 | [`ticket`](#ticket) | Finds a Jira ticket and shows it in short | a key, words, or filters like `assignee:me` | the ticket in short, with tips for its author (never posted) |
 | [`ticket-eval`](#ticket-eval) | Scores one ticket for test-readiness (70/100 passes) | a ticket key | the score, what is missing, and a way to fix it on Jira |
 | [`tickets-eval`](#tickets-eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
+| [`transcript-goal`](#transcript-goal) | Turns a Teams sprint planning transcript into a sprint goal and tasks | a `.vtt`/`.docx`/`.txt` file, a Teams meeting, or pasted text | review cards, then tasks in Jira (after a preview and your yes) or a local file |
 | [`spec`](#spec) | From a ticket to written and checked tests | a key, or nothing on a feature branch | test files in your test folders and a verdict card |
 | [`run-frontend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the Playwright tests | nothing, or spec paths | a verdict card |
 | [`run-backend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the backend tests (Vitest, pytest, JUnit, Go, .NET) | nothing, or spec paths | a verdict card |
@@ -169,6 +170,12 @@ Read-only. Scores the latest tickets of a project, one line each.
 | `--limit N` | How many of the latest tickets (default 50, max 200) |
 | `--all` | Every ticket that matches, so the pass rate is the project's, not a sample |
 | `--json` | Machine-readable result only |
+
+### transcript-goal
+
+`/quality-code:transcript-goal [--file <path> | --meeting <title or date>]`
+
+Reads a sprint planning transcript (a Teams `.vtt` or `.docx` export, a `.txt`/`.md` file, pasted text, or the meeting through the Microsoft 365 connector), writes down the sprint goal, decisions, tasks, risks and open questions, and asks only what the meeting did not say. You review three cards (summary, tasks, open questions), change what you like, then pick: create in Jira (a preview and an explicit yes first; it searches for existing tickets and links them instead of duplicating), save locally to `<ticketsDir>/sprint/<date>-goal.md`, edit more, or cancel. The transcript is redacted before it is read and is never sent anywhere; only the short task texts you confirmed go to Jira. It has no `--ci` or `--yes`.
 
 ### spec
 

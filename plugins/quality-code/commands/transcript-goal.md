@@ -1,0 +1,83 @@
+---
+description: Turn a Microsoft Teams sprint planning transcript into a sprint goal and a task list. Reads a transcript file, pasted text, or the meeting from the Microsoft 365 connector; asks only what was not said; shows review cards; then creates the tasks in Jira (after a preview and your yes) or saves them locally.
+argument-hint: [--file <path> | --meeting <title or date>] (or paste the transcript)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+model: sonnet
+---
+
+From `$ARGUMENTS`: take a sprint planning transcript, write down the sprint goal, the decisions, the tasks, the risks and the open questions, ask what is missing, let the person review and change it, then create the tasks in Jira or save them in a file. The scripts parse, redact, check the shape and save; you never invent what the meeting did not say. Plain English, short sentences, common words.
+
+## Rules
+
+- **How it looks.** Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool.
+- **Where files go.** When the command has ended (after its last card is answered, or its last step when it shows none), follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`: the first run of a project asks once where its files and logs are kept.
+- **Where you stopped.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/progress.md` with the command name `transcript-goal` (no key). The cache holds only choices (the source kind, the destination, the date), **never** transcript text, names, goals or tasks.
+- **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output, and also when the transcript is in another language (the goal and tasks are written in the language the meeting was held in; the questions and cards in the person's). Cards keep their fixed words.
+- **Never invent.** Only what the transcript says goes in the goal, the decisions and the tasks. An owner nobody was given, an estimate nobody said, a goal nobody stated: leave it empty and ask. When the meeting said two things that disagree, ask which one stands. Write no deadline, owner, estimate or ticket key that the text does not hold.
+- **Privacy.** A transcript is personal data (names, voices, sometimes customer ids). It is read from the place the person named and shown to you only through `transcript.mjs parse`, which redacts the config's `redact` patterns, customer ids, e-mails and ids. It never goes anywhere except the one Jira write the person confirms in step 8, and then only the short task texts and the goal, not the transcript. Never paste transcript lines into a Jira text, a comment, a file name or the progress cache. Never search other chats or e-mails for it. Redact customer ids (`\bU\d{5,}\b`, plus the config's `redact` patterns) in anything you echo.
+- **Microsoft 365 connector.** Refer to its tools by operation name on the Microsoft 365 / Teams connector (for example `outlook_calendar_search` to find the meeting, `teams_list_chats` and `teams_list_channel_messages` for Teams, `sharepoint_search` for a transcript file the meeting left in SharePoint or OneDrive, `read_resource` to open it). Only read operations: never send a message, create an event or write a file there. If the connector is not connected, do not stop: use a file or pasted text (step 2).
+- **Jira.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector (names on the claude.ai connector: the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`). Jira is written to only in step 8, after the preview and an explicit yes. Never with `--ci` or `--yes`: this command has neither, and if `$ARGUMENTS` holds one, say `transcript-goal always asks before it writes to Jira, so it takes no --ci or --yes.` and ignore it. When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`).
+- Every script call is `node "${CLAUDE_PLUGIN_ROOT}/bin/transcript.mjs" <command> …`, run from the project root. Show script output as printed, but drop the machine lines (`TRANSCRIPT_JSON:`, `TRANSCRIPT_RESULT_JSON:`, `SAVED_JSON:`).
+- End your turn after every card that is not a picker, and wait for the answer.
+
+## Steps
+
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `jira.site`, `jira.projects` and `ticketsDir` (the path on the `tickets folder:` line, used as it is). The project for new tasks is the first of `jira.projects`; with more than one, ask which with the picker. Then do the progress start check and the language call from the guides.
+2. **Source.** From `$ARGUMENTS`:
+   - `--file <path>`: the transcript file (`.vtt`, `.txt`, `.md` or `.docx`). Word files are read as text; a `.docx` that is not readable: say so and ask for the text pasted or a `.vtt`.
+   - `--meeting <title or date>`: read it from the Microsoft 365 connector (step 3).
+   - Text pasted in the message: use it. Pass it to step 4 with `--text`.
+   - Nothing: if the Microsoft 365 connector is connected, ask with the picker `Find the meeting in Teams` / `Give me a file` / `Paste the text` / (Cancel by typing `stop`). If it is not connected, say how to get a transcript and stop:
+
+     ```
+     To export the transcript from Teams:
+     1. Open the meeting in your Teams calendar (or its chat) and choose Recap.
+     2. Open the Transcript tab.
+     3. Choose Download, then .vtt (or .docx).
+     Then run /quality-code:transcript-goal --file <the file>, or paste the text here.
+     The meeting must have been recorded with transcription on.
+     ```
+3. **Teams meeting** (only for `--meeting` or the picker's first option). Use the Microsoft 365 connector, read-only. Find the sprint planning with `outlook_calendar_search` (by the words or the date, last 30 days; the person's own calendar). Several matches: ask which, with the picker, showing the title and date only. Then look for its transcript: the meeting's recap files through `sharepoint_search` (the transcript is saved next to the recording, a `.vtt` or `.docx`) and, if the connector has it, the meeting chat. Found: save nothing to disk; read its text and go to step 4 with the text as `--text`. Not found, or the connector has no access to it: say so in one line (`The connector cannot read this transcript. Export it from Teams and give me the file.`), show the export steps from step 2 and stop. Do not ask for a password, a token or a download link.
+4. **Parse.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/transcript.mjs" parse --file <path>` (or `--text "<the text>"`). It prints the redacted speaker turns, then `TRANSCRIPT_JSON:` with the speakers, the turn count and `truncated`. Not exit 0: show its message and stop. When `truncated` is true, say `The transcript is long: I read the first <shown> of <turns> turns.` and ask with the picker whether to go on or the person gives a shorter part. Say in one line who spoke (`Speakers: Ana, Marco, Giulia. 142 turns.`). Add `--mask-speakers` when the person asks for no names.
+5. **Extract.** From the printed turns only, make this record in your head (do not write it anywhere yet):
+   - `goal`: the sprint goal as **one sentence**, as the team said it. No goal said: empty, and a clarification.
+   - `decisions`: what was agreed (scope in or out, priorities, dates, who decides).
+   - `tasks`: each piece of work that was named, as `{ title, owner?, estimate?, ticket? }`. `owner` only when someone took it or was given it. `estimate` only when a number or size was said, as said (`3`, `5 points`, `2 days`). `ticket` only when an existing key (like `ABC-123`) was said.
+   - `risks`: risks and dependencies that were raised (another team, an environment, leave, a blocker).
+   - `openQuestions`: what the meeting left unanswered, plus every gap you found: a goal not stated, a task with no owner, no estimate, two tasks that look the same, a date that is unclear.
+6. **Clarify.** Ask only what is missing, with the AskUserQuestion picker, one question per gap, grouped so there are at most four questions at a time (more: ask the most important four first, the rest stay in the open questions card). Give the options the transcript supports (for example the two speakers who might own a task) plus the typed `Other`. A question the person skips stays an open question; it is never filled with a guess. Keep the person's language.
+7. **Review cards.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/transcript.mjs" validate --in '<the record as JSON>'`; fix what it reports (a task with no title, a key that is not a key) and run it again. Show three cards, as sections with tables (display.md), from the checked record only:
+   - **Summary:** the goal in one sentence, the decisions, the risks and dependencies.
+   - **Tasks:** a numbered table: number, title, owner (or `-`), estimate (or `-`), and `new` or the existing ticket key.
+   - **Open questions:** the list, or `none`.
+
+   Then ask what to do with the picker: `1. Create in Jira` / `2. Save locally` / `3. Edit more` / `4. Cancel`.
+   - **Edit more:** the person says what to change: edit a task, remove a task by its number, add a task, change the goal, a decision, a risk or a question. Apply it exactly as said (an added task has only what they said), run `validate` again, show the cards again and ask the same picker. No limit on rounds.
+   - **Cancel:** `Nothing was created or saved.` Run the progress clear call and stop.
+8. **Create in Jira** (option 1). Needs the Atlassian connector; if none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again. Your goal and tasks were not saved: use option 2 to save them first.` and offer option 2 again.
+   1. **Look first, never duplicate.** For each task without a `ticket`, call `searchJiraIssuesUsingJql` once for the project (`project = <KEY> AND resolution = Unresolved AND text ~ "<its main words>"`, escaping `\` and `"`, `maxResults` 5, fields `summary,status,issuetype`). A close match (same work, not just one shared word): do not create a second one. Ask with the picker: `Link to <KEY> (<summary>)` / `Create a new one anyway` / `Skip this task`. A task with a `ticket` is never created: it is linked.
+   2. **Preview.** Show this card (what will be written, with nothing from the transcript besides the texts shown), then ask with the picker and end the turn:
+
+      ```
+      Jira preview, nothing is created yet. Project <KEY> on <jira.site host>.
+      New tasks (<n>): a table of number, type (Story or Task), summary, assignee (or unassigned), estimate (or none).
+      Existing tickets linked, not changed (<m>): the keys.
+      The sprint goal goes <on the active sprint's field | as a comment on <KEY> | not written>.
+      1. Create these in Jira
+      2. Change something
+      3. Save locally instead
+      4. Cancel
+      ```
+
+      Where the goal goes: if the person named a ticket for it (an epic or a sprint ticket) in the clarifications, as a comment on it with `addCommentToJiraIssue` (the goal sentence only, no names); otherwise it is not written to Jira and the preview says so. Do not set a sprint field unless the project's metadata (`getJiraIssueTypeMetaWithFields`, searched, never read whole) clearly shows a sprint goal field and the person picked it.
+   3. **Only on `1`** (an explicit pick or a clear yes; no other answer counts, and a task, goal or preview change goes back to the preview): for each new task call `createJiraIssue` on the Atlassian connector: the project key, issue type Story (Task when the project has no Story), `summary` = the title, `description` = one line `From the sprint planning of <date>.` plus the owner and estimate as plain text if known, `contentFormat` markdown. Set the assignee only when `lookupJiraAccountId` finds exactly one account for the owner; otherwise leave it unassigned and say so. Never put transcript lines in the description. One task failing: say which and go on with the others, then list what was created and what was not.
+   4. Show the result as a table: the keys created (each with its link `<jira.site>/browse/<KEY>`), the ones linked, the ones skipped or failed. Then also run the save in step 9 so the local record has the keys (add the created keys to each task's `ticket` first).
+9. **Save locally** (option 2, or after Jira). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/transcript.mjs" save --in '<the checked record as JSON>' --date <the meeting date, YYYY-MM-DD; leave `--date` out for today>`. It checks the shape, redacts every text again, and writes `<ticketsDir>/sprint/<date>-goal.md`. Show its `Saved … at <path>` line. Not exit 0: show its message and fix the record.
+10. **End.** Run the progress clear call. One sentence: what was created in Jira (or `nothing was sent to Jira`) and where the file is. Then the save-place question if it applies. Stop.
+
+## Examples
+
+- `/quality-code:transcript-goal --file ~/Downloads/sprint-planning.vtt`: from a Teams export
+- `/quality-code:transcript-goal --meeting "Sprint planning" `: find and read it through the Microsoft 365 connector
+- `/quality-code:transcript-goal`: paste the text, or get the export steps
