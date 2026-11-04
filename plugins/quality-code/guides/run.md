@@ -1,6 +1,6 @@
 # Running the tests through the pipeline
 
-Shared by `/quality-code:run-frontend`, `/quality-code:run-backend` and `/quality-code:run-pipeline`: the same steps, one suite each. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
+Shared by `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` and `/quality-code:run-smoke`: the same steps, one suite each. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
 
 ## Rules
 
@@ -48,3 +48,7 @@ The command that sent you here names its suite: `frontend` (`/quality-code:run-f
 
    Quote every spec path in single quotes. Pass `--range <base>...HEAD` only when the specs came from the branch (step 2 with `--branch`, or the spec command's "Only check the tests already on this branch"), with `base` from the `BRANCH_JSON:` line (the field `base`, for example `origin/main`). Honesty then reads everything committed on the branch since it left the base, so an assertion or test removed in an earlier commit is caught. It does not read changes that are not committed yet; with specs the user typed, no range is passed and honesty reads the changes not committed yet. Pass `--flaky` only when `$ARGUMENTS` has it. Do not pass `--json`.
 5. **Card.** Show the card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. If the script exits with 2, show its lines as they are and stop (for example `This project has no frontend (Playwright) tests`).
+
+## Smoke
+
+The suite `smoke` (`/quality-code:run-smoke [--url URL]`) is the frontend suite cut down to the tests tagged `@smoke`: skip steps 0, 2 and 3 (no spec paths, no key, no `--branch`, no `--flaky`), do step 1, then say `Running the smoke tests (@smoke): the critical few, nothing is changed.` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" --smoke [--url '<URL>']` (the `--url` only when `$ARGUMENTS` has it; quote it; never put a user name or password in it), then step 5. Exit 2 with `No @smoke tests found` means nothing is tagged yet: show the line and stop. Read-only: never tag, edit or add a test here.

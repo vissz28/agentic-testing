@@ -2,7 +2,7 @@
 // Quality Code in CI (GitHub Actions or GitLab CI): two jobs for each pull or merge request, and the command that writes them.
 // node bin/ci.mjs [--base REF]                                   the gate: git and node only, no install, seconds
 // node bin/ci.mjs --tests [--all] [--base REF] [--junit FILE]    the tests, in a job that installed the project
-// node bin/ci.mjs --init [github|gitlab] [--print]                writes the CI file (the provider is guessed when not given)
+// node bin/ci.mjs --init [github|gitlab] [--smoke] [--print]                writes the CI file (the provider is guessed when not given)
 // The gate checks the specs the request changed: honesty (no assertion or test removed, a deleted or renamed spec
 // included, no skip without a ticket), assertions (every test asserts something) and the frozen evals.
 // The tests run the changed specs through the pipeline, one run per module (a backend layer, an e2e folder): types,
@@ -25,9 +25,10 @@ import { detect } from './branch.mjs'
 import { checkProject, formatResult } from './checks.mjs'
 import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from './setup.mjs'
+import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--print]'
+const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print]'
 const HEADER = '# Quality Code'
 const FETCH_HINT = 'fetch the full history: fetch-depth 0 on GitHub, GIT_DEPTH 0 on GitLab'
 const WORDS = { green: 'green', tests_red: 'tests red', checks_failed: 'checks failed', not_verified: 'not verified', skipped: 'skipped' }
@@ -50,12 +51,14 @@ function parse(argv) {
       a[x.slice(2)] = v
     } else if (x === '--init') a.init = true
     else if (x === '--print') a.print = true
+    else if (x === '--smoke') a.smoke = true
     else if (x === '--tests') a.tests = true
     else if (x === '--all') a.all = true
     else if (x === 'github' || x === 'gitlab') a.provider = x
     else throw new Error(`unknown option ${x}`)
   }
   if ((a.print || a.provider) && !a.init) throw new Error(`${a.print ? '--print' : a.provider} goes with --init`)
+  if (a.smoke && !a.init) throw new Error('--smoke goes with --init')
   if (a.init && (a.base || a.tests || a.all || a.junit)) throw new Error('--init takes github, gitlab and --print only')
   if ((a.all || a.junit) && !a.tests) throw new Error(`${a.all ? '--all' : '--junit'} goes with --tests`)
   return a
@@ -138,6 +141,7 @@ export function template(provider, version, s = JS_STACK) {
       'name: quality-code',
       'on:',
       '  pull_request:',
+      ...(s.smoke ? ['  workflow_dispatch:'] : []),
       '  push:',
       `    branches: [${s.defaultBranch}]`,
       ...(s.prefix ? ['defaults:', '  run:', `    working-directory: ${s.prefix}`] : []),
@@ -147,6 +151,7 @@ export function template(provider, version, s = JS_STACK) {
       ...start, `      - run: ${fetch}`, `      - run: ${ci}`,
       '  test_quality_tests:',
       ...start, ...(native ? GH_SETUP[native](s) : []), ...install.map(l => `      - run: ${l}`), `      - run: ${fetch}`, `      - run: ${ci} --tests`,
+      ...(s.smoke ? smokeJob('github', { fetch, pipeline: 'node /tmp/quality-code/plugins/quality-code/bin/pipeline.mjs', install: jsInstall(install), prefix: s.prefix }) : []),
     ].join('\n')}\n`
   }
   const cd = s.prefix ? [`    - cd ${s.prefix}`] : []
@@ -178,6 +183,7 @@ export function template(provider, version, s = JS_STACK) {
     '  retry:', '    max: 2', '    when: [runner_system_failure, stuck_or_timeout_failure, scheduler_failure, api_failure]',
     '  script:', ...cd, ...(native ? [`    - ${NODE_TARBALL}`] : []), ...install.map(l => `    - ${l}`), `    - ${fetch}`, `    - ${ci} --tests --junit quality-code-junit.xml`,
     '  artifacts:', '    when: always', '    reports:', `      junit: ${s.prefix}quality-code-junit.xml`,
+    ...(s.smoke ? ['', ...smokeJob('gitlab', { fetch, pipeline: 'node /tmp/quality-code/plugins/quality-code/bin/pipeline.mjs', install: jsInstall(install), prefix: s.prefix })] : []),
   ].join('\n')}\n`
 }
 
@@ -194,7 +200,7 @@ function init(root, config, a, stdout, stderr) {
   const top = git(root, ['rev-parse', '--show-toplevel']) || root
   const provider = a.provider ?? guessProvider(top)
   if (!provider) { stderr('Say which CI: github or gitlab (the repo has no CI file and its remote names neither).\n'); return 2 }
-  const text = template(provider, JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version, stackOf(root, config))
+  const text = template(provider, JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version, { ...stackOf(root, config), smoke: a.smoke })
   if (a.print) { stdout(text); return 0 }
   // Only a file Quality Code wrote is replaced; an existing .gitlab-ci.yml gets the jobs in a file of their own, to include.
   const free = p => !existsSync(join(top, p)) || readText(join(top, p)).startsWith(HEADER)

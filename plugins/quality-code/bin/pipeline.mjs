@@ -1,4 +1,4 @@
-// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--no-audit] [--json]
+// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--no-audit] [--json]
 // Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
 // --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
 // the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
@@ -19,8 +19,9 @@ import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
+import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 
-const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
+const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 // The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
 // full is whatever the project has.
@@ -30,7 +31,7 @@ const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite
 
 function parse(argv) {
   const a = { json: false, noAudit: false, mutation: true, specs: [] }
-  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite', '--regression-before'])
+  const VALUE = new Set(['--range', '--key', '--flaky', '--ticket', '--target', '--incomplete-ticket', '--expected', '--suite', '--regression-before', '--url'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
@@ -40,12 +41,15 @@ function parse(argv) {
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
     else if (x === '--no-mutation') a.mutation = false
+    else if (x === '--smoke') a.smoke = true
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
   }
   if (a.suite !== undefined && !SUITES.includes(a.suite)) throw new Error(`--suite must be frontend, backend or full, not "${a.suite}"`)
   if (a.suite !== undefined && a.specs.length) throw new Error('give spec paths or --suite, not both')
   if (a.regressionBefore !== undefined && !['red', 'green'].includes(a.regressionBefore)) throw new Error(`--regression-before must be red or green, not "${a.regressionBefore}"`)
+  if (a.url !== undefined && !a.smoke) throw new Error('--url goes with --smoke')
+  if (a.smoke && a.suite !== undefined && a.suite !== 'frontend') throw new Error('--smoke runs the frontend (Playwright) suite')
   if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
     throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
@@ -59,6 +63,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const err = m => { process.stderr.write(`${m}\n`); return 2 }
   let a
   try { a = parse(argv) } catch (e) { return err(e.message) }
+  if (a.smoke && !a.specs.length) a.suite = 'frontend'
   if (!a.specs.length && a.suite === undefined) return err(`needs at least one spec path, or --suite. ${USAGE}`)
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root)
@@ -71,6 +76,16 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     a.specs = projectSpecs(root, config).filter(s => want.includes(s.adapter)).map(s => s.path)
     if (!a.specs.length) return err(`No ${a.suite === 'full' ? '' : `${sideName(a.suite, config)} `}spec files found in the project's test folders.`)
     if (a.target !== undefined && a.suite === 'frontend') return err('--target runs Stryker, which is for Vitest specs: leave it out for the frontend suite')
+  }
+  let smokeVars = null
+  if (a.smoke) {
+    const u = a.url === undefined ? { url: null } : checkUrl(a.url)
+    if (u.error) return err(u.error)
+    const tagged = smokeSpecs(root, a.specs)
+    if (!tagged.length) return err('No @smoke tests found. Tag the critical tests with @smoke (/quality-code:spec offers it at the plan card).')
+    a.specs = tagged
+    a.mutation = false
+    smokeVars = smokeEnv(u.url)
   }
   for (const s of a.specs) {
     const rel = normalizeSpec(root, resolve(root, s))
@@ -122,12 +137,17 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit, dir: cfg.auditDir })
   if (incompleteTicket) log('override', { key: a.key ?? null, ...incompleteTicket })
   let outcome
+  const before = { ...process.env }
+  const restore = () => { for (const k of Object.keys(smokeVars ?? {})) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k] } }
+  if (smokeVars) Object.assign(process.env, smokeVars)
   try {
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, candidates, mutation: a.mutation }, ctx)
   } catch (e) {
+    restore()
     process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
     return 2
   }
+  restore()
   if (incompleteTicket) outcome = { ...outcome, incompleteTicket }
   const proof = regressionProof(a.regressionBefore, outcome.verdict)
   if (proof) outcome = { ...outcome, regression: proof }
