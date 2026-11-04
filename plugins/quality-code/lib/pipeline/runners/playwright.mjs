@@ -123,6 +123,7 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
     if (config) args.push('--config', config)
     for (const p of projects) args.push('--project', p)
     if (testName !== undefined) args.push('-g', titlePattern(testName))
+    if (process.env.QC_SMOKE_GREP) args.push('--grep', process.env.QC_SMOKE_GREP)
     // CI is left as it is: Playwright configs often read it to stop reusing a running dev server.
     const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out }
     delete env.FORCE_COLOR

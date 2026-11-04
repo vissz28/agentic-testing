@@ -88,6 +88,7 @@ Click a command to see its options.
 | [`spec`](#spec) | From a ticket to written and checked tests | a key, or nothing on a feature branch | test files in your test folders and a verdict card |
 | [`run-frontend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the Playwright tests | nothing, or spec paths | a verdict card |
 | [`run-backend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the backend tests (Vitest, pytest, JUnit, Go, .NET) | nothing, or spec paths | a verdict card |
+| [`run-smoke`](#run-smoke) | Runs only the tests tagged `@smoke`, fast, against the running app or any URL; changes nothing | nothing, or `--url URL` | a verdict card |
 | [`run-pipeline`](#run-frontend--run-backend--run-pipeline) | Runs and grades both, frontend and backend | nothing, spec paths, or `--branch` | a verdict card |
 | [`seed`](#seed) | Loads realistic mock data for a ticket into your local database | a ticket key | rows in your local DB, to try the ticket by hand |
 | [`xray`](#xray) | Writes Xray test cases from a ticket | a ticket key | `case.csv` and `case.xlsx` to import into Xray |
@@ -211,6 +212,18 @@ backend tests, `run-pipeline` both. The card shows a verdict, why, and one fix p
 | `--flaky N` | Run each test N times to catch flaky ones |
 | `--branch` | `run-pipeline` only: just the tests your branch added or changed |
 | `--evals` | `run-pipeline` only: check that committed ticket specs still pin what they pinned |
+
+### run-smoke
+
+```
+/quality-code:run-smoke [--url URL]
+```
+
+Runs only the Playwright tests tagged `@smoke`: the critical few, in seconds, against the app your
+Playwright config starts or, with `--url`, against staging, a preview or production. Read-only: no
+mutation run, no code or data changed by the plugin. `/quality-code:spec` lets you pick the critical
+tests at the plan card; `/quality-code:ci --smoke` adds an optional post-deploy job that runs them
+against a URL variable.
 
 ### seed
 
