@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
 import { findTestHome } from '../lib/base/test-home.mjs'
-import { configSetGet } from '../lib/config/set.mjs'
+import { configKeys, configSetGet } from '../lib/config/set.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.mjs'
 import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
@@ -82,6 +82,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
 
 function run(argv, env, cwd) {
   const [cmd, ...rest] = argv
+  if (cmd === 'config' && rest[0] === 'keys') return configKeys()
   if (cmd === 'config' && ['set', 'get'].includes(rest[0])) return configSetGet(rest, env, cwd)
   let a
   try { a = parseArgs(rest) } catch (e) { err(e.message); return 2 }

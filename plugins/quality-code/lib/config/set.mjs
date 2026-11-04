@@ -33,6 +33,14 @@ export const KEYS = Object.freeze({
   'qa.autoPass': { type: T.bool, optional: true },
   'place': { type: T.enum, choices: ['repo', 'local', 'chat'], file: true },
 })
+/** One example value for each settable key, shown by `config keys`. */
+export const EXAMPLES = Object.freeze({
+  'jira.site': 'acme.atlassian.net', 'jira.projects': 'ABC,DEF', 'jira.trackingProjects': 'ABC', 'jira.bugTypes': 'Bug,Defect',
+  'jira.doneStatuses': 'Done,Closed', 'jira.acceptanceCriteriaField': 'customfield_10100', 'git.base': 'develop', 'root': 'apps/web',
+  'ticketsDir': '.qc/tickets', 'testFlow': 'project', 'languages': 'en,it', 'titlePrefixes': 'Spike:,Chore:', 'qa.app': 'https://app.example.com',
+  'qa.sprint': 'open', 'qa.executionTypes': 'Test Execution', 'qa.statuses.ko': 'TEST KO', 'qa.statuses.ready': 'Ready to test',
+  'qa.statuses.done': 'Done', 'qa.blockedStop': '2', 'qa.autoPass': 'false', 'place': 'local',
+})
 const CLEAR = /^(none|null|unset|default)$/i
 const PLUGIN_KEY = /^(jira[._-]?email|gitlab|xray[._-]?(api[._-]?url|client)|figma)/i
 const SECRET_KEY = /(token|secret|passw(or)?d|api[._-]?key|credential|private[._-]?key|client[._-]?id)/i
@@ -81,10 +89,34 @@ export function parseValue(spec, key, raw) {
 }
 
 const IN_PLUGIN = 'Set it in /plugin: type /plugin, choose quality-code, Configure options, then /reload-plugins.'
+/** The plugin field a token or plugin-setting key stands for: { field, secret, where }. */
+export function pluginField(key) {
+  const k = key.toLowerCase().replace(/[._-]/g, '')
+  if (/^(github|gh)(token|pat|key)?/.test(k) && /token|pat|key|secret|password/.test(k)) return { field: null, secret: true, where: 'GitHub has no plugin field: it uses the gh sign-in. In a terminal run gh auth login.' }
+  if (k.startsWith('gitlabtoken') || (k.startsWith('gitlab') && /token|key|pass/.test(k))) return { field: 'gitlab_token', secret: true, where: 'a GitLab personal access token with only the read_api scope (avatar, Edit profile, Access tokens)' }
+  if (k.startsWith('gitlabusername')) return { field: 'gitlab_username', secret: false, where: 'your GitLab username (without @) or email' }
+  if (k.startsWith('gitlab')) return { field: 'gitlab_api_url', secret: false, where: 'your GitLab address ending in /api/v4' }
+  if (k.startsWith('figma')) return { field: 'figma_api_key', secret: true, where: 'Figma, Settings, Security, Personal access tokens' }
+  if (k.startsWith('xray') && /token|key|secret|id$/.test(k)) return { field: /secret/.test(k) ? 'xray_client_secret' : 'xray_client_id', secret: true, where: 'Xray, API Keys: the Client ID and Client Secret of a key a Jira admin creates (set both: xray_client_id and xray_client_secret)' }
+  if (k.startsWith('xray')) return { field: 'xray_api_url', secret: false, where: "Xray Cloud's address, like https://xray.cloud.getxray.app" }
+  if (k.startsWith('jiraemail')) return { field: 'jira_email', secret: false, where: 'the email of your Atlassian account' }
+  if (/^jira(api)?token/.test(k)) return { field: 'jira_api_token', secret: true, where: 'an Atlassian API token (id.atlassian.com, Security, API tokens)' }
+  return { field: null, secret: SECRET_KEY.test(key), where: null }
+}
+/** The exact steps to set a plugin field, one line each. Never holds a value. */
+export function pluginSteps(key) {
+  const f = pluginField(key)
+  if (!f.field) return [f.where ?? IN_PLUGIN]
+  const lines = ['1. Type /plugin configure quality-code@teamsystem', `2. Set the field ${f.field}: ${f.where}`]
+  if (f.field === 'gitlab_token') lines.push('   Use only the read_api scope. Set gitlab_username too, so the check can confirm the token is yours.')
+  lines.push('3. Type /reload-plugins', f.secret ? '/quality-code:config shows only "set" or "not set" for it, never the value.' : '/quality-code:config shows the value.')
+  return lines
+}
 /** Why this key or value is refused before anything else, or null. Never repeats the value. */
 export function refusal(key, value) {
-  if (SECRET_KEY.test(key)) return `${key}: tokens, keys and passwords are never set here (and never in the chat). ${IN_PLUGIN} They go to your keychain.`
-  if (PLUGIN_KEY.test(key)) return `${key}: this is a plugin setting (Jira email, GitLab, Xray address), not a config key. ${IN_PLUGIN}`
+  const f = pluginField(key)
+  if (SECRET_KEY.test(key) || f.secret) return `${key}: this is a protected plugin setting (a token, key or password). It is never set here and never typed in the chat; it goes to your keychain.\n${pluginSteps(key).join('\n')}`
+  if (PLUGIN_KEY.test(key)) return `${key}: this is a plugin setting (Jira email, GitLab, Xray address), not a config key. ${IN_PLUGIN}\n${pluginSteps(key).join('\n')}`
   if (value !== undefined && looksSecret(String(value))) return `${key}: the value looks like a token or a key, so it was not used and nothing was written. Please don't paste tokens here; revoke that one and set a new one from /plugin.`
   return null
 }
@@ -113,6 +145,22 @@ function parseArgs(argv) {
     else a._.push(t)
   }
   return a
+}
+
+/** The settable keys, one row each: key, what it takes, example. Read from KEYS, so it never drifts. */
+export function keyRows() {
+  return Object.entries(KEYS).map(([key, spec]) => ({
+    key,
+    takes: spec.type === T.enum ? spec.choices.join(' | ') : spec.type === T.list ? 'list, comma separated' : spec.type === T.bool ? 'true | false' : spec.type === T.int ? 'whole number' : spec.type === T.url ? 'address' : 'text',
+    optional: Boolean(spec.optional), project: Boolean(spec.project), example: EXAMPLES[key] ?? '',
+  }))
+}
+/** `config keys`: prints a row per key and a CONFIG_KEYS_JSON line. Needs no config. */
+export function configKeys(io = { out: s => process.stdout.write(`${s}\n`) }) {
+  const rows = keyRows()
+  for (const r of rows) io.out(`${r.key} | ${r.takes} | ${r.example}${r.optional ? ' | none removes it' : ''}${r.project ? ' | project only' : ''}`)
+  io.out(`CONFIG_KEYS_JSON:${JSON.stringify(rows)}`)
+  return 0
 }
 
 const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get <key> [--personal|--project]'
