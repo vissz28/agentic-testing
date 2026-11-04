@@ -137,6 +137,8 @@ The backend runner is the one the config names: `adapter` on a backend project, 
      3. Something else
      ```
 
+     **Visual checks (optional).** When the ticket changes how a screen looks, read `${CLAUDE_PLUGIN_ROOT}/guides/visual-regression.md` and add the line `Visual: baseline for <N> screens` to the card, after the Extra lines and before the numbered options (leave it out when there are none). `Yes, write these tests` confirms creating the baselines too; they are never created or updated silently, and with `--yes` or `--ci` none is created (the guide says what to tell). Baselines are committed, never ignored. Figma comparison comes later.
+
      On `3`, show this card and end the turn: `1. Leave out the extras`, `2. The result is different: I'll type it`, `3. Something else: I'll say it in words`, `4. Back` (with no extra probe, leave out `Leave out the extras` and number the rest in order). Answers as for Vitest.
 
    **Tests already on the branch.** When the ticket came from the branch (step 1) and its `files` hold tests (kind `test`, status other than `D`), add the option `Only check the tests already on this branch` before the plan card's `No, stop`. On it, read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite `full`, those spec paths and `--key <KEY>`, show its card as printed, and stop. On `Leave out the extras`, drop them and show the plan card again. On `The result is different`, do as for Vitest. On `No, stop`, stop.

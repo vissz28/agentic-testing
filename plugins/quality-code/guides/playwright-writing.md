@@ -103,6 +103,11 @@ test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
   string stays a string).
 - `await route.fulfill({ json })` for a response; keep the stubs in the spec, not in a new data file.
 
+## Visual checks
+
+Optional `toHaveScreenshot` checks against a saved baseline, confirmed by the person: read
+`${CLAUDE_PLUGIN_ROOT}/guides/visual-regression.md` when the ticket changes how a screen looks.
+
 ## Extra probes
 
 Cases the ticket did not state, where a finished feature often breaks. Pick **at most 3** that apply
