@@ -16,7 +16,7 @@ test('flow: list, ask with the picker, delete; --yes skips the question', () => 
   assert.ok(at.every(i => i > 0) && at[0] < at[1] && at[1] < at[2], JSON.stringify(at))
   assert.ok(doc.includes(`${RUN} list`) && doc.includes(`${RUN} delete`))
   assert.match(doc, /AskUserQuestion/)
-  assert.ok(doc.includes('1. Delete') && doc.includes('2. Cancel'))
+  assert.ok(doc.includes('`Delete` / `Cancel`'))
   assert.match(doc, /With `--yes` in `\$ARGUMENTS`, skip/)
   assert.match(doc, /--all/)
 })

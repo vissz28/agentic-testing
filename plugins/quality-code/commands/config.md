@@ -18,12 +18,12 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 
 When the person gives `set <key> <value>` or `get <key>` (for example `/quality-code:config set jira.projects ABC,DEF`, `config set git.base develop`, `config set ticketsDir .qc/tickets`, `config get jira.site`), skip the cards and do only this:
 
-- **get:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config get <key>` (add `--personal` or `--project` when asked) and show its first line.
-- **set:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config set <key> <value>` (same scope flags) without `--yes`. It prints `<key>: <old> -> <new>` and writes nothing. Show that line, ask `Change it?` with the picker (`1. Yes / 2. No`, as display.md says), and on yes run the same command again with `--yes`. When the person already wrote `--yes`, pass it at once and skip the question.
+- **get:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config get <key>` (add `--personal` or `--project` when asked) and show its first line as a headline, `**<key>: <value>**`, then the Next line from display.md (`/quality-code:config set <key> <value>`).
+- **set:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config set <key> <value>` (same scope flags) without `--yes`. It prints `<key>: <old> -> <new>` and writes nothing. Show `### ⚙️ Config`, a short bold headline (`**<key> would change**`) and a table `| Setting | Old | New |` from that line, no code block. Ask `Change it?` with the picker (`Yes` / `No`, as display.md says), and on yes run the same command again with `--yes`; on no say `**Nothing was changed**`. When the person already wrote `--yes`, pass it at once and skip the question.
 - **Keys:** dotted, lists with commas, `true`/`false` and numbers typed: `jira.site`, `jira.projects`, `jira.trackingProjects`, `jira.bugTypes`, `jira.doneStatuses`, `jira.acceptanceCriteriaField`, `git.base`, `root`, `ticketsDir`, `testFlow`, `languages`, `titlePrefixes`, `qa.app`, `qa.sprint`, `qa.executionTypes`, `qa.statuses.ko|ready|done`, `qa.blockedStop`, `qa.autoPass`, and `place` (files and logs: `repo`, `local` or `chat`). `none` removes an optional one. The script checks the value with the rules the setup writers use and prints a clear error, with nothing written, for an unknown key, a bad value, or anything that looks like a token or key; show the error as it is and stop.
 - **Scope:** `--personal` or `--project`; with neither, the config that exists (the repo's first).
 - **Not here:** tokens, keys, passwords and the plugin settings (Jira email, GitLab address and username, Xray address) are never set this way. For those say `Set it in /plugin, never in the chat: type /plugin, choose quality-code, Configure options, then /reload-plugins.`
-- End with the step 4 line for what changed (commit the repo config), and do not show the card again.
+- End with the headline `**✅ <key> changed**` and the step 4 line for what changed (commit the repo config), then the Next line from display.md (`/quality-code:config get <key>`, or the command the change makes likely). Do not show the card again.
 
 ## Steps
 
