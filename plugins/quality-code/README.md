@@ -9,10 +9,10 @@ with the model. For frontend, backend and fullstack projects at TeamSystem.
 ## Install
 
 ```
-/plugin install quality-code --marketplace https://teamsystem.ghe.com/teamsystem/quality-code.git
+/plugin install quality-code --marketplace vissz28/agentic-testing
 ```
 
-On Claude Code older than 2.1.275: `/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git`, then
+On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-testing`, then
 `/plugin install quality-code@teamsystem`.
 
 ## Other platforms
@@ -80,4 +80,4 @@ is scored like the description, and once screenshots are read, an attachment ear
 when one gave text. `/quality-code:tickets-eval`
 reads no files; it shows the pass rate per Jira component.
 
-Made by Elvis Zefaj. Full guide: [README](https://teamsystem.ghe.com/teamsystem/quality-code#readme).
+Made by Elvis Zefaj. Full guide: [README](https://github.com/vissz28/agentic-testing#readme).

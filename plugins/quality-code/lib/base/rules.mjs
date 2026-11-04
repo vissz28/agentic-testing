@@ -130,6 +130,21 @@ const draftNote = rules => {
   return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : `${d} draft${d === 1 ? '' : 's'}`}`
 }
 
+/** What a run read, saved next to the ticket (rules.mjs --key) so the result card can say it: Central Context, or the fallback. */
+export const rulesRecord = (r, date = new Date()) => ({
+  source: r.source, hub: r.hub, release: r.release, error: r.error, side: r.side,
+  hubRules: r.rules.length, builtinRules: r.builtin?.rules.length ?? 0, localRules: r.local && !r.local.error ? r.local.rules.length : 0,
+  ids: [...(r.local?.rules ?? []), ...r.rules, ...(r.builtin?.rules ?? [])].map(x => x.id), date: date.toISOString(),
+})
+
+const host = url => { try { return new URL(url).host } catch { return url } }
+/** The card's Rules line: Central Context answered, or the tests were written with the fallback rules. */
+export function rulesLine(rec) {
+  const others = [rec.localRules && `${rec.localRules} local`, rec.builtinRules && `${rec.builtinRules} built-in`].filter(Boolean).join(' + ')
+  if (rec.source === 'hub') return `✅ Central Context (${host(rec.hub)}) · ${count(rec.hubRules)}${rec.release ? `, release ${rec.release}` : ''}${others ? ` · + ${others}` : ''}`
+  return `⚠️ Fallback: Central Context not used (${rec.error}) · ${others ? `written with ${others} rules` : 'no rule applied'}`
+}
+
 /** One line per source spec shows as a completed step: what was read, what for, and from where. The rules themselves travel in RULES_JSON. */
 export function formatRules(r) {
   const others = (r.local?.rules.length ?? 0) + (r.builtin?.rules.length ?? 0)

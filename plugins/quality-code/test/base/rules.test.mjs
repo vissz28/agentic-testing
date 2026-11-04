@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { formatRules, hubOf, localRules, parseRule, readRules, stacksFor, testingRules } from '../../lib/base/rules.mjs'
+import { formatRules, hubOf, localRules, parseRule, readRules, rulesLine, rulesRecord, stacksFor, testingRules } from '../../lib/base/rules.mjs'
 import { main } from '../../bin/rules.mjs'
 
 const doc = (id, o = {}) => ({ id: `quality.${id}`, domain: 'quality', status: 'active', severity: 'medium', summary: `${id} summary.`, tags: ['test'], applies_to: ['all'], ...o })
@@ -74,6 +74,28 @@ test('rules.mjs: the project side by default, --side for a ticket, a RULES_JSON 
   const bad = await run(['--side', 'mobile'])
   assert.equal(bad.code, 2)
   assert.match(bad.err, /^--side must be frontend, backend, fullstack/)
+})
+
+test('rules.mjs --key saves what was read for the card; a key of another project is refused and saves nothing', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-rules-key-'))
+  mkdirSync(join(root, '.claude'))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', ticketsDir: 't', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
+  const run = (argv, fetchImpl = fetchOk) => main(argv, { CLAUDE_PROJECT_DIR: root, QUALITY_CODE_PLACE: 'repo' }, root, { fetchImpl, stdout: () => {}, stderr: () => {} })
+  assert.equal(await run(['--side', 'frontend', '--key', 'ABC-1']), 0)
+  const rec = JSON.parse(readFileSync(join(root, 't/ABC-1/rules.json'), 'utf8'))
+  assert.deepEqual([rec.source, rec.hub, rec.release, rec.hubRules], ['hub', 'http://hub', 'local-abc', 3])
+  assert.equal(await run(['--key', 'ABC-2'], async () => { throw new Error('ECONNREFUSED') }), 0)
+  assert.equal(JSON.parse(readFileSync(join(root, 't/ABC-2/rules.json'), 'utf8')).source, 'none')
+  assert.equal(await run(['--key', '../../x']), 2)
+  assert.equal(existsSync(join(root, 'x')), false)
+})
+
+test('rulesLine: Central Context with its host, release and the other sources; otherwise the fallback, and why', async () => {
+  const r = { source: 'hub', hub: 'https://cc.example.com', release: 'r1', error: null, side: 'frontend', rules: [{ id: 'a' }], builtin: { rules: [{ id: 'b' }, { id: 'c' }] }, local: null }
+  assert.equal(rulesLine(rulesRecord(r)), '✅ Central Context (cc.example.com) · 1 testing rule, release r1 · + 2 built-in')
+  const down = { ...r, source: 'none', release: null, rules: [], error: 'not reachable at https://cc.example.com (HTTP 502)' }
+  assert.equal(rulesLine(rulesRecord(down)), '⚠️ Fallback: Central Context not used (not reachable at https://cc.example.com (HTTP 502)) · written with 2 built-in rules')
+  assert.equal(rulesLine(rulesRecord({ ...down, builtin: { rules: [] } })), '⚠️ Fallback: Central Context not used (not reachable at https://cc.example.com (HTTP 502)) · no rule applied')
 })
 
 const RULE = (id, o = '') => `---\nid: ${id}\ntitle: "Title of ${id}"\nsummary: "The ${id} rule, in one sentence."\nseverity: high\n${o}---\n## Rule\n\nBody.\n`

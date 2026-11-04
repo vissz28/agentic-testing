@@ -1,24 +1,34 @@
 // Entry point for the Central Context testing rules of a ticket's side, read by /quality-code:spec before the plan.
-// node bin/rules.mjs [--side frontend|backend|fullstack]
+// node bin/rules.mjs [--side frontend|backend|fullstack] [--key KEY]
 // Without --side, the project's own side (a fullstack project: fullstack). Prints the rules block, then a
-// RULES_JSON: line. Exit 0 whether or not the hub answers (the rules inform, they never stop a run), 2 usage error.
+// RULES_JSON: line. With --key, also saves what was read to <ticketsDir>/<KEY>/rules.json for the result card. Exit 0 whether or not the hub answers (the rules inform, they never stop a run), 2 usage error.
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { isProjectKey } from '../lib/base/keys.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
-import { formatRules, readRules } from '../lib/base/rules.mjs'
+import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
 import { SIDES, stackOf } from '../lib/base/stack.mjs'
 
-const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack]'
+const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { fetchImpl, stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   let side = null
+  let key = null
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--side' && SIDES.includes(argv[i + 1])) side = argv[++i]
+    else if (argv[i] === '--key' && argv[i + 1]) key = argv[++i]
     else { stderr(`${argv[i] === '--side' ? `--side must be ${SIDES.join(', ')}` : `unknown option ${argv[i]}`}. ${USAGE}\n`); return 2 }
   }
   const cfg = loadConfig(projectRoot(env, cwd), env)
   const config = cfg.ok ? cfg.config : null
   const root = projectRoot(env, cwd)
+  if (key && !(config && isProjectKey(config, key))) { stderr(`--key ${key} is not a ticket key of this project. ${USAGE}\n`); return 2 }
   const r = await readRules({ side: side ?? stackOf(config) ?? 'fullstack', config, root, env, fetchImpl })
+  if (key) {
+    const f = resolve(root, config.ticketsDir, key, 'rules.json')
+    try { mkdirSync(resolve(f, '..'), { recursive: true }); writeFileSync(f, `${JSON.stringify(rulesRecord(r))}\n`) } catch {}
+  }
   stdout(`${formatRules(r)}\nRULES_JSON:${JSON.stringify(r)}\n`)
   return 0
 }

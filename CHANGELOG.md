@@ -9,16 +9,48 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
-## [0.45.0] - 2026-11-04
+## [0.48.0] - 2026-11-04
 
 ### Changed
 
 - `/quality-code:spec`: the plan card now says what will be written before anything is: the runner and libraries, and the file paths (new or added to). It uses your project's own runner, libraries and flow when it has them, and Quality Code's defaults when it has none (Vitest + Stryker + Testcontainers, JUnit 5 + PIT + Testcontainers, xUnit + Stryker.NET + Testcontainers, pytest, Go, Playwright). The options are `1. Yes, write these tests`, `2. No, stop` and `3. Something else` (change the layers, leave out the extras, type a different result, or say it in words).
+- The main repository is `github.com/vissz28/agentic-testing` again: the listing links, the guides, the user guide script and the CI file the `ci` command writes point to it. The TeamSystem organization repository (`teamsystem.ghe.com/teamsystem/quality-code`) is a mirror that is updated from it.
+- New `mcp-server/DEPLOY.md`: how to run the shared MCP server in dev, test and main with Microsoft Entra ID sign-in (AGT-157, HWS-1334).
 
 ### What to do
 
-Nothing. `--yes` and `--ci` still skip the question and show the plan as information.
+Nothing, unless you added the marketplace from the organization address (0.44.2): run `/plugin marketplace remove teamsystem`, then `/plugin marketplace add vissz28/agentic-testing`, then `/plugin update quality-code@teamsystem`. `--yes` and `--ci` still skip the plan question and show the plan as information.
 
+## [0.47.0] - 2026-11-04
+
+### Changed
+- `/quality-code:ci` names its jobs `test_quality_gate` and `test_quality_tests` (GitLab: `stage: test`), as Central Context's CI naming standard asks. **To do:** run `/quality-code:ci` again to rewrite the file; on GitHub, a branch protection that requires `quality-gate` now requires `test_quality_gate`.
+
+### Added
+- `/quality-code:ci` checks the file it wrote against Central Context's CI rules with the `central-context` connector, shown as the `Searched Central Context` step with one line per rule that applies (met, or what differs). It never edits the file for a rule.
+
+### Fixed
+- `/quality-code:spec`: the Central Context search sent `client_context` with a space, which Central Context refuses, so the search failed on every run. It now sends `<project>#<KEY>`.
+
+## [0.46.0] - 2026-11-03
+
+### Added
+- `/quality-code:spec` searches Central Context with the `central-context` connector on every run: one search on the ticket's topic (a second only for a topic the first missed), shown as the `Searched Central Context` step. A hit that fits the tests is read in full and applied; none that fits is dropped and the run goes on with the rules `rules.mjs` reads. Each call names the project and the ticket in `client_context`, which Central Context records. The two connector tools are pre-approved for spec.
+
+## [0.45.0] - 2026-11-03
+
+### Added
+
+- **The result card says whether Central Context was used.** `rules.mjs --key` saves what it read next to the ticket,
+  and the card, the run log and the audit log show it on a `Rules` line: `✅ Central Context (<host>) · 9 testing
+  rules, release …`, or `⚠️ Fallback: Central Context not used (<why>) · written with 4 built-in rules`.
+
+### Fixed
+
+- **No more italic progress lines** (*Running the checks, a few minutes…*): the `report` style no longer allows them;
+  a long step is its to-do item. The desktop app's `update_plan` checklist now carries the steps and their results.
+- **The wrap-up after a spec run**: `/quality-code:spec` now ends with the display guide's wrap-up (what was made, what
+  needs you, notes on what changed on the way) instead of a list of paths.
 ## [0.44.2] - 2026-11-03
 
 ### Changed

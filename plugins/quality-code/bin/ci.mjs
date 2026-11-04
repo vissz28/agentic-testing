@@ -115,16 +115,16 @@ const JS_STACK = { backend: 'vitest', playwright: false, pm: 'npm', lock: true, 
 
 /** The CI file: the gate and the tests, the plugin fetched at the version this one is. */
 export function template(provider, version, s = JS_STACK) {
-  const fetch = `git clone --quiet --depth 1 --branch quality-code--v${version} https://teamsystem.ghe.com/teamsystem/quality-code.git /tmp/quality-code`
+  const fetch = `git clone --quiet --depth 1 --branch quality-code--v${version} https://github.com/vissz28/agentic-testing.git /tmp/quality-code`
   const ci = 'node /tmp/quality-code/plugins/quality-code/bin/ci.mjs'
   const native = s.backend && s.backend !== 'vitest' ? s.backend : null
   const install = installLines(s)
   const request = provider === 'github' ? 'pull request' : 'merge request'
   const head = [
     `${HEADER}: two jobs on each ${request}. No model is involved: scripts decide.`,
-    `# quality-gate: on the specs the ${request} changed, honesty (no assertion or test removed, no skip without`,
+    `# test_quality_gate: on the specs the ${request} changed, honesty (no assertion or test removed, no skip without`,
     '#   a ticket), assertions (every test asserts something) and the frozen evals. git and node only, seconds.',
-    '# quality-tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed',
+    '# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed',
     `#   but no spec did runs its whole suite without mutation, as does a push to ${provider === 'github' ? s.defaultBranch : 'the default branch'}.`,
     '# The install lines were guessed from the project: change them if it installs differently (a private registry,',
     '#   a generated file); add the variables and secrets the tests need.',
@@ -142,16 +142,17 @@ export function template(provider, version, s = JS_STACK) {
       `    branches: [${s.defaultBranch}]`,
       ...(s.prefix ? ['defaults:', '  run:', `    working-directory: ${s.prefix}`] : []),
       'jobs:',
-      '  quality-gate:',
+      '  test_quality_gate:',
       "    if: github.event_name == 'pull_request'",
       ...start, `      - run: ${fetch}`, `      - run: ${ci}`,
-      '  quality-tests:',
+      '  test_quality_tests:',
       ...start, ...(native ? GH_SETUP[native](s) : []), ...install.map(l => `      - run: ${l}`), `      - run: ${fetch}`, `      - run: ${ci} --tests`,
     ].join('\n')}\n`
   }
   const cd = s.prefix ? [`    - cd ${s.prefix}`] : []
   return `${[...head,
-    'quality-gate:',
+    'test_quality_gate:',
+    '  stage: test',
     '  image: node:22',
     '  variables:',
     '    GIT_DEPTH: "0"',
@@ -159,7 +160,8 @@ export function template(provider, version, s = JS_STACK) {
     '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
     '  script:', ...cd, `    - ${fetch}`, `    - ${ci}`,
     '',
-    'quality-tests:',
+    'test_quality_tests:',
+    '  stage: test',
     `  image: ${native ? GL_IMAGE[native](s) : 'node:22'}`,
     ...(s.containers ? [
       '  # Testcontainers: the databases start in Docker-in-Docker (the runner must allow privileged services).',

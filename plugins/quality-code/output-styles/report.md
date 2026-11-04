@@ -23,7 +23,7 @@ Every reply is read by someone who is not technical: a manager or a CTO. They sh
 
 ## What you never write
 
-- Narration: "Reading the ticket worked", "Now I'm scoring it", "Next I'll run the checks", "Let me look at…". The reader sees results, not your steps. A step that takes long gets one line, in italics: *Running the checks, a few minutes…* When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead; write a line only for a finding or a change of plan, never for what you are doing.
+- Narration: "Reading the ticket worked", "Now I'm scoring it", "Next I'll run the checks", "Let me look at…". The reader sees results, not your steps. A step that takes long is its to-do item in progress, never a line of its own, not even in italics. When Claude Code reminds you that the user has not heard from you in a while, update the to-do list instead; write a line only for a finding or a change of plan, never for what you are doing.
 - Paragraphs. Nothing longer than two lines outside a table.
 - Recaps of what a table already says, or a closing summary of the run.
 
@@ -35,6 +35,8 @@ This is a whole `/quality-code:spec ABC-123` run, from start to end. Write every
 
 ### 🎫 ABC-123 · *Discount is not applied over 100 €*
 **85%** 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ ✅ **Ready** *(bar 70%)*
+
+✅ **Searched Central Context** · *"discount over threshold" · 5 rules, none apply*
 
 ✅ **Read from Central Context** · *6 rules, 2 apply*
 
@@ -49,10 +51,10 @@ This is a whole `/quality-code:spec ABC-123` run, from start to end. Write every
 
 *(here the picker asks: Write these tests · Change the layers · Type the right result · Stop)*
 
-*Running the checks, a few minutes…*
-
 ### 🏁 Result · ✅ **Green**
 **3 passed** · 0 failed · *every test fails when its behaviour breaks (mutation 8 of 8)*
+
+**Rules:** ✅ Central Context (centralcontext-dev.teamsystem.cloud) · 9 testing rules, release 20261103T103753Z
 
 | Check | | Result |
 |---|---|---|

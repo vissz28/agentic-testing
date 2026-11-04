@@ -1,5 +1,6 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
+import { rulesLine } from '../base/rules.mjs'
 const LABEL = { 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
@@ -136,7 +137,7 @@ export function riskLine({ score, bar }, color = false) {
   return color ? `\x1b[31m${text}\x1b[0m` : text
 }
 
-export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null } = {}) {
+export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null, rules = null } = {}) {
   const n = specs.length
   const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
   const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
@@ -144,6 +145,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   lines.push(...verdictText(outcome).map(t => `  ${capital(t)}`))
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) lines.push(`Jira says ${String(jiraStatus).trim()}. This branch still has the bug.`)
+  if (rules) lines.push('', `Rules     ${rulesLine(rules)}`)
   const d = (outcome.steps.find(x => x.check === 'tests') || {}).data
   const counts = d && typeof d.passed === 'number' && typeof d.failed === 'number'
   if (counts) lines.push('', `Tests     ${d.passed} passed · ${d.failed} failed · ${d.skipped || 0} to do`, ...testLines(d.list))
@@ -168,13 +170,14 @@ const VERDICT_TEXT = {
 }
 
 /** The developer log: everything the card says, with every finding and number, for a person to read later. */
-export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date() } = {}) {
+export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date(), rules = null } = {}) {
   const md = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']
   if (outcome.incompleteTicket) out.push(riskLine(outcome.incompleteTicket), '')
   out.push(`- **Checked:** ${date.toISOString()}`, `- **Specs:** ${specs.map(s => `\`${s}\``).join(', ') || 'none'}`)
   if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.map(runnerLabel).join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)
+  if (rules) out.push(`- **Rules:** ${rulesLine(rules)} (read ${rules.date})`, `- **Rule ids:** ${rules.ids?.join(', ') || 'none'}`)
   out.push(`- **Verdict:** ${verdictText(outcome).join(' ') || outcome.verdict}${outcome.verdict === 'tests_red' ? ` ${redAdvice({ issueType, status: jiraStatus, done: doneStatuses })}` : ''}`)
   if (finishedButRed(outcome, jiraStatus, doneStatuses)) out.push(`- **Note:** Jira says ${jiraStatus}, but this branch still has the bug.`)
   const t = outcome.steps.find(x => x.check === 'tests')?.data

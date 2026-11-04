@@ -48,7 +48,7 @@ privacy, troubleshooting and the roadmap. For a first run, start with the
 **1. Install (once per person).** In Claude Code, inside your repo:
 
 ```
-/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
+/plugin marketplace add vissz28/agentic-testing
 /plugin install quality-code@teamsystem
 ```
 
@@ -193,20 +193,20 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 
 **Requirements:** a recent Claude Code with plugin support (`claude plugin --help`), Node 18+, a repo
 whose `package.json` has `@playwright/test` or `vitest`, and access to your Jira site. The marketplace
-repo is private: `git clone https://teamsystem.ghe.com/teamsystem/quality-code` must work on your machine
+repo is private: `git clone https://github.com/vissz28/agentic-testing` must work on your machine
 (keychain login, `gh auth login` or SSH).
 
 Inside Claude Code, in your repo:
 
 ```
-/plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
+/plugin marketplace add vissz28/agentic-testing
 /plugin install quality-code@teamsystem
 ```
 
 The same from a shell:
 
 ```bash
-claude plugin marketplace add https://teamsystem.ghe.com/teamsystem/quality-code.git
+claude plugin marketplace add vissz28/agentic-testing
 ```
 
 ```bash
@@ -219,7 +219,7 @@ commit it:
 ```json
 {
   "extraKnownMarketplaces": {
-    "teamsystem": { "source": { "source": "git", "url": "https://teamsystem.ghe.com/teamsystem/quality-code.git" } }
+    "teamsystem": { "source": { "source": "github", "repo": "vissz28/agentic-testing" } }
   },
   "enabledPlugins": { "quality-code@teamsystem": true }
 }
@@ -438,10 +438,10 @@ again. Like the audit log it is local, and off with `QC_NO_AUDIT=1`.
 **Quality Code in CI (GitHub Actions and GitLab CI).** `/quality-code:ci` writes a CI file with two jobs for
 every pull request (GitHub) or merge request (GitLab). No model is involved: scripts decide.
 
-- **quality-gate** (git and node only, no install, seconds), on the specs the request changed: **honesty** (no
+- **test_quality_gate** (git and node only, no install, seconds), on the specs the request changed: **honesty** (no
   assertion or test removed, no test skipped without a ticket; a deleted spec and the old path of a renamed one
   count), **assertions** (every test of a changed spec asserts something) and the **frozen evals**.
-- **quality-tests** (the project installed), what the request touched through the pipeline: the changed specs, one
+- **test_quality_tests** (the project installed), what the request touched through the pipeline: the changed specs, one
   run per module (a backend layer, the first folder under the e2e folder), with **types, tests and mutation**. A
   side whose code changed but no spec did runs its whole suite **without mutation** (the slow step stays on the
   changed specs); a shared file (`package.json`, a lockfile, `tsconfig`, a runner config, `pom.xml`, `go.mod`)
@@ -970,7 +970,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 | `missing: Vitest is not installed in this project…` (or Playwright) | Setup was finished with `Not now`. Run `/quality-code:setup` again to add the runner, or run your package manager's install when it is already in `package.json`. |
 | `Sign in to Atlassian when prompted…` | Connect the Atlassian connector with `/mcp`, or paste the ticket text. |
 | "This ticket is from project X, not one of …" | Pick `1` to check it anyway, or add the project with setup. |
-| `marketplace add` fails | Make sure `git clone https://teamsystem.ghe.com/teamsystem/quality-code` works on its own. |
+| `marketplace add` fails | Make sure `git clone https://github.com/vissz28/agentic-testing` works on its own. |
 | Two Atlassian connectors listed | You also have one in claude.ai or in the repo's `.mcp.json`. Harmless. |
 | `gitlab` or `figma-token` shows as failed in `/mcp` | You use the other way in for that service. Harmless; the connectors card shows the service as connected. |
 | `Another test-writing run is active.` | A `/quality-code:spec` run did not finish. Pick `1` to stop it and start yours, or run `node <plugin>/bin/checks.mjs run status` to see it. A run older than 12 hours is replaced on its own. |
@@ -1063,7 +1063,7 @@ audit and KPI [spec](specs/2026-10-14-audit-kpi-design.md) ·
 
 - **Something is not working:** check [Troubleshooting](#troubleshooting) first.
 - **A bug, or a request for your stack or language:** open an issue in
-  [teamsystem/quality-code](https://teamsystem.ghe.com/teamsystem/quality-code/issues) with the command you ran,
+  [vissz28/agentic-testing](https://github.com/vissz28/agentic-testing/issues) with the command you ran,
   the output, and your `.claude/quality-code.json` (it holds no secrets).
 - **A ticket scored lower than you expected:** run `ticket-eval` with `--json`; the output lists
   every signal the rubric found and what is missing.
