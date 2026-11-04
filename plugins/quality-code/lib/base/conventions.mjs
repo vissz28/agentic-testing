@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const FLOWS = ['project', 'quality-code']
+export const FLOWS = ['project', 'quality-code', 'both']
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'target', 'bin', 'obj', '.venv', 'venv', '__pycache__', '.quality-code', '.claude'])
 // The marks a test file name carries, by language: foo.spec.ts, foo.test.js, foo.cy.ts, foo_test.go,

@@ -298,7 +298,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.assertionHelpers !== undefined && (!Array.isArray(c.assertionHelpers) || !c.assertionHelpers.every(h => typeof h === 'string' && /^[A-Za-z_$][\w$]*$/.test(h)))) e.push('assertionHelpers: must be a list of method-name prefixes that assert for a test (page objects), like ["check", "ensure"]; expect, assert and verify always count')
   if (c.ticketAnchor !== undefined && !['block', 'branch'].includes(c.ticketAnchor)) e.push(`ticketAnchor ${JSON.stringify(c.ticketAnchor)}: must be "block" (a group whose title names the ticket) or "branch" (also a spec changed on the branch)`)
   if (c.roots !== undefined && (!Array.isArray(c.roots) || c.roots.length < 1 || !c.roots.every(pathOk))) e.push('roots: must be a list of folders inside the repository, like ["app", "backend-executor"] (the projects one config serves; ticket.mjs root set picks the active one)')
-  if (c.testFlow !== undefined && !FLOWS.includes(c.testFlow)) e.push(`testFlow ${JSON.stringify(c.testFlow)}: must be "project" (follow the project's own tests) or "quality-code"`)
+  if (c.testFlow !== undefined && !FLOWS.includes(c.testFlow)) e.push(`testFlow ${JSON.stringify(c.testFlow)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')

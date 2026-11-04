@@ -66,9 +66,10 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      This project already has <conventions.specs> tests (<conventions.pattern>, in <conventions.folders>).
      1. Follow your project's flow: new tests use your naming, folders and style
      2. Use Quality Code's flow: the ticket key in the file name, Quality Code's test folders
+     3. Both: write each test in your flow and in Quality Code's
      ```
 
-     `1` gives `testFlow: "project"`, `2` `"quality-code"`. With `conventions.specs` 0, leave `testFlow` out of the config and the card (Quality Code's flow is used until the project has tests; `/quality-code:config` changes it later).
+     `1` gives `testFlow: "project"`, `2` `"quality-code"`, `3` `"both"`. With `conventions.specs` 0, leave `testFlow` out of the config and the card (Quality Code's flow is used until the project has tests; `/quality-code:config` changes it later).
    - **GitLab project.** If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks. The GitLab project is read from the remote every time; it is not written to the config.
    - **Base branch** (`git.base`: the branch feature branches start from and merge into; start, spec and check diff against it). On a rerun, keep `existing.git.base` when it is set. Else, when the GitLab project was found, make one read-only GitLab call for its 20 most recently merged merge requests and propose their most common target branch (from `recent merge requests`). Else propose `base.proposed` from the detect result: `base.source` `develop` reads `from origin/develop`, `origin-head` reads `from origin/HEAD`. When `base` is null and nothing else proposes one, leave `git.base` out and show `none found (main or master at run time)`.
 3. **Jira.** Using the Atlassian connector. No card when the values are clear:

@@ -9,6 +9,18 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-04
+
+### Added
+
+- A third test flow, `both`: `testFlow: "both"` in the config, `--flow both` on `/quality-code:spec`, and a third answer on the setup and config cards. Each test, unit and e2e, is written in your project's own flow and again in Quality Code's (the ticket key in the file name), so the pipeline can still trace the ticket.
+
+### Fixed
+
+- The kpi usage test expected the usage line from before `--report`; it failed the CI core job on 0.54.0 and 0.55.0.
+
+**What to do:** update. To use it, run `/quality-code:config-set testFlow both`.
+
 ## [0.55.0] - 2026-11-04
 
 ### Added

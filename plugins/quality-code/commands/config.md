@@ -75,9 +75,10 @@ When the person gives `set <key> <value>` or `get <key>` (for example `/quality-
      How should new tests be written?
      1. Follow your project's flow: your naming, folders and style
      2. Use Quality Code's flow: the ticket key in the file name, Quality Code's test folders
+     3. Both: write each test in your flow and in Quality Code's
      ```
 
-     Build the proposal `{ "config": <the config file exactly as it is, with only testFlow set to "project" or "quality-code"> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). A personal config has no tests of its own: say `Tests are written from a repo: set this there.` and stop. For one run only, `/quality-code:spec <KEY> --flow project|quality-code`.
+     Build the proposal `{ "config": <the config file exactly as it is, with only testFlow set to "project", "quality-code" or "both"> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). A personal config has no tests of its own: say `Tests are written from a repo: set this there.` and stop. For one run only, `/quality-code:spec <KEY> --flow project|quality-code|both`.
    - **7 (files and logs).** Show the card of `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md` (one line per entry of `options`, `(now)` after the current one) and end the turn. On a pick, run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save set <repo|local|chat>` and show its `ok:` line as printed: it also moves the files already saved to the new place. Nothing in the project config changes.
    - **8.** Ask `Your Atlassian email?` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --jira-save "<email>"`.
    - **9.** Ask `Your GitLab address? (for example gitlab.example.com)`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --gitlab-check "<address>"`, then ask `Your GitLab username or email?` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --gitlab-save "<address>" "<username or email>"`.

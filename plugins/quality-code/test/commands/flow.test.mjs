@@ -7,9 +7,9 @@ const spec = read('commands/spec.md')
 const setup = read('commands/setup.md')
 
 test('spec: --flow is an option, checked by the script, and follows the project\'s naming, folder and style', () => {
-  assert.match(spec, /argument-hint:.*\[--flow project\|quality-code\]/)
+  assert.match(spec, /argument-hint:.*\[--flow project\|quality-code\|both\]/)
   assert.ok(spec.includes('bin/ticket.mjs" config flow`'))
-  assert.match(spec, /`--flow is project or quality-code\.`/)
+  assert.match(spec, /`--flow is project, quality-code or both\.`/)
   const s = spec.slice(spec.indexOf('**Writing in the project\'s flow**'), spec.indexOf('- **Vitest:** write one spec file per layer'))
   for (const t of ['**Name:**', '**Folder:**', '**Style:**', '**No tests yet**']) assert.ok(s.includes(t), t)
   assert.match(s, /no ticket key in the file name \(the key stays in the test block's title/)
@@ -28,4 +28,12 @@ test('setup: a project with tests is offered its own flow or ours, on the Confir
   assert.ok(setup.includes('     Tests    <follow your project\'s flow'))
   assert.match(setup, /`testFlow` \(only when the project has tests\)/)
   assert.ok(setup.includes('     6. Test flow'))
+})
+
+test('both: FLOWS and config accept it, ticket.mjs and spec say each test is written twice', async () => {
+  const { FLOWS, runFlow } = await import('../../lib/base/conventions.mjs')
+  assert.deepEqual(FLOWS, ['project', 'quality-code', 'both'])
+  assert.equal(runFlow({ testFlow: 'both' }, { specs: 0 }), 'both')
+  assert.equal(runFlow({}, { specs: 3 }, 'both'), 'both')
+  assert.match(spec, /`both`: write the tests twice over/)
 })

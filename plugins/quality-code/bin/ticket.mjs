@@ -189,10 +189,12 @@ function run(argv, env, cwd) {
     // --flow project|quality-code (one run) wins over testFlow in the config; with neither, the project's
     // when it has tests, else Quality Code's.
     const flag = a._[1]
-    if (flag !== undefined && !['project', 'quality-code'].includes(flag)) { err('usage: ticket.mjs config flow [project|quality-code]'); return 2 }
+    if (flag !== undefined && !['project', 'quality-code', 'both'].includes(flag)) { err('usage: ticket.mjs config flow [project|quality-code|both]'); return 2 }
     const conv = detectConventions(root)
     const flow = runFlow(config, conv, flag)
-    out(flow === 'project'
+    out(flow === 'both'
+      ? "flow: both: each test is written in the project's own flow and in Quality Code's (the ticket key in the file name)"
+      : flow === 'project'
       ? (conv.specs > 0
         ? `flow: the project's own: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
         : "flow: the project's own, but it has no tests yet: Quality Code's naming is used until it has")
