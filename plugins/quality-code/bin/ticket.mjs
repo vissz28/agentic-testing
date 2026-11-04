@@ -20,6 +20,8 @@ import { runnerOf } from '../lib/base/runners.mjs'
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
+import { ticketsEvalReport } from '../lib/report/build.mjs'
+import { reportLines, saveReport } from '../lib/report/save.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
 import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
@@ -30,10 +32,10 @@ const err = s => process.stderr.write(`${s}\n`)
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
-// --save keeps the per-ticket results of `tickets-eval`. --drafted marks an `add` answer as the
+// --save keeps the per-ticket results of `tickets-eval`; --report also writes the HTML report of it. --drafted marks an `add` answer as the
 // model's draft the author confirmed (the script still decides whether it counts). --runner adds to
 // `config check` the test runners the config names and the project has not installed.
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--runner'])
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--runner', '--report'])
 
 // The heading `attach` puts each kind of read file under in the description.
 const ATTACHED = { screenshot: 'Attached screenshot', page: 'Linked page' }
@@ -253,7 +255,8 @@ function run(argv, env, cwd) {
   }
   if (cmd === 'tickets-eval') {
     // Project-wide: --in is a JSON array of raw tickets. Scores them all, sends nothing, writes nothing unless --save.
-    if (!a.in) { err('usage: ticket.mjs tickets-eval --in @<tickets.json> [--json] [--save]'); return 2 }
+    if (!a.in) { err('usage: ticket.mjs tickets-eval --in @<tickets.json> [--json | --report] [--save]'); return 2 }
+    if (a.flags.has('--report') && a.flags.has('--json')) { err('--json and --report do not go together'); return 2 }
     let list
     const listPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
     try { list = JSON.parse(listPath ? readFileSync(listPath, 'utf8') : a.in) } catch (e) { err(`--in is not readable JSON: ${e.message}`); return 2 }
@@ -268,6 +271,12 @@ function run(argv, env, cwd) {
     const machine = `TICKETS_EVAL_JSON:${JSON.stringify({ summary: r.summary, tickets: r.rows })}`
     if (a.flags.has('--json')) out(machine)
     else { out(formatCard(r)); out(machine) }
+    if (a.flags.has('--report')) {
+      // One self-contained HTML file in <ticketsDir>/reports/; the card above stays the text version.
+      const now = new Date()
+      const built = ticketsEvalReport(r, { config, project: r.rows[0]?.key?.replace(/-\d+$/, '') ?? null, now })
+      try { out(reportLines(saveReport(join(ticketsRoot, 'reports'), 'tickets-eval', now.toISOString().slice(0, 10), built.html), 'Tickets readiness', built.headline).join('\n')) } catch (e) { err(`tickets-eval: cannot save the report (${e.code ?? e.message})`); return 2 }
+    }
     return 0
   }
   if (!a.in) {

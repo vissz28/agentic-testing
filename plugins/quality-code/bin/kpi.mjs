@@ -9,17 +9,19 @@ import { BOUNDARY_LOG } from '../lib/base/boundary.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { formatQuality, qualityKpi, readCoverage, scanSpecs } from '../lib/report/quality-program.mjs'
 import { parsePeriod } from '../lib/report/consumption.mjs'
+import { kpiReport, kpiSeries } from '../lib/report/build.mjs'
+import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
 
-const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json]'
+const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
 const BANDS = [['0-29', 0, 29], ['30-49', 30, 49], ['50-69', 50, 69], ['70-89', 70, 89], ['90-100', 90, 100]]
 const VERDICTS = { green: 'green', checks_failed: 'checks failed', tests_red: 'tests red', not_verified: 'not verified' }
 const day = ms => new Date(ms).toISOString().slice(0, 10)
 
 function parse(argv) {
-  const a = { since: '30d', until: null, json: false }
+  const a = { since: '30d', until: null, json: false, report: false }
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (x === '--since' || x === '--until') {
@@ -27,8 +29,10 @@ function parse(argv) {
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
       a[x.slice(2)] = v
     } else if (x === '--json') a.json = true
+    else if (x === '--report') a.report = true
     else throw new Error(`unknown option ${x}`)
   }
+  if (a.json && a.report) throw new Error('--json and --report do not go together')
   return a
 }
 
@@ -153,6 +157,14 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   // The spec files are read for traceability and suite honesty; without a config there is nothing to find them by.
   const report = buildKpi(events, { period, project: basename(root), scan: cfg.ok ? scanSpecs(root, cfg.config) : null, coverage: readCoverage(root) })
   stdout(`${a.json ? JSON.stringify(report) : formatKpiCard(report)}\n`)
+  if (a.report) {
+    // One self-contained HTML file, saved where this person keeps their files; the card above stays the text version.
+    const built = kpiReport(report, kpiSeries(events, period), { config: cfg.ok ? cfg.config : null, now: new Date(now) })
+    try {
+      const path = saveReport(reportsRoot(root, cfg, env), 'kpi', new Date(now).toISOString().slice(0, 10), built.html)
+      stdout(`${reportLines(path, 'Quality Code KPI', built.headline).join('\n')}\n`)
+    } catch (e) { stderr(`kpi: cannot save the report (${e.code ?? e.message})\n`); return 2 }
+  }
   return 0
 }
 

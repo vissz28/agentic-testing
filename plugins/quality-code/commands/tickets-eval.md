@@ -1,6 +1,6 @@
 ---
 description: Score a Jira project's tickets for test-readiness in one run (the 70-point gate): one line per ticket, how much of the project passes, and what is missing most often. Read-only; sends nothing anywhere.
-argument-hint: <PROJECT> [--user <name>] [--status <status>] [--limit N | --all] [--json]
+argument-hint: <PROJECT> [--user <name>] [--status <status>] [--limit N | --all] [--json] [--report]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
@@ -43,6 +43,15 @@ From `$ARGUMENTS`: read a project's tickets in one search, score them all with t
    - `links`: one `{ "url", "title" }` per linked issue in `issuelinks` (inward or outward): `url` = `<jira.site>/browse/<linked KEY>`, `title` = the key and its summary. Only for a ticket with no linked issue, also read its web links: one `listJiraIssueRemoteIssueLinks` call (`getJiraIssueRemoteIssueLinks` on an older connection) for that key, each as `url` = `object.url`, `title` = `object.title`. A ticket that already has a linked issue needs no such call: one link is all the score needs. No links: `[]`.
 5. **Score.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" tickets-eval --in @<ticketsDir>/tickets-eval.json` (add `--json` if given; with `--json` print only the `TICKETS_EVAL_JSON:` line and stop). It exits 0 whatever the pass rate; exit 2 is bad input or config (show the message and stop). Show the card exactly as printed, and drop the `TICKETS_EVAL_JSON:` machine line. This report reads no attached file (one search, low cost): the card says how many refused tickets have files, which `/quality-code:ticket-eval <KEY>` reads.
 6. **End.** After the card, one sentence: how many tickets were read, and that nothing was sent to Jira. If a next page was still left, add `This is a sample: the latest <N> tickets, not the whole project, so the pass rate is a sample too. Use --all for every ticket.` (and, with `--all`, when it stopped at 1000, `Stopped at 1000 tickets.`) To fix one ticket: `/quality-code:ticket-eval <KEY>` (it also offers to rewrite a story that is too long, unstructured or too thin).  Stop.
+
+## `--report`: one HTML file with charts
+
+Only when `$ARGUMENTS` has `--report` (never with `--json`). Add `--report` to the script call; everything else stays as above, and the card stays the text version. Besides the card, the script saves ONE self-contained `.html` file (inline CSS and SVG, no script, no font, no image, no link) in `reports/` under the tickets folder, where this person keeps their files (see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`), and prints a `Report:` line and a `REPORT_JSON:` line. It holds only keys, scores and numbers (customer ids redacted), never ticket text.
+
+- Show the file as a link, `the report [HERE](<path>)`, and drop the `REPORT_JSON:` line. Do not open it or read it.
+- Without `--report`, nothing changes.
+- **In the Claude desktop app** (the Artifact tool exists): offer once, with the picker, `Publish this report as an Artifact? It stays private to you until you share it.` Only on a yes, publish that file with the Artifact tool (the only tool besides the script these commands may use; the file's path, a short title, a one-sentence description); never without the yes. If a visualization tool such as `show_widget` is also available, show one small gauge card with `gauge` from the `REPORT_JSON:` line (its label and value, nothing else).
+- **In the terminal** (no Artifact tool), only give the file link. Never ask, never publish.
 
 ## Examples
 

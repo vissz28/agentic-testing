@@ -1,6 +1,6 @@
 ---
 description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate), read from the local audit log and the spec files. Read-only; sends nothing anywhere.
-argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
+argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--report]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)
 model: haiku
 effort: low
@@ -19,7 +19,7 @@ Shows how the plugin is used in this project. You relay; the script reads and co
 
 ## Steps
 
-1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`); with none, the script shows the last 30 days. Do not pass `--json`.
+1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`, `--report`); with none, the script shows the last 30 days. Do not pass `--json`.
    - Exit 3: no audit data yet. Show its lines as they are (they say where it looked) and stop.
    - Exit 2: show its lines as they are and stop.
 2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Then show this card and end the turn:
@@ -32,6 +32,15 @@ Shows how the plugin is used in this project. You relay; the script reads and co
    ```
 
    On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>` with the dates from the card's `AI cost:` line (this is what `/quality-code:consumption` runs), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `3`, stop.
+
+## `--report`: one HTML file with charts
+
+Only when `$ARGUMENTS` has `--report` (never with `--json`). Add `--report` to the script call; everything else stays as above, and the card stays the text version. Besides the card, the script saves ONE self-contained `.html` file (inline CSS and SVG, no script, no font, no image, no link) in `reports/` under the tickets folder, where this person keeps their files (see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`), and prints a `Report:` line and a `REPORT_JSON:` line. It holds only keys, scores and numbers (customer ids redacted), never ticket text.
+
+- Show the file as a link, `the report [HERE](<path>)`, and drop the `REPORT_JSON:` line. Do not open it or read it.
+- Without `--report`, nothing changes.
+- **In the Claude desktop app** (the Artifact tool exists): offer once, with the picker, `Publish this report as an Artifact? It stays private to you until you share it.` Only on a yes, publish that file with the Artifact tool (the only tool besides the script these commands may use; the file's path, a short title, a one-sentence description); never without the yes. If a visualization tool such as `show_widget` is also available, show one small gauge card with `gauge` from the `REPORT_JSON:` line (its label and value, nothing else).
+- **In the terminal** (no Artifact tool), only give the file link. Never ask, never publish.
 
 ## Examples
 
