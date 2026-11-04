@@ -69,7 +69,11 @@ export function defaultForbidden(root) {
   ]
 }
 
-const norm = p => String(p).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
+// Playwright's screenshot baselines (<spec>-snapshots/<name>-<project>-<platform>.png) are tests' data, committed
+// beside the spec (guides/visual-regression.md): a run may write them even where the code folder is forbidden.
+const BASELINE_IMAGE = /(?:^|\/)[^/]+\.(?:spec|test)\.[cm]?[jt]sx?-snapshots\/[^/]+\.png$/
+
+const norm = p =>String(p).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
 
 /**
  * The test file names a run may write even inside a forbidden folder: those of a backend other than
@@ -92,6 +96,7 @@ export function violation(relPath, rules) {
   if (ALWAYS.some(a => matches(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
   if (rules.tests?.test(p)) return null
+  if (BASELINE_IMAGE.test(p)) return null
   const rule = rules.forbidden.find(r => matches(r.path, p) && !(r.path.includes('*') && ENV_TEMPLATE.test(p)))
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
