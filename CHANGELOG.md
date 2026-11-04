@@ -9,6 +9,22 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-04
+
+### Added
+
+- **Negative tests on every ticket (AGT-166).** `ticket.mjs negative-check` flags tickets with no invalid-input, error or permission-denied criteria (a suggestion that never changes the score). `/quality-code:spec` proposes negative tests per input and shows `Negative: N cases` on the plan card, where any case can be removed.
+- **Accessibility (AGT-167).** Every Playwright screen spec ends with an axe scan (WCAG 2.1 AA, `@axe-core/playwright`) that fails on violations. The plan card shows `Accessibility: axe on N screens`; it asks before installing the package; `--no-axe` turns it off.
+- **Smoke suite (AGT-168).** `/quality-code:run-smoke [--url U]` runs only the Playwright tests tagged `@smoke`, read-only, against the running app or any URL. `/quality-code:spec` lets you pick the critical tests, and `/quality-code:ci --smoke` adds an optional post-deploy job that runs them against `SMOKE_URL`. Backend smoke is not available yet.
+- **Regression from a bug (AGT-169).** A Bug ticket in `/quality-code:spec` leaves a `@regression` test (key in the test name, project conventions first). The pipeline card shows the fail-then-pass proof with `--regression-before red|green`, and `/quality-code:routine --regression` runs the `@regression` suite.
+- **Visual regression (AGT-170).** Playwright specs can include optional `toHaveScreenshot` checks with a `Visual: baseline for N screens` plan line. You confirm baselines before they are created or updated; they are committed, not ignored (guide: `visual-regression.md`).
+- **Database checks (AGT-171).** Backend tickets that touch tables, queries or migrations get a `Database: N cases` section (constraints, migration up on an empty and a filled database, data integrity), run on a real database via Testcontainers.
+- **Sprint goal from a Teams transcript (AGT-172).** `/quality-code:transcript-goal` turns a Teams sprint planning transcript (`.vtt`, `.docx`, `.txt`, pasted text, or the meeting via the Microsoft 365 connector) into a sprint goal and tasks, asks only what was not said, shows review cards, then creates the tasks in Jira after a preview and your yes (linking existing tickets) or saves them to `<ticketsDir>/sprint/<date>-goal.md`.
+
+### What to do
+
+Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`. Tag your critical tests `@smoke` (or let `/quality-code:spec` do it) and set `SMOKE_URL` in your CI settings, then run `/quality-code:ci --smoke` again to add the post-deploy job. To use `transcript-goal`, export the transcript from Teams (Recap, Transcript, Download .vtt) and run `/quality-code:transcript-goal --file <file>`.
+
 ## [0.51.0] - 2026-11-04
 
 ### Added
