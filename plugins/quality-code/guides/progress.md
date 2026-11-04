@@ -15,7 +15,7 @@ You stopped at step <step> (<label>), <age> ago.
 3. Stop
 ```
 
-- **Go on from there:** read `data`, treat every step before `step` as answered with those values (do not ask them again), and go on at the step after it. Say in one line what you took from it (`Using your earlier answers: repo, Jira teamsystem.atlassian.net, project AGT.`).
+- **Go on from there:** read `data`, treat every step before `step` as answered with those values (do not ask them again), and go on at the step after it. Say in one line what you took from it (`Using your earlier answers: repo, Jira example.atlassian.net, project ABC.`).
 - **Start over:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" clear <command>` (with `--key` when it has one) and begin at the first step.
 - **Stop:** stop.
 

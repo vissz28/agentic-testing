@@ -1,4 +1,4 @@
-// Regression tests for fixed bugs (AGT-169): the tag, the test name, and the fail-then-pass proof.
+// Regression tests for fixed bugs: the tag, the test name, and the fail-then-pass proof.
 // A bug's test must fail before the fix and pass after it. The proof compares two verdicts of the
 // same spec: the run without the fix (--regression-before) and this run.
 
