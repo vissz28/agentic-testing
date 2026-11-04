@@ -18,8 +18,8 @@ test('the guide keeps every word, number and verdict; questions use the picker w
   assert.match(guide, /never the content: every number, score, verdict, rule id, path, test name and option stays exactly as/)
   assert.match(guide, /that holds for its words, numbers and order; how it is laid out is this guide's/)
   assert.match(guide, /A `🔴 \[RISK \/ NOT RECOMMENDED\]` line stays as it is, on its own line, never softened/)
-  assert.match(guide, /the picker \(the `AskUserQuestion` tool\) when that tool is available/)
-  assert.match(guide, /`--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either\. Without the tool, show the numbered card as written and end the turn\./)
+  assert.match(guide, /Calling the picker \(the `AskUserQuestion` tool\) is THE rule for every card with options/)
+  assert.match(guide, /`--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either\. Only without the tool, show the numbered card as written and end the turn\./)
 })
 
 test('every read of Central Context is shown as a completed step, and rules.mjs is the only way spec reads it', () => {

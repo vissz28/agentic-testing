@@ -2,6 +2,8 @@
 
 Shared by `setup` and `spec` (the same three calls fit every command that asks questions). A command keeps the step it reached and the answers it has, so a person who stops (a closed window, a break, a connector that needed a sign-in) goes on from there instead of answering everything again. It is one small file per project, command and ticket, on this machine under the Claude folder: never in the repo, never sent anywhere, gone after 7 days. `progress.mjs` is the only way to read or write it.
 
+Cards follow `${CLAUDE_PLUGIN_ROOT}/guides/display.md`. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool.
+
 **Never save a token, key, password or ticket text.** Save answers only (a pick, a site, a project key, a path). The script refuses anything that looks like a secret.
 
 **1. At the start.** After the command's own check step (and not with `--ci` or `--yes`: those never ask, never resume and never save), run `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" get <command>` (add `--key <KEY>` for a ticket) and read its `PROGRESS_JSON:` line. `found` false: go on as the command says, with nothing to ask. `found` true: show this card in the picker and end the turn, `<label>` and `<age>` from the line (`ageMinutes` as `12 minutes`, `3 hours` or `2 days`):
