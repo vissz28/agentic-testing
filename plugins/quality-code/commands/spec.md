@@ -17,7 +17,7 @@ The backend runner is the one the config names: `adapter` on a backend project, 
 - **The scripts decide.** `ticket.mjs` scores the ticket; the pipeline grades the tests. Never compute, change or soften a score, a verdict or a count, and never say a test is good yourself.
 - **Never edit application code.** Write only spec files, only in the layer folders (Vitest) or the e2e folder (Playwright). Source files, config and other tests stay as they are. If the boundary hook denies a write, read its reason and write in a test folder instead.
 - **The project's runner.** `runners` in the config names it when it is not Vitest or Playwright: `runners.unit` (`jest`, `mocha`, or `node` for Node's own `node --test`) takes every Vitest part of the steps below, `runners.e2e` (`cypress`) every Playwright part. Write the tests in that runner, the way the specs already there do: Jest's `jest.fn`, `jest.mock` and `jest.useFakeTimers`; Mocha's Chai, `expect(x).to.equal(…)`; node --test's `node:test` (`describe`, `it`, `mock.fn`) and `node:assert/strict` (`assert.strictEqual(total, 108)`); Cypress's `cy.visit`, `cy.get(…).should(…)` and `cy.intercept`. Mocha and Cypress have no todo: a behaviour the ticket does not pin down gets no test, and the plan names it. The pipeline runs that runner with the generic checks, and its card says so.
-- **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
+- **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `no`, `stop` and `basta` mean the card's No, Stop or Cancel option; on the plan card, a sentence that asks for another change (not a number, not a result) means `Something else`. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **Never weaken or delete a test** to make a check pass: no removed `expect`, no looser matcher, no `.skip`, no deleted `it` or `test`.
 - **Never ask for a token**, key or password in the chat, and never show one.
@@ -104,36 +104,41 @@ The backend runner is the one the config names: `adapter` on a backend project, 
 
      Under the card always add the line `You can also pass the screen: /quality-code:spec <KEY> --route /orders`. When `features` has no route, the card is just `1. Another screen (type its path)` / `2. Stop`, with that line. On `Another screen`, ask `Which screen? Type its path in the app, for example /orders.`, check it starts with `/`, then check it against the router as above. On `Stop`, stop.
 4. **Plan.** First run `node "${CLAUDE_PLUGIN_ROOT}/bin/rules.mjs" --side <side>`, the side being `backend` on a Vitest (or other backend runner) project, `frontend` on a Playwright one, and on a fullstack project the side of step 2. Show its lines as printed, as completed steps, one per source. From its `RULES_JSON:` line (`rules`, Central Context's, `builtin.rules`, the plugin's, and `local.rules`, the team's) decide which rules apply to the tests of this ticket, as the Rules section says, and keep only those, each one's `id` and `summary`, for steps 4 and 5. Then add how many apply to each line: `Read from Central Context · 6 rules, 2 apply`, `Built-in rules · 5 drafts, 2 apply`, `Read from local rules · 3 rules, 1 applies`, or `, none apply`. When the config has `qaPlans` (a folder) and `<qaPlans><feature label>.md` exists for the ticket's feature label, read it first: a person wrote its rules for that feature, so they are extra things the tests must respect. The ticket's Then wins where they disagree; say the clash in one line under the plan. Never edit that file.
+   - **What will be written (every adapter).** Before the plan card, work out its two header lines, so the person sees what is about to be written and with what:
+     - **Runner:** the project's own when it has one, else Quality Code's default. Own: `runners` in the config, or the runner and helper libraries the nearest specs import (`Jest, Testing Library`), with `your project's` after it; with flow `project` the project's naming, folders and style go with it. Default (the project has no tests or no runner of that kind, or `testFlow` is `quality-code`): Node `Vitest + Stryker + Testcontainers`, Java `JUnit 5 + PIT + Testcontainers`, .NET `xUnit + Stryker.NET + Testcontainers`, Python `pytest`, Go `go test`, frontend `Playwright`, with `Quality Code's default` after it. Never mix: a project's own runner is never replaced by the default.
+     - **Writes:** each spec file that will be created or added to, with its real path (the name and folder of the flow in step 5, so the person sees `src/pricing.spec.ts`, not a layer name), and `(new)` or `(adds to existing)` after it. Nothing is written until the person answers.
    - **Vitest:** read the backend runner's writing guide, `${CLAUDE_PLUGIN_ROOT}/guides/<guide>`: `${CLAUDE_PLUGIN_ROOT}/guides/vitest-writing.md` for vitest, `pytest-writing.md` for pytest, `junit-writing.md` for junit, `go-writing.md` for go, `dotnet-writing.md` for dotnet. Then read the `guide` of each layer that has one (the team's own rules on top of it; they win where they differ). Read the target. Give each scenario of the ticket one line and one layer (the first layer unless a layer guide says otherwise), and under it the result it checks, as a plain sentence from the ticket's Then (`We check: the total is 108.00`). Show this card and end the turn: it is the second of the three questions. With `--yes` or `--ci`, show it as information instead (its lines without the numbered options, under `Writing these tests:`) and go on to step 5 without stopping: **Scenarios only a database can check.** A scenario that is a property of stored data (every code has a row, a seed's categories, a migration's constraint) cannot be checked by a unit test over a mocked table: the test would only restate the mock, and a green verdict would claim more than was proven. When the config has `externalChecks` and one of its files holds that property, do not write a unit test for the scenario: give it its line on the plan as `We check: checked outside the unit tests, in <file> (read, not run by Quality Code)`, and the expected-value check counts the values that file asserts. Without `externalChecks`, give the scenario a line `We check: needs a database test, not a unit test` and write no restating test; at the end say once `Add the file that checks <scenario> to externalChecks in .claude/quality-code.json (for example a pgTAP file), so the verdict can name it.` Never turn such a scenario into a unit test over mocked rows only to satisfy the expected-value check.
 
      ```
      Tests for <KEY>, against <target>
+       Runner   <runner and libraries> (<your project's | Quality Code's default>)
+       Writes   <file path> (<new | adds to existing>)
        <layer>   <scenario, in a few words>
        <layer>   <scenario, in a few words>
-     1. Write these tests
-     2. Change the layers
-     3. No, I'll type the right result
-     4. Stop
+     1. Yes, write these tests
+     2. No, stop
+     3. Something else
      ```
 
-     On `2`, ask which scenario goes in which layer (the layer names only), then show the plan card again. On `3`, ask `What should the result be?` and add the answer to the ticket as ticket-eval's guided fill-in does (`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`; its Jira update card follows when it is accepted), then show the plan again with the new result. Never write a result into a test that the ticket file does not hold. On `4`, stop.
+     On `3`, show this card and end the turn: `1. Change the layers`, `2. The result is different: I'll type it`, `3. Something else: I'll say it in words`, `4. Back`. On `1`, ask which scenario goes in which layer (the layer names only), then show the plan card again. On `2`, ask `What should the result be?` and add the answer to the ticket as ticket-eval's guided fill-in does (`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`; its Jira update card follows when it is accepted), then show the plan again with the new result. Never write a result into a test that the ticket file does not hold. On `3`, take what the person says (another file, another runner, fewer scenarios), change the plan to match it when the rules allow, and show the plan card again; when they ask for something the rules forbid, say so in one line. On `4`, show the plan card again. On `2` of the plan card, stop.
    - **Playwright:** read `${CLAUDE_PLUGIN_ROOT}/guides/playwright-writing.md`, then `playwright.guide` when it is set (the team's own rules on top of it; they win where they differ). Read at most two specs already in the e2e folder, the closest to the screen, for their imports, fixtures, login and stub shapes. To find the real roles, labels and texts the screen shows, you may read the branch's changed files of kind `code` for that screen (`node "${CLAUDE_PLUGIN_ROOT}/bin/branch.mjs" --detect`, or `--merged <KEY>` when the branch shows none: translation files count as code there); never show them in the chat. Give each scenario one line, with the result it checks as a plain sentence from the ticket's Then (`We check: the grid shows No orders found`). Then, unless `$ARGUMENTS` has `--no-extras`, pick at most 3 extra probes from the guide's list that apply to this screen and that the guide lets you assert. Show this card and end the turn, as for Vitest (with `--yes` or `--ci`, as information, without stopping):
 
      ```
      Tests for <KEY>, on <route>
+       Runner   <runner and libraries> (<your project's | Quality Code's default>)
+       Writes   <file path> (<new | adds to existing>)
        From the ticket
          <scenario, in a few words>
        Extra (not in the ticket)
          <probe, in a few words>
-     1. Write these tests
-     2. Leave out the extras
-     3. No, I'll type the right result
-     4. Stop
+     1. Yes, write these tests
+     2. No, stop
+     3. Something else
      ```
 
-     With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order.
+     On `3`, show this card and end the turn: `1. Leave out the extras`, `2. The result is different: I'll type it`, `3. Something else: I'll say it in words`, `4. Back` (with no extra probe, leave out `Leave out the extras` and number the rest in order). Answers as for Vitest.
 
-   **Tests already on the branch.** When the ticket came from the branch (step 1) and its `files` hold tests (kind `test`, status other than `D`), add the option `Only check the tests already on this branch` before the plan card's Stop. On it, read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite `full`, those spec paths and `--key <KEY>`, show its card as printed, and stop. On `Leave out the extras`, drop them and show the plan card again. On `No, I'll type the right result`, do as for Vitest. On `Stop`, stop.
+   **Tests already on the branch.** When the ticket came from the branch (step 1) and its `files` hold tests (kind `test`, status other than `D`), add the option `Only check the tests already on this branch` before the plan card's `No, stop`. On it, read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite `full`, those spec paths and `--key <KEY>`, show its card as printed, and stop. On `Leave out the extras`, drop them and show the plan card again. On `The result is different`, do as for Vitest. On `No, stop`, stop.
 5. **Write.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run start --key <KEY>` before writing any file. If it exits with an error because a run is already active, show its line, then this card and end the turn:
 
    ```

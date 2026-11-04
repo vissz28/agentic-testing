@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-04
+
+### Changed
+
+- `/quality-code:spec`: the plan card now says what will be written before anything is: the runner and libraries, and the file paths (new or added to). It uses your project's own runner, libraries and flow when it has them, and Quality Code's defaults when it has none (Vitest + Stryker + Testcontainers, JUnit 5 + PIT + Testcontainers, xUnit + Stryker.NET + Testcontainers, pytest, Go, Playwright). The options are `1. Yes, write these tests`, `2. No, stop` and `3. Something else` (change the layers, leave out the extras, type a different result, or say it in words).
+
+### What to do
+
+Nothing. `--yes` and `--ci` still skip the question and show the plan as information.
+
 ## [0.44.2] - 2026-11-03
 
 ### Changed

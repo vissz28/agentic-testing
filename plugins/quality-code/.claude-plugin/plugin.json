@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality Code",
-  "version": "0.44.2",
+  "version": "0.45.0",
   "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes backend tests (Vitest, pytest, JUnit, Go, .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
   "homepage": "https://teamsystem.ghe.com/teamsystem/quality-code#readme",
   "repository": "https://teamsystem.ghe.com/teamsystem/quality-code",

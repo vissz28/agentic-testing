@@ -232,8 +232,9 @@ story += [p('6. Have tests written from a ticket', 'h1'),
               '<b>Gate.</b> The ticket is scored first. Only a ticket that passes (or option 3, marked at risk) gets tests.',
               '<b>Target.</b> Vitest: which code the ticket changes. Playwright: which screen (from --route or the '
               'feature\'s route). Pick from the card.',
-              '<b>Plan.</b> The scenarios from the ticket, one line each, and where each goes. Pick '
-              '<b>1. Write these tests</b>.',
+              '<b>Plan.</b> What will be written (runner, libraries, file paths), then the scenarios from the ticket, one '
+              'line each, and where each goes. Pick <b>1. Yes, write these tests</b>, <b>2. No, stop</b> or '
+              '<b>3. Something else</b>.',
               '<b>Write.</b> The specs are written only in your test folders; application code is never touched '
               '(a hook blocks it). Real expected values from the ticket, one test per scenario.',
               '<b>Check.</b> The pipeline grades them. Fixable problems get at most 2 rewrites of the tests only.',

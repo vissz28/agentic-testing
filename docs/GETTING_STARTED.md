@@ -204,11 +204,14 @@ On your feature branch, `/quality-code:spec` alone does the same. It goes like t
    it passes and writing goes on; otherwise nothing is written.
 2. **Which code?** It proposes the source file the ticket changes: `1. <path> / 2. <path> /
    3. Another file / 4. Stop`. Add `--target src/pricing.ts` to skip this card.
-3. **The plan.** One line per scenario of the ticket, with the test folder it goes in and what it
-   checks (`We check: the total is 108.00`). The folders come from `/quality-code:setup advanced`; by
-   default it is `test/`. You confirm it: `1. Write these tests / 2. Change the layers /
-   3. No, I'll type the right result / 4. Stop` (`--yes` skips the question). A result you type is added to the ticket, never only
-   to a test.
+3. **The plan.** First what will be written: the runner and libraries (your project's own when it has
+   them, else Quality Code's default: Vitest + Stryker + Testcontainers, JUnit 5 + PIT + Testcontainers,
+   xUnit + Stryker.NET + Testcontainers) and the file paths. Then one line per scenario of the ticket,
+   with the test folder it goes in and what it checks (`We check: the total is 108.00`). The folders come
+   from `/quality-code:setup advanced`; by default it is `test/`. You confirm it: `1. Yes, write these
+   tests / 2. No, stop / 3. Something else` (`--yes` skips the question). Under `Something else` you can
+   change the layers, type a different result, or say what you want in words. A result you type is added
+   to the ticket, never only to a test.
 4. **The tests are written** in those folders only, with the real expected values from the ticket.
    Your code is never changed.
 5. **The checks run**, as in `/quality-code:run-pipeline --branch`, plus two more: every expected value from the
