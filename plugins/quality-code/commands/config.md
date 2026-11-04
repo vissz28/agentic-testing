@@ -9,17 +9,28 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- **Scripts write, never you.** The project config is written only by `setup.mjs`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit `.claude/quality-code.json`, the personal config or a settings file yourself.
+- **Scripts write, never you.** The project config is written only by `setup.mjs` or `ticket.mjs config set`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit `.claude/quality-code.json`, the personal config or a settings file yourself.
 - **Never ask for a token**, key or password in the chat, and never show one. If the user pastes one anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
 - **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output.
+
+## The quick way: set or get one setting directly
+
+When the person gives `set <key> <value>` or `get <key>` (for example `/quality-code:config set jira.projects ABC,DEF`, `config set git.base develop`, `config set ticketsDir .qc/tickets`, `config get jira.site`), skip the cards and do only this:
+
+- **get:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config get <key>` (add `--personal` or `--project` when asked) and show its first line.
+- **set:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config set <key> <value>` (same scope flags) without `--yes`. It prints `<key>: <old> -> <new>` and writes nothing. Show that line, ask `Change it?` with the picker (`1. Yes / 2. No`, as display.md says), and on yes run the same command again with `--yes`. When the person already wrote `--yes`, pass it at once and skip the question.
+- **Keys:** dotted, lists with commas, `true`/`false` and numbers typed: `jira.site`, `jira.projects`, `jira.trackingProjects`, `jira.bugTypes`, `jira.doneStatuses`, `jira.acceptanceCriteriaField`, `git.base`, `root`, `ticketsDir`, `testFlow`, `languages`, `titlePrefixes`, `qa.app`, `qa.sprint`, `qa.executionTypes`, `qa.statuses.ko|ready|done`, `qa.blockedStop`, `qa.autoPass`, and `place` (files and logs: `repo`, `local` or `chat`). `none` removes an optional one. The script checks the value with the rules the setup writers use and prints a clear error, with nothing written, for an unknown key, a bad value, or anything that looks like a token or key; show the error as it is and stop.
+- **Scope:** `--personal` or `--project`; with neither, the config that exists (the repo's first).
+- **Not here:** tokens, keys, passwords and the plugin settings (Jira email, GitLab address and username, Xray address) are never set this way. For those say `Set it in /plugin, never in the chat: type /plugin, choose quality-code, Configure options, then /reload-plugins.`
+- End with the step 4 line for what changed (commit the repo config), and do not show the card again.
 
 ## Steps
 
 1. **Read.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. It prints `ok (<repo|personal>: <path>)`, or the problems. If the config is missing, say `Quality Code is not set up here yet: run /quality-code:setup.` and stop. If the config is broken, show the problems; the plugin settings (items 8 to 10 below) can still be changed. Read the config at that path. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get` and read its `SAVE_JSON:` line: `place`, `ticketsDir` and `options` (where this person keeps the project's files and logs; see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`). The plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`, `gitlab_username` is `${user_config.gitlab_username}`, `xray_api_url` is `${user_config.xray_api_url}`.
 
    **Tokens and keys, without reading them.** A token connector offers tools only when its token is set, so look at which tools this session has. GitLab token: the plugin's `gitlab-token` connector has tools. Figma key: `figma-token` has tools. Xray API key: `xray` offers `get_test_run`. Each one is `✅ set` or `not set`. GitHub: run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `here.github` in its `SETUP_JSON:` line: `✅ <login> (gh)`, or `<reason>`. Leave GitHub off the card when `here.github` is not set (the repo is not on GitHub). For a repo config, run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style` and read `report` in its `CONNECTOR_SETTINGS_JSON:` line.
-2. **The card.** Show it and end the turn. Show `not set` for an empty value, and leave out items 4 and 15 (and the Replies line) for a personal config:
+2. **The card.** Start with a short summary and end the turn: one line per section with only what is worth a glance (stack, Jira projects, base branch, where files are kept, which tokens are not set), then this line: `Type a number or the name of a setting, "all" for every setting, or stop. The quick way: /quality-code:config set <key> <value>, for example set git.base develop.` The full card below is shown when the person types `all` or asks for a section. The full card: show `not set` for an empty value, and leave out items 4 and 15 (and the Replies line) for a personal config:
 
    ```
    Quality Code settings
@@ -119,7 +130,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
    - after item 15: `Commit .claude/settings.json so your team gets it too. It applies from your next message.`
    - after item 16: the repo config line above; it applies from the next `/quality-code:qa` run.
 
-   Then show the card again (step 2), with the new value.
+   Then show the short summary again (step 2) with the new value, and the full card only if the person asked for `all`.
 
 ## Examples
 
