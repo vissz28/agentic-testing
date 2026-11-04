@@ -1,5 +1,11 @@
 # Writing JUnit tests from a ticket
 
+## Project conventions come first
+
+When the project already has tests, follow its own naming, folders, base classes, annotations, assertion style and helpers: they win over everything below about how a test looks. This guide only fills what the project does not decide: what a test must check, mutation and the rules. Read the nearest specs first (`FLOW_JSON` from `ticket.mjs config flow` lists the detected naming and style).
+
+The Java examples below (class suffix `Test`, same package as the code, a base class, JUnit assertions) are defaults, used only when the project has no tests.
+
 The generic rules `/quality-code:spec` always follows for Java and Kotlin with JUnit 5 (JUnit 4 is
 read too). A layer's own `guide` (set in `junit.layers`) adds the team's conventions on top of these
 and wins where they differ.

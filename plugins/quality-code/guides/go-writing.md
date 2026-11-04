@@ -1,5 +1,9 @@
 # Writing Go tests from a ticket
 
+## Project conventions come first
+
+When the project already has tests, follow its own naming, folders, base classes, annotations, assertion style and helpers: they win over everything below about how a test looks. This guide only fills what the project does not decide: what a test must check, mutation and the rules. Read the nearest specs first (`FLOW_JSON` from `ticket.mjs config flow` lists the detected naming and style).
+
 The generic rules `/quality-code:spec` always follows for a Go backend (`go test`). A layer's own
 `guide` (set in `go.layers`) adds the team's conventions on top of these and wins where they differ.
 The pipeline reads the tests with simple rules: a test written another way may run, but the checks
