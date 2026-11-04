@@ -438,10 +438,10 @@ again. Like the audit log it is local, and off with `QC_NO_AUDIT=1`.
 **Quality Code in CI (GitHub Actions and GitLab CI).** `/quality-code:ci` writes a CI file with two jobs for
 every pull request (GitHub) or merge request (GitLab). No model is involved: scripts decide.
 
-- **quality-gate** (git and node only, no install, seconds), on the specs the request changed: **honesty** (no
+- **test_quality_gate** (git and node only, no install, seconds), on the specs the request changed: **honesty** (no
   assertion or test removed, no test skipped without a ticket; a deleted spec and the old path of a renamed one
   count), **assertions** (every test of a changed spec asserts something) and the **frozen evals**.
-- **quality-tests** (the project installed), what the request touched through the pipeline: the changed specs, one
+- **test_quality_tests** (the project installed), what the request touched through the pipeline: the changed specs, one
   run per module (a backend layer, the first folder under the e2e folder), with **types, tests and mutation**. A
   side whose code changed but no spec did runs its whole suite **without mutation** (the slow step stays on the
   changed specs); a shared file (`package.json`, a lockfile, `tsconfig`, a runner config, `pom.xml`, `go.mod`)

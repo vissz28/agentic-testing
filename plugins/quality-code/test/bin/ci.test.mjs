@@ -46,15 +46,16 @@ test('both files hold the gate (requests only, no install) and the tests (reques
   for (const t of [gh, gl]) {
     assert.match(t, /^# Quality Code/)
     assert.equal((t.match(/--branch quality-code--v9\.8\.7 /g) ?? []).length, 2)
-    assert.match(t, /quality-gate:[\s\S]*bin\/ci\.mjs\n[\s\S]*quality-tests:[\s\S]*npm ci[\s\S]*bin\/ci\.mjs --tests/)
-    assert.doesNotMatch(t.slice(t.indexOf('quality-gate:'), t.indexOf('quality-tests:')), /npm ci/, 'the gate installs nothing')
+    assert.match(t, /test_quality_gate:[\s\S]*bin\/ci\.mjs\n[\s\S]*test_quality_tests:[\s\S]*npm ci[\s\S]*bin\/ci\.mjs --tests/)
+    assert.doesNotMatch(t.slice(t.indexOf('test_quality_gate:'), t.indexOf('test_quality_tests:')), /npm ci/, 'the gate installs nothing')
   }
   assert.match(gh, /on:\n  pull_request:\n  push:\n    branches: \[main\]/)
-  assert.match(gh, /quality-gate:\n    if: github\.event_name == 'pull_request'/)
+  assert.match(gh, /test_quality_gate:\n    if: github\.event_name == 'pull_request'/)
   assert.equal((gh.match(/fetch-depth: 0/g) ?? []).length, 2)
   assert.equal((gl.match(/GIT_DEPTH: "0"/g) ?? []).length, 2)
-  assert.match(gl, /quality-gate:[\s\S]*merge_request_event"\n  script:/, 'the gate: merge requests only')
-  assert.match(gl, /quality-tests:[\s\S]*merge_request_event"\n    - if: \$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH/)
+  assert.match(gl, /test_quality_gate:[\s\S]*merge_request_event"\n  script:/, 'the gate: merge requests only')
+  assert.equal((gl.match(/^test_quality_(gate|tests):\n  stage: test\n/gm) ?? []).length, 2, 'TeamSystem\'s CI naming: the test stage, <stage>_<description> job names')
+  assert.match(gl, /test_quality_tests:[\s\S]*merge_request_event"\n    - if: \$CI_COMMIT_BRANCH == \$CI_DEFAULT_BRANCH/)
   assert.match(gl, /retry:\n    max: 2\n    when: \[runner_system_failure/, 'a dead runner is retried')
   assert.doesNotMatch(gl, /script_failure/, 'a red test is never retried')
   assert.match(gl, /--tests --junit quality-code-junit\.xml\n  artifacts:\n    when: always\n    reports:\n      junit: quality-code-junit\.xml/)
@@ -64,7 +65,7 @@ test('both files hold the gate (requests only, no install) and the tests (reques
 test('the stack shapes the tests job: its toolchain, install lines, Docker for Testcontainers, a project in a subfolder', () => {
   const s = { backend: 'pytest', playwright: true, pm: 'pnpm', lock: false, prisma: false, containers: true, pip: ['requirements.txt'], pyproject: true, maven: false, go: '1.23', prefix: 'api/', defaultBranch: 'develop' }
   const gl = template('gitlab', '1.0.0', s)
-  assert.match(gl, /quality-tests:\n  image: python:3\.12/)
+  assert.match(gl, /test_quality_tests:\n  stage: test\n  image: python:3\.12/)
   assert.match(gl, /services:\n    - name: docker:24-dind\n      alias: docker/)
   assert.match(gl, /DOCKER_HOST: tcp:\/\/docker:2375\n    DOCKER_TLS_CERTDIR: ""\n    TESTCONTAINERS_RYUK_DISABLED: "true"/)
   assert.match(gl, /script:\n    - cd api\/\n    - curl -fsSL https:\/\/nodejs\.org\/dist\/v22[^\n]*\n    - corepack enable && pnpm install --frozen-lockfile\n    - pnpm exec playwright install --with-deps\n    - pip install -r requirements\.txt\n/)

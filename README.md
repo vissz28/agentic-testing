@@ -283,8 +283,8 @@ Routines run while the Claude app is open; a run missed while it was closed runs
 
 `/quality-code:ci [github|gitlab] [--print]`
 
-Writes a CI file with two jobs per pull/merge request: `quality-gate` (seconds: honesty and assertion
-checks on the changed tests) and `quality-tests` (types, tests and mutation on what changed).
+Writes a CI file with two jobs per pull/merge request: `test_quality_gate` (seconds: honesty and assertion
+checks on the changed tests) and `test_quality_tests` (types, tests and mutation on what changed).
 
 | Option | What it does |
 |---|---|

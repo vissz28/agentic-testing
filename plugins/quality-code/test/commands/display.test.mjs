@@ -79,7 +79,7 @@ test('a "user has not heard from you" reminder is answered with the checklist, n
 
 test('the central-context connector: one search on the ticket\'s topic every run, dropped when nothing fits, shown, checked with the connectors', () => {
   const spec = read('commands/spec.md')
-  assert.match(spec, /Step 4 always starts with that search: `search_knowledge` with what the code under test does in a few English words[^\n]*no `domain`, `max_results` 5, and `client_context` the project folder's name and the key/)
+  assert.match(spec, /Step 4 always starts with that search: `search_knowledge` with what the code under test does in a few English words[^\n]*no `domain`, `max_results` 5, and `client_context` the project folder's name, `#` and the key, with no space \(`shop#ABC-123`/)
   assert.match(spec, /A second search only for a topic the ticket touches that the first missed[^\n]*never more\./)
   assert.match(spec, /a hit that does not, or no hit at all, is dropped, and the run goes on with the rules `rules\.mjs` reads/)
   assert.match(spec, /Those rules are candidates the same way, and the team's own rules still win\. Without the connector, the search is skipped and said so\./)
@@ -88,4 +88,14 @@ test('the central-context connector: one search on the ticket\'s topic every run
   const c = read('guides/connectors.md')
   assert.match(c, /\| Central Context \| find the tools of the `central-context` connector; call `search_knowledge` with the query `test` and `max_results` 1 \|/)
   assert.match(c, /It is optional, like GitHub: not ✅ is `⚠️ Central Context not connected` in the line, never a card, and the run goes on/)
+})
+
+test('ci checks the file it wrote against Central Context\'s CI rules, shown as a step, and never edits the file for a rule', () => {
+  const ci = read('commands/ci.md')
+  assert.match(ci, /2\. \*\*Central Context\.\*\* Check the file against TeamSystem's rules for CI with the `central-context` connector: `search_knowledge` with the query `CI\/CD pipeline stages and job names`, `domain` `quality`, `max_results` 5, and `client_context`/)
+  assert.match(ci, /`Searched Central Context · "CI\/CD pipeline stages and job names" · 5 rules, 1 applies ✅`/)
+  assert.match(ci, /`✅ <rule id>: met` or `⚠️ <rule id>: <what differs, in a few words>`/)
+  assert.match(ci, /\(`shop#ci`: Central Context refuses spaces\)/)
+  assert.match(ci, /A rule never changes the file: never edit it to meet one/)
+  assert.match(ci, /Without the connector: `Searched Central Context · not connected ⚠️`, and go on\./)
 })
