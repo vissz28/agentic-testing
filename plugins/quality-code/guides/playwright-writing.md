@@ -73,6 +73,45 @@ test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
   assertion still passes then fails the check. Assert on the element the ticket names.
 - A behaviour the ticket does not pin down is a `test.fixme('…')`, never a guess.
 
+## Accessibility (axe)
+
+Every spec of a screen also scans that screen with axe, unless the run turned it off
+(`--no-axe`, or `No accessibility scan` on the plan card). It is a guide of its own so the
+other sections stay as they are.
+
+- **One test per screen**, named `Accessibility: <route> has no axe violations`, written last in
+  the describe block (inside the `@<KEY>` block, like the others). It opens the screen as the
+  other tests do, waits for the screen to show (one web-first assertion on an element the ticket
+  names), then scans:
+
+```ts
+import AxeBuilder from '@axe-core/playwright'
+
+test('Accessibility: /orders/new has no axe violations', async ({ page }) => {
+  await page.goto('/orders/new')
+  await expect(page.getByRole('heading', { name: 'New order' })).toBeVisible()
+
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+
+  expect(results.violations).toEqual([])
+})
+```
+
+- **WCAG 2.1 AA tags only** (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`): the scan must give the same
+  answer on every machine. No best-practice or experimental rules.
+- **It fails on any violation**: `expect(results.violations).toEqual([])`. Never filter a violation
+  out, never `.disableRules(…)` to get green, never assert on a count above 0. A red scan is a real
+  finding: report it (tag it `@finding` like an extra probe), never loosen it.
+- **Install:** `@axe-core/playwright` is a dev dependency of the project (`npm install -D
+  @axe-core/playwright`, or the project's package manager). Check `package.json` first; when it
+  is missing, ask before installing, and never install without a yes. With no yes, write no scan
+  and say so on the plan card.
+- If the project's specs already have an axe helper or fixture, use it instead of `AxeBuilder` here.
+- The scan is part of the screen's coverage: it adds one test, not one per scenario, and the
+  pipeline's assertion checks accept `expect(results.violations).toEqual([])` as an assertion.
+
 ## Waiting
 
 - **No `page.waitForTimeout`** and no other sleep: web-first assertions and actions already wait.
