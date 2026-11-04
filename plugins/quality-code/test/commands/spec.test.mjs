@@ -17,6 +17,12 @@ test('steps come in order: check, ticket and gate, target, plan, write, check, c
   assert.ok(at.every(i => i > 0), JSON.stringify(at))
   assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
+test('step 5 adds to the file that tests the target or the central file before any new file', () => {
+  assert.ok(step(5).includes('ticket.mjs" config test-home <target>'))
+  assert.match(step(5), /`unit-file`.*`central`.*`none`/s)
+  assert.match(step(5), /Never one new class or file per ticket when a home exists/)
+  assert.match(step(4), /adds to existing/)
+})
 test('the rules: scripts grade, never edit application code, never weaken or delete a test', () => {
   assert.match(doc, /Never edit application code/)
   assert.match(doc, /[Nn]ever weaken or delete a test/)
