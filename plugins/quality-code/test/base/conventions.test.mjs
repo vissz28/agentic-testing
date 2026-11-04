@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -107,4 +107,55 @@ test('setup --detect reports the conventions, and --write keeps testFlow', () =>
   const bad = spawnSync(process.execPath, [SETUP, '--write', JSON.stringify({ config: { ...CFG, testFlow: 'mine' } })], { cwd: root, env, encoding: 'utf8' })
   assert.doesNotMatch(bad.stdout, /^ok/m)
   assert.match(bad.stdout + bad.stderr, /testFlow/)
+})
+
+function javaProject() {
+  const root = project()
+  const w = (f, s) => { mkdirSync(join(root, dirname(f)), { recursive: true }); writeFileSync(join(root, f), s) }
+  w('src/main/java/com/acme/pricing/Price.java', 'package com.acme.pricing;\nclass Price {}\n')
+  const spec = n => `package com.acme.pricing;\n\nimport static org.assertj.core.api.Assertions.assertThat;\nimport org.junit.jupiter.api.Test;\n\n@SpringBootTest\n@ExtendWith(MockitoExtension.class)\nclass ${n}Spec extends AbstractIntegrationTest {\n  @Test\n  void works() { assertThat(1).isEqualTo(1); }\n}\n`
+  w('src/test/java/com/acme/pricing/PriceSpec.java', spec('Price'))
+  w('src/test/java/com/acme/pricing/StockSpec.java', spec('Stock'))
+  return root
+}
+
+test('Java: a Spec suffix, a base class, AssertJ and mirrored packages are detected, and the flow follows them', () => {
+  assert.equal(testNameOf('PriceSpec.java').pattern, 'Spec.java')
+  assert.equal(testNameOf('PriceSpec.groovy').pattern, 'Spec.groovy')
+  const root = javaProject()
+  const c = detectConventions(root)
+  assert.equal(c.pattern, 'Spec.java')
+  assert.equal(c.testStyle.classMark, 'Spec')
+  assert.equal(c.testStyle.packages, 'mirrors the code')
+  assert.equal(c.testStyle.baseClass, 'AbstractIntegrationTest')
+  assert.ok(c.testStyle.extensions.includes('@SpringBootTest'))
+  assert.ok(c.testStyle.extensions.includes('@ExtendWith(MockitoExtension)'))
+  assert.equal(c.testStyle.assertions[0], 'assertj')
+  assert.ok(c.testStyle.annotations.includes('@Test'))
+  const j = { adapter: 'junit', jira: CFG.jira }
+  assert.equal(runFlow(j, c), 'project', 'JUnit too follows the project when it has tests')
+  assert.equal(runFlow(j, c, 'quality-code'), 'quality-code', '--flow still wins')
+  const f = flowJson(run(root, 'config', 'flow').stdout)
+  assert.equal(f.flow, 'project')
+  assert.equal(f.testStyle.baseClass, 'AbstractIntegrationTest')
+})
+
+test('a project without JVM specs has no testStyle, and a test package layout is told apart', () => {
+  assert.equal(detectConventions(project(['src/a.spec.ts'])).testStyle, undefined)
+  const root = project()
+  mkdirSync(join(root, 'src/test/java/com/acme/tests'), { recursive: true })
+  writeFileSync(join(root, 'src/test/java/com/acme/tests/PriceIT.java'), 'package com.acme.tests;\nimport org.hamcrest.MatcherAssert;\nclass PriceIT {}\n')
+  const s = detectConventions(root).testStyle
+  assert.equal(s.classMark, 'IT')
+  assert.equal(s.packages, 'test package')
+  assert.equal(s.assertions[0], 'hamcrest')
+})
+
+test('every writing guide opens with "Project conventions come first"', () => {
+  for (const g of ['junit', 'pytest', 'go', 'dotnet', 'vitest']) {
+    const text = readFileSync(new URL(`../../guides/${g}-writing.md`, import.meta.url), 'utf8')
+    assert.match(text, /^## Project conventions come first$/m, g)
+    assert.ok(text.indexOf('## Project conventions come first') < text.indexOf('## Shape'), `${g}: before the shape rules`)
+  }
+  assert.match(readFileSync(new URL('../../guides/junit-writing.md', import.meta.url), 'utf8'), /defaults, used only when the project has no tests/)
 })
