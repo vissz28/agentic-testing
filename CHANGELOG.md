@@ -9,6 +9,22 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-04
+
+### Added
+
+- **Richer result cards (AGT-176).** `guides/display.md` gains a headline row (verdict, score, ten-square bar with the gate, short counts for tests, negative, accessibility, visual and database), a `Next:` line, collapsible `<details>` for long lists, and one set of marks, used by spec, ticket-eval, tickets-eval, the run commands, kpi, consumption and ci. Cards are still never code blocks.
+- **A report page with charts (AGT-178).** `--report` on `/quality-code:kpi`, `/quality-code:tickets-eval` and `/quality-code:consumption` writes one self-contained HTML file (inline SVG, light and dark, no scripts or network) to `<ticketsDir>/reports/`: verdict trend, pass rate per ticket, score distribution, mutation, cost by command, day and model. Only keys, scores and numbers go in. In the desktop app it can publish the file as a private Artifact after your yes. The chat card stays the text version.
+
+### Changed
+
+- `transcript-goal`, the `ticket-eval` story rewrite, `clean`, `clean-cache`, `config set/get` and `run-smoke` follow the display guide: a headline first, sections and tables, a wrap-up where something is made, a Next line, no code-block cards (AGT-177). Their safety rules are unchanged.
+- `consumption` reads the project's own config instead of the home folder's when given an environment.
+
+### What to do
+
+Run `/plugin update quality-code@teamsystem`, then `/reload-plugins`. Try `/quality-code:kpi --report` and open the `HERE` link.
+
 ## [0.53.0] - 2026-11-04
 
 ### Added

@@ -283,6 +283,11 @@ story += [p('More commands', 'h1'),
               ['Regression from a bug', 'A Bug ticket becomes a @regression test that fails first and passes after the fix. routine --regression runs them.'],
               ['Smoke suite', 'run-smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
           ], [38, 132]),
+          p('Report pages with charts', 'h2'),
+          code('/quality-code:kpi --report\n/quality-code:tickets-eval ABC --report\n/quality-code:consumption --report'),
+          p('Each writes one self-contained HTML page (light and dark, no network) with charts: verdicts over time, pass rate per '
+            'ticket, score bands, mutation, cost by command and day. Only keys, scores and numbers go in. The chat still shows '
+            'the text card, now with a headline row (verdict, score, bar with the gate), a Next line and collapsible detail.'),
           p('Settings, cache and clean-up', 'h2'),
           code('/quality-code:config set git.base develop\n/quality-code:config get jira.site\n'
                '/quality-code:clean-cache --all\n/quality-code:clean --dry-run'),

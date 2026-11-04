@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('Richer cards and report pages (0.54).', 'Result cards get a headline row (verdict, score, bar with the gate, counts), a Next line and collapsible detail. kpi, tickets-eval and consumption take --report and write one self-contained HTML page with charts. The newer commands follow the same layout.'),
     ('Clear the cache, or undo the setup (0.53).', 'clean-cache deletes only the local cache. clean removes what the plugin created (setup files, saved output, cache; your tests and personal config only if you pick them) and always asks one explicit yes.'),
     ('config set (0.53).', 'Change one setting directly, for example config set git.base develop. Checked by the setup rules; nothing is written on an error or a secret.'),
     ('More kinds of tests (0.52).', 'Negative cases on every ticket, an axe accessibility scan, optional visual regression, database checks with Testcontainers, a regression test from a Bug, and a smoke suite (run-smoke, ci --smoke).'),
@@ -114,14 +115,14 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --stability N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
 ]),
           p('5. For QA and product owners', 'h1'), cmds([
-    ('/quality-code:tickets-eval', 'Scores a whole Jira project, read-only.', '/quality-code:tickets-eval ABC'),
+    ('/quality-code:tickets-eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:tickets-eval ABC'),
     ('/quality-code:xray', 'Writes Xray test cases from a ticket as a CSV and case.xlsx.', '/quality-code:xray ABC-123'),
     ('/quality-code:qa', 'Runs your Xray manual tests with an agent; you give every verdict; nothing reaches Jira without a preview.', '/quality-code:qa --resume'),
     ('/quality-code:seed', 'Loads realistic mock data for a ticket into your local database only.', '/quality-code:seed ABC-123'),
 ]),
           p('6. Numbers', 'h1'), cmds([
-    ('/quality-code:kpi', 'Tickets gated, fill-ins, verdicts and the Quality Program numbers. Read-only.', '/quality-code:kpi --since 30d'),
-    ('/quality-code:consumption', 'AI usage and estimated cost of the plugin\'s runs, read locally.', '/quality-code:consumption --by command'),
+    ('/quality-code:kpi', 'Tickets gated, fill-ins, verdicts and the Quality Program numbers. Read-only. --report writes an HTML page with charts.', '/quality-code:kpi --since 30d --report'),
+    ('/quality-code:consumption', 'AI usage and estimated cost of the plugin\'s runs, read locally. --report writes an HTML page with charts.', '/quality-code:consumption --by command'),
 ])]
 
 SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm, bottomMargin=20 * mm,
