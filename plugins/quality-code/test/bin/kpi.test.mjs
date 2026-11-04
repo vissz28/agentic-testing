@@ -144,7 +144,7 @@ test('usage errors: exit 2 with the usage line', async () => {
   for (const args of [['--since'], ['--since', 'yesterday'], ['--until', '14/10/2026'], ['--by', 'day'], ['--since', '2026-10-10', '--until', '2026-10-01']]) {
     const r = await run(args, project(FULL))
     assert.equal(r.code, 2, args.join(' '))
-    assert.match(r.err, /usage: kpi\.mjs \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--json\]/)
+    assert.match(r.err, /usage: kpi\.mjs \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--json \| --report\]/)
   }
 })
 test('a gate without a key counts as its own ticket; unknown criteria keep their key', () => {
