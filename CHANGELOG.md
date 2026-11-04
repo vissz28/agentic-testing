@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-04
+
+### Changed
+- `/quality-code:ci` names its jobs `test_quality_gate` and `test_quality_tests` (GitLab: `stage: test`), as Central Context's CI naming standard asks. **To do:** run `/quality-code:ci` again to rewrite the file; on GitHub, a branch protection that requires `quality-gate` now requires `test_quality_gate`.
+
+### Added
+- `/quality-code:ci` checks the file it wrote against Central Context's CI rules with the `central-context` connector, shown as the `Searched Central Context` step with one line per rule that applies (met, or what differs). It never edits the file for a rule.
+
+### Fixed
+- `/quality-code:spec`: the Central Context search sent `client_context` with a space, which Central Context refuses, so the search failed on every run. It now sends `<project>#<KEY>`.
+
 ## [0.46.0] - 2026-11-03
 
 ### Added
