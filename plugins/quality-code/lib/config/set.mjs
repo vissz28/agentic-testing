@@ -1,0 +1,178 @@
+// `ticket.mjs config set <key> <value>` and `config get <key>`: change or read one setting of the project
+// config, the personal config or the file location, by a dotted key. Every change is checked by
+// validateConfig and written by the same writers setup uses; nothing is written on an error, and a
+// secret (a token-like key or value) is refused before anything else.
+import { existsSync, readFileSync } from 'node:fs'
+import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from '../base/config.mjs'
+import { pickPlace, placeDirs, placeOf, placesFor } from '../base/places.mjs'
+import { FLOWS } from '../base/conventions.mjs'
+import { write, writePersonal } from '../../bin/setup.mjs'
+
+const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url' }
+/** The settings `config set` can change: dotted key -> type. Nothing else is settable here. */
+export const KEYS = Object.freeze({
+  'jira.site': { type: T.url },
+  'jira.projects': { type: T.list },
+  'jira.trackingProjects': { type: T.list, optional: true },
+  'jira.bugTypes': { type: T.list, optional: true },
+  'jira.doneStatuses': { type: T.list, optional: true },
+  'jira.acceptanceCriteriaField': { type: T.text, optional: true },
+  'git.base': { type: T.text, optional: true },
+  'root': { type: T.text, optional: true, project: true },
+  'ticketsDir': { type: T.text, optional: true },
+  'testFlow': { type: T.enum, choices: FLOWS, optional: true, project: true },
+  'languages': { type: T.list },
+  'titlePrefixes': { type: T.list, optional: true },
+  'qa.app': { type: T.text, optional: true },
+  'qa.sprint': { type: T.enum, choices: ['open', 'any'], optional: true },
+  'qa.executionTypes': { type: T.list, optional: true },
+  'qa.statuses.ko': { type: T.text, optional: true },
+  'qa.statuses.ready': { type: T.text, optional: true },
+  'qa.statuses.done': { type: T.text, optional: true },
+  'qa.blockedStop': { type: T.int, optional: true },
+  'qa.autoPass': { type: T.bool, optional: true },
+  'place': { type: T.enum, choices: ['repo', 'local', 'chat'], file: true },
+})
+const CLEAR = /^(none|null|unset|default)$/i
+const PLUGIN_KEY = /^(jira[._-]?email|gitlab|xray[._-]?(api[._-]?url|client)|figma)/i
+const SECRET_KEY = /(token|secret|passw(or)?d|api[._-]?key|credential|private[._-]?key|client[._-]?id)/i
+const SECRET_VALUE = [
+  /\b(glpat-|ghp_|gho_|ghs_|ghu_|github_pat_|figd_|xox[abprs]-|AKIA[0-9A-Z]{8,}|ATATT[\w-]{6,})/,
+  /\bsk-[A-Za-z0-9_-]{16,}/, /\bBearer\s+\S/i, /-----BEGIN [A-Z ]*KEY/, /eyJ[\w-]{10,}\.[\w-]{10,}/,
+  /\/\/[^/\s:@]+:[^/\s@]+@/,
+]
+const looksSecret = v => SECRET_VALUE.some(re => re.test(v)) || v.split(/[\s,]+/).some(w => w.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(w) && /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w))
+
+const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
+const show = v => (v === undefined ? 'not set' : typeof v === 'string' ? v : JSON.stringify(v))
+const getPath = (o, key) => key.split('.').reduce((v, k) => (isObj(v) ? v[k] : undefined), o)
+
+/** A copy of o with the dotted key set to value, or removed when value is undefined (an emptied block goes too). */
+function setPath(o, key, value) {
+  const parts = key.split('.')
+  const out = { ...o }
+  const chain = [out]
+  let cur = out
+  for (const k of parts.slice(0, -1)) { cur[k] = isObj(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; chain.push(cur) }
+  if (value !== undefined) { cur[parts.at(-1)] = value; return out }
+  delete cur[parts.at(-1)]
+  for (let i = parts.length - 1; i > 0; i--) if (Object.keys(chain[i]).length === 0) delete chain[i - 1][parts[i - 1]]
+  return out
+}
+
+/** The typed value of a text: { value }, { clear: true } or { error }. */
+export function parseValue(spec, key, raw) {
+  const text = String(raw).trim()
+  if (CLEAR.test(text) && spec.optional) return { clear: true }
+  switch (spec.type) {
+    case T.list: {
+      const list = text.split(',').map(s => s.trim()).filter(Boolean)
+      return list.length ? { value: list } : { error: `${key}: give at least one value, separated by commas` }
+    }
+    case T.bool:
+      if (/^(true|yes|on)$/i.test(text)) return { value: true }
+      if (/^(false|no|off)$/i.test(text)) return { value: false }
+      return { error: `${key}: must be true or false (found "${text}")` }
+    case T.int: return /^-?\d+$/.test(text) ? { value: Number(text) } : { error: `${key}: must be a whole number (found "${text}")` }
+    case T.enum: return spec.choices.includes(text) ? { value: text } : { error: `${key}: must be ${spec.choices.map(c => `"${c}"`).join(' or ')} (found "${text}")` }
+    case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${text.replace(/\/+$/, '')}` } : { error: `${key}: must not be empty` }
+    default: return text ? { value: text } : { error: `${key}: must not be empty` }
+  }
+}
+
+const IN_PLUGIN = 'Set it in /plugin: type /plugin, choose quality-code, Configure options, then /reload-plugins.'
+/** Why this key or value is refused before anything else, or null. Never repeats the value. */
+export function refusal(key, value) {
+  if (SECRET_KEY.test(key)) return `${key}: tokens, keys and passwords are never set here (and never in the chat). ${IN_PLUGIN} They go to your keychain.`
+  if (PLUGIN_KEY.test(key)) return `${key}: this is a plugin setting (Jira email, GitLab, Xray address), not a config key. ${IN_PLUGIN}`
+  if (value !== undefined && looksSecret(String(value))) return `${key}: the value looks like a token or a key, so it was not used and nothing was written. Please don't paste tokens here; revoke that one and set a new one from /plugin.`
+  return null
+}
+
+/** Which config the change goes to: { source, path, config } or { error }. */
+function target(root, env, scope) {
+  const loaded = loadConfig(root, env)
+  const source = scope ?? loaded.source
+  if (!source) return { error: 'Quality Code is not set up here yet: run /quality-code:setup.' }
+  const path = source === 'repo' ? configPath(configHome(root)) : personalConfigPath(env)
+  if (!existsSync(path)) return { error: `There is no ${source === 'repo' ? 'project config (.claude/quality-code.json)' : `personal config (${path})`}. Run /quality-code:setup, or use ${source === 'repo' ? '--personal' : '--project'}.` }
+  try { return { source, path, config: JSON.parse(readFileSync(path, 'utf8')) } } catch (e) { return { error: `${path} is not valid JSON (${e.message})` } }
+}
+
+function parseArgs(argv) {
+  const a = { _: [], yes: false, scope: null, errors: [] }
+  for (let i = 0; i < argv.length; i++) {
+    const t = argv[i]
+    if (t === '--') { a._.push(...argv.slice(i + 1)); break }
+    if (t === '--yes') a.yes = true
+    else if (t === '--personal' || t === '--project') {
+      const scope = t === '--personal' ? 'personal' : 'repo'
+      if (a.scope && a.scope !== scope) a.errors.push('use only one of --personal and --project')
+      a.scope = scope
+    } else if (t.startsWith('--')) a.errors.push(`unknown arg: ${t}`)
+    else a._.push(t)
+  }
+  return a
+}
+
+const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get <key> [--personal|--project]'
+
+/** Runs `config set|get` (argv starts at set|get). Returns the exit code: 0 ok or a preview, 2 an error with nothing written. */
+export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = { out: s => process.stdout.write(`${s}\n`), err: s => process.stderr.write(`${s}\n`) }) {
+  const { out, err } = io
+  const fail = m => { err(m); return 2 }
+  const [sub, ...rest] = argv
+  const a = parseArgs(rest)
+  if (a.errors.length) return fail(`${a.errors[0]}\n${USAGE}`)
+  const [key, ...vals] = a._
+  if (!['get', 'set'].includes(sub) || !key || vals.length !== (sub === 'get' ? 0 : 1)) return fail(USAGE)
+  const value = vals[0]
+
+  const bad = refusal(key, value)
+  if (bad) return fail(bad)
+  const spec = KEYS[key]
+  if (!spec) return fail(`${key}: unknown key. Settable keys: ${Object.keys(KEYS).join(', ')}. Other settings: /quality-code:setup advanced.`)
+
+  const root = projectRoot(env, cwd)
+  const t = target(root, env, a.scope)
+  if (t.error) return fail(t.error)
+  if (spec.project && t.source === 'personal') return fail(`${key}: a personal config has no project tests or folders: set it in the repo's config (--project).`)
+
+  const placeOpts = { source: t.source, ticketsDir: typeof t.config.ticketsDir === 'string' ? t.config.ticketsDir : undefined, personalDefault: personalTicketsDir(env) }
+  const old = spec.file ? placeOf(root, t.source, env) : getPath(t.config, key)
+
+  if (sub === 'get') {
+    const dflt = key === 'ticketsDir' && old === undefined ? ` (default ${t.source === 'personal' ? personalTicketsDir(env) : DEFAULTS.ticketsDir})` : ''
+    out(`${key} = ${show(old)}${dflt} (${t.source}: ${t.path})`)
+    out(`CONFIG_GET_JSON:${JSON.stringify({ key, value: old ?? null, set: old !== undefined, source: t.source })}`)
+    return 0
+  }
+
+  const parsed = parseValue(spec, key, value)
+  if (parsed.error) return fail(parsed.error)
+  const next = parsed.clear ? undefined : parsed.value
+  const report = (status, extra = {}) => out(`CONFIG_SET_JSON:${JSON.stringify({ status, key, old: old ?? null, new: next ?? null, source: t.source, ...extra })}`)
+  const finish = (line, writer) => {
+    out(`${key}: ${show(old)} -> ${show(next)}`)
+    if (JSON.stringify(old) === JSON.stringify(next)) { out('Nothing to change: already set.'); report('same'); return 0 }
+    if (!a.yes) { out('Not changed yet. Run again with --yes to apply.'); report('preview'); return 0 }
+    const r = writer()
+    if (r?.error) return fail(`${key}: not saved, nothing was written.\n${r.error}`)
+    out(`ok: ${line(r)}`)
+    report('written', r?.extra)
+    return 0
+  }
+
+  if (spec.file) {
+    if (!placesFor(t.source).includes(next)) return fail(`place: a personal config keeps its files on this machine ("local") or in the chat ("chat"), not in a repo.`)
+    return finish(r => `files and logs are now kept ${next}${r.extra.moved ? `; moved ${r.extra.moved} file${r.extra.moved === 1 ? '' : 's'} from the old place` : ''} (${placeDirs(root, placeOpts, next, env).ticketsDir}/).`, () => ({ extra: { moved: pickPlace(root, placeOpts, next, env).moved } }))
+  }
+
+  const candidate = setPath(t.config, key, next)
+  const v = validateConfig(candidate)
+  if (!v.ok) return fail(`${key}: not saved, nothing was written.\n${v.errors.join('\n')}`)
+  return finish(() => `${key} set to ${show(next)}.`, () => {
+    const w = t.source === 'repo' ? write(configHome(root), candidate) : writePersonal(candidate, env)
+    return w.ok ? {} : { error: w.errors.join('\n') }
+  })
+}
