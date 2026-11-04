@@ -12,11 +12,11 @@ const front = c => {
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
 // spec writes tests: it runs on the session model.
-const MODEL = { routine: 'sonnet', 'check-update': 'haiku', ci: 'haiku', kpi: 'haiku', consumption: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', 'run-smoke': 'haiku', 'clean-cache': 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet', 'tickets-eval': 'sonnet', 'transcript-goal': 'sonnet' }
+const MODEL = { routine: 'sonnet', 'check-update': 'haiku', ci: 'haiku', kpi: 'haiku', consumption: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', 'run-smoke': 'haiku', 'clean-cache': 'haiku', setup: 'sonnet', config: 'sonnet', 'config-set': 'sonnet', 'config-get': 'haiku', clean: 'sonnet', ticket: 'sonnet', 'ticket-eval': 'sonnet', 'tickets-eval': 'sonnet', 'transcript-goal': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {
-  assert.deepEqual(commands.sort(), ['check-update', 'ci', 'clean', 'clean-cache', 'config', 'consumption', 'kpi', 'qa', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'run-smoke', 'seed', 'setup', 'spec', 'ticket', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray'])
+  assert.deepEqual(commands.sort(), ['check-update', 'ci', 'clean', 'clean-cache', 'config', 'config-get', 'config-set', 'consumption', 'kpi', 'qa', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'run-smoke', 'seed', 'setup', 'spec', 'ticket', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray'])
 })
 test('simple commands run on Haiku with low effort, the gate on Sonnet, writing on the session model', () => {
   for (const c of commands) {
