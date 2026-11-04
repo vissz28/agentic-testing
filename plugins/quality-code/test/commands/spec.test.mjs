@@ -214,7 +214,7 @@ test('playwright step 4: the plugin guide, the team guide, two existing specs, t
   assert.match(s, /never show them in the chat/)
   assert.match(s, /at most 3 extra probes/)
   assert.ok(s.includes('`--no-extras`'))
-  assert.ok(s.includes('Tests for <KEY>, on <route>\n       Runner   <runner and libraries> (<your project\'s | Quality Code\'s default>)\n       Writes   <file path> (<new | adds to existing>)\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n     1. Yes, write these tests\n     2. No, stop\n     3. Something else'))
+  assert.ok(s.includes('Tests for <KEY>, on <route>\n       Runner   <runner and libraries> (<your project\'s | Quality Code\'s default>)\n       Writes   <file path> (<new | adds to existing>)\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n       Negative: <N> cases\n         <negative case, in a few words>\n     1. Yes, write these tests\n     2. No, stop\n     3. Something else'))
   assert.match(s, /with no extra probe, leave out `Leave out the extras` and number the rest in order/)
 })
 test('playwright step 5: run start first (shared), the file name, the describe and test tags, web-first values, fixme', () => {

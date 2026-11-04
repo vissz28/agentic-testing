@@ -20,6 +20,7 @@ import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
 import { projectKeys } from '../lib/base/keys.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
+import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 
@@ -268,7 +269,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (!a.in) {
-    err("usage: ticket.mjs <score|story-check|story-save|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
+    err("usage: ticket.mjs <score|negative-check|story-check|story-save|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
   }
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
@@ -316,6 +317,13 @@ function run(argv, env, cwd) {
         if (next) out(`GATE_JSON:${JSON.stringify(next)}`)
       }
       return b.gate === 'refuse' ? 1 : 0
+    }
+    case 'negative-check': {
+      // Does the ticket name invalid input, errors or permission denied? A suggestion only: it never changes the score or the gate.
+      const c = checkNegative(ticket)
+      if (a.flags.has('--json')) out(JSON.stringify(c))
+      else { out(formatNegativeCheck(c)); out(`NEGATIVE_JSON:${JSON.stringify(c)}`) }
+      return 0
     }
     case 'story-check': {
       // After the score: is the story too long, unstructured or too thin? Without --draft it decides whether to offer a

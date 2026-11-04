@@ -128,6 +128,10 @@ What a probe asserts, in this order:
 
 A red extra test is a case the ticket does not cover: report it, never loosen it to make it pass.
 
+## Negative tests
+
+Each form field or action gets its negative cases, only from what the ticket names: an invalid or empty value, a limit, a failing call (stub the error response), a role that is refused. Assert the message or state the ticket states. A limit, message or role the ticket does not name gets no test; ask.
+
 ## Never
 
 - `.only` (`test.only`, `test.describe.only`): it silently drops every other test.

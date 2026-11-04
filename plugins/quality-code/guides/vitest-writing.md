@@ -66,6 +66,10 @@ describe('ABC-123 Line totals round to the cent', () => {
   file.
 - No real network, no sleeps (`setTimeout` waits): advance fake timers instead.
 
+## Negative tests
+
+Each input or action gets its negative cases, only from what the ticket names: a wrong type, an empty required field, a value over a stated limit, a call that fails, a role that is refused. Assert the rejection the ticket states (the error type, the message, the status), never a guess. A limit, message or role the ticket does not name gets no test; ask.
+
 ## Never
 
 - `.only` (`it.only`, `describe.only`): it silently drops every other test.
