@@ -9,12 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
-## [0.57.0] - 2026-11-04
+## [0.57.2] - 2026-11-05
 
 ### Changed
 
-- `/quality-code:spec` reads its testing rules from TeamSystem's hosted Central Context hub by default, so everyone who runs setup is connected with nothing to set. `centralContext.hub` still picks another hub, `"off"` still turns it off, and `CC_HUB_URL` still wins. To move the default to a new URL, see the comment on `DEFAULT_HUB` in `lib/base/rules.mjs`.
-## [0.56.1] - 2026-11-05
+- `/quality-code:xray` ends with `Next: /quality-code:qa`: qa continues the work of xray, running the cases it wrote in the browser, test by test.
+
+**What to do:** update.
+
+## [0.57.1] - 2026-11-05
 
 ### Fixed
 
@@ -22,6 +25,11 @@ Update with `/plugin update quality-code@teamsystem`.
 
 **What to do:** update. QA and PO: run `/quality-code:setup` once (option 2, no repo), then `/quality-code:xray <KEY>` from any folder.
 
+## [0.57.0] - 2026-11-04
+
+### Changed
+
+- `/quality-code:spec` reads its testing rules from TeamSystem's hosted Central Context hub by default, so everyone who runs setup is connected with nothing to set. `centralContext.hub` still picks another hub, `"off"` still turns it off, and `CC_HUB_URL` still wins. To move the default to a new URL, see the comment on `DEFAULT_HUB` in `lib/base/rules.mjs`.
 ## [0.56.0] - 2026-11-04
 
 ### Added
