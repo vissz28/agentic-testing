@@ -28,9 +28,10 @@ test('the card is relayed verbatim without the machine line', () => {
   assert.match(doc, /Drop the `KPI_JSON:` line/)
 })
 test('numbered options after the card point to consumption for cost, and the turn ends', () => {
-  for (const t of ['1. The AI cost of the same days', '2. Another period', '3. Stop']) assert.ok(doc.includes(t), t)
+  for (const t of ['1. The AI cost of the same days', '2. Another period', '3. This session', '4. Stop']) assert.ok(doc.includes(t), t)
   assert.ok(doc.includes('/quality-code:consumption'))
   assert.ok(doc.includes('On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>`'), 'option 1 runs the pre-approved script, not a slash command')
+  assert.ok(doc.includes('On `3`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --session`'), 'option 3 is this session')
   assert.match(doc, /End your turn after every card/)
 })
 test('read-only and local; the script does the sums; no grading', () => {

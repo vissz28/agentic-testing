@@ -9,6 +9,21 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-05
+
+### Added
+
+- `/quality-code:ticket-eval` with no key takes it from the branch (its name, and the merge request title) and asks `Is this your Jira story?`. Several keys can be picked; each is scored in turn.
+- `/quality-code:run-backend` (and the other run commands) offer to fix compile errors in the spec files after the card: only the lines the errors name, shown as a diff, then one more run.
+- `/quality-code:consumption --session` shows the AI cost of this session only, and the `kpi` "What next?" card has it as an option.
+- The `spec` card "Which code does this ticket change?" allows several answers: one spec per picked file.
+
+### Changed
+
+- `/quality-code:qa` needs the test execution key: `/quality-code:qa <KEY>`. The list of your executions and `--first` are gone; a development task key is refused with a clear line.
+
+**What to do:** update. Run QA with the key of the test execution.
+
 ## [0.57.2] - 2026-11-05
 
 ### Changed

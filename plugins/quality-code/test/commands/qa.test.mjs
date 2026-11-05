@@ -9,10 +9,10 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const TICKET = 'node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs"'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[<KEY>\] \[--app <url>\] \[--first\] \[--resume\] \[--auto-pass\] \[--dry-run\] \| --watch \| --watch-check\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: <KEY> \[--app <url>\] \[--resume\] \[--auto-pass\] \[--dry-run\] \| --watch \| --watch-check\n(?:[a-z-]+: .+\n)*---/)
 })
 test('steps come in order: check, pick, context, run, defect, retest, close', () => {
-  const at = ['Check', 'Pick a run', 'Context', 'Run, one test at a time', 'Defect', 'Retest', 'Close'].map((s, i) => doc.indexOf(`\n${i + 1}. **${s}`))
+  const at = ['Check', 'The run', 'Context', 'Run, one test at a time', 'Defect', 'Retest', 'Close'].map((s, i) => doc.indexOf(`\n${i + 1}. **${s}`))
   assert.ok(at.every(i => i > 0), JSON.stringify(at))
   assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
@@ -37,13 +37,12 @@ test('step 1: config check (repo or personal), Jira only from the connectors gui
   assert.match(s, /Leave GitLab, GitHub and Figma out/)
   assert.ok(s.includes('1. I test by hand and tell you what I saw'))
 })
-test('step 2: my open runs across the site, by JQL', () => {
+test('step 2: the key is mandatory and must be a test execution', () => {
   const s = step(2)
-  assert.ok(s.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/qa.mjs" jql runs'), 'the JQL comes from the script, which reads the qa block')
-  assert.match(s, /sprint in openSprints\(\)/)
-  assert.ok(s.includes('Nothing in the open sprint: showing your other open executions.'), 'no hit in the sprint falls back, it never ends the run')
+  assert.ok(s.includes('The key is mandatory'))
+  assert.ok(s.includes('pass the test execution to run: /quality-code:qa <KEY>'))
   assert.match(s, /qa\.executionTypes/)
-  assert.match(s, /With `--first`, take the first run without asking/)
+  assert.ok(!s.includes('--first'))
 })
 test('step 3: the sources in order: the Xray API, an attached export (no flag), the browser, then attach or paste', () => {
   const s = step(3)

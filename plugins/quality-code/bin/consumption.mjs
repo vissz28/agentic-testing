@@ -1,7 +1,8 @@
 // Entry point for /quality-code:consumption: AI usage and estimated cost of the plugin's runs in this project.
 // node bin/consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file] [--json | --report]
 // Reads local transcripts only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no transcripts found.
-import { basename, resolve } from 'node:path'
+import { statSync } from 'node:fs'
+import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { keySource } from '../lib/base/keys.mjs'
 import { configHome, loadConfig, projectRoot } from '../lib/base/config.mjs'
@@ -11,10 +12,11 @@ import { consumptionReport } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import { attribute, configDir, findProjectDirs, loadSessions } from '../lib/report/transcripts.mjs'
 
-const USAGE = 'usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--json | --report]'
+const mtimeOf = p => { try { return statSync(p).mtimeMs } catch { return 0 } }
+const USAGE = 'usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--session] [--json | --report]'
 
 function parse(argv) {
-  const a = { since: '30d', until: null, by: 'command', prices: null, json: false, report: false }
+  const a = { since: '30d', until: null, by: 'command', prices: null, json: false, report: false, session: false }
   const VALUE = new Set(['--since', '--until', '--by', '--prices'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
@@ -24,6 +26,7 @@ function parse(argv) {
       a[x.slice(2)] = v
     } else if (x === '--json') a.json = true
     else if (x === '--report') a.report = true
+    else if (x === '--session') a.session = true
     else throw new Error(`unknown option ${x}`)
   }
   if (!BY.includes(a.by)) throw new Error(`--by must be one of ${BY.join(', ')}, not "${a.by}"`)
@@ -54,6 +57,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const dirs = [...new Set(found.flatMap(f => f.dirs))]
   const files = Object.assign({}, ...found.map(f => f.sessions ?? {}))
   const looked = found.flatMap(f => f.looked)
+  // --session: only this session, the transcript written to last.
+  if (a.session) {
+    const all = dirs.flatMap(d => (files[d] ?? []).map(f => ({ d, f, at: mtimeOf(join(d, f)) })))
+    const last = all.sort((x, y) => y.at - x.at)[0]
+    for (const d of dirs) files[d] = last && d === last.d ? [last.f] : []
+  }
   const sessions = dirs.flatMap(d => loadSessions(d, files[d]))
   if (!sessions.length) {
     stdout(`No Claude Code transcripts found for ${root}.\nLooked in:\n${looked.map(l => `  ${l}`).join('\n')}\n`)

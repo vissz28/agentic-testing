@@ -7,7 +7,7 @@ Shared by `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-c
 - **Where files go.** When the command has ended (after its last card is answered, or its last step when it shows none), follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`: the first run of a project asks once where its files and logs are kept.
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The script decides.** `pipeline.mjs` runs and grades. Never compute, change or soften a verdict, a count or a score yourself.
-- **Never edit tests**, source files or config, and never retry. If the card shows a problem, show it and stop.
+- **Never edit tests**, source files or config, and never retry. If the card shows a problem, show it and stop. The one exception is the **Compile errors** step below, and only after a yes.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
 - **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
 - **One run per request.** If the user wants another run, they ask again.
@@ -48,6 +48,18 @@ The command that sent you here names its suite: `frontend` (`/quality-code:run-f
 
    Quote every spec path in single quotes. Pass `--range <base>...HEAD` only when the specs came from the branch (step 2 with `--branch`, or the spec command's "Only check the tests already on this branch"), with `base` from the `BRANCH_JSON:` line (the field `base`, for example `origin/main`). Honesty then reads everything committed on the branch since it left the base, so an assertion or test removed in an earlier commit is caught. It does not read changes that are not committed yet; with specs the user typed, no range is passed and honesty reads the changes not committed yet. Pass `--flaky` only when `$ARGUMENTS` has it. Do not pass `--json`.
 5. **Card.** Show the card exactly as printed. Drop the `PIPELINE_JSON:` line. Add nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: the headline row (verdict, and the bar and gate only when the card prints a score and a bar to pass), the counts the card prints, a `Next:` line, marks as the guide lists them, and any list or per-test detail beyond 8 rows in a `<details>` block after the table. The `Next:` line: after a green card, `/quality-code:run-backend` for the `frontend` suite, `/quality-code:run-frontend` for `backend`, `/quality-code:run-smoke` for `full` and `/quality-code:run-frontend` for `smoke`; after a red, failed or not verified card, the same command again once the problem on the card is fixed. If the script exits with 2, show its lines as they are and stop (for example `This project has no frontend (Playwright) tests`).
+
+## Compile errors
+
+After step 5, only when the card (or the output behind it) shows compile or type errors in spec files, and not with `--ci`, offer the fix with the picker (a sample is fine when the output was cut short):
+
+```
+The specs do not compile. Fix them?
+1. Fix the compile errors in these spec files
+2. Not now
+```
+
+On `1`: change only the spec files the errors name, and only the lines the errors name (an argument that does not match its type, a missing field, a wrong argument count, a missing header). Never source files or config, never remove or soften an assertion, never delete a test. Show each change as a `diff` block, then run the same step 4 command once and show its card as step 5 does. If errors remain, show them and stop: a second fix needs a new request. On `2`, stop as before.
 
 ## Smoke
 

@@ -28,10 +28,11 @@ Shows how the plugin is used in this project. You relay; the script reads and co
    What next?
    1. The AI cost of the same days
    2. Another period
-   3. Stop
+   3. This session
+   4. Stop
    ```
 
-   On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>` with the dates from the card's `AI cost:` line (this is what `/quality-code:consumption` runs), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `3`, stop.
+   On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>` with the dates from the card's `AI cost:` line (this is what `/quality-code:consumption` runs), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `3`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --session` (the AI cost of this session only: the transcript written to last), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `3`, stop.
 
 ## `--report`: one HTML file with charts
 

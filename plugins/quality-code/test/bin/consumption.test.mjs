@@ -115,3 +115,11 @@ test('with "root" set, sessions that ran at the repo top are found too', async (
   assert.notEqual(code, 3, out)
   assert.doesNotMatch(out, /No Claude Code transcripts found/)
 })
+
+test('--session: only the transcript written to last', async () => {
+  const all = json((await run([])).out)
+  const one = json((await run(['--session'])).out)
+  assert.ok(all.totals.sessions > 1, 'the fixtures hold several sessions')
+  assert.equal(one.totals.sessions, 1)
+  assert.ok(one.totals.runs < all.totals.runs)
+})
