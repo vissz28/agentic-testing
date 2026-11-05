@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.58.1] - 2026-11-05
+
+### Changed
+
+- `/quality-code:qa`: a run that is already Done, or assigned to someone else, starts with a dry run as the first option, so a finished run is not changed by mistake. When Jira is not signed in in the browser pane, it waits for the sign-in instead of only asking for a file, and tells you once that the Xray API key reads the tests with no browser.
+- `/quality-code:qa` with a task key (a parent task, story or subtask) shows the subtasks and tests to cover, lets you pick one at a time, reads each one's fields, attachments, links and merge requests, and writes an end-to-end plan of how to test it. Nothing is sent to Jira unless you pick the comment option and confirm.
+- `/quality-code:xray` reads the GitLab or GitHub links of the story (works with or without a repo) and adds cases from what the code does. When the ticket has such links and GitLab (or GitHub) is not connected, both commands say so and point to `/mcp` or `/quality-code:setup`, with `Signed in: read the merge requests`, `Continue without the code` and `Stop`, instead of skipping it silently.
+
+**What to do:** update. For a fully automatic run, set the Xray API key with `/plugin` (the `xray` connector).
+
 ## [0.58.0] - 2026-11-05
 
 ### Added

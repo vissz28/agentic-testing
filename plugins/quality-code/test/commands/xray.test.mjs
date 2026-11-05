@@ -84,3 +84,17 @@ test('step 7: with the Xray API the tests are created in Xray after a yes, once,
   assert.match(s, /Nothing here runs a test or changes a status/)
   assert.doesNotMatch(doc, /mcp__/)
 })
+test('step 2: the GitLab and GitHub links of the story are read read-only, with or without a repo, and add cases from the code', () => {
+  const s = doc.slice(doc.indexOf('\n2. **Ticket and gate'), doc.indexOf('\n3. **Screen'))
+  assert.match(s, /Source code links/)
+  assert.match(s, /GitLab or GitHub/)
+  assert.match(s, /No repo is needed/)
+  assert.match(s, /From the code/)
+})
+test('step 2: source code links check the GitLab connector, no repo needed, never skipped silently', () => {
+  const s = doc.slice(doc.indexOf('\n2. **Ticket and gate'), doc.indexOf('\n3. **Screen'))
+  assert.match(s, /Merge requests found in a ticket/)
+  assert.match(s, /No repo is needed/)
+  assert.match(s, /Continue without the code/)
+  assert.match(s, /\/quality-code:setup/)
+})

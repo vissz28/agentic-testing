@@ -85,3 +85,46 @@ test('Jira tools are named by operation, never by an mcp__ tool name (only the a
   assert.doesNotMatch(doc.slice(doc.indexOf('\n---\n', 4)), /mcp__/)
   assert.ok(doc.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'))
 })
+
+test('step 3: a Done run or someone else\'s offers a dry run first, and a missing Jira sign-in is waited for', () => {
+  const s = step(3)
+  assert.ok(s.includes('A run that is not yours to run.'))
+  assert.ok(s.includes('Dry run: show every verdict and defect, send nothing'))
+  assert.ok(s.includes('Jira is not signed in in the browser pane.'))
+  assert.ok(s.includes('Tip: with the Xray API key set'))
+})
+
+test('step 3: the run is read with all its fields, attachments and web links included', () => {
+  const s = step(3)
+  assert.ok(s.includes('`fields` `["*all"]`'))
+  assert.ok(s.includes('getJiraIssueRemoteIssueLinks'))
+  assert.match(s, /An attached `\.csv` is the run's Xray export/)
+  assert.ok(s.includes('Nothing more on the run.'))
+})
+
+test('step 3: the story flow lists every run of the story, as the template for every task', () => {
+  const s = step(3)
+  assert.ok(s.includes('**The story\'s flow:**'))
+  assert.ok(s.includes('Story flow (<R> runs)'))
+  assert.ok(s.includes('NON RISOLVIBILE'), 'a not-fixable bug is shown, not retested')
+  assert.match(doc, /Next in this story:/)
+})
+test('step 2: a key that is not a test execution starts the task flow: subtasks, one item at a time, merge requests, an e2e plan', () => {
+  const s = step(2)
+  assert.ok(s.includes('The task flow'))
+  assert.match(s, /parent = <KEY>/)
+  assert.match(s, /Pick which to test/)
+  assert.match(s, /Merge requests/)
+  assert.match(s, /end-to-end plan by best practice/)
+  assert.match(s, /Nothing is written to Jira unless/)
+})
+test('task flow: merge request links need the source code connector; not connected points to /mcp and setup, never skipped silently', () => {
+  const s = step(2)
+  assert.match(s, /Merge requests found in a ticket/)
+  assert.match(s, /Continue without the code/)
+  assert.match(s, /\/quality-code:setup/)
+  const g = readFileSync(new URL('../../guides/connectors.md', import.meta.url), 'utf8')
+  assert.match(g, /Merge requests found in a ticket/)
+  assert.match(g, /Signed in: read the merge requests/)
+  assert.match(g, /do not skip it silently/)
+})
