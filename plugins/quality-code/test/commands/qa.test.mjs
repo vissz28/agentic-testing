@@ -128,3 +128,16 @@ test('task flow: merge request links need the source code connector; not connect
   assert.match(g, /Signed in: read the merge requests/)
   assert.match(g, /do not skip it silently/)
 })
+test('step 4: the test runs in the browser pane the tester watches; the tester signs in, also for each role', () => {
+  const s = step(4)
+  assert.match(s, /Sign-in first \(the sandbox\)/)
+  assert.match(s, /Signed in: start the tests/)
+  assert.match(s, /another user or role/)
+  assert.match(s, /never type one/)
+})
+test('step 3: an app address found in the Jira fields is confirmed with the tester, or typed by them', () => {
+  const s = step(3)
+  assert.match(s, /Is this the app to test\?/)
+  assert.match(s, /Type another address/)
+  assert.match(s, /No app address in the Jira fields/)
+})

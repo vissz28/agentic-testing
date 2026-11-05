@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.58.2] - 2026-11-05
+
+### Changed
+
+- `/quality-code:qa`: the browser run starts in the browser pane you watch. You sign in to the app yourself (and again for each role a test needs); a sign-in page in the middle of a test is Blocked, not KO. An app address found in the Jira fields (run, story, parent) is confirmed with you, or you type another one.
+
+**What to do:** update and restart Claude.
+
 ## [0.58.1] - 2026-11-05
 
 ### Changed
