@@ -9,7 +9,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
-- **Scripts write, never you.** The project config is written only by `setup.mjs` or `ticket.mjs config set`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit `.claude/quality-code.json`, the personal config or a settings file yourself.
+- **Scripts write, never you.** The project config is written only by `setup.mjs` or `ticket.mjs config set`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit the project config (`config.json`), the personal config or a settings file yourself.
 - **Never ask for a token**, key or password in the chat, and never show one. If the user pastes one anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
 - **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output.
@@ -125,7 +125,7 @@ When the person gives `set <key> <value>` or `get <key>` (for example `/quality-
      Run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style on` (`1`) or `--style off` (`2`) and read its `CONNECTOR_SETTINGS_JSON:` line. If it is not `ok`, show its `reason` and stop. When `local` is set and `report` does not match the pick, add `Your own choice on this computer (<local>, in .claude/settings.local.json) still wins here: run /output-style to change it.`
    - **14 (GitHub).** The plugin has no GitHub token: it uses the `gh` sign-in. Say `In a terminal, run gh auth login --hostname <host>, then come back.` with the host from `here.remote.host`, then show `1. Check again / 2. Back` and end the turn. `1` runs `setup.mjs --detect` again.
 4. **Done.** Say what changed, in one line, plus:
-   - after a repo config change: `Commit .claude/quality-code.json so your team gets it too.`
+   - after a repo config change: `The config stays on this machine, outside git. To share it with your team, copy `config.json` into the repo yourself.`
    - after a plugin setting: `Type /reload-plugins for it to take effect.`
    - after item 6 or 7: nothing more; it takes effect on the next run.
    - after item 15: `Commit .claude/settings.json so your team gets it too. It applies from your next message.`

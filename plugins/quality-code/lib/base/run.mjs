@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
+import { ignoreFolder } from './ignore.mjs'
 
 /** HEAD of the repository at root, or null when it is not a git repo or has no commit. */
 export function gitHead(root) {
@@ -26,7 +27,7 @@ export function startRun(root, key, now = Date.now()) {
   if (cur) rmSync(p, { force: true })
   // dirty: what was already changed before the run, so the boundary check does not count it.
   const marker = { key, startedAt: new Date(now).toISOString(), base: gitHead(root), dirty: snapshot(root) }
-  mkdirSync(dirname(p), { recursive: true })
+  ignoreFolder(dirname(p))
   try {
     writeFileSync(p, `${JSON.stringify(marker)}\n`, { flag: 'wx' })
   } catch (e) {

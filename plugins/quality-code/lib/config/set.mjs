@@ -127,7 +127,7 @@ function target(root, env, scope) {
   const source = scope ?? loaded.source
   if (!source) return { error: 'Quality Code is not set up here yet: run /quality-code:setup.' }
   const path = source === 'repo' ? configPath(configHome(root)) : personalConfigPath(env)
-  if (!existsSync(path)) return { error: `There is no ${source === 'repo' ? 'project config (.claude/quality-code.json)' : `personal config (${path})`}. Run /quality-code:setup, or use ${source === 'repo' ? '--personal' : '--project'}.` }
+  if (!existsSync(path)) return { error: `There is no ${source === 'repo' ? 'project config (config.json, or the older .claude/quality-code.json)' : `personal config (${path})`}. Run /quality-code:setup, or use ${source === 'repo' ? '--personal' : '--project'}.` }
   try { return { source, path, config: JSON.parse(readFileSync(path, 'utf8')) } } catch (e) { return { error: `${path} is not valid JSON (${e.message})` } }
 }
 
@@ -220,7 +220,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   const v = validateConfig(candidate)
   if (!v.ok) return fail(`${key}: not saved, nothing was written.\n${v.errors.join('\n')}`)
   return finish(() => `${key} set to ${show(next)}.`, () => {
-    const w = t.source === 'repo' ? write(configHome(root), candidate) : writePersonal(candidate, env)
+    const w = t.source === 'repo' ? write(configHome(root), candidate, { configFile: t.path }) : writePersonal(candidate, env)
     return w.ok ? {} : { error: w.errors.join('\n') }
   })
 }

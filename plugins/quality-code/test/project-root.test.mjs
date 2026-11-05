@@ -86,14 +86,14 @@ test('setup proposes the subfolder with a package.json, a test tool first, and w
 
   assert.deepEqual(write(top, { ...CFG, root: 'nope' }).errors, ['root "nope" is not a folder of this repository'])
   assert.equal(write(top, { ...CFG, root: 'web' }).ok, true)
-  assert.equal(JSON.parse(readFileSync(join(top, '.claude/quality-code.json'), 'utf8')).root, 'web')
-  assert.ok(!existsSync(join(top, 'web/.claude/quality-code.json')))
-  assert.match(readFileSync(join(top, 'web/.gitignore'), 'utf8'), /^\.quality-code\/tickets\/\*\/raw\.json$/m, 'the git-ignored paths are the project\'s')
+  assert.equal(JSON.parse(readFileSync(join(top, '.quality-code/config.json'), 'utf8')).root, 'web')
+  assert.ok(!existsSync(join(top, 'web/.quality-code/config.json')))
+  assert.equal(readFileSync(join(top, 'web/.quality-code/tickets/.gitignore'), 'utf8'), '*\n', 'the tickets folder is the project\'s and ignores itself')
   assert.equal(detect(top).root.proposed, 'web', 'a rerun keeps the root')
 
   // The top is a project of its own: nothing is proposed.
   put(top, 'package.json', '{}')
-  writeFileSync(join(top, '.claude/quality-code.json'), JSON.stringify(CFG))
+  put(top, '.quality-code/config.json', JSON.stringify(CFG))
   assert.equal(detect(top).root.proposed, null)
   const py = mkdtempSync(join(tmpdir(), 'qc-sub-'))
   put(py, 'pytest.ini', '')

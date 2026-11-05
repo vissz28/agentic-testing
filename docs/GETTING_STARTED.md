@@ -79,7 +79,7 @@ Want the extra points for feature labels, QA plans or title prefixes, or your ow
 `/quality-code:setup advanced`. It also asks which paths a test run must never change and, for
 Vitest, which config runs which tests and the test folders that new tests go in.
 
-**Then commit** `.claude/quality-code.json` and the `.gitignore` lines setup added. To change
+**Nothing to commit:** setup keeps `config.json` on your machine with the tickets and audit files and adds nothing to your `.gitignore`. To change
 anything later, run `/quality-code:setup` again rather than editing the file by hand.
 
 ---

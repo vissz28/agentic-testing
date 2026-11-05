@@ -10,7 +10,7 @@ Changes one setting, the same way as `/quality-code:config set <key> <value>`. Y
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code.
-- **Scripts write, never you.** Only `ticket.mjs config set` writes. Never edit `.claude/quality-code.json`, the personal config or a settings file yourself.
+- **Scripts write, never you.** Only `ticket.mjs config set` writes. Never edit the project config (`config.json`), the personal config or a settings file yourself.
 - **Never ask for a token**, key or password, and never show one. If the person pastes one anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 - **An error writes nothing.** The script prints a clear error for an unknown key, a bad value, a token, or anything that looks like a secret: show it as it is, as a short `**❌ Not changed**` section, and stop. Never retry with another value yourself.
 
@@ -25,7 +25,7 @@ Changes one setting, the same way as `/quality-code:config set <key> <value>`. Y
    Then a quote: `> 💡 /quality-code:config shows only set or not set for a token, never the value.` The Next line: `/quality-code:config`. Stop.
 3. **Preview.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config set <key> <value>` with `--personal` or `--project` when `$ARGUMENTS` has it, and without `--yes`. It prints `<key>: <old> -> <new>` and writes nothing. Exit 2: show its error and stop (rule above). Otherwise show `### ⚙️ Config`, the headline `**<key> would change**` and a table `| Setting | Old | New |` from that line. If the script says `Nothing to change: already set.`, the headline is `**✅ <key> is already <value>**`, then the Next line, and stop.
 4. **Ask.** With `--yes` in `$ARGUMENTS`, pass `--yes` at step 3 and skip to step 5. Otherwise ask `Change it?` with the picker (`Yes` / `No`) and end the turn. `No`, or anything else: `**Nothing was changed**` and the Next line (`/quality-code:config-set`), then stop.
-5. **Write.** Run the same command again with `--yes`. Exit 2: show its error, `**❌ Not saved**`, and stop. Otherwise show `**✅ <key> changed**`, then one line: after a repo config change `Commit .claude/quality-code.json so your team gets it too.`; after `place` nothing more. The Next line: `/quality-code:config-get <key>`.
+5. **Write.** Run the same command again with `--yes`. Exit 2: show its error, `**❌ Not saved**`, and stop. Otherwise show `**✅ <key> changed**`, then one line: after a repo config change `The config stays on this machine, outside git. To share it with your team, copy `config.json` into the repo yourself.`; after `place` nothing more. The Next line: `/quality-code:config-get <key>`.
 
 ## Examples
 

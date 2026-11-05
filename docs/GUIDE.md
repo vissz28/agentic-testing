@@ -168,7 +168,7 @@ Playwright test).
 | **QA** | check a ticket before testing starts, fill the gaps with the author, get tests written and graded |
 | **Developer** | check a ticket before picking it up; get a test pinned to a bug, red until the fix is merged |
 | **Product owner / ticket author** | read the Jira comment that says exactly what to add, with examples |
-| **Team lead** | run setup once and own `.claude/quality-code.json` in the repo |
+| **Team lead** | run setup once and own the project config (`config.json`) |
 | **CI** | refuse untestable tickets automatically with `--ci` |
 
 ---
@@ -248,8 +248,9 @@ typing a number:
 3. **Jira**: the site and the project key(s) (`ABC`), picked from the projects you can see.
 
 It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel`. Nothing is
-written before you type `1`. Setup writes only `.claude/quality-code.json` and its `.gitignore`
-lines. It does not check any ticket: that is what `/quality-code:spec` and
+written before you type `1`. Setup writes only `config.json`, on this machine next to your tickets and audit files (first in
+the session folder; its last question moves it to the place you pick). It adds nothing to the
+repo's `.gitignore`. It does not check any ticket: that is what `/quality-code:spec` and
 `/quality-code:ticket-eval` do.
 
 Everything else has a default:
@@ -462,7 +463,7 @@ GitHub gets `.github/workflows/quality-code.yml`; GitLab gets `.gitlab-ci.yml`, 
 `.gitlab/quality-code.gitlab-ci.yml` plus the `include` line when the repo already has one. A file Quality Code did
 not write is never overwritten; `--print` shows the file instead. The jobs fetch the plugin at the version that
 wrote them: run `/quality-code:ci` again after an update (it rewrites the file). Commit
-`.claude/quality-code.json` with it, since the jobs read it. What a request is compared against: GitHub's
+`.claude/quality-code.json` (a copy of your `config.json`) with it, since the jobs read it from the repo. What a request is compared against: GitHub's
 `GITHUB_BASE_REF`, GitLab's `CI_MERGE_REQUEST_DIFF_BASE_SHA`, with the full history checked out. Exit 0 every check
 passed or nothing to check, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run:
 never a pass.
@@ -822,8 +823,11 @@ you confirm; running it again updates the same note instead of adding a new one.
 
 ## The config file
 
-`.claude/quality-code.json` in the project root. Commit it, and change it by running
-`/quality-code:setup` again rather than by hand. Every `ticket-eval` run checks it first and names
+`config.json`, kept on your machine with the tickets and audit files, in the place setup's last
+question picks (the repo's `.quality-code/`, a folder under your Claude folder, or this session's
+temp folder). A repo that still has `.claude/quality-code.json` keeps working: it is read when no
+`config.json` exists. Change it by running `/quality-code:setup` again or with `/quality-code:config-set`
+rather than by hand. To share it with your team or CI, copy it into the repo as `.claude/quality-code.json`. Every `ticket-eval` run checks it first and names
 any field that is wrong. A JSON schema ships with the plugin (`schema/quality-code.schema.json`).
 
 What `/quality-code:setup` writes:
@@ -1064,7 +1068,7 @@ audit and KPI [spec](specs/2026-10-14-audit-kpi-design.md) ·
 - **Something is not working:** check [Troubleshooting](#troubleshooting) first.
 - **A bug, or a request for your stack or language:** open an issue in
   [vissz28/agentic-testing](https://github.com/vissz28/agentic-testing/issues) with the command you ran,
-  the output, and your `.claude/quality-code.json` (it holds no secrets).
+  the output, and your `config.json` (it holds no secrets).
 - **A ticket scored lower than you expected:** run `ticket-eval` with `--json`; the output lists
   every signal the rubric found and what is missing.
 

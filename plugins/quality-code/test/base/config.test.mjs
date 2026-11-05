@@ -83,7 +83,8 @@ test('projectRoot: CLAUDE_PROJECT_DIR with the config, else the nearest config u
   assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: join(d, 'app') }, d), join(d, 'app'))
   assert.equal(projectRoot({ CLAUDE_PROJECT_DIR: '/p' }, '/c'), '/p')
   assert.equal(projectRoot({}, '/c'), '/c')
-  assert.equal(configPath('/p'), '/p/.claude/quality-code.json')
+  assert.equal(configPath('/p', { QUALITY_CODE_PLACE: 'repo' }), '/p/.quality-code/config.json', 'where setup writes it when there is none')
+  assert.equal(configPath(join(d, 'app')), join(d, 'app/.claude/quality-code.json'), 'the legacy repo file still counts')
 })
 
 bad({ jira: 'x' }, 'jira')

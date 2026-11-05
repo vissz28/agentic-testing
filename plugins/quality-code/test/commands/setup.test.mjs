@@ -166,7 +166,7 @@ test('Where first, then the connectors; besides them a clean setup takes two ans
 })
 test('the Confirm card shows the folder, stack, Jira, base and the config, then write / change / cancel', () => {
   const s = step(4)
-  for (const l of ['Quality Code setup', 'Folder   <here.folder>', 'Remote   <here.remote.path>', 'Stack    <frontend (Playwright)', 'Jira     <site host>, project(s) <keys>', 'Base     <branch>', 'Writes .claude/quality-code.json:', '<the config JSON>', '1. Write it', '2. Change something', '3. Cancel']) assert.ok(s.includes(l), l)
+  for (const l of ['Quality Code setup', 'Folder   <here.folder>', 'Remote   <here.remote.path>', 'Stack    <frontend (Playwright)', 'Jira     <site host>, project(s) <keys>', 'Base     <branch>', 'Writes config.json (first in this session\'s folder; the last step moves it with the files to the place you pick):', '<the config JSON>', '1. Write it', '2. Change something', '3. Cancel']) assert.ok(s.includes(l), l)
   assert.ok(s.includes('Remote   none'))
 })
 test('Change something asks only for the value to change, then shows the Confirm card again', () => {

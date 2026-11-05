@@ -62,12 +62,12 @@ test('step 3: every write goes through a script that checks it; the project conf
   assert.ok(s.includes(`${BIN}/setup.mjs" --write-personal '<proposal JSON>'`))
   assert.match(s, /exactly as it is, with only that value changed/)
   for (const flag of ['--jira-save', '--gitlab-check', '--gitlab-save', '--xray-save']) assert.ok(s.includes(`${BIN}/connector-settings.mjs" ${flag}`), flag)
-  assert.match(doc, /Never edit `\.claude\/quality-code\.json`, the personal config or a settings file yourself/)
+  assert.match(doc, /Never edit the project config|Never edit `\.claude\/quality-code\.json`, the personal config or a settings file yourself/)
   assert.match(doc, /Never ask for a token/)
 })
 test('step 4: commit a repo change, reload after a plugin setting', () => {
   const s = step(4)
-  assert.ok(s.includes('`Commit .claude/quality-code.json so your team gets it too.`'))
+  assert.ok(s.includes('`The config stays on this machine, outside git. To share it with your team, copy `config.json` into the repo yourself.`'))
   assert.ok(s.includes('`Type /reload-plugins for it to take effect.`'))
 })
 test('item 7: where files and logs are kept, read and changed through the save script', () => {

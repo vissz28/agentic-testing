@@ -32,7 +32,7 @@ have in claude.ai works too). GitLab and Figma are optional.
 ```
 
 Answer the numbered cards: the stack, the Jira site and project, the acceptance-criteria field. It
-writes `.claude/quality-code.json` only after you confirm, then proves the setup on one recent
+writes `config.json` (on your machine, outside git) only after you confirm, then proves the setup on one recent
 ticket. Commit the config and the `.gitignore` lines it adds. Run `/quality-code:setup advanced` later
 for forbidden paths and, for Vitest, which config runs which tests and the test folders. A
 Playwright project sets its `playwright` block by hand for now (see the config table in the [Guide](GUIDE.md#the-config-file)).
@@ -89,7 +89,7 @@ The warehouse repos' configs in [`rollout/`](rollout/) are worked examples.
 ## Checklist for a team lead
 
 - [ ] Everyone has the plugin installed and Jira connected (`/quality-code:spec` shows ✅ Jira).
-- [ ] `.claude/quality-code.json` is reviewed and committed; someone owns it.
+- [ ] `config.json` is reviewed; if CI uses it, a copy sits in the repo as `.claude/quality-code.json`; someone owns it.
 - [ ] The forbidden paths cover your application code (default: `src/`, `.env`, `.env.*`, the CI file).
 - [ ] For Vitest: the test folders are right (`vitest.layers`); Stryker is installed if you want its bar.
 - [ ] A CI job runs `ticket-eval <KEY> --ci`, if you gate tickets in CI.

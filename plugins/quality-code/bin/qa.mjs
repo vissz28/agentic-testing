@@ -95,7 +95,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (cmd === 'jql') {
     if (sub === 'runs') { out(runsJql(qa), { tag: 'QA_JQL_JSON', data: { jql: runsJql(qa), sprint: qa.sprint } }); return 0 }
     if (sub === 'watch') {
-      if (!qa.statuses.ready) return err('qa --watch needs the name of the "ready to test" status: set qa.statuses.ready in .claude/quality-code.json (for example "Ready to test").')
+      if (!qa.statuses.ready) return err('qa --watch needs the name of the "ready to test" status: set qa.statuses.ready in the project config.json (for example "Ready to test").')
       const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => /^[A-Z][A-Z0-9_]*-\d+\.json$/.test(f)).map(f => readJson(join(dir, f))).filter(s => s?.closed === 'ko' && s.story)
       const stories = [...new Set(targets.map(s => s.story))]
       const jql = stories.length ? `key in (${stories.join(', ')}) AND status = "${qa.statuses.ready}"` : null

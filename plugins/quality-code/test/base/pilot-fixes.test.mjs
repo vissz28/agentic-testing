@@ -126,7 +126,7 @@ test('setup: tests beside the code are proposed, and the write wires the layer a
   assert.equal(colocatedProposal(tree({ 'test/a.spec.ts': 'x', 'src/a.ts': 'x' })), null)
   const r = writeSetup(d, { version: 1, adapter: 'vitest', jira }, { colocated: true })
   assert.equal(r.ok, true, JSON.stringify(r.errors))
-  const cfg = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
+  const cfg = JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8'))
   assert.deepEqual(cfg.vitest.layers, [{ name: 'unit', folder: 'src/' }])
   assert.deepEqual(cfg.boundaries.allow, ['src/**/*.unit.test.jsx'])
   assert.equal(writeSetup(tree({ 'test/a.spec.ts': 'x' }), { version: 1, adapter: 'vitest', jira }, { colocated: true }).ok, false)

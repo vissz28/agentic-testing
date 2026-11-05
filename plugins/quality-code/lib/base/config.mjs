@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { allowCovers, matches } from './boundary.mjs'
 import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs'
 import { RUNNERS } from './runners.mjs'
-import { placeDirs, placeOf } from './places.mjs'
+import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from './conventions.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
@@ -54,7 +54,14 @@ export const DEFAULTS = Object.freeze({
 /** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
 export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
-const hasConfig = dir => existsSync(join(dir, CONFIG_REL))
+/** The config file of the project at dir: the one in its place (next to the tickets and audit files), else the legacy .claude/quality-code.json; null when there is none. */
+export function configFileOf(dir, env = process.env) {
+  const placed = placeConfigPath(dir, env)
+  if (existsSync(placed)) return placed
+  const legacy = join(dir, CONFIG_REL)
+  return existsSync(legacy) ? legacy : null
+}
+const hasConfig = dir => configFileOf(dir) !== null
 
 /** The nearest folder at or above dir that holds the config, or null. */
 function findHome(dir) {
@@ -82,7 +89,7 @@ function chosenRoot(home, c, env = process.env) {
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
 function withRoot(home) {
   let c
-  try { c = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8')) } catch {}
+  try { c = JSON.parse(readFileSync(configFileOf(home), 'utf8')) } catch {}
   const r = chosenRoot(home, c) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
 }
@@ -90,7 +97,7 @@ function withRoot(home) {
 /** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
 export function rootsOf(home, env = process.env) {
   let c
-  try { c = JSON.parse(readFileSync(join(home, CONFIG_REL), 'utf8')) } catch {}
+  try { c = JSON.parse(readFileSync(configFileOf(home), 'utf8')) } catch {}
   const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
   return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
@@ -132,7 +139,8 @@ export function projectRoot(env = process.env, cwd = process.cwd()) {
   if (dir && hasConfig(dir)) return withRoot(dir)
   return findRoot(cwd) ?? (dir || cwd)
 }
-export const configPath = root => join(root, CONFIG_REL)
+/** The config file of the project at root: the existing one (its place first, then the legacy repo file); with none, where setup writes it. */
+export const configPath = (root, env = process.env) => configFileOf(root, env) ?? placeConfigPath(root, env)
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
@@ -629,8 +637,8 @@ function readValidated(p, label, source, env, root) {
  * config.ticketsDir is that place's tickets folder.
  */
 export function loadConfig(root, env = process.env) {
-  const rp = configPath(configHome(root))
-  if (existsSync(rp)) return readValidated(rp, CONFIG_REL, 'repo', env, root)
+  const rp = configFileOf(configHome(root), env)
+  if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)
   const pp = personalConfigPath(env)
   if (existsSync(pp)) return readValidated(pp, pp, 'personal', env, root)
   return { ok: false, missing: true, errors: [`This repo is not set up. ${SETUP}`] }

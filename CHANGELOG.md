@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-11-05
+
+### Changed
+
+- Setup no longer writes into your repo. The config is now `config.json`, kept on your machine next to the tickets, run logs and audit files, in the place setup's last question picks (the repo's `.quality-code/`, a folder under your Claude folder, or this session's temp folder). Setup writes it first to the session folder; the last question moves it, with the other files, and so does `/quality-code:config` item 7 later. Setup adds no line to your `.gitignore` (the folders ignore themselves) and writes nothing in `.claude/`. Only the Playwright and Vitest files setup adds on request are still project files.
+- A repo that already has `.claude/quality-code.json` keeps working: it is read when there is no `config.json`, never deleted, and `config set` edits whichever file is in force. CI jobs still read the repo: copy your `config.json` to `.claude/quality-code.json` there.
+
+**What to do:** update. Existing setups need nothing. To move to the new place, run `/quality-code:setup` again (it writes `config.json`; you may delete the old file).
+
 ## [0.58.2] - 2026-11-05
 
 ### Changed

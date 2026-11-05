@@ -3,7 +3,7 @@
 // second safety check on each one. Nothing is deleted from a path the caller names: the caller names groups.
 //
 // Groups:
-//   setup    .claude/quality-code.json, the templates and the Playwright/Vitest files setup wrote (only when they are
+//   setup    .claude/quality-code.json (older setups; the config now sits with the saved output below), the templates and the Playwright/Vitest files setup wrote (only when they are
 //            still exactly what setup writes), and the .gitignore lines setup added (those exact lines, nothing else)
 //   output   the tickets folder, .quality-code/, .claude/quality-code/ (audit log, run logs, evals, Jira fields)
 //   cache    this project's folder under <Claude folder>/quality-code/progress/
@@ -16,7 +16,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { CONFIG_REL, DEFAULTS, claudeDir, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf } from './config.mjs'
+import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf } from './config.mjs'
 import { PLAIN } from './git.mjs'
 import { dirOf, short, slug } from './progress.mjs'
 import { adaptersOf, asAdapter } from './stack.mjs'
@@ -102,7 +102,7 @@ const item = (top, abs, extra = {}) => {
 
 function rawTicketsDir(top) {
   try {
-    const c = JSON.parse(readFileSync(join(top, CONFIG_REL), 'utf8'))
+    const c = JSON.parse(readFileSync(configFileOf(top) ?? join(top, CONFIG_REL), 'utf8'))
     return typeof c?.ticketsDir === 'string' ? normaliseTicketsDir(c.ticketsDir) : DEFAULTS.ticketsDir
   } catch { return DEFAULTS.ticketsDir }
 }

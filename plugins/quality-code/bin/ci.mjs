@@ -360,7 +360,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root)
   if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
-  if (cfg.source === 'personal') { stderr('CI needs a repo with its own .claude/quality-code.json (run /quality-code:setup in the project).\n'); return 2 }
+  if (cfg.source === 'personal') { stderr('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).\n'); return 2 }
   if (a.init) return init(root, cfg.config, a, stdout, stderr)
   return a.tests ? tests(root, cfg.config, a, env, stdout, stderr) : gate(root, cfg.config, a, env, stdout)
 }

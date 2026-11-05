@@ -10,9 +10,14 @@ import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
+import { ignoreFolder } from './ignore.mjs'
+
+export { ignoreFolder }
 
 export const PLACES = ['repo', 'local', 'chat']
 export const AUDIT_REL = '.claude/quality-code/audit'
+export const CONFIG_FILE = 'config.json'
+export const REPO_FOLDER = '.quality-code'
 
 const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
@@ -77,6 +82,23 @@ export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault }
   }
 }
 
+/** The place of the project at home (the folder that holds the config): the pick, else QUALITY_CODE_PLACE, else this session. Reads no config. */
+function placeAt(home, env) {
+  const v = readPrefs(env)[resolve(home)]
+  if (PLACES.includes(v)) return v
+  const forced = env.QUALITY_CODE_PLACE ?? process.env.QUALITY_CODE_PLACE
+  return PLACES.includes(forced) ? forced : 'chat'
+}
+
+/**
+ * Where the setup config of the project at home lives: next to its tickets and audit files, in the place this person
+ * picked (the repo's .quality-code/, this machine, or this session's temp folder). Never in .claude, never tracked by git.
+ */
+export function placeConfigPath(home, env = process.env, place = placeAt(home, env)) {
+  const folder = place === 'repo' ? join(resolve(home), REPO_FOLDER) : baseOf(home, 'repo', place, env)
+  return join(folder, CONFIG_FILE)
+}
+
 /** Remember the pick. */
 export function rememberPlace(root, source, place, env = process.env) {
   const p = prefsPath(env)
@@ -116,6 +138,22 @@ export function pickPlace(root, opts, place, env = process.env) {
   const next = placeDirs(root, opts, place, env)
   rememberPlace(root, opts.source, place, env)
   const counts = { moved: 0, kept: 0 }
+  if (from !== place && opts.source !== 'personal') {
+    // The setup config moves with the other files (a config still in the repo's .claude/ stays where it is).
+    const home = configHome(root)
+    const oldCfg = placeConfigPath(home, env, from)
+    const newCfg = placeConfigPath(home, env, place)
+    if (oldCfg !== newCfg && existsSync(oldCfg)) {
+      if (existsSync(newCfg)) counts.kept++
+      else {
+        mkdirSync(dirname(newCfg), { recursive: true })
+        try { renameSync(oldCfg, newCfg) } catch { copyFileSync(oldCfg, newCfg); unlinkSync(oldCfg) }
+        counts.moved++
+      }
+      if (existsSync(newCfg) && place === 'repo') ignoreFolder(dirname(newCfg))
+      try { rmdirSync(dirname(oldCfg)) } catch {}
+    }
+  }
   if (from !== place) {
     const abs = d => resolve(root, d)
     if (abs(old.ticketsDir) !== abs(next.ticketsDir)) moveTree(abs(old.ticketsDir), abs(next.ticketsDir), counts)

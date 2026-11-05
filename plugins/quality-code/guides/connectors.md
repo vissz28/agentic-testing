@@ -47,7 +47,7 @@ A connector whose tools are missing, that asks to sign in, or whose call errors 
 
 **Who is signed in.** Each line shows the account, so nobody works under someone else's sign-in by mistake.
 
-- **Jira.** The site is the project's `jira.site` from `.claude/quality-code.json` (without a config: the first accessible site). Not among the accessible sites: ⚠️ `this account cannot see <site host>`. Compare `jira_email` with the email `atlassianUserInfo` returned, ignoring case. Same, or no `jira_email`: the line shows `<email> on <site host>`. Different: ⚠️ `signed in as <actual>, not <jira_email>`.
+- **Jira.** The site is the project's `jira.site` from the config (without a config: the first accessible site). Not among the accessible sites: ⚠️ `this account cannot see <site host>`. Compare `jira_email` with the email `atlassianUserInfo` returned, ignoring case. Same, or no `jira_email`: the line shows `<email> on <site host>`. Different: ⚠️ `signed in as <actual>, not <jira_email>`.
 - **GitLab.** Compare `gitlab_username` (a username, with or without `@`, or an email) with the username and the email the current-user call returned, ignoring case. Same, or no `gitlab_username`: the line shows `<username> on <host>`. Different: ⚠️ `signed in as <actual>, not <gitlab_username>`. A token that belongs to <actual>, not <gitlab_username> is never used silently.
 - **GitHub.** The line shows `<here.github.login> on <here.remote.host>`. Not ✅: ⚠️ `<here.github.reason>`.
 - **Figma.** Show the handle or email the current-user call returned. Nothing to compare.

@@ -139,7 +139,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (a.cmd === 'run' && a.until && today > a.until) { stdout(`routine ended on ${a.until}: nothing to do. Delete its schedule.\n`); return 0 }
   const cfg = loadConfig(root)
   if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
-  if (cfg.source === 'personal') { stderr('A routine needs a repo with its own .claude/quality-code.json (run /quality-code:setup in the project).\n'); return 2 }
+  if (cfg.source === 'personal') { stderr('A routine needs a repo with its own project config (run /quality-code:setup in the project).\n'); return 2 }
   const config = cfg.config
   if (a.task && !isProjectKey(config, a.task)) { stderr(`--task ${a.task} is not a key of ${projectKeys(config).join(', ')}\n`); return 2 }
   const dir = dirOf(cfg)

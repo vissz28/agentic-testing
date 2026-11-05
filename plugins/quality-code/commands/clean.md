@@ -23,7 +23,7 @@ Takes Quality Code out of this project. It deletes files, so it is slow on purpo
 
 | Group | Items | Files | What |
 |---|---|---|---|
-| Setup files | 3 | 4 | `.claude/quality-code.json`, `playwright.config.ts`, 2 `.gitignore` lines |
+| Setup files | 3 | 4 | `.claude/quality-code.json` (older setups; the new `config.json` is in the saved output), `playwright.config.ts`, 2 `.gitignore` lines |
 | Saved output | 2 | 31 | `.quality-code/`, `.claude/quality-code/` |
 | Cache | 1 | 2 | this project's saved stops |
 | Personal config | 1 | 1 | `~/.claude/quality-code.json` (every project reads it) |

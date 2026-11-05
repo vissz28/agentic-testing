@@ -128,3 +128,65 @@ test('a monorepo: the pick and the criteria field are one per repo, not one per 
   assert.equal(placeOf(join(top, 'b'), 'repo', env), 'local', 'the pick follows the repo to the new project root')
   assert.deepEqual(resolveField(join(top, 'b'), CFG, 'ABC'), { field: 'customfield_11707', source: 'stored' }, 'and so does the field')
 })
+
+// The setup config sits with the tickets and audit files, in the place picked at setup's last step.
+import { configFileOf, configPath } from '../../lib/base/config.mjs'
+import { placeConfigPath } from '../../lib/base/places.mjs'
+import { write } from '../../bin/setup.mjs'
+
+test('the setup config is in the picked place, beside the tickets folder and the audit log', () => {
+  const root = tmp(), claude = tmp(), env = { CLAUDE_CONFIG_DIR: claude, QUALITY_CODE_PLACE: '' }
+  assert.equal(placeConfigPath(root, env, 'repo'), join(root, '.quality-code/config.json'))
+  const local = placeConfigPath(root, env, 'local')
+  assert.equal(local, join(placeDirs(root, { source: 'repo' }, 'local', env).ticketsDir, '..', 'config.json'))
+  assert.match(local, new RegExp(`^${claude}/quality-code/projects/`))
+  assert.equal(placeConfigPath(root, env, 'chat').includes('/.claude/'), false)
+  assert.equal(placeConfigPath(root, env), placeConfigPath(root, env, 'chat'), 'unpicked: this session')
+})
+
+test('the config in the place is read first; the legacy repo file is the fallback', () => {
+  const root = repo({ languages: ['it'] })
+  const env = { CLAUDE_CONFIG_DIR: tmp(), QUALITY_CODE_PLACE: 'repo' }
+  assert.equal(configFileOf(root, env), join(root, '.claude/quality-code.json'), 'only the legacy file exists')
+  assert.deepEqual(loadConfig(root, env).config.languages, ['it'])
+  mkdirSync(join(root, '.quality-code'), { recursive: true })
+  writeFileSync(join(root, '.quality-code/config.json'), JSON.stringify({ ...CFG, languages: ['en'] }))
+  assert.equal(configFileOf(root, env), join(root, '.quality-code/config.json'))
+  assert.equal(configPath(root, env), join(root, '.quality-code/config.json'))
+  assert.deepEqual(loadConfig(root, env).config.languages, ['en'], 'the new location wins')
+})
+
+test('setup writes the config to the place, never into the repo .gitignore, and leaves the legacy file alone', () => {
+  const root = repo(), claude = tmp()
+  writeFileSync(join(root, 'package.json'), '{}')
+  const before = readFileSync(join(root, '.claude/quality-code.json'), 'utf8')
+  const r = write(root, { ...CFG, ticketsDir: '.quality-code/tickets' })
+  assert.equal(r.ok, true)
+  assert.match(r.note, /is still there/)
+  assert.equal(readFileSync(join(root, '.claude/quality-code.json'), 'utf8'), before)
+  assert.equal(existsSync(join(root, '.gitignore')), false)
+  assert.equal(existsSync(join(root, '.quality-code/config.json')), true)
+  void claude
+})
+
+test('save set moves the config with the tickets and the audit log, and back', () => {
+  const root = tmp(), claude = tmp()
+  writeFileSync(join(root, 'package.json'), '{}')
+  const env = { ...process.env, QUALITY_CODE_PLACE: '', CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: claude }
+  // Setup's order: the config first, in the default place (this session), then the last-step question moves it.
+  const w = spawnSync(process.execPath, [new URL('../../bin/setup.mjs', import.meta.url).pathname, '--write', JSON.stringify({ config: CFG })], { cwd: root, env, encoding: 'utf8' })
+  assert.equal(w.stdout.split('\n')[0], 'ok', w.stderr)
+  const chat = placeConfigPath(root, { CLAUDE_CONFIG_DIR: claude, QUALITY_CODE_PLACE: '' })
+  assert.equal(existsSync(chat), true, 'written to the session folder first')
+  assert.equal(existsSync(join(root, '.claude/quality-code.json')), false)
+  assert.equal(run(root, claude, 'save', 'set', 'local').status, 0)
+  const local = placeConfigPath(root, { CLAUDE_CONFIG_DIR: claude }, 'local')
+  assert.equal(existsSync(local), true)
+  assert.equal(existsSync(chat), false)
+  assert.equal(run(root, claude, 'config', 'check').status, 0, 'the config is found in its new place')
+  assert.equal(run(root, claude, 'save', 'set', 'repo').status, 0)
+  assert.equal(existsSync(join(root, '.quality-code/config.json')), true)
+  assert.equal(readFileSync(join(root, '.quality-code/.gitignore'), 'utf8'), '*\n')
+  assert.equal(existsSync(local), false)
+  assert.equal(existsSync(join(root, '.gitignore')), false)
+})

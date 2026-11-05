@@ -8,6 +8,10 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
 import { filesOf } from '../../lib/base/containers.mjs'
+import { audit } from '../../lib/base/audit.mjs'
+import { logBlocked } from '../../lib/base/boundary.mjs'
+import { startRun } from '../../lib/base/run.mjs'
+import { FIELDS_REL, storeField } from '../../lib/ticket/fields.mjs'
 import { filePattern } from '../../lib/pipeline/runners/playwright.mjs'
 import { calls, fakeBin, fakeCommand } from '../fake-bin.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
@@ -69,8 +73,8 @@ test('detect reports existing config, bad JSON and gitignore state', () => {
   write(d, cfg, {})
   const r = detect(d)
   assert.deepEqual(r.existing, cfg)
-  assert.equal(r.gitignore, true)
-  writeFileSync(join(d, '.claude/quality-code.json'), '{nope')
+  assert.equal(r.gitignore, false, 'setup adds no line to the project .gitignore')
+  writeFileSync(join(d, '.quality-code/config.json'), '{nope')
   const bad = detect(d)
   assert.equal(bad.existing, null)
   assert.match(bad.existingError, /not valid JSON/)
@@ -78,35 +82,36 @@ test('detect reports existing config, bad JSON and gitignore state', () => {
 test('write refuses an invalid config and writes nothing', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, languages: [] }, { gitignoreLine: 'x' }).ok, false)
-  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
+  assert.equal(existsSync(join(d, '.quality-code/config.json')), false)
   assert.equal(existsSync(join(d, '.gitignore')), false)
 })
 test('write writes the config and one gitignore line, idempotently', () => {
   const d = repo({})
   write(d, cfg, { gitignoreLine: LINE })
   write(d, cfg, { gitignoreLine: LINE })
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')), cfg)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')), cfg)
   assert.equal(readFileSync(join(d, '.gitignore'), 'utf8').match(/raw\.json/g).length, 1)
 })
 test('config is written as given, 2-space with trailing newline', () => {
   const d = repo({})
   write(d, cfg, {})
-  assert.equal(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'), `${JSON.stringify(cfg, null, 2)}\n`)
+  assert.equal(readFileSync(join(d, '.quality-code/config.json'), 'utf8'), `${JSON.stringify(cfg, null, 2)}\n`)
 })
-test('gitignore: newline added before the line, content kept; custom ticketsDir used', () => {
+test('gitignore: an explicit line is added after a newline, content kept; nothing else is written to the project .gitignore', () => {
   const d = repo({}); writeFileSync(join(d, '.gitignore'), 'node_modules')
-  write(d, { ...cfg, ticketsDir: 'tix' }, {})
-  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n')
+  write(d, { ...cfg, ticketsDir: 'tix' }, { gitignoreLine: 'tix/*/raw.json' })
+  assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'node_modules\ntix/*/raw.json\n')
   const e = repo({}); writeFileSync(join(e, '.gitignore'), 'a\n')
   write(e, cfg, {})
-  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), `a\n${LINE}\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n`)
+  assert.equal(readFileSync(join(e, '.gitignore'), 'utf8'), 'a\n')
 })
-test('gitignore: a trailing slash or backslashes in ticketsDir still give <dir>/*/raw.json', () => {
-  for (const ticketsDir of ['tix/', 'tix\\']) {
+test('write keeps setup out of the repo: no .gitignore, the config and the tickets folder ignore themselves', () => {
+  for (const [ticketsDir, folder] of [['tix/', 'tix'], ['tix\\', 'tix'], ['.quality-code/tickets', '.quality-code/tickets']]) {
     const d = repo({})
     assert.equal(write(d, { ...cfg, ticketsDir }, {}).ok, true)
-    assert.equal(readFileSync(join(d, '.gitignore'), 'utf8'), 'tix/*/raw.json\n.claude/quality-code/jira-fields.json\n.claude/quality-code/*.jsonl\n.claude/quality-code/run.active\nmut-tmp-*\n.claude/quality-code/audit/\n', ticketsDir)
-    assert.equal(detect(d).gitignore, true, ticketsDir)
+    assert.equal(existsSync(join(d, '.gitignore')), false, ticketsDir)
+    assert.equal(readFileSync(join(d, '.quality-code/.gitignore'), 'utf8'), '*\n', ticketsDir)
+    assert.equal(readFileSync(join(d, folder, '.gitignore'), 'utf8'), '*\n', ticketsDir)
   }
 })
 test('a newline in ticketsDir is refused before .gitignore is touched', () => {
@@ -119,7 +124,7 @@ test('templates are written when absent and wired into ticketTemplates', () => {
   assert.equal(write(d, cfg, { templates: { bug: '# Bug', story: '# Story' } }).ok, true)
   assert.equal(readFileSync(join(d, '.gitlab/issue_templates/Bug.md'), 'utf8'), '# Bug\n')
   assert.equal(existsSync(join(d, '.gitlab/issue_templates/Story.md')), true)
-  const written = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
+  const written = JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8'))
   assert.deepEqual(written.ticketTemplates, { bug: '.gitlab/issue_templates/Bug.md', story: '.gitlab/issue_templates/Story.md' })
 })
 test('existing templates are never overwritten', () => {
@@ -133,14 +138,14 @@ test('a ticketTemplates value already set is kept', () => {
   const d = repo({})
   const c = { ...cfg, ticketTemplates: { bug: 'docs/bug.md', story: null } }
   write(d, c, { templates: { bug: '#', story: '#' } })
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).ticketTemplates, c.ticketTemplates)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).ticketTemplates, c.ticketTemplates)
 })
 test('paths escaping the project are rejected and nothing is written', () => {
   for (const bad of [{ ticketsDir: '../out' }, { ticketsDir: '/abs' }, { ticketTemplates: { bug: '../b.md' } }, { ticketTemplates: { story: '/etc/x' } }]) {
     const d = repo({})
     const r = write(d, { ...cfg, ...bad }, { templates: { bug: '#', story: '#' } })
     assert.equal(r.ok, false)
-    assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
+    assert.equal(existsSync(join(d, '.quality-code/config.json')), false)
     assert.equal(existsSync(join(d, '.gitlab')), false)
   }
 })
@@ -158,7 +163,7 @@ test('CLI --write @file writes and prints ok', () => {
   const r = cli(d, '--write', '@p.json')
   assert.equal(r.status, 0)
   assert.equal(r.stdout, 'ok\n')
-  assert.equal(existsSync(join(d, '.claude/quality-code.json')), true)
+  assert.equal(existsSync(join(d, '.quality-code/config.json')), true)
 })
 test('CLI --write prints each error on its own line, exits 2, writes nothing', () => {
   const d = repo({})
@@ -166,12 +171,12 @@ test('CLI --write prints each error on its own line, exits 2, writes nothing', (
   const r = cli(d, '--write', '@p.json')
   assert.equal(r.status, 2)
   assert.equal(r.stdout.trimEnd().split('\n').length >= 2, true)
-  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
+  assert.equal(existsSync(join(d, '.quality-code/config.json')), false)
   assert.equal(cli(d, '--write', '@missing.json').status, 2)
 })
 test('re-running the same proposal is idempotent and keeps ticketTemplates', () => {
   const d = repo({})
-  const run = () => { assert.equal(write(d, cfg, { templates: { bug: '#', story: '#' } }).ok, true); return readFileSync(join(d, '.claude/quality-code.json'), 'utf8') }
+  const run = () => { assert.equal(write(d, cfg, { templates: { bug: '#', story: '#' } }).ok, true); return readFileSync(join(d, '.quality-code/config.json'), 'utf8') }
   const first = run()
   assert.equal(run(), first)
   assert.ok(JSON.parse(first).ticketTemplates)
@@ -184,7 +189,7 @@ test('write never throws: a dangling symlink at a template path is an error, not
   const r = write(d, proposal.config, { templates: proposal.templates })
   assert.equal(r.ok, false)
   assert.match(r.errors[0], /Bug\.md/)
-  assert.equal(existsSync(join(d, '.claude/quality-code.json')), false)
+  assert.equal(existsSync(join(d, '.quality-code/config.json')), false)
   writeFileSync(join(d, 'p.json'), JSON.stringify(proposal))
   const c = cli(d, '--write', '@p.json')
   assert.equal(c.status, 2)
@@ -252,28 +257,32 @@ test('GitHub: its default template names are found, and new templates go to .git
   assert.equal(detect(d).templates.bug, '.github/ISSUE_TEMPLATE/bug_report.md')
   assert.equal(write(d, cfg, { templates: { bug: '# Bug', story: '# Story' } }).ok, true)
   assert.equal(existsSync(join(d, '.gitlab')), false)
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).ticketTemplates, { bug: '.github/ISSUE_TEMPLATE/bug_report.md', story: '.github/ISSUE_TEMPLATE/story.md' })
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).ticketTemplates, { bug: '.github/ISSUE_TEMPLATE/bug_report.md', story: '.github/ISSUE_TEMPLATE/story.md' })
 })
 test('CLI --write takes the proposal inline, no temp file', () => {
   const d = repo({})
   const r = cli(d, '--write', JSON.stringify({ config: cfg }))
   assert.equal(r.stdout, 'ok\n')
-  assert.equal(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).adapter, 'vitest')
+  assert.equal(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).adapter, 'vitest')
   assert.equal(cli(d, '--write', '{nope').status, 2)
 })
-test('detect: a vite.config with a test block is a Vitest config; a ./ ticketsDir still git-ignores raw.json', () => {
+test('detect: a vite.config with a test block is a Vitest config; a ./ ticketsDir folder ignores itself', () => {
   const d = repo({})
   writeFileSync(join(d, 'vite.config.ts'), 'export default defineConfig({ test: { environment: "jsdom" } })')
   assert.deepEqual(detect(d).vitestConfigs, ['vite.config.ts'])
   writeFileSync(join(d, 'vite.config.ts'), 'export default defineConfig({ plugins: [] })')
   assert.deepEqual(detect(d).vitestConfigs, [])
   assert.equal(write(d, { ...cfg, ticketsDir: './qa/tickets' }, {}).ok, true)
-  assert.ok(readFileSync(join(d, '.gitignore'), 'utf8').split('\n').includes('qa/tickets/*/raw.json'))
+  assert.equal(readFileSync(join(d, 'qa/tickets/.gitignore'), 'utf8'), '*\n')
 })
-test('write git-ignores the local Jira field memory', () => {
+test('the local Jira field memory folder ignores itself, with no line in the project .gitignore', () => {
   const d = repo({})
+  spawnSync('git', ['init', '-q'], { cwd: d })
   write(d, cfg, {})
-  assert.ok(readFileSync(join(d, '.gitignore'), 'utf8').split('\n').includes('.claude/quality-code/jira-fields.json'))
+  assert.equal(storeField(d, 'DEMO', 'customfield_10100').ok, true)
+  const r = spawnSync('git', ['check-ignore', '--no-index', FIELDS_REL], { cwd: d, encoding: 'utf8' })
+  assert.equal(r.stdout.trim(), FIELDS_REL, r.stderr)
+  assert.equal(existsSync(join(d, '.gitignore')), false)
 })
 
 test('detect lists the boundary candidates that exist, and specs next to the code', () => {
@@ -319,20 +328,23 @@ test('specFolders: sorted, at most 10', () => {
   assert.equal(f.length, 10)
   assert.deepEqual(f, Array.from({ length: 10 }, (_, i) => `test/l${String(i + 1).padStart(2, '0')}/`))
 })
-test('write adds the runtime gitignore lines once', () => {
+test('write adds no runtime line to the project .gitignore, however often it runs', () => {
   const d = repo({})
   write(d, cfg, {})
   write(d, cfg, {})
-  const lines = readFileSync(join(d, '.gitignore'), 'utf8').trim().split('\n')
-  assert.deepEqual(lines, ['.quality-code/tickets/*/raw.json', '.claude/quality-code/jira-fields.json', '.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/'])
+  assert.equal(existsSync(join(d, '.gitignore')), false)
 })
-test('the runtime gitignore lines keep the audit log, the boundary log and the run marker out of git', () => {
+test('the config, the tickets, the audit log, the boundary log and the run marker stay out of git without a .gitignore line', () => {
   const d = repo({})
   spawnSync('git', ['init', '-q'], { cwd: d })
   write(d, cfg, {})
-  const files = ['.claude/quality-code/audit/gate.jsonl', '.claude/quality-code/audit/pipeline.jsonl', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/run.active']
-  const r = spawnSync('git', ['check-ignore', '--no-index', ...files], { cwd: d, encoding: 'utf8' })
-  assert.deepEqual(r.stdout.trim().split('\n'), files, r.stderr)
+  assert.equal(startRun(d, 'DEMO-1').ok, true)
+  assert.equal(audit(d, 'gate', { key: 'DEMO-1' }), true)
+  logBlocked(d, { path: 'x' })
+  mkdirSync(join(d, '.quality-code/tickets/DEMO-1'), { recursive: true })
+  writeFileSync(join(d, '.quality-code/tickets/DEMO-1/raw.json'), '{}')
+  const r = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: d, encoding: 'utf8' })
+  assert.deepEqual(r.stdout.trim().split('\n').filter(l => !l.endsWith('package.json')), [], r.stdout)
 })
 test('detect lists the root Vitest configs, sorted, and [] when there are none', () => {
   const d = repo({ devDependencies: { vitest: '1' } })
@@ -343,7 +355,7 @@ test('detect lists the root Vitest configs, sorted, and [] when there are none',
 test('write keeps boundaries', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, boundaries: { forbidden: [{ path: 'src/' }] } }, {}).ok, true)
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).boundaries, { forbidden: [{ path: 'src/' }] })
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).boundaries, { forbidden: [{ path: 'src/' }] })
 })
 
 test('detect: Playwright configs at the root or up to two folders down, with the folder their testDir gives', () => {
@@ -404,7 +416,7 @@ test('detect: the base is develop when origin/develop exists, else origin/HEAD, 
 test('the proposed base is written as git.base', () => {
   const [d] = gitRepo()
   assert.equal(write(d, { ...cfg, git: { base: 'develop' } }, {}).ok, true)
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).git, { base: 'develop' })
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).git, { base: 'develop' })
 })
 
 // A frontend with no Playwright: setup offers to add it, and a smoke test proves the setup works.
@@ -475,7 +487,7 @@ test('write with a scaffold: the Playwright config from the command and address,
   assert.ok(gi.includes('test-results/') && gi.includes('playwright-report/'))
   assert.ok(!gi.includes('.env.e2e'))
   assert.deepEqual(e2eFolder(d, pwCfg), { ok: true, folder: 'e2e/', source: 'testDir', configFile: 'playwright.config.js' }, 'the plugin reads its testDir')
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')), pwCfg)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')), pwCfg)
 })
 test('write with a sign-in: a setup project every test depends on; its state and .env.e2e are git-ignored', () => {
   const d = repo({})
@@ -515,7 +527,7 @@ test('write refuses a scaffold over an existing config, a bad command, address o
     const r = write(d, c, { scaffold: s })
     assert.equal(r.ok, false, label)
     assert.match(r.errors.join('\n'), re, label)
-    assert.equal(existsSync(join(d, '.claude/quality-code.json')), false, label)
+    assert.equal(existsSync(join(d, '.quality-code/config.json')), false, label)
     assert.equal(existsSync(join(d, 'e2e')), false, label)
   }
   const d = repo({})
@@ -696,7 +708,7 @@ test('write with vitestScaffold: the Vitest config, e2e/ left to Playwright on a
   assert.equal(c, vitestConfigText({ e2e: false }))
   assert.doesNotMatch(c, /exclude/)
   assert.ok(c.includes('resolve: { tsconfigPaths: true },'), "imports through the tsconfig's baseUrl or paths resolve")
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')), cfg)
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')), cfg)
   const fs = repo({ dependencies: { react: '19', express: '5' } })
   assert.equal(write(fs, { ...cfg, adapter: 'fullstack' }, { vitestScaffold: true, scaffold: SCAFFOLD }).ok, true)
   assert.match(readFileSync(join(fs, 'vitest.config.js'), 'utf8'), /test: \{ exclude: \[\.\.\.configDefaults\.exclude, 'e2e\/\*\*'\] \}/)
@@ -724,7 +736,7 @@ test('write refuses vitestScaffold on a project whose tests are not Vitest\'s; n
     const r = write(d, c, { vitestScaffold: v })
     assert.equal(r.ok, false, label)
     assert.match(r.errors.join('\n'), re, label)
-    assert.equal(existsSync(join(d, '.claude/quality-code.json')), false, label)
+    assert.equal(existsSync(join(d, '.quality-code/config.json')), false, label)
   }
   const d = repo({})
   const r = cli(d, '--write', JSON.stringify({ config: cfg, vitestScaffold: true }))
@@ -778,7 +790,7 @@ test('write with containersScaffold: the integration config on the project\'s ow
   assert.ok(setup.includes("project.provide('postgresUrl', postgres.getConnectionUri())"))
   assert.match(setup, /is Docker running\?/)
   assert.ok(readFileSync(join(d, 'test/integration/databases.ts'), 'utf8').includes("export const postgresUrl = () => inject('postgresUrl')"))
-  assert.deepEqual(JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8')).vitest, {
+  assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).vitest, {
     layers: [{ name: 'unit', folder: 'test/' }, { name: 'integration', folder: 'test/integration/' }],
     configs: [{ match: 'test/integration/', config: 'vitest.integration.config.ts' }],
   })
@@ -787,7 +799,7 @@ test('write with containersScaffold: the integration config on the project\'s ow
   const own = repo({ devDependencies: { vitest: '5' }, dependencies: { pg: '8' } })
   const layers = [{ name: 'unit', folder: 'test/unit/' }, { name: 'integration', folder: 'test/it/' }]
   assert.equal(write(own, { ...cfg, vitest: { layers, configs: [{ match: 'test/**', config: 'vitest.config.js' }] } }, { containersScaffold: true }).ok, true)
-  assert.deepEqual(JSON.parse(readFileSync(join(own, '.claude/quality-code.json'), 'utf8')).vitest, { layers, configs: [{ match: 'test/it/', config: 'vitest.integration.config.js' }, { match: 'test/**', config: 'vitest.config.js' }] }, "the team's integration layer, its config first")
+  assert.deepEqual(JSON.parse(readFileSync(join(own, '.quality-code/config.json'), 'utf8')).vitest, { layers, configs: [{ match: 'test/it/', config: 'vitest.integration.config.js' }, { match: 'test/**', config: 'vitest.config.js' }] }, "the team's integration layer, its config first")
   assert.ok(existsSync(join(own, 'test/it/global-setup.js')))
 
   const fresh = repo({ dependencies: { express: '5', mysql2: '3' } })
@@ -847,17 +859,17 @@ test('write with containersScaffold on pytest, Go and .NET: the helper, and the 
   assert.equal(write(py, { ...cfg, adapter: 'pytest' }, { containersScaffold: true }).ok, true)
   const conftest = readFileSync(join(py, 'tests/integration/conftest.py'), 'utf8')
   for (const line of ['from testcontainers.community.mongodb import MongoDbContainer', 'def mongodb_url():', 'mongodb = _start("MongoDB", lambda: MongoDbContainer("mongo:8"))', 'yield mongodb.get_connection_url()', 'is Docker running?']) assert.ok(conftest.includes(line), line)
-  assert.deepEqual(JSON.parse(readFileSync(join(py, '.claude/quality-code.json'), 'utf8')).pytest, { layers: [{ name: 'unit', folder: 'tests/' }, { name: 'integration', folder: 'tests/integration/' }] })
+  assert.deepEqual(JSON.parse(readFileSync(join(py, '.quality-code/config.json'), 'utf8')).pytest, { layers: [{ name: 'unit', folder: 'tests/' }, { name: 'integration', folder: 'tests/integration/' }] })
 
   const go = dir({ 'go.mod': 'module example.com/shop\nrequire github.com/redis/go-redis/v9 v9.7.0\n' })
   assert.equal(write(go, { ...cfg, adapter: 'go' }, { containersScaffold: true }).ok, true)
   const helper = readFileSync(join(go, 'internal/testdb/testdb.go'), 'utf8')
   for (const line of ['package testdb', 'import it as example.com/shop/internal/testdb', '"github.com/testcontainers/testcontainers-go/modules/redis"', 'var RedisURL = start("Redis"', 'c, err := redis.Run(ctx, "redis:7-alpine")']) assert.ok(helper.includes(line), line)
-  assert.equal(JSON.parse(readFileSync(join(go, '.claude/quality-code.json'), 'utf8')).go, undefined, 'Go tests sit beside the code: no layer')
+  assert.equal(JSON.parse(readFileSync(join(go, '.quality-code/config.json'), 'utf8')).go, undefined, 'Go tests sit beside the code: no layer')
 
   const net = dir({ 'Shop.Tests/Shop.Tests.csproj': '<Project><PropertyGroup><RootNamespace>Acme.Shop.Tests</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="xunit" /><PackageReference Include="MySqlConnector" /></ItemGroup></Project>' })
   assert.equal(write(net, { ...cfg, adapter: 'dotnet', dotnet: { layers: [{ name: 'unit', folder: 'Shop.Tests/' }] } }, { containersScaffold: true }).ok, true)
   const cs = readFileSync(join(net, 'Shop.Tests/Integration/TestDatabases.cs'), 'utf8')
   for (const line of ['namespace Acme.Shop.Tests.Integration;', 'using Testcontainers.MySql;', 'Start("MySQL", () => new MySqlBuilder("mysql:8.4").Build(), c => c.GetConnectionString());', 'public static Task<string> MySqlAsync() => MySql.Value;']) assert.ok(cs.includes(line), line)
-  assert.deepEqual(JSON.parse(readFileSync(join(net, '.claude/quality-code.json'), 'utf8')).dotnet.layers, [{ name: 'unit', folder: 'Shop.Tests/' }, { name: 'integration', folder: 'Shop.Tests/Integration/' }], "the team's layers kept")
+  assert.deepEqual(JSON.parse(readFileSync(join(net, '.quality-code/config.json'), 'utf8')).dotnet.layers, [{ name: 'unit', folder: 'Shop.Tests/' }, { name: 'integration', folder: 'Shop.Tests/Integration/' }], "the team's layers kept")
 })

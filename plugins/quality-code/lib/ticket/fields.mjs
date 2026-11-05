@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
 import { configHome } from '../base/config.mjs'
+import { ignoreFolder } from '../base/ignore.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
@@ -38,7 +39,7 @@ export function storeField(root, project, value) {
   const home = configHome(root)
   const projects = { ...storedAt(home), [project]: value === 'none' ? null : value }
   const p = join(home, FIELDS_REL)
-  mkdirSync(dirname(p), { recursive: true })
+  ignoreFolder(dirname(p))
   writeFileSync(p, `${JSON.stringify({ projects }, null, 2)}\n`)
   return { ok: true }
 }

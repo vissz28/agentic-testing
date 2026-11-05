@@ -8,6 +8,8 @@ import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, loadConfig, normaliseTicketsDir, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
+import { ignoreFolder } from '../lib/base/ignore.mjs'
+import { placeConfigPath, placeOf } from '../lib/base/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/base/e2e-folder.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { CI_FILES } from '../lib/base/boundary.mjs'
@@ -503,7 +505,7 @@ export function detect(top, env = process.env, sub = null) {
   let existingError
   const cp = configPath(top)
   if (existsSync(cp)) {
-    try { existing = readJson(cp) } catch (err) { existingError = `${CONFIG_REL} is not valid JSON (${err.message})` }
+    try { existing = readJson(cp) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }
   const candidates = rootCandidates(top)
   // The top of an npm-workspaces monorepo only orchestrates: the project is one of its workspaces.
@@ -579,7 +581,8 @@ function pathProblem(root, label, p) {
  * (true) the Vitest config, containersScaffold (true) the integration layer that runs on real databases;
  * an existing file is never replaced.
  */
-export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated } = {}) {
+export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated, configFile } = {}) {
+  // configFile: a change to the config already in force is written back to that file, not to the setup location.
   // colocated (true): the project's tests sit next to its code: its test folder is the code folder, with the test names allowed.
   if (colocated !== undefined) {
     if (colocated !== true) return { ok: false, errors: ['colocated: must be true'] }
@@ -649,14 +652,21 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
       mkdirSync(dirname(full), { recursive: true })
       writeFileSync(full, body.endsWith('\n') ? body : `${body}\n`, { flag: 'wx' })
     }
-    step = CONFIG_REL
-    mkdirSync(join(top, dirname(CONFIG_REL)), { recursive: true })
-    writeFileSync(configPath(top), `${JSON.stringify(out, null, 2)}\n`)
-
+    // The config sits next to the tickets and audit files, in the place this person keeps them (on this machine, or the
+    // session's temp folder until setup's last step picks); nothing about it is written into the repo's .gitignore.
+    step = 'config.json'
+    const cfg = configFile ?? placeConfigPath(top)
+    mkdirSync(dirname(cfg), { recursive: true })
+    writeFileSync(cfg, `${JSON.stringify(out, null, 2)}\n`)
+    if (!configFile && placeOf(top, 'repo') === 'repo') {
+      ignoreFolder(dirname(cfg))
+      ignoreFolder(join(root, normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)))
+    }
+    // Only what setup adds to the project itself (the Playwright files) gets a line in its .gitignore.
+    const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]
     const gi = join(root, '.gitignore')
     step = '.gitignore'
-    const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]
-    for (const line of [gitignoreLine ?? rawLine(config.ticketsDir), FIELDS_REL, ...RUNTIME_GITIGNORE, ...playwrightLines]) {
+    for (const line of [...(gitignoreLine === undefined ? [] : [gitignoreLine]), ...playwrightLines]) {
       if (hasLine(gi, line)) continue
       const cur = existsSync(gi) ? readFileSync(gi, 'utf8') : ''
       writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}${line}\n`)
@@ -664,7 +674,8 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   } catch (err) {
     return { ok: false, errors: [`${step}: ${err.message}`] }
   }
-  return { ok: true }
+  const legacy = !configFile && existsSync(join(top, CONFIG_REL)) ? CONFIG_REL : null
+  return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy, note: `${legacy} is still there and is no longer read once the new config exists; delete it when you like.` } : {}) }
 }
 
 /** Writes the personal config only: no repo file, no .gitignore, no template. */
@@ -763,7 +774,7 @@ function main(argv) {
     }
     const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold, containersScaffold: proposal?.containersScaffold, colocated: proposal?.colocated })
     if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
-    process.stdout.write('ok\n')
+    process.stdout.write(`ok\n${r.note ? `${r.note}\n` : ''}`)
     return 0
   }
   if (argv[0] === '--smoke' && argv.slice(1).every(a => a === '--if-first')) {

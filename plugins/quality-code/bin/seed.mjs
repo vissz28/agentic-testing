@@ -24,7 +24,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
   const seed = seedOf(cfg.config)
   if (!seed.target || !seed.apply) {
-    stderr('Loading mock data needs "seed.target" and "seed.apply" in .claude/quality-code.json, for example:\n'
+    stderr('Loading mock data needs "seed.target" and "seed.apply" in the project config.json, for example:\n'
       + '  "seed": { "target": "echo localhost:5432/app", "apply": "psql -h localhost -d app -v ON_ERROR_STOP=1 -f {file}" }\n')
     return 2
   }

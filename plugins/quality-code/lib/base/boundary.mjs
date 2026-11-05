@@ -6,12 +6,13 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { changedPaths } from './git.mjs'
 import { result } from './result.mjs'
 import { backendOf, BACKENDS } from './backends.mjs'
+import { ignoreFolder } from './ignore.mjs'
 
 // Never written by a test run: build output and packages at any depth (monorepos), git, and the
 // plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
 // The plugin's scripts write their state during a run, so only the hook guards it, not the diff check.
 const STATE = ['.claude/quality-code/run.active', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/audit/']
-export const ALWAYS = ['**/dist/', '**/node_modules/', '.git/', '.claude/quality-code.json', ...STATE, '.claude/settings.json', '.claude/settings.local.json']
+export const ALWAYS = ['**/dist/', '**/node_modules/', '.git/', '.claude/quality-code.json', '.quality-code/config.json', ...STATE, '.claude/settings.json', '.claude/settings.local.json']
 export const DEFAULT_WHY = 'application code: a test run writes tests, it never changes the code under test.'
 export const RUN_MARKER = '.claude/quality-code/run.active'
 export const BOUNDARY_LOG = '.claude/quality-code/boundary.jsonl'
@@ -161,7 +162,7 @@ export function hookReason(path, why) {
 export function logBlocked(root, entry) {
   try {
     const p = join(root, BOUNDARY_LOG)
-    mkdirSync(dirname(p), { recursive: true })
+    ignoreFolder(dirname(p))
     appendFileSync(p, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`)
   } catch {}
 }
