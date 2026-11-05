@@ -172,3 +172,11 @@ test('created: the cases already created in Xray are kept per ticket, so none is
   assert.ok(readFileSync(join(root, '.quality-code/tickets/ABC-5/xray-created.json'), 'utf8').includes('ABC-31'))
   for (const bad of [['created'], ['created', 'abc'], ['created', 'ABC-5', 'add', 'name'], ['created', 'ABC-5', 'add', 'name', 'x'], ['created', 'ABC-5', 'remove', 'n', 'ABC-1']]) assert.equal((await run(...bad)).code, 2, bad.join(' '))
 })
+
+test('a personal config has Xray on without a block: the cases go to xray-cases.csv in its tickets folder', async () => {
+  const { xrayOf } = await import('../../lib/base/config.mjs')
+  const x = xrayOf({ ticketsDir: '/home/me/.claude/quality-code/tickets' }, 'personal')
+  assert.equal(x.csv, '/home/me/.claude/quality-code/tickets/xray-cases.csv')
+  assert.equal(x.folder, '/home/me/.claude/quality-code/tickets/')
+  assert.equal(xrayOf({ ticketsDir: '.quality-code/tickets' }, 'repo'), null, 'a repo still needs its xray block')
+})

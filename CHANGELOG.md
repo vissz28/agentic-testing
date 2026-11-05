@@ -14,6 +14,13 @@ Update with `/plugin update quality-code@teamsystem`.
 ### Changed
 
 - `/quality-code:spec` reads its testing rules from TeamSystem's hosted Central Context hub by default, so everyone who runs setup is connected with nothing to set. `centralContext.hub` still picks another hub, `"off"` still turns it off, and `CC_HUB_URL` still wins. To move the default to a new URL, see the comment on `DEFAULT_HUB` in `lib/base/rules.mjs`.
+## [0.56.1] - 2026-11-05
+
+### Fixed
+
+- `/quality-code:xray` no longer needs a repo. Xray is part of Jira, so it now works with the personal setup (QA and PO): no `xray` block is needed, the cases are kept in `xray-cases.csv` in your tickets folder, and the per-ticket files go beside the tickets. A repo still needs its `xray` block.
+
+**What to do:** update. QA and PO: run `/quality-code:setup` once (option 2, no repo), then `/quality-code:xray <KEY>` from any folder.
 
 ## [0.56.0] - 2026-11-04
 

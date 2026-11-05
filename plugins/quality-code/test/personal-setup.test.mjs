@@ -122,7 +122,7 @@ test('setup: the personal setup confirms on the same card; tickets default to bo
   assert.match(s, /for a personal setup, `Tickets` in place of Stack, and no Base/)
 })
 const guide = n => readFileSync(join(HERE, '../guides', `${n}.md`), 'utf8')
-for (const n of ['run', 'seed', 'xray']) {
+for (const n of ['run', 'seed']) {
   test(`${n}: a personal config or no git repo stops with the needs-a-repo line`, () => {
     const s = n === 'run' ? guide('run') : cmd(n)
     assert.ok(s.includes('config check'))
@@ -138,6 +138,11 @@ for (const n of ['spec']) {
     assert.ok(s.includes('This needs a repo. Open the project folder, or run /quality-code:setup there.'))
   })
 }
+test('xray: Xray is part of Jira, so a personal config works with no repo', () => {
+  const s = cmd('xray')
+  assert.ok(s.includes('no repo is needed'))
+  assert.ok(!s.includes('This needs a repo.'))
+})
 for (const n of ['ticket-eval', 'ticket']) {
   test(`${n}: works with either config`, () => assert.ok(!cmd(n).includes('This needs a repo.')))
 }

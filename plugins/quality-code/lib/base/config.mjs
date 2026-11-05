@@ -572,8 +572,10 @@ export const qaOf = config => {
 }
 
 /** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
-export const xrayOf = config => {
+export const xrayOf = (config, source = 'repo') => {
   const x = config?.xray
+  // Xray is part of Jira: a personal setup (no repo) has it on without a block, with the cases kept in its tickets folder.
+  if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${normaliseTicketsDir(config.ticketsDir)}/xray-cases.csv`, folder: `${normaliseTicketsDir(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null
   return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
