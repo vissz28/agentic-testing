@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-06
+
+### Added
+
+- The shared MCP server has a sign-in page at its address (`/`): a Quality Code view with "Sign in with Microsoft" (Entra ID, authorization code with PKCE, the state and nonce checked). Once signed in, it shows the person's name, the `/mcp` address and the commands to add the server to Claude Code, Copilot CLI and Cursor. `/mcp` itself is unchanged: it still needs an Entra access token.
+- New optional variables: `QUALITY_CODE_ENTRA_CLIENT_SECRET` (turns the sign-in on; without it the page says sign-in is not set up) and `QUALITY_CODE_SESSION_SECRET` (signs the session cookie; without it people are signed out when the server restarts).
+
+**What to do:** nothing, unless you run the shared server and want the page. Then add a **Web** redirect URI `<public address>/auth/callback` to the Entra app registration, create a client secret, and set the two variables. The plugin itself is unchanged.
+
 ## [0.59.0] - 2026-11-05
 
 ### Changed

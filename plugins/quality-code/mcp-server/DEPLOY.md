@@ -20,7 +20,8 @@ Run locally with test IDs:
 | `GET /.well-known/oauth-protected-resource` | JSON that names the public address as the resource and `https://login.microsoftonline.com/<tenant>/v2.0` as the authorization server |
 
 - It accepts only a valid Entra ID access token: signature, issuer (v1 and v2), tenant, audience (`<client id>` or `api://<client id>`), expiry, and optionally a scope or app role.
-- It refuses to start without `QUALITY_CODE_ENTRA_TENANT_ID`, `QUALITY_CODE_ENTRA_CLIENT_ID` and `QUALITY_CODE_PUBLIC_URL`. Optional: `QUALITY_CODE_ENTRA_REQUIRED_SCOPE`, `QUALITY_CODE_ENTRA_AUTHORITY`.
+- It refuses to start without `QUALITY_CODE_ENTRA_TENANT_ID`, `QUALITY_CODE_ENTRA_CLIENT_ID` and `QUALITY_CODE_PUBLIC_URL`. Optional: `QUALITY_CODE_ENTRA_REQUIRED_SCOPE`, `QUALITY_CODE_ENTRA_AUTHORITY`, and for the sign-in page `QUALITY_CODE_ENTRA_CLIENT_SECRET` and `QUALITY_CODE_SESSION_SECRET`.
+- `GET /` is a sign-in page for people (Microsoft, then the `/mcp` address and the commands to connect). It needs a **Web** redirect URI `<public address>/auth/callback` on the app registration and a client secret. The `/mcp` endpoint does not use the secret.
 - The Docker image (`mcp-server/Dockerfile`, built from `plugins/quality-code`) listens on port 8000, runs as a non-root user and has a health check on `/health`. It reads its project folder from `/data`.
 - It does not read the platform's headers (`X-User-ID`, `X-Owner-ID`, `X-Correlation-ID`), does not call a TSID auth service, and has no MLflow tracing. None of these appears in its code.
 - Not tried: a sign-in against the real tenant, and any MCP client signing in to it.
@@ -51,7 +52,7 @@ The *MCP Deployment* page names the second Biosphere environment `stage` and the
 Steps:
 
 1. **One Entra app registration per environment.** Note the client ID and tenant ID. Set the Application ID URI to `api://<client id>`. Add a scope or app role `QualityCode.Use` and assign it to the users or groups who may use the server. Add the redirect URIs of the clients that will sign in.
-2. **One set of CI/CD variables per environment:** the three required variables, plus `QUALITY_CODE_ENTRA_REQUIRED_SCOPE=QualityCode.Use`. `QUALITY_CODE_PUBLIC_URL` is that environment's https address. The server needs no client secret, because it only verifies tokens.
+2. **One set of CI/CD variables per environment:** the three required variables, plus `QUALITY_CODE_ENTRA_REQUIRED_SCOPE=QualityCode.Use`. `QUALITY_CODE_PUBLIC_URL` is that environment's https address. The MCP endpoint needs no client secret, because it only verifies tokens; the sign-in page does (`QUALITY_CODE_ENTRA_CLIENT_SECRET`, with `QUALITY_CODE_SESSION_SECRET`), and its redirect URI is `<public address>/auth/callback`.
 3. **A Biosphere repository with the pipeline,** copied from an existing MCP project as the *MCP Deployment* page says. The build is `docker build -f mcp-server/Dockerfile .`, run in `plugins/quality-code`. Tag releases with the plugin version.
 4. **After each deploy, run the checks of section 1** against the environment's address, and one real `quality_code_ticket` call with a valid Entra token.
 5. **To connect a client:** add the environment's address as a remote MCP server (Claude Code: `claude mcp add --transport http quality-code <address>`, then `/mcp` to sign in). Jira itself is reached through each person's own Atlassian connector, not through this server.

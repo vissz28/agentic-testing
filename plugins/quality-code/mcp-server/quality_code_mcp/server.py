@@ -17,6 +17,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
+from . import web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
 
@@ -31,7 +32,7 @@ REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
 REMOTE_GUIDES = {"connectors", "save-place"}
 
 
-def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False) -> MCPServer:
+def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None) -> MCPServer:
     """`entra` turns on Entra ID verification (HTTP). `remote` is the shared-server profile: only the Jira-only commands and read-only scripts,
     run in `fixed_cwd` (a caller cannot pick the folder), at most MAX_RUNNING at once, and an open /health."""
     root = root or plugin_root()
@@ -103,6 +104,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
         server.custom_route("/health", methods=["GET"])(_health)
+        if entra:
+            web.register(server, web_settings, entra)  # the sign-in view at /; /mcp still needs a bearer token
     else:
         server.add_tool(quality_code_run_script, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
 
@@ -204,7 +207,7 @@ def main(argv: list[str] | None = None) -> None:
         enable_dns_rebinding_protection=True,
         allowed_hosts=[host, "127.0.0.1:*", "localhost:*"], allowed_origins=[f"https://{host}", "http://127.0.0.1:*", "http://localhost:*"],
     )
-    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True)
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)))
     asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
 
 
