@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.60.2] - 2026-11-09
+
+### Added
+
+- `/quality-code:check-update` now ends its card with a line that points to the commands guide, a PDF shipped with the plugin (`assets/commands.pdf`): every command, and what is new in the installed version.
+
+**What to do:** nothing. After an update and `/reload-plugins`, the line shows the guide of the new version.
+
 ## [0.60.1] - 2026-11-09
 
 ### Fixed

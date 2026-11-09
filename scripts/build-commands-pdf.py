@@ -72,6 +72,13 @@ def page(canvas, doc):
 
 
 new = [
+    ('Fixes from the 5 Nov feedback (0.60.1).', 'A title "FE -", "FE-" or "FE:" is read as frontend (also BE, FS), so the side is not asked. An epic is refused ("pass one of its stories or tasks"). Placeholder criteria (lorem ipsum, TBD, N/A) no longer pass the score. A run says once when screenshots are not read because the Jira files key is not set. Every Jira write ends with "Co-authored via Quality Code".'),
+    ('A sign-in page on the shared server (0.60).', 'The shared MCP server shows a Quality Code page at its address: Sign in with Microsoft, then the /mcp address and the commands to connect Claude Code, Copilot CLI or Cursor. Needs a Web redirect URI and QUALITY_CODE_ENTRA_CLIENT_SECRET; /mcp itself is unchanged. Nothing changes in the commands.'),
+    ('Config lives on your machine (0.59).', 'Setup no longer writes into your repo. config.json is kept next to the tickets and run logs, in the place the last setup question picks. A repo with .claude/quality-code.json still works; CI jobs still read the repo file.'),
+    ('QA runs in the pane you watch (0.58).', 'qa takes the test execution key (qa &lt;KEY&gt;), runs test by test in the browser pane, and you sign in yourself per role. A task key gives the subtasks, merge requests and an end-to-end plan; nothing goes to Jira without a preview and your yes.'),
+    ('xray reads the code and needs no repo (0.57-0.58).', 'Works with the personal setup, adds cases from the GitLab or GitHub links of the story, and ends with Next: /quality-code:qa. Rules come from the hosted Central Context hub by default.'),
+    ('Tests in your flow and ours (0.56).', 'testFlow both writes each test in the project\'s own flow and again in Quality Code\'s, so the pipeline can still trace the ticket.'),
+    ('ticket-eval, run and consumption (0.58).', 'ticket-eval takes the key from the branch; run commands offer to fix compile errors; consumption --session shows this session only; spec lets you pick several code files.'),
     ('Setup only connects (0.55).', 'Setup no longer offers to add Playwright or Vitest; it ends with Setup completed and a table of what is connected. spec offers the runner card (Add it / Not now) at the plan stage when the repo lacks the runner.'),
     ('config-set and config-get (0.55).', 'Their own commands; tokens are never set there and show the /plugin configure steps instead.'),
     ('Richer cards and report pages (0.54).', 'Result cards get a headline row (verdict, score, bar with the gate, counts), a Next line and collapsible detail. kpi, tickets-eval and consumption take --report and write one self-contained HTML page with charts. The newer commands follow the same layout.'),
@@ -129,4 +136,6 @@ story += [p('1. Set up and settings', 'h1'), cmds([
 
 SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm, bottomMargin=20 * mm,
                   title=f'Quality Code {SHORT} commands', author='Elvis Zefaj').build(story, onFirstPage=page, onLaterPages=page)
+import shutil
+shutil.copyfile(OUT, ROOT / 'plugins' / 'quality-code' / 'assets' / 'commands.pdf')  # shipped with the plugin: check-update points to it
 print(OUT)

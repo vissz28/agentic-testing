@@ -36,3 +36,10 @@ test('the model never compares or invents a version, and never edits the plugin 
   assert.match(doc, /Never compare, guess or invent a version or a change yourself/)
   assert.match(doc, /never edit the plugin's folder or its cache/)
 })
+
+test('the card is followed by one line that points to the commands guide PDF shipped in assets, and the file is there', async () => {
+  const { readFileSync, existsSync } = await import('node:fs')
+  const doc = readFileSync(new URL('../../commands/check-update.md', import.meta.url), 'utf8')
+  assert.ok(doc.includes('Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/assets/commands.pdf'))
+  assert.ok(existsSync(new URL('../../assets/commands.pdf', import.meta.url)))
+})

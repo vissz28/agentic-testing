@@ -21,7 +21,7 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
 1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs"`. It takes no arguments; do not pass `--json`.
    - Exit 3: the latest version could not be read. Show its lines as they are and stop.
    - Exit 2: show its lines as they are and stop.
-2. **Card.** Show the card exactly as printed. Drop the `CHECK_UPDATE_JSON:` line. Add nothing, explain nothing. Then show the card that fits its `status` and end the turn:
+2. **Card.** Show the card exactly as printed. Drop the `CHECK_UPDATE_JSON:` line. Add nothing, explain nothing, except this one line after the card: `Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/assets/commands.pdf` (write the real path; it lists every command and what is new, for the version installed; after an update it is the new one once the plugin is reloaded). Then show the card that fits its `status` and end the turn:
 
    - `update` (a new version is out):
 
