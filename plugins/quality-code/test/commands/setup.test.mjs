@@ -292,3 +292,11 @@ test('step 5 ends with the completion section: connected table, failed sign-in w
   assert.match(s, /write nothing that was not found/)
   assert.doesNotMatch(s, /Playwright files|Vitest config/)
 })
+
+test('the completion section ends with the fixed how-to-use block, one line per role, before the Next line', () => {
+  const at = doc.indexOf('**How to use it from now on**\n   - **Developers:** on your feature branch, run `/quality-code:spec`')
+  assert.ok(at > doc.indexOf('| Files and logs | <the place> |') && at < doc.indexOf('Next: `/quality-code:spec`\n   ```'))
+  for (const role of ['**QA:** `/quality-code:ticket <KEY> --eval`', '**PO:** `/quality-code:ticket <PROJECT> --eval`']) assert.ok(doc.includes(role), role)
+  assert.match(doc, /How to use it from now on\*\* block word for word/)
+  assert.match(doc, /How to use it from now on\*\* block of the completion section below without its Developers line/)
+})

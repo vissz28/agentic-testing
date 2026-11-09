@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.61.1] - 2026-11-09
+
+### Added
+
+- `/quality-code:setup` now ends with a fixed **How to use it from now on** block, one line per role: developers (`spec`, `run-pipeline`), QA (`ticket <KEY> --eval`, `xray`, `qa`) and PO (`ticket <PROJECT> --eval`, `transcript-goal`). A Jira-only setup shows it without the developers line.
+
+**What to do:** nothing.
+
 ## [0.61.0] - 2026-11-09
 
 ### Changed

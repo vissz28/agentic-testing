@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('How to use it, by role (0.61.1).', 'Setup ends with a fixed block: one line each for developers (spec, run-pipeline), QA (ticket --eval, xray, qa) and PO (ticket <PROJECT> --eval, transcript-goal). A Jira-only setup leaves out the developers line.'),
     ('One ticket command (0.61).', 'ticket-eval and tickets-eval are now flags of ticket: /quality-code:ticket <KEY> --eval scores one ticket, /quality-code:ticket <PROJECT> --eval the latest 50 of a project. The --json, --refuse-comment, --limit and --all flags are gone.'),
     ('Fixes from the 5 Nov feedback (0.60.1).', 'A title "FE -", "FE-" or "FE:" is read as frontend (also BE, FS), so the side is not asked. An epic is refused ("pass one of its stories or tasks"). Placeholder criteria (lorem ipsum, TBD, N/A) no longer pass the score. A run says once when screenshots are not read because the Jira files key is not set. Every Jira write ends with "Co-authored via Quality Code".'),
     ('A sign-in page on the shared server (0.60).', 'The shared MCP server shows a Quality Code page at its address: Sign in with Microsoft, then the /mcp address and the commands to connect Claude Code, Copilot CLI or Cursor. Needs a Web redirect URI and QUALITY_CODE_ENTRA_CLIENT_SECRET; /mcp itself is unchanged. Nothing changes in the commands.'),
