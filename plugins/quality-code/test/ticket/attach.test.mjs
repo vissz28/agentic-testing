@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { attachmentsSignal } from '../../lib/ticket/rubrics/shared.mjs'
 import { evalTickets, formatCard } from '../../lib/ticket/batch.mjs'
 
@@ -72,4 +72,22 @@ test('tickets-eval: a pass rate per Jira component, and refused tickets with unr
   assert.match(card, /^1 refused ticket has files this report does not read/m)
   // One component only: no breakdown, the project line says it all.
   assert.deepEqual(evalTickets(config, [t('DEMO-1', ['Billing'], good)]).summary.byTeam, [])
+})
+
+test('score refuses an epic (or initiative): exit 2, never scored', () => {
+  const d = mkdtempSync(join(tmpdir(), 'ep-'))
+  mkdirSync(join(d, '.claude'))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify(config))
+  const run = (...argv) => spawnSync('node', [CLI, ...argv], { cwd: '/', env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
+  const dir = run('config', 'check').stdout.match(/^tickets folder: (.+?) \(/m)[1]
+  const root = isAbsolute(dir) ? dir : join(d, dir) // the tickets folder is a temp folder outside the repo when no save place is set
+  mkdirSync(join(root, 'DEMO-9'), { recursive: true })
+  const ticket = join(root, 'DEMO-9', 'ticket.json')
+  for (const [type, line] of [['Epic', 'DEMO-9 is an epic: pass one of its stories or tasks'], ['Initiative', 'DEMO-9 is an initiative: pass one of its stories or tasks']]) {
+    writeFileSync(ticket, JSON.stringify({ key: 'DEMO-9', issuetype: type, summary: 's', labels: [], text: { description: 'Lorem ipsum' }, attachments: 0, links: [] }))
+    const r = run('score', '--in', `@${ticket}`)
+    assert.equal(r.status, 2)
+    assert.ok(r.stderr.includes(line), r.stderr)
+    assert.ok(!r.stdout.includes('TICKET_EVAL_JSON'))
+  }
 })

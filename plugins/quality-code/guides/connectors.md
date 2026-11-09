@@ -123,6 +123,8 @@ The plugin only ever calls GitLab's read operations.
 | `getVisibleJiraProjects`, `getJiraProjectIssueTypesMetadata`, `getJiraIssueTypeMetaWithFields`, `listJiraIssueRemoteIssueLinks`, `lookupJiraAccountId`, `listJiraIssueLinkTypes` | find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
 | `createJiraIssueLink`, `uploadAttachmentToJiraIssue` | find the operation with `discover`, then run it with `executeWrite`. Not found on the connection: skip that write and say so |
 
+**Co-author line.** Everything a command writes to Jira (a comment, a defect or task description, a note) ends with its own last line, `Co-authored via Quality Code` (`COAUTHOR_LINE` in the plugin's `lib/ticket/jira.mjs`, already added to the comments the scripts build). Show it in the preview, so the person sees it before the yes. A status change or a link carries no text and gets none; a second line is never added to an update of a comment that already ends with it.
+
 **Updating a comment.** Where a command says to update an existing comment instead of adding a second one, use `addOrEditJiraIssueComment` with that comment's id. When the connection offers no way to edit a comment (only an add), add a new one.
 
 **Figma fix.** Two ways; ask which first (`1. Browser sign-in / 2. Token`) and end the turn.

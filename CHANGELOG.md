@@ -9,6 +9,23 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.60.1] - 2026-11-09
+
+### Fixed
+
+From the 5 Nov developer feedback:
+
+- A title that starts `FE -`, `FE-`, `FE:` or `[FE]` (and `BE`, `FS` the same way, any case) now marks the side of a ticket, so a fullstack project no longer asks "frontend or backend?" for it. `FE-12` stays a Jira key, not a mark.
+- An epic, an initiative or a theme is refused up front (`<KEY> is an epic: pass one of its stories or tasks, not the epic.`): never scored, never asked for acceptance criteria. `ticket.mjs score` exits 2 for it.
+- Acceptance criteria that are only filler (lorem ipsum, `TBD`, `TODO`, `N/A`, `to be defined`, `xxx`, `???`) no longer count: they cannot pass the score by length.
+- Screenshots that cannot be read (the Jira files key is not set) are now said once in every run, with the fix: `<n> screenshots on <KEY> were not read ... Set it with /plugin (jira-files connector, jira_api_token), or paste the words from them.`, not only when a ticket is refused.
+
+### Changed
+
+- Everything the plugin writes to Jira ends with the line `Co-authored via Quality Code`: the refuse and risk comments (their own closing lines still mark them, so a re-run updates the comment), the qa defects and comments, and the tasks `transcript-goal` creates. The preview shows it before your yes.
+
+**What to do:** update. Nothing to change in your config.
+
 ## [0.60.0] - 2026-11-06
 
 ### Added

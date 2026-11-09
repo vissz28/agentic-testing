@@ -46,6 +46,18 @@ export function hasHeading(v, text, wordsSrc) {
   )
 }
 
+const PLACEHOLDER_WORDS = /^(?:tbd|tba|tbc|todo|to do|n\/?a|none|nothing|wip|x{3,8}|\?+|coming soon|same as above|to be (?:defined|decided|done|filled|added|determined|written|confirmed))$/i
+
+/** Filler that stands where the criteria should be: lorem ipsum, TBD, TODO, N/A, "to be defined", xxx, a short run of one repeated character. */
+export function isPlaceholder(item) {
+  const t = String(item ?? '').trim()
+  const bare = t.replace(/^[\W_]+|[\W_]+$/g, '')
+  if (!bare) return /^[-–—?.…_*\s]+$/.test(t) // a run of dashes or dots is filler; a code fence (""" or ```) is not
+  if (/\blorem ipsum\b|\bdolor sit amet\b|\bconsectetur adipiscing\b|\bnostrud exercitation\b|\bsed do eiusmod\b|\bullamco laboris\b/i.test(t)) return true
+  if (PLACEHOLDER_WORDS.test(bare)) return true
+  return bare.length <= 12 && /^(.)\1{2,}$/.test(bare.replace(/\s+/g, ''))
+}
+
 /**
  * The criteria under an Acceptance criteria heading, in either format: each prose sentence or
  * bullet, and each Gherkin Then (with its And lines), up to the next section. `headingless` reads
@@ -75,9 +87,10 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
     }
     // After a result sentence, a bare And is still a step: it must state its own result.
     step = plainStepWord ? 'setup' : null
+    if (isPlaceholder(content)) continue
     for (const sentence of content.split(/(?<=[.!?])\s+/)) if (sentence.trim()) items.push(sentence.trim())
   }
-  return items
+  return items.filter(i => !isPlaceholder(i)) // filler is not a criterion: it must not pass the length or count checks
 }
 
 /**

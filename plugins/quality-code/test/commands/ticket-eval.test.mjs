@@ -308,3 +308,10 @@ test('the fill-in list is never empty: with no items, the card says what is miss
   const list = doc.slice(doc.indexOf('1. **The list.**'), doc.indexOf('\n', doc.indexOf('1. **The list.**')))
   assert.match(list, /When `FILL_JSON` has no `items`, there is nothing to type in: show the card's lines as printed, then the refuse card without its option 1/)
 })
+
+test('screenshots that cannot be read are said once, with the way to fix it; an epic is never scored', () => {
+  assert.ok(doc.includes('Screenshots not readable.'))
+  assert.ok(doc.includes('`<n> screenshots on <KEY> were not read: the Jira files key is not set. Set it with /plugin (jira-files connector, jira_api_token), or paste the words from them.`'))
+  assert.match(doc, /An epic is not scored\./)
+  assert.match(doc, /never ask for acceptance criteria, never write any/)
+})

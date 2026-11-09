@@ -141,3 +141,8 @@ test('step 3: an app address found in the Jira fields is confirmed with the test
   assert.match(s, /Type another address/)
   assert.match(s, /No app address in the Jira fields/)
 })
+test('Jira writes end with the co-author line, as the connectors guide says', () => {
+  assert.ok(doc.includes('end with the line `Co-authored via Quality Code`'))
+  assert.match(readFileSync(new URL('../../guides/connectors.md', import.meta.url), 'utf8'), /\*\*Co-author line\.\*\*/)
+  assert.ok(readFileSync(new URL('../../commands/transcript-goal.md', import.meta.url), 'utf8').includes('Co-authored via Quality Code'))
+})

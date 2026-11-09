@@ -209,3 +209,15 @@ test('with Italian on, "e.g." after a Then is prose, not a continuation', () => 
   assert.equal(items[0], 'the total is 108.00')
   assert.ok(!items.some(i => i.startsWith('.g.')), JSON.stringify(items))
 })
+
+test('placeholder text is not a criterion: lorem ipsum, TBD, TODO, N/A, to be defined, xxx', () => {
+  for (const filler of ['Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip.', 'TBD', 'TODO.', 'N/A', 'to be defined', 'xxx', '???', '-']) {
+    assert.equal(C.isPlaceholder(filler), true, filler)
+    const items = C.extractNaturalAC(v, `## Acceptance criteria\n${filler}`)
+    assert.deepEqual(items, [], filler)
+    assert.equal(C.hasNaturalAC(items), false, filler)
+  }
+  assert.equal(C.isPlaceholder('The total shows 0 after a reload.'), false)
+  assert.deepEqual(C.extractNaturalAC(v, '## Acceptance criteria\nTBD\nThe total shows 0 after a reload.'), ['The total shows 0 after a reload.'])
+  assert.deepEqual(C.extractNaturalAC(v, 'Lorem ipsum dolor sit amet', { headingless: true }), [])
+})

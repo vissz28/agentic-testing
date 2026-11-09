@@ -7,6 +7,15 @@ const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 // Defect, an Incident, a Problem or an Anomalia as well.
 const BUG_TYPES = /bug|defect|incident|problem|anomal|difett/i
 
+// Issue types that group work and are never tested themselves (an epic holds stories). Jira schemes add Initiative, Theme and the like.
+const CONTAINER_TYPES = /^(?:epic|initiative|theme|epica|iniziativa)$/i
+
+/** An epic or another grouping type: it has no acceptance criteria of its own, so it is refused, not scored. */
+export const isContainerType = issuetype => CONTAINER_TYPES.test(String(issuetype ?? '').trim())
+
+/** The refusal line for a container ticket. */
+export const containerRefusal = (key, issuetype) => `${key ?? 'This ticket'} is ${/^[aeiou]/i.test(String(issuetype).trim()) ? 'an' : 'a'} ${String(issuetype).trim().toLowerCase()}: pass one of its stories or tasks, not the ${String(issuetype).trim().toLowerCase()}.`
+
 /** Which template this issue type should have been written to: jira.bugTypes when set (any case). */
 export function templateFor(issuetype, config = null) {
   const name = String(issuetype ?? '').trim()

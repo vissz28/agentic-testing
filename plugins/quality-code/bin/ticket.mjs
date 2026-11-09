@@ -11,6 +11,7 @@ import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/base/places.
 import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/base/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/base/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
+import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
 import { approachOf, isFullstack, SIDES, ticketSide, unitRunnerOf } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { redact, sanitizeTicket } from '../lib/ticket/sanitize.mjs'
@@ -316,6 +317,7 @@ function run(argv, env, cwd) {
       return 0
     }
     case 'score': {
+      if (isContainerType(ticket.issuetype)) { err(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
       if (mismatch && a.flags.has('--ci')) { err(`${ticket.key} is not a ticket of this project's Jira projects (${keys.join(', ')})`); return 2 }
       const b = buildBrief(config, ticket)
       log('gate', {

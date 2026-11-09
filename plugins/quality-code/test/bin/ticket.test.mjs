@@ -209,7 +209,7 @@ test('fill-menu, pick, jira-update, refuse-comment, risk-comment', () => {
   const r = run(d, 'risk-comment', '--in', '@t.json')
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /^Tests were written for this ticket although it is not complete: it has \d+ of the 70 points it needs\.$/m)
-  assert.match(r.stdout, /Logged by quality-code: tests were written on an incomplete ticket\.\n$/)
+  assert.match(r.stdout, /Logged by quality-code: tests were written on an incomplete ticket\.\n\nCo-authored via Quality Code\n$/)
 })
 const RAW = '.quality-code/tickets/DEMO-1/raw.json'
 const OUT = '.quality-code/tickets/DEMO-1/ticket.json'

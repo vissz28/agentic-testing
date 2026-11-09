@@ -54,7 +54,9 @@ export function ticketSide(config, ticket) {
   if (!isFullstack(config)) return stackOf(config)
   // Each side not set in the config keeps its default marks (FE, BE, FS).
   const sides = { ...DEFAULT_SIDES, ...(config.sides ?? {}) }
-  const prefix = /^\s*\[([^\]]+)\]/.exec(String(ticket?.summary ?? ''))?.[1]?.trim().toLowerCase()
+  // The mark opens the title as `[FE]`, `FE -`, `FE-` or `FE:` (a dash straight before a digit is a Jira key such as FE-12, not a mark).
+  const m = /^\s*(?:\[([^\]]+)\]|([A-Za-z]{1,10})\s*[-–—:](?!\d))/.exec(String(ticket?.summary ?? ''))
+  const prefix = (m?.[1] ?? m?.[2])?.trim().toLowerCase()
   const labels = new Set((ticket?.labels ?? []).map(l => String(l).toLowerCase()))
   const marked = SIDES.filter(s => (sides[s] ?? []).some(m => m.toLowerCase() === prefix || labels.has(m.toLowerCase())))
   if (marked.includes('fullstack') || (marked.includes('frontend') && marked.includes('backend'))) return 'fullstack'

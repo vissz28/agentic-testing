@@ -6,6 +6,9 @@ export { templateFor }
 /** Tag on the oldest comments. Never emit it: Jira renders it as visible text. */
 export const REFUSE_COMMENT_MARK = '<!-- /spec refuse -->'
 
+/** The last line of everything the plugin writes to Jira (a comment, a defect, a created task), so the team can see who helped. */
+export const COAUTHOR_LINE = 'Co-authored via Quality Code'
+
 /** Marks our comment, so a re-run edits it instead of posting a second one. */
 export const REFUSE_COMMENT_FOOTER = 'Thanks, we can continue as soon as these are on the ticket.'
 
@@ -81,6 +84,8 @@ export function formatRefuseComment(config, brief) {
     '',
     ...(line ? [line, ''] : []),
     REFUSE_COMMENT_FOOTER,
+    '',
+    COAUTHOR_LINE,
   ].join('\n')
 }
 
@@ -98,6 +103,8 @@ export function formatRiskComment(config, brief) {
     ...(gaps.length ? ['', 'Still missing:', ...gaps] : []),
     '',
     RISK_COMMENT_FOOTER,
+    '',
+    COAUTHOR_LINE,
   ].join('\n')
 }
 
