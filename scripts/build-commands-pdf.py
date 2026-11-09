@@ -86,7 +86,7 @@ new = [
     ('config set (0.53).', 'Change one setting directly, for example config set git.base develop. Checked by the setup rules; nothing is written on an error or a secret.'),
     ('More kinds of tests (0.52).', 'Negative cases on every ticket, an axe accessibility scan, optional visual regression, database checks with Testcontainers, a regression test from a Bug, and a smoke suite (run-smoke, ci --smoke).'),
     ('Sprint goal from a Teams transcript (0.52).', 'transcript-goal turns a planning transcript into a sprint goal and tasks, with review cards; Jira only after a preview and your yes.'),
-    ('Rewrite a weak story (0.51).', 'After ticket-eval, a script flags a long or thin description; rewrite it from the description, Figma or Confluence, then post to Jira or save locally.'),
+    ('Rewrite a weak story (0.51).', 'After ticket --eval, a script flags a long or thin description; rewrite it from the description, Figma or Confluence, then post to Jira or save locally.'),
     ('Memory, language and pickers (0.50).', 'Commands remember where you stopped and what they learned about the project; your language is kept; every question is a clickable picker; new tests go into the existing test structure first and follow the project\'s conventions before the stack\'s defaults.'),
     ('Plan card (0.48).', 'Before any test is written, spec shows what will be written and asks Yes, No or Something else, using your own libraries and flow when you have them. After spec it suggests run-backend or run-frontend.'),
 ]
@@ -107,7 +107,7 @@ story += [p('1. Set up and settings', 'h1'), cmds([
 ]),
           p('2. Every day: from ticket to tests', 'h1'), cmds([
     ('/quality-code:spec', 'The main command. Runs the readiness gate, shows the plan (with Negative, Accessibility, Visual and Database lines when they apply), writes the tests in your test folders, runs the pipeline and reads the card back. A Bug ticket leaves a @regression test.', '/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --gate-only'),
-    ('/quality-code:ticket-eval', 'Scores one ticket out of 100 (70 passes). If the story is long or thin, offers to rewrite it from the description, Figma or Confluence; post to Jira after a preview, or save locally.', '/quality-code:ticket-eval ABC-123'),
+    ('/quality-code:ticket --eval', 'Scores one ticket out of 100 (70 passes). If the story is long or thin, offers to rewrite it from the description, Figma or Confluence; post to Jira after a preview, or save locally.', '/quality-code:ticket ABC-123 --eval'),
     ('/quality-code:ticket', 'Finds a ticket and shows it in short, with tips for its author. Read-only.', '/quality-code:ticket assignee:me'),
     ('/quality-code:transcript-goal', 'Reads a Teams planning transcript (file, pasted text or the Microsoft 365 connector), drafts the sprint goal and tasks, asks only what was not said, shows review cards, then creates the tasks in Jira after a preview and your yes, or saves them locally.', '/quality-code:transcript-goal --file planning.vtt'),
 ]),
@@ -124,7 +124,7 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --stability N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
 ]),
           p('5. For QA and product owners', 'h1'), cmds([
-    ('/quality-code:tickets-eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:tickets-eval ABC'),
+    ('/quality-code:ticket --eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:ticket ABC --eval'),
     ('/quality-code:xray', 'Writes Xray test cases from a ticket as a CSV and case.xlsx.', '/quality-code:xray ABC-123'),
     ('/quality-code:qa', 'Runs your Xray manual tests with an agent; you give every verdict; nothing reaches Jira without a preview.', '/quality-code:qa --resume'),
     ('/quality-code:seed', 'Loads realistic mock data for a ticket into your local database only.', '/quality-code:seed ABC-123'),

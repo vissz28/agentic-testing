@@ -45,7 +45,7 @@ A file that already exists is kept, never replaced. `routine` (Claude's schedule
 | For | developers | QA and PO |
 | Runs | on your computer, started by the client | one server for the team, behind HTTPS |
 | Sign-in | none: it is your machine | Microsoft Entra ID on every request |
-| Tools | every command and script | only the Jira-only ones: `ticket`, `ticket-eval`, `tickets-eval`, the read-only scripts `ticket` and `branch`, and the guides they use |
+| Tools | every command and script | only the Jira-only ones: `ticket` (with `--eval`), the read-only scripts `ticket` and `branch`, and the guides they use |
 
 The shared server cannot see anyone's checkout, so `spec`, the run commands, `seed`, `xray`, `qa`, `setup`, `config` and `kpi` stay on the local server. Over HTTP the caller never picks the folder (no `cwd`), at most 4 scripts run at once (more get `busy`), and `/health` answers without a token for the platform's health checks.
 

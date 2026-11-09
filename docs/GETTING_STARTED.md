@@ -96,7 +96,7 @@ It takes the ticket key from the branch name (`Ticket: ABC-123 (from the branch 
 scores the ticket, plans the tests, writes them and checks them. It asks you three times at most: at
 the gate only when the ticket is not workable, at the plan, and after the result. For a ticket with no
 branch yet: `/quality-code:spec ABC-123`. For the score alone: `/quality-code:spec ABC-123 --gate-only`
-(the same as `/quality-code:ticket-eval ABC-123`).
+(the same as `/quality-code:ticket ABC-123 --eval`).
 
 The plugin reads the ticket, hides customer data in its local copy, and a script gives it a
 **score out of 100**. The model never decides the score.
@@ -269,9 +269,7 @@ What does **not** count:
 
 | Command | What it does |
 |---|---|
-| `/quality-code:ticket-eval ABC-123 --refuse-comment` | prints the Jira comment without posting it |
-| `/quality-code:ticket-eval ABC-123 --json` | prints only the machine result |
-| `/quality-code:ticket-eval ABC-123 --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
+| `/quality-code:ticket ABC-123 --eval --ci` | no questions: a refused ticket gets the Jira comment and the run fails |
 | `/quality-code:run-pipeline test/orders.spec.ts --flaky 3` | also runs the tests three times and fails on a test that changes its result |
 | `/quality-code:spec ABC-123 --target src/pricing.ts` | writes tests against that file, without asking which code |
 | `/quality-code:spec ABC-123 --layer unit` | writes only in the `unit` test folder |

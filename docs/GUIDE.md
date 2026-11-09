@@ -69,7 +69,7 @@ It checks your connectors, shows the branch and what it changed, and takes the t
 branch name (`ABC-123-add-export`). Then it runs the readiness gate, shows the plan, writes the tests
 and checks them; when the branch already has tests, the plan card can just check those. To check any
 ticket directly:
-`/quality-code:ticket-eval ABC-123`. To write tests for one: `/quality-code:spec ABC-123`.
+`/quality-code:ticket ABC-123 --eval`. To write tests for one: `/quality-code:spec ABC-123`.
 
 The result is a score out of 100. At 70 or more the ticket is ready to test. Below 70 you can post a
 comment on Jira listing what is missing, or fill in the gaps on the spot. New to it? Start with
@@ -141,10 +141,10 @@ Playwright test).
 |---|---|---|
 | Guided setup for your repo and Jira project | `/quality-code:setup` | ✅ available |
 | Start from your feature branch: connectors, branch changes, ticket from the branch name, then the gate and the tests | `/quality-code:spec` | ✅ available |
-| Readiness gate: score a ticket out of 100 | `/quality-code:ticket-eval <KEY>` | ✅ available |
-| Post what is missing as a Jira comment | `ticket-eval`, refuse option 1 | ✅ available |
-| Guided fill-in, then push it to Jira | `ticket-eval`, refuse option 2 | ✅ available |
-| Gate tickets in CI | `ticket-eval <KEY> --ci` | ✅ available |
+| Readiness gate: score a ticket out of 100 | `/quality-code:ticket <KEY> --eval` | ✅ available |
+| Post what is missing as a Jira comment | `ticket --eval`, refuse option 1 | ✅ available |
+| Guided fill-in, then push it to Jira | `ticket --eval`, refuse option 2 | ✅ available |
+| Gate tickets in CI | `ticket <KEY> --eval --ci` | ✅ available |
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `bin/checks.mjs` | ✅ available (building blocks) |
 | Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
@@ -251,7 +251,7 @@ It then shows the config and asks `1. Write it / 2. Change something / 3. Cancel
 written before you type `1`. Setup writes only `config.json`, on this machine next to your tickets and audit files (first in
 the session folder; its last question moves it to the place you pick). It adds nothing to the
 repo's `.gitignore`. It does not check any ticket: that is what `/quality-code:spec` and
-`/quality-code:ticket-eval` do.
+`/quality-code:ticket --eval` do.
 
 Everything else has a default:
 
@@ -277,7 +277,7 @@ keeps what it does not ask.
 ## Check a ticket
 
 ```
-/quality-code:ticket-eval ABC-123
+/quality-code:ticket ABC-123 --eval
 ```
 
 ```
@@ -302,9 +302,8 @@ keeps what it does not ask.
                       3  🔴 [RISK / NOT RECOMMENDED] continue anyway (developers only), then a risk note on Jira (preview first)
 ```
 
-You answer every card by typing a number. Flags: `--ci` (no questions; a refused ticket gets the
-Jira comment, exit code 1), `--json` (print only the machine result), `--refuse-comment` (print the
-comment that would be posted, without posting it).
+You answer every card by typing a number. Flag: `--ci` (no questions; a refused ticket gets the
+Jira comment, exit code 1).
 
 A ticket from a project that is not in your config gets one card first: `1. Continue anyway / 2. Stop`.
 On a fullstack project, an unmarked ticket gets one more: which part of the app it changes.
@@ -320,22 +319,21 @@ skeleton when there are no criteria. Nothing is written to Jira, and it never sc
 ## Check a whole project
 
 ```
-/quality-code:tickets-eval ABC [--user "Jane Doe"] [--status "To Do"] [--limit 100] [--json]
+/quality-code:ticket ABC --eval [--user "Jane Doe"] [--status "To Do"] [--report]
 ```
 
 For product owners and leads: how ready is a project's backlog? The command makes **one** Jira search
-(`project = ABC`, narrowed by `--user` and `--status`, newest first; `--limit` defaults to 50, at most
-200) and one script run scores every ticket with the same gate as `ticket-eval`. The model reads and
+(`project = ABC`, narrowed by `--user` and `--status`, the latest 50) and one script run scores every ticket with the same gate as `ticket-eval`. The model reads and
 writes nothing else. The project key must be one of `jira.projects` or `jira.trackingProjects`.
 
 The card has one line per ticket, lowest score first (key, score, pass or refuse, and the biggest
 missing item), then the project: tickets scored, how many pass (number and %), the average score and
 the three items most often missing. On a fullstack project each ticket is scored for both sides and the
-lower decides. `--json` prints only the machine line.
+lower decides.
 
 It is read-only: nothing is sent to Jira, and the search results are deleted from disk once scored.
 It exits 0 whatever the pass rate (a bad input exits 2). To fix a ticket, run
-`/quality-code:ticket-eval <KEY>`.
+`/quality-code:ticket <KEY> --eval`.
 
 ---
 
@@ -1069,7 +1067,7 @@ audit and KPI [spec](specs/2026-10-14-audit-kpi-design.md) ·
 - **A bug, or a request for your stack or language:** open an issue in
   [vissz28/agentic-testing](https://github.com/vissz28/agentic-testing/issues) with the command you ran,
   the output, and your `config.json` (it holds no secrets).
-- **A ticket scored lower than you expected:** run `ticket-eval` with `--json`; the output lists
+- **A ticket scored lower than you expected:** run `ticket <KEY> --eval`; the report lists
   every signal the rubric found and what is missing.
 
 ---

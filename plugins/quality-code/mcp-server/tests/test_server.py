@@ -39,8 +39,8 @@ def test_every_command_is_a_tool():
 
 
 def test_command_tool_returns_instructions():
-    r = asyncio.run(build(ROOT).call_tool("quality_code_ticket_eval", {"arguments": "ABC-7 --ci"}))
-    assert "ABC-7 --ci" in text(r)
+    r = asyncio.run(build(ROOT).call_tool("quality_code_ticket", {"arguments": "ABC-7 --eval --ci"}))
+    assert "ABC-7 --eval --ci" in text(r)
     assert "${CLAUDE_PLUGIN_ROOT}" not in text(r)
 
 

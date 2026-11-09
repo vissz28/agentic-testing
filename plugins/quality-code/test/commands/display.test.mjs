@@ -119,7 +119,7 @@ test('richer cards: headline row with bar and gate, Next line, collapsible detai
 })
 
 test('the result commands lay their cards out with the richer cards', () => {
-  for (const f of ['commands/spec.md', 'guides/run.md', 'commands/ticket-eval.md', 'commands/tickets-eval.md', 'commands/kpi.md', 'commands/consumption.md', 'commands/ci.md']) {
+  for (const f of ['commands/spec.md', 'guides/run.md', 'guides/ticket-eval.md', 'guides/tickets-eval.md', 'commands/kpi.md', 'commands/consumption.md', 'commands/ci.md']) {
     const s = read(f)
     assert.match(s, /\*\*Richer cards\*\* of the display guide/, f)
     assert.match(s, /`Next:`/, f)
@@ -127,5 +127,5 @@ test('the result commands lay their cards out with the richer cards', () => {
   // run-frontend, run-backend, run-pipeline and run-smoke share guides/run.md
   for (const f of ['run-frontend', 'run-backend', 'run-pipeline', 'run-smoke']) assert.ok(read(`commands/${f}.md`).includes('guides/run.md'), f)
   assert.match(read('guides/run.md'), /`<details>` block after the table/)
-  assert.match(read('commands/ticket-eval.md'), /`■■■■■■■■□□ 82% · gate 70`/)
+  assert.match(read('guides/ticket-eval.md'), /`■■■■■■■■□□ 82% · gate 70`/)
 })

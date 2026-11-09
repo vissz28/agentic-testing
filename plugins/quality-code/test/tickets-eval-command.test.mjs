@@ -3,11 +3,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../commands/tickets-eval.md', import.meta.url), 'utf8')
-const evalDoc = readFileSync(new URL('../commands/ticket-eval.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../guides/tickets-eval.md', import.meta.url), 'utf8')
+const evalDoc = readFileSync(new URL('../guides/ticket-eval.md', import.meta.url), 'utf8')
 
 test('frontmatter', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: <PROJECT> \[--user <name>\] \[--status <status>\] \[--limit N \| --all\] \[--json\] \[--report\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)\nmodel: sonnet\n---\n/)
+  const ticket = readFileSync(new URL('../commands/ticket.md', import.meta.url), 'utf8')
+  assert.match(ticket, /^argument-hint: .*\| <PROJECT> --eval \[--user <name>\] \[--status <status>\] \[--report\]\n/m)
+  assert.ok(ticket.includes('read `${CLAUDE_PLUGIN_ROOT}/guides/tickets-eval.md` and follow it'))
 })
 test('the run-scripts-as-written rule is copied word for word from ticket-eval', () => {
   const rule = l => l.startsWith('- **Run each plugin script exactly as written:**')
@@ -19,14 +21,14 @@ test('it checks the config, needs a project key in jira.projects or jira.trackin
   assert.ok(doc.includes('jira.projects') && doc.includes('jira.trackingProjects'))
   assert.ok(doc.includes('field get'))
 })
-test('one search with the spec JQL, markdown, a capped limit and paging', () => {
+test('one search with the spec JQL, markdown, the latest 50 and paging', () => {
   assert.equal(doc.match(/ONE `searchJiraIssuesUsingJql`/g)?.length, 1)
   assert.ok(doc.includes('project = <PROJECT>'))
   assert.ok(doc.includes('AND assignee = "<user>"'))
   assert.ok(doc.includes('AND status = "<status>"'))
   assert.ok(doc.includes('ORDER BY updated DESC'))
   assert.match(doc, /`responseContentFormat` is `markdown`/)
-  assert.match(doc, /default 50, cap 200/)
+  assert.match(doc, /`maxResults` is 50/)
   assert.ok(doc.includes('nextPageToken'))
   assert.match(doc, /Escape `\\` as `\\\\` and `"` as `\\"`/)
 })

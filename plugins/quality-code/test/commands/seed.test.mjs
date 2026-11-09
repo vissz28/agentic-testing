@@ -38,7 +38,7 @@ test('step 1: config check, then the target check before anything else, connecto
 })
 test('step 2: the gate applies; only a passing ticket goes on', () => {
   const s = step(2)
-  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md'))
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/ticket-eval.md'))
   assert.match(s, /steps 1–5/)
   assert.match(s, /so the gate applies/)
   assert.ok(s.includes('Mock data needs a ticket that passes the gate.'))

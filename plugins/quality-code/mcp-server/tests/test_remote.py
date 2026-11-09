@@ -39,7 +39,7 @@ def test_remote_script_tool_has_no_folder_and_a_short_allowlist(tmp_path):
 
 def test_remote_guides_are_limited(tmp_path):
     s = build(ROOT, remote=True, fixed_cwd=tmp_path)
-    assert text(asyncio.run(s.call_tool("quality_code_guide", {}))) == "Guides: connectors, save-place"
+    assert text(asyncio.run(s.call_tool("quality_code_guide", {}))) == "Guides: connectors, save-place, ticket-eval, tickets-eval"
     assert "unknown" not in text(asyncio.run(s.call_tool("quality_code_guide", {"name": "save-place"})))
     assert "error" in text(asyncio.run(s.call_tool("quality_code_guide", {"name": "run"})))
 

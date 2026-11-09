@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const names = ['transcript-goal', 'clean', 'clean-cache', 'config', 'run-smoke']
 const body = n => read(`commands/${n}.md`).replace(/^---\n[\s\S]*?\n---\n/, '')
-const step5c = () => read('commands/ticket-eval.md').split('\n').filter(l => l.startsWith('5c. ')).join('\n')
+const step5c = () => read('guides/ticket-eval.md').split('\n').filter(l => l.startsWith('5c. ')).join('\n')
 
 test('each command references the display guide and the Next line', () => {
   for (const n of names) {

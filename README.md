@@ -36,7 +36,7 @@ flowchart TD
     A["/quality-code:setup<br/><i>once per repo, by one person</i>"] --> B["git checkout -b ABC-123-my-feature"]
     B --> C["/quality-code:spec<br/><i>finds ABC-123 from the branch name</i>"]
     C --> D{"Ticket passes<br/>the gate? (70/100)"}
-    D -- no --> E["/quality-code:ticket-eval ABC-123<br/><i>comment on Jira, or fill the gaps</i>"]
+    D -- no --> E["/quality-code:ticket ABC-123 --eval<br/><i>comment on Jira, or fill the gaps</i>"]
     E --> C
     D -- yes --> F["Tests written and checked<br/>in your test folders"]
     F --> G["/quality-code:seed ABC-123<br/><i>optional: mock data to try it by hand</i>"]
@@ -49,7 +49,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["/quality-code:setup<br/><i>option 1 in a repo, option 2 for Jira only</i>"] --> B["/quality-code:ticket assignee:me<br/><i>find the tickets to test</i>"]
-    B --> C["/quality-code:ticket-eval ABC-123<br/><i>is it clear enough to test?</i>"]
+    B --> C["/quality-code:ticket ABC-123 --eval<br/><i>is it clear enough to test?</i>"]
     C -- refused --> D["Fill the gaps with the author<br/><i>guided fill-in, pushed to Jira after a preview</i>"]
     D --> C
     C -- passes --> E["/quality-code:xray ABC-123<br/><i>test cases to import into Xray</i>"]
@@ -63,8 +63,8 @@ QA in a repo can also write automated tests with `/quality-code:spec ABC-123`, l
 
 ```mermaid
 flowchart TD
-    A["/quality-code:setup<br/><i>option 2: Jira only, no repo</i>"] --> B["/quality-code:tickets-eval ABC<br/><i>how the whole project scores</i>"]
-    B --> C["/quality-code:ticket-eval ABC-123<br/><i>one ticket: what is missing</i>"]
+    A["/quality-code:setup<br/><i>option 2: Jira only, no repo</i>"] --> B["/quality-code:ticket ABC --eval<br/><i>how the whole project scores</i>"]
+    B --> C["/quality-code:ticket ABC-123 --eval<br/><i>one ticket: what is missing</i>"]
     C --> D["Guided fill-in<br/><i>answer the questions, preview, push to Jira</i>"]
     D --> E["Ticket passes:<br/>ready for dev and QA"]
 ```
@@ -83,8 +83,8 @@ Click a command to see its options.
 | [`setup`](#setup) | Connects Jira (and GitLab, GitHub, Figma) and saves the project's settings | nothing; answer the cards | `.claude/quality-code.json` to commit |
 | [`config`](#config) | Shows and changes the settings, one at a time | nothing; pick an item | the settings card; changes are checked before saving |
 | [`ticket`](#ticket) | Finds a Jira ticket and shows it in short | a key, words, or filters like `assignee:me` | the ticket in short, with tips for its author (never posted) |
-| [`ticket-eval`](#ticket-eval) | Scores one ticket for test-readiness (70/100 passes) | a ticket key | the score, what is missing, and a way to fix it on Jira |
-| [`tickets-eval`](#tickets-eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
+| [`ticket --eval`](#ticket---eval) | Scores one ticket for test-readiness (70/100 passes) | a ticket key | the score, what is missing, and a way to fix it on Jira |
+| [`ticket <PROJECT> --eval`](#ticket-project---eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
 | [`transcript-goal`](#transcript-goal) | Turns a Teams sprint planning transcript into a sprint goal and tasks | a `.vtt`/`.docx`/`.txt` file, a Teams meeting, or pasted text | review cards, then tasks in Jira (after a preview and your yes) or a local file |
 | [`spec`](#spec) | From a ticket to written and checked tests | a key, or nothing on a feature branch | test files in your test folders and a verdict card |
 | [`run-frontend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the Playwright tests | nothing, or spec paths | a verdict card |
@@ -144,9 +144,9 @@ change it. Tokens are set in `/plugin`, never in the chat.
 
 Filters can be combined: `/quality-code:ticket assignee:me status:"In Progress"`.
 
-### ticket-eval
+### ticket --eval
 
-`/quality-code:ticket-eval <KEY> [--ci] [--json] [--refuse-comment]`
+`/quality-code:ticket <KEY> --eval [--ci]`
 
 Scores the ticket out of 100; 70 passes. Below 70 it offers three ways on: (1) post a Jira comment
 listing what is missing, (2) a guided fill-in that drafts the missing parts and pushes them to Jira
@@ -155,22 +155,18 @@ after a preview, (3) continue anyway, marked as a risk.
 | Option | What it does |
 |---|---|
 | `--ci` | No questions. Exits 1 below the bar, so a pipeline can stop on it |
-| `--json` | Prints only the score as JSON, nothing else |
-| `--refuse-comment` | Prints the Jira comment for a refused ticket, without posting it |
 
-### tickets-eval
+### ticket <PROJECT> --eval
 
-`/quality-code:tickets-eval <PROJECT> [--user <name>] [--status <status>] [--limit N | --all] [--json]`
+`/quality-code:ticket <PROJECT> --eval [--user <name>] [--status <status>] [--report]`
 
-Read-only. Scores the latest tickets of a project, one line each.
+Read-only. Scores the latest 50 tickets of a project, one line each.
 
 | Option | What it does |
 |---|---|
 | `--user <name>` | Only tickets assigned to that person |
 | `--status <status>` | Only tickets in that status, e.g. `--status "To Do"` |
-| `--limit N` | How many of the latest tickets (default 50, max 200) |
-| `--all` | Every ticket that matches, so the pass rate is the project's, not a sample |
-| `--json` | Machine-readable result only |
+| `--report` | Also saves an HTML report with charts |
 
 ### transcript-goal
 
@@ -188,7 +184,7 @@ most three questions. Your application code is never changed.
 
 | Option | Works on | What it does |
 |---|---|---|
-| `--gate-only` | all | Only the readiness gate, no tests (same as `ticket-eval`) |
+| `--gate-only` | all | Only the readiness gate, no tests (same as `ticket --eval`) |
 | `--base BRANCH` | all | The branch to compare against, when it is not detected |
 | `--layer NAME` | backend | Write only in that test layer, e.g. `--layer unit` |
 | `--target PATH` | backend | The source file to test, e.g. `--target src/pricing.ts`; skips the question |
@@ -441,7 +437,7 @@ On Claude Code older than 2.1.275, use two steps:
   branch and a ticket candidate, the same way a GitLab merge request does. `git.base` in the config
   covers projects whose merge requests target a branch other than the default.
 - **For QA and product owners:** a Jira-only setup, no repo needed, and
-  `/quality-code:tickets-eval <PROJECT>` to see how a whole project's tickets do.
+  `/quality-code:ticket <PROJECT> --eval` to see how a whole project's tickets do.
 - **Attachments and links count in the 100 points** (every score changes a little), and the fill-in
   can draft missing items from a linked **Figma** design.
 - **New install name: `quality-code@teamsystem`.** The marketplace is now called `teamsystem`.

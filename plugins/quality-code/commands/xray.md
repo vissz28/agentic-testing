@@ -24,7 +24,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
    - **`--dry-run`:** go through steps 1 to 4 and show the plan card without its numbered options, then stop: no case written, nothing posted. The gate still saves the sanitized ticket (`<ticketsDir>/<KEY>/ticket.json`). A refused ticket ends the dry run at the gate's report: no refuse card, so no comment, fill-in or Jira update. **`--ci`:** never ask: a card that needs an answer stops the command instead (`--ci` stops here: <the question, in one line>), and step 4 writes without the card.
 
    Then read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it, as the start command does. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Jira is required: go on only when its card lets you continue.
-2. **Ticket and gate.** Read `${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score.
+2. **Ticket and gate.** Read `${CLAUDE_PLUGIN_ROOT}/guides/ticket-eval.md` and follow its steps 1–5 with `<KEY>` as `$ARGUMENTS`, no flags: read, save, sanitize and score.
    - **Refused:** its refuse card and its flow, as written there. Go on only when that flow ends with the ticket passing (the guided fill-in, then `1` or `2` on its Jira update card). Option 3 (continue anyway), a comment posted, a cancel or a stop: stop, `XRay test cases need a ticket that passes the gate.` Nothing written.
    - **Passed:** go on with `<ticketsDir>/<KEY>/ticket.json`, the only copy of the ticket; never edit it. Keep the `feature` and the `route` from the last `TICKET_EVAL_JSON:` line. The scenarios are the ticket's plus the QA plan's (`qaPlan.scenarios` in `ticket.json`), each name once; where both have a scenario with the same name, the ticket's wins.
    - **Fullstack:** a ticket whose `side` (the last `TICKET_EVAL_JSON:` line) is `backend` gets no XRay test cases: say `XRay test cases are written for frontend tickets (Playwright tests).` and stop.
@@ -44,7 +44,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
    4. Stop
    ```
 
-   With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order. On `Leave out the extras`, drop them and show the card again. On `No, I'll type the right result`, ask `What should the result be?` and add the answer to the ticket as ticket-eval's guided fill-in does (`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`; its Jira update card follows when it is accepted), then show the card again with the new result. On `Stop`, stop.
+   With no extra probe, leave out the `Extra (not in the ticket)` lines and option 2, and number the rest in order. On `Leave out the extras`, drop them and show the card again. On `No, I'll type the right result`, ask `What should the result be?` and add the answer to the ticket as `ticket --eval`'s guided fill-in does (`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`; its Jira update card follows when it is accepted), then show the card again with the new result. On `Stop`, stop.
 5. **Write.** Write `<ticketsDir>/<KEY>/xray.json`: a JSON list with one case per test, each scenario and each extra probe:
 
    ```

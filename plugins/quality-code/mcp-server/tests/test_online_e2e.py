@@ -100,7 +100,7 @@ def session(url, bearer):
 
 def test_signed_in_client_gets_the_jira_only_tools_and_runs_a_script(server, tenant):
     tools, out = session(server, token(tenant))
-    assert tools == {"quality_code_ticket", "quality_code_ticket_eval", "quality_code_tickets_eval", "quality_code_run_script", "quality_code_guide"}
+    assert tools == {"quality_code_ticket", "quality_code_run_script", "quality_code_guide"}
     assert "[exit code" in out
 
 

@@ -1,9 +1,13 @@
 ---
-description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>.
-argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>>
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>. With --eval it scores the ticket for test-readiness (the 70-point gate) and guides the fill-in; with --eval and a project key, it scores the project's latest 50 tickets.
+argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>> [--eval [--ci]] | <PROJECT> --eval [--user <name>] [--status <status>] [--report]
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)
 model: sonnet
 ---
+
+**With `--eval` in `$ARGUMENTS`**, this is the readiness gate, not the lookup below: drop `--eval` and follow one guide instead of this file, with the rest of the arguments.
+- A key, a number or no ticket at all: read `${CLAUDE_PLUGIN_ROOT}/guides/ticket-eval.md` and follow it.
+- A project key with no number (`[A-Z][A-Z0-9]*`): read `${CLAUDE_PLUGIN_ROOT}/guides/tickets-eval.md` and follow it.
 
 Finds tickets and shows one in short. Read-only on Jira: nothing is ever written, commented or changed. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
 
@@ -11,7 +15,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **Read-only.** Only `getJiraIssue`, `searchJiraIssuesUsingJql` and `lookupJiraAccountId` on the Atlassian (Rovo) connector. On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. Never edit, comment or transition a ticket here. If no Atlassian connection is available, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
-- **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket-eval`; never say a score here.
+- **Suggestions are suggestions.** Never invent acceptance criteria, an expected result or a value the ticket does not give. The readiness score belongs to `/quality-code:ticket --eval`; never say a score here.
 - Redact in everything you show: the config's `redact` patterns (without a `redact` in the config, the default customer id `\bU\d{5,}\b`; a `redact` in the config replaces it), e-mails and UUIDs.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
 - **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Before they write a sentence, the ticket's language.
@@ -50,7 +54,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
    - **Skeleton to fill**, when the ticket has no acceptance criteria: an empty `Scenario:` / `Given` / `When` / `Then` block, never with invented content.
    - **Only the author knows**: the expected result when it is missing, the actual result of a bug, the impact.
 
-   Then one line: `To check it is ready for tests: /quality-code:ticket-eval <KEY>`.
+   Then one line: `To check it is ready for tests: /quality-code:ticket <KEY> --eval`.
 
 ## Examples
 
@@ -58,3 +62,5 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 - `/quality-code:ticket 123`: the same, in the first configured project
 - `/quality-code:ticket assignee:me status:"In Progress"`: my tickets in progress
 - `/quality-code:ticket order total discount`: a search by words
+- `/quality-code:ticket ABC-123 --eval`: score it for test-readiness
+- `/quality-code:ticket ABC --eval`: score the latest 50 tickets of ABC

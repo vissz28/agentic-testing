@@ -46,7 +46,7 @@ test('step 1: config check, Vitest only, layers from vitest.layers with the unit
 })
 test('step 2: the gate is ticket-eval steps 1–5 by reference; a refused ticket gets no marker and no file', () => {
   const s = step(2)
-  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/ticket-eval.md'))
+  assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/ticket-eval.md'))
   assert.match(s, /steps 1–5/)
   assert.match(s, /refuse card/)
   assert.match(s, /No run marker, no file written/)
@@ -409,8 +409,8 @@ test('step 1: no config offers setup and comes back; --gate-only is the gate alo
   assert.ok(s.includes('This repo is not set up yet.\n   1. Run setup now\n   2. Stop'))
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/setup.md'))
   assert.match(s, /when it is done, come back here/)
-  assert.match(s, /\*\*`--gate-only`:\*\* the gate alone, no test: read `\$\{CLAUDE_PLUGIN_ROOT\}\/commands\/ticket-eval\.md`/)
-  assert.match(s, /`\/quality-code:ticket-eval` is the same/)
+  assert.match(s, /\*\*`--gate-only`:\*\* the gate alone, no test: read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/ticket-eval\.md`/)
+  assert.match(s, /`\/quality-code:ticket --eval` is the same/)
 })
 test('step 1: with no key, the ticket of the branch: from its name with no card, else the merge request, else the commits', () => {
   const s = step(1).slice(step(1).indexOf('**The ticket.**'))
@@ -419,7 +419,7 @@ test('step 1: with no key, the ticket of the branch: from its name with no card,
   assert.match(s, /its target branch is the base/)
   assert.match(s, /On GitHub, the script finds the branch's open pull request itself, with the `gh` CLI/)
   assert.ok(s.includes('`The merge request targets <target>, which is not fetched here: its changed files come from GitLab. Run git fetch origin <target> to compare locally.`'), 'both hosts keep the detected base and say why')
-  assert.match(s, /ticket-eval saves them, redacted, for the fill-in/)
+  assert.match(s, /`ticket --eval` saves them, redacted, for the fill-in/)
   assert.match(s, /`keys\[0\]` when it appears in the branch name, ignoring case: say `Ticket: <KEY> \(from the branch <branch>\)` and go on, with no card/)
   assert.ok(s.indexOf("merge request's title") < s.indexOf('from the branch\'s commit messages'))
   assert.match(s, /more than one candidate and none in the branch name/)
@@ -430,7 +430,7 @@ test('step 1: with no key, the ticket of the branch: from its name with no card,
 })
 test('step 2: the band decides: ready goes on, borderline goes on with the risk mark, refused gets the card', () => {
   const s = step(2)
-  assert.match(s, /Read `band` from the last `GATE_JSON:` line \(ticket-eval's step 5 runs `score --next`\)/)
+  assert.match(s, /Read `band` from the last `GATE_JSON:` line \(`ticket --eval`'s step 5 runs `score --next`\)/)
   assert.match(s, /\*\*ready:\*\* say the report's first line and go on/)
   assert.match(s, /\*\*borderline\*\* \(up to 10 points under the bar, with something to check\): do not stop/)
   assert.match(s, /`To pass:` line/)

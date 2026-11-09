@@ -23,7 +23,7 @@ test('suggestions: only what the ticket shows, a skeleton never filled in, nothi
   assert.ok(doc.includes('Suggestions for the ticket (nothing is written to Jira; copy what you agree with):'))
   assert.match(doc, /an empty `Scenario:` \/ `Given` \/ `When` \/ `Then` block, never with invented content/)
   assert.match(doc, /skip when the status is Done, Closed or Resolved/)
-  assert.ok(doc.includes('`To check it is ready for tests: /quality-code:ticket-eval <KEY>`'))
+  assert.ok(doc.includes('`To check it is ready for tests: /quality-code:ticket <KEY> --eval`'))
   assert.match(doc, /Redact in everything you show/)
 })
 test('redaction follows the config: its redact replaces the default customer id; e-mails and UUIDs always', () => {

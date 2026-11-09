@@ -106,7 +106,7 @@ export function kpiReport(report, series, { config = null, now = new Date() } = 
   }
 }
 
-/** { html, headline } for /quality-code:tickets-eval. `result` is evalTickets' { rows, summary }. */
+/** { html, headline } for /quality-code:ticket --eval. `result` is evalTickets' { rows, summary }. */
 export function ticketsEvalReport({ rows, summary }, { config = null, project = null, now = new Date() } = {}) {
   const s = t => safe(config, t)
   const sub = `${project ? `${s(project)} · ` : ''}${plural(summary.scored, 'ticket')} scored · ${now.toISOString().slice(0, 10)}`

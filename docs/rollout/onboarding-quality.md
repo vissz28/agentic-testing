@@ -32,7 +32,7 @@ Nothing here is automatic: read each list before you delete anything.
 Use the **old** harness and **quality-code** side by side. Write the results down: they go in the merge
 request description (step 6).
 
-1. **Gate, 20 recent tickets.** For each: old `ticket-eval <KEY>` and `/quality-code:ticket-eval <KEY>`.
+1. **Gate, 20 recent tickets.** For each: old `ticket-eval <KEY>` and `/quality-code:ticket <KEY> --eval`.
    Score and pass/refuse must match. Known, deliberate difference: on the backend, a bare `warehouse`
    label no longer counts as a feature label (5 points less, spec §10 #2; the replay suite pins it).
    Any other mismatch is a finding: stop and report it on AGT-85.
@@ -139,13 +139,13 @@ Add, so everyone who opens the repo is offered the plugin:
 ```
 
 And in `CLAUDE.md`, replace every line that points at the old harness (`.claude/harness/…`, `/spec`,
-`/playwright`, `/unit`, …) with the new commands: `/quality-code:spec`, `ticket-eval`, `check`,
+`/playwright`, `/unit`, …) with the new commands: `/quality-code:spec`, `ticket --eval`, `check`,
 `write`, `seed`, `kpi`.
 
 ## 4. CI ticket gate (if the repo has one)
 
 In `.gitlab-ci.yml`, replace the job that ran `node .claude/harness/score-ticket.mjs …` with the
-`quality-code` gate, `/quality-code:ticket-eval <KEY> --ci` (no questions; a refused ticket gets the
+`quality-code` gate, `/quality-code:ticket <KEY> --eval --ci` (no questions; a refused ticket gets the
 Jira comment and the job fails; see the Guide, "Gate tickets in CI"). `.gitlab-ci.yml` is outside what a test run may change: a person edits it, in
 this same merge request.
 
@@ -160,7 +160,7 @@ A `.claude/boundary-guard.mjs` line left in `.gitlab-ci.yml` (the backend lists 
 
 In Claude Code, in the repo:
 1. `/quality-code:spec`: the ticket from the branch, the gate, the plan.
-2. `/quality-code:ticket-eval <a recent KEY>`: same score as in step 1.
+2. `/quality-code:ticket <a recent KEY> --eval`: same score as in step 1.
 3. `/quality-code:run-pipeline --branch` on the branch's specs: the card.
 4. `/quality-code:kpi`: shows the runs you just did.
 

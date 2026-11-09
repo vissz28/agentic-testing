@@ -46,7 +46,7 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 |---|---|
 | `/quality-code:setup` | connects Jira, GitLab and Figma, and writes the project's config |
 | `/quality-code:spec` | your daily start: the branch, its ticket, the readiness gate, then the tests |
-| `/quality-code:ticket-eval <KEY>` | scores a ticket for test-readiness (70 points to pass) |
+| `/quality-code:ticket <KEY> --eval` | scores a ticket for test-readiness (70 points to pass) |
 | `/quality-code:spec <KEY>` | writes the tests for a ticket and grades them |
 | `/quality-code:run-frontend` | runs every frontend (Playwright) spec through the pipeline |
 | `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
@@ -82,7 +82,7 @@ connector cannot download: read only, from your `*.atlassian.net` site, at most 
 always read. Screenshots and linked Confluence pages are read only when a ticket is refused without
 them, so a ticket that passes costs nothing extra. Their text (a screenshot's words, copied as shown)
 is scored like the description, and once screenshots are read, an attachment earns its points only
-when one gave text. `/quality-code:tickets-eval`
+when one gave text. `/quality-code:ticket --eval`
 reads no files; it shows the pass rate per Jira component.
 
 Made by Elvis Zefaj. Full guide: [README](https://github.com/vissz28/agentic-testing#readme).

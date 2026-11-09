@@ -43,7 +43,7 @@ the README's Installation section.
 ## 3. The first ticket
 
 ```
-/quality-code:ticket-eval ABC-123
+/quality-code:ticket ABC-123 --eval
 ```
 
 A score out of 100; 70 or more is ready to test. Below 70 you can post a Jira comment that lists what
@@ -78,11 +78,11 @@ From then on, every day: `/quality-code:spec` on your feature branch.
 
 If the repo already has its own test-writing commands, skills or hooks:
 
-1. Set up quality-code (step 2) and compare: run `ticket-eval` on a few recent tickets with both, and
+1. Set up quality-code (step 2) and compare: run `ticket <KEY> --eval` on a few recent tickets with both, and
    `check` on the same specs with both. Note any difference and why.
 2. In one merge request, add the config and remove the old harness: its commands, skills, hooks,
    scripts and their lines in `CLAUDE.md`. Never keep two harnesses in one repo.
-3. Replace a CI ticket gate, if you had one, with `/quality-code:ticket-eval <KEY> --ci`.
+3. Replace a CI ticket gate, if you had one, with `/quality-code:ticket <KEY> --eval --ci`.
 
 The warehouse repos' configs in [`rollout/`](rollout/) are worked examples.
 
@@ -92,6 +92,6 @@ The warehouse repos' configs in [`rollout/`](rollout/) are worked examples.
 - [ ] `config.json` is reviewed; if CI uses it, a copy sits in the repo as `.claude/quality-code.json`; someone owns it.
 - [ ] The forbidden paths cover your application code (default: `src/`, `.env`, `.env.*`, the CI file).
 - [ ] For Vitest: the test folders are right (`vitest.layers`); Stryker is installed if you want its bar.
-- [ ] A CI job runs `ticket-eval <KEY> --ci`, if you gate tickets in CI.
+- [ ] A CI job runs `ticket <KEY> --eval --ci`, if you gate tickets in CI.
 - [ ] The team knows where to report a surprise: an issue with the ticket key and the card.
 - [ ] After a sprint, `/quality-code:consumption` shows what the runs cost.

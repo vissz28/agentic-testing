@@ -76,7 +76,7 @@ export function formatCard({ rows, summary }) {
       ? `Most often missing: ${s.mostMissing.map(m => `${m.item} (${m.tickets})`).join(', ')}`
       : 'Most often missing: nothing',
     ...(s.byTeam?.length ? ['', 'By component (lowest pass rate first):', ...s.byTeam.map(t => `  ${t.team}: ${t.passing} of ${t.scored} pass (${t.passingPercent}%)${t.mostMissing ? ` · most often missing: ${t.mostMissing}` : ''}`)] : []),
-    ...(s.unreadFiles ? [`${s.unreadFiles} refused ticket${s.unreadFiles === 1 ? ' has' : 's have'} files this report does not read: their criteria may be in a file. /quality-code:ticket-eval <KEY> reads them.`] : []),
+    ...(s.unreadFiles ? [`${s.unreadFiles} refused ticket${s.unreadFiles === 1 ? ' has' : 's have'} files this report does not read: their criteria may be in a file. /quality-code:ticket <KEY> --eval reads them.`] : []),
   ].join('\n')
 }
 

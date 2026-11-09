@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/ticket-eval.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
 const qa = doc.slice(doc.indexOf('**QA plan**'), doc.indexOf('\n', doc.indexOf('**QA plan**')))
 
 test('the QA-plan search is limited to confluenceSpaces when set', () => {
@@ -81,7 +81,7 @@ test('option 3 still needs something to check, and --ci never takes it', () => {
   assert.match(doc, /It never takes 3/)
 })
 test('write accepts the hand-off from ticket-eval option 3 without scoring again', () => {
-  assert.match(write, /Coming from ticket-eval's option 3/)
+  assert.match(write, /Coming from `ticket --eval`'s option 3/)
   assert.match(write, /skip this step/)
 })
 test('option 2: a fill-in that passes goes straight to the Jira update preview, still behind a yes', () => {

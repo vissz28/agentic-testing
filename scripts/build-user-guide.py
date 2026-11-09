@@ -132,7 +132,7 @@ story += [p('What it is', 'h1'),
           table(['You want to', 'Command'], [
               ['Set up a repo (once)', '<font name="Mono">/quality-code:setup</font>'],
               ['Start your day on a feature branch', '<font name="Mono">/quality-code:spec</font>'],
-              ['Check whether a ticket is ready to test', '<font name="Mono">/quality-code:ticket-eval ABC-123</font>'],
+              ['Check whether a ticket is ready to test', '<font name="Mono">/quality-code:ticket ABC-123 --eval</font>'],
               ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:run-pipeline --branch</font>'],
               ['Have tests written from a ticket', '<font name="Mono">/quality-code:spec ABC-123</font>'],
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
@@ -188,7 +188,7 @@ story += [p('3. Every day: start from your branch', 'h1'),
               '<b>3. Write and check tests</b>.',
           ]),
           p('4. Check a ticket: the readiness gate', 'h1'),
-          code('/quality-code:ticket-eval ABC-123'),
+          code('/quality-code:ticket ABC-123 --eval'),
           p('The ticket gets a score out of 100. <b>70 or more passes</b>, for every team. The score rewards '
             'acceptance criteria (Gherkin, or at least 150 characters of plain language under an '
             'Acceptance criteria heading), testable results (no "works correctly"), steps or a user story, the '
@@ -203,7 +203,7 @@ story += [p('3. Every day: start from your branch', 'h1'),
                'written, but every result card opens with <b>[RISK / NOT RECOMMENDED] Ticket incomplete (score/70)</b> '
                'and the override is recorded.'],
           ], [62, 108]),
-          p('In CI: <font name="Mono">ticket-eval ABC-123 --ci</font> asks nothing; a refused ticket gets the Jira '
+          p('In CI: <font name="Mono">ticket ABC-123 --eval --ci</font> asks nothing; a refused ticket gets the Jira '
             'comment and the job fails.', 'small'),
           PageBreak()]
 
@@ -265,7 +265,7 @@ story += [p('6. Have tests written from a ticket', 'h1'),
 
 story += [p('More commands', 'h1'),
           p('Rewrite a weak story', 'h2'),
-          p('After <font name="Mono">ticket-eval</font> scores a ticket, a script checks whether the description is too long, '
+          p('After <font name="Mono">ticket --eval</font> scores a ticket, a script checks whether the description is too long, '
             'has no structure or is too thin. If so you pick a source (the description, Figma, Confluence or your own text), '
             'see the draft as a card with its new score, and choose: post to Jira (after a preview and your yes), save '
             'locally, edit more, or cancel.'),
@@ -284,7 +284,7 @@ story += [p('More commands', 'h1'),
               ['Smoke suite', 'run-smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
           ], [38, 132]),
           p('Report pages with charts', 'h2'),
-          code('/quality-code:kpi --report\n/quality-code:tickets-eval ABC --report\n/quality-code:consumption --report'),
+          code('/quality-code:kpi --report\n/quality-code:ticket ABC --eval --report\n/quality-code:consumption --report'),
           p('Each writes one self-contained HTML page (light and dark, no network) with charts: verdicts over time, pass rate per '
             'ticket, score bands, mutation, cost by command and day. Only keys, scores and numbers go in. The chat still shows '
             'the text card, now with a headline row (verdict, score, bar with the gate), a Next line and collapsible detail.'),
@@ -305,15 +305,15 @@ story += [p('9. Bringing a team on board', 'h1'),
               ['Config', '.claude/quality-code.json reviewed, committed, and someone owns it'],
               ['Boundaries', 'the forbidden paths cover your application code (default: src/, .env, .env.*, the CI file)'],
               ['Vitest', 'the test folders are right; Stryker installed if you want its bar'],
-              ['CI', 'a job runs ticket-eval KEY --ci, if you gate tickets in CI'],
+              ['CI', 'a job runs ticket KEY --eval --ci, if you gate tickets in CI'],
               ['Feedback', 'everyone knows to report a surprise as an issue with the ticket key and the card'],
           ], [28, 142]),
           p('Moving from your own harness', 'h2'),
           *steps([
-              'Set up quality-code and compare first: ticket-eval on recent tickets with both, check on the same specs.',
+              'Set up quality-code and compare first: ticket --eval on recent tickets with both, check on the same specs.',
               'In one merge request: add the config, remove the old harness (commands, skills, hooks, scripts, their '
               'lines in CLAUDE.md). Never keep two harnesses in one repo.',
-              'Replace a CI ticket gate with ticket-eval KEY --ci.',
+              'Replace a CI ticket gate with ticket KEY --eval --ci.',
           ]),
           p('The full runbook for the warehouse repos is <font name="Mono">docs/rollout/onboarding-quality.md</font>.', 'small'),
           p('10. If something goes wrong', 'h1'),

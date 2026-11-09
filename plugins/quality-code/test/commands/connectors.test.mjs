@@ -130,8 +130,8 @@ test('every Rovo operation the commands use has its claude.ai connector name, or
   for (const op of ['getVisibleJiraProjects', 'getJiraProjectIssueTypesMetadata', 'getJiraIssueTypeMetaWithFields', 'listJiraIssueRemoteIssueLinks', 'lookupJiraAccountId']) assert.ok(doc.includes(`\`${op}\``), op)
   assert.match(doc, /find the operation with `discover`.*`executeRead`/)
   assert.match(doc, /\*\*Updating a comment\.\*\* .*`addOrEditJiraIssueComment` with that comment's id/)
-  for (const c of ['setup', 'ticket-eval', 'ticket']) {
-    const t = readFileSync(new URL(`../../commands/${c}.md`, import.meta.url), 'utf8')
+  for (const c of ['commands/setup', 'guides/ticket-eval', 'commands/ticket']) {
+    const t = readFileSync(new URL(`../../${c}.md`, import.meta.url), 'utf8')
     assert.ok(t.includes('"Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`'), c)
   }
 })

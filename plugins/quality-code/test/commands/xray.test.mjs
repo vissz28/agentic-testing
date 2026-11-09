@@ -36,7 +36,7 @@ test('step 1: --sync runs only the script; config check; no xray block stops; co
 })
 test('step 2: the gate is ticket-eval steps 1-5; option 3 and a backend ticket stop', () => {
   const s = step(2)
-  assert.match(s, /commands\/ticket-eval\.md` and follow its steps 1–5/)
+  assert.match(s, /guides\/ticket-eval\.md` and follow its steps 1–5/)
   assert.ok(s.includes('`XRay test cases need a ticket that passes the gate.`'))
   assert.match(s, /Option 3/)
   assert.ok(s.includes('`XRay test cases are written for frontend tickets (Playwright tests).`'))

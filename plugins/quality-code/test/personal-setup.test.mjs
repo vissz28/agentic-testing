@@ -144,6 +144,6 @@ test('xray: Xray is part of Jira, so a personal config works with no repo', () =
   assert.ok(!s.includes('This needs a repo.'))
   assert.ok(s.includes('Next: /quality-code:qa runs these cases in the browser'), 'xray hands over to qa')
 })
-for (const n of ['ticket-eval', 'ticket']) {
+for (const n of ['../guides/ticket-eval', 'ticket']) {
   test(`${n}: works with either config`, () => assert.ok(!cmd(n).includes('This needs a repo.')))
 }

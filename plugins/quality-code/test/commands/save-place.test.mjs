@@ -6,13 +6,13 @@ const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const guide = read('guides/save-place.md')
 
 test('every command that saves files asks once where they go, through the shared guide', () => {
-  for (const p of ['commands/spec.md', 'commands/ticket-eval.md', 'commands/tickets-eval.md', 'commands/transcript-goal.md', 'commands/xray.md', 'commands/seed.md', 'commands/qa.md', 'guides/run.md']) {
+  for (const p of ['commands/spec.md', 'guides/ticket-eval.md', 'guides/tickets-eval.md', 'commands/transcript-goal.md', 'commands/xray.md', 'commands/seed.md', 'commands/qa.md', 'guides/run.md']) {
     assert.ok(read(p).includes('follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`'), p)
   }
 })
 
 test('the commands take the tickets folder from config check, never a default of their own', () => {
-  for (const p of ['commands/spec.md', 'commands/ticket-eval.md', 'commands/tickets-eval.md', 'commands/xray.md', 'commands/seed.md', 'guides/run.md']) {
+  for (const p of ['commands/spec.md', 'guides/ticket-eval.md', 'guides/tickets-eval.md', 'commands/xray.md', 'commands/seed.md', 'guides/run.md']) {
     const s = read(p)
     assert.ok(s.includes('`tickets folder:` line'), p)
     assert.doesNotMatch(s, /`ticketsDir` \(default/, p)

@@ -27,9 +27,9 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 
 # What a shared (HTTP) server offers: the Jira-only commands for QA and PO, the read-only scripts they call, the guides they point to.
 # Everything that needs a developer's checkout (spec, the run commands, seed, xray, qa, setup, config, kpi) stays on the local server.
-REMOTE_COMMANDS = {"ticket", "ticket-eval", "tickets-eval"}
+REMOTE_COMMANDS = {"ticket"}
 REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
-REMOTE_GUIDES = {"connectors", "save-place"}
+REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
 def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None) -> MCPServer:

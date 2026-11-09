@@ -127,13 +127,13 @@ test('story-save: no draft, or a key that could leave its folder, writes nothing
 })
 
 // ----- the command text -----
-const doc = readFileSync(new URL('../../commands/ticket-eval.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
 const flow = doc.slice(doc.indexOf('## Rewrite the story'), doc.indexOf('## The refuse card'))
 const step = doc.slice(doc.indexOf('5c. **Story check.**'), doc.indexOf('## Rewrite the story'))
 
 test('command: the story check runs after the score, asks nothing with --ci/--yes, and the script decides', () => {
   assert.ok(doc.indexOf('5c. **Story check.**') > doc.indexOf('5b. **Read the screenshots'))
-  assert.match(step, /Not with `--ci`, `--yes`/)
+  assert.match(step, /Not with `--ci` or `--yes`/)
   assert.match(step, /ticket\.mjs story-check/)
   assert.match(step, /The script decides/)
   assert.match(doc, /pass:\*\* say the ticket is ready, then step 5c/)
@@ -166,6 +166,6 @@ test('command: destinations are Jira, local story.md, edit more, cancel; Jira on
   assert.match(flow, /Nothing is sent to Jira/)
 })
 test('tickets-eval only points at the feature', () => {
-  const t = readFileSync(new URL('../../commands/tickets-eval.md', import.meta.url), 'utf8')
+  const t = readFileSync(new URL('../../guides/tickets-eval.md', import.meta.url), 'utf8')
   assert.match(t, /offers to rewrite a story/)
 })
