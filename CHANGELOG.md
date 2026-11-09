@@ -9,6 +9,22 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-09
+
+### Changed
+
+- **One ticket command.** `/quality-code:ticket-eval` and `/quality-code:tickets-eval` are now flags of `/quality-code:ticket`:
+  - `/quality-code:ticket <KEY> --eval [--ci]` scores one ticket (was `ticket-eval`). With no key, it still takes the ticket of your branch.
+  - `/quality-code:ticket <PROJECT> --eval [--user <name>] [--status <status>] [--report]` scores the project's latest 50 tickets (was `tickets-eval`).
+  - `/quality-code:ticket` without `--eval` finds and shows a ticket, as before.
+
+### Removed
+
+- `ticket-eval --json` and `--refuse-comment`: the refuse card already previews the comment before anything is posted.
+- `tickets-eval --json`, `--limit` and `--all`: the project report always reads the latest 50; narrow it with `--user` or `--status`.
+
+**What to do:** use `/quality-code:ticket <KEY> --eval` where you typed `/quality-code:ticket-eval <KEY>`, and `/quality-code:ticket <PROJECT> --eval` for `tickets-eval`. A CI job that runs `ticket-eval <KEY> --ci` now runs `ticket <KEY> --eval --ci`.
+
 ## [0.60.2] - 2026-11-09
 
 ### Added

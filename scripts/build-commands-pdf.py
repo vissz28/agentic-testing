@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('One ticket command (0.61).', 'ticket-eval and tickets-eval are now flags of ticket: /quality-code:ticket <KEY> --eval scores one ticket, /quality-code:ticket <PROJECT> --eval the latest 50 of a project. The --json, --refuse-comment, --limit and --all flags are gone.'),
     ('Fixes from the 5 Nov feedback (0.60.1).', 'A title "FE -", "FE-" or "FE:" is read as frontend (also BE, FS), so the side is not asked. An epic is refused ("pass one of its stories or tasks"). Placeholder criteria (lorem ipsum, TBD, N/A) no longer pass the score. A run says once when screenshots are not read because the Jira files key is not set. Every Jira write ends with "Co-authored via Quality Code".'),
     ('A sign-in page on the shared server (0.60).', 'The shared MCP server shows a Quality Code page at its address: Sign in with Microsoft, then the /mcp address and the commands to connect Claude Code, Copilot CLI or Cursor. Needs a Web redirect URI and QUALITY_CODE_ENTRA_CLIENT_SECRET; /mcp itself is unchanged. Nothing changes in the commands.'),
     ('Config lives on your machine (0.59).', 'Setup no longer writes into your repo. config.json is kept next to the tickets and run logs, in the place the last setup question picks. A repo with .claude/quality-code.json still works; CI jobs still read the repo file.'),
@@ -124,7 +125,7 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --stability N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
 ]),
           p('5. For QA and product owners', 'h1'), cmds([
-    ('/quality-code:ticket --eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:ticket ABC --eval'),
+    ('/quality-code:ticket <PROJECT> --eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:ticket ABC --eval'),
     ('/quality-code:xray', 'Writes Xray test cases from a ticket as a CSV and case.xlsx.', '/quality-code:xray ABC-123'),
     ('/quality-code:qa', 'Runs your Xray manual tests with an agent; you give every verdict; nothing reaches Jira without a preview.', '/quality-code:qa --resume'),
     ('/quality-code:seed', 'Loads realistic mock data for a ticket into your local database only.', '/quality-code:seed ABC-123'),
