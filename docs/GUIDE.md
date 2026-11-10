@@ -549,10 +549,9 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
    equally well. The choice is remembered for the ticket, so the next run does not ask again.
    `--target src/pricing.ts` names it yourself.
 3. **Plan.** One line per scenario of the ticket, with the test folder (layer) it goes in and the
-   result it checks in plain words (`We check: the total is 108.00`), shown as information; writing
-   goes straight on. `--layer unit` keeps one layer only. `--ask` stops at the target and the plan for
-   you to choose, as a card each; the plan card also has `No, I'll type the right result`, which adds
-   it to the ticket (and offers the Jira update), never into a test alone. With `qaPlans`, the
+   result it checks in plain words (`We check: the total is 108.00`). You confirm it (`Yes, write
+   these tests`, `No, stop` or `Something else`); with `--ci` it is shown as information and writing
+   goes straight on. `--layer unit` keeps one layer only. With `qaPlans`, the
    feature's QA plan file is read first as extra rules; the ticket wins a clash. `--dry-run` stops
    after the plan, writing nothing; `--ci` never asks and stops where it would have to.
 4. **Write.** One spec per layer, named `<target>.<key>.spec.ts` (for example

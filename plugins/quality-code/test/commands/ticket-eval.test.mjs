@@ -270,7 +270,6 @@ test('step 5 scores with --next: the To pass line and the band', () => {
   assert.ok(doc.includes('`ticket.mjs score --in @<ticketsDir>/<KEY>/ticket.json --next`'))
   assert.match(doc, /`GATE_JSON:` \(`band`: `ready`, `borderline` or `refused`; `fix`: the fewest missing items that reach the bar\)/)
   assert.match(doc, /`\/quality-code:spec` goes on without it for a `borderline` band/)
-  assert.match(doc, /`\/quality-code:spec <KEY> --gate-only` is the same command/)
 })
 test('the refuse card leads with the cheapest fix; fill in first, then comment, continue anyway, stop; --ci comments', () => {
   const card = doc.slice(doc.indexOf('## The refuse card'), doc.indexOf('## Send-preview'))

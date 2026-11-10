@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('A shorter spec (0.68).', '/quality-code:spec drops --gate-only (use ticket --eval) and --yes (use --ci); its hint shows only [KEY] [--dry-run] [--ci].'),
     ('Help for your role (0.67).', '/quality-code:help says whether setup is done, then what you can do now for your role, with how each command is used. --dev, --qa, --po, --all, or a command name.'),
     ('Update is one word (0.66).', 'check-update is now /quality-code:update: the same version check, and the update on your yes.'),
     ('One check command (0.65).', 'run-pipeline, run-backend, run-frontend and run-smoke are now /quality-code:check: no flag for the full suite (--branch, --evals), --backend or --frontend for one side, --smoke [--url URL] for the @smoke tests.'),
@@ -115,7 +116,7 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:clean', 'Removes what the plugin created in the project. A script lists it by group; you pick the groups and say yes once. Never skipped by --yes or --ci. --dry-run only lists.', '/quality-code:clean --dry-run'),
 ]),
           p('2. Every day: from ticket to tests', 'h1'), cmds([
-    ('/quality-code:spec', 'The main command. Runs the readiness gate, shows the plan (with Negative, Accessibility, Visual and Database lines when they apply), writes the tests in your test folders, runs the pipeline and reads the card back. A Bug ticket leaves a @regression test.', '/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --gate-only'),
+    ('/quality-code:spec', 'The main command. Runs the readiness gate, shows the plan (with Negative, Accessibility, Visual and Database lines when they apply), writes the tests in your test folders, runs the pipeline and reads the card back. A Bug ticket leaves a @regression test.', '/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --dry-run'),
     ('/quality-code:ticket --eval', 'Scores one ticket out of 100 (70 passes). If the story is long or thin, offers to rewrite it from the description, Figma or Confluence; post to Jira after a preview, or save locally.', '/quality-code:ticket ABC-123 --eval'),
     ('/quality-code:ticket', 'Finds a ticket and shows it in short, with tips for its author. Read-only.', '/quality-code:ticket assignee:me'),
     ('/quality-code:transcript-goal', 'Reads a Teams planning transcript (file, pasted text or the Microsoft 365 connector), drafts the sprint goal and tasks, asks only what was not said, shows review cards, then creates the tasks in Jira after a preview and your yes, or saves them locally.', '/quality-code:transcript-goal --file planning.vtt'),

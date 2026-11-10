@@ -7,7 +7,7 @@ const spec = read('commands/spec.md')
 const setup = read('commands/setup.md')
 
 test('spec: --flow is an option, checked by the script, and follows the project\'s naming, folder and style', () => {
-  assert.match(spec, /argument-hint:.*\[--flow project\|quality-code\|both\]/)
+  assert.match(spec, /add the value after `--flow` when `\$ARGUMENTS` has one: `project`, `quality-code` or `both`/)
   assert.ok(spec.includes('bin/ticket.mjs" config flow`'))
   assert.match(spec, /`--flow is project, quality-code or both\.`/)
   const s = spec.slice(spec.indexOf('**Writing in the project\'s flow**'), spec.indexOf('- **Vitest:** write one spec file per layer'))

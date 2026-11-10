@@ -18,7 +18,7 @@ A baseline says "this is how the screen must look from now on". Never create or 
 
 - First time: the plan card's line is the question. `Yes, write these tests` confirms the baselines
   too; `Something else` can drop the visual checks.
-- With `--yes` or `--ci`, create no baseline: write the check, leave the screens without a baseline
+- With `--ci`, create no baseline: write the check, leave the screens without a baseline
   and say `Visual: N screens have no baseline yet: run with --update-snapshots and review the images.`
 - An existing baseline that differs is a finding, not something to overwrite. Show which screen
   differs and ask before updating it.

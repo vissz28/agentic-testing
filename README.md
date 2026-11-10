@@ -29,11 +29,14 @@ New here? [Install](#installation) the plugin first. Then follow the path for yo
 Every command is typed in Claude Code, inside your project folder. Each one answers with a card:
 reply with the number of the option you want.
 
+Not sure what to do next? `/quality-code:help` checks that setup is done, then shows the steps for
+your role with how each command is used.
+
 ### Developer
 
 ```mermaid
 flowchart TD
-    A["/quality-code:setup<br/><i>once per repo, by one person</i>"] --> B["git checkout -b ABC-123-my-feature"]
+    A["/quality-code:setup<br/><i>Developer, in your repo</i>"] --> B["git checkout -b ABC-123-my-feature"]
     B --> C["/quality-code:spec<br/><i>finds ABC-123 from the branch name</i>"]
     C --> D{"Ticket passes<br/>the gate? (70/100)"}
     D -- no --> E["/quality-code:ticket ABC-123 --eval<br/><i>comment on Jira, or fill the gaps</i>"]
@@ -48,7 +51,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["/quality-code:setup<br/><i>option 1 in a repo, option 2 for Jira only</i>"] --> B["/quality-code:ticket assignee:me<br/><i>find the tickets to test</i>"]
+    A["/quality-code:setup<br/><i>QA: Jira only, no repo</i>"] --> B["/quality-code:ticket assignee:me<br/><i>find the tickets to test</i>"]
     B --> C["/quality-code:ticket ABC-123 --eval<br/><i>is it clear enough to test?</i>"]
     C -- refused --> D["Fill the gaps with the author<br/><i>guided fill-in, pushed to Jira after a preview</i>"]
     D --> C
@@ -57,13 +60,13 @@ flowchart TD
     F --> G["/quality-code:routine<br/><i>optional: nightly run, flaky tests</i>"]
 ```
 
-QA in a repo can also write automated tests with `/quality-code:spec ABC-123`, like a developer.
+QA who write automated tests set up as a developer in the repo, then use `/quality-code:spec ABC-123`.
 
 ### Product owner / ticket author
 
 ```mermaid
 flowchart TD
-    A["/quality-code:setup<br/><i>option 2: Jira only, no repo</i>"] --> B["/quality-code:ticket ABC --eval<br/><i>how the whole project scores</i>"]
+    A["/quality-code:setup<br/><i>PO: Jira only, no repo</i>"] --> B["/quality-code:ticket ABC --eval<br/><i>how the whole project scores</i>"]
     B --> C["/quality-code:ticket ABC-123 --eval<br/><i>one ticket: what is missing</i>"]
     C --> D["Guided fill-in<br/><i>answer the questions, preview, push to Jira</i>"]
     D --> E["Ticket passes:<br/>ready for dev and QA"]
@@ -71,8 +74,8 @@ flowchart TD
 
 ### Team lead
 
-Run `/quality-code:setup` once and commit `.claude/quality-code.json`, then `/quality-code:ci` for the
-pipeline. Check adoption with `/quality-code:report --kpi` and cost with `/quality-code:report --cost`.
+Run `/quality-code:setup` in the repo, copy the `config.json` it writes into the repo to share it with
+the team, then `/quality-code:ci` for the pipeline. Check adoption with `/quality-code:report --kpi` and cost with `/quality-code:report --cost`.
 
 ## Commands
 
@@ -80,8 +83,8 @@ Click a command to see its options.
 
 | Command | What it does | You give it | You get back |
 |---|---|---|---|
-| [`setup`](#setup) | Connects Jira (and GitLab, GitHub, Figma) and saves the project's settings | nothing; answer the cards | `.claude/quality-code.json` to commit |
-| [`config`](#config) | Shows and changes the settings, one at a time | nothing; pick an item | the settings card; changes are checked before saving |
+| [`setup`](#setup) | Asks your role, connects Jira (and GitLab, GitHub, Figma) and saves the settings | nothing; answer the cards | the config, and what you can do now for your role |
+| [`config`](#config) | Shows and changes the settings, one at a time | nothing, or `get`/`set <key>` | the settings card; changes are checked before saving |
 | [`ticket`](#ticket) | Finds a Jira ticket and shows it in short | a key, words, or filters like `assignee:me` | the ticket in short, with tips for its author (never posted) |
 | [`ticket --eval`](#ticket---eval) | Scores one ticket for test-readiness (70/100 passes) | a ticket key | the score, what is missing, and a way to fix it on Jira |
 | [`ticket <PROJECT> --eval`](#ticket-project---eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
@@ -94,8 +97,8 @@ Click a command to see its options.
 | [`qa`](#qa) | Runs your Xray manual tests in the browser with an agent | a test execution key, or nothing to list yours | a verdict per test you confirm, and drafted defects |
 | [`routine`](#routine) | Schedules test runs that run by themselves | a ticket key or nothing, and when | a report each run: green to red, flaky tests |
 | [`ci`](#ci) | Writes the CI file for GitHub Actions or GitLab CI | `github` or `gitlab` | a CI file with two jobs |
-| [`kpi`](#kpi) | Shows how the plugin is used and the Quality Program numbers | nothing, or a period | a KPI card (read-only) |
-| [`consumption`](#consumption) | Shows the AI usage and cost of the plugin's runs | nothing, or a period | a cost table (read-only) |
+| [`report`](#report) | Shows how the plugin is used (`--kpi`) or the AI cost of its runs (`--cost`) | nothing, a flag, or a period | a KPI card or a cost table (read-only) |
+| [`clean`](#clean) | Removes what Quality Code created in the project, or only its cache | nothing, or `--cache` | a list by group; deleted after your yes |
 | [`help`](#help) | Shows what to do next for your role, with how each command is used | nothing, a role, `--all` or a command | the steps for your role, or setup first if it is not done |
 | [`update`](#update) | Checks for a newer plugin version | nothing | what changed, and an update on your yes |
 
@@ -110,8 +113,9 @@ Jira without a preview and your yes.
 
 `/quality-code:setup [advanced]`
 
-Asks where you work (in a repo, or Jira only for QA and PO), checks the connectors, detects the Jira
-project and base branch, and writes the config after you confirm. It never checks a ticket.
+Asks who you are (Developer in a repo, or QA or PO with Jira only), checks the connectors, detects the
+Jira project and base branch, and writes the config after you confirm. The last question is where files
+and logs go. It ends with what you can do now for your role. It never checks a ticket.
 
 | Option | What it does |
 |---|---|
@@ -119,11 +123,19 @@ project and base branch, and writes the config after you confirm. It never check
 
 ### config
 
-`/quality-code:config`
+`/quality-code:config [get <key> | set <key> <value> | keys] [--personal | --project] [--yes]`
 
-No options. Shows a numbered card: stack, Jira site and projects, base branch, test flow, where files
-and logs go, your Jira email, GitLab and Xray settings, and whether each token is set. Pick a number to
-change it. Tokens are set in `/plugin`, never in the chat.
+With no options it shows a numbered card: stack, Jira site and projects, base branch, test flow, where
+files and logs go, your Jira email, GitLab and Xray settings, and whether each token is set. Pick a
+number to change it. Tokens are set in `/plugin`, never in the chat.
+
+| Option | What it does |
+|---|---|
+| `get <key>` | One setting and where it comes from, e.g. `config get jira.projects` |
+| `set <key> <value>` | Shows `old -> new`, then checks and saves it after your yes |
+| `keys` | Every key you can set |
+| `--personal`, `--project` | Which config: your personal one or the project's |
+| `--yes` | Skip the question on `set` |
 
 ### ticket
 
@@ -183,14 +195,13 @@ most three questions. Your application code is never changed.
 
 | Option | Works on | What it does |
 |---|---|---|
-| `--gate-only` | all | Only the readiness gate, no tests (same as `ticket --eval`) |
 | `--base BRANCH` | all | The branch to compare against, when it is not detected |
 | `--layer NAME` | backend | Write only in that test layer, e.g. `--layer unit` |
 | `--target PATH` | backend | The source file to test, e.g. `--target src/pricing.ts`; skips the question |
 | `--route PATH` | frontend | The screen to test, e.g. `--route /orders/new` |
 | `--no-extras` | frontend | Only the ticket's scenarios, no extra edge cases |
-| `--flow project\|quality-code` | all | Write tests like your existing ones (`project`) or Quality Code's way |
-| `--yes` | all | Skip the plan question |
+| `--no-axe` | frontend | No accessibility scan |
+| `--flow project\|quality-code\|both` | all | Write tests like your existing ones (`project`), Quality Code's way, or `both` |
 | `--dry-run` | all | The gate and the plan, then stop: nothing written, nothing posted |
 | `--ci` | all | No questions; stops where it would have to ask |
 
@@ -251,16 +262,15 @@ Needs a one-time `seed` block in the config: see [Guide, "Mock data in your loca
 
 ### qa
 
-`/quality-code:qa [KEY] [--app <url>] [--first] [--resume] [--auto-pass] [--dry-run] | --watch`
+`/quality-code:qa <KEY> [--app <url>] [--resume] [--auto-pass] [--dry-run] | --watch`
 
-With no key it lists the test executions assigned to you. It runs each test in the browser, you give
+Takes the key of a test execution assigned to you. It runs each test in the browser, you give
 every verdict, and it drafts the defects. Every Jira write is previewed first.
 
 | Option | What it does |
 |---|---|
 | `KEY` | The test execution to run |
 | `--app <url>` | The app address to test on (sign in there first); else `qa.app` of the config, else the last one used, else asked |
-| `--first` | Take your first open execution (open sprint, board order) without asking |
 | `--resume` | Go on from the answers saved for that run |
 | `--auto-pass` | Record a test the agent finds OK without a card; stop at the first KO or blocked test |
 | `--watch` | A schedule that tells you when a story you sent back is ready to retest |
@@ -307,29 +317,38 @@ checks on the changed tests) and `test_quality_tests` (types, tests and mutation
 | `github` / `gitlab` | Which CI to write for (guessed from the repo when left out) |
 | `--print` | Show the file without writing it |
 
-### kpi
+### report
 
-`/quality-code:report --kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]`
+```
+/quality-code:report [--kpi] [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
+/quality-code:report --cost [--since …] [--until …] [--by command|ticket|day|model] [--prices file.json]
+```
 
-Read-only. Tickets gated, fill-ins, Jira comments, forced runs, verdicts, and the Quality Program
-numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate).
-
-| Option | What it does |
-|---|---|
-| `--since` | Start of the period: `7d`, `30d` or a date |
-| `--until` | End of the period |
-
-### consumption
-
-`/quality-code:report --cost [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]`
-
-Read-only, from Claude Code's local transcripts. Default: the last 30 days, by command.
+Read-only, read locally, sent nowhere. `--kpi` (the default): tickets gated, fill-ins, Jira comments,
+forced runs, verdicts, and the Quality Program numbers (traceability, completeness, suite honesty, gate
+integrity, adoption, coverage, mutation kill rate). `--cost`: the AI usage and estimated cost of the
+plugin's runs, from Claude Code's local transcripts. Default: the last 30 days.
 
 | Option | What it does |
 |---|---|
-| `--since` / `--until` | The period |
-| `--by` | Group by `command`, `ticket`, `day` or `model` |
-| `--prices file.json` | Use your own prices per million tokens |
+| `--since` / `--until` | The period: `7d`, `30d` or a date |
+| `--by` | `--cost` only: group by `command`, `ticket`, `day` or `model` |
+| `--prices file.json` | `--cost` only: your own prices per million tokens |
+
+### clean
+
+`/quality-code:clean [--dry-run] | --cache [--all] [--yes]`
+
+Removes what Quality Code created in the project: the setup files, the saved output and the cache. A
+script lists them by group; you pick the groups and say yes once. Your own source, tests and specs are
+never touched unless you pick them.
+
+| Option | What it does |
+|---|---|
+| `--dry-run` | Only list what would be removed |
+| `--cache` | Only the plugin's local cache (saved stops, reused facts, language) for this project |
+| `--all` | With `--cache`: every project's cache |
+| `--yes` | With `--cache`: skip the question (the full clean always asks) |
 
 ### help
 
@@ -400,6 +419,15 @@ On Claude Code older than 2.1.275, use two steps:
 
 ## What's new
 
+- **`/quality-code:help`: what to do now, for your role.** It checks that setup is done (if not, it
+  says to run it), then shows the steps for your role with each command's examples. `--dev`, `--qa`,
+  `--po` show another role, `--all` every command, `help <command>` one command.
+- **Setup asks who you are first** (Developer, QA or PO), keeps the role, and ends with what you can do
+  now for that role.
+- **Fewer, clearer commands.** `check` replaces `run-pipeline`, `run-backend`, `run-frontend` and
+  `run-smoke` (`--backend`, `--frontend`, `--smoke`, `--branch`); `report` replaces `kpi` and
+  `consumption` (`--kpi`, `--cost`); `config get`/`set`/`keys` replace `config-get` and `config-set`;
+  `clean --cache` replaces `clean-cache`; `update` replaces `check-update`.
 - **QA and Xray, from the QA tester flow.** `/quality-code:qa` finds your executions in the open sprint, resumes a run from
   saved answers, marks a test you cannot do as Blocked (BLOCKED in Xray) and stops when the environment looks down, saves a
   screenshot per failing step, can open a new defect when a retest still fails, goes on to your next execution, and
@@ -434,10 +462,8 @@ On Claude Code older than 2.1.275, use two steps:
   branch, `/quality-code:spec` asks which base to check against and shows what the whole feature
   touches next to this branch's changes. The merge request's files come from GitLab when the target is
   not fetched here.
-- **Setup asks where you work first** (in a repo, or Jira only for QA and PO), then the connectors one
-  at a time: source code (GitLab, GitHub or both), Jira (required), Figma (optional).
-- **`run-frontend`, `run-backend` and `run-pipeline` replace `/quality-code:check`**, and
-  `run-pipeline --branch` checks only the tests your branch changed.
+- **Connectors one at a time** in setup: source code (GitLab, GitHub or both), Jira (required), Figma
+  (optional).
 - **Setup in two answers**, with the Jira project keys and base branch detected for you; the fill-in
   drafts acceptance criteria from the ticket for the author to confirm.
 - **Ticket copies live in `.quality-code/tickets`**, outside `.claude/`, so a `--ci` run saves
@@ -453,8 +479,8 @@ On Claude Code older than 2.1.275, use two steps:
 - **Attachments and links count in the 100 points** (every score changes a little), and the fill-in
   can draft missing items from a linked **Figma** design.
 - **New install name: `quality-code@teamsystem`.** The marketplace is now called `teamsystem`.
-- **Cheaper, faster commands:** `kpi`, `consumption` and the run commands run on Haiku (about $0.007 a run
-  instead of $0.24), `setup`, `ticket-eval` and `config` on Sonnet; `spec` keeps your model. The
+- **Cheaper, faster commands:** `report`, `check`, `help` and `update` run on Haiku (about $0.007 a run
+  instead of $0.24), `setup`, `ticket` and `config` on Sonnet; `spec` keeps your model. The
   plugin's own scripts run without permission prompts.
 - **Settings asked in the chat:** the connectors card asks your Jira email, GitLab address and
   username, and saves them. Only tokens go through `/plugin`.
@@ -481,8 +507,8 @@ to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the
 
 ## Quick start
 
-1. **Set up the repo** (once, by one person). Answer the numbered cards, then commit the config it
-   writes:
+1. **Set up.** Pick your role on the first card and answer the rest. Developers run it in the repo;
+   QA and PO from any folder:
 
    ```
    /quality-code:setup
@@ -494,6 +520,12 @@ to `teamsystem` and the `enabledPlugins` entry to `quality-code@teamsystem` (the
 
    ```
    /quality-code:spec
+   ```
+
+3. **Lost?** See what you can do now, for your role:
+
+   ```
+   /quality-code:help
    ```
 
 ## Documentation

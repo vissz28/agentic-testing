@@ -9,7 +9,7 @@ const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. 
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs" run'
 
 test('frontmatter has a description and the argument hint', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: '?\[KEY\] \[--gate-only\] \[--base BRANCH\] \[--layer NAME\] \[--target PATH\] \[--route PATH\] \[--no-extras\] \[--flow project\|quality-code\|both\] \[--yes\] \[--dry-run\] \[--ci\]'?\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: '?\[KEY\] \[--dry-run\] \[--ci\]'?\n(?:[a-z-]+: .+\n)*---/)
   assert.match(doc, /^description: Take a Jira ticket to checked tests, for developers and QA\./m)
 })
 test('steps come in order: check, ticket and gate, target, plan, write, check, card, risk note', () => {
@@ -91,7 +91,7 @@ test('step 4: reads the generic guide and each layer guide, then the plan card',
   assert.ok(s.includes('`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`'))
   assert.match(s, /Never write a result into a test that the ticket file does not hold/)
   assert.match(s, /Show this card and end the turn: it is the second of the three questions/)
-  assert.match(s, /With `--yes` or `--ci`, show it as information instead/)
+  assert.match(s, /With `--ci`, show it as information instead/)
 })
 test('step 5: run start before any file, the active-run card, the file naming and the describe block', () => {
   const s = step(5)
@@ -404,13 +404,12 @@ test('three questions at most: the gate only when refused, the plan, the read-ba
   assert.match(step(4), /the second of the three questions/)
   assert.match(step(9), /the last of the three questions/)
 })
-test('step 1: no config offers setup and comes back; --gate-only is the gate alone', () => {
+test('step 1: no config offers setup and comes back; no --gate-only or --yes (ticket --eval and --ci cover them)', () => {
   const s = step(1)
   assert.ok(s.includes('This repo is not set up yet.\n   1. Run setup now\n   2. Stop'))
   assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/commands/setup.md'))
   assert.match(s, /when it is done, come back here/)
-  assert.match(s, /\*\*`--gate-only`:\*\* the gate alone, no test: read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/ticket-eval\.md`/)
-  assert.match(s, /`\/quality-code:ticket --eval` is the same/)
+  assert.doesNotMatch(doc, /--gate-only|--yes/)
 })
 test('step 1: with no key, the ticket of the branch: from its name with no card, else the merge request, else the commits', () => {
   const s = step(1).slice(step(1).indexOf('**The ticket.**'))
@@ -499,7 +498,7 @@ test('spec confirms the base when the request targets another feature branch, an
   assert.match(spec, /2\. Check the whole feature: against <integration>/)
   assert.match(spec, /`--mr-base <target>`/)
   assert.match(spec, /list_merge_request_changed_files/)
-  assert.match(spec, /with `--yes` or `--ci`, go on with the target/)
+  assert.match(spec, /with `--ci`, go on with the target/)
 })
 
 test('spec follows the feature\'s testing approach: e2e, unit or both, and the team\'s own guide', () => {
@@ -534,13 +533,13 @@ test('step 7 ends with the next command for the ticket side: check --backend (Te
   assert.match(s, /fullstack: both lines, backend first/)
 })
 
-test('the runner card: spec adds a missing runner at the plan stage, only after the pick, never with --ci or --yes', () => {
+test('the runner card: spec adds a missing runner at the plan stage, only after the pick, never with --ci', () => {
   const s = step(4)
   const r = s.slice(s.indexOf('**Runner (when the repo lacks it).**'), s.indexOf('**What will be written (every adapter).**'))
   assert.ok(r.length > 500, 'the runner bullet is in step 4')
   assert.match(r, /`scaffold` \(Playwright\), `vitestScaffold` \(Vitest\)/)
-  assert.match(r, /With `--ci` or `--yes`, install and write nothing/)
-  assert.match(r, /Only now, and only after the pick: never before it, and never with `--ci` or `--yes`/)
+  assert.match(r, /With `--ci`, install and write nothing/)
+  assert.match(r, /Only now, and only after the pick: never before it, and never with `--ci`/)
   for (const t of ['`Installs`', '`Writes`', '`App`', '`Add it`', '`Not now`', 'Does the app need a sign-in', '`Which command starts the app? For example npm run dev.`', '`At which address does <command> open the app? For example http://localhost:3000.`', 'AskUserQuestion picker']) assert.ok(r.includes(t), t)
   assert.ok(r.indexOf('Installing <Playwright') > r.indexOf('**Add it.**'), 'install after the pick')
   assert.match(r, /setup\.mjs" --write '<proposal JSON>'/)
@@ -560,6 +559,6 @@ test('the runner step carries the unit-runner overlap and sign-in instructions t
 test('step 1: a missing runner no longer stops the run; it is offered at the plan stage', () => {
   const s = step(1)
   assert.match(s, /handled at the plan stage, by step 4's \*\*Runner\*\* bullet/)
-  assert.match(s, /With `--ci` or `--yes`, show every line, say how to add the runner/)
+  assert.match(s, /With `--ci`, show every line, say how to add the runner/)
   assert.doesNotMatch(s, /setup's `Not now`/)
 })

@@ -9,6 +9,20 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-11-10
+
+### Removed
+
+- `/quality-code:spec --gate-only`: use `/quality-code:ticket <KEY> --eval`, the same readiness gate.
+- `/quality-code:spec --yes`: use `--ci` to skip the questions, or answer the plan card.
+
+### Changed
+
+- `/quality-code:spec`'s hint shows only `[KEY] [--dry-run] [--ci]`. The other options still work; the README lists them all, now with `--no-axe` and `--flow both`.
+- Docs: the guide no longer mentions a `--ask` flag, and the plan card is confirmed as `spec` does it; the `/quality-code:qa` section drops `--first` and needs a key.
+
+**What to do:** type `/quality-code:ticket <KEY> --eval` instead of `spec --gate-only`, and `--ci` instead of `spec --yes`.
+
 ## [0.67.2] - 2026-11-10
 
 ### Fixed

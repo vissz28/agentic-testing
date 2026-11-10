@@ -131,9 +131,9 @@ const doc = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url)
 const flow = doc.slice(doc.indexOf('## Rewrite the story'), doc.indexOf('## The refuse card'))
 const step = doc.slice(doc.indexOf('5c. **Story check.**'), doc.indexOf('## Rewrite the story'))
 
-test('command: the story check runs after the score, asks nothing with --ci/--yes, and the script decides', () => {
+test('command: the story check runs after the score, asks nothing with --ci, and the script decides', () => {
   assert.ok(doc.indexOf('5c. **Story check.**') > doc.indexOf('5b. **Read the screenshots'))
-  assert.match(step, /Not with `--ci` or `--yes`/)
+  assert.match(step, /Not with `--ci`: it asks nothing/)
   assert.match(step, /ticket\.mjs story-check/)
   assert.match(step, /The script decides/)
   assert.match(doc, /pass:\*\* say the ticket is ready, then step 5c/)
@@ -160,7 +160,7 @@ test('command: destinations are Jira, local story.md, edit more, cancel; Jira on
   assert.match(flow, /4\. Cancel/)
   assert.match(flow, /nothing is written without the preview and a yes/)
   assert.match(flow, /Only on an explicit yes/)
-  assert.match(flow, /Never with `--ci` or `--yes`/)
+  assert.match(flow, /Never with `--ci`, which never gets here/)
   assert.ok(flow.indexOf('Only on an explicit yes') < flow.indexOf('editJiraIssue'), 'the yes comes before the write')
   assert.match(flow, /story-save/)
   assert.match(flow, /Nothing is sent to Jira/)
