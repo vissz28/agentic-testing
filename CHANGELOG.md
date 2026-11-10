@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.67.1] - 2026-11-10
+
+### Fixed
+
+- In GitHub Copilot CLI the plugin's commands were not found. Copilot loads commands only when the plugin's manifest lists them, and Claude Code's manifest does not. The plugin now also ships `.plugin/plugin.json` (Copilot reads it first; Claude Code ignores it) with `"commands": "commands"` and the MCP servers file.
+
+**What to do:** in Copilot, update the plugin (`copilot plugin update quality-code@teamsystem`) and restart `copilot`. Claude Code users need nothing. Not tried inside Copilot yet: a command's own text still uses Claude Code names (the plugin folder variable, the picker), so some may still behave differently there; tell us which.
+
 ## [0.67.0] - 2026-11-10
 
 ### Added
