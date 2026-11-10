@@ -1,4 +1,4 @@
-// Entry point for /quality-code:consumption: AI usage and estimated cost of the plugin's runs in this project.
+// Entry point for /quality-code:report --cost: AI usage and estimated cost of the plugin's runs in this project.
 // node bin/consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file] [--json | --report]
 // Reads local transcripts only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no transcripts found.
 import { statSync } from 'node:fs'

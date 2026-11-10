@@ -1,4 +1,4 @@
-// Totals, groups and the plain-text card for /quality-code:consumption. Dates are UTC.
+// Totals, groups and the plain-text card for /quality-code:report --cost. Dates are UTC.
 import { costOf, priceFor } from './prices.mjs'
 
 const DAY = 86400000

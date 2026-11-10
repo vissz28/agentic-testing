@@ -242,7 +242,7 @@ test('ticket draft: the card is Use it / Edit / Skip and the turn ends', () => {
 })
 test('ticket draft: Use it and Edit go through add --drafted; the script scores, a rejection shows its reason', () => {
   assert.ok(draft.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"'))
-  assert.match(draft, /marks the answer as drafted in `ticket.json` and in the local audit log \(for `\/quality-code:kpi`\); it never changes the score/)
+  assert.match(draft, /marks the answer as drafted in `ticket.json` and in the local audit log \(for `\/quality-code:report --kpi`\); it never changes the score/)
   assert.match(draft, /\*\*2:\*\* ask for their edited text, and send that through `add` the same way, with `--drafted`\. The script scores the edited text/)
   assert.match(draft, /\*\*3:\*\* the item goes on the card with the other items, typed by hand/)
   assert.match(draft, /\*\*Not accepted:\*\* show the line with the script's reason as printed/)

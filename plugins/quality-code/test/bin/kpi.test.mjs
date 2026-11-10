@@ -87,7 +87,7 @@ test('the card, exactly', async () => {
     '  —  Coverage        no data  target 80%   no coverage report: Istanbul, lcov, JaCoCo or Cobertura (the suite is never run here)',
     '  —  Mutation kill   no data               no run had assertions to mutate yet',
     '',
-    'AI cost: /quality-code:consumption --since 2026-09-15 --until 2026-10-14',
+    'AI cost: /quality-code:report --cost --since 2026-09-15 --until 2026-10-14',
   ])
   assert.match(lines.at(-1), /^KPI_JSON:\{/)
 })
@@ -105,7 +105,7 @@ test('the report object behind the card', async () => {
   assert.deepEqual(j.forced, { runs: 2, tickets: ['ABC-2', 'ABC-4'] })
   assert.deepEqual(j.pipeline, { runs: 6, verdicts: { green: 2, checks_failed: 2, tests_red: 1, not_verified: 1 }, decidedBy: [{ check: 'mutation', runs: 2 }, { check: 'tests', runs: 1 }, { check: 'types', runs: 1 }] })
   assert.deepEqual(j.boundary, { blocked: 2 })
-  assert.equal(j.consumption, '/quality-code:consumption --since 2026-09-15 --until 2026-10-14')
+  assert.equal(j.consumption, '/quality-code:report --cost --since 2026-09-15 --until 2026-10-14')
 })
 test('--since and --until narrow the period; --json prints the report only', async () => {
   const r = await run(['--since', '2026-10-04', '--until', '2026-10-05', '--json'], project(FULL))

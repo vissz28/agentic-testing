@@ -94,4 +94,4 @@ The warehouse repos' configs in [`rollout/`](rollout/) are worked examples.
 - [ ] For Vitest: the test folders are right (`vitest.layers`); Stryker is installed if you want its bar.
 - [ ] A CI job runs `ticket <KEY> --eval --ci`, if you gate tickets in CI.
 - [ ] The team knows where to report a surprise: an issue with the ticket key and the card.
-- [ ] After a sprint, `/quality-code:consumption` shows what the runs cost.
+- [ ] After a sprint, `/quality-code:report --cost` shows what the runs cost.

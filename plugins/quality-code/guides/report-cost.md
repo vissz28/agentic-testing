@@ -1,12 +1,6 @@
----
-description: Show the AI usage and estimated cost of quality-code runs in this project, read from Claude Code's local transcripts. Read-only; sends nothing anywhere.
-argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--report]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)
-model: haiku
-effort: low
----
+# AI cost: `/quality-code:report --cost`
 
-Shows what the plugin's runs used. You relay; the script reads and counts. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
+From the arguments of `/quality-code:report` (without `--cost`). Shows what the plugin's runs used. You relay; the script reads and counts. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
 
 ## Rules
 
@@ -23,7 +17,7 @@ Shows what the plugin's runs used. You relay; the script reads and counts. Plain
 1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`, `--by`, `--prices`, `--session`, `--report`); with none, the script shows the last 30 days by command. Do not pass `--json`.
    - Exit 3: no transcripts were found. Show its lines as they are (they say where it looked) and stop.
    - Exit 2: show its lines as they are and stop.
-2. **Card.** Show the card exactly as printed. Drop the `CONSUMPTION_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the totals the card prints (the cost stays an estimate, as printed), a table of at most 8 rows with the rest in a `<details>` block, and a `Next:` line with `/quality-code:consumption --by ticket` and `/quality-code:kpi`. Then show this card and end the turn:
+2. **Card.** Show the card exactly as printed. Drop the `CONSUMPTION_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the totals the card prints (the cost stays an estimate, as printed), a table of at most 8 rows with the rest in a `<details>` block, and a `Next:` line with `/quality-code:report --cost --by ticket` and `/quality-code:report --kpi`. Then show this card and end the turn:
 
    ```
    See it another way?
@@ -46,7 +40,7 @@ Only when `$ARGUMENTS` has `--report` (never with `--json`). Add `--report` to t
 
 ## Examples
 
-- `/quality-code:consumption` shows the last 30 days by command.
-- `/quality-code:consumption --session` shows the cost of this session only.
-- `/quality-code:consumption --since 7d --by ticket` shows the last 7 days by ticket, for example `ABC-123`.
-- `/quality-code:consumption --prices prices.json` prices with your own rates: `{ "asOf": "2026-10-01", "models": { "<model id>": { "input": 4, "output": 20, "cacheWrite5m": 5, "cacheWrite1h": 8, "cacheRead": 0.2 } } }` in dollars per million tokens.
+- `/quality-code:report --cost` shows the last 30 days by command.
+- `/quality-code:report --cost --session` shows the cost of this session only.
+- `/quality-code:report --cost --since 7d --by ticket` shows the last 7 days by ticket, for example `ABC-123`.
+- `/quality-code:report --cost --prices prices.json` prices with your own rates: `{ "asOf": "2026-10-01", "models": { "<model id>": { "input": 4, "output": 20, "cacheWrite5m": 5, "cacheWrite1h": 8, "cacheRead": 0.2 } } }` in dollars per million tokens.

@@ -1,14 +1,11 @@
-// The consumption command is a prompt, not code: these pin its flow and its safety rules.
+// /quality-code:report --cost is a prompt, not code: these pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/consumption.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../guides/report-cost.md', import.meta.url), 'utf8')
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs"'
 
-test('frontmatter: description, argument hint, and the only tool is the script', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--by command\|ticket\|day\|model\] \[--prices file\.json\] \[--report\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
-})
 test('steps come in order: run, card', () => {
   const at = ['\n1. **Run.**', '\n2. **Card.**'].map(s => doc.indexOf(s))
   assert.ok(at.every(i => i > 0), JSON.stringify(at))

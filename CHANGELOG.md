@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-11-10
+
+### Changed
+
+- `/quality-code:kpi` and `/quality-code:consumption` are one command, `/quality-code:report`: `--kpi` (the default) shows the KPIs, `--cost` the AI usage and estimated cost. Every other flag works as before (`--since`, `--until`, `--report`; with `--cost` also `--by`, `--prices`, `--session`).
+
+**What to do:** use `/quality-code:report --kpi` instead of `/quality-code:kpi`, and `/quality-code:report --cost` instead of `/quality-code:consumption`.
+
 ## [0.62.0] - 2026-11-10
 
 ### Removed

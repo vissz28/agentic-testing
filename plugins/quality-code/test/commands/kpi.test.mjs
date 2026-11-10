@@ -1,13 +1,16 @@
-// The kpi command is a prompt, not code: these pin its flow and its safety rules.
+// /quality-code:report --kpi is a prompt, not code: these pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/kpi.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../guides/report-kpi.md', import.meta.url), 'utf8')
+const router = readFileSync(new URL('../../commands/report.md', import.meta.url), 'utf8')
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs"'
 
-test('frontmatter: description, argument hint, and the only tool is the script', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: \[--since 7d\|30d\|YYYY-MM-DD\] \[--until YYYY-MM-DD\] \[--report\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\), Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
+test('report: one command, --cost to the cost guide, --kpi or nothing to the KPI guide, only the two scripts allowed', () => {
+  assert.match(router, /^---\ndescription: .+\nargument-hint: \[--kpi \| --cost .+\[--report\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\), Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(router, /\*\*`--cost`:\*\* read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/report-cost\.md`/)
+  assert.match(router, /\*\*`--kpi`, or neither:\*\* read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/report-kpi\.md`/)
 })
 test('steps come in order: run, card', () => {
   const at = ['\n1. **Run.**', '\n2. **Card.**'].map(s => doc.indexOf(s))
@@ -29,7 +32,8 @@ test('the card is relayed verbatim without the machine line', () => {
 })
 test('numbered options after the card point to consumption for cost, and the turn ends', () => {
   for (const t of ['1. The AI cost of the same days', '2. Another period', '3. This session', '4. Stop']) assert.ok(doc.includes(t), t)
-  assert.ok(doc.includes('/quality-code:consumption'))
+  assert.ok(doc.includes('/quality-code:report --cost'))
+  assert.ok(doc.includes('On `4`, stop'))
   assert.ok(doc.includes('On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>`'), 'option 1 runs the pre-approved script, not a slash command')
   assert.ok(doc.includes('On `3`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --session`'), 'option 3 is this session')
   assert.match(doc, /End your turn after every card/)

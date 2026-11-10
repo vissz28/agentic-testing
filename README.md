@@ -72,7 +72,7 @@ flowchart TD
 ### Team lead
 
 Run `/quality-code:setup` once and commit `.claude/quality-code.json`, then `/quality-code:ci` for the
-pipeline. Check adoption with `/quality-code:kpi` and cost with `/quality-code:consumption`.
+pipeline. Check adoption with `/quality-code:report --kpi` and cost with `/quality-code:report --cost`.
 
 ## Commands
 
@@ -309,7 +309,7 @@ checks on the changed tests) and `test_quality_tests` (types, tests and mutation
 
 ### kpi
 
-`/quality-code:kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]`
+`/quality-code:report --kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]`
 
 Read-only. Tickets gated, fill-ins, Jira comments, forced runs, verdicts, and the Quality Program
 numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate).
@@ -321,7 +321,7 @@ numbers (traceability, completeness, suite honesty, gate integrity, adoption, co
 
 ### consumption
 
-`/quality-code:consumption [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]`
+`/quality-code:report --cost [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]`
 
 Read-only, from Claude Code's local transcripts. Default: the last 30 days, by command.
 

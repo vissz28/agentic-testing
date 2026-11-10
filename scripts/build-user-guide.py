@@ -136,8 +136,8 @@ story += [p('What it is', 'h1'),
               ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:run-pipeline --branch</font>'],
               ['Have tests written from a ticket', '<font name="Mono">/quality-code:spec ABC-123</font>'],
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
-              ['See how the team uses it', '<font name="Mono">/quality-code:kpi</font>'],
-              ['See what the AI runs cost', '<font name="Mono">/quality-code:consumption</font>'],
+              ['See how the team uses it', '<font name="Mono">/quality-code:report --kpi</font>'],
+              ['See what the AI runs cost', '<font name="Mono">/quality-code:report --cost</font>'],
               ['Turn a Teams planning meeting into tasks', '<font name="Mono">/quality-code:transcript-goal</font>'],
               ['Run the few critical tests', '<font name="Mono">/quality-code:run-smoke</font>'],
               ['Change one setting', '<font name="Mono">/quality-code:config set git.base develop</font>'],
@@ -257,7 +257,7 @@ story += [p('6. Have tests written from a ticket', 'h1'),
             'from a stub you already have. It never invents a value or a response shape and never writes to a '
             'database. It prints the block, or puts it into an existing spec with --path.'),
           p('8. See how it is used, and what it costs', 'h1'),
-          code('/quality-code:kpi --since 30d\n/quality-code:consumption --by ticket'),
+          code('/quality-code:report --kpi --since 30d\n/quality-code:report --cost --by ticket'),
           p('<b>kpi</b>: tickets gated, fill-ins, Jira comments, forced runs, verdicts, boundary blocks (from a local, '
             'git-ignored audit log; keys and numbers only). <b>consumption</b>: AI tokens and an estimated cost per '
             'command, ticket, day or model, read from Claude Code\'s local logs. Both send nothing anywhere.'),
@@ -284,7 +284,7 @@ story += [p('More commands', 'h1'),
               ['Smoke suite', 'run-smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
           ], [38, 132]),
           p('Report pages with charts', 'h2'),
-          code('/quality-code:kpi --report\n/quality-code:ticket ABC --eval --report\n/quality-code:consumption --report'),
+          code('/quality-code:report --kpi --report\n/quality-code:ticket ABC --eval --report\n/quality-code:report --cost --report'),
           p('Each writes one self-contained HTML page (light and dark, no network) with charts: verdicts over time, pass rate per '
             'ticket, score bands, mutation, cost by command and day. Only keys, scores and numbers go in. The chat still shows '
             'the text card, now with a headline row (verdict, score, bar with the gate), a Next line and collapsible detail.'),

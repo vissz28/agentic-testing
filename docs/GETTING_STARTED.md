@@ -278,8 +278,8 @@ What does **not** count:
 | `/quality-code:ticket ABC-123` | the ticket in short, with suggestions for its author (nothing is posted) |
 | `/quality-code:run-pipeline --evals` | the frozen evals: chosen tickets' specs must keep pinning what they pin |
 | `/quality-code:seed ABC-123` | loads realistic mock data for the ticket into your local database |
-| `/quality-code:kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days, and the Quality Program numbers |
-| `/quality-code:consumption --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |
+| `/quality-code:report --kpi` | tickets gated, fill-ins, forced runs and verdicts of the last 30 days, and the Quality Program numbers |
+| `/quality-code:report --cost --by ticket` | AI usage and estimated cost of the plugin's runs, per ticket |
 
 ---
 

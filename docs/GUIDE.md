@@ -158,8 +158,8 @@ Playwright test).
 | Load realistic mock data for a ticket into your local database, to test it by hand | `/quality-code:seed <KEY>` | ✅ available |
 | QA: run your Xray executions in the browser, with blocked tests, evidence, resume and a retest watch | `/quality-code:qa` | ✅ available |
 | XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
-| How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:kpi` | ✅ available |
-| AI usage and estimated cost of the plugin's runs in this project | `/quality-code:consumption` | ✅ available |
+| How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:report --kpi` | ✅ available |
+| AI usage and estimated cost of the plugin's runs in this project | `/quality-code:report --cost` | ✅ available |
 
 ## Who does what
 
@@ -627,10 +627,10 @@ ticket (TC ID), and skips a case that is already there. Then it writes the ticke
 "xray": { "csv": "qa/xray-cases.csv", "folder": "qa/tickets/", "headers": { "ticket": "Linked Issues" } }
 ```
 
-### What the plugin did here: `/quality-code:kpi`
+### What the plugin did here: `/quality-code:report --kpi`
 
 ```
-/quality-code:kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
+/quality-code:report --kpi [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD]
 ```
 
 Tickets gated (pass and refuse, score bands, the most missing criteria), refused then filled in then
@@ -648,7 +648,7 @@ turns it off) and the spec files.
 ### What do the runs cost?
 
 ```
-/quality-code:consumption [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]
+/quality-code:report --cost [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json]
 ```
 
 Reads Claude Code's local transcripts (`~/.claude/projects/…`) and shows the quality-code runs of
@@ -810,7 +810,7 @@ real data. The ticket is re-read from Jira first and only appended to. `--ci` ne
 
 For developers. Inside `/quality-code:spec`, the tests are still written and checked, but the card
 opens with `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (<score>/70)` and the override is recorded in
-the audit log (`/quality-code:kpi` counts these forced runs). The verdict is not changed by the mark.
+the audit log (`/quality-code:report --kpi` counts these forced runs). The verdict is not changed by the mark.
 If the ticket has nothing to check at all, it asks you to add what should happen first.
 
 Once the tests are written, a note for the Jira ticket is shown: tests were written although the
@@ -899,7 +899,7 @@ team's. Until you choose, they stay in the session, in a temp folder. The last q
 2. **On this machine, outside the repo**: a folder per project under your Claude folder
    (`~/.claude/quality-code/projects/<project>-<id>/`). It lasts across sessions.
 3. **Only in this session** (the default): the files a run needs between its steps, and the audit log,
-   go to a temp folder outside the repo. `/quality-code:kpi` counts what was logged there, until the
+   go to a temp folder outside the repo. `/quality-code:report --kpi` counts what was logged there, until the
    machine clears the folder.
 
 `QUALITY_CODE_PLACE=repo|local|chat` sets the default for a run with no pick (for a CI job or a script).
@@ -1032,7 +1032,7 @@ items, not promises:
   from its merge commit instead);
 - design (Figma) captures for Playwright tests.
 
-Seeding, the audit log with `/quality-code:kpi`, and what option 3 leads to were decided on 14 Oct
+Seeding, the audit log with `/quality-code:report --kpi`, and what option 3 leads to were decided on 14 Oct
 and ship in 0.8.0 (see the part 5 spec, §8).
 
 Details:

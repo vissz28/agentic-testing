@@ -109,7 +109,7 @@ test('with "root" set, sessions that ran at the repo top are found too', async (
   // the transcript was recorded at the repo top, not in app/
   const dir = join(claude, 'projects', slugFor(top))
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, 's1.jsonl'), `${JSON.stringify({ type: 'user', cwd: top, sessionId: 's1', timestamp: new Date().toISOString(), message: { role: 'user', content: '/quality-code:kpi' } })}\n`)
+  writeFileSync(join(dir, 's1.jsonl'), `${JSON.stringify({ type: 'user', cwd: top, sessionId: 's1', timestamp: new Date().toISOString(), message: { role: 'user', content: '/quality-code:report --kpi' } })}\n`)
   let out = ''
   const code = await main([], { CLAUDE_PROJECT_DIR: top, CLAUDE_CONFIG_DIR: claude }, top, { stdout: s => { out += s }, stderr: () => {} })
   assert.notEqual(code, 3, out)

@@ -162,7 +162,7 @@ In Claude Code, in the repo:
 1. `/quality-code:spec`: the ticket from the branch, the gate, the plan.
 2. `/quality-code:ticket <a recent KEY> --eval`: same score as in step 1.
 3. `/quality-code:run-pipeline --branch` on the branch's specs: the card.
-4. `/quality-code:kpi`: shows the runs you just did.
+4. `/quality-code:report --kpi`: shows the runs you just did.
 
 ## 6. The merge request
 
@@ -195,5 +195,5 @@ How to install: /plugin marketplace add vissz28/agentic-testing, then
 - **A gate score differs**: don't merge. Comment the ticket key and both outputs on AGT-85.
 - **`config check` refuses the file**: the plugin is older than 0.8.0 (step 0).
 - **A test run writes where it should not**: the boundary hook refuses it and logs it in
-  `.claude/quality-code/boundary.jsonl`; `/quality-code:kpi` counts it.
+  `.claude/quality-code/boundary.jsonl`; `/quality-code:report --kpi` counts it.
 - **Revert**: the merge request is one commit set; reverting it brings the old harness back.

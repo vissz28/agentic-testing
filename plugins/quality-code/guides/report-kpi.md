@@ -1,12 +1,6 @@
----
-description: Show the quality-code KPIs of this project: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate), read from the local audit log and the spec files. Read-only; sends nothing anywhere.
-argument-hint: [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--report]
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)
-model: haiku
-effort: low
----
+# KPIs: `/quality-code:report --kpi`
 
-Shows how the plugin is used in this project. You relay; the script reads and counts. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
+From the arguments of `/quality-code:report` (without `--kpi`). Shows how the plugin is used in this project. You relay; the script reads and counts. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
 
 ## Rules
 
@@ -22,7 +16,7 @@ Shows how the plugin is used in this project. You relay; the script reads and co
 1. **Run.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs" $ARGUMENTS`. Pass only the options in `$ARGUMENTS` (`--since`, `--until`, `--report`); with none, the script shows the last 30 days. Do not pass `--json`.
    - Exit 3: no audit data yet. Show its lines as they are (they say where it looked) and stop.
    - Exit 2: show its lines as they are and stop.
-2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the counts the card prints, tables with the same marks as the other commands, any list of more than 8 rows in a `<details>` block, and a `Next:` line with `/quality-code:consumption` and `/quality-code:kpi --since 7d`. Then show this card and end the turn:
+2. **Card.** Show the card exactly as printed. Drop the `KPI_JSON:` line. Add nothing, explain nothing, grade nothing. Lay it out with the **Richer cards** of the display guide: a headline row with the period and the counts the card prints, tables with the same marks as the other commands, any list of more than 8 rows in a `<details>` block, and a `Next:` line with `/quality-code:report --cost` and `/quality-code:report --kpi --since 7d`. Then show this card and end the turn:
 
    ```
    What next?
@@ -32,7 +26,7 @@ Shows how the plugin is used in this project. You relay; the script reads and co
    4. Stop
    ```
 
-   On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>` with the dates from the card's `AI cost:` line (this is what `/quality-code:consumption` runs), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `3`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --session` (the AI cost of this session only: the transcript written to last), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `3`, stop.
+   On `1`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --since <since> --until <until>` with the dates from the card's `AI cost:` line (this is what `/quality-code:report --cost` runs), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `3`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs" --session` (the AI cost of this session only: the transcript written to last), show its card exactly as printed without the `CONSUMPTION_JSON:` line, and stop. On `2`, ask `Since when? For example 7d, 30d or 2026-10-01.`, then do step 1 again with that `--since` (and the same `--until`, if any). On `4`, stop.
 
 ## `--report`: one HTML file with charts
 
@@ -45,6 +39,6 @@ Only when `$ARGUMENTS` has `--report` (never with `--json`). Add `--report` to t
 
 ## Examples
 
-- `/quality-code:kpi` shows the last 30 days.
-- `/quality-code:kpi --since 7d` shows the last 7 days.
-- `/quality-code:kpi --since 2026-10-01 --until 2026-10-31` shows October.
+- `/quality-code:report --kpi` shows the last 30 days.
+- `/quality-code:report --kpi --since 7d` shows the last 7 days.
+- `/quality-code:report --kpi --since 2026-10-01 --until 2026-10-31` shows October.

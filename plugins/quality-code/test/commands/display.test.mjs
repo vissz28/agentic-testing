@@ -119,7 +119,7 @@ test('richer cards: headline row with bar and gate, Next line, collapsible detai
 })
 
 test('the result commands lay their cards out with the richer cards', () => {
-  for (const f of ['commands/spec.md', 'guides/run.md', 'guides/ticket-eval.md', 'guides/tickets-eval.md', 'commands/kpi.md', 'commands/consumption.md', 'commands/ci.md']) {
+  for (const f of ['commands/spec.md', 'guides/run.md', 'guides/ticket-eval.md', 'guides/tickets-eval.md', 'guides/report-kpi.md', 'guides/report-cost.md', 'commands/ci.md']) {
     const s = read(f)
     assert.match(s, /\*\*Richer cards\*\* of the display guide/, f)
     assert.match(s, /`Next:`/, f)

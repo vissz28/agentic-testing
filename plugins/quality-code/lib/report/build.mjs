@@ -1,4 +1,4 @@
-// Builds the one-file HTML reports (--report) of /quality-code:kpi, tickets-eval and consumption from the
+// Builds the one-file HTML reports (--report) of /quality-code:report --kpi, tickets-eval and consumption from the
 // numbers those commands already compute. Only keys, scores and numbers go in: every text is redacted and a
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
@@ -57,7 +57,7 @@ function headline(label, value, unit = '%') {
   return typeof value === 'number' ? { label, value, unit } : null
 }
 
-/** { html, headline } for /quality-code:kpi. `report` is buildKpi's object, `series` is kpiSeries'. */
+/** { html, headline } for /quality-code:report --kpi. `report` is buildKpi's object, `series` is kpiSeries'. */
 export function kpiReport(report, series, { config = null, now = new Date() } = {}) {
   const s = t => safe(config, t)
   const g = report.gate
@@ -133,7 +133,7 @@ export function ticketsEvalReport({ rows, summary }, { config = null, project = 
 const toneOf = (tones, i) => tones[i % tones.length]
 const TONES = ['accent', 'pass', 'warn', 'fail', 'idle']
 
-/** { html, headline } for /quality-code:consumption. `reports` holds buildReport's object by command, day and model. */
+/** { html, headline } for /quality-code:report --cost. `reports` holds buildReport's object by command, day and model. */
 export function consumptionReport(reports, { config = null, now = new Date() } = {}) {
   const s = t => safe(config, t)
   const base = reports.command ?? reports.day ?? reports.model

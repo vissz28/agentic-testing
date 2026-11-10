@@ -12,11 +12,11 @@ const front = c => {
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
 // spec writes tests: it runs on the session model.
-const MODEL = { routine: 'sonnet', 'check-update': 'haiku', ci: 'haiku', kpi: 'haiku', consumption: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', 'run-smoke': 'haiku', 'clean-cache': 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'transcript-goal': 'sonnet' }
+const MODEL = { routine: 'sonnet', 'check-update': 'haiku', ci: 'haiku', report: 'haiku', 'run-frontend': 'haiku', 'run-backend': 'haiku', 'run-pipeline': 'haiku', 'run-smoke': 'haiku', 'clean-cache': 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'transcript-goal': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {
-  assert.deepEqual(commands.sort(), ['check-update', 'ci', 'clean', 'clean-cache', 'config', 'consumption', 'kpi', 'qa', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'run-smoke', 'seed', 'setup', 'spec', 'ticket', 'transcript-goal', 'xray'])
+  assert.deepEqual(commands.sort(), ['check-update', 'ci', 'clean', 'clean-cache', 'config', 'qa', 'report', 'routine', 'run-backend', 'run-frontend', 'run-pipeline', 'run-smoke', 'seed', 'setup', 'spec', 'ticket', 'transcript-goal', 'xray'])
 })
 test('simple commands run on Haiku with low effort, the gate on Sonnet, writing on the session model', () => {
   for (const c of commands) {
@@ -25,13 +25,12 @@ test('simple commands run on Haiku with low effort, the gate on Sonnet, writing 
     assert.equal(fields.effort, MODEL[c] === 'haiku' ? 'low' : undefined, `${c} effort`)
   }
 })
-// kpi and consumption may run only their own script (kpi also consumption's, for its option 1); the
+// report may run only the kpi and consumption scripts (the KPI card offers the cost as its option 1); the
 // rest any of the plugin's scripts, nothing else. ticket (its --eval) also reads the branch diff (read-only)
 // for the Figma drafts.
 const OWN = {
   ticket: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)',
-  kpi: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
-  consumption: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
+  report: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
   'check-update': 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',

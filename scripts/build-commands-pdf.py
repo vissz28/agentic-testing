@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('One report command (0.63).', 'kpi and consumption are now flags of report: /quality-code:report --kpi (the default) shows the KPIs, /quality-code:report --cost the AI usage and estimated cost. Every other flag works as before.'),
     ('One config command (0.62).', 'config-get and config-set are gone: /quality-code:config get <key>, config set <key> <value> and config keys do the same, with the same checks.'),
     ('Windows paths (0.61.2).', 'On Windows, a Vitest spec whose tests ran is no longer reported as never ran, and a node --test spec that does not load is reported as never ran, not as a failed test.'),
     ('How to use it, by role (0.61.1).', 'Setup ends with a fixed block: one line each for developers (spec, run-pipeline), QA (ticket --eval, xray, qa) and PO (ticket <PROJECT> --eval, transcript-goal). A Jira-only setup leaves out the developers line.'),
@@ -133,8 +134,8 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:seed', 'Loads realistic mock data for a ticket into your local database only.', '/quality-code:seed ABC-123'),
 ]),
           p('6. Numbers', 'h1'), cmds([
-    ('/quality-code:kpi', 'Tickets gated, fill-ins, verdicts and the Quality Program numbers. Read-only. --report writes an HTML page with charts.', '/quality-code:kpi --since 30d --report'),
-    ('/quality-code:consumption', 'AI usage and estimated cost of the plugin\'s runs, read locally. --report writes an HTML page with charts.', '/quality-code:consumption --by command'),
+    ('/quality-code:report --kpi', 'Tickets gated, fill-ins, verdicts and the Quality Program numbers. Read-only. --report writes an HTML page with charts.', '/quality-code:report --kpi --since 30d --report'),
+    ('/quality-code:report --cost', 'AI usage and estimated cost of the plugin\'s runs, read locally. --report writes an HTML page with charts.', '/quality-code:report --cost --by command'),
 ])]
 
 SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm, bottomMargin=20 * mm,

@@ -3,12 +3,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const read = n => readFileSync(new URL(`../../${n === 'tickets-eval' ? 'guides' : 'commands'}/${n}.md`, import.meta.url), 'utf8')
+const read = n => readFileSync(new URL(`../../${n === 'ticket' || n === 'report' ? 'commands' : 'guides'}/${n}.md`, import.meta.url), 'utf8')
 
-for (const name of ['kpi', 'consumption', 'tickets-eval']) {
+for (const name of ['report-kpi', 'report-cost', 'tickets-eval']) {
   const doc = read(name)
   test(`${name}: --report is in the argument hint and has its own section before Examples`, () => {
-    assert.match(name === 'tickets-eval' ? read('ticket') : doc, /^argument-hint: .*\[--report\]\n/m)
+    assert.match(read(name === 'tickets-eval' ? 'ticket' : 'report'), /^argument-hint: .*\[--report\]\n/m)
     const at = doc.indexOf('## `--report`: one HTML file with charts')
     assert.ok(at > doc.indexOf('## Steps') && at < doc.indexOf('## Examples'))
   })

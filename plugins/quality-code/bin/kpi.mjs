@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Entry point for /quality-code:kpi: the rollup of the local audit log and the boundary log.
+// Entry point for /quality-code:report --kpi: the rollup of the local audit log and the boundary log.
 // node bin/kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json]
 // Reads local files only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no audit data yet.
 import { basename, join } from 'node:path'
@@ -105,7 +105,7 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
     pipeline: { runs: runs.length, verdicts, decidedBy: ranked(countBy(runs, r => r.decidedBy)).map(([check, n]) => ({ check, runs: n })) },
     boundary: { blocked: blocked.length },
     quality: qualityKpi({ finals, runs, scan, coverage }),
-    consumption: `/quality-code:consumption --since ${since} --until ${until}`,
+    consumption: `/quality-code:report --cost --since ${since} --until ${until}`,
   }
 }
 
