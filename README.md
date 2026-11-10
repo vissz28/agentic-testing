@@ -96,6 +96,7 @@ Click a command to see its options.
 | [`ci`](#ci) | Writes the CI file for GitHub Actions or GitLab CI | `github` or `gitlab` | a CI file with two jobs |
 | [`kpi`](#kpi) | Shows how the plugin is used and the Quality Program numbers | nothing, or a period | a KPI card (read-only) |
 | [`consumption`](#consumption) | Shows the AI usage and cost of the plugin's runs | nothing, or a period | a cost table (read-only) |
+| [`help`](#help) | Shows what to do next for your role, with how each command is used | nothing, a role, `--all` or a command | the steps for your role, or setup first if it is not done |
 | [`update`](#update) | Checks for a newer plugin version | nothing | what changed, and an update on your yes |
 
 Every command starts with `/quality-code:`, for example `/quality-code:spec`. Nothing is written to
@@ -329,6 +330,18 @@ Read-only, from Claude Code's local transcripts. Default: the last 30 days, by c
 | `--since` / `--until` | The period |
 | `--by` | Group by `command`, `ticket`, `day` or `model` |
 | `--prices file.json` | Use your own prices per million tokens |
+
+### help
+
+`/quality-code:help [<command>] [--dev | --qa | --po] [--all]`
+
+Checks whether setup is done (if not, it says to run it), then shows the steps for your role with each command's examples. A repo setup is a developer; a personal setup keeps QA or PO from setup's first card.
+
+| Option | What it does |
+|---|---|
+| `--dev`, `--qa`, `--po` | The steps of another role |
+| `--all` | Every command, one line each |
+| `<command>` | That command's options and examples |
 
 ### update
 

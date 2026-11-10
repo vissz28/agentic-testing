@@ -150,6 +150,7 @@ Playwright test).
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Add Quality Code to CI (GitHub Actions, GitLab CI): the honesty gate, and types, tests and mutation on what each pull or merge request changed | `/quality-code:ci` (`github\|gitlab` to choose, `--print` to only show it) | ✅ available |
+| See what to do next for your role, with how each command is used (setup first, when it is not done) | `/quality-code:help` (`--dev`, `--qa`, `--po`, `--all`, `<command>`) | ✅ available |
 | Find out whether a newer plugin version is out, and what it changes | `/quality-code:update` | ✅ available |
 | Schedule a check that runs by itself and tells you when the tests went red after others pushed, or became flaky | `/quality-code:routine` (`status`, `list`, `stop`) | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:check --evals` | ✅ available |

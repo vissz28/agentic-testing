@@ -12,11 +12,11 @@ const front = c => {
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
 // spec writes tests: it runs on the session model.
-const MODEL = { routine: 'sonnet', update: 'haiku', ci: 'haiku', report: 'haiku', check: 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'transcript-goal': 'sonnet' }
+const MODEL = { routine: 'sonnet', update: 'haiku', help: 'haiku', ci: 'haiku', report: 'haiku', check: 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'transcript-goal': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {
-  assert.deepEqual(commands.sort(), ['check', 'ci', 'clean', 'config', 'qa', 'report', 'routine', 'seed', 'setup', 'spec', 'ticket', 'transcript-goal', 'update', 'xray'])
+  assert.deepEqual(commands.sort(), ['check', 'ci', 'clean', 'config', 'help', 'qa', 'report', 'routine', 'seed', 'setup', 'spec', 'ticket', 'transcript-goal', 'update', 'xray'])
 })
 test('simple commands run on Haiku with low effort, the gate on Sonnet, writing on the session model', () => {
   for (const c of commands) {
@@ -32,6 +32,7 @@ const OWN = {
   ticket: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)',
   report: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
   update: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
+  help: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/help.mjs":*)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
   // ci also checks the file it wrote against Central Context's CI rules, with the plugin's own connector.

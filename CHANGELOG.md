@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-11-10
+
+### Added
+
+- `/quality-code:help`: checks whether setup is done (if not, it says to run `/quality-code:setup`), then shows **What you can do now** for your role (a repo setup is a developer; a personal setup keeps QA or PO from setup's first card), each step with its command's examples. `--dev`, `--qa` or `--po` shows another role, `--all` every command, `help <command>` one command's options and examples. Setup's last block now says `/quality-code:help` shows it again.
+
 ## [0.66.0] - 2026-11-10
 
 ### Changed
