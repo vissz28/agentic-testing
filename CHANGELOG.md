@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.61.2] - 2026-11-10
+
+### Fixed
+
+- On Windows, the pipeline no longer says a Vitest spec "never ran" when its tests ran and passed: Vitest reports paths with `\`, and they are now matched as `/`, like the requested specs.
+- On Windows, a node --test spec that does not load is reported as a file that never ran, not as a failed test.
+- The mutation step names its temporary spec with `/` on every OS.
+
+**What to do:** nothing.
+
 ## [0.61.1] - 2026-11-09
 
 ### Added

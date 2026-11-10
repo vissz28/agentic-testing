@@ -29,7 +29,8 @@ export function parseReport(json, root) {
     return r.startsWith('..') && base !== root ? relative(root, name) : r
   }
   for (const tr of json?.testResults ?? []) {
-    const file = isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? '')
+    // Forward slashes, as normalizeSpec spells the requested specs: Windows reports backslashes.
+    const file = (isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? '')).split('\\').join('/')
     const ars = tr.assertionResults ?? []
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {

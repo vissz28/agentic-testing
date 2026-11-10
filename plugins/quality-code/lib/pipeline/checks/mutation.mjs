@@ -4,7 +4,7 @@
 // compiled language's dialect (mutation.inPlace) cannot run a sibling copy (a duplicate class or
 // function), so each mutant goes over the spec itself and its original bytes always come back.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, posix, resolve } from 'node:path'
 import { result } from '../../base/result.mjs'
 import { anchorRange, testMarks } from './suite-honesty.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
@@ -117,7 +117,8 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
 
   const inPlace = ctx.dialect.mutation.inPlace === true
   const tmp = inPlace ? specPath : tempSpecPath(specPath)
-  const relTmp = inPlace ? spec : join(dirname(spec), basename(tmp))
+  // Forward slashes, as the spec itself: path.join would give backslashes on Windows.
+  const relTmp = inPlace ? spec : posix.join(posix.dirname(spec), basename(tmp))
   // In place, cleaning up is putting the original bytes back: after each mutant, in finally, on a signal.
   const cleanup = inPlace ? () => { try { writeFileSync(specPath, bytes) } catch {} } : () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
   const onSignal = () => { cleanup(); process.exit(130) }

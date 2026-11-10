@@ -158,6 +158,11 @@ test('timeout message uses milliseconds below one second', async () => {
   const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'], timeoutMs: 300 })
   assert.equal(r.error, 'took longer than 300ms')
 })
+test('parseReport: Windows backslashes come back as forward slashes, matching the requested spec', () => {
+  const r = parseReport({ testResults: [{ name: 'test\\a.spec.ts', status: 'passed', assertionResults: [t('ok', 'passed')] }] }, '/p')
+  assert.equal(r.tests[0].file, 'test/a.spec.ts')
+})
+
 test('parseReport: a failed file whose tests did not fail (beforeAll error) is also broken, keeping its tests', () => {
   const d = '/p'
   const r = parseReport(report(d, [{ file: 'a.spec.ts', status: 'failed', message: 'beforeAll blew up\n at x', tests: [t('x', 'skipped')] }]), d)

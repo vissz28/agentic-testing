@@ -2,6 +2,9 @@
 // object, { tests, broken }, with each test's describe path, so the generic runner reads node --test
 // like any other runner. Suites are not tests. A file that does not load is reported by Node as a
 // failed top-level "test" named after the file: it is a broken file, with the error it wrote.
+// Windows paths come with backslashes: compare them as forward-slash paths.
+const fwd = p => String(p).split('\\').join('/')
+
 export default async function * reporter(source) {
   const open = new Map()
   const stderr = new Map()
@@ -18,9 +21,9 @@ export default async function * reporter(source) {
     } else if ((type === 'test:pass' || type === 'test:fail') && data.details?.type !== 'suite') {
       const error = data.details?.error
       const message = String(error?.cause?.message ?? error?.message ?? '')
-      if (type === 'test:fail' && data.nesting === 0 && (data.name === file || file.endsWith(`/${data.name}`))) {
+      if (type === 'test:fail' && data.nesting === 0 && (data.name === file || fwd(file).endsWith(`/${fwd(data.name)}`))) {
         // Node names a file's stderr by the path it was given, and its failure by the absolute one.
-        const written = [...stderr].find(([f]) => f === file || file.endsWith(`/${f}`))?.[1] ?? ''
+        const written = [...stderr].find(([f]) => f === file || fwd(file).endsWith(`/${fwd(f)}`))?.[1] ?? ''
         const why = /\b\w*Error\b[^\n]*/.exec(written)?.[0]
         broken.push({ file, message: why ?? message })
         continue

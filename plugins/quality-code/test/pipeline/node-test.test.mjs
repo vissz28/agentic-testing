@@ -40,6 +40,15 @@ test('reporter: a test per result with its describe path; suites left out; skip 
   assert.deepEqual(r.broken, [{ file: '/p/test/b.test.js', message: "SyntaxError: Unexpected token '}'" }])
 })
 
+test('reporter: a Windows file that does not load is still broken, backslashes and all', async () => {
+  const r = await report([
+    { type: 'test:stderr', data: { file: 'test\\b.test.js', message: "SyntaxError: Unexpected token '}'\n" } },
+    { type: 'test:fail', data: { file: 'C:\\p\\test\\b.test.js', nesting: 0, name: 'test\\b.test.js', details: { type: 'test', error: { message: 'test failed' } } } },
+  ])
+  assert.deepEqual(r.tests, [])
+  assert.deepEqual(r.broken, [{ file: 'C:\\p\\test\\b.test.js', message: "SyntaxError: Unexpected token '}'" }])
+})
+
 test('nodeFlags: the loading flags of the project\'s node --test script, its test script first; nothing else', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-node-'))
   const flags = scripts => { put(d, 'package.json', JSON.stringify({ scripts })); return nodeFlags(d) }
