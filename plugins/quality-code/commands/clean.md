@@ -1,6 +1,6 @@
 ---
 description: Remove what Quality Code created in this project, so it is as before. A script lists the setup files, the saved output and the cache; you pick the groups and say yes once. Your own source, tests and specs are never touched unless you pick them. `--dry-run` only lists. `--cache` deletes only the plugin's local cache (saved stops, reused facts, saved language), for this project or every project with `--all`, and never touches your config, tickets or specs.
-argument-hint: [--dry-run] | --cache [--all] [--yes]
+argument-hint: '[--dry-run] | --cache [--all] [--yes]'
 model: sonnet
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---

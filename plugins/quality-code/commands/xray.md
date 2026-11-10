@@ -1,5 +1,5 @@
 ---
-description: Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:spec adds the same cases for the tests it writes.
+description: 'Write XRay test cases for QA from a Jira ticket that passes the readiness gate: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:spec adds the same cases for the tests it writes.'
 argument-hint: <KEY> [--route PATH] [--no-extras] [--run KEY] [--dry-run] [--ci] | --sync [KEY]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---

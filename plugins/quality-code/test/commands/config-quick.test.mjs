@@ -13,7 +13,7 @@ const BIN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs"'
 const TOKEN_KEYS = ['gitlab_token', 'figma_api_key', 'xray_client_id', 'xray_client_secret', 'jira_api_token']
 
 test('frontmatter: the argument hint names get, set and keys', () => {
-  assert.match(config, /\nargument-hint: \[get <key> \| set <key> <value> \| keys\] \[--personal\|--project\] \[--yes\]\n/)
+  assert.match(config, /\nargument-hint: '?\[get <key> \| set <key> <value> \| keys\] \[--personal\|--project\] \[--yes\]'?\n/)
 })
 test('config set: preview without --yes, one yes via the picker, --yes skips it, already set stops', () => {
   assert.ok(config.includes(`${BIN} config set <key> <value>`))

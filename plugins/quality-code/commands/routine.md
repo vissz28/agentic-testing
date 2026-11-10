@@ -1,6 +1,6 @@
 ---
 description: Schedule a check that runs by itself, at a time you choose, for a period or once, with Claude's scheduler. It fetches what the others pushed, runs a task's tests or the whole suite, says when the result went from green to red (with the commits in between), and can run every test several times to watch stability (flaky tests, pass rate over time). Also lists, shows the stability of, and stops routines.
-argument-hint: [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--regression] [--branch REF] | status [KEY] | list | stop <name> | run …
+argument-hint: '[KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--regression] [--branch REF] | status [KEY] | list | stop <name> | run …'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate
 model: sonnet
 ---

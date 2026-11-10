@@ -47,7 +47,8 @@ const EVERYONE = ['config', 'update', 'clean']
 export function commandInfo(name) {
   let t
   try { t = readFileSync(new URL(`${name}.md`, COMMANDS), 'utf8') } catch { return null }
-  const field = k => new RegExp(`^${k}: (.*)$`, 'm').exec(t.split('\n---\n')[0])?.[1] ?? ''
+  // A value is plain or YAML single-quoted ('' is one quote): Copilot reads the frontmatter as strict YAML, so some values are quoted.
+  const field = k => { const v = new RegExp(`^${k}: (.*)$`, 'm').exec(t.split('\n---\n')[0])?.[1] ?? ''; return /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v }
   const section = /\n## Examples\n([\s\S]*?)(?=\n## |$)/.exec(t)?.[1] ?? ''
   return { description: field('description'), hint: field('argument-hint'), examples: section.split('\n').filter(l => l.startsWith('- ')) }
 }

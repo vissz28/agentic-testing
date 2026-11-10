@@ -8,7 +8,7 @@ const read = n => readFileSync(new URL(`../../${n === 'ticket' || n === 'report'
 for (const name of ['report-kpi', 'report-cost', 'tickets-eval']) {
   const doc = read(name)
   test(`${name}: --report is in the argument hint and has its own section before Examples`, () => {
-    assert.match(read(name === 'tickets-eval' ? 'ticket' : 'report'), /^argument-hint: .*\[--report\]\n/m)
+    assert.match(read(name === 'tickets-eval' ? 'ticket' : 'report'), /^argument-hint: '?.*\[--report\]'?\n/m)
     const at = doc.indexOf('## `--report`: one HTML file with charts')
     assert.ok(at > doc.indexOf('## Steps') && at < doc.indexOf('## Examples'))
   })

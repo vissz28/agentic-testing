@@ -1,6 +1,6 @@
 ---
-description: See and change Quality Code's settings, one at a time: the project config (the repo's, or your personal one), where your files and logs are kept (the project repo, this machine, or only the chat), your own plugin settings (Jira email, GitLab, Xray address), and whether each token and key is set (GitLab, Figma, Xray, GitHub), with the steps to set one in /plugin. Every change is checked by a script before it is saved.
-argument-hint: [get <key> | set <key> <value> | keys] [--personal|--project] [--yes]
+description: 'See and change Quality Code''s settings, one at a time: the project config (the repo''s, or your personal one), where your files and logs are kept (the project repo, this machine, or only the chat), your own plugin settings (Jira email, GitLab, Xray address), and whether each token and key is set (GitLab, Figma, Xray, GitHub), with the steps to set one in /plugin. Every change is checked by a script before it is saved.'
+argument-hint: '[get <key> | set <key> <value> | keys] [--personal|--project] [--yes]'
 model: sonnet
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---

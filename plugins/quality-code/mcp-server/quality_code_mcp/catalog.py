@@ -41,7 +41,10 @@ def parse_command(name: str, text: str) -> Command:
         for line in m.group(1).splitlines():
             k, sep, v = line.partition(":")
             if sep and not line.startswith(" "):
-                meta[k.strip()] = v.strip()
+                v = v.strip()
+                if len(v) > 1 and v[0] == v[-1] == "'":  # a YAML single-quoted value (Copilot needs strict YAML)
+                    v = v[1:-1].replace("''", "'")
+                meta[k.strip()] = v
     return Command(name, meta.get("description", ""), meta.get("argument-hint", ""), text[m.end():] if m else text)
 
 

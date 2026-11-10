@@ -1,6 +1,6 @@
 ---
 description: What to do with Quality Code, for your role. Checks whether setup is done (if not, says to run it), then shows the steps for your role (developer, QA or PO) with how each command is used. --dev, --qa or --po shows another role, --all every command, and a command name that command's options and examples.
-argument-hint: [<command>] [--dev | --qa | --po] [--all]
+argument-hint: '[<command>] [--dev | --qa | --po] [--all]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/help.mjs":*)
 model: haiku
 effort: low

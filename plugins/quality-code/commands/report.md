@@ -1,6 +1,6 @@
 ---
-description: Read-only reports of this project, read locally, sent nowhere. --kpi (the default) shows the quality-code KPIs: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate). --cost shows the AI usage and estimated cost of the plugin's runs, from Claude Code's local transcripts.
-argument-hint: [--kpi | --cost [--by command|ticket|day|model] [--prices file.json] [--session]] [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--report]
+description: 'Read-only reports of this project, read locally, sent nowhere. --kpi (the default) shows the quality-code KPIs: tickets gated, fill-ins, Jira comments, forced runs, pipeline verdicts and boundary blocks, plus the Quality Program numbers (traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate). --cost shows the AI usage and estimated cost of the plugin''s runs, from Claude Code''s local transcripts.'
+argument-hint: '[--kpi | --cost [--by command|ticket|day|model] [--prices file.json] [--session]] [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--report]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)
 model: haiku
 effort: low

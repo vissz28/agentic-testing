@@ -1,6 +1,6 @@
 ---
-description: Check the project's tests through the pipeline: tests, assertions, types and mutation, then one verdict card. With no flag, the full suite, frontend and backend (--branch: only the tests changed on this branch). --backend or --frontend checks one side; --smoke runs only the critical tests tagged @smoke, fast and read-only, against the running app or --url.
-argument-hint: [spec…] [--branch] [--backend | --frontend] [--key KEY] [--flaky N] | --smoke [--url URL] | --evals
+description: 'Check the project''s tests through the pipeline: tests, assertions, types and mutation, then one verdict card. With no flag, the full suite, frontend and backend (--branch: only the tests changed on this branch). --backend or --frontend checks one side; --smoke runs only the critical tests tagged @smoke, fast and read-only, against the running app or --url.'
+argument-hint: '[spec…] [--branch] [--backend | --frontend] [--key KEY] [--flaky N] | --smoke [--url URL] | --evals'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: haiku
 effort: low

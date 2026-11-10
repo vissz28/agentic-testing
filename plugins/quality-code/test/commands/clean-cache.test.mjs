@@ -9,7 +9,7 @@ const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/clean-cache.mjs"'
 
 test('clean routes --cache to this guide, and keeps its never-skipped yes for the rest', () => {
   const clean = read('commands/clean.md')
-  assert.match(clean, /\nargument-hint: \[--dry-run\] \| --cache \[--all\] \[--yes\]\n/)
+  assert.match(clean, /\nargument-hint: '?\[--dry-run\] \| --cache \[--all\] \[--yes\]'?\n/)
   assert.ok(clean.includes('**With `--cache` in `$ARGUMENTS`**') && clean.includes('`${CLAUDE_PLUGIN_ROOT}/guides/clean-cache.md`'))
   assert.match(clean, /everywhere below, the one yes is never skipped/)
 })

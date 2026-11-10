@@ -1,6 +1,6 @@
 ---
 description: Take a Jira ticket to checked tests, for developers and QA. The readiness gate stops only when the ticket is not workable, you confirm the plan, then Vitest or Playwright tests (or both, on a fullstack project) are written in the team's test folders, checked by the pipeline, and read back. With no key, it takes the ticket of your feature branch.
-argument-hint: [KEY] [--gate-only] [--base BRANCH] [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--flow project|quality-code|both] [--yes] [--dry-run] [--ci]
+argument-hint: '[KEY] [--gate-only] [--base BRANCH] [--layer NAME] [--target PATH] [--route PATH] [--no-extras] [--flow project|quality-code|both] [--yes] [--dry-run] [--ci]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
 ---
 

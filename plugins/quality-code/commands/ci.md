@@ -1,6 +1,6 @@
 ---
 description: Writes the CI file for GitHub Actions or GitLab CI with two jobs for each pull or merge request. test_quality_gate (git and node only, seconds) checks the changed specs for honesty, assertions and the frozen evals. test_quality_tests installs the project and runs types, tests and mutation on the changed specs (a code-only change runs its side's whole suite without mutation), with Docker for Testcontainers and JUnit in the merge request. Toolchain and install are guessed from the repo; the provider too when not given.
-argument-hint: [github|gitlab] [--smoke] [--print]
+argument-hint: '[github|gitlab] [--smoke] [--print]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
 model: haiku
 effort: low

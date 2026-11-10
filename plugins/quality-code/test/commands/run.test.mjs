@@ -13,7 +13,7 @@ test('one command, a flag per suite, all following the shared guide', () => {
   assert.match(check, /\*\*`--frontend`:\*\* the suite `frontend`/)
   assert.match(check, /\*\*None of them, or both `--backend` and `--frontend`:\*\* the suite `full`/)
   assert.match(check, /Pick the suite from `\$ARGUMENTS`, drop that flag/)
-  assert.match(check, /\nargument-hint: \[spec…\] \[--branch\] \[--backend \| --frontend\] \[--key KEY\] \[--flaky N\] \| --smoke \[--url URL\] \| --evals\n/)
+  assert.match(check, /\nargument-hint: '?\[spec…\] \[--branch\] \[--backend \| --frontend\] \[--key KEY\] \[--flaky N\] \| --smoke \[--url URL\] \| --evals'?\n/)
   assert.match(doc, /`\/quality-code:check` names the suite from its flag/)
 })
 test('green Next lines widen the run with the flags of check; --branch on one side says where it belongs', () => {

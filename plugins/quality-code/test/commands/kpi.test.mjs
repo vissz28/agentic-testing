@@ -8,7 +8,7 @@ const router = readFileSync(new URL('../../commands/report.md', import.meta.url)
 const RUN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs"'
 
 test('report: one command, --cost to the cost guide, --kpi or nothing to the KPI guide, only the two scripts allowed', () => {
-  assert.match(router, /^---\ndescription: .+\nargument-hint: \[--kpi \| --cost .+\[--report\]\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\), Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
+  assert.match(router, /^---\ndescription: .+\nargument-hint: '?\[--kpi \| --cost .+\[--report\]'?\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/kpi\.mjs":\*\), Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/consumption\.mjs":\*\)\n(?:[a-z-]+: .+\n)*---/)
   assert.match(router, /\*\*`--cost`:\*\* read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/report-cost\.md`/)
   assert.match(router, /\*\*`--kpi`, or neither:\*\* read `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/report-kpi\.md`/)
 })

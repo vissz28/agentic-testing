@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.67.2] - 2026-11-10
+
+### Fixed
+
+- In GitHub Copilot CLI only four commands showed (`qa`, `seed`, `ticket`, `update`). Copilot reads a command's header as strict YAML and skips the command when it does not parse; Claude Code is more forgiving. Eleven commands had a description or argument hint with a `: `, a `|` or a `[` that strict YAML rejects. Those values are now quoted, so all fifteen commands load in Copilot. Nothing changes in Claude Code. A new test checks that every command header is valid YAML.
+
+**What to do:** in Copilot, `copilot plugin update quality-code@teamsystem` and restart `copilot`. Claude Code users need nothing.
+
 ## [0.67.1] - 2026-11-10
 
 ### Fixed

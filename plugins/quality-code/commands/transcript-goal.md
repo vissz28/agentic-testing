@@ -1,6 +1,6 @@
 ---
 description: Turn a Microsoft Teams sprint planning transcript into a sprint goal and a task list. Reads a transcript file, pasted text, or the meeting from the Microsoft 365 connector; asks only what was not said; shows review cards; then creates the tasks in Jira (after a preview and your yes) or saves them locally.
-argument-hint: [--file <path> | --meeting <title or date>] (or paste the transcript)
+argument-hint: '[--file <path> | --meeting <title or date>] (or paste the transcript)'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
 ---
