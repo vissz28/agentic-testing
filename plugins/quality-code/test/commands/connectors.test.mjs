@@ -53,7 +53,7 @@ test('tools are named by operation, never by an mcp__ name', () => {
   assert.doesNotMatch(doc, /mcp__/)
 })
 test('setup asks Where first (step 0), then reads the connectors check (step 1), before the project card', () => {
-  assert.ok(step(setup, 0).includes('Where will you use Quality Code?'))
+  assert.ok(step(setup, 0).includes('Who are you?'))
   assert.ok(step(setup, 1).includes('${CLAUDE_PLUGIN_ROOT}/guides/connectors.md'))
   assert.ok(setup.indexOf('\n0. **Where.**') < setup.indexOf('\n1. **Connectors.**'))
   assert.ok(setup.indexOf('\n1. **Connectors.**') < setup.indexOf('\n2. **This project.**'))
@@ -61,7 +61,7 @@ test('setup asks Where first (step 0), then reads the connectors check (step 1),
 test('setup walks the connectors one at a time: source code, then Jira (required), then Figma (optional)', () => {
   const s = step(setup, 1)
   assert.match(s, /\*\*Setup: one connector at a time\*\* sequence, not the single card/)
-  assert.match(s, /With `2` on the Where card \(no repo\), skip the source code card/)
+  assert.match(s, /With `2` or `3` on the Where card \(no repo\), skip the source code card/)
   assert.match(setup, /keep its `SETUP_JSON:` line and the sites `getAccessibleAtlassianResources` returned/)
   const seq = doc.slice(doc.indexOf('**Setup: one connector at a time.**'), doc.indexOf('**Check each one with read-only calls:**'))
   assert.ok(seq.includes('Choose your source code connector\n   1. GitLab\n   2. GitHub\n   3. Both\n   4. None for now'))

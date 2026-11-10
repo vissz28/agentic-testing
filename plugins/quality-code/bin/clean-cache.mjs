@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Entry point for /quality-code:clean-cache. Deletes only the plugin's own local cache (progress, context and
+// Entry point for /quality-code:clean --cache. Deletes only the plugin's own local cache (progress, context and
 // saved-language files under <Claude folder>/quality-code/progress/), never the config, tickets or specs.
 // node bin/clean-cache.mjs list [--all]
 // node bin/clean-cache.mjs delete [--all]

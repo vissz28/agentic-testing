@@ -259,7 +259,7 @@ test('nothing to clean: an empty list, no error', async () => {
 
 test('the command: asks the groups with a multiSelect picker, then one yes, and never skips with --yes or --ci', () => {
   const cmd = read('commands/clean.md')
-  assert.match(cmd, /^---\ndescription: .+\nargument-hint: \[--dry-run\]\nmodel: sonnet\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)\n---\n/)
+  assert.match(cmd, /^---\ndescription: .+\nargument-hint: \[--dry-run\] \| --cache \[--all\] \[--yes\]\nmodel: sonnet\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)\n---\n/)
   assert.match(cmd, /AskUserQuestion picker/)
   assert.match(cmd, /`multiSelect` true/)
   assert.match(cmd, /page them as display\.md says/)

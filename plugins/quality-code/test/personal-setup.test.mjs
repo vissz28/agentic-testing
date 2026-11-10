@@ -87,6 +87,13 @@ test('writePersonal writes the personal file only, and refuses an invalid config
   assert.deepEqual(JSON.parse(readFileSync(join(claude, 'quality-code.json'), 'utf8')), cfg('fullstack'))
   assert.equal(writePersonal(cfg('x'), { CLAUDE_CONFIG_DIR: claude }).ok, false)
 })
+test('the personal config keeps the role from the first card: qa or po, nothing else', () => {
+  const claude = tmp()
+  assert.equal(writePersonal({ ...cfg('fullstack'), role: 'qa' }, { CLAUDE_CONFIG_DIR: claude }).ok, true)
+  assert.equal(JSON.parse(readFileSync(join(claude, 'quality-code.json'), 'utf8')).role, 'qa')
+  const bad = writePersonal({ ...cfg('fullstack'), role: 'boss' }, { CLAUDE_CONFIG_DIR: claude })
+  assert.match(bad.errors.join('\n'), /role "boss": must be "dev", "qa" or "po"/)
+})
 test('setup.mjs --write-personal and scope "personal" never touch the repo', () => {
   for (const flag of ['--write-personal', '--write']) {
     const d = tmp(), claude = tmp()
@@ -109,9 +116,9 @@ test('detect shows the existing personal config', () => {
 const cmd = n => readFileSync(join(HERE, '../commands', `${n}.md`), 'utf8')
 test('setup: the first card after the connectors, with both options', () => {
   const s = cmd('setup')
-  for (const t of ['Where will you use Quality Code?', '1. In a repo (developers)', '2. No repo, Jira only (QA, PO)', 'Which tickets?', '1. Frontend', '2. Backend', '3. Both', '--write-personal']) assert.ok(s.includes(t), t)
-  assert.ok(s.indexOf('0. **Connectors.**') < s.indexOf('Where will you use Quality Code?'))
-  assert.ok(s.indexOf('Where will you use Quality Code?') < s.indexOf('2. **This project.**'))
+  for (const t of ['Who are you?', '1. Developer: in a repo', '2. QA: no repo, Jira only', '3. PO: no repo, Jira only', '"role": "<qa|po>"', 'Which tickets?', '1. Frontend', '2. Backend', '3. Both', '--write-personal']) assert.ok(s.includes(t), t)
+  assert.ok(s.indexOf('0. **Connectors.**') < s.indexOf('Who are you?'))
+  assert.ok(s.indexOf('Who are you?') < s.indexOf('2. **This project.**'))
 })
 test('setup: the personal setup confirms on the same card; tickets default to both and change with their card', () => {
   const s = cmd('setup')

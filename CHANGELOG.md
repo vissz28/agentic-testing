@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-11-10
+
+### Changed
+
+- `/quality-code:clean-cache` is now `/quality-code:clean --cache`: the same list, question and delete, `--all` for every project and `--yes` to skip the question. The full `/quality-code:clean` still never skips its yes.
+
+**What to do:** use `/quality-code:clean --cache` instead of `/quality-code:clean-cache`.
+
 ## [0.63.0] - 2026-11-10
 
 ### Changed

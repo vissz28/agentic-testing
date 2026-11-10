@@ -15,6 +15,7 @@
     },
     "adapter": { "enum": ["playwright", "vitest", "pytest", "junit", "go", "dotnet", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest, pytest, junit, go or dotnet: a backend project (tests of the code), run by Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test. fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under the backend runner (backend, default vitest)." },
     "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "default": "vitest", "description": "Only with adapter fullstack: the runner of the backend side." },
+    "role": { "enum": ["dev", "qa", "po"], "description": "Who uses this config, from setup's first card: qa or po on a personal setup (no repo). Setup ends with that role's golden path." },
     "runners": {
       "type": "object",
       "additionalProperties": false,

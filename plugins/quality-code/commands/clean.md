@@ -1,9 +1,11 @@
 ---
-description: Remove what Quality Code created in this project, so it is as before. A script lists the setup files, the saved output and the cache; you pick the groups and say yes once. Your own source, tests and specs are never touched unless you pick them. `--dry-run` only lists.
-argument-hint: [--dry-run]
+description: Remove what Quality Code created in this project, so it is as before. A script lists the setup files, the saved output and the cache; you pick the groups and say yes once. Your own source, tests and specs are never touched unless you pick them. `--dry-run` only lists. `--cache` deletes only the plugin's local cache (saved stops, reused facts, saved language), for this project or every project with `--all`, and never touches your config, tickets or specs.
+argument-hint: [--dry-run] | --cache [--all] [--yes]
 model: sonnet
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 ---
+
+**With `--cache` in `$ARGUMENTS`**, this is the cache only, not the clean below: drop `--cache`, read `${CLAUDE_PLUGIN_ROOT}/guides/clean-cache.md` and follow it instead of this file, with the rest of the arguments (`--all`, `--yes`). The cache is recreatable, so there `--yes` skips its question; everywhere below, the one yes is never skipped.
 
 Takes Quality Code out of this project. It deletes files, so it is slow on purpose: a script builds the list, you see it, you pick the groups, and you say yes once. Show every card the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a live checklist for the steps (`List`, `Pick`, `Confirm`, `Delete`), a `###` section with an emoji and the headline row first, tables, status marks, files as `HERE` links, and never a code-block card. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer. `$ARGUMENTS` is empty or `--dry-run`.
 

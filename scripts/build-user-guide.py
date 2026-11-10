@@ -141,7 +141,7 @@ story += [p('What it is', 'h1'),
               ['Turn a Teams planning meeting into tasks', '<font name="Mono">/quality-code:transcript-goal</font>'],
               ['Run the few critical tests', '<font name="Mono">/quality-code:run-smoke</font>'],
               ['Change one setting', '<font name="Mono">/quality-code:config set git.base develop</font>'],
-              ['Clear the cache, or undo the setup', '<font name="Mono">/quality-code:clean-cache</font>, <font name="Mono">/quality-code:clean</font>'],
+              ['Clear the cache, or undo the setup', '<font name="Mono">/quality-code:clean --cache</font>, <font name="Mono">/quality-code:clean</font>'],
           ], [80, 90]),
           PageBreak()]
 
@@ -290,9 +290,9 @@ story += [p('More commands', 'h1'),
             'the text card, now with a headline row (verdict, score, bar with the gate), a Next line and collapsible detail.'),
           p('Settings, cache and clean-up', 'h2'),
           code('/quality-code:config set git.base develop\n/quality-code:config get jira.site\n'
-               '/quality-code:clean-cache --all\n/quality-code:clean --dry-run'),
+               '/quality-code:clean --cache --all\n/quality-code:clean --dry-run'),
           p('<b>config set</b> changes one setting, checked by the setup rules; it shows old and new and writes nothing '
-            'on an error or a secret. Tokens and the Jira email stay in /plugin. <b>clean-cache</b> deletes only the '
+            'on an error or a secret. Tokens and the Jira email stay in /plugin. <b>clean --cache</b> deletes only the '
             'plugin\'s local cache. <b>clean</b> removes what the plugin created in the project (setup files, saved output, '
             'cache; your tests and the personal config only if you pick them). It always asks one explicit yes and is '
             'never skipped by --yes or --ci.'),

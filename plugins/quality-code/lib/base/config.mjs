@@ -15,7 +15,7 @@ const KEY = /^[A-Z][A-Z0-9_]+$/
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
 /** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
 const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -306,6 +306,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.assertionHelpers !== undefined && (!Array.isArray(c.assertionHelpers) || !c.assertionHelpers.every(h => typeof h === 'string' && /^[A-Za-z_$][\w$]*$/.test(h)))) e.push('assertionHelpers: must be a list of method-name prefixes that assert for a test (page objects), like ["check", "ensure"]; expect, assert and verify always count')
   if (c.ticketAnchor !== undefined && !['block', 'branch'].includes(c.ticketAnchor)) e.push(`ticketAnchor ${JSON.stringify(c.ticketAnchor)}: must be "block" (a group whose title names the ticket) or "branch" (also a spec changed on the branch)`)
   if (c.roots !== undefined && (!Array.isArray(c.roots) || c.roots.length < 1 || !c.roots.every(pathOk))) e.push('roots: must be a list of folders inside the repository, like ["app", "backend-executor"] (the projects one config serves; ticket.mjs root set picks the active one)')
+  if (c.role !== undefined && !['dev', 'qa', 'po'].includes(c.role)) e.push(`role ${JSON.stringify(c.role)}: must be "dev", "qa" or "po"`)
   if (c.testFlow !== undefined && !FLOWS.includes(c.testFlow)) e.push(`testFlow ${JSON.stringify(c.testFlow)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')

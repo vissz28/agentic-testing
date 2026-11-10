@@ -80,5 +80,5 @@ test('a secret-like value in an ordinary key is not used or echoed', () => {
 test('wiring: README table, MCP README tools', () => {
   const readme = read('README.md'), mcp = read('mcp-server/README.md')
   assert.ok(readme.includes('`config set <key> <value>`') && readme.includes('`config get <key>`') && readme.includes('`config keys`'))
-  assert.ok(mcp.includes('quality_code_config_set') && mcp.includes('quality_code_config_get'))
+  assert.ok(mcp.includes('`quality_code_config`') && !mcp.includes('quality_code_config_set') && !mcp.includes('quality_code_config_get'))
 })

@@ -37,4 +37,4 @@ Besides where a command stopped, the same local store keeps what was learned abo
 
 **See and clear.** `context list` shows everything saved for this project. `context clear` forgets it all, `context clear <fact>` one fact.
 
-`/quality-code:clean-cache` deletes this cache (this project, or every project with `--all`) through `bin/clean-cache.mjs`, and nothing else.
+`/quality-code:clean --cache` deletes this cache (this project, or every project with `--all`) through `bin/clean-cache.mjs`, and nothing else.
