@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-11-10
+
+### Changed
+
+- `/quality-code:setup` ends with a **What you can do now** block for the picked role (it was "Your golden path"); the steps are the same.
+- `/quality-code:run-pipeline`, `run-backend`, `run-frontend` and `run-smoke` are one command, `/quality-code:check`: no flag checks the full suite (`--branch`, `--evals` as before), `--backend` or `--frontend` one side, `--smoke [--url URL]` the @smoke tests. Spec paths, `--key` and `--flaky` work as before. The run log's "Run it again" line and every Next line now name `/quality-code:check`.
+
+**What to do:** use `/quality-code:check` instead of `run-pipeline`, `check --backend` instead of `run-backend`, `check --frontend` instead of `run-frontend`, and `check --smoke` instead of `run-smoke`. If you exported the commands to Copilot, Codex, Cursor or Gemini, run `quality-code-mcp --init <tool> --write` again for the new `check` file and delete the old `quality-code-run-*` files by hand.
+
 ## [0.64.0] - 2026-11-10
 
 ### Changed

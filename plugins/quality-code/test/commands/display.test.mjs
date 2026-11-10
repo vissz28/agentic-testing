@@ -124,8 +124,8 @@ test('the result commands lay their cards out with the richer cards', () => {
     assert.match(s, /\*\*Richer cards\*\* of the display guide/, f)
     assert.match(s, /`Next:`/, f)
   }
-  // run-frontend, run-backend, run-pipeline and run-smoke share guides/run.md
-  for (const f of ['run-frontend', 'run-backend', 'run-pipeline', 'run-smoke']) assert.ok(read(`commands/${f}.md`).includes('guides/run.md'), f)
+  // check follows guides/run.md for every suite
+  assert.ok(read('commands/check.md').includes('guides/run.md'))
   assert.match(read('guides/run.md'), /`<details>` block after the table/)
   assert.match(read('guides/ticket-eval.md'), /`■■■■■■■■□□ 82% · gate 70`/)
 })

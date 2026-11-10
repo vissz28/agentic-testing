@@ -66,7 +66,7 @@ These four rules sit on top of everything above and change none of it: the same 
 
 **Headline row.** The bold headline of a result carries, in this order and only what the output gives: the verdict with its mark, the score, the bar, and the short counts. The bar is ten squares, one per 10 points of the printed score, rounded down (`■` filled, `□` empty), then the score and the gate: `**✅ ready** · ■■■■■■■■□□ 82% · gate 70`. The gate is the printed bar of the command (70 for a ticket); a result with no score and no gate has no bar. The counts follow in plain words, only those the output prints and that are not zero: `5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`. This is the only arithmetic allowed, and only on the printed score.
 
-**The Next line.** Under the result, on its own line, `Next:` and the one or two likeliest commands, as code: for example `Next: ` `/quality-code:run-frontend`, the command in code. After a green or ready result the command that widens the check (the suite, the next ticket); after a red, refused or not verified one the command that fixes or reruns it. Never more than two, never a command that was not named by the command's own text, and none with `--ci`.
+**The Next line.** Under the result, on its own line, `Next:` and the one or two likeliest commands, as code: for example `Next: ` `/quality-code:check --frontend`, the command in code. After a green or ready result the command that widens the check (the suite, the next ticket); after a red, refused or not verified one the command that fixes or reruns it. Never more than two, never a command that was not named by the command's own text, and none with `--ci`.
 
 **Collapsible detail.** A list of more than 8 rows, and the per-test details of a run, go in a collapsible block after the table, so the card stays short:
 
@@ -107,7 +107,7 @@ For example, after a `tests red` card:
 | **QA files** | the same cases for manual QA | Excel [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.xlsx) · CSV [HERE](/Users/me/shop/e2e/tickets/ABC-123/case.csv) |
 
 ### Needs you
-1. **Remove or move** `{"outputStyle": "quality-code:report"}` from the project settings [HERE](/Users/me/shop/.claude/settings.json) (written when the report style was turned on), then run `/quality-code:run-frontend` again for a clean card.
+1. **Remove or move** `{"outputStyle": "quality-code:report"}` from the project settings [HERE](/Users/me/shop/.claude/settings.json) (written when the report style was turned on), then run `/quality-code:check --frontend` again for a clean card.
 
 ### Notes
 - **Changed on the way:** the first run failed at save, because the form requires a date the ticket's steps omit. The save step now fills one; the card above is the second run.

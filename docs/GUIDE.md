@@ -146,13 +146,13 @@ Playwright test).
 | Guided fill-in, then push it to Jira | `ticket --eval`, refuse option 2 | ✅ available |
 | Gate tickets in CI | `ticket <KEY> --eval --ci` | ✅ available |
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `bin/checks.mjs` | ✅ available (building blocks) |
-| Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:run-frontend`, `/quality-code:run-backend`, `/quality-code:run-pipeline` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
+| Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:check --frontend`, `/quality-code:check --backend`, `/quality-code:check` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Add Quality Code to CI (GitHub Actions, GitLab CI): the honesty gate, and types, tests and mutation on what each pull or merge request changed | `/quality-code:ci` (`github\|gitlab` to choose, `--print` to only show it) | ✅ available |
 | Find out whether a newer plugin version is out, and what it changes | `/quality-code:check-update` | ✅ available |
 | Schedule a check that runs by itself and tells you when the tests went red after others pushed, or became flaky | `/quality-code:routine` (`status`, `list`, `stop`) | ✅ available |
-| Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:run-pipeline --evals` | ✅ available |
+| Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:check --evals` | ✅ available |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
 | Load realistic mock data for a ticket into your local database, to test it by hand | `/quality-code:seed <KEY>` | ✅ available |
@@ -362,15 +362,15 @@ only.
 ## Check your tests
 
 For Vitest, Playwright and fullstack projects. Three commands run spec files through the pipeline and grade them:
-`/quality-code:run-frontend` every Playwright spec, `/quality-code:run-backend` every Vitest spec, and
-`/quality-code:run-pipeline` both together (the full suite). The script lists the specs (`pipeline.mjs --suite`);
+`/quality-code:check --frontend` every Playwright spec, `/quality-code:check --backend` every Vitest spec, and
+`/quality-code:check` both together (the full suite). The script lists the specs (`pipeline.mjs --suite`);
 a script builds the verdict, the model only relays it.
 
 ```
-/quality-code:run-pipeline test/orders.spec.ts --key ABC-123
+/quality-code:check test/orders.spec.ts --key ABC-123
 ```
 
-Spec paths run only those. `/quality-code:run-pipeline --branch` takes the test files your branch changed against its base (deleted files are
+Spec paths run only those. `/quality-code:check --branch` takes the test files your branch changed against its base (deleted files are
 left out) and asks `1. Yes / 2. Pick some / 3. Stop`. `/quality-code:spec` offers the same on its plan
 card when the branch has such files. `--flaky 3` also runs the tests three times and fails on a
 test that changes its result, naming its first failure. With a ticket key, only that ticket's block
@@ -487,7 +487,7 @@ while it was closed happens when it opens again. Without the scheduler tools the
 session-only schedule that ends with the session (and after 7 days).
 
 **Monorepos and co-located tests.** Tests that sit next to the code (`src/**/Foo.unit.test.jsx`) are found by their
-name wherever they are: the spec census, `run-backend` and `run-pipeline --suite backend` count them, a unit spec inside the
+name wherever they are: the spec census, `check --backend` and `pipeline.mjs --suite backend` count them, a unit spec inside the
 e2e folder runs under the unit runner and not Playwright, and the project flow keeps a tag before `.test` (`.unit.test.jsx`).
 `setup.mjs --detect` reports `colocated`; `--write` with `"colocated": true` sets the test folder to the code folder and
 allows the test names in `boundaries.allow`, so a run can write them while the code stays protected (a layer inside a
@@ -507,7 +507,7 @@ follows the Then of a one-line Given / When / Then, and honours `--expected` val
 code declares (`bin/routes.mjs check /path`: React Router, Vue Router, a routes array, Next/Nuxt/SvelteKit/Remix folders) and
 names the closest routes when it is not one; the screen card says how to pass one (`--route /orders`).
 
-**Frozen evals.** `/quality-code:run-pipeline --evals` (or `node <plugin>/bin/evals.mjs`) checks the
+**Frozen evals.** `/quality-code:check --evals` (or `node <plugin>/bin/evals.mjs`) checks the
 committed specs of a few chosen tickets against what they must keep saying, so a regenerated test or
 an edited guide that softens one shows up: one folder per ticket in `.claude/quality-code/evals/<KEY>/`
 with `expected.json` (`minSpecs`, `specMustMatch` and `specMustNotMatch` regular expressions,
@@ -1083,7 +1083,7 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     consumption.md, kpi.md, run-backend.md, run-frontend.md, run-pipeline.md, seed.md, setup.md, spec.md, start.md, ticket-eval.md, write.md, xray.md
+│     ├─ commands/                     check-update.md, check.md, ci.md, clean.md, config.md, qa.md, report.md, routine.md, seed.md, setup.md, spec.md, ticket.md, transcript-goal.md, xray.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ bin/                          the only scripts the commands and the hook run: ticket.mjs,
 │     │                                pipeline.mjs, checks.mjs, consumption.mjs, kpi.mjs, setup.mjs,

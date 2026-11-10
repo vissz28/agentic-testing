@@ -133,13 +133,13 @@ story += [p('What it is', 'h1'),
               ['Set up a repo (once)', '<font name="Mono">/quality-code:setup</font>'],
               ['Start your day on a feature branch', '<font name="Mono">/quality-code:spec</font>'],
               ['Check whether a ticket is ready to test', '<font name="Mono">/quality-code:ticket ABC-123 --eval</font>'],
-              ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:run-pipeline --branch</font>'],
+              ['Run and grade the tests on your branch', '<font name="Mono">/quality-code:check --branch</font>'],
               ['Have tests written from a ticket', '<font name="Mono">/quality-code:spec ABC-123</font>'],
               ['Write only the test data a ticket needs', '<font name="Mono">/quality-code:seed ABC-123</font>'],
               ['See how the team uses it', '<font name="Mono">/quality-code:report --kpi</font>'],
               ['See what the AI runs cost', '<font name="Mono">/quality-code:report --cost</font>'],
               ['Turn a Teams planning meeting into tasks', '<font name="Mono">/quality-code:transcript-goal</font>'],
-              ['Run the few critical tests', '<font name="Mono">/quality-code:run-smoke</font>'],
+              ['Run the few critical tests', '<font name="Mono">/quality-code:check --smoke</font>'],
               ['Change one setting', '<font name="Mono">/quality-code:config set git.base develop</font>'],
               ['Clear the cache, or undo the setup', '<font name="Mono">/quality-code:clean --cache</font>, <font name="Mono">/quality-code:clean</font>'],
           ], [80, 90]),
@@ -208,9 +208,9 @@ story += [p('3. Every day: start from your branch', 'h1'),
           PageBreak()]
 
 story += [p('5. Check the tests on your branch', 'h1'),
-          code('/quality-code:run-pipeline --branch                       # the test files your branch changed\n'
-               '/quality-code:run-pipeline test/orders.spec.ts   # or name the specs\n'
-               '/quality-code:run-pipeline --key ABC-123 --flaky 3'),
+          code('/quality-code:check --branch                       # the test files your branch changed\n'
+               '/quality-code:check test/orders.spec.ts   # or name the specs\n'
+               '/quality-code:check --key ABC-123 --flaky 3'),
           p('The pipeline always runs the same steps, in this order, and a script decides the verdict:'),
           table(['Step', 'It checks'], [
               ['boundary', 'during a writing run: no change outside the test folders'],
@@ -281,7 +281,7 @@ story += [p('More commands', 'h1'),
               ['Visual regression', 'Optional screenshot checks against a baseline that you confirm before it is created or updated.'],
               ['Database checks', 'Backend tickets that touch data get constraint, migration and integrity tests on a real database (Testcontainers).'],
               ['Regression from a bug', 'A Bug ticket becomes a @regression test that fails first and passes after the fix. routine --regression runs them.'],
-              ['Smoke suite', 'run-smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
+              ['Smoke suite', 'check --smoke runs the tests tagged @smoke against the app or any URL. ci --smoke adds a post-deploy job (SMOKE_URL).'],
           ], [38, 132]),
           p('Report pages with charts', 'h2'),
           code('/quality-code:report --kpi --report\n/quality-code:ticket ABC --eval --report\n/quality-code:report --cost --report'),

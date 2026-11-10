@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('One check command (0.65).', 'run-pipeline, run-backend, run-frontend and run-smoke are now /quality-code:check: no flag for the full suite (--branch, --evals), --backend or --frontend for one side, --smoke [--url URL] for the @smoke tests.'),
     ('Clean the cache with clean (0.64).', 'clean-cache is now /quality-code:clean --cache: the same list, question and delete; --all for every project, --yes skips the question. The full clean still never skips its yes.'),
     ('One report command (0.63).', 'kpi and consumption are now flags of report: /quality-code:report --kpi (the default) shows the KPIs, /quality-code:report --cost the AI usage and estimated cost. Every other flag works as before.'),
     ('One config command (0.62).', 'config-get and config-set are gone: /quality-code:config get <key>, config set <key> <value> and config keys do the same, with the same checks.'),
@@ -100,7 +101,7 @@ story = [p(f'Quality Code {SHORT}', 'title'), p('The commands, and what is new. 
          p(f'What is new since 0.44', 'h1')]
 story += [p(f'<b>{a}</b> {b}') for a, b in new]
 story += [p('Update first', 'h1'), p(M('/plugin update quality-code@teamsystem') + '<br/>' + M('/reload-plugins')),
-          p('Type /quality-code: and check that the list shows clean, report, run-smoke and transcript-goal. Or run ' + M('/quality-code:check-update') + '.'),
+          p('Type /quality-code: and check that the list shows check, clean, report and transcript-goal. Or run ' + M('/quality-code:check-update') + '.'),
           PageBreak()]
 
 story += [p('1. Set up and settings', 'h1'), cmds([
@@ -118,10 +119,10 @@ story += [p('1. Set up and settings', 'h1'), cmds([
 ]),
           PageBreak(),
           p('3. Run and grade the tests', 'h1'), cmds([
-    ('/quality-code:run-frontend', 'Every Playwright spec of the project.', '/quality-code:run-frontend'),
-    ('/quality-code:run-backend', 'Every backend spec: Vitest, pytest, JUnit, Go or .NET.', '/quality-code:run-backend'),
-    ('/quality-code:run-pipeline', 'The full suite. --branch: only the tests your branch changed. --evals: the frozen evals.', '/quality-code:run-pipeline --branch'),
-    ('/quality-code:run-smoke', 'Only the tests tagged @smoke, against the running app or any URL. Read-only. Frontend only for now.', '/quality-code:run-smoke --url https://staging.example.com'),
+    ('/quality-code:check', 'The full suite. --branch: only the tests your branch changed. --evals: the frozen evals.', '/quality-code:check --branch'),
+    ('/quality-code:check --frontend', 'Every Playwright spec of the project.', '/quality-code:check --frontend'),
+    ('/quality-code:check --backend', 'Every backend spec: Vitest, pytest, JUnit, Go or .NET.', '/quality-code:check --backend'),
+    ('/quality-code:check --smoke', 'Only the tests tagged @smoke, against the running app or any URL. Read-only. Frontend only for now.', '/quality-code:check --smoke --url https://staging.example.com'),
 ]),
           p('The card ends in one verdict, decided by a script: green, tests red, checks failed or not verified. A Bug ticket also shows the fail-then-pass proof (--regression-before red|green).'),
           p('4. CI and scheduled checks', 'h1'), cmds([

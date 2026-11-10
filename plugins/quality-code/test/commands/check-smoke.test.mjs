@@ -1,16 +1,16 @@
-// /quality-code:run-smoke is a prompt over the shared run guide; these pin it, the smoke guide and the spec and ci wiring.
+// /quality-code:check --smoke is a prompt over the shared run guide; these pin it, the smoke guide and the spec and ci wiring.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
-const cmd = read('commands/run-smoke.md')
+const cmd = read('commands/check.md')
 const run = read('guides/run.md')
 const smoke = read('guides/smoke.md')
 
 test('the command: its own suite, the url option, read-only, the shared guides', () => {
-  assert.match(cmd, /^---\ndescription: .+\nargument-hint: \[--url URL\]\n/)
-  assert.ok(cmd.includes('with the suite `smoke`'))
+  assert.match(cmd, /\nargument-hint: .*\| --smoke \[--url URL\] \|/)
+  assert.ok(cmd.includes('the suite `smoke`'))
   assert.ok(cmd.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'))
   assert.ok(cmd.includes('${CLAUDE_PLUGIN_ROOT}/guides/smoke.md'))
   assert.match(cmd, /allowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/\*\)/)
@@ -18,7 +18,7 @@ test('the command: its own suite, the url option, read-only, the shared guides',
 })
 
 test('the run guide: smoke runs the script with --smoke, passes --url quoted, asks no key, never edits', () => {
-  assert.ok(run.includes('`/quality-code:run-smoke`'))
+  assert.ok(run.includes('`/quality-code:check --smoke`'))
   assert.ok(run.includes('bin/pipeline.mjs" --smoke [--url \'<URL>\']'))
   assert.match(run, /No @smoke tests found/)
   assert.match(run, /never put a user name or password in it/)
@@ -43,6 +43,7 @@ test('spec points at the smoke guide, and ci documents the optional job', () => 
 })
 
 test('listed in the docs and the MCP server readme', () => {
-  assert.ok(read('README.md').includes('/quality-code:run-smoke'))
-  assert.ok(read('mcp-server/README.md').includes('`quality_code_run_smoke`'))
+  assert.ok(read('README.md').includes('/quality-code:check --smoke'))
+  assert.ok(read('mcp-server/README.md').includes('`quality_code_check`'))
+  assert.doesNotMatch(read('mcp-server/README.md'), /quality_code_run_(pipeline|backend|frontend|smoke)/)
 })

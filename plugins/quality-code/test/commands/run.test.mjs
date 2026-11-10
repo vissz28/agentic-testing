@@ -1,21 +1,25 @@
-// The run commands are prompts, not code: three thin commands over one shared guide. These pin its flow and its safety rules.
+// /quality-code:check is a prompt, not code: one thin command over one shared guide, a flag per suite. These pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const doc = readFileSync(new URL('../../guides/run.md', import.meta.url), 'utf8')
-const cmd = n => readFileSync(new URL(`../../commands/${n}.md`, import.meta.url), 'utf8')
-const SUITE = { 'run-frontend': 'frontend', 'run-backend': 'backend', 'run-pipeline': 'full' }
+const check = readFileSync(new URL('../../commands/check.md', import.meta.url), 'utf8')
 
-test('three commands, each its own suite, all following the shared guide', () => {
-  for (const [n, suite] of Object.entries(SUITE)) {
-    const c = cmd(n)
-    assert.ok(c.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'), n)
-    assert.ok(c.includes(`with the suite \`${suite}\``), n)
-  }
-  assert.match(cmd('run-frontend'), /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n/)
-  assert.match(cmd('run-backend'), /argument-hint: \[spec…\] \[--key KEY\] \[--flaky N\]\n/)
-  assert.match(cmd('run-pipeline'), /argument-hint: \[spec…\] \[--branch\] \[--key KEY\] \[--flaky N\] \| --evals\n/)
+test('one command, a flag per suite, all following the shared guide', () => {
+  assert.ok(check.includes('${CLAUDE_PLUGIN_ROOT}/guides/run.md'))
+  assert.match(check, /\*\*`--smoke`:\*\* the suite `smoke`/)
+  assert.match(check, /\*\*`--backend`:\*\* the suite `backend`/)
+  assert.match(check, /\*\*`--frontend`:\*\* the suite `frontend`/)
+  assert.match(check, /\*\*None of them, or both `--backend` and `--frontend`:\*\* the suite `full`/)
+  assert.match(check, /Pick the suite from `\$ARGUMENTS`, drop that flag/)
+  assert.match(check, /\nargument-hint: \[spec…\] \[--branch\] \[--backend \| --frontend\] \[--key KEY\] \[--flaky N\] \| --smoke \[--url URL\] \| --evals\n/)
+  assert.match(doc, /`\/quality-code:check` names the suite from its flag/)
+})
+test('green Next lines widen the run with the flags of check; --branch on one side says where it belongs', () => {
+  assert.ok(doc.includes('`/quality-code:check --backend` for the `frontend` suite, `/quality-code:check --frontend` for `backend`, `/quality-code:check --smoke` for `full` and `/quality-code:check` for `smoke`'))
+  assert.ok(doc.includes('`--branch checks the whole suite: /quality-code:check --branch.`'))
+  assert.doesNotMatch(doc, /run-(pipeline|backend|frontend|smoke)/)
 })
 test('a test runner the config names and the project has not installed stops the run before the pipeline', () => {
   assert.ok(doc.includes('ticket.mjs" config check --runner`'))

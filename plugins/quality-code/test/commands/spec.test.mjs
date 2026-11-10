@@ -266,7 +266,7 @@ test('playwright step 6: only the red tests get a tag, after the last run, on th
 test('playwright step 7: the extra line and the app line', () => {
   const s = step(7)
   assert.ok(s.includes('`A red extra test is a case the ticket does not cover: show it to the ticket\'s author. Do not change the test to make it pass.`'))
-  assert.ok(s.includes('`Start the app (or check the webServer in your Playwright config), then run /quality-code:run-frontend with the spec path above.`'))
+  assert.ok(s.includes('`Start the app (or check the webServer in your Playwright config), then run /quality-code:check --frontend with the spec path above.`'))
   assert.match(s, /starts with `Extra:`/)
   assert.match(s, /app is not reachable/)
 })
@@ -526,11 +526,11 @@ test('spec does not restate a mock for a property only a database test can check
   assert.match(doc, /`externalChecks`/)
 })
 
-test('step 7 ends with the next command for the ticket side: run-backend (Testcontainers, Docker) or run-frontend', () => {
+test('step 7 ends with the next command for the ticket side: check --backend (Testcontainers, Docker) or check --frontend', () => {
   const s = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
   assert.match(s, /\*\*Next step\.\*\*/)
-  assert.match(s, /`Next: \/quality-code:run-backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers \(Docker must be running\)\.`/)
-  assert.match(s, /`Next: \/quality-code:run-frontend runs every frontend spec against the running app\.`/)
+  assert.match(s, /`Next: \/quality-code:check --backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers \(Docker must be running\)\.`/)
+  assert.match(s, /`Next: \/quality-code:check --frontend runs every frontend spec against the running app\.`/)
   assert.match(s, /fullstack: both lines, backend first/)
 })
 

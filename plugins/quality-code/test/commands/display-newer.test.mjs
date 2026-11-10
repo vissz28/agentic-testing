@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
-const names = ['transcript-goal', 'clean', 'clean-cache', 'config', 'run-smoke']
+const names = ['transcript-goal', 'clean', 'clean-cache', 'config', 'check']
 const file = n => (n === 'clean-cache' ? `guides/${n}.md` : `commands/${n}.md`)
 const body = n => read(file(n)).replace(/^---\n[\s\S]*?\n---\n/, '')
 const step5c = () => read('guides/ticket-eval.md').split('\n').filter(l => l.startsWith('5c. ')).join('\n')
@@ -19,8 +19,8 @@ test('each command references the display guide and the Next line', () => {
   assert.match(step5c(), /display\.md/)
 })
 
-test('transcript-goal, clean, clean-cache and run-smoke have no code block at all', () => {
-  for (const n of ['transcript-goal', 'clean', 'clean-cache', 'run-smoke']) assert.ok(!body(n).includes('```'), n)
+test('transcript-goal, clean, clean-cache and check have no code block at all', () => {
+  for (const n of ['transcript-goal', 'clean', 'clean-cache', 'check']) assert.ok(!body(n).includes('```'), n)
 })
 
 test('config set/get shows a headline and an old -> new table', () => {

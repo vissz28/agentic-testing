@@ -40,7 +40,7 @@ flowchart TD
     E --> C
     D -- yes --> F["Tests written and checked<br/>in your test folders"]
     F --> G["/quality-code:seed ABC-123<br/><i>optional: mock data to try it by hand</i>"]
-    G --> H["/quality-code:run-pipeline --branch<br/><i>before you push</i>"]
+    G --> H["/quality-code:check --branch<br/><i>before you push</i>"]
     H --> I["/quality-code:ci<br/><i>once per repo: the same checks in CI</i>"]
 ```
 
@@ -87,10 +87,8 @@ Click a command to see its options.
 | [`ticket <PROJECT> --eval`](#ticket-project---eval) | Scores many tickets of a project at once | a project key | one line per ticket, the pass rate, the most common gaps |
 | [`transcript-goal`](#transcript-goal) | Turns a Teams sprint planning transcript into a sprint goal and tasks | a `.vtt`/`.docx`/`.txt` file, a Teams meeting, or pasted text | review cards, then tasks in Jira (after a preview and your yes) or a local file |
 | [`spec`](#spec) | From a ticket to written and checked tests | a key, or nothing on a feature branch | test files in your test folders and a verdict card |
-| [`run-frontend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the Playwright tests | nothing, or spec paths | a verdict card |
-| [`run-backend`](#run-frontend--run-backend--run-pipeline) | Runs and grades the backend tests (Vitest, pytest, JUnit, Go, .NET) | nothing, or spec paths | a verdict card |
-| [`run-smoke`](#run-smoke) | Runs only the tests tagged `@smoke`, fast, against the running app or any URL; changes nothing | nothing, or `--url URL` | a verdict card |
-| [`run-pipeline`](#run-frontend--run-backend--run-pipeline) | Runs and grades both, frontend and backend | nothing, spec paths, or `--branch` | a verdict card |
+| [`check`](#check) | Runs and grades the tests: both sides, or `--backend` (Vitest, pytest, JUnit, Go, .NET) or `--frontend` (Playwright) | nothing, spec paths, or `--branch` | a verdict card |
+| [`check --smoke`](#check---smoke) | Runs only the tests tagged `@smoke`, fast, against the running app or any URL; changes nothing | nothing, or `--url URL` | a verdict card |
 | [`seed`](#seed) | Loads realistic mock data for a ticket into your local database | a ticket key | rows in your local DB, to try the ticket by hand |
 | [`xray`](#xray) | Writes Xray test cases from a ticket | a ticket key | `case.csv` and `case.xlsx` to import into Xray |
 | [`qa`](#qa) | Runs your Xray manual tests in the browser with an agent | a test execution key, or nothing to list yours | a verdict per test you confirm, and drafted defects |
@@ -197,29 +195,30 @@ most three questions. Your application code is never changed.
 
 On a fullstack repo every option works: `--layer`/`--target` for the backend part, `--route`/`--no-extras` for the frontend part.
 
-### run-frontend · run-backend · run-pipeline
+### check
 
 ```
-/quality-code:run-frontend [spec…] [--key KEY] [--flaky N]
-/quality-code:run-backend  [spec…] [--key KEY] [--flaky N]
-/quality-code:run-pipeline [spec…] [--branch] [--key KEY] [--flaky N] | --evals
+/quality-code:check [spec…] [--branch] [--key KEY] [--flaky N] | --evals
+/quality-code:check --frontend [spec…] [--key KEY] [--flaky N]
+/quality-code:check --backend  [spec…] [--key KEY] [--flaky N]
 ```
 
-With no spec paths they run the whole suite: `run-frontend` the Playwright tests, `run-backend` the
-backend tests, `run-pipeline` both. The card shows a verdict, why, and one fix per failing check.
+With no spec paths it runs the whole suite: both sides with no flag, the Playwright tests with
+`--frontend`, the backend tests with `--backend`. The card shows a verdict, why, and one fix per failing check.
 
 | Option | What it does |
 |---|---|
 | `spec…` | Run only these test files |
 | `--key KEY` | Tie the run to a ticket, so its expected values are checked too |
 | `--flaky N` | Run each test N times to catch flaky ones |
-| `--branch` | `run-pipeline` only: just the tests your branch added or changed |
-| `--evals` | `run-pipeline` only: check that committed ticket specs still pin what they pinned |
+| `--backend`, `--frontend` | Only one side |
+| `--branch` | Both sides only: just the tests your branch added or changed |
+| `--evals` | Both sides only: check that committed ticket specs still pin what they pinned |
 
-### run-smoke
+### check --smoke
 
 ```
-/quality-code:run-smoke [--url URL]
+/quality-code:check --smoke [--url URL]
 ```
 
 Runs only the Playwright tests tagged `@smoke`: the critical few, in seconds, against the app your

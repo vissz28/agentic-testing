@@ -293,13 +293,14 @@ test('step 5 ends with the completion section: connected table, failed sign-in w
   assert.doesNotMatch(s, /Playwright files|Vitest config/)
 })
 
-test('setup ends with the golden path of the picked role only, each with its own Next line', () => {
-  assert.ok(doc.indexOf('| Files and logs | <the place> |') < doc.indexOf('<the Developer block of Golden paths below, with its Next line>'))
+test('setup ends with what the picked role can do now, each with its own Next line', () => {
+  assert.ok(doc.indexOf('| Files and logs | <the place> |') < doc.indexOf('<the Developer block of Next steps below, with its Next line>'))
   for (const [role, next] of [['Developer', '/quality-code:spec'], ['QA', '/quality-code:ticket <KEY> --eval'], ['PO', '/quality-code:ticket <PROJECT> --eval']]) {
-    const at = doc.indexOf(`**Your golden path (${role})**`)
+    const at = doc.indexOf(`   - **${role}** (\``)
     assert.ok(at > 0, role)
-    assert.ok(doc.indexOf(`Next: \`${next}\``, at) > at, next)
+    assert.ok(doc.indexOf('**What you can do now**', at) < doc.indexOf(`Next: \`${next}\``, at), next)
   }
   assert.match(doc, /Show only the user's block, word for word/)
-  assert.match(doc, /\*\*Golden path\*\* block of the role \(QA or PO\)/)
+  assert.match(doc, /\*\*What you can do now\*\* block of the role \(QA or PO\)/)
+  assert.doesNotMatch(doc, /golden path/i)
 })

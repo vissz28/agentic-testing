@@ -23,7 +23,7 @@ def text(r):
 def test_remote_offers_only_the_jira_only_commands(tmp_path):
     n = names(build(ROOT, remote=True, fixed_cwd=tmp_path))
     assert n == {"quality_code_" + c.replace("-", "_") for c in REMOTE_COMMANDS} | {"quality_code_run_script", "quality_code_guide"}
-    assert "quality_code_spec" not in n and "quality_code_run_backend" not in n
+    assert "quality_code_spec" not in n and "quality_code_check" not in n
 
 
 def test_remote_script_tool_has_no_folder_and_a_short_allowlist(tmp_path):

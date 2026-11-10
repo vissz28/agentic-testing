@@ -48,10 +48,10 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 | `/quality-code:spec` | your daily start: the branch, its ticket, the readiness gate, then the tests |
 | `/quality-code:ticket <KEY> --eval` | scores a ticket for test-readiness (70 points to pass) |
 | `/quality-code:spec <KEY>` | writes the tests for a ticket and grades them |
-| `/quality-code:run-frontend` | runs every frontend (Playwright) spec through the pipeline |
-| `/quality-code:run-backend` | runs every backend (Vitest) spec through the pipeline |
-| `/quality-code:run-smoke` | runs only the tests tagged `@smoke` (the critical few), fast, against the running app or `--url URL`; changes nothing |
-| `/quality-code:run-pipeline` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
+| `/quality-code:check --frontend` | runs every frontend (Playwright) spec through the pipeline |
+| `/quality-code:check --backend` | runs every backend (Vitest) spec through the pipeline |
+| `/quality-code:check --smoke` | runs only the tests tagged `@smoke` (the critical few), fast, against the running app or `--url URL`; changes nothing |
+| `/quality-code:check` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
 | `/quality-code:routine` | a check Claude runs by itself on a schedule (a time, for a period or once): fetches what others pushed, runs a ticket's tests or the whole suite, says when it went from green to red and which commits came in between, and with `--stability N` runs every test N times to watch flaky tests and the pass rate over time |
 | `/quality-code:check-update` | says whether a newer version of the plugin is out, lists what changed since yours, and updates it on your pick (`claude plugin update`); then asks you to type `/reload-plugins` |
 | `/quality-code:ci` | writes the GitHub Actions or GitLab CI file: a gate on the specs each pull or merge request changes (honesty, assertions, frozen evals; git and node only) and the tests (types, tests and mutation on the changed specs; a code-only change runs its side's whole suite without mutation), install and Docker guessed from the repo |

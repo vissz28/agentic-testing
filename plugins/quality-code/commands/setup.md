@@ -30,7 +30,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. PO: no repo, Jira only
    ```
 
-   The pick is the role: `1` is `dev` (the repo setup), `2` `qa` and `3` `po` (the personal setup). On a rerun of a personal setup, put `personal.existing.role` first, marked `(current)`. The role picks the golden path the **Done** step shows.
+   The pick is the role: `1` is `dev` (the repo setup), `2` `qa` and `3` `po` (the personal setup). On a rerun of a personal setup, put `personal.existing.role` first, marked `(current)`. The role picks the next steps the **Done** step shows.
 
 1. **Connectors.** Read `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md` and follow it. From the plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_username` is `${user_config.gitlab_username}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`. Follow its **Setup: one connector at a time** sequence, not the single card: the source code connector (GitLab, GitHub, both or none), then Jira (required, with your account), then Figma (optional). With `2` or `3` on the Where card (no repo), skip the source code card: there is no repo to link; start at Jira. Go on as the Where answer says (below) when the sequence says to continue.
 
@@ -115,7 +115,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
      The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 0's personal setup, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Project root follows step 2's **Project root**; Test flow shows step 2's test flow card. Ask nothing else again.
    - **3:** stop. Nothing is written.
-5. **Done.** **The last question, before any Done text:** where Quality Code keeps this project's files and audit log. Until it is answered they stay in the session (a temp folder). Follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md` now (the config was written first, in the session folder; the pick moves it, with the tickets and the audit log, to the place): run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get`, show its card (the repo, this machine, only this session; a personal setup has no repo line), end the turn, and on the pick run `save set <repo|local|chat>`. The pick is the `Files and logs` row of the completion section below. On a rerun, when `asked` is already `true`, show the card only if the user changes something, and say the current place in one line. For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket <KEY> --eval, or a whole project: /quality-code:ticket <PROJECT> --eval. Writing tests needs a repo: run /quality-code:setup there.`, then the **Golden path** block of the role (QA or PO) from **Golden paths** below, word for word, with its `Next:` line. Otherwise, first run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style on` (the report reply style: results only, no step-by-step lines); then, after the completion section below, add `Replies use the report style: commit .claude/settings.json too. Change it in /quality-code:config.` (if its line is not `ok`, say `Reply style not set: <reason>.` instead). Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Then end with the completion section below, laid out as `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says (headline, table, no code block, the `Next:` line). Use only facts the scripts and checks of the earlier steps gave (the detect result, the connector checks, the file just written, the save-place answer); write nothing that was not found.
+5. **Done.** **The last question, before any Done text:** where Quality Code keeps this project's files and audit log. Until it is answered they stay in the session (a temp folder). Follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md` now (the config was written first, in the session folder; the pick moves it, with the tickets and the audit log, to the place): run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get`, show its card (the repo, this machine, only this session; a personal setup has no repo line), end the turn, and on the pick run `save set <repo|local|chat>`. The pick is the `Files and logs` row of the completion section below. On a rerun, when `asked` is already `true`, show the card only if the user changes something, and say the current place in one line. For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket <KEY> --eval, or a whole project: /quality-code:ticket <PROJECT> --eval. Writing tests needs a repo: run /quality-code:setup there.`, then the **What you can do now** block of the role (QA or PO) from **Next steps** below, word for word, with its `Next:` line. Otherwise, first run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style on` (the report reply style: results only, no step-by-step lines); then, after the completion section below, add `Replies use the report style: commit .claude/settings.json too. Change it in /quality-code:config.` (if its line is not `ok`, say `Reply style not set: <reason>.` instead). Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Then end with the completion section below, laid out as `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says (headline, table, no code block, the `Next:` line). Use only facts the scripts and checks of the earlier steps gave (the detect result, the connector checks, the file just written, the save-place answer); write nothing that was not found.
 
    ```
    ### ✅ Setup completed
@@ -134,19 +134,19 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    | Config | [HERE](<full path of the config.json that `save get` shows>) |
    | Files and logs | <the place> |
 
-   <the Developer block of Golden paths below, with its Next line>
+   <the Developer block of Next steps below, with its Next line>
    ```
 
-   **Golden paths.** One fixed block per role (the Where card's pick, `role` in the config). Show only the user's block, word for word (never shortened or reworded), never the others:
+   **Next steps.** One fixed block per role (the Where card's pick, `role` in the config). Show only the user's block, word for word (never shortened or reworded), never the others:
 
    - **Developer** (`dev`):
 
      ```
-     **Your golden path (Developer)**
+     **What you can do now**
      1. Create a feature branch for the ticket.
      2. Run `/quality-code:spec`: it checks the ticket is ready, writes its tests and grades them.
      3. To try it by hand, `/quality-code:seed <KEY>` loads mock data for it into your local database.
-     4. Before the merge request, `/quality-code:run-pipeline --branch` grades the tests changed on your branch.
+     4. Before the merge request, `/quality-code:check --branch` grades the tests changed on your branch.
 
      `/quality-code:config` changes a setting, `/quality-code:check-update` checks for new versions.
 
@@ -156,7 +156,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    - **QA** (`qa`):
 
      ```
-     **Your golden path (QA)**
+     **What you can do now**
      1. Run `/quality-code:ticket <KEY> --eval`: it checks the ticket is ready for tests and says what is missing.
      2. Run `/quality-code:xray <KEY>`: it writes the ticket's Xray test cases, ready to import.
      3. Run `/quality-code:qa <EXECUTION KEY>`: it runs your test execution with you in the browser and drafts each defect.
@@ -169,7 +169,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    - **PO** (`po`):
 
      ```
-     **Your golden path (PO)**
+     **What you can do now**
      1. After sprint planning, run `/quality-code:transcript-goal`: it turns the meeting into a sprint goal and its tasks.
      2. Run `/quality-code:ticket <PROJECT> --eval`: it shows how ready the backlog is, ticket by ticket.
      3. For a weak ticket, run `/quality-code:ticket <KEY> --eval`: it says what to add so it can be built and tested.
@@ -179,7 +179,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      Next: `/quality-code:ticket <PROJECT> --eval`
      ```
 
-   - The section is laid out as display.md says: the heading `### ✅ Setup completed`, the bold headline, the table headed `Connected` (`| What | State |`), the Developer golden path word for word, ending with its `Next:` line; the block above only fixes its words. The config path is a `HERE` link to the file's full path. `<the place>` is the save-place answer (the repo, this machine, only this session).
+   - The section is laid out as display.md says: the heading `### ✅ Setup completed`, the bold headline, the table headed `Connected` (`| What | State |`), the Developer next steps word for word, ending with its `Next:` line; the block above only fixes its words. The config path is a `HERE` link to the file's full path. `<the place>` is the save-place answer (the repo, this machine, only this session).
    - **Source code row.** One row for each of GitLab and GitHub that was picked in step 1, with the result line its check gave. A check that failed is `⚠️` and the reason as the check printed it, for example `⚠️ GitLab: 401 Unauthorized`, followed by how to fix it: `set the token in /plugin configure quality-code@teamsystem`. Never ask for a token in the chat. Left out when none was picked in step 1 (`➖ none`); Figma is `➖ not connected` when it was skipped.
    - A rerun shows the same section from the values now in the file.
    - After the section, add `Replies use the report style: commit .claude/settings.json too. Change it in /quality-code:config.` (the report reply style, `connector-settings.mjs --style on`, ran first; if its line was not `ok`, say `Reply style not set: <reason>.` instead). Add one line: `The config, the ticket files and the audit log are kept together in <the place>, outside git: nothing is added to your .gitignore. To share the config with your team, copy config.json into the repo yourself.` then `Every day, from your feature branch: /quality-code:spec. For any ticket: /quality-code:spec <KEY>, or /quality-code:spec <KEY> --gate-only for the readiness check alone.` and, last, `For feature labels, QA plans, title prefixes, templates and redaction: /quality-code:setup advanced.` A repo with no test runner needs nothing more here: `/quality-code:spec` offers to add it when it writes the first tests.

@@ -29,7 +29,7 @@ Each is a case on the plan card, one line each, in the `Database: N cases` secti
 ## How they run
 
 On a real database in a container (Testcontainers), the same one the integration layer uses. Docker
-must be running; `/quality-code:run-backend` runs them with the rest. Reuse the project's container
+must be running; `/quality-code:check --backend` runs them with the rest. Reuse the project's container
 helper; without one, setup's Testcontainers suggestion applies. Never mock the database for these
 tests: a mock only restates itself. Use the engine the project runs in production, not an in-memory
 stand-in.
