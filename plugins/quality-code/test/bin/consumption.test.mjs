@@ -87,10 +87,10 @@ test('no prompt, answer, argument or tool text ever reaches the output', async (
 
 test('runs as a script with the documented exit code', () => {
   const empty = mkdtempSync(join(tmpdir(), 'qc-empty-'))
-  const r = spawnSync(process.execPath, [CLI], { env: { ...process.env, CLAUDE_PROJECT_DIR: join(empty, 'p'), CLAUDE_CONFIG_DIR: empty }, encoding: 'utf8' })
+  const r = spawnSync(process.execPath, [CLI], { env: { ...process.env, CLAUDE_PROJECT_DIR: join(empty, 'p'), CLAUDE_CONFIG_DIR: empty }, cwd: empty, encoding: 'utf8' })
   assert.equal(r.status, 3)
   const f = install()
-  const ok = spawnSync(process.execPath, [CLI, '--since', '2026-10-01', '--until', '2026-10-14'], { env: { ...process.env, CLAUDE_PROJECT_DIR: f.root, CLAUDE_CONFIG_DIR: f.configDir }, encoding: 'utf8' })
+  const ok = spawnSync(process.execPath, [CLI, '--since', '2026-10-01', '--until', '2026-10-14'], { env: { ...process.env, CLAUDE_PROJECT_DIR: f.root, CLAUDE_CONFIG_DIR: f.configDir }, cwd: f.root, encoding: 'utf8' })
   assert.equal(ok.status, 0)
   assert.match(ok.stdout, /^quality-code consumption · 2026-10-01 to 2026-10-14 · my project/)
 })

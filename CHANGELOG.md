@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-11-10
+
+### Removed
+
+- `/quality-code:config-get` and `/quality-code:config-set`. `/quality-code:config` does both, with the same checks: `config get <key>`, `config set <key> <value>` (`--personal`, `--project`, `--yes`), and `config keys` for the list of settable keys.
+
+**What to do:** use `/quality-code:config get` and `/quality-code:config set` instead.
+
 ## [0.61.2] - 2026-11-10
 
 ### Fixed

@@ -1,4 +1,4 @@
-// The config-set and config-get commands: thin text over `ticket.mjs config set|get|keys`, tokens refused with the /plugin steps.
+// /quality-code:config get|set|keys: thin text over `ticket.mjs config get|set|keys`, tokens refused with the /plugin steps.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -7,40 +7,35 @@ import { fileURLToPath } from 'node:url'
 import { KEYS, EXAMPLES, keyRows, refusal, pluginSteps } from '../../lib/config/set.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
-const set = read('commands/config-set.md')
-const get = read('commands/config-get.md')
+const config = read('commands/config.md')
 const CLI = fileURLToPath(new URL('../../bin/ticket.mjs', import.meta.url))
 const BIN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs"'
 const TOKEN_KEYS = ['gitlab_token', 'figma_api_key', 'xray_client_id', 'xray_client_secret', 'jira_api_token']
 
-test('frontmatter: argument hints and models', () => {
-  assert.match(set, /^---\ndescription: .+\nargument-hint: <key> <value> \[--personal\|--project\] \[--yes\]\n/)
-  assert.match(set, /\nmodel: sonnet\n---/)
-  assert.match(get, /^---\ndescription: .+\nargument-hint: <key> \[--personal\|--project\]\n/)
-  assert.match(get, /\nmodel: haiku\neffort: low\n---/)
+test('frontmatter: the argument hint names get, set and keys', () => {
+  assert.match(config, /\nargument-hint: \[get <key> \| set <key> <value> \| keys\] \[--personal\|--project\] \[--yes\]\n/)
 })
-test('config-set: same script and flow as config set, one yes via the picker, --yes skips it', () => {
-  assert.ok(set.includes(`${BIN} config set <key> <value>`))
-  assert.match(set, /without `--yes`/)
-  assert.match(set, /<old> -> <new>/)
-  assert.match(set, /\| Setting \| Old \| New \|/)
-  assert.match(set, /AskUserQuestion/)
-  assert.ok(set.includes('`Yes` / `No`'))
-  assert.match(set, /same command again with `--yes`/)
-  assert.match(set, /With `--yes` in `\$ARGUMENTS`/)
-  assert.match(set, /An error writes nothing/)
-  assert.ok(set.includes('guides/display.md') && set.includes('guides/language.md'))
-  assert.match(set, /Run each plugin script exactly as written/)
+test('config set: preview without --yes, one yes via the picker, --yes skips it, already set stops', () => {
+  assert.ok(config.includes(`${BIN} config set <key> <value>`))
+  assert.match(config, /without `--yes`/)
+  assert.match(config, /<old> -> <new>/)
+  assert.match(config, /\| Setting \| Old \| New \|/)
+  assert.ok(config.includes('`Yes` / `No`'))
+  assert.match(config, /run the same command again with `--yes`/)
+  assert.match(config, /already wrote `--yes`/)
+  assert.ok(config.includes('Nothing to change: already set.'))
 })
-test('config-set: no arguments lists the keys from the script', () => {
-  assert.ok(set.includes(`${BIN} config keys`))
-  assert.match(set, /\| Key \| Takes \| Example \|/)
-  assert.match(set, /Next line/)
+test('config keys lists the keys from the script; config get reads one', () => {
+  assert.ok(config.includes(`${BIN} config keys`))
+  assert.match(config, /\| Key \| Takes \| Example \|/)
+  assert.ok(config.includes(`${BIN} config get <key>`))
 })
-test('config-get runs config get and never shows a token', () => {
-  assert.ok(get.includes(`${BIN} config get <key>`))
-  assert.match(get, /Never show a token/)
-  assert.match(get, /only `set` or `not set`/)
+test('config never asks for or shows a token, and points to /plugin', () => {
+  assert.match(config, /Never ask for a token/)
+  assert.ok(config.includes('/plugin, choose quality-code, Configure options, then /reload-plugins'))
+})
+test('config-get and config-set are gone: /quality-code:config does both', () => {
+  for (const f of ['config-get', 'config-set']) assert.throws(() => read(`commands/${f}.md`), f)
 })
 test('config keys prints every settable key with an example, from the key table', () => {
   const r = spawnSync(process.execPath, [CLI, 'config', 'keys'], { encoding: 'utf8' })
@@ -82,19 +77,8 @@ test('a secret-like value in an ordinary key is not used or echoed', () => {
   assert.match(m, /looks like a token/)
   assert.ok(!m.includes(v))
 })
-test('the command text names the steps for the token fields and never asks for a value', () => {
-  for (const f of ['gitlab_token', 'figma_api_key', 'xray_client_id', 'xray_client_secret', 'read_api']) assert.ok(set.includes(f), f)
-  assert.ok(set.includes('/plugin configure quality-code@teamsystem'))
-  assert.ok(set.includes('/reload-plugins'))
-  assert.match(set, /Never ask for a token/)
-  assert.match(set, /never repeat a value the person typed/)
-  assert.ok(set.includes('shows only set or not set'))
-})
-test('config set still works through /quality-code:config', () => {
-  assert.ok(read('commands/config.md').includes(`${BIN} config set <key> <value>`))
-})
 test('wiring: README table, MCP README tools', () => {
   const readme = read('README.md'), mcp = read('mcp-server/README.md')
-  assert.ok(readme.includes('/quality-code:config-set <key> <value>') && readme.includes('/quality-code:config-get <key>'))
+  assert.ok(readme.includes('`config set <key> <value>`') && readme.includes('`config get <key>`') && readme.includes('`config keys`'))
   assert.ok(mcp.includes('quality_code_config_set') && mcp.includes('quality_code_config_get'))
 })

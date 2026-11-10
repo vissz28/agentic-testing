@@ -824,7 +824,7 @@ you confirm; running it again updates the same note instead of adding a new one.
 `config.json`, kept on your machine with the tickets and audit files, in the place setup's last
 question picks (the repo's `.quality-code/`, a folder under your Claude folder, or this session's
 temp folder). A repo that still has `.claude/quality-code.json` keeps working: it is read when no
-`config.json` exists. Change it by running `/quality-code:setup` again or with `/quality-code:config-set`
+`config.json` exists. Change it by running `/quality-code:setup` again or with `/quality-code:config set`
 rather than by hand. To share it with your team or CI, copy it into the repo as `.claude/quality-code.json`. Every `ticket-eval` run checks it first and names
 any field that is wrong. A JSON schema ships with the plugin (`schema/quality-code.schema.json`).
 

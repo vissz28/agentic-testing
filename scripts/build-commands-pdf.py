@@ -72,6 +72,7 @@ def page(canvas, doc):
 
 
 new = [
+    ('One config command (0.62).', 'config-get and config-set are gone: /quality-code:config get <key>, config set <key> <value> and config keys do the same, with the same checks.'),
     ('Windows paths (0.61.2).', 'On Windows, a Vitest spec whose tests ran is no longer reported as never ran, and a node --test spec that does not load is reported as never ran, not as a failed test.'),
     ('How to use it, by role (0.61.1).', 'Setup ends with a fixed block: one line each for developers (spec, run-pipeline), QA (ticket --eval, xray, qa) and PO (ticket <PROJECT> --eval, transcript-goal). A Jira-only setup leaves out the developers line.'),
     ('One ticket command (0.61).', 'ticket-eval and tickets-eval are now flags of ticket: /quality-code:ticket <KEY> --eval scores one ticket, /quality-code:ticket <PROJECT> --eval the latest 50 of a project. The --json, --refuse-comment, --limit and --all flags are gone.'),
@@ -102,8 +103,7 @@ story += [p('Update first', 'h1'), p(M('/plugin update quality-code@teamsystem')
 
 story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:setup', 'Checks the connectors, finds the project, its stack, Jira project and base branch, shows one card to confirm and writes .claude/quality-code.json. Option 2 is a personal setup for QA and PO with no repo.', '/quality-code:setup\n/quality-code:setup advanced'),
-    ('/quality-code:config', 'Shows a short summary and changes one setting at a time. Tokens and plugin settings (Jira email, GitLab, Xray) are checked, never echoed.', '/quality-code:config'),
-    ('/quality-code:config-set, config-get', 'Change or read one setting directly. Dotted keys, lists with commas, typed values; --personal, --project, --yes.', '/quality-code:config set git.base develop\n/quality-code:config get jira.site'),
+    ('/quality-code:config', 'Shows a short summary and changes one setting at a time. Directly: get <key>, set <key> <value> (dotted keys, lists with commas; --personal, --project, --yes) and keys. Tokens and plugin settings (Jira email, GitLab, Xray) are checked, never echoed.', '/quality-code:config\n/quality-code:config set git.base develop\n/quality-code:config get jira.site'),
     ('/quality-code:check-update', 'Says whether a newer version is out and what changed; offers to update.', '/quality-code:check-update'),
     ('/quality-code:clean-cache', 'Deletes only the plugin\'s local cache (saved stops, reused facts, language) for this project, or every project with --all.', '/quality-code:clean-cache --all'),
     ('/quality-code:clean', 'Removes what the plugin created in the project. A script lists it by group; you pick the groups and say yes once. Never skipped by --yes or --ci. --dry-run only lists.', '/quality-code:clean --dry-run'),
