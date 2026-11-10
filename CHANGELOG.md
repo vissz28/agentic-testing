@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-11-10
+
+### Changed
+
+- `/quality-code:check-update` is now `/quality-code:update`: the same version check, card and update on your yes. It no longer sits next to `/quality-code:check` in the command list.
+
+**What to do:** type `/quality-code:update` instead of `check-update`.
+
 ## [0.65.0] - 2026-11-10
 
 ### Changed

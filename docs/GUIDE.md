@@ -150,7 +150,7 @@ Playwright test).
 | Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Add Quality Code to CI (GitHub Actions, GitLab CI): the honesty gate, and types, tests and mutation on what each pull or merge request changed | `/quality-code:ci` (`github\|gitlab` to choose, `--print` to only show it) | ✅ available |
-| Find out whether a newer plugin version is out, and what it changes | `/quality-code:check-update` | ✅ available |
+| Find out whether a newer plugin version is out, and what it changes | `/quality-code:update` | ✅ available |
 | Schedule a check that runs by itself and tells you when the tests went red after others pushed, or became flaky | `/quality-code:routine` (`status`, `list`, `stop`) | ✅ available |
 | Frozen evals: committed ticket specs must keep pinning what they pin | `/quality-code:check --evals` | ✅ available |
 | Write and grade backend tests, any Node/TS + Vitest service | `/quality-code:spec <KEY>` | ✅ available (every backend) |
@@ -177,8 +177,8 @@ Playwright test).
 
 | Platform | How | Status |
 |---|---|---|
-| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `check-update` |
-| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `check-update`; not yet tried inside Copilot |
+| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `update` |
+| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `update`; not yet tried inside Copilot |
 | **OpenAI Codex** (CLI, IDE) | `quality-code-mcp --init codex --write`: skills, plus a TOML for `~/.codex/config.toml` | same; not yet tried inside Codex |
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
@@ -1083,7 +1083,7 @@ agentic-testing/
 │  └─ quality-code/
 │     ├─ .claude-plugin/plugin.json    manifest and personal settings
 │     ├─ .mcp.json                     Jira, GitLab and Figma connectors (browser sign-in and token)
-│     ├─ commands/                     check-update.md, check.md, ci.md, clean.md, config.md, qa.md, report.md, routine.md, seed.md, setup.md, spec.md, ticket.md, transcript-goal.md, xray.md
+│     ├─ commands/                     check.md, ci.md, clean.md, config.md, qa.md, report.md, routine.md, seed.md, setup.md, spec.md, ticket.md, transcript-goal.md, update.md, xray.md
 │     ├─ hooks/hooks.json              the boundary hook (acts only during a test-writing run)
 │     ├─ bin/                          the only scripts the commands and the hook run: ticket.mjs,
 │     │                                pipeline.mjs, checks.mjs, consumption.mjs, kpi.mjs, setup.mjs,

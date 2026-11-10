@@ -36,7 +36,7 @@ One command writes the MCP config and one small wrapper per command for the agen
 | Cursor | `cursor` | `.cursor/mcp.json`, `.cursor/commands/quality-code-<command>.md` | reload, enable the server, type `/quality-code-spec` |
 | Gemini CLI | `gemini` | `quality-code-gemini/` (a `gemini-extension.json` and `commands/quality-code/<command>.toml`) | `gemini extensions link quality-code-gemini`, type `/quality-code:spec` |
 
-A file that already exists is kept, never replaced. `routine` (Claude's scheduler) and `check-update` (Claude's plugin manager) are not written: they need Claude Code. The file formats follow each tool's documentation as I know it; they are tested here as files, not yet inside the four tools, so try one command first (`ticket`) and tell us what your tool does differently.
+A file that already exists is kept, never replaced. `routine` (Claude's scheduler) and `update` (Claude's plugin manager) are not written: they need Claude Code. The file formats follow each tool's documentation as I know it; they are tested here as files, not yet inside the four tools, so try one command first (`ticket`) and tell us what your tool does differently.
 
 ## Two ways to run it
 

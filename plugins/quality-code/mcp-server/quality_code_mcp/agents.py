@@ -15,8 +15,8 @@ from .catalog import Command, load_commands, plugin_root
 
 TOOLS = ("copilot", "codex", "cursor", "gemini")
 
-# Commands that need Claude Code itself: routine schedules with Claude's scheduler, check-update updates through Claude's plugin manager.
-CLAUDE_ONLY = {"routine", "check-update"}
+# Commands that need Claude Code itself: routine schedules with Claude's scheduler, update updates through Claude's plugin manager.
+CLAUDE_ONLY = {"routine", "update"}
 
 SERVER = "quality-code"
 PREFIX = "quality-code-"

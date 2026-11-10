@@ -23,13 +23,13 @@ def test_nothing_is_written_without_write(tmp_path):
 
 
 def test_every_tool_wraps_every_command_except_the_claude_only_ones(tmp_path):
-    assert {"routine", "check-update"} == CLAUDE_ONLY
+    assert {"routine", "update"} == CLAUDE_ONLY
     per_command = {"copilot": ".github/prompts/", "codex": ".agents/skills/", "cursor": ".cursor/commands/", "gemini": "quality-code-gemini/commands/"}
     for tool in TOOLS:
         done, _ = files(tool, tmp_path / tool)
         wrapped = [p for p in done if p.startswith(per_command[tool])]
         assert len(wrapped) == len(WRAPPED), tool
-        assert not any("routine" in p or "check-update" in p for p in done), tool
+        assert not any("routine" in p or "update" in p for p in done), tool
 
 
 def test_a_wrapper_calls_the_tool_of_its_command_and_nothing_else(tmp_path):

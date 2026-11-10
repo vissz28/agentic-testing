@@ -1,15 +1,15 @@
-// The check-update command is a prompt, not code: these pin its flow and its safety rules.
+// The update command is a prompt, not code: these pin its flow and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const doc = readFileSync(new URL('../../commands/check-update.md', import.meta.url), 'utf8')
+const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
 
 test('frontmatter: the only tool is its own script, on Haiku', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/check-update\.mjs":\*\), Bash\(claude plugin update quality-code@teamsystem\)\nmodel: haiku\neffort: low\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@teamsystem\)\nmodel: haiku\neffort: low\n---/)
 })
 test('runs the script with no arguments and never --json', () => {
-  assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/check-update.mjs"`'))
+  assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs"`'))
   assert.match(doc, /do not pass `--json`/)
 })
 test('exit 3 and exit 2 are shown as they are, then stop', () => {
@@ -39,7 +39,7 @@ test('the model never compares or invents a version, and never edits the plugin 
 
 test('the card is followed by one line that points to the commands guide PDF shipped in assets, and the file is there', async () => {
   const { readFileSync, existsSync } = await import('node:fs')
-  const doc = readFileSync(new URL('../../commands/check-update.md', import.meta.url), 'utf8')
+  const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
   assert.ok(doc.includes('Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/assets/commands.pdf'))
   assert.ok(existsSync(new URL('../../assets/commands.pdf', import.meta.url)))
 })

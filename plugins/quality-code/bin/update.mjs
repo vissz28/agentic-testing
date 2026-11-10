@@ -1,5 +1,5 @@
-// Entry point for /quality-code:check-update: is a newer version of the plugin out, and what changed?
-// node bin/check-update.mjs [--json]
+// Entry point for /quality-code:update: is a newer version of the plugin out, and what changed?
+// node bin/update.mjs [--json]
 // Reads the running version from this plugin and the one installed on disk (an update waits for /reload-plugins), the latest from the plugin's GitHub repository (raw files,
 // else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
 // 2 usage error, 3 the latest version could not be read.
@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
-const USAGE = 'usage: check-update.mjs [--json]'
+const USAGE = 'usage: update.mjs [--json]'
 const TIMEOUT_MS = 8000
 const MAX_VERSIONS = 6
 const MAX_LINES = 5
@@ -76,7 +76,7 @@ function readInstalled() {
 }
 
 async function getText(fetchImpl, url) {
-  const res = await fetchImpl(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': 'quality-code-check-update' } })
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': 'quality-code-update' } })
   if (!res.ok) throw new Error(`${url} answered ${res.status}`)
   return res.text()
 }

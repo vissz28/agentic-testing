@@ -96,7 +96,7 @@ Click a command to see its options.
 | [`ci`](#ci) | Writes the CI file for GitHub Actions or GitLab CI | `github` or `gitlab` | a CI file with two jobs |
 | [`kpi`](#kpi) | Shows how the plugin is used and the Quality Program numbers | nothing, or a period | a KPI card (read-only) |
 | [`consumption`](#consumption) | Shows the AI usage and cost of the plugin's runs | nothing, or a period | a cost table (read-only) |
-| [`check-update`](#check-update) | Checks for a newer plugin version | nothing | what changed, and an update on your yes |
+| [`update`](#update) | Checks for a newer plugin version | nothing | what changed, and an update on your yes |
 
 Every command starts with `/quality-code:`, for example `/quality-code:spec`. Nothing is written to
 Jira without a preview and your yes.
@@ -330,9 +330,9 @@ Read-only, from Claude Code's local transcripts. Default: the last 30 days, by c
 | `--by` | Group by `command`, `ticket`, `day` or `model` |
 | `--prices file.json` | Use your own prices per million tokens |
 
-### check-update
+### update
 
-`/quality-code:check-update`
+`/quality-code:update`
 
 No options. Shows your version, the latest one and what changed, then updates on your yes.
 
@@ -340,8 +340,8 @@ No options. Shows your version, the latest one and what changed, then updates on
 
 | Platform | How | Status |
 |---|---|---|
-| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `check-update` |
-| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `check-update`; not yet tried inside Copilot |
+| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `update` |
+| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `update`; not yet tried inside Copilot |
 | **OpenAI Codex** (CLI, IDE) | `quality-code-mcp --init codex --write`: skills, plus a TOML for `~/.codex/config.toml` | same; not yet tried inside Codex |
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
@@ -395,7 +395,7 @@ On Claude Code older than 2.1.275, use two steps:
 - **Copilot, Codex, Cursor and Gemini CLI.** `quality-code-mcp --init copilot|codex|cursor|gemini --write` writes the
   local MCP config and one wrapper per command for that agent (prompt files, skills, commands, a Gemini extension).
   See [the MCP server README](plugins/quality-code/mcp-server/README.md). Not yet tried inside those tools.
-- **`/quality-code:check-update`: is a newer version out?** It compares the version you run with the latest on GitHub,
+- **`/quality-code:update`: is a newer version out?** It compares the version you run with the latest on GitHub,
   lists what changed in each newer version, and gives the two commands to type (`/plugin update quality-code@teamsystem`,
   then `/reload-plugins`) and, on your pick, runs the update for you.
 - **`/quality-code:routine`: a check Claude runs by itself.** Pick a ticket or the whole suite, a time (a cron, or

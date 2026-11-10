@@ -148,7 +148,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      3. To try it by hand, `/quality-code:seed <KEY>` loads mock data for it into your local database.
      4. Before the merge request, `/quality-code:check --branch` grades the tests changed on your branch.
 
-     `/quality-code:config` changes a setting, `/quality-code:check-update` checks for new versions.
+     `/quality-code:config` changes a setting, `/quality-code:update` checks for new versions.
 
      Next: `/quality-code:spec`
      ```
@@ -161,7 +161,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      2. Run `/quality-code:xray <KEY>`: it writes the ticket's Xray test cases, ready to import.
      3. Run `/quality-code:qa <EXECUTION KEY>`: it runs your test execution with you in the browser and drafts each defect.
 
-     `/quality-code:config` changes a setting, `/quality-code:check-update` checks for new versions.
+     `/quality-code:config` changes a setting, `/quality-code:update` checks for new versions.
 
      Next: `/quality-code:ticket <KEY> --eval`
      ```
@@ -174,7 +174,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      2. Run `/quality-code:ticket <PROJECT> --eval`: it shows how ready the backlog is, ticket by ticket.
      3. For a weak ticket, run `/quality-code:ticket <KEY> --eval`: it says what to add so it can be built and tested.
 
-     `/quality-code:config` changes a setting, `/quality-code:check-update` checks for new versions.
+     `/quality-code:config` changes a setting, `/quality-code:update` checks for new versions.
 
      Next: `/quality-code:ticket <PROJECT> --eval`
      ```

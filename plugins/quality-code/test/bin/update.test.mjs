@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareVersions, diskVersion, fetchLatest, githubRepo, main, newerSections, statusOf } from '../../bin/check-update.mjs'
+import { compareVersions, diskVersion, fetchLatest, githubRepo, main, newerSections, statusOf } from '../../bin/update.mjs'
 
 const REPO = 'https://github.com/vissz28/agentic-testing'
 const MANIFEST = version => ({ name: 'quality-code', version, repository: REPO })

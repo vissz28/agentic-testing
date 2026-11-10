@@ -19,8 +19,8 @@ On Claude Code older than 2.1.275: `/plugin marketplace add vissz28/agentic-test
 
 | Platform | How | Status |
 |---|---|---|
-| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `check-update` |
-| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `check-update`; not yet tried inside Copilot |
+| **Claude Code** (CLI, desktop app) | the plugin: `/plugin install quality-code@teamsystem` | full support: every command, the boundary hook, `routine`, `update` |
+| **GitHub Copilot** (VS Code) | `quality-code-mcp --init copilot --write`: MCP config and prompt files | every command except `routine` and `update`; not yet tried inside Copilot |
 | **OpenAI Codex** (CLI, IDE) | `quality-code-mcp --init codex --write`: skills, plus a TOML for `~/.codex/config.toml` | same; not yet tried inside Codex |
 | **Cursor** | `quality-code-mcp --init cursor --write`: MCP config and commands | same; not yet tried inside Cursor |
 | **Gemini CLI** | `quality-code-mcp --init gemini --write`: an extension folder | same; not yet tried inside Gemini CLI |
@@ -53,7 +53,7 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 | `/quality-code:check --smoke` | runs only the tests tagged `@smoke` (the critical few), fast, against the running app or `--url URL`; changes nothing |
 | `/quality-code:check` | runs both, the full suite, in one run (`--branch`: only the tests your branch changed) |
 | `/quality-code:routine` | a check Claude runs by itself on a schedule (a time, for a period or once): fetches what others pushed, runs a ticket's tests or the whole suite, says when it went from green to red and which commits came in between, and with `--stability N` runs every test N times to watch flaky tests and the pass rate over time |
-| `/quality-code:check-update` | says whether a newer version of the plugin is out, lists what changed since yours, and updates it on your pick (`claude plugin update`); then asks you to type `/reload-plugins` |
+| `/quality-code:update` | says whether a newer version of the plugin is out, lists what changed since yours, and updates it on your pick (`claude plugin update`); then asks you to type `/reload-plugins` |
 | `/quality-code:ci` | writes the GitHub Actions or GitLab CI file: a gate on the specs each pull or merge request changes (honesty, assertions, frozen evals; git and node only) and the tests (types, tests and mutation on the changed specs; a code-only change runs its side's whole suite without mutation), install and Docker guessed from the repo |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | loads realistic mock data for a ticket into your local database, to test it by hand in the running app (local databases only; set up with the `seed` block) |
