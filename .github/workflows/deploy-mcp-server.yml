@@ -1,0 +1,103 @@
+# Build the Quality Code MCP server image in Azure and deploy it to an Azure Container App.
+# Same way as SpritePinky's .gitlab-ci.yml: service principal sign-in, `az acr build` (the build runs in
+# Azure, so the image is always linux/amd64 whatever machine starts it), then `az containerapp update`
+# with a revision suffix; one environment per name (dev, test, main), main behind a manual approval.
+#
+# Run by hand: Actions > "Deploy MCP server" > Run workflow > pick dev, test or main.
+# It does not run on push, so a release tag never deploys by itself.
+#
+# Setup (once). In GitHub > Settings > Environments create dev, test and main (add a required reviewer to main):
+#   Secrets (per environment, or repository-wide when the same service principal is used):
+#     AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID     service principal (az login + acr build + containerapp update)
+#   Variables:
+#     ACR_NAME           the registry, without .azurecr.io
+#     RESOURCE_GROUP     the resource group of the registry and the Container App
+#     APP_NAME           the Container App of this environment, for example quality-code-mcp-dev
+#     PUBLIC_URL         its address, for example https://qualitycode-dev.teamsystem.cloud
+# The Container App must already exist, with its Entra variables and secrets (see mcp-server/DEPLOY.md):
+# this workflow only changes its image.
+name: Deploy MCP server
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [dev, test, main]
+        default: dev
+
+concurrency:
+  group: deploy-mcp-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/quality-code/mcp-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pytest
+      - run: python -m pytest -q tests --ignore=tests/test_online_e2e.py
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.PUBLIC_URL }}/health
+    env:
+      IMAGE_TAG: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plugin version
+        id: version
+        run: echo "value=$(jq -r .version plugins/quality-code/.claude-plugin/plugin.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in to Azure
+        run: az login --service-principal -u "${{ secrets.AZURE_CLIENT_ID }}" -p "${{ secrets.AZURE_CLIENT_SECRET }}" --tenant "${{ secrets.AZURE_TENANT_ID }}" --output none
+
+      # The build context is the plugin folder, as in mcp-server/Dockerfile's header.
+      - name: Build the image in Azure
+        run: |
+          az acr build \
+            --registry "${{ vars.ACR_NAME }}" \
+            --image "quality-code-mcp:$IMAGE_TAG" \
+            --image "quality-code-mcp:${{ steps.version.outputs.value }}-${GITHUB_SHA::7}" \
+            --file mcp-server/Dockerfile \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            plugins/quality-code
+
+      - name: Deploy to the Container App
+        run: |
+          az containerapp update \
+            --name "${{ vars.APP_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --image "${{ vars.ACR_NAME }}.azurecr.io/quality-code-mcp:${{ steps.version.outputs.value }}-${GITHUB_SHA::7}" \
+            --revision-suffix "g${GITHUB_SHA::7}"
+
+      # The checks of mcp-server/DEPLOY.md: /health is 200, /mcp without a token is 401.
+      - name: Check the deployment
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.PUBLIC_URL }}/health" || true)
+            [ "$code" = "200" ] && break
+            sleep 10
+          done
+          echo "health: $code"
+          [ "$code" = "200" ]
+          mcp=$(curl -s -o /dev/null -w '%{http_code}' -X POST "${{ vars.PUBLIC_URL }}/mcp" -H 'content-type: application/json' -d '{}')
+          echo "mcp without token: $mcp"
+          [ "$mcp" = "401" ]
+
+      - name: Summary
+        run: echo "Deployed ${{ steps.version.outputs.value }} (${GITHUB_SHA::7}) to ${{ inputs.environment }}: ${{ vars.PUBLIC_URL }}/mcp" >> "$GITHUB_STEP_SUMMARY"
