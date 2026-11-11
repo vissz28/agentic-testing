@@ -1,4 +1,4 @@
-// XRay test cases: the CSV rows the old warehouse harness wrote, the per-ticket files, and the script's CLI.
+// Xray test cases: the CSV rows the old warehouse harness wrote, the per-ticket files, and the script's CLI.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -103,7 +103,7 @@ test('add: creates the CSV, writes the ticket case.csv, says there is no case.xl
   writeFileSync(join(d, 'cases.json'), JSON.stringify([CASE, { ...CASE, key: 'Extra: a long code', steps: [{ action: 'Type 250 Z' }] }]))
   const r = await run(d, 'add', '@cases.json')
   assert.equal(r.code, 0, r.err)
-  assert.equal(r.out, 'XRay test cases in qa/cases.csv:\nTC 1: Shows the empty message\nTC 2: Extra: a long code\nFor QA: e2e/tickets/ABC-1/case.csv\nNo exceljs in this project, so no case.xlsx: Xray imports case.csv as well.\n')
+  assert.equal(r.out, 'Xray test cases in qa/cases.csv:\nTC 1: Shows the empty message\nTC 2: Extra: a long code\nFor QA: e2e/tickets/ABC-1/case.csv\nNo exceljs in this project, so no case.xlsx: Xray imports case.csv as well.\n')
   assert.equal(readFileSync(join(d, 'e2e/tickets/ABC-1/case.csv'), 'utf8'), readFileSync(join(d, 'qa/cases.csv'), 'utf8'))
   assert.equal(existsSync(join(d, 'e2e/tickets/ABC-1/case.xlsx')), false)
 })
@@ -119,7 +119,7 @@ test('add: one bad case writes nothing; bad JSON, usage and a missing xray block
   assert.equal((await run(d, 'sync', '../x')).code, 2)
   const off = await run(project(null), 'add', JSON.stringify(CASE))
   assert.equal(off.code, 2)
-  assert.match(off.err, /XRay test cases are off in this project/)
+  assert.match(off.err, /Xray test cases are off in this project/)
 })
 
 test('sync rewrites one ticket or all from the CSV; a ticket that is not a Jira key gets no folder', async () => {
@@ -129,8 +129,8 @@ test('sync rewrites one ticket or all from the CSV; a ticket that is not a Jira 
   assert.equal(all.code, 0, all.err)
   assert.match(all.out, /For QA: e2e\/tickets\/ABC-1\/case\.csv\nFor QA: e2e\/tickets\/ABC-2\/case\.csv\nskipped "\.\.\/evil": not a Jira key/)
   assert.equal(existsSync(join(d, 'e2e/evil')), false)
-  assert.match((await run(d, 'sync', 'ABC-9')).out, /No XRay test case for ABC-9/)
-  assert.match((await run(project(), 'sync')).out, /No XRay test cases yet: qa\/cases\.csv does not exist/)
+  assert.match((await run(d, 'sync', 'ABC-9')).out, /No Xray test case for ABC-9/)
+  assert.match((await run(project(), 'sync')).out, /No Xray test cases yet: qa\/cases\.csv does not exist/)
 })
 
 test('the folder defaults to the tickets folder', () => {

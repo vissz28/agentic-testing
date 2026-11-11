@@ -97,7 +97,7 @@ export function formatRiskComment(config, brief) {
   const msgs = messagesFor(config, templateFor(brief.issuetype, config))
   const gaps = authorGaps(config, brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
   return [
-    `Tests were written for this ticket although it is not complete: it has ${brief.score} of the ${brief.threshold} points it needs.`,
+    `Tests were written for this ticket although it is not complete: it has ${brief.score} points and needs ${brief.threshold}.`,
     '',
     '🔴 [RISK / NOT RECOMMENDED] The tests check what the ticket says today. Until the missing parts are added, they may check the wrong thing.',
     ...(gaps.length ? ['', 'Still missing:', ...gaps] : []),

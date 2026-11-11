@@ -5,7 +5,7 @@ import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFea
 // label and a QA plan carry weight.
 const weights = {
   ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description'],
-  ac_testable: [15, 'testable AC — each Then or AC item an observable assertion, not "works correctly"'],
+  ac_testable: [15, 'testable acceptance criteria — each one names a result you can see, not "works correctly"'],
   steps: [10, 'steps to reproduce (Bug) or a user story (Story)'],
   expected_defined: [10, 'clear expected behavior (or Expected vs Actual for a bug)'],
   attachments: [10, 'an attachment (a screenshot, a video or a file on the ticket)'],
@@ -49,24 +49,24 @@ function briefExtras(config, ticket, feature) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [], omitted = new Set() } = brief
-  const band = legacy ? 'legacy / unstructured' : gate === 'pass' ? 'ready' : 'too thin'
+  const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
+  const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'
-      ? 'pass — ok to generate.'
-      : `refuse — below ${threshold}%. Do not generate. Add the missing items on the ticket, then re-run.${legacy ? ' Legacy ticket, no template structure.' : ''}`
+      ? 'ready — tests can be written.'
+      : `not ready — below ${threshold} points. Do not write tests. Add the missing items on the ticket, then run again.${legacy ? ' The ticket is free text only.' : ''}`
   const shown = missing.filter(m => !omitted.has(m.key))
   return [
-    `${key} — test-readiness ${score}% · ${band} (threshold ${threshold}%)`,
+    `${key} — test-readiness ${score}/100 · ${band} (needs ${threshold})`,
     `Feature: ${feature || 'none'}${route ? ` → ${route}` : ''}`,
     omitted.has('qa_plan_found') ? null : `QA plan: ${qaPlan?.url ? `found — ${qaPlan.title || qaPlan.url} · ${(qaPlan.scenarios || []).length} scenarios` : 'not found'}`,
-    `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to assert on`,
+    `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to test`,
     `Figma: ${figma || 'none'}   ·   MR: ${mr || 'none'}`,
     shown.length
-      ? `Missing (each lowers the score):\n${shown.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
+      ? `Missing (points each would add):\n${shown.map(m => `  - ${m.label} (+${gains[m.key] ?? m.weight})`).join('\n')}`
       : 'Missing: nothing — full marks.',
     flags.length ? `Flags:\n${flags.map(f => `  - ${f}`).join('\n')}` : 'Flags: none',
-    `Gate: ${gateLine}`,
+    `Result: ${gateLine}`,
   ].filter(Boolean).join('\n')
 }
 
@@ -87,6 +87,6 @@ export default {
     if (config.confluence === false || (!searchable && !ticket?.qaPlan?.url)) keys.add('qa_plan_found')
     return keys
   },
-  legacyFlag: threshold => `legacy / unstructured — no template structure. Refused until the ticket meets the ${threshold}% bar.`,
+  legacyFlag: threshold => `free text only — no sections such as Acceptance criteria or Steps. Refused until it reaches ${threshold} points.`,
   formatReport,
 }

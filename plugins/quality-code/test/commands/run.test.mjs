@@ -1,4 +1,4 @@
-// /quality-code:check is a prompt, not code: one thin command over one shared guide, a flag per suite. These pin its flow and its safety rules.
+// /quality-code:check is a prompt, not code: one thin command over one shared guide, a flag per suite. These pin its style and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'

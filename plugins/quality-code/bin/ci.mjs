@@ -31,7 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print]'
 const HEADER = '# Quality Code'
 const FETCH_HINT = 'fetch the full history: fetch-depth 0 on GitHub, GIT_DEPTH 0 on GitLab'
-const WORDS = { green: 'green', tests_red: 'tests red', checks_failed: 'checks failed', not_verified: 'not verified', skipped: 'skipped' }
+const WORDS = { green: 'all good', tests_red: 'tests fail', checks_failed: 'problem in the tests', not_verified: 'could not run', skipped: 'skipped' }
 export const ORDER = { green: 0, skipped: 0, tests_red: 1, checks_failed: 1, not_verified: 3 }
 
 /** What the pull or merge request targets, as the CI tells it; null outside one. GitLab's SHA needs no fetched branch. */
@@ -220,7 +220,7 @@ function init(root, config, a, stdout, stderr) {
 async function gate(root, config, a, env, stdout) {
   const det = detect(root, config, { base: a.base ?? baseFromEnv(env) })
   const cannot = !det.isRepo ? 'this is not a git checkout' : !det.base || !det.mergeBase ? `the target branch was not found (${FETCH_HINT})` : det.shallow ? `the checkout is shallow (${FETCH_HINT})` : null
-  if (cannot) { stdout(`quality-code ci: not verified: ${cannot}, so the changed specs cannot be read.\n`); return 3 }
+  if (cannot) { stdout(`quality-code ci: could not run: ${cannot}, so the changed specs cannot be read.\n`); return 3 }
   if (det.onBase) { stdout(`quality-code ci: this is ${det.base.replace(/^origin\//, '')} itself, nothing to compare.\n`); return 0 }
   const changed = det.files.filter(f => f.committed && f.kind === 'test')
   const head = `quality-code ci · changes since ${det.base}`
@@ -241,7 +241,7 @@ async function gate(root, config, a, env, stdout) {
   if (evals.length) results.push(result('evals', drift.length ? 'fail' : 'pass', drift.length ? `${drift.length} of ${evals.length} frozen fixture(s) drifted` : `${evals.length} frozen fixture(s) hold`, drift.flatMap(r => r.problems.map(p => ({ file: r.key, detail: p })))))
 
   const code = Math.max(...results.map(r => EXIT[r.status]))
-  stdout(`${results.map(r => formatResult({ ...r, check: label(r.check) })).join('\n')}\n\nResult: ${code === 0 ? 'PASSED' : code === 1 ? 'FAILED' : 'NOT VERIFIED'}${code ? ` (exit ${code})` : ''}\n`)
+  stdout(`${results.map(r => formatResult({ ...r, check: label(r.check) })).join('\n')}\n\nResult: ${code === 0 ? 'PASSED' : code === 1 ? 'FAILED' : 'COULD NOT RUN'}${code ? ` (exit ${code})` : ''}\n`)
   return code
 }
 
@@ -319,7 +319,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!specs.length) {
       // Zero tests must never read as a pass.
       phases.push({ name: job.name, verdict: 'not_verified', detail: `no ${runner} spec files found in the project's test folders` })
-      stdout(`\n== ${job.name} (${runner}) · not verified\nNo ${runner} spec files found in the project's test folders.\n`)
+      stdout(`\n== ${job.name} (${runner}) · could not run\nNo ${runner} spec files found in the project's test folders.\n`)
       continue
     }
     if (job.note) stdout(`\n(${job.note}: running the whole ${job.side} suite, without mutation)`)
@@ -327,7 +327,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!outcome) {
       const detail = (r.stderr || r.stdout || 'the pipeline did not answer').trim()
       phases.push({ name: job.name, verdict: 'not_verified', detail })
-      stdout(`\n== ${job.name} (${runner}) · not verified\n${detail}\n`)
+      stdout(`\n== ${job.name} (${runner}) · could not run\n${detail}\n`)
       continue
     }
     const t = outcome.steps?.find(x => x.check === 'tests')?.data ?? {}
@@ -337,7 +337,7 @@ async function tests(root, config, a, env, stdout, stderr) {
   if (scope.mode === 'changes' && !jobs.length) stdout('\nNothing to test: no backend or frontend test or code changed.\n')
 
   const code = phases.reduce((m, p) => Math.max(m, ORDER[p.verdict] ?? 3), 0)
-  const verdict = code === 0 ? (jobs.length ? 'PASSED' : 'NOTHING TO TEST') : code === 1 ? 'FAILED' : 'NOT VERIFIED'
+  const verdict = code === 0 ? (jobs.length ? 'PASSED' : 'NOTHING TO TEST') : code === 1 ? 'FAILED' : 'COULD NOT RUN'
   const width = Math.max(9, ...phases.map(p => p.name.length))
   stdout(`\nSummary\n${phases.map(p => `  ${p.name.padEnd(width)} ${WORDS[p.verdict] ?? p.verdict}${p.passed !== undefined ? ` · ${p.passed} passed · ${p.failed} failed` : ''}`).join('\n')}\nResult: ${verdict}${code ? ` (exit ${code})` : ''}\n`)
 

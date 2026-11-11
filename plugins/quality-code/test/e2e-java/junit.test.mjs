@@ -156,7 +156,7 @@ test('a red JUnit spec: the tests are red, with the assertion\'s message', { ski
   assert.match(r.step('tests').findings[0].detail, /expected: <1351> but was: <1350>/)
 })
 
-test('a spec that does not compile is not verified, with the compiler\'s line', { skip, timeout: LONG }, async t => {
+test('a spec that does not compile is could not run, with the compiler\'s line', { skip, timeout: LONG }, async t => {
   const d = project()
   put(d, SPECS.broken, BROKEN)
   try {

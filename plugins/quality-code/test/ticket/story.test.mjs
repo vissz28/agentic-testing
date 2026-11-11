@@ -90,7 +90,7 @@ test('story-check: flags a thin ticket and prints the machine line', () => {
 test('story-check --draft: re-scores the draft and shows old and new score', () => {
   const r = run(proj(), 'story-check', '--in', '@t.json', '--draft', '@draft.md')
   assert.equal(r.status, 0, r.stderr)
-  assert.match(r.stdout, /^Score: \d+ before, \d+ with the new story \(the bar is 70\)\./m)
+  assert.match(r.stdout, /^Score: \d+ before, \d+ with the new story \(needs 70\)\./m)
   const j = JSON.parse(r.stdout.match(/^STORY_SCORE_JSON:(.*)$/m)[1])
   assert.ok(j.after.score > j.before.score, 'the structured draft scores higher than the thin description')
   assert.deepEqual(j.shape.missing, [])

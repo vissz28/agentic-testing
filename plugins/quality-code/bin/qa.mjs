@@ -155,7 +155,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       const counts = Object.fromEntries(VERDICTS.map(v => [v, answered.filter(k => s.tests[k].verdict === v).length]))
       const pending = order.filter(k => !s.tests[k])
       const data = { run, story: s.story, app: s.app, closed: s.closed, startedAt: s.startedAt, counts, answered: answered.length, pending, tests: s.tests, ...stopCheck(s.tests, qa.blockedStop), exists: existsSync(runFile(run)) }
-      out(data.exists ? `${run}: ${answered.length} answered (${counts.ok} OK, ${counts.ko} KO, ${counts.blocked} blocked, ${counts.skipped} skipped)${order.length ? `, ${pending.length} still to do` : ''}` : `${run}: no saved progress`, { tag: 'QA_STATE_JSON', data })
+      out(data.exists ? `${run}: ${answered.length} answered (${counts.ok} passed, ${counts.ko} failed, ${counts.blocked} blocked, ${counts.skipped} skipped)${order.length ? `, ${pending.length} still to do` : ''}` : `${run}: no saved progress`, { tag: 'QA_STATE_JSON', data })
       return 0
     }
     if (sub === 'record') {

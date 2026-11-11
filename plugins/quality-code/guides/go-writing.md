@@ -7,7 +7,7 @@ When the project already has tests, follow its own naming, folders, base classes
 The generic rules `/quality-code:spec` always follows for a Go backend (`go test`). A layer's own
 `guide` (set in `go.layers`) adds the team's conventions on top of these and wins where they differ.
 The pipeline reads the tests with simple rules: a test written another way may run, but the checks
-cannot grade it, and the step stays "not verified".
+cannot grade it, and the step stays "could not run".
 
 ## Shape
 
@@ -98,7 +98,7 @@ func TestVAT(t *testing.T) {
   `if` block. `cmp.Diff` works the same way: `if diff := cmp.Diff(want, got); diff != "" { t.Errorf(…) }`.
 - Not read: `a := assert.New(t); a.Equal(…)`, helper functions that hide the `t.Errorf`, gomega,
   custom checkers. A scenario with no assertion the pipeline reads is "not mutated" and the run is
-  not verified.
+  could not run.
 - Prefer the exact check: `assert.Equal(t, 42, got)` over `assert.Greater(t, got, 0)`,
   `assert.ErrorIs(t, err, ErrNoStock)` over `assert.Error(t, err)`.
 - A behaviour the ticket does not pin down is a scenario whose body is only

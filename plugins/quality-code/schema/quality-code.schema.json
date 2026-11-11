@@ -268,7 +268,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["csv"],
-      "description": "Optional, Playwright and fullstack only: write XRay test cases for QA. /quality-code:spec adds one case per Playwright test it writes, /quality-code:xray writes them without tests.",
+      "description": "Optional, Playwright and fullstack only: write Xray test cases for QA. /quality-code:spec adds one case per Playwright test it writes, /quality-code:xray writes them without tests.",
       "properties": {
         "csv": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "The CSV with every case, a relative path ending in .csv. Created on first use." },
         "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where each ticket's case.csv (and case.xlsx, when the project has exceljs) go, as <folder><KEY>/, ending in /. Default: the tickets folder." },

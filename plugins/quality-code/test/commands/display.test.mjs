@@ -104,14 +104,14 @@ test('richer cards: headline row with bar and gate, Next line, collapsible detai
   const rich = guide.split('## Richer cards')[1].split('## The wrap-up')[0]
   assert.match(rich, /change none of it/)
   assert.match(rich, /ten squares, one per 10 points of the printed score, rounded down \(`■` filled, `□` empty\)/)
-  assert.match(rich, /`\*\*✅ ready\*\* · ■■■■■■■■□□ 82% · gate 70`/)
+  assert.match(rich, /`\*\*✅ ready\*\* · ■■■■■■■■□□ 82\/100 · needs 70`/)
   assert.match(rich, /`5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`/)
   assert.match(rich, /a number the script does not print is never added/)
   assert.match(rich, /\*\*The Next line\.\*\*[^\n]*`Next: `[^\n]*Never more than two[^\n]*none with `--ci`/)
   assert.match(rich, /<details><summary>All 14 tests<\/summary>/)
   assert.match(rich, /<\/details>/)
   assert.match(rich, /more than 8 rows[^\n]*after the table/)
-  assert.match(rich, /✅ pass or ready, ❌ failed or refused, ⚠️ not run, not verified or a warning, 🔴 tests red or a risk, ➖ not applicable/)
+  assert.match(rich, /✅ pass or ready, ❌ failed or refused, ⚠️ not run, could not run or a warning, 🔴 tests fail or a risk, ➖ not applicable/)
   // the old rules are untouched
   assert.match(guide, /At most 8 rows; then a last row `… and N more`/)
   assert.match(guide, /\*\*at most 400 words\*\*/)
@@ -127,5 +127,5 @@ test('the result commands lay their cards out with the richer cards', () => {
   // check follows guides/run.md for every suite
   assert.ok(read('commands/check.md').includes('guides/run.md'))
   assert.match(read('guides/run.md'), /`<details>` block after the table/)
-  assert.match(read('guides/ticket-eval.md'), /`■■■■■■■■□□ 82% · gate 70`/)
+  assert.match(read('guides/ticket-eval.md'), /`■■■■■■■■□□ 82\/100 · needs 70`/)
 })

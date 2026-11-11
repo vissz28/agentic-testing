@@ -10,7 +10,7 @@ const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const CUSTOMER_ID = /\bU\d{5,}\b/g
 const DAY = 86400000
 const MAX_DAYS = 31
-const VERDICTS = [['green', 'green', 'pass'], ['checks_failed', 'checks failed', 'warn'], ['tests_red', 'tests red', 'fail'], ['not_verified', 'not verified', 'idle']]
+const VERDICTS = [['green', 'all good', 'pass'], ['checks_failed', 'problem in the tests', 'warn'], ['tests_red', 'tests fail', 'fail'], ['not_verified', 'could not run', 'idle']]
 const BANDS = [['0-29', 0, 29, 'fail'], ['30-49', 30, 49, 'fail'], ['50-69', 50, 69, 'warn'], ['70-89', 70, 89, 'pass'], ['90-100', 90, 100, 'pass']]
 const FOOT = 'Keys, scores and numbers only. Built on this machine; nothing was sent anywhere.'
 
@@ -122,7 +122,7 @@ export function ticketsEvalReport({ rows, summary }, { config = null, project = 
     grid([
       card('Passing', gauge(summary.passingPercent, { label: 'Tickets passing the gate', target: 100 })),
       card('Score distribution', hbar(bands, { name: 'Tickets per score band' }), { note: 'The gate passes at 70.' }),
-      card('Score per ticket', hbar(shown.map(r => ({ label: safeKey(config, r.key), value: r.score, text: `${r.score}%`, tone: r.gate === 'pass' ? 'pass' : r.score >= 50 ? 'warn' : 'fail' })), { max: 100, marker: 70, name: 'Readiness score per ticket' }), { wide: true, note: rows.length > shown.length ? `The ${shown.length} lowest scores of ${rows.length}. The dashed line is the 70-point gate.` : 'Lowest first. The dashed line is the 70-point gate.' }),
+      card('Score per ticket', hbar(shown.map(r => ({ label: safeKey(config, r.key), value: r.score, text: `${r.score}/100`, tone: r.gate === 'pass' ? 'pass' : r.score >= 50 ? 'warn' : 'fail' })), { max: 100, marker: 70, name: 'Readiness score per ticket' }), { wide: true, note: rows.length > shown.length ? `The ${shown.length} lowest scores of ${rows.length}. The dashed line is the 70-point gate.` : 'Lowest first. The dashed line is the 70-point gate.' }),
       card('Most often missing', hbar(summary.mostMissing.map(m => ({ label: s(m.item), value: m.tickets, tone: 'warn' })), { name: 'Most often missing', emptyText: 'Nothing is missing.' })),
       ...(summary.byTeam?.length ? [card('Pass rate per component', hbar(summary.byTeam.map(x => ({ label: s(x.team), value: x.passingPercent, text: `${x.passingPercent}% of ${x.scored}`, tone: x.passingPercent >= 70 ? 'pass' : 'warn' })), { max: 100, name: 'Pass rate per component' }))] : []),
     ]),

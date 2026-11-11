@@ -1,4 +1,4 @@
-// The xray command is a prompt, not code: these pin its flow and its rules.
+// The xray command is a prompt, not code: these pin its style and its rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -29,7 +29,7 @@ test('the rules: the script writes the files, never invent, no tokens, no spec a
 test('step 1: --sync runs only the script; config check; no xray block stops; connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes(`${XRAY} sync`))
-  assert.ok(s.includes('`XRay test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "XRay test cases").`'))
+  assert.ok(s.includes('`Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").`'))
   assert.ok(s.includes('config check'))
   assert.ok(s.includes('guides/connectors.md'))
   assert.match(s, /Jira is required/)
@@ -37,9 +37,9 @@ test('step 1: --sync runs only the script; config check; no xray block stops; co
 test('step 2: the gate is ticket-eval steps 1-5; option 3 and a backend ticket stop', () => {
   const s = step(2)
   assert.match(s, /guides\/ticket-eval\.md` and follow its steps 1–5/)
-  assert.ok(s.includes('`XRay test cases need a ticket that passes the gate.`'))
+  assert.ok(s.includes('`Xray test cases need a ticket that passes the gate.`'))
   assert.match(s, /Option 3/)
-  assert.ok(s.includes('`XRay test cases are written for frontend tickets (Playwright tests).`'))
+  assert.ok(s.includes('`Xray test cases are written for frontend tickets (Playwright tests).`'))
   assert.match(s, /the ticket's wins/)
 })
 test('step 4: the extras come from the Playwright guide, at most 3, and the card is shown', () => {
@@ -57,8 +57,8 @@ test('step 5: one case per test, named as write names the tests, then the script
   assert.match(s, /Leave out\*\* what you do not know/)
 })
 test('write adds the cases for the Playwright tests it wrote, by this command\'s step 5, and is never stopped by it', () => {
-  assert.match(write, /\*\*XRay test cases\*\* \(Playwright tests, only when the config has an `xray` block\): read `\$\{CLAUDE_PLUGIN_ROOT\}\/commands\/xray\.md` step 5/)
-  assert.match(write, /XRay is not a check/)
+  assert.match(write, /\*\*Xray test cases\*\* \(Playwright tests, only when the config has an `xray` block\): read `\$\{CLAUDE_PLUGIN_ROOT\}\/commands\/xray\.md` step 5/)
+  assert.match(write, /Xray is not a check/)
   assert.match(write, /the lines `xray\.mjs add` printed in step 5/)
   assert.match(write, /Read `playwright\.guide`, `features` and `xray` too/)
 })

@@ -1,4 +1,4 @@
-// The spec command is a prompt, not code: these pin its flow and its safety rules.
+// The spec command is a prompt, not code: these pin its style and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -85,7 +85,7 @@ test('step 4: reads the generic guide and each layer guide, then the plan card',
   assert.match(s, /`guide` of each layer/)
   assert.ok(s.includes('1. Yes, write these tests\n     2. No, stop\n     3. Something else'))
   assert.ok(s.includes('`1. Change the layers`, `2. The result is different: I\'ll type it`, `3. Something else: I\'ll say it in words`, `4. Back`'))
-  assert.match(s, /Runner   <runner and libraries> \(<your project's \| Quality Code's default>\)\n       Writes   <file path> \(<new \| adds to existing>\)/)
+  assert.match(s, /Tool     <runner and libraries> \(<your project's \| Quality Code's default>\)\n       Writes   <file path> \(<new \| adds to existing>\)/)
   // The read-back: each scenario says what it checks, and a wrong result goes to the ticket, never into a test.
   assert.match(s, /under it the result it checks, as a plain sentence from the ticket's Then/)
   assert.ok(s.includes('`ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json ac_present -- "<answer>"`'))
@@ -214,7 +214,7 @@ test('playwright step 4: the plugin guide, the team guide, two existing specs, t
   assert.match(s, /never show them in the chat/)
   assert.match(s, /at most 3 extra probes/)
   assert.ok(s.includes('`--no-extras`'))
-  assert.ok(s.includes('Tests for <KEY>, on <route>\n       Runner   <runner and libraries> (<your project\'s | Quality Code\'s default>)\n       Writes   <file path> (<new | adds to existing>)\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <probe, in a few words>\n       Negative: <N> cases\n         <negative case, in a few words>\n       Accessibility: axe on <N> screens\n     1. Yes, write these tests\n     2. No, stop\n     3. Something else'))
+  assert.ok(s.includes('Tests for <KEY>, on <route>\n       Tool     <runner and libraries> (<your project\'s | Quality Code\'s default>)\n       Writes   <file path> (<new | adds to existing>)\n       From the ticket\n         <scenario, in a few words>\n       Extra (not in the ticket)\n         <extra check, in a few words>\n       Errors and invalid input: <N> cases\n         <negative case, in a few words>\n       Accessibility: checked on <N> screens\n     1. Yes, write these tests\n     2. No, stop\n     3. Something else'))
   assert.match(s, /with no extra probe, leave out `Leave out the extras` and number the rest in order/)
 })
 test('playwright step 5: run start first (shared), the file name, the describe and test tags, web-first values, fixme', () => {
@@ -467,7 +467,7 @@ test('the project\'s runner: tests in its own syntax; Cypress specs end in .cy.t
   const s = step(5)
   assert.match(s, /With Cypress, the name ends in `\.cy\.ts`/)
   assert.match(s, /With Cypress: `cy\.visit\('<route>'\)`/)
-  assert.match(s, /XRay test cases[^\n]*Not with Cypress\./)
+  assert.match(s, /Xray test cases[^\n]*Not with Cypress\./)
   assert.match(step(6), /With Cypress, tag nothing \(it has no tags\)/)
   assert.ok(step(6).includes('`The tests open the app: it must already be running (Cypress does not start it).`'))
 })

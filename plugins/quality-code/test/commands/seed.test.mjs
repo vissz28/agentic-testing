@@ -1,4 +1,4 @@
-// The seed command is a prompt, not code: these pin its flow and its safety rules.
+// The seed command is a prompt, not code: these pin its style and its safety rules.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'

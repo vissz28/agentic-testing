@@ -186,21 +186,21 @@ function run(argv, env, cwd) {
     } catch (e) { err(`${basename(path)}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`); return 2 }
   }
   if (cmd === 'config' && a._[0] === 'flow') {
-    // How this run writes tests: the project's own flow (its naming and folders) or Quality Code's.
-    // --flow project|quality-code (one run) wins over testFlow in the config; with neither, the project's
+    // How this run writes tests: the project's own style (its naming and folders) or Quality Code's.
+    // --style project|quality-code (one run) wins over testStyle in the config; with neither, the project's
     // when it has tests, else Quality Code's.
     const flag = a._[1]
     if (flag !== undefined && !['project', 'quality-code', 'both'].includes(flag)) { err('usage: ticket.mjs config flow [project|quality-code|both]'); return 2 }
     const conv = detectConventions(root)
     const flow = runFlow(config, conv, flag)
     out(flow === 'both'
-      ? "flow: both: each test is written in the project's own flow and in Quality Code's (the ticket key in the file name)"
+      ? "test style: both: every test is written twice, like the project's existing tests and the Quality Code way (the ticket key in the file name)"
       : flow === 'project'
       ? (conv.specs > 0
-        ? `flow: the project's own: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
-        : "flow: the project's own, but it has no tests yet: Quality Code's naming is used until it has")
-      : 'flow: Quality Code: the ticket key in the file name, the configured test folders')
-    out(`FLOW_JSON:${JSON.stringify({ flow, source: flag ? 'run' : config.testFlow ? 'config' : 'detected', configured: config.testFlow ?? null, ...conv })}`)
+        ? `test style: like the existing tests: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
+        : "test style: like the existing tests, but the project has none yet: Quality Code's naming is used until it has")
+      : 'test style: the Quality Code way: the ticket key in the file name, the configured test folders')
+    out(`FLOW_JSON:${JSON.stringify({ flow, source: flag ? 'run' : config.testStyle ? 'config' : 'detected', configured: config.testStyle ?? null, ...conv })}`)
     return 0
   }
   if (cmd === 'config' && a._[0] === 'test-home') {
@@ -359,7 +359,7 @@ function run(argv, env, cwd) {
       const shape = storyShape(draft)
       const r = { key: ticket.key ?? null, before: { score: before.score, gate: before.gate }, after: { score: after.score, gate: after.gate, missing: after.missing.map(m => m.label) }, threshold: after.threshold, shape, check: checkStory(drafted) }
       if (a.flags.has('--json')) { out(JSON.stringify(r)); return 0 }
-      out(`Score: ${before.score} before, ${after.score} with the new story (the bar is ${after.threshold}).`)
+      out(`Score: ${before.score} before, ${after.score} with the new story (needs ${after.threshold}).`)
       if (shape.missing.length) out(`Missing sections: ${shape.missing.join(', ')}.`)
       if (after.missing.length) out(`Still missing: ${after.missing.map(m => m.label).join('; ')}.`)
       out(`STORY_SCORE_JSON:${JSON.stringify(r)}`)
@@ -382,7 +382,7 @@ function run(argv, env, cwd) {
     case 'risk-comment': {
       // The risk note marks tests written past the gate ("continue anyway"): a ticket that passes has none.
       const b = buildBrief(config, ticket)
-      if (b.gate === 'pass') { err(`risk-comment is for a ticket below the bar: ${b.key} has ${b.score} of the ${b.threshold} points it needs, so there is no risk note to post`); return 2 }
+      if (b.gate === 'pass') { err(`risk-comment is for a ticket that does not pass: ${b.key} has ${b.score} points and needs ${b.threshold}, so there is no risk note to post`); return 2 }
       out(formatRiskComment(config, b))
       return 0
     }
@@ -410,7 +410,7 @@ function run(argv, env, cwd) {
         // One line per accepted answer: the key, the item and whether it began as a draft. Never the text.
         log('fill', { key: r.input.key, item: key, drafted })
         const b = r.brief
-        out(`Accepted. The ticket now has ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+        out(`Accepted. The ticket now has ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       } else if (r.pending) {
         out(r.reason)
       } else {
@@ -429,7 +429,7 @@ function run(argv, env, cwd) {
       const next = { ...ticket, attachments: n }
       try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
       const b = buildBrief(config, next)
-      out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       out(`FILL_JSON:${JSON.stringify({ attachments: n, score: b.score, gate: b.gate })}`)
       return 0
     }
@@ -457,7 +457,7 @@ function run(argv, env, cwd) {
       }
       try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attach: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
       const b = buildBrief(config, next)
-      out(`${text ? `Added ${heading.toLowerCase()} ${n}` : `Nothing to add from this ${kind === 'page' ? 'page' : 'file'}`}: ${b.score} points (the bar is ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      out(`${text ? `Added ${heading.toLowerCase()} ${n}` : `Nothing to add from this ${kind === 'page' ? 'page' : 'file'}`}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       out(`ATTACH_JSON:${JSON.stringify({ kind, added: Boolean(text), score: b.score, gate: b.gate })}`)
       return 0
     }

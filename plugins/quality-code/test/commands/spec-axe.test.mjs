@@ -27,10 +27,10 @@ test('guide: it can be turned off per run', () => {
   assert.match(axeSection, /--no-axe/)
 })
 test('spec: the plan card has the Accessibility line and the install question', () => {
-  assert.ok(doc.includes('Accessibility: axe on <N> screens'))
+  assert.ok(doc.includes('Accessibility: checked on <N> screens'))
   assert.ok(doc.includes('Accessibility: off (--no-axe)'))
   assert.match(doc, /@axe-core\/playwright is not installed\. Install it as a dev dependency/)
-  const at = doc.indexOf('Accessibility: axe on <N> screens')
+  const at = doc.indexOf('Accessibility: checked on <N> screens')
   assert.ok(at > 0 && doc.indexOf('1. Yes, write these tests', at) - at < 60)
 })
 test('spec: step 5 writes the axe test unless the card said off, and it is no pinned value', () => {

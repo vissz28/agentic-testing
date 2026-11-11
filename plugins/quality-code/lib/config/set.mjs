@@ -20,7 +20,7 @@ export const KEYS = Object.freeze({
   'git.base': { type: T.text, optional: true },
   'root': { type: T.text, optional: true, project: true },
   'ticketsDir': { type: T.text, optional: true },
-  'testFlow': { type: T.enum, choices: FLOWS, optional: true, project: true },
+  'testStyle': { type: T.enum, choices: FLOWS, optional: true, project: true },
   'languages': { type: T.list },
   'titlePrefixes': { type: T.list, optional: true },
   'qa.app': { type: T.text, optional: true },
@@ -37,7 +37,7 @@ export const KEYS = Object.freeze({
 export const EXAMPLES = Object.freeze({
   'jira.site': 'acme.atlassian.net', 'jira.projects': 'ABC,DEF', 'jira.trackingProjects': 'ABC', 'jira.bugTypes': 'Bug,Defect',
   'jira.doneStatuses': 'Done,Closed', 'jira.acceptanceCriteriaField': 'customfield_10100', 'git.base': 'develop', 'root': 'apps/web',
-  'ticketsDir': '.qc/tickets', 'testFlow': 'project', 'languages': 'en,it', 'titlePrefixes': 'Spike:,Chore:', 'qa.app': 'https://app.example.com',
+  'ticketsDir': '.qc/tickets', 'testStyle': 'project', 'languages': 'en,it', 'titlePrefixes': 'Spike:,Chore:', 'qa.app': 'https://app.example.com',
   'qa.sprint': 'open', 'qa.executionTypes': 'Test Execution', 'qa.statuses.ko': 'TEST KO', 'qa.statuses.ready': 'Ready to test',
   'qa.statuses.done': 'Done', 'qa.blockedStop': '2', 'qa.autoPass': 'false', 'place': 'local',
 })

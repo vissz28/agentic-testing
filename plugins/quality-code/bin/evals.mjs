@@ -4,7 +4,7 @@
 // A fixture is <folder>/<KEY>/expected.json, plus input.json with the frozen ticket (optional):
 //   expected.json  { minSpecs?, spec?, specMustMatch?: [re], specMustNotMatch?: [re], mustContain?: [text],
 //                    tests?: [{ key, mustContain?: [text] }], requirement?: KEY }   (the old backend and frontend shapes)
-//                  with requirement and an xray block, each test's XRay case must link that ticket
+//                  with requirement and an xray block, each test's Xray case must link that ticket
 //   input.json     { ticket: {…} | "<json>", candidates?: [value] }: the value check must pass on the specs
 // Exit 0 every fixture holds, 1 one drifted, 2 usage or config error, 3 no fixture.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -47,8 +47,8 @@ export function checkFixture(root, config, dir, key) {
     for (const t of list(want.tests).filter(t => t.key)) {
       // Two tickets may each have a test of that name: the requirement's own case wins.
       const hit = cases.find(c => c.key === t.key && c.ticket === want.requirement) ?? cases.find(c => c.key === t.key)
-      if (!hit) problems.push(`${x.csv} has no XRay case for ${t.key}`)
-      else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its XRay case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)
+      if (!hit) problems.push(`${x.csv} has no Xray case for ${t.key}`)
+      else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its Xray case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)
     }
   }
   const input = existsSync(join(dir, 'input.json')) ? read(join(dir, 'input.json')) : null

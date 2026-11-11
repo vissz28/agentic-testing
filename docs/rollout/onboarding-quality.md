@@ -96,7 +96,7 @@ old harness used (from the old plugins and the parity capture):
 |---|---|---|---|
 | `.claude/harness/` | ✔ | ✔ | scorer, sanitizer, pipeline, checks, `kpi.mjs`, evals; **keep the scripts CI runs** (below) |
 | `.claude/harness/qa-plans/` | | ✔ | QA's own case sheets; **keep a copy** if the team still reads them |
-| `.claude/harness/warehouse-testcases.csv` | | ✔ | every XRay test case so far: **keep it**, the config's `xray.csv` points at it |
+| `.claude/harness/warehouse-testcases.csv` | | ✔ | every Xray test case so far: **keep it**, the config's `xray.csv` points at it |
 | `.claude/boundary-guard.mjs` | ✔ | ✔ | the old write guard (now `quality-code`'s hook) |
 | `.claude/skills/spec/`, `.claude/skills/check/` | ✔ | | the old `/spec` and check skills |
 | `.claude/skills/spec-frontend/` | | ✔ | the old frontend `/spec` skill |
@@ -117,7 +117,7 @@ one, a person removes its CI job first, in this same merge request.
 git ls-files .claude | sort
 git grep -n "\.claude/" -- .gitlab-ci.yml
 # 2. remove, one path at a time, only what you recognise from the table;
-#    in .claude/harness/, everything but the scripts CI runs and the XRay CSV
+#    in .claude/harness/, everything but the scripts CI runs and the Xray CSV
 git ls-files .claude/harness | grep -vE '/(honesty-check|suite-honesty|anchor-report)\.mjs$|/warehouse-testcases\.csv$' | xargs git rm -q
 git rm .claude/boundary-guard.mjs
 # … and the rest of the table that exists in this repo

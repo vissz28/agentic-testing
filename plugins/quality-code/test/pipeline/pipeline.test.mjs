@@ -82,7 +82,7 @@ test('a whole-suite run: specs without the key\'s tests are skipped by mutation,
   assert.equal(m.status, 'pass', m.summary)
   assert.equal(r.verdict, 'green')
 })
-test('a spec with passing tests whose assertions mutation cannot touch is not verified', async () => {
+test('a spec with passing tests whose assertions mutation cannot touch is could not run', async () => {
   const d = repo("describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n")
   const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, ctx(d))
   const m = r.steps.find(s => s.check === 'mutation')
@@ -91,7 +91,7 @@ test('a spec with passing tests whose assertions mutation cannot touch is not ve
   assert.equal(m.findings[0].kind, 'nothing to mutate')
   assert.equal(r.verdict, 'not_verified')
 })
-test('checks failed beats everything; types fail skips tests and mutation', async () => {
+test('problem in the tests beats everything; types fail skips tests and mutation', async () => {
   const d = repo("it('hollow', () => { run() })\n")
   const failTypes = async () => result('types', 'fail', 'x.ts(1,1): error TS1', [], { applicable: true })
   const r = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { typeCheck: failTypes }))
@@ -100,7 +100,7 @@ test('checks failed beats everything; types fail skips tests and mutation', asyn
   assert.equal(r.steps.find(s => s.check === 'tests').summary, 'skipped: the specs do not compile')
   assert.equal(r.steps.find(s => s.check === 'mutation').status, 'not_run')
 })
-test('not verified when the tests could not run', async () => {
+test('could not run when the tests could not run', async () => {
   const d = repo()
   const r = await runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { runTests: makeRunner(d, { ran: false }) }))
   assert.equal(r.verdict, 'not_verified')
@@ -358,7 +358,7 @@ test('playwright: green with the Playwright dialect; every flip killed; no stryk
   assert.equal(m.data.killed, 2)
   assert.deepEqual([...new Set(timeouts.filter(t => t !== undefined))], [600_000])
 })
-test('playwright: red, checks failed and not verified', async () => {
+test('playwright: red, problem in the tests and could not run', async () => {
   const d = repo(PW_SPEC)
   assert.equal((await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, pwCtx(d, { runTests: pwRunner(d, { red: true }) }))).verdict, 'tests_red')
   const down = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1' }, pwCtx(d, { runTests: pwRunner(d, { ran: false }) }))

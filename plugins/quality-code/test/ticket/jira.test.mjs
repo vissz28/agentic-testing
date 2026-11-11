@@ -88,7 +88,7 @@ test('config label overrides the rubric label in missing and the report', () => 
   const c = cfg({ messages: { ac_present: { label: 'X' }, story: { steps: { label: 'S' } } } })
   const b = buildBrief(c, bare)
   assert.equal(b.missing.find(m => m.key === 'ac_present').label, 'X')
-  assert.match(formatReport(b), /- X \(25\)/)
+  assert.match(formatReport(b), /- X \(\+26\)/)
   assert.notEqual(b.missing.find(m => m.key === 'steps').label, 'S')
   const bs = buildBrief(c, { ...bare, issuetype: 'Story' })
   assert.equal(bs.missing.find(m => m.key === 'steps').label, 'S')
@@ -104,7 +104,7 @@ test('the risk note: the score against the bar, the red mark, what the author ca
   const c = cfg()
   const b = buildBrief(c, bare)
   const note = formatRiskComment(c, b)
-  assert.ok(note.startsWith(`Tests were written for this ticket although it is not complete: it has ${b.score} of the 70 points it needs.\n`))
+  assert.ok(note.startsWith(`Tests were written for this ticket although it is not complete: it has ${b.score} points and needs 70.\n`))
   assert.match(note, /🔴 \[RISK \/ NOT RECOMMENDED\]/)
   assert.match(note, /Still missing:\n- Acceptance criteria\n/)
   // one fix, named once: no vague-Then line while the criteria are missing

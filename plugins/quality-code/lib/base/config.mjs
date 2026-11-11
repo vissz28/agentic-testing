@@ -15,7 +15,7 @@ const KEY = /^[A-Z][A-Z0-9_]+$/
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
 /** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
 const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testFlow', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -31,7 +31,7 @@ export const DEFAULT_LAYERS = Object.freeze([Object.freeze({ name: 'unit', folde
 export const DEFAULT_STRYKER_THRESHOLD = 60
 // Stryker reruns the tests once per code change: minutes on a database-backed suite, so not the tests' limit.
 export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
-// The XRay CSV's columns in order, with their default header; "data" is no column: it is the word
+// The Xray CSV's columns in order, with their default header; "data" is no column: it is the word
 // before a step's data in the action cell. A team's importer mapping may want other headers.
 export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
 export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
@@ -307,7 +307,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.ticketAnchor !== undefined && !['block', 'branch'].includes(c.ticketAnchor)) e.push(`ticketAnchor ${JSON.stringify(c.ticketAnchor)}: must be "block" (a group whose title names the ticket) or "branch" (also a spec changed on the branch)`)
   if (c.roots !== undefined && (!Array.isArray(c.roots) || c.roots.length < 1 || !c.roots.every(pathOk))) e.push('roots: must be a list of folders inside the repository, like ["app", "backend-executor"] (the projects one config serves; ticket.mjs root set picks the active one)')
   if (c.role !== undefined && !['dev', 'qa', 'po'].includes(c.role)) e.push(`role ${JSON.stringify(c.role)}: must be "dev", "qa" or "po"`)
-  if (c.testFlow !== undefined && !FLOWS.includes(c.testFlow)) e.push(`testFlow ${JSON.stringify(c.testFlow)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
+  if (c.testStyle !== undefined && !FLOWS.includes(c.testStyle)) e.push(`testStyle ${JSON.stringify(c.testStyle)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
@@ -479,7 +479,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.xray !== undefined) {
-    if (!uses('playwright')) e.push('xray: only allowed with "adapter": "playwright" or "fullstack" (XRay test cases are written for Playwright tests)')
+    if (!uses('playwright')) e.push('xray: only allowed with "adapter": "playwright" or "fullstack" (Xray test cases are written for Playwright tests)')
     else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
     else {
       const x = c.xray
@@ -643,5 +643,5 @@ export function loadConfig(root, env = process.env) {
   if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)
   const pp = personalConfigPath(env)
   if (existsSync(pp)) return readValidated(pp, pp, 'personal', env, root)
-  return { ok: false, missing: true, errors: [`This repo is not set up. ${SETUP}`] }
+  return { ok: false, missing: true, errors: ['Quality Code is not set up here yet. Run /quality-code:setup: in your repo as a developer, or from any folder as QA or PO.'] }
 }

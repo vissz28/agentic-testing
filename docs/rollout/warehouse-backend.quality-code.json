@@ -65,7 +65,7 @@
       "add": "Please avoid \"it works\" or \"as expected\". A number or the exact text is enough, for example:\n\n- The last cost is 0\nThen the message is \"No data available with current filters\"",
       "question": "An acceptance criterion is vague. Write it again with numbers or the exact text, at least 150 characters (or as Given / When / Then).",
       "example": "The last cost is 0 after a movement with cost 0, and the KPI row shows 0 as the last unit cost. The previous value of 50 does not appear anywhere for that product.",
-      "label": "testable AC: each Then or AC item an observable assertion, not \"works correctly\""
+      "label": "testable acceptance criteria: each one names a result you can see, not \"works correctly\""
     },
     "steps": {
       "title": "Steps to reproduce",

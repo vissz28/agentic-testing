@@ -14,7 +14,7 @@ Every reply is read by someone who is not technical: a manager or a CTO. They sh
 - *Italics* carry the secondary detail: a ticket's title, the bar a score is measured against, a reason in brackets.
 - A section heading is `###`, an emoji and a few words, then the result on the same line after a `·`: `### 🏁 Result · ✅ **Green**`. One section per result the reader needs; nothing else gets a heading.
 - A **table** for anything with two or more columns: tests, checks, missing items. Short cells, at most 8 rows, then `… and N more`.
-- Colour comes from marks: ✅ done or passed, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. A score gets a bar of ten squares, one per 10 points, 🟩 when it passes, 🟥 when it is refused, ⬜ empty.
+- Colour comes from marks: ✅ done or passed, ❌ failed, ⚠️ not run or could not run, 🔴 tests fail or a risk, ➖ not applicable. A score gets a bar of ten squares, one per 10 points, 🟩 when it passes, 🟥 when it is refused, ⬜ empty.
 - A **quote** for advice: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`, `> ⚠️ **Note:** …`.
 - Short, clear sentences; the right technical term where it is precise. Never state what a command always does.
 - A file is never its path: name it and link the word `HERE` to its full path, `the test file [HERE](/Users/me/shop/src/pricing/discount.test.ts)`.
@@ -54,7 +54,7 @@ This is a whole `/quality-code:spec ABC-123` run, from start to end. Write every
 ### 🏁 Result · ✅ **Green**
 **3 passed** · 0 failed · *every test fails when its behaviour breaks (mutation 8 of 8)*
 
-**Rules:** ✅ Central Context (centralcontext-dev.teamsystem.cloud) · 9 testing rules, release 20261103T103753Z
+**Rules:** ✅ Written with 9 rules from Central Context (release 20261103T103753Z)
 
 | Check | | Result |
 |---|---|---|

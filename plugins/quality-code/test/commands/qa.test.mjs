@@ -16,9 +16,9 @@ test('steps come in order: check, pick, context, run, defect, retest, close', ()
   assert.ok(at.every(i => i > 0), JSON.stringify(at))
   assert.deepEqual([...at].sort((a, b) => a - b), at)
 })
-test('the tester decides: a browser problem is Not verified, never KO, and an unseen step is never ✅', () => {
+test('the tester decides: a browser problem is Not verified, never Failed, and an unseen step is never ✅', () => {
   assert.match(doc, /\*\*The tester decides\.\*\*/)
-  assert.match(doc, /A browser problem is never a KO/)
+  assert.match(doc, /A browser problem is never a Failed result/)
   assert.match(doc, /a step you did not see is never ✅/)
   assert.match(step(4), /never start the next test before an answer/)
 })

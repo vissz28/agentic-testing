@@ -3,11 +3,11 @@
 // and whether they are stable (the same code passing and failing). The schedule itself is made by
 // /quality-code:routine with Claude's scheduler; this script is what each scheduled run executes.
 //   node bin/routine.mjs run [--task KEY | --regression] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
-//                            [--stability N] [--force] [--json] [--junit FILE]
+//                            [--flaky N] [--force] [--json] [--junit FILE]
 //   node bin/routine.mjs status [--task KEY] [--last N] [--json]
 // run:    fetches the watched branch, sees what others pushed (new commits, shared files such as package.json or a
 //         lockfile), then runs the task's tests (the specs that name the ticket KEY) or the whole suite. With
-//         --stability N every test runs N times and the ones that pass and fail on the same code are named (flaky).
+//         --flaky N every test runs N times and the ones that pass and fail on the same code are named (flaky).
 //         It says so when the result went from green to not green, with the commits in between. No new commit
 //         (with --since-last or --since): nothing to check, exit 0. Every run is kept in a local history.
 // status: the stability of the last runs from that history: pass rate, flaky tests seen, green to red changes.
@@ -25,8 +25,8 @@ import { SHARED_CONFIG } from '../lib/base/changes.mjs'
 import { ORDER, junit } from './ci.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--stability N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
-const VALUE = ['--task', '--branch', '--since', '--until', '--stability', '--flaky', '--junit', '--last', '--id']
+const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
+const VALUE = ['--task', '--branch', '--since', '--until', '--flaky', '--junit', '--last', '--id']
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const MIN_RUNS = 3
 
@@ -51,12 +51,11 @@ function parse(argv) {
     else throw new Error(`unknown option ${x}`)
   }
   // --id names the scheduled task that calls this; the script only accepts it.
-  a.stability ??= a.flaky
-  for (const k of ['stability', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
+  for (const k of ['flaky', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
   if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
   if (a.regression && (a.task || cmd === 'status')) throw new Error('--regression runs the @regression suite: give it without --task, and only to run')
   if (a.since !== undefined && a.sinceLast) throw new Error('give --since or --since-last, not both')
-  if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.stability || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')
+  if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.flaky || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')
   return a
 }
 
@@ -124,7 +123,7 @@ function status(a, cfg, dir, stdout) {
       for (const [t, n] of s.flaky.slice(0, 10)) lines.push(`    ${t}: in ${n} run${n === 1 ? '' : 's'}`)
       if (s.flaky.length > 10) lines.push(`    … and ${s.flaky.length - 10} more`)
     } else if (runs.some(r => r.stability)) lines.push('  no flaky test seen')
-    else lines.push('  flaky tests were not looked for: run the routine with --stability 5')
+    else lines.push('  flaky tests were not looked for: run the routine with --flaky 5')
   }
   lines.push(`Stability: ${s.verdict}${s.verdict === 'NOT ENOUGH DATA' ? ` (needs ${MIN_RUNS} runs)` : s.verdict === 'UNSTABLE' ? ' (a flaky test was seen, or fewer than 90% of the runs were green)' : ''}`)
   stdout(`${lines.join('\n')}\n`)
@@ -190,7 +189,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       stdout(`${lines.join('\n')}\n`)
       return 3
     }
-    lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.stability ? `, each test ${a.stability} times` : ''}.`)
+    lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   } else if (a.regression) {
     specs = projectSpecs(root, config).map(s => s.path).filter(p => /@regression\b/.test(readFileSync(join(root, p), 'utf8')))
     if (!specs.length) {
@@ -198,16 +197,16 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       stdout(`${lines.join('\n')}\n`)
       return 3
     }
-    lines.push(`Running the @regression suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.stability ? `, each test ${a.stability} times` : ''}.`)
-  } else lines.push(`Running every test of the project${a.stability ? `, each test ${a.stability} times` : ''}.`)
-  const result = await run({ root, config, specs, key: a.task, stability: a.stability, env })
+    lines.push(`Running the @regression suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
+  } else lines.push(`Running every test of the project${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
+  const result = await run({ root, config, specs, key: a.task, stability: a.flaky, env })
   const green = result.exit === 0
   const regression = !drift && !green && prev.verdict === 'green' && prev.sha && prev.sha !== tested
   lines.push('')
   for (const p of result.phases) lines.push(`  ${String(p.name).padEnd(14)} ${p.verdict}${p.passed !== undefined ? ` · ${p.passed} passed · ${p.failed} failed` : ''}`)
   const flaky = [...new Set(result.flaky ?? [])]
-  if (a.stability) lines.push(flaky.length ? `  Flaky (${flaky.length}), passed and failed on the same code in ${a.stability} runs:` : `  Stable: no test changed its result in ${a.stability} runs.`, ...flaky.slice(0, 10).map(t => `    ${t}`), ...(flaky.length > 10 ? [`    … and ${flaky.length - 10} more`] : []))
-  lines.push('', `Result: ${green ? 'PASSED' : result.exit === 1 ? 'FAILED' : 'NOT VERIFIED'}${green ? '' : ` (exit ${result.exit})`}`)
+  if (a.flaky) lines.push(flaky.length ? `  Flaky (${flaky.length}), passed and failed on the same code in ${a.flaky} runs:` : `  Stable: no test changed its result in ${a.flaky} runs.`, ...flaky.slice(0, 10).map(t => `    ${t}`), ...(flaky.length > 10 ? [`    … and ${flaky.length - 10} more`] : []))
+  lines.push('', `Result: ${green ? 'PASSED' : result.exit === 1 ? 'FAILED' : 'COULD NOT RUN'}${green ? '' : ` (exit ${result.exit})`}`)
   if (regression) {
     const between = log([`${prev.sha}..${tested}`])
     lines.push(`REGRESSION: green at ${prev.sha.slice(0, 7)} (${prev.at?.slice(0, 16).replace('T', ' ')}), not green at ${tested.slice(0, 7)}. Commits in between:`)
@@ -216,7 +215,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   if (dir && result.exit !== 2) {
     keep(dir, stateName, JSON.stringify({ branch: ref, sha: tested, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? '@regression' : null) }), false)
-    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.stability ? Number(a.stability) : null, flaky })}\n`, true)
+    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.flaky ? Number(a.flaky) : null, flaky })}\n`, true)
   }
   if (a.junit) { try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(result.phases.map(p => ({ ...p, detail: p.detail || lines.join('\n') })))) } catch {} }
   if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? '@regression' : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)

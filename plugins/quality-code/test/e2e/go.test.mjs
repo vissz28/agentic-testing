@@ -152,7 +152,7 @@ test('go: red on a real bug, with the failing line', { skip, timeout: LONG }, t 
   } finally { rmSync(d, { recursive: true, force: true }) }
 })
 
-test('go: a spec that does not compile is not verified, never red or green', { skip, timeout: LONG }, t => {
+test('go: a spec that does not compile is could not run, never red or green', { skip, timeout: LONG }, t => {
   const d = project({ spec: GREEN.replace('got := Reorder(4)', 'got := Reordr(4)') })
   try {
     const r = pipeline(d, ARGS)

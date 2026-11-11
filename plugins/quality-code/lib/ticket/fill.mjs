@@ -139,8 +139,8 @@ export function formatNextStep(step) {
   const names = step.fix.map(f => f.title)
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]
   return step.enough
-    ? `To pass: add ${list} (→ ${step.reach} points, the bar is ${step.threshold}).`
-    : `Even with ${list} the ticket reaches ${step.reach} points: the fill-in alone cannot get it to the bar.`
+    ? `To pass: add ${list} (→ ${step.reach} points, needs ${step.threshold}).`
+    : `Even with ${list} the ticket reaches ${step.reach} points: the fill-in alone cannot get it to ${step.threshold}.`
 }
 
 export function formatFillMenu(menu) {
@@ -148,14 +148,14 @@ export function formatFillMenu(menu) {
   // comment or the override.
   if (!menu.items.length && menu.score < menu.threshold) {
     return [
-      `This ticket has ${menu.score} of the ${menu.threshold} points it needs.`,
+      `This ticket has ${menu.score} points and needs ${menu.threshold}.`,
       `Nothing missing can be typed in here${menu.untyped?.length ? `: it needs ${menu.untyped.join(', ')}` : ''}.`,
       'Post a comment on Jira with what to add, or continue anyway.',
     ].join('\n')
   }
   const width = Math.max(...menu.items.map(i => i.title.length), 0)
   return [
-    `This ticket has ${menu.score} of the ${menu.threshold} points it needs.`,
+    `This ticket has ${menu.score} points and needs ${menu.threshold}.`,
     'What is missing:',
     ...menu.items.map(i => `  ${i.n}. ${i.title.padEnd(width)}  +${i.gain}`),
     'Type the numbers you want to fill, for example: 1 3',
@@ -166,8 +166,8 @@ export function formatPick(pick) {
   if (pick.error) return pick.error
   const nums = pick.picked.map(p => p.n).join(' and ')
   return pick.enough
-    ? `With ${nums} the ticket reaches ${pick.score} points (the bar is ${pick.threshold}): enough.`
-    : `With ${nums} the ticket reaches ${pick.score} points (the bar is ${pick.threshold}): ${pick.short} points short. Pick more numbers, or type them again.`
+    ? `With ${nums} the ticket reaches ${pick.score} points (needs ${pick.threshold}): enough.`
+    : `With ${nums} the ticket reaches ${pick.score} points (needs ${pick.threshold}): ${pick.short} points short. Pick more numbers, or type them again.`
 }
 
 /** The example shown after a rejected answer: only for a key the rubric lets the author type in. */
@@ -227,8 +227,8 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
       const acField = next.text.acField && stripVagueCriteria(v, next.text.acField, { headingless: true })
       if (key === 'ac_testable' || stripped !== desc || acField !== next.text.acField) {
         entry.replacedVague = true
-        desc = stripVagueCriteria(v, desc)
-        if (next.text.acField) next.text.acField = stripVagueCriteria(v, next.text.acField, { headingless: true })
+        desc = stripped
+        if (next.text.acField) next.text.acField = acField
       }
       addSection(h.ac, lines.map(l => (v.listOrStep.test(l) ? l : `- ${l}`)).join('\n'))
       break

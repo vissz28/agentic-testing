@@ -30,7 +30,7 @@ async function go(argv, d, run, extra = {}) {
 
 test('options are checked', async () => {
   const d = repo()
-  for (const argv of [[], ['go'], ['init'], ['run', '--since'], ['run', '--since', 'x', '--since-last'], ['run', '--until', 'tomorrow'], ['run', '--stability', '0'], ['run', '--cron', '0 7 * * *'], ['status', '--since-last'], ['status', '--stability', '5']]) {
+  for (const argv of [[], ['go'], ['init'], ['run', '--since'], ['run', '--since', 'x', '--since-last'], ['run', '--until', 'tomorrow'], ['run', '--flaky', '0'], ['run', '--cron', '0 7 * * *'], ['status', '--since-last'], ['status', '--flaky', '5']]) {
     assert.equal((await go(argv, d, async () => green)).code, 2, argv.join(' '))
   }
   assert.equal((await go(['run', '--id', 'quality-code-routine-suite', '--force'], d, async () => green)).code, 0, '--id is the scheduled task that calls this: accepted')
@@ -101,7 +101,7 @@ test('the text names the integral change and the commits in between', async () =
   assert.match(r.out, /Result: FAILED \(exit 1\)/)
 })
 
-test('--regression runs only the specs that carry @regression; none means not verified', async () => {
+test('--regression runs only the specs that carry @regression; none means could not run', async () => {
   const d = repo(); let seen
   const none = await go(['run', '--regression'], d, async () => green)
   assert.equal(none.code, 3)
@@ -112,7 +112,7 @@ test('--regression runs only the specs that carry @regression; none means not ve
   assert.match(r.out, /Running the @regression suite: 1 spec\./)
   assert.equal((await go(['run', '--regression', '--task', 'ABC-1'], d, async () => green)).code, 2)
 })
-test('a task runs only the specs that name its key; none means not verified', async () => {
+test('a task runs only the specs that name its key; none means could not run', async () => {
   const d = repo(); let seen
   const r = await go(['run', '--task', 'ABC-1'], d, async job => { seen = job; return green })
   assert.deepEqual(seen.specs, ['e2e/one.spec.ts'])
@@ -145,13 +145,13 @@ test('outside a git repo, or on a personal setup, it says so', async () => {
 test('stability: every test runs N times and the flaky ones are named, in the text, the JSON and the history', async () => {
   const d = repo(); let seen
   const flakyRun = async job => { seen = job; return { ...red, flaky: ['e2e/one.spec.ts > ABC-1 a', 'e2e/two.spec.ts > ABC-2 b'], phases: [{ name: 'suite', verdict: 'tests_red', passed: 3, failed: 1 }] } }
-  const r = await go(['run', '--stability', '5'], d, flakyRun)
+  const r = await go(['run', '--flaky', '5'], d, flakyRun)
   assert.equal(seen.stability, '5')
   assert.match(r.out, /Running every test of the project, each test 5 times\./)
   assert.match(r.out, /Flaky \(2\), passed and failed on the same code in 5 runs:\n    e2e\/one\.spec\.ts > ABC-1 a/)
-  const ok = await go(['run', '--stability', '5', '--force'], d, async () => green)
+  const ok = await go(['run', '--flaky', '5', '--force'], d, async () => green)
   assert.match(ok.out, /Stable: no test changed its result in 5 runs\./)
-  const j = JSON.parse((await go(['run', '--stability', '5', '--force', '--json'], d, flakyRun)).out)
+  const j = JSON.parse((await go(['run', '--flaky', '5', '--force', '--json'], d, flakyRun)).out)
   assert.deepEqual(j.flaky, ['e2e/one.spec.ts > ABC-1 a', 'e2e/two.spec.ts > ABC-2 b'])
 })
 
@@ -170,7 +170,7 @@ test('stabilityOf: pass rate, streak, green to red changes, flaky tests, and the
 test('status reads the kept runs of the task, or of the whole suite', async () => {
   const d = repo()
   assert.match((await go(['status'], d)).out, /no runs kept yet/)
-  for (let i = 0; i < 3; i++) await go(['run', '--stability', '3', '--force'], d, async () => (i === 1 ? { ...red, flaky: ['t1'] } : green))
+  for (let i = 0; i < 3; i++) await go(['run', '--flaky', '3', '--force'], d, async () => (i === 1 ? { ...red, flaky: ['t1'] } : green))
   await go(['run', '--task', 'ABC-1', '--force'], d, async () => green)
   const all = (await go(['status'], d)).out
   assert.match(all, /whole suite · last 3 runs/)

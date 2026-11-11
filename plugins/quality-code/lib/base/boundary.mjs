@@ -211,6 +211,6 @@ export function run({ range = null }, ctx) {
   const rules = rulesFor(ctx.config, ctx.root)
   const hits = c.paths.filter(p => !STATE.some(s => matches(s, p))).map(p => violation(p, rules)).filter(Boolean)
   const data = { mode: 'diff', paths: c.paths.length }
-  if (!hits.length) return result('boundary', 'pass', `${c.paths.length} changed file(s), none outside the boundary`, [], data)
-  return result('boundary', 'fail', `${hits.length} write(s) outside the boundary`, hits.map(h => ({ file: h.path, kind: 'forbidden write', detail: h.why })), data)
+  if (!hits.length) return result('boundary', 'pass', `${c.paths.length} changed file(s), all in the allowed test paths`, [], data)
+  return result('boundary', 'fail', `${hits.length} write(s) outside the allowed test paths`, hits.map(h => ({ file: h.path, kind: 'forbidden write', detail: h.why })), data)
 }

@@ -1,5 +1,5 @@
 ---
-description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>. With --eval it scores the ticket for test-readiness (the 70-point gate) and guides the fill-in; with --eval and a project key, it scores the project's latest 50 tickets.
+description: Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). Takes a key, a number, search words, or filters like assignee:me status:"In Progress" label:<label>. With --eval it scores the ticket for test-readiness (70 points to pass) and guides the fill-in; with --eval and a project key, it scores the project's latest 50 tickets.
 argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>> [--eval [--ci]] | <PROJECT> --eval [--user <name>] [--status <status>] [--report]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)
 model: sonnet
@@ -23,7 +23,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop. Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
 2. **Find.** From `$ARGUMENTS`, the first rule that applies:
    - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
    - Only digits: the key is `<first of jira.projects>-<digits>`; as above.

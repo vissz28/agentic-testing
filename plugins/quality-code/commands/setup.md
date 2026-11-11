@@ -63,16 +63,16 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
 
      `1` gives `adapter: "fullstack"` (plus `backend` when it is not `vitest`), `2` `"playwright"`, `3` `"<backend>"`.
    - **Tests next to the code.** `colocated` in the detect result is not null: most of the project's tests sit beside its code (`colocated.pattern`, `colocated.specs` files) and the code folder is protected, so no run could find or write them. Ask nothing: put `"colocated": true` in the proposal, next to `config`: the write finds those tests and lets a run write their names, in one step, keeping what `existing` already has. Show one line on the Confirm card: `Tests     beside the code (<colocated.pattern>): <colocated.specs> files in <colocated.layer.folder>`.
-   - **Test flow.** `conventions.specs` in the detect result is above 0: the project already has tests (`conventions.pattern`, in `conventions.folders`). Ask nothing now: propose `testFlow: "project"` (`existing.testFlow` on a rerun) and show it on the Confirm card as `Tests`. To change it from the Confirm card, show this card and end the turn:
+   - **Test style.** `conventions.specs` in the detect result is above 0: the project already has tests (`conventions.pattern`, in `conventions.folders`). Ask nothing now: propose `testStyle: "project"` (`existing.testStyle` on a rerun) and show it on the Confirm card as `Tests`. To change it from the Confirm card, show this card and end the turn:
 
      ```
-     This project already has <conventions.specs> tests (<conventions.pattern>, in <conventions.folders>).
-     1. Follow your project's flow: new tests use your naming, folders and style
-     2. Use Quality Code's flow: the ticket key in the file name, Quality Code's test folders
-     3. Both: write each test in your flow and in Quality Code's
+     This project already has <conventions.specs> tests (<conventions.pattern>, in <conventions.folders>). Where should new tests go, and how should they be named?
+     1. Like your existing tests: same folders, names and tools (recommended)
+     2. The Quality Code way: its own folders, the ticket key in each file name
+     3. Both: every test is written twice
      ```
 
-     `1` gives `testFlow: "project"`, `2` `"quality-code"`, `3` `"both"`. With `conventions.specs` 0, leave `testFlow` out of the config and the card (Quality Code's flow is used until the project has tests; `/quality-code:config` changes it later).
+     `1` gives `testStyle: "project"`, `2` `"quality-code"`, `3` `"both"`. With `conventions.specs` 0, leave `testStyle` out of the config and the card (Quality Code's style is used until the project has tests; `/quality-code:config` changes it later).
    - **GitLab project.** If GitLab is connected and `here.gitlab` is not null, look the project up by its path with one read-only GitLab call. Not found: show it on the card as `<path> not found on <host> (check gitlab_api_url)`; it never blocks. The GitLab project is read from the remote every time; it is not written to the config.
    - **Base branch** (`git.base`: the branch feature branches start from and merge into; start, spec and check diff against it). On a rerun, keep `existing.git.base` when it is set. Else, when the GitLab project was found, make one read-only GitLab call for its 20 most recently merged merge requests and propose their most common target branch (from `recent merge requests`). Else propose `base.proposed` from the detect result: `base.source` `develop` reads `from origin/develop`, `origin-head` reads `from origin/HEAD`. When `base` is null and nothing else proposes one, leave `git.base` out and show `none found (main or master at run time)`.
 3. **Jira.** Using the Atlassian connector. No card when the values are clear:
@@ -87,7 +87,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      Folder   <here.folder>   (subfolder <here.subfolder> of <here.repoTop>)
      Remote   <here.remote.path> on <here.remote.host> (<here.remote.kind>)
      Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend; a runner of `runners` in place of its default, with `generic checks`, for example `backend (Jest, generic checks)`>
-     Tests    <follow your project's flow (<conventions.pattern>) | Quality Code's flow>
+     Tests    <like your existing tests (<conventions.pattern>) | the Quality Code way>
      Jira     <site host>, project(s) <keys>
      Base     <branch>   (from <where it was found>)
    Writes config.json (first in this session's folder; the last step moves it with the files to the place you pick):
@@ -97,11 +97,11 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
    3. Cancel
    ```
 
-   The config is `version: 1`, `root` (only with `root.proposed`), `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `runners` (only when the detect result has one), `testFlow` (only when the project has tests), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
+   The config is `version: 1`, `root` (only with `root.proposed`), `adapter`, `backend` (only for `fullstack` with a backend runner other than Vitest), `runners` (only when the detect result has one), `testStyle` (only when the project has tests), `jira { site, projects }` and `git { base }` (left out when no base was found). On a rerun, keep every other field of `existing` unchanged in it (labels, prefixes, templates and the rest stay as they were).
 
    - **Personal setup (Where `2` or `3`):** the card has no Folder, Remote, Stack or Base line, and shows `Tickets  <frontend | backend | both>` under Jira; in place of the `Writes` line it says `Saved in <personal.path>; no repo file is touched.` On **1**, build the proposal `{ "scope": "personal", "config": { "version": 1, "role": "<qa|po>", "adapter": …, "jira": { site, projects } } }`, keeping every other field of `personal.existing` on a rerun, then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` (inline, as below). It writes only the personal file (never `.gitignore`, templates or any repo file). Errors, `2` and `3` work as below.
    - **1:** Build the proposal `{ "config": { … } }` from the config on the card. Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'`: the JSON inline as one single-quoted argument, no temp file (write a `'` inside a value as `'\''`). If it prints errors, show them as they are and go back to step 4 with a fix. On `ok`, go on. **Order:** the config is written first, to this session's folder (the default place, a temp folder); step 5's last question then moves it, with the tickets and the audit log, to the place the user picks. Nothing is written into the repo's `.gitignore` or `.claude/`. If the script prints a second line saying a legacy `.claude/quality-code.json` is still there, show it as it is.
-   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`; Project root only when `root.candidates` is not empty; Test flow only when `conventions.specs` is above 0; for a personal setup, `Tickets` in place of Stack, and no Base or Project root):
+   - **2:** ask only which value to change, as this card, and end the turn (Stack only when `adapter` is `both`; Project root only when `root.candidates` is not empty; Test style only when `conventions.specs` is above 0; for a personal setup, `Tickets` in place of Stack, and no Base or Project root):
 
      ```
      Change what?
@@ -110,10 +110,10 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      3. Jira project
      4. Base branch
      5. Project root
-     6. Test flow
+     6. Test style
      ```
 
-     The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 0's personal setup, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Project root follows step 2's **Project root**; Test flow shows step 2's test flow card. Ask nothing else again.
+     The user may type the new value with the number (for example `4 main`); then use it as it is. Else ask only for that value: Stack shows the both card of step 2, Tickets the tickets card of step 0's personal setup, the site the sites as a numbered list plus `<n>. A different site` (a typed site follows step 3's site rules), the project the project card of step 3, and the base `Which base branch? Type its name (for example develop).` A base is a branch name with no spaces that does not start with `-`. Then show the Confirm card again with the new value and end the turn. Project root follows step 2's **Project root**; Test style shows step 2's test style card. Ask nothing else again.
    - **3:** stop. Nothing is written.
 5. **Done.** **The last question, before any Done text:** where Quality Code keeps this project's files and audit log. Until it is answered they stay in the session (a temp folder). Follow `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md` now (the config was written first, in the session folder; the pick moves it, with the tickets and the audit log, to the place): run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get`, show its card (the repo, this machine, only this session; a personal setup has no repo line), end the turn, and on the pick run `save set <repo|local|chat>`. The pick is the `Files and logs` row of the completion section below. On a rerun, when `asked` is already `true`, show the card only if the user changes something, and say the current place in one line. For a personal setup say only: `Setup is done: Jira <site host>, project(s) <keys>, tickets <frontend|backend|both>. Saved in <personal.path>. Check any ticket from any folder: /quality-code:ticket <KEY> --eval, or a whole project: /quality-code:ticket <PROJECT> --eval. Writing tests needs a repo: run /quality-code:setup there.`, then the **What you can do now** block of the role (QA or PO) from **Next steps** below, word for word, with its `Next:` line. Otherwise, first run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style on` (the report reply style: results only, no step-by-step lines); then, after the completion section below, add `Replies use the report style: commit .claude/settings.json too. Change it in /quality-code:config.` (if its line is not `ok`, say `Reply style not set: <reason>.` instead). Setup only configures. Do not read, score or comment on any ticket here: checking tickets is the job of `/quality-code:spec`, and the first ticket checked there also finds the project's acceptance-criteria field. Then end with the completion section below, laid out as `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says (headline, table, no code block, the `Next:` line). Use only facts the scripts and checks of the earlier steps gave (the detect result, the connector checks, the file just written, the save-place answer); write nothing that was not found.
 
@@ -144,9 +144,9 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
      **What you can do now**
      1. Create a feature branch for the ticket.
-     2. Run `/quality-code:spec`: it checks the ticket is ready, writes its tests and grades them.
+     2. Run `/quality-code:spec`: it checks the ticket is ready, writes its tests and checks them.
      3. To try it by hand, `/quality-code:seed <KEY>` loads mock data for it into your local database.
-     4. Before the merge request, `/quality-code:check --branch` grades the tests changed on your branch.
+     4. Before the merge request, `/quality-code:check --branch` checks the tests changed on your branch.
 
      `/quality-code:help` shows this again, `/quality-code:config` changes a setting, `/quality-code:update` checks for new versions.
 
@@ -159,7 +159,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      **What you can do now**
      1. Run `/quality-code:ticket <KEY> --eval`: it checks the ticket is ready for tests and says what is missing.
      2. Run `/quality-code:xray <KEY>`: it writes the ticket's Xray test cases, ready to import.
-     3. Run `/quality-code:qa <EXECUTION KEY>`: it runs your test execution with you in the browser and drafts each defect.
+     3. Run `/quality-code:qa <EXECUTION KEY>`: it runs your test execution with you in the browser and drafts each defect. It needs a browser: open the browser pane in the Claude app, or run `/chrome`. Without one, you test by hand and tell it what you saw.
 
      `/quality-code:help` shows this again, `/quality-code:config` changes a setting, `/quality-code:update` checks for new versions.
 

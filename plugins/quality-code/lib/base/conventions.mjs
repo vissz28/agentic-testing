@@ -1,4 +1,4 @@
-// How a project already names and places its tests, read from the spec files it has. With "testFlow":
+// How a project already names and places its tests, read from the spec files it has. With "testStyle":
 // "project" a writing run follows this (its naming, its folders); with "quality-code" it uses the
 // plugin's own (the ticket key in the file name, the configured layers). Files are only listed, never run.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -113,8 +113,8 @@ export function detectConventions(root, budget = { n: 20000 }) {
   }
 }
 
-/** The flow in force: the config's testFlow, else the project's when it has tests (every adapter, JUnit too), else Quality Code's. */
-export const flowOf = (config, conventions) => (FLOWS.includes(config?.testFlow) ? config.testFlow : conventions.specs > 0 ? 'project' : 'quality-code')
+/** The flow in force: the config's testStyle, else the project's when it has tests (every adapter, JUnit too), else Quality Code's. */
+export const flowOf = (config, conventions) => (FLOWS.includes(config?.testStyle) ? config.testStyle : conventions.specs > 0 ? 'project' : 'quality-code')
 
-/** The flow for one run: --flow wins over the config. */
+/** The flow for one run: --style wins over the config. */
 export const runFlow = (config, conventions, flag) => (FLOWS.includes(flag) ? flag : flowOf(config, conventions))

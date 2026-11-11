@@ -142,7 +142,7 @@ test('gate: an honest change passes; a change with no spec to check passes', asy
   writeFileSync(join(d, 'test/unit/math.spec.ts'), `${SPEC}it('multiplies', () => {\n  expect(2 * 3).toBe(6)\n})\n`); commit(d)
   r = await run([], d)
   assert.equal(r.code, 0, r.out)
-  assert.match(r.out, /✅ honesty/)
+  assert.match(r.out, /✅ removals/)
   assert.match(r.out, /✅ assertions/)
   assert.match(r.out, /Result: PASSED/)
 })
@@ -176,11 +176,11 @@ test('gate on GitLab: the merge request base SHA is the target, with no branch f
   assert.match(r.out, /\[assertion removed\]/)
 })
 
-test('gate: a target that cannot be found is not verified, never a pass', async () => {
+test('gate: a target that cannot be found is could not run, never a pass', async () => {
   const d = repo()
   const r = await run([], d, { GITHUB_BASE_REF: 'nowhere' })
   assert.equal(r.code, 3)
-  assert.match(r.out, /not verified: the target branch was not found \(fetch the full history/)
+  assert.match(r.out, /could not run: the target branch was not found \(fetch the full history/)
   assert.equal((await run([], project())).code, 3, 'not a git checkout')
 })
 
@@ -209,16 +209,16 @@ test('tests: zero specs never pass; the JUnit file, the GitHub summary and an er
   const d = project(), summary = join(d, 'summary.md')
   const r = await run(['--tests', '--junit', 'out/j.xml'], d, { GITHUB_ACTIONS: 'true', GITHUB_STEP_SUMMARY: summary })
   assert.equal(r.code, 3)
-  assert.match(r.out, /== backend \(Vitest\) · not verified/)
-  assert.match(r.out, /Result: NOT VERIFIED \(exit 3\)/)
-  assert.match(r.out, /::error title=Quality Code backend::not verified/)
-  assert.match(readFileSync(join(d, 'out/j.xml'), 'utf8'), /<failure message="not verified">/)
-  assert.match(readFileSync(summary, 'utf8'), /## Quality Code: NOT VERIFIED\n\n\| Phase \| Verdict \| Tests \|/)
+  assert.match(r.out, /== backend \(Vitest\) · could not run/)
+  assert.match(r.out, /Result: COULD NOT RUN \(exit 3\)/)
+  assert.match(r.out, /::error title=Quality Code backend::could not run/)
+  assert.match(readFileSync(join(d, 'out/j.xml'), 'utf8'), /<failure message="could not run">/)
+  assert.match(readFileSync(summary, 'utf8'), /## Quality Code: COULD NOT RUN\n\n\| Phase \| Verdict \| Tests \|/)
 })
 
 test('junit escapes text and marks skipped phases', () => {
   const x = junit([{ name: 'a<b', verdict: 'checks_failed', detail: 'x & "y"' }, { name: 'evals', verdict: 'skipped', detail: '' }, { name: 'ok', verdict: 'green', detail: '' }])
-  assert.match(x, /name="a&lt;b"><failure message="checks failed">x &amp; &quot;y&quot;/)
+  assert.match(x, /name="a&lt;b"><failure message="problem in the tests">x &amp; &quot;y&quot;/)
   assert.match(x, /<skipped\/>/)
   assert.match(x, /tests="3" failures="1"/)
 })

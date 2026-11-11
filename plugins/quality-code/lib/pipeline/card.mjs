@@ -1,9 +1,9 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
 import { rulesLine } from '../base/rules.mjs'
-const LABEL = { 'suite-honesty': 'assertions' }
+const LABEL = { boundary: 'only tests', honesty: 'removals', 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
-const VERDICT = { green: '✅ green', checks_failed: '❌ checks failed', not_verified: '⚠️ not verified', tests_red: '🔴 tests red' }
+const VERDICT = { green: '✅ all good', checks_failed: '❌ problem in the tests', not_verified: '⚠️ could not run', tests_red: '🔴 tests fail' }
 
 export const label = check => LABEL[check] || check
 // ponytail: a whole-suite run can have dozens; the log lists every finding.
@@ -133,7 +133,7 @@ export const finishedButRed = (outcome, status, done = DEFAULT_DONE_STATUSES) =>
 
 /** The mark a run forced past the readiness gate carries ("continue anyway"). Red in a terminal. */
 export function riskLine({ score, bar }, color = false) {
-  const text = `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (${score}/${bar})`
+  const text = `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (${score} points, needs ${bar})`
   return color ? `\x1b[31m${text}\x1b[0m` : text
 }
 

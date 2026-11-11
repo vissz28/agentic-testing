@@ -53,47 +53,47 @@ test('tests next to the code, and names that already carry a ticket key', () => 
   assert.equal(keyed.keyed, true)
 })
 
-test('the flow: the config says, else the project when it has tests, else Quality Code; --flow wins for one run', () => {
+test('the flow: the config says, else the project when it has tests, else Quality Code; --style wins for one run', () => {
   const none = { specs: 0 }, some = { specs: 4 }
   assert.equal(flowOf({}, none), 'quality-code')
   assert.equal(flowOf({}, some), 'project')
-  assert.equal(flowOf({ testFlow: 'quality-code' }, some), 'quality-code')
-  assert.equal(flowOf({ testFlow: 'project' }, none), 'project')
-  assert.equal(runFlow({ testFlow: 'project' }, some, 'quality-code'), 'quality-code')
+  assert.equal(flowOf({ testStyle: 'quality-code' }, some), 'quality-code')
+  assert.equal(flowOf({ testStyle: 'project' }, none), 'project')
+  assert.equal(runFlow({ testStyle: 'project' }, some, 'quality-code'), 'quality-code')
   assert.equal(runFlow({}, some, 'bogus'), 'project')
 })
 
-test('testFlow in the config: project or quality-code, nothing else', () => {
-  assert.equal(validateConfig({ ...CFG, testFlow: 'project' }).ok, true)
-  assert.equal(validateConfig({ ...CFG, testFlow: 'quality-code' }).ok, true)
-  const bad = validateConfig({ ...CFG, testFlow: 'mine' })
+test('testStyle in the config: project or quality-code, nothing else', () => {
+  assert.equal(validateConfig({ ...CFG, testStyle: 'project' }).ok, true)
+  assert.equal(validateConfig({ ...CFG, testStyle: 'quality-code' }).ok, true)
+  const bad = validateConfig({ ...CFG, testStyle: 'mine' })
   assert.equal(bad.ok, false)
-  assert.match(bad.errors.join('\n'), /testFlow "mine": must be "project"/)
+  assert.match(bad.errors.join('\n'), /testStyle "mine": must be "project"/)
 })
 
 test('config flow: says which flow, and why', () => {
   const root = project(['test/a.spec.ts', 'test/b.spec.ts'])
   let r = run(root, 'config', 'flow')
   assert.equal(r.status, 0, r.stderr)
-  assert.match(r.stdout, /^flow: the project's own: 2 test files found, named \.spec\.ts/)
+  assert.match(r.stdout, /^test style: like the existing tests: 2 test files found, named \.spec\.ts/)
   assert.deepEqual([flowJson(r.stdout).flow, flowJson(r.stdout).source], ['project', 'detected'])
   r = run(root, 'config', 'flow', 'quality-code')
-  assert.match(r.stdout, /^flow: Quality Code: the ticket key in the file name/)
+  assert.match(r.stdout, /^test style: the Quality Code way: the ticket key in the file name/)
   assert.deepEqual([flowJson(r.stdout).flow, flowJson(r.stdout).source], ['quality-code', 'run'])
   assert.equal(run(root, 'config', 'flow', 'mine').status, 2)
 })
 
 test('config flow: the config wins over detection, and a project with no tests keeps Quality Code\'s flow', () => {
-  const set = project(['test/a.spec.ts'], { ...CFG, testFlow: 'quality-code' })
+  const set = project(['test/a.spec.ts'], { ...CFG, testStyle: 'quality-code' })
   const j = flowJson(run(set, 'config', 'flow').stdout)
   assert.deepEqual([j.flow, j.source, j.configured], ['quality-code', 'config', 'quality-code'])
   const empty = project(['src/a.ts'])
   assert.equal(flowJson(run(empty, 'config', 'flow').stdout).flow, 'quality-code')
-  const forced = project(['src/a.ts'], { ...CFG, testFlow: 'project' })
-  assert.match(run(forced, 'config', 'flow').stdout, /^flow: the project's own, but it has no tests yet/)
+  const forced = project(['src/a.ts'], { ...CFG, testStyle: 'project' })
+  assert.match(run(forced, 'config', 'flow').stdout, /^test style: like the existing tests, but the project has none yet/)
 })
 
-test('setup --detect reports the conventions, and --write keeps testFlow', () => {
+test('setup --detect reports the conventions, and --write keeps testStyle', () => {
   const root = project(['src/a.ts', 'test/a.spec.ts'])
   const env = { ...process.env, CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-cc-')) }
   const SETUP = new URL('../../bin/setup.mjs', import.meta.url).pathname
@@ -101,12 +101,12 @@ test('setup --detect reports the conventions, and --write keeps testFlow', () =>
   const detected = JSON.parse(d.stdout.split('\n').find(l => l.startsWith('SETUP_JSON:')).slice('SETUP_JSON:'.length))
   assert.equal(detected.conventions.specs, 1)
   assert.equal(detected.conventions.pattern, '.spec.ts')
-  const w = spawnSync(process.execPath, [SETUP, '--write', JSON.stringify({ config: { ...CFG, testFlow: 'project' } })], { cwd: root, env, encoding: 'utf8' })
+  const w = spawnSync(process.execPath, [SETUP, '--write', JSON.stringify({ config: { ...CFG, testStyle: 'project' } })], { cwd: root, env, encoding: 'utf8' })
   assert.match(w.stdout, /^ok/m, w.stdout + w.stderr)
   assert.equal(flowJson(run(root, 'config', 'flow').stdout).configured, 'project')
-  const bad = spawnSync(process.execPath, [SETUP, '--write', JSON.stringify({ config: { ...CFG, testFlow: 'mine' } })], { cwd: root, env, encoding: 'utf8' })
+  const bad = spawnSync(process.execPath, [SETUP, '--write', JSON.stringify({ config: { ...CFG, testStyle: 'mine' } })], { cwd: root, env, encoding: 'utf8' })
   assert.doesNotMatch(bad.stdout, /^ok/m)
-  assert.match(bad.stdout + bad.stderr, /testFlow/)
+  assert.match(bad.stdout + bad.stderr, /testStyle/)
 })
 
 function javaProject() {
@@ -134,7 +134,7 @@ test('Java: a Spec suffix, a base class, AssertJ and mirrored packages are detec
   assert.ok(c.testStyle.annotations.includes('@Test'))
   const j = { adapter: 'junit', jira: CFG.jira }
   assert.equal(runFlow(j, c), 'project', 'JUnit too follows the project when it has tests')
-  assert.equal(runFlow(j, c, 'quality-code'), 'quality-code', '--flow still wins')
+  assert.equal(runFlow(j, c, 'quality-code'), 'quality-code', '--style still wins')
   const f = flowJson(run(root, 'config', 'flow').stdout)
   assert.equal(f.flow, 'project')
   assert.equal(f.testStyle.baseClass, 'AbstractIntegrationTest')

@@ -61,7 +61,7 @@ test('cli: exit 0 when every fixture holds, 1 on drift, 3 with none', () => {
   assert.equal(quiet(project({})).code, 3)
 })
 
-test('with requirement and an xray block, each test needs its XRay case, linked to that ticket', () => {
+test('with requirement and an xray block, each test needs its Xray case, linked to that ticket', () => {
   const xcfg = { ...cfg, xray: { csv: 'qa/cases.csv' } }
   const row = (key, ticket) => buildRows({ key, summary: 's', ticket, steps: [{ action: 'a' }] }, 1, XRAY_HEADERS)
   const d = project({
@@ -70,7 +70,7 @@ test('with requirement and an xray block, each test needs its XRay case, linked 
     'qa/cases.csv': `${[headerRow(XRAY_HEADERS), ...row('ABC-2-1', 'ABC-2'), ...row('ABC-2-2', 'ABC-9')].map(toLine).join('\n')}\n`,
     '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', requirement: 'ABC-2', tests: [{ key: 'ABC-2-1' }, { key: 'ABC-2-2' }, { key: 'ABC-2-3' }] },
   })
-  assert.deepEqual(runEvals(d, xcfg)[0].problems, ['test ABC-2-3 is gone', 'ABC-2-2: its XRay case links ABC-9, not ABC-2', 'qa/cases.csv has no XRay case for ABC-2-3'])
+  assert.deepEqual(runEvals(d, xcfg)[0].problems, ['test ABC-2-3 is gone', 'ABC-2-2: its Xray case links ABC-9, not ABC-2', 'qa/cases.csv has no Xray case for ABC-2-3'])
   assert.deepEqual(runEvals(d, cfg)[0].problems, ['test ABC-2-3 is gone'], 'no xray block: no link check')
   const same = project({
     '.claude/quality-code.json': JSON.stringify(xcfg),

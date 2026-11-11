@@ -59,8 +59,10 @@ export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
     else missing.push({ key, weight, label })
   }
   missing.sort((a, b) => b.weight - a.weight)
-  const scaled = total ? Math.round((score * 100) / total) : 0
-  return { score: Math.max(0, Math.min(100, scaled)), missing }
+  const scaled = n => (total ? Math.max(0, Math.min(100, Math.round((n * 100) / total))) : 0)
+  // What each missing item adds to the printed score: its weight, unless omitted keys rescale it.
+  const gains = Object.fromEntries(missing.map(m => [m.key, scaled(score + m.weight) - scaled(score)]))
+  return { score: scaled(score), missing, gains }
 }
 
 /** Below the threshold is refuse: a readable Then does not save a thin ticket. */
@@ -89,7 +91,7 @@ function briefFor(config, rubric, ticket) {
   const v = buildVocabulary(config.languages)
   const { legacy, ...signals } = rubric.deriveSignals(v, config, ticket)
   const omitted = omittedFor(rubric, config, ticket)
-  const { score, missing } = scoreTicket(rubric, signals, omitted)
+  const { score, missing, gains } = scoreTicket(rubric, signals, omitted)
   const derivable = rubric.derivable(v, ticket)
   const gate = decideGate(score)
   const feature = rubric.feature(config, ticket)
@@ -116,6 +118,7 @@ function briefFor(config, rubric, ticket) {
   // Non-enumerable: the JSON brief keeps exactly today's field set.
   Object.defineProperty(brief, 'rubric', { value: rubric.id, enumerable: false })
   Object.defineProperty(brief, 'omitted', { value: omitted, enumerable: false })
+  Object.defineProperty(brief, 'gains', { value: gains, enumerable: false })
   return brief
 }
 

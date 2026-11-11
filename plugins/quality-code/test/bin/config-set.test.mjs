@@ -75,7 +75,7 @@ test('booleans and numbers are typed', () => {
 test('a wrong type or value is a clear error and nothing is written', () => {
   const s = setup()
   const before = readFileSync(join(s.d, '.claude/quality-code.json'), 'utf8')
-  for (const [k, v, re] of [['qa.autoPass', 'maybe', /true or false/], ['qa.blockedStop', 'abc', /whole number/], ['qa.blockedStop', '99', /0 to 20/], ['jira.projects', 'abc', /upper-case/], ['git.base', 'a b', /branch name/], ['testFlow', 'weird', /"project" or "quality-code"/], ['qa.app', 'ftp://x', /http/]]) {
+  for (const [k, v, re] of [['qa.autoPass', 'maybe', /true or false/], ['qa.blockedStop', 'abc', /whole number/], ['qa.blockedStop', '99', /0 to 20/], ['jira.projects', 'abc', /upper-case/], ['git.base', 'a b', /branch name/], ['testStyle', 'weird', /"project" or "quality-code"/], ['qa.app', 'ftp://x', /http/]]) {
     const r = s.run('set', k, v, '--yes')
     assert.equal(r.status, 2, `${k}=${v}`)
     assert.match(r.stderr, re, `${k}=${v}`)
@@ -156,9 +156,9 @@ test('a personal config with an absolute ticketsDir can still be changed', () =>
   assert.deepEqual(s.persCfg().languages, ['en', 'it'])
   assert.equal(s.persCfg().ticketsDir, tickets)
 })
-test('a personal config has no testFlow; no config at all is a setup hint', () => {
+test('a personal config has no testStyle; no config at all is a setup hint', () => {
   const s = setup({ repo: false, personal: true })
-  const r = s.run('set', 'testFlow', 'project', '--yes')
+  const r = s.run('set', 'testStyle', 'project', '--yes')
   assert.equal(r.status, 2)
   assert.match(r.stderr, /personal config/)
   const none = setup({ repo: false })

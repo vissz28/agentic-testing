@@ -15,7 +15,7 @@ const CHANGELOG = `# Changelog
 
 ### Fixed
 
-- A whole-suite run no longer says "not verified".
+- A whole-suite run no longer says "could not run".
 
 ## [0.28.0] - 2026-10-29
 

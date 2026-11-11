@@ -125,7 +125,7 @@ and logs go. It ends with what you can do now for your role. It never checks a t
 
 `/quality-code:config [get <key> | set <key> <value> | keys] [--personal | --project] [--yes]`
 
-With no options it shows a numbered card: stack, Jira site and projects, base branch, test flow, where
+With no options it shows a numbered card: stack, Jira site and projects, base branch, test style, where
 files and logs go, your Jira email, GitLab and Xray settings, and whether each token is set. Pick a
 number to change it. Tokens are set in `/plugin`, never in the chat.
 
@@ -201,7 +201,7 @@ most three questions. Your application code is never changed.
 | `--route PATH` | frontend | The screen to test, e.g. `--route /orders/new` |
 | `--no-extras` | frontend | Only the ticket's scenarios, no extra edge cases |
 | `--no-axe` | frontend | No accessibility scan |
-| `--flow project\|quality-code\|both` | all | Write tests like your existing ones (`project`), Quality Code's way, or `both` |
+| `--style project\|quality-code\|both` | all | Write tests like your existing ones (`project`), Quality Code's way, or `both` |
 | `--dry-run` | all | The gate and the plan, then stop: nothing written, nothing posted |
 | `--ci` | all | No questions; stops where it would have to ask |
 
@@ -284,7 +284,7 @@ your execution issue types, status names and app address.
 ### routine
 
 ```
-/quality-code:routine [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--stability N] [--branch REF]
+/quality-code:routine [KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--flaky N] [--branch REF]
 /quality-code:routine status [KEY] | list | stop <name>
 ```
 
@@ -297,7 +297,7 @@ tests, and says when they went from green to red, with the commits in between.
 | `--cron "..."` | A repeating schedule in your local time, e.g. `"7 7 * * 1-5"` for weekdays at 07:07 |
 | `--at "..."` | Run once at that moment, e.g. `"tomorrow 09:15"` |
 | `--until YYYY-MM-DD` | The last day it runs |
-| `--stability N` | Run every test N times to track flaky tests and pass rate |
+| `--flaky N` | Run every test N times to track flaky tests and pass rate |
 | `--branch REF` | The branch to watch (default: the base branch) |
 | `status [KEY]` | Pass rate, flaky tests and green-to-red history of past runs |
 | `list` | Your routines, with next and last run |
@@ -441,7 +441,7 @@ On Claude Code older than 2.1.275, use two steps:
   then `/reload-plugins`) and, on your pick, runs the update for you.
 - **`/quality-code:routine`: a check Claude runs by itself.** Pick a ticket or the whole suite, a time (a cron, or
   once) and a period. Each run fetches what the others pushed, runs the tests and tells you when something went
-  from green to red, with the commits in between. With `--stability 5` every test runs 5 times and flaky tests
+  from green to red, with the commits in between. With `--flaky 5` every test runs 5 times and flaky tests
   are named; `/quality-code:routine status` shows the pass rate and the flaky tests over time.
 - **`/quality-code:ci` for GitHub and GitLab.** Writes two CI jobs for every pull or merge request: a gate in
   seconds (no assertion or test removed, no test skipped without a ticket, no test that asserts nothing) and the
@@ -449,9 +449,9 @@ On Claude Code older than 2.1.275, use two steps:
   The toolchain, install, Docker for Testcontainers and the provider are guessed from the repo.
 - **Quality Code as an MCP server.** A Python server (`plugins/quality-code/mcp-server`) exposes every
   command as a tool, plus the scripts and guides, for clients without the Claude Code plugin. Shared over HTTP, it verifies callers with Microsoft Entra ID.
-- **Your tests, your flow.** A project that already has tests keeps its own naming, folders and style:
-  new tests are written like its nearest specs. Or choose Quality Code's flow. The option is in
-  `/quality-code:setup`, in `/quality-code:config` (item 6) and per run with `/quality-code:spec --flow`.
+- **Your tests, your style.** A project that already has tests keeps its own naming, folders and style:
+  new tests are written like its nearest specs. Or choose Quality Code's style. The option is in
+  `/quality-code:setup`, in `/quality-code:config` (item 6) and per run with `/quality-code:spec --style`.
 - **You choose where files and logs go.** Until you choose, they stay in the session (a temp folder).
   The last question of `/quality-code:setup` asks: in the project repo, on this machine outside the repo,
   or only in this session. Change it any time in `/quality-code:config`, item 7.
@@ -484,7 +484,7 @@ On Claude Code older than 2.1.275, use two steps:
   plugin's own scripts run without permission prompts.
 - **Settings asked in the chat:** the connectors card asks your Jira email, GitLab address and
   username, and saves them. Only tokens go through `/plugin`.
-- **XRay test cases** for QA (`/quality-code:xray`), and Confluence QA plans attached to a ticket are
+- **Xray test cases** for QA (`/quality-code:xray`), and Confluence QA plans attached to a ticket are
   now read.
 - **Quality Code brand:** logo, name and a short README; the full reference is the
   [Guide](docs/GUIDE.md).

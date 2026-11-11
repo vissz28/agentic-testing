@@ -9,6 +9,30 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-11-11
+
+Plain words for first-time users: one way to say each thing, no internal terms on the cards, and no command that just stops.
+
+### Changed
+
+- **Ticket readiness report.** The score is in points everywhere, with one phrase for the pass mark: `ABC-123: test-readiness 83/100 · ready (needs 70)`. Each missing item shows the points it really adds (`+11`), the same number the fill-in list shows; before, the report printed the raw weight, which differed for a Story. The last line is `Result: ready, tests can be written.` or `Result: not ready, below 70 points. …` (was `Gate: pass, ok to generate.`). The line `Expected chunks in ticket text …` is gone. A ticket with no sections is `free text only` (was `legacy / unstructured`), and "testable AC" reads "testable acceptance criteria: each one names a result you can see".
+- **Verdicts.** `green` is `all good`, `checks failed` is `problem in the tests`, `tests red` is `tests fail`, `not verified` is `could not run`, on the card, in the KPI and HTML reports and in CI. `routine` and `ci` print `Result: COULD NOT RUN` (was `NOT VERIFIED`). The JSON verdict ids and the exit codes are unchanged.
+- **Checks on the card.** `honesty` is shown as `removals` and `boundary` as `only tests`; the ids, the config keys and the JSON are unchanged.
+- **Central Context lines.** `✅ Written with 9 rules from Central Context (release …) and 2 built-in rules`, or `⚠️ Central Context could not be reached at … (HTTP 502). Written with 2 built-in rules instead` (was `Fallback: Central Context not used (…) · …`).
+- **QA runs.** A test is `Passed`, `Failed` or `Blocked` (was OK / KO); the Xray lines use Xray's own `PASSED` / `FAILED`.
+- **Test style.** The "test flow" is the "test style", and its card asks `Where should new tests go, and how should they be named?` with `Like your existing tests`, `The Quality Code way` and `Both: every test is written twice`.
+- **Plan card.** `Tool` (was `Runner`), `Errors and invalid input: N cases` (was `Negative`), `Accessibility: checked on N screens`, and the plan table's first column is `Type`.
+- **No dead ends.** A command run before setup shows a card, `Quality Code is not set up here yet. 1. Run setup now 2. Stop`, runs setup on `1` and then starts the command again; before, only `spec` did. The message no longer says "this repo" to QA and PO, who have none.
+- **Screenshots that cannot be read.** The way to set the Jira files token, with where to create it, is said once; after that the report only carries the flag `screenshots not read: N`.
+- Help, examples and descriptions say "check the ticket is ready" and "checks" (were "gate" and "grades"). `Xray` is spelled one way. Setup tells QA that `/quality-code:qa` needs a browser.
+
+### Removed
+
+- `/quality-code:routine --stability N`: use `--flaky N`, the same option as `/quality-code:check`.
+- The config key `testFlow` and `/quality-code:spec --flow`: use `testStyle` and `--style`.
+
+**What to do:** in a project config that has `testFlow`, rename the key to `testStyle` (or pick the style again in `/quality-code:config`, item 6). In a saved routine or script, type `--flaky` for `--stability` and `--style` for `--flow`. A CI job that reads the words `NOT VERIFIED` from the output reads `COULD NOT RUN` now; the exit codes are the same.
+
 ## [0.68.2] - 2026-11-11
 
 ### Fixed

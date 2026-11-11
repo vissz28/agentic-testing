@@ -55,7 +55,7 @@ test('the old-version message tells you to re-run setup', () => {
 
 test('loadConfig reports a missing file distinctly', () => {
   const dir = mkdtempSync(join(tmpdir(), 'at-'))
-  assert.deepEqual(loadConfig(dir), { ok: false, missing: true, errors: ['This repo is not set up. Run /quality-code:setup.'] })
+  assert.deepEqual(loadConfig(dir), { ok: false, missing: true, errors: ['Quality Code is not set up here yet. Run /quality-code:setup: in your repo as a developer, or from any folder as QA or PO.'] })
 })
 
 test('loadConfig reads and validates the file', () => {
@@ -537,7 +537,7 @@ test('xray: Playwright or fullstack only, a .csv, a folder outside the boundarie
   const x = { csv: 'qa/cases.csv' }
   assert.equal(validateConfig({ ...good, xray: x }).ok, true)
   assert.equal(validateConfig({ ...good, adapter: 'fullstack', xray: { ...x, folder: 'e2e/tickets/', headers: { action: 'Azione', data: 'Dati' } } }).ok, true)
-  assert.deepEqual(validateConfig({ ...vgood, xray: x }).errors, ['xray: only allowed with "adapter": "playwright" or "fullstack" (XRay test cases are written for Playwright tests)'])
+  assert.deepEqual(validateConfig({ ...vgood, xray: x }).errors, ['xray: only allowed with "adapter": "playwright" or "fullstack" (Xray test cases are written for Playwright tests)'])
   assert.deepEqual(validateConfig({ ...good, xray: [] }).errors, ['xray: must be an object with "csv" and optional "folder" and "headers"'])
   assert.deepEqual(validateConfig({ ...good, xray: { csv: 'cases.xlsx', more: 1 } }).errors, ['xray.more: unknown field (only "csv", "folder" and "headers")', 'xray.csv "cases.xlsx" must be a relative path to a .csv file inside the project'])
   assert.deepEqual(validateConfig({ ...good, xray: { csv: '../cases.csv' } }).errors, ['xray.csv "../cases.csv" must be a relative path to a .csv file inside the project'])

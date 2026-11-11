@@ -64,7 +64,7 @@ function mostMissing(rows, top) {
 /** The card: one line per ticket (lowest score first), then the project summary. */
 export function formatCard({ rows, summary }) {
   if (!rows.length) return 'No tickets to score.'
-  const lines = rows.map(r => `${r.key} · ${r.score}% · ${r.gate}${r.biggestMissing ? ` · missing: ${r.biggestMissing}` : ''}`)
+  const lines = rows.map(r => `${r.key} · ${r.score}/100 · ${r.gate}${r.biggestMissing ? ` · missing: ${r.biggestMissing}` : ''}`)
   const s = summary
   return [
     ...lines,

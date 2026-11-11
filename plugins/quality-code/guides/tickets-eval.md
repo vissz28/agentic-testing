@@ -16,7 +16,7 @@ From the arguments of `/quality-code:ticket` (without `--eval`): read a project'
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (the path on the `tickets folder:` line `config check` printed, used as it is: where this person keeps the project's files, in the repo or outside it) from it.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). The config is the repo's or the personal one; use whichever it found. Read `jira.site`, `jira.projects`, `jira.trackingProjects` (optional) and `ticketsDir` (the path on the `tickets folder:` line `config check` printed, used as it is: where this person keeps the project's files, in the repo or outside it) from it.
 2. **Parse.** From `$ARGUMENTS`:
    - `<PROJECT>`: the first word that is a project key (`[A-Z][A-Z0-9]*`), mandatory. Missing: `pass a project: /quality-code:ticket <PROJECT> --eval` and stop. It must be in `jira.projects` or `jira.trackingProjects`; if not, say `<PROJECT> is not one of <those keys>. Add it with /quality-code:setup, or pick one of them.` and stop.
    - `--user <name>`, `--status <status>` (a value with spaces is in quotes).

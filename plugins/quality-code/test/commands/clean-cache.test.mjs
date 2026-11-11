@@ -1,4 +1,4 @@
-// /quality-code:clean --cache is a prompt, not code: these pin its flow, its safety rules and its wiring.
+// /quality-code:clean --cache is a prompt, not code: these pin its style, its safety rules and its wiring.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'

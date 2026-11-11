@@ -58,7 +58,7 @@ Without Claude Code's hook, the block on editing code, CI and dependency files d
 | `/quality-code:ci` | writes the GitHub Actions or GitLab CI file: a gate on the specs each pull or merge request changes (honesty, assertions, frozen evals; git and node only) and the tests (types, tests and mutation on the changed specs; a code-only change runs its side's whole suite without mutation), install and Docker guessed from the repo |
 | `/quality-code:ticket` | finds a ticket and shows it in short |
 | `/quality-code:seed <KEY>` | loads realistic mock data for a ticket into your local database, to test it by hand in the running app (local databases only; set up with the `seed` block) |
-| `/quality-code:xray <KEY>` | writes XRay test cases for QA |
+| `/quality-code:xray <KEY>` | writes Xray test cases for QA |
 | `/quality-code:qa [KEY]` | for QA: lists your Xray test executions, runs one in the browser and drafts each defect; you give every verdict, and nothing reaches Jira without a yes |
 | `/quality-code:config` | shows the settings and changes one at a time: the project config and your own plugin settings. Directly: `config get <key>` reads one setting and where it comes from; `config set <key> <value>` shows `old -> new`, one yes, then a script checks and saves it (`--personal` or `--project`, `--yes` skips the question); `config keys` lists the settable keys. Tokens are never set here, it shows the `/plugin` steps |
 | `/quality-code:clean [--dry-run]` | removes what Quality Code created in the project (setup files, saved output, cache; your own tests only if you pick them): a script lists it, you pick the groups and say yes once; `--dry-run` only lists |

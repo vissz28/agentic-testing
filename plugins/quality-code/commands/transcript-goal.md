@@ -24,7 +24,7 @@ From `$ARGUMENTS`: take a sprint planning transcript, write down the sprint goal
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config means: run `/quality-code:setup`). Read `jira.site`, `jira.projects` and `ticketsDir` (the path on the `tickets folder:` line, used as it is). The project for new tasks is the first of `jira.projects`; with more than one, ask which with the picker. Then do the progress start check and the language call from the guides.
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print a line starting with `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). Read `jira.site`, `jira.projects` and `ticketsDir` (the path on the `tickets folder:` line, used as it is). The project for new tasks is the first of `jira.projects`; with more than one, ask which with the picker. Then do the progress start check and the language call from the guides.
 2. **Source.** From `$ARGUMENTS`:
    - `--file <path>`: the transcript file (`.vtt`, `.txt`, `.md` or `.docx`). Word files are read as text; a `.docx` that is not readable: say so and ask for the text pasted or a `.vtt`.
    - `--meeting <title or date>`: read it from the Microsoft 365 connector (step 3).

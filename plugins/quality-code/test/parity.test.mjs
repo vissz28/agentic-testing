@@ -8,6 +8,9 @@
 //       for a missing environment or expected vs actual, which its fill-in never asks for, and the
 //       fill-in's gains are computed over the same keys as the score. In the line-by-line group, the
 //       ops it changes were re-captured from the plugin, and each file lists them in source.recaptured.
+//   Plain wording, a deliberate change: the report's and the fill-in's words were rewritten in expected/ (the
+//       headline in points, "needs 70", the Result line, no chunks line), and each missing item prints the points
+//       it adds to the score, re-captured from the plugin where a Story's left-out keys rescale them.
 //   Vague criteria, a bug fix: a concrete ac_present answer replaces the vague criteria (before, it was
 //       refused because the vague line stayed), and an AC heading left empty goes. Re-captured; listed in
 //       source.recaptured.

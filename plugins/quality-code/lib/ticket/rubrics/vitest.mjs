@@ -4,7 +4,7 @@ import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, fea
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
   ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description'],
-  ac_testable: [15, 'testable AC: each Then or AC item an observable assertion, not "works correctly"'],
+  ac_testable: [15, 'testable acceptance criteria: each one names a result you can see, not "works correctly"'],
   steps: [10, 'steps to reproduce (Bug) or a user story (Story)'],
   expected_defined: [15, 'clear expected behaviour (Expected vs Actual, or AC present)'],
   attachments: [10, 'an attachment (a screenshot, a video or a file on the ticket)'],
@@ -42,22 +42,21 @@ function deriveSignals(v, config, ticket) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [], omitted = new Set() } = brief
-  const band = legacy ? 'legacy / unstructured' : gate === 'pass' ? 'ready' : 'too thin'
+  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
+  const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'
-      ? 'pass, ok to generate.'
-      : `refuse, below ${threshold}%. Do not generate. Add the missing items on the ticket, then re-run.${legacy ? ' Legacy ticket, no template structure.' : ''}`
+      ? 'ready, tests can be written.'
+      : `not ready, below ${threshold} points. Do not write tests. Add the missing items on the ticket, then run again.${legacy ? ' The ticket is free text only.' : ''}`
   const shown = missing.filter(m => !omitted.has(m.key))
   return [
-    `${key}: test-readiness ${score}% · ${band} (threshold ${threshold}%)`,
+    `${key}: test-readiness ${score}/100 · ${band} (needs ${threshold})`,
     ...(omitted.has('feature_label') ? [] : [feature ? `Feature label: ${feature}` : 'Feature label: none']),
-    `Expected chunks in ticket text: ${derivable} assertable · model harvested ${scenarios.length} scenario(s) (not scored)`,
     shown.length
-      ? `Missing (each lowers the score):\n${shown.map(m => `  - ${m.label} (${m.weight})`).join('\n')}`
+      ? `Missing (points each would add):\n${shown.map(m => `  - ${m.label} (+${gains[m.key] ?? m.weight})`).join('\n')}`
       : 'Missing: nothing, full marks.',
     flags.length ? `Flags:\n${flags.map(f => `  - ${f}`).join('\n')}` : 'Flags: none',
-    `Gate: ${gateLine}`,
+    `Result: ${gateLine}`,
   ].join('\n')
 }
 
@@ -75,6 +74,6 @@ export default {
     return keys
   },
   labels: config => ({ title_prefix: `title prefix (a configured one, e.g. [${(config.titlePrefixes ?? []).join('|')}])` }),
-  legacyFlag: threshold => `legacy / unstructured: no template structure. Refused until the ticket meets the ${threshold}% bar.`,
+  legacyFlag: threshold => `free text only: no sections such as Acceptance criteria or Steps. Refused until it reaches ${threshold} points.`,
   formatReport,
 }

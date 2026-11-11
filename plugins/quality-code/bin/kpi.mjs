@@ -17,7 +17,7 @@ import vitest from '../lib/ticket/rubrics/vitest.mjs'
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
 const BANDS = [['0-29', 0, 29], ['30-49', 30, 49], ['50-69', 50, 69], ['70-89', 70, 89], ['90-100', 90, 100]]
-const VERDICTS = { green: 'green', checks_failed: 'checks failed', tests_red: 'tests red', not_verified: 'not verified' }
+const VERDICTS = { green: 'all good', checks_failed: 'problem in the tests', tests_red: 'tests fail', not_verified: 'could not run' }
 const day = ms => new Date(ms).toISOString().slice(0, 10)
 
 function parse(argv) {

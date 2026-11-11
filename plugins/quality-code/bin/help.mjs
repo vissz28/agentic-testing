@@ -17,9 +17,9 @@ const ROLES = {
     name: 'Developer',
     steps: [
       [null, 'Create a feature branch for the ticket.'],
-      ['spec', 'checks the ticket is ready, writes its tests and grades them.'],
+      ['spec', 'checks the ticket is ready, writes its tests and checks them.'],
       ['seed', 'loads mock data for the ticket into your local database, to try it by hand.'],
-      ['check', 'with `--branch`, before the merge request, grades the tests changed on your branch.', '--branch']
+      ['check', 'with `--branch`, before the merge request, checks the tests changed on your branch.', '--branch']
     ],
     also: ['ticket', 'ci', 'routine', 'report']
   },

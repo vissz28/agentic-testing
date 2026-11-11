@@ -59,10 +59,10 @@ test('score output is untouched by the negative check', () => {
   assert.doesNotMatch(r.stdout, /Negative cases/)
 })
 
-test('spec plan: negative tests on every ticket, a Negative: N cases line, removable, nothing invented', () => {
+test('spec plan: negative tests on every ticket, an Errors and invalid input: N cases line, removable, nothing invented', () => {
   assert.match(step4, /ticket\.mjs" negative-check/)
   assert.match(step4, /on every ticket/)
-  assert.ok((step4.match(/Negative: <N> cases/g) ?? []).length >= 2, 'both plan cards carry the line')
+  assert.ok((step4.match(/Errors and invalid input: <N> cases/g) ?? []).length >= 2, 'both plan cards carry the line')
   assert.match(step4, /The person can remove any case/)
   assert.match(step4, /never invent a limit, a message or a role/)
   assert.match(step4, /ask in one line/)

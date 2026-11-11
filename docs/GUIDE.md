@@ -115,7 +115,7 @@ expected values, mutation and flaky read its specs as the JavaScript test syntax
 share (`describe`/`it`, `expect` matchers, Chai chains, `node:assert` calls, Cypress's `.should`). node --test runs
 with the plugin's own reporter and the loading flags of your test script (`--import tsx`). The card names the runner
 with `(generic checks)`. What only the specialized suite has: Stryker on the code (Vitest), the
-Playwright-only assertion flips, XRay test cases and the red-test tags (Playwright; Cypress has no
+Playwright-only assertion flips, Xray test cases and the red-test tags (Playwright; Cypress has no
 tags), and setup's smoke test (Playwright). Cypress specs live in `cypress/e2e/` and end in `.cy.ts`;
 Cypress does not start the app, so it must be running.
 
@@ -158,7 +158,7 @@ Playwright test).
 | Write frontend tests from a ticket, any Playwright app | `/quality-code:spec <KEY>` | ✅ available (Playwright) |
 | Load realistic mock data for a ticket into your local database, to test it by hand | `/quality-code:seed <KEY>` | ✅ available |
 | QA: run your Xray executions in the browser, with blocked tests, evidence, resume and a retest watch | `/quality-code:qa` | ✅ available |
-| XRay test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
+| Xray test cases for QA, one per Playwright test, in files to import into Xray | `write` on Playwright tests, or `/quality-code:xray <KEY>` alone | ✅ available (with `xray` in the config) |
 | How the plugin is used here, and the Quality Program numbers: traceability, completeness, suite honesty, gate integrity, adoption, coverage, mutation kill rate | `/quality-code:report --kpi` | ✅ available |
 | AI usage and estimated cost of the plugin's runs in this project | `/quality-code:report --cost` | ✅ available |
 
@@ -410,14 +410,14 @@ The steps, always in this order:
 ```
 quality-code check · 2 spec files · ticket ABC-123
 
-Verdict: ❌ checks failed
+Verdict: ❌ problem in the tests
 
 Tests     8 passed · 0 failed · 1 to do
   ✓ an order of 100.00 or more gets the discount
   ✓ cancels
   …
 Checks
-  ✅ honesty        no assertion or test removed
+  ✅ removals       no assertion or test removed
   ❌ assertions     1 test(s) run but assert nothing: orders.spec.ts › 'cancels'
   ✅ types          compiles
   ✅ tests          8 passed
@@ -474,7 +474,7 @@ that runs at the times you pick, for a period or once. Each scheduled run (`rout
   check: the new commits, how many authors, and **integral changes** (`package.json`, a lockfile, `tsconfig`, a
   runner config, `pom.xml`, `go.mod`, `.claude/quality-code.json`). With no new commit it says so and stops (exit 0);
 - runs the tests of one ticket (`--task KEY`: the specs that name the key) or every test of the project;
-- with `--stability N` runs every test N times and names the **flaky** ones (passed and failed on the same code);
+- with `--flaky N` runs every test N times and names the **flaky** ones (passed and failed on the same code);
 - says **REGRESSION** when the last kept result was green and this one is not, with the commits in between (author
   and subject), so the culprit is one line away;
 - keeps every run in a local history next to the audit log (so `/quality-code:config`, item 7, decides where; "only in
@@ -518,13 +518,13 @@ drifted, 3 no fixture.
 
 | Verdict | Meaning |
 |---|---|
-| ✅ green | every step ran and passed |
-| ❌ checks failed | a check found a problem (boundary, honesty, assertions, types, expected, mutation, flaky, stryker) |
-| ⚠️ not verified | something could not run (Vitest or `tsc` missing, a timeout, a spec whose assertions mutation cannot check such as snapshot-only ones, a spec with no block for the ticket key, Stryker failing to run). Never shown as green |
-| 🔴 tests red | the checks passed but a test fails. Expected for a bug whose fix is not merged yet |
+| ✅ all good | every step ran and passed |
+| ❌ problem in the tests | a check found a problem (boundary, honesty, assertions, types, expected, mutation, flaky, stryker) |
+| ⚠️ could not run | something could not run (Vitest or `tsc` missing, a timeout, a spec whose assertions mutation cannot check such as snapshot-only ones, a spec with no block for the ticket key, Stryker failing to run). Never shown as green |
+| 🔴 tests fail | the checks passed but a test fails. Expected for a bug whose fix is not merged yet |
 
-Exit codes of `bin/pipeline.mjs`: `0` green, `1` checks failed or tests red, `2` usage or config
-error (or a crash), `3` not verified. The run writes nothing into your repo except Vitest's own cache
+Exit codes of `bin/pipeline.mjs`: `0` green, `1` problem in the tests or tests fail, `2` usage or config
+error (or a crash), `3` could not run. The run writes nothing into your repo except Vitest's own cache
 in `node_modules/.vite` and the mutation check's temporary spec copies, deleted when it ends.
 
 ---
@@ -539,7 +539,7 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
 ```
 
 1. **Gate.** The ticket is read and scored as in `ticket-eval`. A refused ticket gets the refuse card
-   and its flow; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",
+   and its style; if the guided fill-in makes it pass, writing goes on. Option 3, "Continue anyway",
    also goes on, and every result is marked 🔴 [RISK / NOT RECOMMENDED]. Anything else stops.
 2. **Target.** Found from your branch's diff and the ticket: the changed source file that holds what
    the scenarios describe. On a branch with no change (after the merge), from the ticket's merge
@@ -562,7 +562,7 @@ then the pipeline grades them. Claude writes; the scripts gate and grade.
    `<ticketsDir>/<KEY>/expected.json`) and the target, so the `expected` and `stryker` steps run too. A fixable failure (expected, assertions, mutation, stryker, or types in a spec) gets
    at most two rewrites of the tests, never of the code; then the card is shown as it is.
 
-For a Bug whose card is `🔴 tests red` with a test that asserts the ticket's expected value, one line
+For a Bug whose card is `🔴 tests fail` with a test that asserts the ticket's expected value, one line
 is added: `This is the bug the ticket describes; it should go green when the fix is merged.` The
 command ends with `1. Done / 2. That's not what I see in the app / 3. Another ticket`: on 2 it tells
 whether the app shows something the ticket does not ask for (a finding, the test stays) or the ticket
@@ -609,10 +609,10 @@ that is not `localhost`, `127.x.x.x`, `::1` or a container name, never runs in C
 that drops, truncates or alters a table. With `seed.tenant`, every reset and update must keep to that
 tenant's rows. `seed.guide` adds the team's own rules.
 
-### XRay test cases
+### Xray test cases
 
 With an `xray` block in the config (Playwright and fullstack projects), each Playwright test `write`
-writes also becomes an XRay test case, and `/quality-code:xray ABC-123` writes the cases alone, with
+writes also becomes an Xray test case, and `/quality-code:xray ABC-123` writes the cases alone, with
 no test (QA's cases before the tests exist). A case is the test's steps in plain words (action, data,
 expected result), named after its test (`Automated: <test name>` in its Description) and linked to
 the ticket. `bin/xray.mjs` appends the cases to `xray.csv`, the record of every case, numbered per
@@ -855,7 +855,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `adapter` | `playwright` (frontend), `vitest` (backend) or `fullstack` (both) | required |
 | `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
 | `qa` | optional, for `/quality-code:qa`: `executionTypes` (the Jira issue types of a test execution; default `Test Execution`, `Sub Test Execution`), `sprint` (`open`, the default, or `any`), `app` (the address to test), `statuses` (`ko`, `ready`, `done`: your status names, like `TEST KO` and `Ready to test`), `blockedStop` (stop after this many blocked tests in a row; default 2, 0 never), `autoPass` (record a test found OK without a card; default false) | Xray's types, open sprint, names detected |
-| `xray` | Playwright and fullstack: XRay test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
+| `xray` | Playwright and fullstack: Xray test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
 | `centralContext.hub` | the Central Context hub (`http://localhost:8080` for the local preview, or the hosted hub), or `off`. `spec` reads from it the active testing rules of the quality domain that apply to the ticket's side and follows them while writing; `CC_HUB_URL` overrides it | TeamSystem's hosted hub (`https://centralcontext-dev.teamsystem.cloud`) |
 | `jira.site` | your Jira site, `https://…`, no path | required |
@@ -881,7 +881,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `gate` | The readiness gate for this project: `omit` (`attachments`, `links`, `context`, `environment`: items that never count against a ticket, the score is scaled over the rest) and `contextFromIntro` (the paragraph before the first heading counts as the Context) | nothing omitted |
 | `roots` | The folders of a monorepo this one config serves (`["app", "backend-executor"]`). `ticket.mjs root set <folder>` picks the active one on this computer, `QUALITY_CODE_ROOT` for one run; `root` stays the default | none |
 | `sides.default` | The side (`frontend`, `backend`, `fullstack`) of a ticket with no FE/BE/FS mark, so the side card is not asked on every ticket | asked |
-| `testFlow` | `"project"`: new tests follow the project's own tests (its file naming, folders and the style of its nearest specs); `"quality-code"`: Quality Code's flow (the ticket key in the file name, the configured test folders). `/quality-code:spec --flow …` overrides it for one run | `project` when the project already has tests, else `quality-code` |
+| `testStyle` | `"project"`: new tests follow the project's own tests (its file naming, folders and the style of its nearest specs); `"quality-code"`: Quality Code's style (the ticket key in the file name, the configured test folders). `/quality-code:spec --style …` overrides it for one run | `project` when the project already has tests, else `quality-code` |
 | `ticketsDir` | where local ticket copies go, inside the project, when you keep files in the project repo (see "Where files and logs go" below) | `.quality-code/tickets` |
 | `redact` | name → regular expression. **Replaces** the default, so keep `customerId` in it | `{ "customerId": "\\bU\\d{5,}\\b" }` |
 | `messages` | your own wording for the comment, the fill-in questions and the Jira fill marker | built-in texts |
@@ -979,7 +979,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 | `the e2e folder "…" is inside the forbidden "…"` | Your Playwright `testDir` is in a folder tests must not write. Set `playwright.folder` to a test folder, or allow it in `boundaries.allow`. |
 | `honesty: anchor tag without a ticket tag` | A tag list was split over lines; keep `{ tag: ['@anchor', '@KEY'] }` on the `test(` line. |
 | `No quality-code audit data yet` | Gate a ticket or run a check first; the audit log is local to your machine. |
-| A Playwright check says `the app is not reachable` | Start the app, or let your Playwright config's `webServer` start it, then run the check again. The verdict is `not verified`, never red. |
+| A Playwright check says `the app is not reachable` | Start the app, or let your Playwright config's `webServer` start it, then run the check again. The verdict is `could not run`, never red. |
 
 ---
 
@@ -987,7 +987,7 @@ The plugin only ever calls GitLab's read operations. The token connector also ru
 
 - **Playwright writing covers behaviour only.** No design (Figma) captures yet; one e2e folder per
   project (`playwright.folder`).
-- **XRay test cases are files to import.** Nothing is sent to Xray, and only Playwright tests get one.
+- **Xray test cases are files to import.** Nothing is sent to Xray, and only Playwright tests get one.
 - **Playwright checks need the app running** (or your config's `webServer`). No Stryker step for
   end-to-end tests.
 - **Stryker is optional.** Without `node_modules/.bin/stryker` in the project, without a target
@@ -1122,7 +1122,7 @@ Diff mode (`boundary`, `honesty`) reads git, so it cannot see git-ignored files 
 `run start --key KEY`, `run stop` and `run status` open, close and show a test-writing run (`run
 start` exits `1` when a run is already active). The pipeline runs the checks in order, picking the runner from `adapter` (Playwright has no Stryker step and refuses `--target`):
 `node <plugin>/bin/pipeline.mjs <spec…> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]`
-(exit `0` green, `1` checks failed or tests red, `2` usage or config error, `3` not verified).
+(exit `0` green, `1` problem in the tests or tests fail, `2` usage or config error, `3` could not run).
 
 ```bash
 claude plugin validate plugins/quality-code && claude plugin validate .

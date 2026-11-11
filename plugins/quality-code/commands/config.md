@@ -22,14 +22,14 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
 - **get:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config get <key>` (add `--personal` or `--project` when asked) and show its first line as a headline, `**<key>: <value>**`, then the Next line from display.md (`/quality-code:config set <key> <value>`).
 - **keys:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config keys`, drop its `CONFIG_KEYS_JSON:` line, and show `### ⚙️ Settable keys`, the headline `**N settings**` and a table `| Key | Takes | Example |` (at most 8 rows in view, the rest in a `<details>` block as display.md says). Then `> 💡 Tokens, keys and passwords are not set here: /plugin configure quality-code@teamsystem` and the Next line `/quality-code:config set git.base develop`. Stop.
 - **set:** run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config set <key> <value>` (same scope flags) without `--yes`. It prints `<key>: <old> -> <new>` and writes nothing. Show `### ⚙️ Config`, a short bold headline (`**<key> would change**`) and a table `| Setting | Old | New |` from that line, no code block. Ask `Change it?` with the picker (`Yes` / `No`, as display.md says), and on yes run the same command again with `--yes`; on no say `**Nothing was changed**`. If the script says `Nothing to change: already set.`, say `**✅ <key> is already <value>**` and stop. When the person already wrote `--yes`, pass it at once and skip the question.
-- **Keys:** dotted, lists with commas, `true`/`false` and numbers typed: `jira.site`, `jira.projects`, `jira.trackingProjects`, `jira.bugTypes`, `jira.doneStatuses`, `jira.acceptanceCriteriaField`, `git.base`, `root`, `ticketsDir`, `testFlow`, `languages`, `titlePrefixes`, `qa.app`, `qa.sprint`, `qa.executionTypes`, `qa.statuses.ko|ready|done`, `qa.blockedStop`, `qa.autoPass`, and `place` (files and logs: `repo`, `local` or `chat`). `none` removes an optional one. The script checks the value with the rules the setup writers use and prints a clear error, with nothing written, for an unknown key, a bad value, or anything that looks like a token or key; show the error as it is and stop.
+- **Keys:** dotted, lists with commas, `true`/`false` and numbers typed: `jira.site`, `jira.projects`, `jira.trackingProjects`, `jira.bugTypes`, `jira.doneStatuses`, `jira.acceptanceCriteriaField`, `git.base`, `root`, `ticketsDir`, `testStyle`, `languages`, `titlePrefixes`, `qa.app`, `qa.sprint`, `qa.executionTypes`, `qa.statuses.ko|ready|done`, `qa.blockedStop`, `qa.autoPass`, and `place` (files and logs: `repo`, `local` or `chat`). `none` removes an optional one. The script checks the value with the rules the setup writers use and prints a clear error, with nothing written, for an unknown key, a bad value, or anything that looks like a token or key; show the error as it is and stop.
 - **Scope:** `--personal` or `--project`; with neither, the config that exists (the repo's first).
 - **Not here:** tokens, keys, passwords and the plugin settings (Jira email, GitLab address and username, Xray address) are never set this way. For those say `Set it in /plugin, never in the chat: type /plugin, choose quality-code, Configure options, then /reload-plugins.`
 - End with the headline `**✅ <key> changed**` and the step 4 line for what changed (commit the repo config), then the Next line from display.md (`/quality-code:config get <key>`, or the command the change makes likely). Do not show the card again.
 
 ## Steps
 
-1. **Read.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. It prints `ok (<repo|personal>: <path>)`, or the problems. If the config is missing, say `Quality Code is not set up here yet: run /quality-code:setup.` and stop. If the config is broken, show the problems; the plugin settings (items 8 to 10 below) can still be changed. Read the config at that path. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get` and read its `SAVE_JSON:` line: `place`, `ticketsDir` and `options` (where this person keeps the project's files and logs; see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`). The plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`, `gitlab_username` is `${user_config.gitlab_username}`, `xray_api_url` is `${user_config.xray_api_url}`.
+1. **Read.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. It prints `ok (<repo|personal>: <path>)`, or the problems. If the config is missing, show the **Not set up** card of the display guide. If the config is broken, show the problems; the plugin settings (items 8 to 10 below) can still be changed. Read the config at that path. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save get` and read its `SAVE_JSON:` line: `place`, `ticketsDir` and `options` (where this person keeps the project's files and logs; see `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md`). The plugin settings (each empty when not set): `jira_email` is `${user_config.jira_email}`, `gitlab_api_url` is `${user_config.gitlab_api_url}`, `gitlab_username` is `${user_config.gitlab_username}`, `xray_api_url` is `${user_config.xray_api_url}`.
 
    **Tokens and keys, without reading them.** A token connector offers tools only when its token is set, so look at which tools this session has. GitLab token: the plugin's `gitlab-token` connector has tools. Figma key: `figma-token` has tools. Xray API key: `xray` offers `get_test_run`. Each one is `✅ set` or `not set`. GitHub: run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --detect` and read `here.github` in its `SETUP_JSON:` line: `✅ <login> (gh)`, or `<reason>`. Leave GitHub off the card when `here.github` is not set (the repo is not on GitHub). For a repo config, run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --style` and read `report` in its `CONNECTOR_SETTINGS_JSON:` line.
 2. **The card.** Start with a short summary and end the turn: one line per section with only what is worth a glance (stack, Jira projects, base branch, where files are kept, which tokens are not set), then this line: `Type a number or the name of a setting, "all" for every setting, or stop. The quick way: /quality-code:config set <key> <value>, for example set git.base develop.` The full card below is shown when the person types `all` or asks for a section. The full card: show `not set` for an empty value, and leave out items 4 and 15 (and the Replies line) for a personal config:
@@ -42,7 +42,7 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
      3. Jira projects   <jira.projects>
      4. Base branch     <git.base, or "detected">
      5. Tickets folder  <ticketsDir in the config file, or the default; only used when files are kept in the project repo>
-     6. Test flow       <follow your project's flow (<pattern>) | Quality Code's flow>
+     6. Test style       <like your existing tests (<pattern>) | the Quality Code way>
    Your files · saved on this computer only, not shared with the team
      7. Files and logs  <in the project repo | on this machine: <ticketsDir> | only in this chat>
    Your accounts · saved on this computer only, not shared with the team
@@ -57,7 +57,7 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
    Replies · in .claude/settings.json, shared with your team, commit it
     15. Reply style     <report: results only, no step-by-step lines | Claude Code's default>
    QA runs · in the project config (/quality-code:qa)
-    16. QA runs         <qa.app, or "asked each run"> · KO <qa.statuses.ko, or "detected"> · ready <qa.statuses.ready, or "not set"> · <qa.executionTypes, or "Xray's"> · <open sprint | any sprint><, auto-pass when on>
+    16. QA runs         <qa.app, or "asked each run"> · failed status <qa.statuses.ko, or "detected"> · ready <qa.statuses.ready, or "not set"> · <qa.executionTypes, or "Xray's"> · <open sprint | any sprint><, auto-pass when on>
    Feature labels, QA plans, title prefixes, templates, redaction, test folders: /quality-code:setup advanced.
    Type a number to change it, or stop.
    ```
@@ -71,16 +71,16 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
      - Tickets folder: a folder inside the project.
 
      Build the proposal `{ "config": <the config file exactly as it is, with only that value changed> }`. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` for a repo config, or `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write-personal '<proposal JSON>'` for a personal one. If it does not print `ok`, show its lines as they are and ask again. If they name a field this card does not set (a stack change can need a `vitest`, `pytest`, `junit`, `go`, `dotnet` or `playwright` block), say `That needs more answers: run /quality-code:setup advanced.` and stop.
-   - **6 (test flow).** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config flow` and say its first line. Show this card and end the turn, `(now)` after the one in force:
+   - **6 (test style).** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config flow` and say its first line. Show this card and end the turn, `(now)` after the one in force:
 
      ```
-     How should new tests be written?
-     1. Follow your project's flow: your naming, folders and style
-     2. Use Quality Code's flow: the ticket key in the file name, Quality Code's test folders
-     3. Both: write each test in your flow and in Quality Code's
+     Where should new tests go, and how should they be named?
+     1. Like your existing tests: same folders, names and tools (recommended)
+     2. The Quality Code way: its own folders, the ticket key in each file name
+     3. Both: every test is written twice
      ```
 
-     Build the proposal `{ "config": <the config file exactly as it is, with only testFlow set to "project", "quality-code" or "both"> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). A personal config has no tests of its own: say `Tests are written from a repo: set this there.` and stop. For one run only, `/quality-code:spec <KEY> --flow project|quality-code|both`.
+     Build the proposal `{ "config": <the config file exactly as it is, with only testStyle set to "project", "quality-code" or "both"> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). A personal config has no tests of its own: say `Tests are written from a repo: set this there.` and stop. For one run only, `/quality-code:spec <KEY> --style project|quality-code|both`.
    - **7 (files and logs).** Show the card of `${CLAUDE_PLUGIN_ROOT}/guides/save-place.md` (one line per entry of `options`, `(now)` after the current one) and end the turn. On a pick, run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" save set <repo|local|chat>` and show its `ok:` line as printed: it also moves the files already saved to the new place. Nothing in the project config changes.
    - **8.** Ask `Your Atlassian email?` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --jira-save "<email>"`.
    - **9.** Ask `Your GitLab address? (for example gitlab.example.com)`, run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --gitlab-check "<address>"`, then ask `Your GitLab username or email?` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/connector-settings.mjs" --gitlab-save "<address>" "<username or email>"`.
@@ -92,12 +92,12 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
      ```
      Which QA setting?
      1. The app address to test
-     2. The names of your statuses (KO, ready to test, done)
+     2. The names of your statuses (failed, ready to test, done)
      3. The issue types of a test execution, and the sprint
      4. Auto-pass and when to stop
      ```
 
-     Then ask for the value: `1` an address starting with `http://` or `https://` (`none` removes it); `2` the status names `TEST KO`, `Ready to test` and `Done` as they are in Jira (any of them can be left empty); `3` the issue types of your test execution separated by commas (like `Test Execution, Sub Test Execution`), then `open sprint or any?`; `4` `Record a test the agent finds OK without asking? yes or no`, then `Stop after how many blocked tests in a row? (0 never, 2 is the default)`. Build the proposal `{ "config": <the config file exactly as it is, with only its qa block changed> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). If it does not print `ok`, show its errors and ask again. Nothing else in the file changes.
+     Then ask for the value: `1` an address starting with `http://` or `https://` (`none` removes it); `2` the status names `TEST KO`, `Ready to test` and `Done` as they are in Jira (any of them can be left empty); `3` the issue types of your test execution separated by commas (like `Test Execution, Sub Test Execution`), then `open sprint or any?`; `4` `Record a test the agent finds passing without asking? yes or no`, then `Stop after how many blocked tests in a row? (0 never, 2 is the default)`. Build the proposal `{ "config": <the config file exactly as it is, with only its qa block changed> }` and run `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (`--write-personal` for a personal config). If it does not print `ok`, show its errors and ask again. Nothing else in the file changes.
    - **11 to 13 (tokens and keys).** Never ask for one here: what is typed in the chat is kept in the conversation. Show these steps, with the item's settings and where to get the token, and end the turn:
 
      ```

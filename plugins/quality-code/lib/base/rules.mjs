@@ -123,18 +123,18 @@ export async function readRules({ side, config = null, root = null, env = proces
     return { ...r, local, builtin: { ...shipped, rules: shipped.rules.filter(x => !taken.has(x.id)) } }
   }
   const none = error => done({ source: 'none', hub, release: null, side, stacks, rules: [], error })
-  if (hub === 'off') return none('off (centralContext.hub: "off")')
+  if (hub === 'off') return none('is turned off in the config')
   try {
     const res = await fetchImpl(`${hub}/v1/manifest`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const manifest = await res.json()
     return done({ source: 'hub', hub, release: manifest?.release?.release_id ?? null, side, stacks, rules: testingRules(manifest?.documents, stacks).filter(x => !taken.has(x.id)), error: null })
   } catch (e) {
-    return none(`not reachable at ${hub} (${String(e?.message ?? e).split('\n')[0]})`)
+    return none(`could not be reached at ${hub} (${String(e?.message ?? e).split('\n')[0]})`)
   }
 }
 
-const count = n => `${n || 'no'} testing rule${n === 1 ? '' : 's'}`
+const count = (n, kind = 'testing') => `${n || 'no'} ${kind} rule${n === 1 ? '' : 's'}`
 const draftNote = rules => {
   const d = rules.filter(x => x.status === 'draft').length
   return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : `${d} draft${d === 1 ? '' : 's'}`}`
@@ -147,21 +147,20 @@ export const rulesRecord = (r, date = new Date()) => ({
   ids: [...(r.local?.rules ?? []), ...r.rules, ...(r.builtin?.rules ?? [])].map(x => x.id), date: date.toISOString(),
 })
 
-const host = url => { try { return new URL(url).host } catch { return url } }
 /** The card's Rules line: Central Context answered, or the tests were written with the fallback rules. */
 export function rulesLine(rec) {
-  const others = [rec.localRules && `${rec.localRules} local`, rec.builtinRules && `${rec.builtinRules} built-in`].filter(Boolean).join(' + ')
-  if (rec.source === 'hub') return `✅ Central Context (${host(rec.hub)}) · ${count(rec.hubRules)}${rec.release ? `, release ${rec.release}` : ''}${others ? ` · + ${others}` : ''}`
-  return `⚠️ Fallback: Central Context not used (${rec.error}) · ${others ? `written with ${others} rules` : 'no rule applied'}`
+  const others = [rec.localRules && `${rec.localRules} local`, rec.builtinRules && `${rec.builtinRules} built-in`].filter(Boolean).join(' and ')
+  if (rec.source === 'hub') return `✅ Written with ${rec.hubRules || 'no'} rule${rec.hubRules === 1 ? '' : 's'} from Central Context${rec.release ? ` (release ${rec.release})` : ''}${others ? ` and ${others} rules` : ''}`
+  return `⚠️ Central Context ${rec.error}. ${others ? `Written with ${others} rules instead` : 'No rules applied'}`
 }
 
 /** One line per source spec shows as a completed step: what was read, what for, and from where. The rules themselves travel in RULES_JSON. */
 export function formatRules(r) {
   const others = (r.local?.rules.length ?? 0) + (r.builtin?.rules.length ?? 0)
   const lines = [r.source !== 'hub'
-    ? `⚠️ Central Context not read: ${r.error}.${others ? '' : ' No rule applied.'}`
-    : `✅ Read from Central Context: ${count(r.rules.length)} for the ${r.side} side (release ${r.release}, ${r.hub})`]
-  if (r.builtin && !r.builtin.error && r.builtin.rules.length) lines.push(`✅ Read the plugin's built-in rules: ${count(r.builtin.rules.length)} for the ${r.side} side${draftNote(r.builtin.rules)}`)
-  if (r.local) lines.push(r.local.error ? `⚠️ Local rules not read: ${r.local.error}.` : `✅ Read from local rules: ${count(r.local.rules.length)} for the ${r.side} side (${r.local.dir})${draftNote(r.local.rules)}`)
+    ? `⚠️ Central Context ${r.error}.${others ? '' : ' No rules applied.'}`
+    : `✅ Central Context: ${count(r.rules.length, `${r.side} testing`)} (release ${r.release})`]
+  if (r.builtin && !r.builtin.error && r.builtin.rules.length) lines.push(`✅ Built-in rules: ${count(r.builtin.rules.length, `${r.side} testing`)}${draftNote(r.builtin.rules)}`)
+  if (r.local) lines.push(r.local.error ? `⚠️ Local rules not read: ${r.local.error}.` : `✅ Local rules: ${count(r.local.rules.length, `${r.side} testing`)} (${r.local.dir})${draftNote(r.local.rules)}`)
   return lines.join('\n')
 }

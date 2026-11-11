@@ -74,7 +74,7 @@
       "add": "Please avoid \"it works\" or \"as expected\". A number or the exact text on screen is enough, for example:\n\n- The grid shows exactly 5 rows\nThen the message is \"Nessun movimento trovato\"",
       "question": "An acceptance criterion is vague. Write it again with something a test can see (a label, a row count, a toast), at least 150 characters, or as Given / When / Then.",
       "example": "The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.",
-      "label": "testable AC — each Then or AC item an observable assertion, not \"works correctly\""
+      "label": "testable acceptance criteria — each one names a result you can see, not \"works correctly\""
     },
     "feature_label": {
       "title": "Feature label",

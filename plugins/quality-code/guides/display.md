@@ -7,9 +7,9 @@ Every command follows this guide when it shows a card or a script's output. It c
 A command with more than two steps shows its progress as a live checklist, with the to-do list tool (`TodoWrite`, or `TaskCreate` and `TaskUpdate` where those are the ones available, or `update_plan` in the desktop app), not with sentences. Its items are the steps named below, never your own: a plan tool that can only advance still gets each finished item rewritten with its result.
 
 - **At the start**, before the first script runs, write the whole list, one item per step the reader cares about, in plain words. For `/quality-code:spec`: `Check the setup`, `Read the ticket`, `Readiness gate`, `Search Central Context`, `Read from Central Context`, `Find the code to test`, `Plan the tests`, `Write the tests`, `Run the checks`, `Result`. Another command takes its own steps the same way.
-- **As you go**, set the step you start to in progress and the one you finish to completed, and put its result in the item, short: `Readiness gate · 85% ✅`, `Read from Central Context · 6 rules, 2 apply ✅`, `Find the code to test · discount.ts`. A step the run skips is completed with `· skipped`; a step that stops the run says why, `Readiness gate · 15% ❌`.
+- **As you go**, set the step you start to in progress and the one you finish to completed, and put its result in the item, short: `Readiness gate · 85/100 ✅`, `Read from Central Context · 6 rules, 2 apply ✅`, `Find the code to test · discount.ts`. A step the run skips is completed with `· skipped`; a step that stops the run says why, `Readiness gate · 15% ❌`.
 - **No narration.** Never write a sentence that says what you are about to do or what just worked ("Reading the ticket worked", "Now I'm scoring it", "Running the checks: this can take a few minutes"): the checklist says it. Where a command says to "say" such a line, update the checklist instead. Lines that carry a result the reader needs (the target and why, a clash with the QA plan, a warning) stay, as one short line each. When Claude Code reminds you that the user has not heard from you in a while, the checklist is the update: tick or advance its item, and write a line only for such a result, never for what you are doing.
-- Without the tool, one short line per finished step, `✅ Readiness gate · 85%`, and nothing else.
+- Without the tool, one short line per finished step, `✅ Readiness gate · 85/100`, and nothing else.
 
 ## The shape
 
@@ -20,7 +20,7 @@ A command with more than two steps shows its progress as a live checklist, with 
 - **Bold carries the result**: the verdict, the count that matters, the thing the reader has to do. One or two bold phrases per line, never a whole sentence.
 - **Files are links.** A file is never shown as its path: name it in plain words and link the word `HERE` to it, `the test file [HERE](/Users/me/shop/e2e/tests/orders.abc-123.spec.ts)`. The link target is the file's full path on this computer, so a click opens it. Two files on one line: `Excel [HERE](…) · CSV [HERE](…)`. A folder works the same way.
 - **Lists become tables** when they have two or more columns of meaning. At most 8 rows; then a last row `… and N more` (the run log has them all).
-- **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or not verified, 🔴 tests red or a risk, ➖ not applicable. Ids, tags and commands go in `code`; files are `HERE` links.
+- **Status is a colour.** Use these marks, and keep the scripts' own: ✅ pass or ready, ❌ failed, ⚠️ not run or could not run, 🔴 tests fail or a risk, ➖ not applicable. Ids, tags and commands go in `code`; files are `HERE` links.
 - **Green and red lines** (passed and failed tests, scores against the bar) go in a `diff` block: `+ ` for green, `- ` for red, one line each.
 - **Hints and rules** go in a quote: `> 💡 **To pass:** …`, `> 🛠️ **What to do:** …`.
 - **Never a code block for a card.** The commands write their cards inside code blocks only to fix the words. In the chat a card is never in a code block, and never a gray box of indented lines: its information is a section laid out as below, and its options are the picker. The only code blocks you show are the `diff` blocks of tests.
@@ -32,7 +32,7 @@ A command with more than two steps shows its progress as a live checklist, with 
 
 **Central Context** (`rules.mjs`). Central Context is the company's own source of rules, so every time it is read the reader sees it, right then, as a completed step: the `Read from Central Context` item, `Read from Central Context · 6 rules, 2 apply ✅`, or `Read from Central Context · not read ⚠️` with the reason after it. The plugin's built-in rules get their own item, `Built-in rules · 5 drafts, 2 apply ✅`, and the team's own rules (`centralContext.local`) one more, `Read from local rules · 3 rules, 1 applies ✅`. Each search with the `central-context` connector is its own item too, with what was searched: `Searched Central Context · "access token check" · 3 rules, 1 applies ✅`, or `· none apply ✅` when no hit fits the ticket (the run then goes on with the rules `rules.mjs` read). Without the checklist, the line `rules.mjs` prints, on its own, as printed. Never skip it or fold it into another step, and never list the rules: the tests follow them, the reader does not need to read them.
 
-**Ticket readiness** (the gate). The headline is the key, the score and the band: `**ABC-123 · 85% · ✅ ready** (bar 70%)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
+**Ticket readiness** (the gate). The headline is the key, the score and the band: `**ABC-123 · 85/100 · ✅ ready** (needs 70)`, or `❌ too thin`. Under it a bar of ten squares, one per 10 points of the printed score, rounded down: 🟩 filled when it passes, 🟥 filled when it is refused, ⬜ empty (`🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜`). This is the only arithmetic allowed, and only on the printed score. Then what is missing, as a table:
 
 | Missing | Points |
 |---|---|
@@ -44,17 +44,17 @@ then the `To pass:` line in a 💡 quote, and the flags in one short list.
 
 **The plan.** A table with one row per test:
 
-| Layer | Test | We check |
+| Type | Test | We check |
 |---|---|---|
 | unit | Discount over 100 € | the total is 108.00 |
 
 Extra probes get their own rows, marked `➕ extra`.
 
-**The pipeline card.** The headline is the verdict with its mark: `**✅ green**`, `**❌ checks failed**`, `**⚠️ not verified**` or `**🔴 tests red**`, then the line under it that says what it means. Then the card's `Rules` line on its own line, as printed, with its label in bold: `**Rules:** ✅ Central Context (centralcontext-dev.teamsystem.cloud) · 9 testing rules, release …` or `**Rules:** ⚠️ Fallback: Central Context not used (…) · written with 4 built-in rules`. It is how the reader sees whether the tests were written with Central Context or without it: never drop, shorten or move it. The tests as a count, then a `diff` block, `+ ✓ <test>` for each passed test and `- ✗ <test>` for each failed one (at most 8, then `… and N more`). The checks as a table:
+**The pipeline card.** The headline is the verdict with its mark: `**✅ all good**`, `**❌ problem in the tests**`, `**⚠️ could not run**` or `**🔴 tests fail**`, then the line under it that says what it means. Then the card's `Rules` line on its own line, as printed, with its label in bold: `**Rules:** ✅ Written with 9 rules from Central Context (release …) and 2 built-in rules` or `**Rules:** ⚠️ Central Context could not be reached at … (…). Written with 4 built-in rules instead`. It is how the reader sees whether the tests were written with Central Context or without it: never drop, shorten or move it. The tests as a count, then a `diff` block, `+ ✓ <test>` for each passed test and `- ✗ <test>` for each failed one (at most 8, then `… and N more`). The checks as a table:
 
 | Check | | Result |
 |---|---|---|
-| honesty | ✅ | no assertion or test removed |
+| removals | ✅ | no assertion or test removed |
 
 `What to do` as a numbered list in a 🛠️ quote. A `🔴 [RISK / NOT RECOMMENDED]` line stays as it is, on its own line, never softened. `Full details: [HERE](…)` last, on a small line.
 
@@ -64,9 +64,9 @@ Extra probes get their own rows, marked `➕ extra`.
 
 These four rules sit on top of everything above and change none of it: the same headline-first card, sections, tables, marks and links, a little richer. Each is only laid out from what the script printed; a number the script does not print is never added.
 
-**Headline row.** The bold headline of a result carries, in this order and only what the output gives: the verdict with its mark, the score, the bar, and the short counts. The bar is ten squares, one per 10 points of the printed score, rounded down (`■` filled, `□` empty), then the score and the gate: `**✅ ready** · ■■■■■■■■□□ 82% · gate 70`. The gate is the printed bar of the command (70 for a ticket); a result with no score and no gate has no bar. The counts follow in plain words, only those the output prints and that are not zero: `5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`. This is the only arithmetic allowed, and only on the printed score.
+**Headline row.** The bold headline of a result carries, in this order and only what the output gives: the verdict with its mark, the score, the bar, and the short counts. The bar is ten squares, one per 10 points of the printed score, rounded down (`■` filled, `□` empty), then the score and the gate: `**✅ ready** · ■■■■■■■■□□ 82/100 · needs 70`. The gate is the printed bar of the command (70 for a ticket); a result with no score and no gate has no bar. The counts follow in plain words, only those the output prints and that are not zero: `5 tests · 2 negative · 1 accessibility · 1 visual · 1 database`. This is the only arithmetic allowed, and only on the printed score.
 
-**The Next line.** Under the result, on its own line, `Next:` and the one or two likeliest commands, as code: for example `Next: ` `/quality-code:check --frontend`, the command in code. After a green or ready result the command that widens the check (the suite, the next ticket); after a red, refused or not verified one the command that fixes or reruns it. Never more than two, never a command that was not named by the command's own text, and none with `--ci`.
+**The Next line.** Under the result, on its own line, `Next:` and the one or two likeliest commands, as code: for example `Next: ` `/quality-code:check --frontend`, the command in code. After a green or ready result the command that widens the check (the suite, the next ticket); after a red, refused or could not run one the command that fixes or reruns it. Never more than two, never a command that was not named by the command's own text, and none with `--ci`.
 
 **Collapsible detail.** A list of more than 8 rows, and the per-test details of a run, go in a collapsible block after the table, so the card stays short:
 
@@ -80,7 +80,7 @@ These four rules sit on top of everything above and change none of it: the same 
 
 The table above it still shows at most 8 rows and ends with `… and N more`; the block holds all of them, with a blank line after the `<summary>` line and before `</details>` so the table renders. The summary says what is inside and how many (`All 14 tests`, `12 more tickets`). A card with nothing to fold has no block.
 
-**Marks.** The same mark means the same in every command: ✅ pass or ready, ❌ failed or refused, ⚠️ not run, not verified or a warning, 🔴 tests red or a risk, ➖ not applicable. A count line, a table cell, a checklist item and a headline use the same mark for the same state. Never a second mark for a state that has one, and never a mark the output does not support.
+**Marks.** The same mark means the same in every command: ✅ pass or ready, ❌ failed or refused, ⚠️ not run, could not run or a warning, 🔴 tests fail or a risk, ➖ not applicable. A count line, a table cell, a checklist item and a headline use the same mark for the same state. Never a second mark for a state that has one, and never a mark the output does not support.
 
 ## The wrap-up
 
@@ -93,11 +93,11 @@ What you write after the last card (what was made, what went wrong, what is left
 
 Over 400 words: cut **Notes** first, then shorten rows. Never cut a step from **Needs you**, a ❌ or a 🔴 line.
 
-For example, after a `tests red` card:
+For example, after a `tests fail` card:
 
 ---
 
-**❌ Checks failed**: the boundary check flagged a file outside this run; the tests themselves are as intended.
+**❌ Problem in the tests**: the boundary check flagged a file outside this run; the tests themselves are as intended.
 
 ### What we made
 | What | Covers | Where |
@@ -116,6 +116,18 @@ For example, after a `tests red` card:
 - **Not committed.**
 
 ---
+
+## Not set up
+
+A command that finds no config (its check prints `Quality Code is not set up here yet`) never just says "run setup" and stops. Show this card and end the turn (`--ci` stops instead, with the line as printed):
+
+```
+Quality Code is not set up here yet.
+1. Run setup now
+2. Stop
+```
+
+On `1`, read `${CLAUDE_PLUGIN_ROOT}/commands/setup.md` and follow it; when it is done, go back to the command the user ran and start it again from its first step, with the same arguments. On `2`, stop.
 
 ## Questions
 

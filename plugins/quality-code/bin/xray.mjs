@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// XRay test cases for QA, the way the old in-repo harness wrote them: one CSV with every case (the
+// Xray test cases for QA, the way the old in-repo harness wrote them: one CSV with every case (the
 // traceability record), and per ticket a case.csv plus, when the project has exceljs, a styled
 // case.xlsx. Xray imports either (Test Repository, Import, Excel or CSV). One row per step: a case's
 // first row carries TC ID and the metadata, its next rows leave them blank. TC ID is numbered per
@@ -119,7 +119,7 @@ export function casesIn(rows) {
   return out
 }
 
-/** The cases of the project's XRay CSV, or [] when it does not exist yet. */
+/** The cases of the project's Xray CSV, or [] when it does not exist yet. */
 export function readCases(root, x) {
   const p = join(root, x.csv)
   return existsSync(p) ? casesIn(readCsv(p, x.headers)) : []
@@ -193,7 +193,7 @@ async function writeXlsx(ExcelJS, rows, headers, path) {
 /** Rewrites <folder><KEY>/case.csv (and case.xlsx with exceljs) for one ticket, or every ticket. */
 export async function sync(root, x, only = null) {
   const p = join(root, x.csv)
-  if (!existsSync(p)) return [`No XRay test cases yet: ${x.csv} does not exist.`]
+  if (!existsSync(p)) return [`No Xray test cases yet: ${x.csv} does not exist.`]
   const groups = byTicket(readCsv(p, x.headers))
   const keys = only ? [only] : [...groups.keys()]
   const ExcelJS = await excel(root)
@@ -201,7 +201,7 @@ export async function sync(root, x, only = null) {
   for (const key of keys) {
     if (!TICKET.test(key)) { lines.push(`skipped ${JSON.stringify(key)}: not a Jira key`); continue }
     const rows = groups.get(key)
-    if (!rows) { lines.push(`No XRay test case for ${key} in ${x.csv}.`); continue }
+    if (!rows) { lines.push(`No Xray test case for ${key} in ${x.csv}.`); continue }
     const dir = join(x.folder, key).replace(/\\/g, '/')
     mkdirSync(resolve(root, dir), { recursive: true })
     writeFileSync(resolve(root, dir, 'case.csv'), `${[headerRow(x.headers), ...rows].map(toLine).join('\n')}\n`)
@@ -226,7 +226,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const c = loadConfig(root, env)
     if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
     const x = xrayOf(c.config, c.source)
-    if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "XRay test cases").\n'); return 2 }
+    if (!x) { stderr('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").\n'); return 2 }
     const created = createdOf(root, x, key)
     if (verb === 'add') {
       created[name.trim()] = testKey
@@ -243,7 +243,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const c = loadConfig(root, env)
   if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
   const x = xrayOf(c.config, c.source)
-  if (!x) { stderr('XRay test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "XRay test cases").\n'); return 2 }
+  if (!x) { stderr('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").\n'); return 2 }
   try {
     if (cmd === 'sync') { stdout(`${(await sync(root, x, arg ?? null)).join('\n')}\n`); return 0 }
     let input
@@ -256,7 +256,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const cases = given.map(tc => ({ ...tc, key: tc.key.trim() }))
     const lines = append(root, x, cases)
     for (const t of new Set(cases.map(tc => tc.ticket))) lines.push(...(await sync(root, x, t)))
-    stdout(`XRay test cases in ${x.csv}:\n${lines.join('\n')}\n`)
+    stdout(`Xray test cases in ${x.csv}:\n${lines.join('\n')}\n`)
     return 0
   } catch (e) {
     stderr(`${String(e.message).split('\n')[0]}\n`)

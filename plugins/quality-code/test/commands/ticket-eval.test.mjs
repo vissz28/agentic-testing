@@ -181,7 +181,7 @@ test('ticket draft: only for the criteria items, only from the ticket\'s own tex
   assert.ok(draft.includes('(`ac_present`, `ac_testable`)'))
   assert.match(draft, /only when Figma is not drafting them/)
   assert.ok(draft.includes('`text.description`, `text.acField`'))
-  assert.match(draft, /`scenarios`, or XRay tests among its `links`/)
+  assert.match(draft, /`scenarios`, or Xray tests among its `links`/)
   assert.match(draft, /Nothing of that: no draft/)
   assert.match(draft, /Attachments are never opened/)
   const step3 = doc.slice(doc.indexOf('3. **All at once.**'), doc.indexOf('\n', doc.indexOf('3. **All at once.**')))
@@ -310,7 +310,7 @@ test('the fill-in list is never empty: with no items, the card says what is miss
 
 test('screenshots that cannot be read are said once, with the way to fix it; an epic is never scored', () => {
   assert.ok(doc.includes('Screenshots not readable.'))
-  assert.ok(doc.includes('`<n> screenshots on <KEY> were not read: the Jira files key is not set. Set it with /plugin (jira-files connector, jira_api_token), or paste the words from them.`'))
+  assert.ok(doc.includes('`<n> screenshots on <KEY> were not read: the Jira files token is not set. To have them read: create an Atlassian API token (https://id.atlassian.com/manage-profile/security/api-tokens), type /plugin, choose quality-code, Configure options and set jira_api_token, then type /reload-plugins, then /mcp and reconnect jira-files. Or paste the words from them. This is shown once.`') && doc.includes('`<ticketsDir>/.jira-files-hint`'))
   assert.match(doc, /An epic is not scored\./)
   assert.match(doc, /never ask for acceptance criteria, never write any/)
 })

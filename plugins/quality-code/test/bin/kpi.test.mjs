@@ -69,12 +69,12 @@ test('the card, exactly', async () => {
     '',
     'Gate        5 tickets · 3 passed · 2 refused · 7 evaluations',
     'Scores      0-29: 1 · 30-49: 0 · 50-69: 1 · 70-89: 2 · 90-100: 1',
-    'Missing     acceptance criteria 3 · steps to reproduce 3 · testable AC 1',
+    'Missing     acceptance criteria 3 · steps to reproduce 3 · testable acceptance criteria 1',
     'Filled in   1 refused ticket filled in here, then passed',
     'Drafted     1 drafted fill-in (the model drafted, the author confirmed)',
     'Jira        2 comments posted · 1 ticket updated · 1 risk note',
     'Forced      2 runs past the gate (continue anyway): ABC-2, ABC-4',
-    'Pipeline    6 runs · 2 green · 2 checks failed · 1 tests red · 1 not verified',
+    'Pipeline    6 runs · 2 all good · 2 problem in the tests · 1 tests fail · 1 could not run',
     'Decided by  mutation 2 · tests 1 · types 1',
     'Boundary    2 writes blocked',
     '',
@@ -97,7 +97,7 @@ test('the report object behind the card', async () => {
   assert.deepEqual(j.gate, {
     evaluations: 7, tickets: 5, passed: 3, refused: 2,
     scores: { '0-29': 1, '30-49': 0, '50-69': 1, '70-89': 2, '90-100': 1 },
-    missing: [{ key: 'ac_present', label: 'acceptance criteria', tickets: 3 }, { key: 'steps', label: 'steps to reproduce', tickets: 3 }, { key: 'ac_testable', label: 'testable AC', tickets: 1 }],
+    missing: [{ key: 'ac_present', label: 'acceptance criteria', tickets: 3 }, { key: 'steps', label: 'steps to reproduce', tickets: 3 }, { key: 'ac_testable', label: 'testable acceptance criteria', tickets: 1 }],
     filledThenPassed: 1,
     draftedFillIns: 1,
   })
