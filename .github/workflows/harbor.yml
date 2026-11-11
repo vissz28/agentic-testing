@@ -1,6 +1,6 @@
 # Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality), image deploy-server.
 # Runs on every release tag (quality-code--vX.Y.Z) and by hand (Actions > "harbor" > Run workflow).
-# No Azure here: deploying the image is the separate "Deploy MCP server" workflow.
+# No Azure here: it only builds the image and pushes it.
 #
 # Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
 # Optional variables: HARBOR_HOST (default harbor.ts-paas.com) and HARBOR_PROJECT (default quality).
