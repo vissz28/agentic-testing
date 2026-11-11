@@ -1,17 +1,18 @@
 # Build the Quality Code MCP server image in Azure and deploy it to an Azure Container App.
-# Same way as SpritePinky's .gitlab-ci.yml: service principal sign-in, `az acr build` (the build runs in
-# Azure, so the image is always linux/amd64 whatever machine starts it), then `az containerapp update`
-# with a revision suffix; one environment per name (dev, test, main), main behind a manual approval.
+# Like SpritePinky's .gitlab-ci.yml: service principal sign-in, then `az containerapp update` with a revision
+# suffix; the image is built here (linux/amd64) and pushed to the Harbor project with a robot account; one environment per name (dev, test, main), main behind a manual approval.
 #
 # Run by hand: Actions > "Deploy MCP server" > Run workflow > pick dev, test or main.
 # It does not run on push, so a release tag never deploys by itself.
 #
 # Setup (once). In GitHub > Settings > Environments create dev, test and main (add a required reviewer to main):
 #   Secrets (per environment, or repository-wide when the same service principal is used):
-#     AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID     service principal (az login + acr build + containerapp update)
+#     AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID     service principal (az login + containerapp update)
+#     HARBOR_USERNAME, HARBOR_PASSWORD                          the Harbor robot account (name `robot$quality+github` and its secret)
 #   Variables:
-#     ACR_NAME           the registry, without .azurecr.io
-#     RESOURCE_GROUP     the resource group of the registry and the Container App
+#     HARBOR_HOST        the Harbor address, without https://
+#     HARBOR_PROJECT     the Harbor project, `quality`
+#     RESOURCE_GROUP     the resource group of the Container App
 #     APP_NAME           the Container App of this environment, for example quality-code-mcp-dev
 #     PUBLIC_URL         its address, for example https://qualitycode-dev.teamsystem.cloud
 # The Container App must already exist, with its Entra variables and secrets (see mcp-server/DEPLOY.md):
@@ -66,23 +67,43 @@ jobs:
       - name: Sign in to Azure
         run: az login --service-principal -u "${{ secrets.AZURE_CLIENT_ID }}" -p "${{ secrets.AZURE_CLIENT_SECRET }}" --tenant "${{ secrets.AZURE_TENANT_ID }}" --output none
 
-      # The build context is the plugin folder, as in mcp-server/Dockerfile's header.
-      - name: Build the image in Azure
-        run: |
-          az acr build \
-            --registry "${{ vars.ACR_NAME }}" \
-            --image "quality-code-mcp:$IMAGE_TAG" \
-            --image "quality-code-mcp:${{ steps.version.outputs.value }}-${GITHUB_SHA::7}" \
-            --file mcp-server/Dockerfile \
-            --resource-group "${{ vars.RESOURCE_GROUP }}" \
-            plugins/quality-code
+      # The image goes to the Harbor project (robot account `robot$quality+github`), built here for linux/amd64
+      # (an image built on an Apple Silicon Mac is arm64 and would not start on Azure).
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.HARBOR_HOST }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: plugins/quality-code
+          file: plugins/quality-code/mcp-server/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ vars.HARBOR_HOST }}/${{ vars.HARBOR_PROJECT }}/quality-code-mcp:${{ inputs.environment }}
+            ${{ vars.HARBOR_HOST }}/${{ vars.HARBOR_PROJECT }}/quality-code-mcp:${{ steps.version.outputs.value }}-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy to the Container App
         run: |
+          # The Container App pulls from Harbor with the robot account.
+          az containerapp registry set \
+            --name "${{ vars.APP_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --server "${{ vars.HARBOR_HOST }}" \
+            --username "${{ secrets.HARBOR_USERNAME }}" \
+            --password "${{ secrets.HARBOR_PASSWORD }}" --output none
           az containerapp update \
             --name "${{ vars.APP_NAME }}" \
             --resource-group "${{ vars.RESOURCE_GROUP }}" \
-            --image "${{ vars.ACR_NAME }}.azurecr.io/quality-code-mcp:${{ steps.version.outputs.value }}-${GITHUB_SHA::7}" \
+            --image "${{ vars.HARBOR_HOST }}/${{ vars.HARBOR_PROJECT }}/quality-code-mcp:${{ steps.version.outputs.value }}-${{ github.sha }}" \
             --revision-suffix "g${GITHUB_SHA::7}"
 
       # The checks of mcp-server/DEPLOY.md: /health is 200, /mcp without a token is 401.
