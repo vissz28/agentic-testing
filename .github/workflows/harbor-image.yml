@@ -1,0 +1,83 @@
+# Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality).
+# Runs on every release tag (quality-code--vX.Y.Z) and by hand (Actions > "Push image to Harbor" > Run workflow).
+# No Azure here: deploying the image is the separate "Deploy MCP server" workflow.
+#
+# Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
+# Optional variables: HARBOR_HOST (default harbor.ts-paas.com) and HARBOR_PROJECT (default quality).
+name: Push image to Harbor
+
+on:
+  push:
+    tags: ["quality-code--v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harbor-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/quality-code-mcp
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plugin version
+        id: version
+        run: echo "value=$(jq -r .version plugins/quality-code/.claude-plugin/plugin.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      # linux/amd64: what a server or an Azure Container App runs (a Mac build is arm64).
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: plugins/quality-code
+          file: plugins/quality-code/mcp-server/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: quality-code-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The checks of mcp-server/DEPLOY.md, with throwaway Entra values: /health is 200, /mcp without a token is 401.
+      - name: Smoke test the image
+        run: |
+          docker run -d --name qc -p 8000:8000 \
+            -e QUALITY_CODE_ENTRA_TENANT_ID=00000000-0000-0000-0000-000000000000 \
+            -e QUALITY_CODE_ENTRA_CLIENT_ID=11111111-1111-1111-1111-111111111111 \
+            -e QUALITY_CODE_PUBLIC_URL=http://localhost:8000 quality-code-mcp:ci
+          for i in $(seq 1 15); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "health: $code"
+          [ "$code" = "200" ]
+          mcp=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/mcp -H 'content-type: application/json' -d '{}')
+          echo "mcp without token: $mcp"
+          [ "$mcp" = "401" ]
+
+      - name: Push to Harbor
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          for tag in "$VERSION" "$VERSION-${GITHUB_SHA::7}" latest; do
+            docker tag quality-code-mcp:ci "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done
+
+      - name: Summary
+        run: |
+          echo "Pushed $IMAGE:${{ steps.version.outputs.value }} (also :latest and :${{ steps.version.outputs.value }}-${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
