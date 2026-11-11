@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.71.1] - 2026-11-11
+
+### Added
+
+- `/quality-code:check --frontend` (and `--smoke`) on a project with no Playwright no longer just stops. It shows a card: `Set it up now?` with `Yes`, `No` and `Other`. On Yes it asks only for what setup could not find (the command that starts the app and its address, and whether the app has a sign-in), shows what it will install and write, installs Playwright and its browser, writes the config and a first smoke test, changes the adapter to `fullstack` (or `playwright`), and runs the frontend check. `Other` takes Cypress or a different start command. With `--ci` it never asks.
+
+**What to do:** nothing. Run `/quality-code:check --frontend` on a project without Playwright to try it.
+
 ## [0.71.0] - 2026-11-11
 
 ### Added
