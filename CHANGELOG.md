@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.69.1] - 2026-11-11
+
+### Fixed
+
+- Windows: setup and every command no longer stop with "Node isn't available" when Node.js is installed for one user, or only on the user PATH. `bin/find-node.ps1` looks in the shell's PATH, the Machine and User PATH of the registry, `Program Files\nodejs`, `%LOCALAPPDATA%\Programs\nodejs`, nvm, fnm, Volta, Scoop, and then every profile in `C:\Users`. The agent follows the new `guides/node-missing.md` (linked from `guides/display.md`), puts the folder first on the PATH of its own shell and runs the script again.
+- The MCP server finds `node` the same way (usual Windows, macOS and Linux folders, version managers) before it says Node is missing.
+
+**What to do:** nothing. Not tested on a real Windows machine yet: if setup still does not find your Node, send the output of `find-node.ps1`.
+
 ## [0.69.0] - 2026-11-11
 
 Plain words for first-time users: one way to say each thing, no internal terms on the cards, and no command that just stops.

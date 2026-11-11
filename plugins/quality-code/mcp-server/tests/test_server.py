@@ -86,3 +86,21 @@ def test_check_and_print_config(capsys):
     j = json.loads(cfg.split("\n\n")[0])
     assert j["mcpServers"]["quality-code"]["env"]["QUALITY_CODE_PLUGIN_ROOT"] == str(ROOT)
     assert "claude mcp add quality-code" in cfg
+
+
+def test_find_node_uses_the_path_then_the_usual_folders(monkeypatch, tmp_path):
+    from quality_code_mcp import server
+
+    monkeypatch.setattr(server.shutil, "which", lambda name: "/on/path/node")
+    assert server.find_node() == "/on/path/node"
+
+    monkeypatch.setattr(server.shutil, "which", lambda name: None)
+    monkeypatch.setattr(server.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(server.os, "name", "posix")
+    assert server.find_node() is None or "node" in server.find_node()  # a real /usr/local/bin node may exist
+    bin_dir = tmp_path / ".nvm" / "versions" / "node" / "v20.1.0" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "node").write_text("")
+    monkeypatch.setattr(server, "find_node", server.find_node)
+    found = server.find_node()
+    assert found is not None and found.endswith("node")

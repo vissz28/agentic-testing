@@ -32,6 +32,42 @@ REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
+def find_node() -> str | None:
+    """Path of a Node.js 18+ `node`: the PATH first, then where it is usually installed (per user or for all users)."""
+    found = shutil.which("node")
+    if found:
+        return found
+    home = Path.home()
+    names = ("node.exe",) if os.name == "nt" else ("node",)
+    dirs: list[Path] = []
+    if os.name == "nt":
+        for var in ("ProgramFiles", "ProgramFiles(x86)"):
+            if os.environ.get(var):
+                dirs.append(Path(os.environ[var]) / "nodejs")
+        local = Path(os.environ.get("LOCALAPPDATA") or home / "AppData" / "Local")
+        dirs += [local / "Programs" / "nodejs", local / "Volta" / "bin", home / ".volta" / "bin", home / "scoop" / "apps" / "nodejs" / "current"]
+        if os.environ.get("NVM_SYMLINK"):
+            dirs.append(Path(os.environ["NVM_SYMLINK"]))
+        roots = [Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "nvm"]
+        users = Path(os.environ.get("SystemDrive", "C:") + "\\Users")
+        if users.is_dir():
+            for u in sorted(users.iterdir()):
+                dirs += [u / "AppData" / "Local" / "Programs" / "nodejs", u / ".volta" / "bin", u / "scoop" / "apps" / "nodejs" / "current"]
+                roots.append(u / "AppData" / "Roaming" / "nvm")
+        for r in roots:
+            if r.is_dir():
+                dirs += sorted((d for d in r.iterdir() if d.is_dir()), reverse=True)
+    else:
+        dirs = [Path("/usr/local/bin"), Path("/opt/homebrew/bin"), home / ".volta" / "bin", home / ".local" / "share" / "fnm" / "aliases" / "default" / "bin"]
+        for pattern in (".nvm/versions/node/*/bin", ".local/share/fnm/node-versions/*/installation/bin"):
+            dirs += sorted(home.glob(pattern), reverse=True)
+    for d in dirs:
+        for n in names:
+            if (d / n).is_file():
+                return str(d / n)
+    return None
+
+
 def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None) -> MCPServer:
     """`entra` turns on Entra ID verification (HTTP). `remote` is the shared-server profile: only the Jira-only commands and read-only scripts,
     run in `fixed_cwd` (a caller cannot pick the folder), at most MAX_RUNNING at once, and an open /health."""
@@ -78,7 +114,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         name = script if script.endswith(".mjs") else script + ".mjs"
         if name not in scripts:
             return f"error: unknown script {script!r}. Scripts: {', '.join(sorted(scripts))}"
-        node = shutil.which("node")
+        node = find_node()
         if not node:
             return "error: Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found."
         work = fixed_cwd or (Path(cwd).expanduser() if cwd else Path.cwd())
@@ -150,7 +186,7 @@ def check() -> int:
         print(f"ok: plugin {root}; {n} tools")
     except SystemExit as e:
         problems.append(str(e))
-    node = shutil.which("node")
+    node = find_node()
     if node:
         major = subprocess.run([node, "-p", "process.versions.node.split('.')[0]"], capture_output=True, text=True).stdout.strip()
         if major.isdigit() and int(major) < 18:
