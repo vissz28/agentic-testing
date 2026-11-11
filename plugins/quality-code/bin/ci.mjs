@@ -2,7 +2,7 @@
 // Quality Code in CI (GitHub Actions or GitLab CI): two jobs for each pull or merge request, and the command that writes them.
 // node bin/ci.mjs [--base REF]                                   the gate: git and node only, no install, seconds
 // node bin/ci.mjs --tests [--all] [--base REF] [--junit FILE]    the tests, in a job that installed the project
-// node bin/ci.mjs --init [github|gitlab] [--smoke] [--print]                writes the CI file (the provider is guessed when not given)
+// node bin/ci.mjs --init [github|gitlab] [--smoke] [--print|--dry-run]       writes the CI file (the provider is guessed when not given)
 // The gate checks the specs the request changed: honesty (no assertion or test removed, a deleted or renamed spec
 // included, no skip without a ticket), assertions (every test asserts something) and the frozen evals.
 // The tests run the changed specs through the pipeline, one run per module (a backend layer, an e2e folder): types,
@@ -26,9 +26,10 @@ import { checkProject, formatResult } from './checks.mjs'
 import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
+import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print]'
+const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
 const HEADER = '# Quality Code'
 const FETCH_HINT = 'fetch the full history: fetch-depth 0 on GitHub, GIT_DEPTH 0 on GitLab'
 const WORDS = { green: 'all good', tests_red: 'tests fail', checks_failed: 'problem in the tests', not_verified: 'could not run', skipped: 'skipped' }
@@ -51,13 +52,14 @@ function parse(argv) {
       a[x.slice(2)] = v
     } else if (x === '--init') a.init = true
     else if (x === '--print') a.print = true
+    else if (x === '--dry-run') a.dryRun = true
     else if (x === '--smoke') a.smoke = true
     else if (x === '--tests') a.tests = true
     else if (x === '--all') a.all = true
     else if (x === 'github' || x === 'gitlab') a.provider = x
     else throw new Error(`unknown option ${x}`)
   }
-  if ((a.print || a.provider) && !a.init) throw new Error(`${a.print ? '--print' : a.provider} goes with --init`)
+  if ((a.print || a.dryRun || a.provider) && !a.init) throw new Error(`${a.print ? '--print' : a.dryRun ? '--dry-run' : a.provider} goes with --init`)
   if (a.smoke && !a.init) throw new Error('--smoke goes with --init')
   if (a.init && (a.base || a.tests || a.all || a.junit)) throw new Error('--init takes github, gitlab and --print only')
   if ((a.all || a.junit) && !a.tests) throw new Error(`${a.all ? '--all' : '--junit'} goes with --tests`)
@@ -117,8 +119,8 @@ const NODE_TARBALL = 'curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-
 const JS_STACK = { backend: 'vitest', playwright: false, pm: 'npm', lock: true, prisma: false, containers: false, pip: [], pyproject: false, maven: false, go: '1.23', prefix: '', defaultBranch: 'main' }
 
 /** The CI file: the gate and the tests, the plugin fetched at the version this one is. */
-export function template(provider, version, s = JS_STACK) {
-  const fetch = `git clone --quiet --depth 1 --branch quality-code--v${version} https://github.com/vissz28/agentic-testing.git /tmp/quality-code`
+export function template(provider, version, s = JS_STACK, source = { url: DEFAULT_PLUGIN_URL, ref: `quality-code--v${version}` }) {
+  const fetch = `git clone --quiet --depth 1 --branch ${source.ref} ${source.url} /tmp/quality-code`
   const ci = 'node /tmp/quality-code/plugins/quality-code/bin/ci.mjs'
   const native = s.backend && s.backend !== 'vitest' ? s.backend : null
   const install = installLines(s)
@@ -132,7 +134,9 @@ export function template(provider, version, s = JS_STACK) {
     '# The install lines were guessed from the project: change them if it installs differently (a private registry,',
     '#   a generated file); add the variables and secrets the tests need.',
     ...(s.playwright ? ['# Playwright starts the app through webServer in its config; without one, start the app before the tests.'] : []),
-    '# The plugin is fetched from GitHub at a fixed version: mirror it if your runners cannot reach github.com.',
+    source.url === DEFAULT_PLUGIN_URL
+      ? '# The plugin is fetched from GitHub at a fixed version: mirror it if your runners cannot reach github.com (ci.pluginSource in the project config, or QUALITY_CODE_PLUGIN_URL and QUALITY_CODE_PLUGIN_REF).'
+      : `# The plugin is fetched from ${source.url} at ${source.ref} (ci.pluginSource in the project config).`,
     '# Written by /quality-code:ci; run it again after a plugin update (it rewrites this file).',
   ]
   if (provider === 'github') {
@@ -195,17 +199,25 @@ export function guessProvider(top) {
   return /github/i.test(url) ? 'github' : /gitlab/i.test(url) ? 'gitlab' : null
 }
 
-function init(root, config, a, stdout, stderr) {
+function init(root, config, a, env, stdout, stderr) {
   // The CI file goes at the top of the repo, also for a project in a subfolder.
   const top = git(root, ['rev-parse', '--show-toplevel']) || root
   const provider = a.provider ?? guessProvider(top)
   if (!provider) { stderr('Say which CI: github or gitlab (the repo has no CI file and its remote names neither).\n'); return 2 }
-  const text = template(provider, JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version, { ...stackOf(root, config), smoke: a.smoke })
+  const version = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version
+  const source = pluginSource(config, env, version)
+  if (source.error) { stderr(`${source.error}\n`); return 2 }
+  const text = template(provider, version, { ...stackOf(root, config), smoke: a.smoke }, source)
   if (a.print) { stdout(text); return 0 }
   // Only a file Quality Code wrote is replaced; an existing .gitlab-ci.yml gets the jobs in a file of their own, to include.
   const free = p => !existsSync(join(top, p)) || readText(join(top, p)).startsWith(HEADER)
   const target = provider === 'github' ? '.github/workflows/quality-code.yml' : free('.gitlab-ci.yml') ? '.gitlab-ci.yml' : '.gitlab/quality-code.gitlab-ci.yml'
   if (!free(target)) { stderr(`${target} is there already and Quality Code did not write it: not overwritten. Print the jobs instead: --init ${provider} --print\n`); return 2 }
+  // --dry-run: say what would be written and where the plugin would be fetched from; write nothing.
+  if (a.dryRun) {
+    stdout(`dry run: would write ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}, ${text.split('\n').length} lines), nothing written. The jobs fetch the plugin from ${source.url} at ${source.ref}.\n`)
+    return 0
+  }
   mkdirSync(dirname(join(top, target)), { recursive: true })
   writeFileSync(join(top, target), text)
   stdout(`ok: wrote ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'})\n`)
@@ -361,7 +373,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const cfg = loadConfig(root)
   if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
   if (cfg.source === 'personal') { stderr('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).\n'); return 2 }
-  if (a.init) return init(root, cfg.config, a, stdout, stderr)
+  if (a.init) return init(root, cfg.config, a, env, stdout, stderr)
   return a.tests ? tests(root, cfg.config, a, env, stdout, stderr) : gate(root, cfg.config, a, env, stdout)
 }
 

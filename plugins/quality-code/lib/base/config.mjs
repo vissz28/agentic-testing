@@ -1,4 +1,5 @@
 // Find, load and validate the team config. The only module that knows where it lives.
+import { ciErrors } from './ci-source.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
@@ -15,7 +16,7 @@ const KEY = /^[A-Z][A-Z0-9_]+$/
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
 /** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
 const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -436,6 +437,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
     }
   }
+  e.push(...ciErrors(c.ci))
   if (c.seed !== undefined) {
     const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
     if (!isObj(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')

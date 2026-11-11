@@ -125,6 +125,40 @@ test('--init writes the file for the CI the repo uses at the repo top, replaces 
   assert.match(readFileSync(join(mono, '.gitlab-ci.yml'), 'utf8'), /- cd api\//, 'a project in a subfolder: the file at the top, the jobs in its folder')
 })
 
+test('--init --dry-run previews and writes nothing', async () => {
+  const d = project()
+  git(d, 'init', '-q', '-b', 'main')
+  const r = await run(['--init', 'github', '--dry-run'], d)
+  assert.equal(r.code, 0, r.err)
+  assert.match(r.out, /dry run: would write \.github\/workflows\/quality-code\.yml/)
+  assert.match(r.out, /github\.com\/vissz28\/agentic-testing\.git at quality-code--v/)
+  assert.equal(existsSync(join(d, '.github')), false, 'nothing written')
+  assert.equal((await run(['--dry-run'], d)).code, 2, '--dry-run goes with --init')
+  put(d, '.github/workflows/quality-code.yml', 'name: mine\n')
+  assert.equal((await run(['--init', 'github', '--dry-run'], d)).code, 2, 'a file that is not ours is reported also on a dry run')
+})
+
+test('the plugin source is configurable: default as is, config or environment overrides it, and only an https address and a plain ref pass', async () => {
+  assert.match(template('github', '1.2.3'), /git clone --quiet --depth 1 --branch quality-code--v1\.2\.3 https:\/\/github\.com\/vissz28\/agentic-testing\.git \/tmp\/quality-code/)
+  const mirror = { ...cfg, ci: { pluginSource: { url: 'https://git.example.com/team/agentic-testing.git', ref: 'release-1' } } }
+  const d = project({}, mirror)
+  git(d, 'init', '-q', '-b', 'main')
+  const out = (await run(['--init', 'gitlab', '--print'], d)).out
+  assert.equal((out.match(/--branch release-1 https:\/\/git\.example\.com\/team\/agentic-testing\.git \/tmp\/quality-code/g) ?? []).length, 2)
+  assert.doesNotMatch(out, /github\.com\/vissz28/)
+  const env = (await run(['--init', 'gitlab', '--print'], d, { QUALITY_CODE_PLUGIN_URL: 'https://mirror.example.org/a/b.git', QUALITY_CODE_PLUGIN_REF: 'v9' })).out
+  assert.match(env, /--branch v9 https:\/\/mirror\.example\.org\/a\/b\.git/, 'the environment wins over the config')
+  for (const bad of ['http://git.example.com/a.git', 'https://user:pw@git.example.com/a.git', 'https://x.com/a b.git', 'https://x.com/a;rm.git', 'git@github.com:a/b.git', 'https://x.com']) {
+    const r = await run(['--init', 'github', '--print'], d, { QUALITY_CODE_PLUGIN_URL: bad })
+    assert.equal(r.code, 2, bad)
+    assert.match(r.err, /https address/, bad)
+  }
+  for (const bad of ['-x', 'a b', 'a;b', '$(id)', 'a..b']) assert.equal((await run(['--init', 'github', '--print'], d, { QUALITY_CODE_PLUGIN_REF: bad })).code, 2, bad)
+  // The config validator refuses the same.
+  const badCfg = project({}, { ...cfg, ci: { pluginSource: { url: 'http://x.com/a.git' } } })
+  assert.equal((await run(['--init', 'github', '--print'], badCfg)).code, 2)
+})
+
 test('bad options and a missing config exit 2', async () => {
   const d = project()
   for (const argv of [['github'], ['--print'], ['--base'], ['--init', '--base', 'main'], ['--init', '--tests'], ['--all'], ['--junit', 'j.xml'], ['--suite', 'backend'], ['--init', 'jenkins']]) assert.equal((await run(argv, d)).code, 2, argv.join(' '))

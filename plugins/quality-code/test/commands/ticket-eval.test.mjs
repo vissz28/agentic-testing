@@ -160,7 +160,7 @@ test('Figma: the draft is shown as it would be added, with Use it / Edit / Skip,
   assert.match(fig, /exactly as it would be added, then end the turn/)
 })
 test('Figma: Use it goes through add like a typed answer, Edit sends their text, Skip moves on; the script decides', () => {
-  assert.ok(fig.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"'))
+  assert.ok(fig.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted --confirmed -- "<the draft, verbatim>"'))
   assert.match(fig, /exactly like a typed answer/)
   assert.match(fig, /The script decides whether it counts/)
   assert.match(fig, /\*\*2:\*\* ask for their edited text, and send that through `add`/)
@@ -241,9 +241,10 @@ test('ticket draft: the card is Use it / Edit / Skip and the turn ends', () => {
   assert.match(draft, /exactly as it would be added, then end the turn/)
 })
 test('ticket draft: Use it and Edit go through add --drafted; the script scores, a rejection shows its reason', () => {
-  assert.ok(draft.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted -- "<the draft, verbatim>"'))
+  assert.ok(draft.includes('ticket.mjs add --in @<ticketsDir>/<KEY>/ticket.json <key> --drafted --confirmed -- "<the draft, verbatim>"'))
+  assert.match(draft, /Pass `--confirmed` only after the person picked `1\. Use it`/)
   assert.match(draft, /marks the answer as drafted in `ticket.json` and in the local audit log \(for `\/quality-code:report --kpi`\); it never changes the score/)
-  assert.match(draft, /\*\*2:\*\* ask for their edited text, and send that through `add` the same way, with `--drafted`\. The script scores the edited text/)
+  assert.match(draft, /\*\*2:\*\* ask for their edited text, and send that through `add` the same way, with `--drafted --confirmed`\. The script scores the edited text/)
   assert.match(draft, /\*\*3:\*\* the item goes on the card with the other items, typed by hand/)
   assert.match(draft, /\*\*Not accepted:\*\* show the line with the script's reason as printed/)
   assert.match(draft, /rejected twice, the item goes on the card/)

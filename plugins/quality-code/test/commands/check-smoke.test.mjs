@@ -37,7 +37,7 @@ test('the smoke guide: the person picks at the plan card, tags go on the test li
 test('spec points at the smoke guide, and ci documents the optional job', () => {
   assert.ok(read('commands/spec.md').includes('${CLAUDE_PLUGIN_ROOT}/guides/smoke.md'))
   const ci = read('commands/ci.md')
-  assert.match(ci, /argument-hint: '?\[github\|gitlab\] \[--smoke\] \[--print\]/)
+  assert.match(ci, /argument-hint: '?\[github\|gitlab\] \[--smoke\] \[--print/)
   assert.match(ci, /smoke_post_deploy/)
   assert.match(ci, /`SMOKE_URL`/)
 })

@@ -279,9 +279,12 @@ test('the local Jira field memory folder ignores itself, with no line in the pro
   const d = repo({})
   spawnSync('git', ['init', '-q'], { cwd: d })
   write(d, cfg, {})
-  assert.equal(storeField(d, 'DEMO', 'customfield_10100').ok, true)
-  const r = spawnSync('git', ['check-ignore', '--no-index', FIELDS_REL], { cwd: d, encoding: 'utf8' })
-  assert.equal(r.stdout.trim(), FIELDS_REL, r.stderr)
+  // Kept in the repo only when the person picked that place; before the pick it is in the session's temp folder.
+  const env = { ...process.env, QUALITY_CODE_PLACE: 'repo', CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-fields-cfg-')) }
+  assert.equal(storeField(d, 'DEMO', 'customfield_10100', env).ok, true)
+  const kept = '.quality-code/jira-fields.json'
+  const r = spawnSync('git', ['check-ignore', '--no-index', kept], { cwd: d, encoding: 'utf8' })
+  assert.equal(r.stdout.trim(), kept, r.stderr)
   assert.equal(existsSync(join(d, '.gitignore')), false)
 })
 

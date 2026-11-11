@@ -34,9 +34,10 @@ const err = s => process.stderr.write(`${s}\n`)
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
 // --save keeps the per-ticket results of `tickets-eval`; --report also writes the HTML report of it. --drafted marks an `add` answer as the
-// model's draft the author confirmed (the script still decides whether it counts). --runner adds to
+// model's draft the author confirmed (the script still decides whether it counts); a draft is applied only with --confirmed too, which
+// the command passes after the person picked Use it (or typed an edit) on the Use it / Edit / Skip card. --runner adds to
 // `config check` the test runners the config names and the project has not installed.
-const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--runner', '--report'])
+const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--confirmed', '--runner', '--report'])
 
 // The heading `attach` puts each kind of read file under in the description.
 const ATTACHED = { screenshot: 'Attached screenshot', page: 'Linked page' }
@@ -235,12 +236,12 @@ function run(argv, env, cwd) {
   if (cmd === 'field') {
     const [sub, project, value] = a._
     if (sub === 'get' && project) {
-      const r = resolveField(root, config, project)
+      const r = resolveField(root, config, project, env)
       out(`FIELD_JSON:${JSON.stringify({ project, field: r.field ?? null, source: r.source })}`)
       return 0
     }
     if (sub === 'set' && project && value) {
-      const r = storeField(root, project, value)
+      const r = storeField(root, project, value, env)
       if (!r.ok) { err(r.error); return 2 }
       out('ok')
       return 0
@@ -404,6 +405,10 @@ function run(argv, env, cwd) {
       if (!inPath) { err('add needs --in @<ticket.json> so the accepted answer can be saved'); return 2 }
       const [key, answer] = a._
       const drafted = a.flags.has('--drafted')
+      if (drafted && !a.flags.has('--confirmed')) {
+        err('add --drafted needs --confirmed: a drafted answer is applied only after the person picked "Use it" (or typed an edit) on the Use it / Edit / Skip card. Show that card first.')
+        return 2
+      }
       const r = applyAnswer(config, ticket, key, answer, { drafted })
       if (r.ok) {
         try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { err(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
