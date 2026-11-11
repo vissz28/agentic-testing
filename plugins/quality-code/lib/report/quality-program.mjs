@@ -28,6 +28,7 @@ const pct = (a, b) => (b ? Math.round((100 * a) / b) : null)
 
 function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 20000 }) {
   const out = []
+  const wholeRepo = /^(?:\.\/?)*$/.test(String(folder))
   const walk = rel => {
     let entries = []
     try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
@@ -35,7 +36,8 @@ function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 
       if (--budget.n < 0) return
       // The repo itself ("./", Go's default layer) lists its files without a "./" in front.
       const p = rel ? `${rel.replace(/\/$/, '')}/${e.name}` : e.name
-      if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-')) walk(p) }
+      // A whole-repo walk skips hidden folders (.build-context, .cache): they hold copies, not the project's tests.
+      if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-') && !(wholeRepo && e.name.startsWith('.'))) walk(p) }
       else if (spec.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
     }
   }
@@ -67,14 +69,57 @@ export function projectSpecs(root, config) {
   if (js) {
     const conv = detectConventions(root)
     if (conv.specs > 0 && conv.beside) {
+      const runner = runnerOf(config, 'vitest')
+      const cache = new Map()
       for (const p of specsIn(root, '', { spec: SPEC, skip: SKIP_BUILD })) {
         if (seen.has(p)) continue
+        // A monorepo workspace on another unit runner (a Vitest frontend beside Jest services) is not this runner's.
+        if (otherRunnersTest(root, p, runner, cache)) continue
         if (e2e && p.startsWith(e2e) && !UNIT.test(p)) continue
         seen.set(p, js)
       }
     }
   }
-  return [...seen].map(([path, adapter]) => ({ path, adapter }))
+  const kept = withoutIgnored(root, [...seen.keys()])
+  return [...seen].filter(([path]) => kept.has(path)).map(([path, adapter]) => ({ path, adapter }))
+}
+
+/** The paths git does not ignore (build copies such as .build-context/ are not the project's tests). All of them when root is not a git repo. */
+export function withoutIgnored(root, paths) {
+  const all = new Set(paths)
+  if (!paths.length) return all
+  try {
+    const out = execFileSync('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, input: `${paths.join('\0')}\0`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
+    for (const p of out.split('\0')) all.delete(p)
+  } catch (e) {
+    // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path.
+    if (e.status === 1 || !e.stdout) return all
+    for (const p of String(e.stdout).split('\0')) all.delete(p)
+  }
+  return all
+}
+
+const readJson = p => { try { return JSON.parse(readFileSync(p, 'utf8')) } catch { return null } }
+/** The unit test tools the nearest package.json above a spec depends on (its workspace's own); null when no package.json is found. */
+function workspaceTools(root, spec, cache) {
+  let dir = spec.includes('/') ? spec.slice(0, spec.lastIndexOf('/')) : ''
+  for (;;) {
+    if (cache.has(dir)) return cache.get(dir)
+    const pkg = readJson(join(root, dir, 'package.json'))
+    if (pkg) {
+      const deps = { ...pkg.devDependencies, ...pkg.dependencies }
+      const tools = new Set(['jest', 'vitest', 'mocha'].filter(t => t in deps || (t === 'jest' && 'ts-jest' in deps)))
+      cache.set(dir, tools)
+      return tools
+    }
+    if (!dir) return null
+    dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
+  }
+}
+/** A spec of a workspace that declares another unit runner than the backend's: the frontend's Vitest tests are not for Jest, and the reverse. */
+function otherRunnersTest(root, spec, runner, cache) {
+  const tools = workspaceTools(root, spec, cache)
+  return Boolean(tools && tools.size && ['jest', 'vitest', 'mocha'].includes(runner) && !tools.has(runner))
 }
 
 /** Traceability and suite honesty, read from the spec files themselves. */

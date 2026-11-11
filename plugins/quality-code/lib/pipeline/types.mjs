@@ -73,10 +73,47 @@ export function readTsc(out, code, specs, truncated = false) {
   return result('types', 'pass', `compiles; ${errors.length} error(s) in other files, not in the specs`, [], { applicable: true, otherErrors: errors.length })
 }
 
-export function typeCheck(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}) {
+/** The nearest tsconfig.json above a spec, up to the project root (a workspace's own); null when none. */
+export function nearestTsconfig(root, spec) {
+  let dir = posix.dirname(String(spec).replace(/\\/g, '/'))
+  for (;;) {
+    const p = dir === '.' ? 'tsconfig.json' : `${dir}/tsconfig.json`
+    if (existsSync(join(root, p))) return p
+    if (dir === '.' || dir === '/' || dir === '') return null
+    dir = posix.dirname(dir)
+  }
+}
+
+const WORST = { fail: 2, not_run: 1, pass: 0 }
+
+/**
+ * The type-check. With a tsconfig named in the config (vitest.tsconfig, playwright.tsconfig) or one at the root, every spec goes to it.
+ * With neither, each spec goes to the nearest tsconfig.json above it, so a monorepo with no tsconfig at its root is checked workspace by workspace.
+ */
+export async function typeCheck(root, config, specs, opts = {}) {
+  const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
+  if (adapterOptions(config).tsconfig || cypress || existsSync(join(root, 'tsconfig.json'))) return typeCheckOne(root, config, specs, opts)
+  const tsSpecs = specs.filter(s => TS.test(s))
+  const groups = new Map()
+  for (const s of tsSpecs) {
+    const t = nearestTsconfig(root, s)
+    if (t) groups.set(t, [...(groups.get(t) ?? []), s])
+  }
+  if (!groups.size) return typeCheckOne(root, config, specs, opts)
+  const results = []
+  for (const [tsconfig, list] of groups) results.push(await typeCheckOne(root, config, list, opts, tsconfig))
+  const without = tsSpecs.length - [...groups.values()].reduce((n, l) => n + l.length, 0)
+  const status = results.map(r => r.status).reduce((a, b) => (WORST[b] > WORST[a] ? b : a))
+  const worst = results.find(r => r.status === status)
+  const note = without ? `; ${without} spec(s) have no tsconfig.json above them and were not type-checked` : ''
+  const summary = status === 'pass' ? `compiles (${groups.size} tsconfig${groups.size === 1 ? '' : 's'}, one per workspace)${note}` : `${worst.summary}${note}`
+  return result('types', status, summary, results.flatMap(r => r.findings ?? []), { applicable: results.some(r => r.data?.applicable !== false), tsconfigs: [...groups.keys()] })
+}
+
+function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}, forced = null) {
   // Cypress keeps the types its specs need (cy, its chainers) in cypress/tsconfig.json.
   const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
-  const configured = adapterOptions(config).tsconfig ?? (cypress ? CYPRESS_TSCONFIG : 'tsconfig.json')
+  const configured = forced ?? adapterOptions(config).tsconfig ?? (cypress ? CYPRESS_TSCONFIG : 'tsconfig.json')
   const tsSpecs = specs.filter(s => TS.test(s))
   if (!tsSpecs.length) return Promise.resolve(result('types', 'pass', 'no TypeScript specs: nothing to type-check', [], { applicable: false }))
   if (!existsSync(join(root, configured))) return Promise.resolve(result('types', 'not_run', `no ${configured}: cannot type-check the TypeScript specs`))

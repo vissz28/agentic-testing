@@ -10,6 +10,21 @@ const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] } }
 const proj = (tsconfig = true) => { const d = mkdtempSync(join(tmpdir(), 'qc-tsc-')); if (tsconfig) writeFileSync(join(d, 'tsconfig.json'), '{}'); return d }
 
 const SCOPED = /^mut-tmp-qc-tsconfig-[0-9a-f]{8}\.json$/
+test('no root tsconfig: each spec is checked with its own workspace tsconfig', async () => {
+  const d = proj(false)
+  for (const w of ['svc-a', 'svc-b']) { mkdirSync(join(d, 'packages', w, 'test'), { recursive: true }); writeFileSync(join(d, 'packages', w, 'tsconfig.json'), '{}') }
+  fakeBin(d, 'tsc', { exit: 0 })
+  const r = await typeCheck(d, cfg, ['packages/svc-a/test/a.spec.ts', 'packages/svc-b/test/b.spec.ts', 'packages/svc-a/test/c.spec.ts'])
+  assert.equal(r.status, 'pass')
+  assert.deepEqual(r.data.tsconfigs.sort(), ['packages/svc-a/tsconfig.json', 'packages/svc-b/tsconfig.json'])
+  assert.equal(calls(d, 'tsc').length, 2)
+  assert.match(r.summary, /2 tsconfigs/)
+})
+test('no root tsconfig and none in the workspace: still not_run with the old message', async () => {
+  const d = proj(false)
+  const r = await typeCheck(d, cfg, ['packages/x/a.spec.ts'])
+  assert.deepEqual([r.status, r.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
+})
 test('compiles: pass, and tsc gets --noEmit -p <a scoped tsconfig next to the project one>', async () => {
   const d = proj()
   fakeBin(d, 'tsc', { exit: 0 })

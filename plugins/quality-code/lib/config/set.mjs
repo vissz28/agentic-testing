@@ -6,9 +6,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from '../base/config.mjs'
 import { pickPlace, placeDirs, placeOf, placesFor } from '../base/places.mjs'
 import { FLOWS } from '../base/conventions.mjs'
+import { RUNNERS } from '../base/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
 
-const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url' }
+const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
+function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
 /** The settings `config set` can change: dotted key -> type. Nothing else is settable here. */
 export const KEYS = Object.freeze({
   'jira.site': { type: T.url },
@@ -31,6 +33,10 @@ export const KEYS = Object.freeze({
   'qa.statuses.done': { type: T.text, optional: true },
   'qa.blockedStop': { type: T.int, optional: true },
   'qa.autoPass': { type: T.bool, optional: true },
+  'runners.unit': { type: T.enum, choices: runnersOf('unit'), optional: true, project: true },
+  'runners.e2e': { type: T.enum, choices: runnersOf('e2e'), optional: true, project: true },
+  'vitest.configs': { type: T.configs, optional: true, project: true },
+  'playwright.configs': { type: T.configs, optional: true, project: true },
   'place': { type: T.enum, choices: ['repo', 'local', 'chat'], file: true },
 })
 /** One example value for each settable key, shown by `config keys`. */
@@ -40,6 +46,8 @@ export const EXAMPLES = Object.freeze({
   'ticketsDir': '.qc/tickets', 'testStyle': 'project', 'languages': 'en,it', 'titlePrefixes': 'Spike:,Chore:', 'qa.app': 'https://app.example.com',
   'qa.sprint': 'open', 'qa.executionTypes': 'Test Execution', 'qa.statuses.ko': 'TEST KO', 'qa.statuses.ready': 'Ready to test',
   'qa.statuses.done': 'Done', 'qa.blockedStop': '2', 'qa.autoPass': 'false', 'place': 'local',
+  'runners.unit': 'jest', 'runners.e2e': 'playwright',
+  'vitest.configs': 'services/**=jest.config.js,web/**=web/vitest.config.ts', 'playwright.configs': 'e2e/**=e2e/playwright.config.ts',
 })
 const CLEAR = /^(none|null|unset|default)$/i
 const PLUGIN_KEY = /^(jira[._-]?email|gitlab|xray[._-]?(api[._-]?url|client)|figma)/i
@@ -52,6 +60,12 @@ const SECRET_VALUE = [
 const looksSecret = v => SECRET_VALUE.some(re => re.test(v)) || v.split(/[\s,]+/).some(w => w.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(w) && /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w))
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
+/** A copy of a config without secrets: a token-like key, or a value that looks like a token or a key. */
+export function withoutSecrets(v) {
+  if (Array.isArray(v)) return v.map(withoutSecrets).filter(x => x !== undefined)
+  if (isObj(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
+  return typeof v === 'string' && looksSecret(v) ? undefined : v
+}
 const show = v => (v === undefined ? 'not set' : typeof v === 'string' ? v : JSON.stringify(v))
 const getPath = (o, key) => key.split('.').reduce((v, k) => (isObj(v) ? v[k] : undefined), o)
 
@@ -83,6 +97,11 @@ export function parseValue(spec, key, raw) {
       return { error: `${key}: must be true or false (found "${text}")` }
     case T.int: return /^-?\d+$/.test(text) ? { value: Number(text) } : { error: `${key}: must be a whole number (found "${text}")` }
     case T.enum: return spec.choices.includes(text) ? { value: text } : { error: `${key}: must be ${spec.choices.map(c => `"${c}"`).join(' or ')} (found "${text}")` }
+    case T.configs: {
+      // "match=config" pairs, comma separated: which test config runs the specs that match.
+      const rows = text.split(',').map(s => s.trim()).filter(Boolean).map(s => { const i = s.lastIndexOf('='); return i > 0 ? { match: s.slice(0, i).trim(), config: s.slice(i + 1).trim() } : null })
+      return rows.length && rows.every(Boolean) ? { value: rows } : { error: `${key}: give match=config pairs separated by commas, like services/**=jest.config.js` }
+    }
     case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${text.replace(/\/+$/, '')}` } : { error: `${key}: must not be empty` }
     default: return text ? { value: text } : { error: `${key}: must not be empty` }
   }
@@ -151,7 +170,7 @@ function parseArgs(argv) {
 export function keyRows() {
   return Object.entries(KEYS).map(([key, spec]) => ({
     key,
-    takes: spec.type === T.enum ? spec.choices.join(' | ') : spec.type === T.list ? 'list, comma separated' : spec.type === T.bool ? 'true | false' : spec.type === T.int ? 'whole number' : spec.type === T.url ? 'address' : 'text',
+    takes: spec.type === T.configs ? 'match=config pairs, comma separated' : spec.type === T.enum ? spec.choices.join(' | ') : spec.type === T.list ? 'list, comma separated' : spec.type === T.bool ? 'true | false' : spec.type === T.int ? 'whole number' : spec.type === T.url ? 'address' : 'text',
     optional: Boolean(spec.optional), project: Boolean(spec.project), example: EXAMPLES[key] ?? '',
   }))
 }
@@ -163,7 +182,7 @@ export function configKeys(io = { out: s => process.stdout.write(`${s}\n`) }) {
   return 0
 }
 
-const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get <key> [--personal|--project]'
+const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get [<key>] [--personal|--project] (no key: the whole config, secrets left out)'
 
 /** Runs `config set|get` (argv starts at set|get). Returns the exit code: 0 ok or a preview, 2 an error with nothing written. */
 export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = { out: s => process.stdout.write(`${s}\n`), err: s => process.stderr.write(`${s}\n`) }) {
@@ -173,12 +192,22 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   const a = parseArgs(rest)
   if (a.errors.length) return fail(`${a.errors[0]}\n${USAGE}`)
   const [key, ...vals] = a._
-  if (!['get', 'set'].includes(sub) || !key || vals.length !== (sub === 'get' ? 0 : 1)) return fail(USAGE)
+  if (!['get', 'set'].includes(sub) || (sub === 'set' && !key) || vals.length !== (sub === 'get' ? 0 : 1)) return fail(USAGE)
   const value = vals[0]
 
+  if (sub === 'get' && !key) {
+    const t = target(projectRoot(env, cwd), env, a.scope)
+    if (t.error) return fail(t.error)
+    const shown = withoutSecrets(t.config)
+    out(JSON.stringify(shown, null, 2))
+    out(`CONFIG_GET_JSON:${JSON.stringify({ key: null, value: shown, set: true, source: t.source })}`)
+    return 0
+  }
   const bad = refusal(key, value)
   if (bad) return fail(bad)
-  const spec = KEYS[key]
+  // A group of keys ("runners", "jira"): read it whole.
+  const group = sub === 'get' && !KEYS[key] && Object.keys(KEYS).some(k => k.startsWith(`${key}.`)) ? key : null
+  const spec = group ? { type: T.text, group: true } : KEYS[key]
   if (!spec) return fail(`${key}: unknown key. Settable keys: ${Object.keys(KEYS).join(', ')}. Other settings: /quality-code:setup advanced.`)
 
   const root = projectRoot(env, cwd)
