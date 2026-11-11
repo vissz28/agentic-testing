@@ -100,4 +100,5 @@ jobs:
           [ "$mcp" = "401" ]
 
       - name: Summary
-        run: echo "Deployed ${{ steps.version.outputs.value }} (${GITHUB_SHA::7}) to ${{ inputs.environment }}: ${{ vars.PUBLIC_URL }}/mcp" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Deployed ${{ steps.version.outputs.value }} (${GITHUB_SHA::7}) to ${{ inputs.environment }} at ${{ vars.PUBLIC_URL }}/mcp" >> "$GITHUB_STEP_SUMMARY"
