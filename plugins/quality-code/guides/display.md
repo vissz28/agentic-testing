@@ -141,12 +141,12 @@ Calling the picker (the `AskUserQuestion` tool) is THE rule for every card with 
 - Information the card shows above its options (a plan, a score, a preview) goes above the picker as its own section, laid out as above.
 - `--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either. Only without the tool, show the numbered card as written and end the turn.
 
+## When `node` is not found
+
+A script call that fails with `node is not recognized`, `command not found: node` or `node: not found` is not the end of the command. Follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node.js installed per user, for all users, or by a version manager, then runs the script again); only when it finds none, ask the person to install Node.js 18 or later.
+
 ## Language
 
 Talk in the language of the person's last sentence. A pick, a number, a click on an option, a slash command with no words, a script's output or a card does not change it. Script lines and cards keep their fixed words; everything around them (explanations, questions, summaries, option descriptions, the Done text) stays in the person's language.
 
 The rule and the saved language are in `${CLAUDE_PLUGIN_ROOT}/guides/language.md`.
-
-## When `node` is not found
-
-A script call that fails with `node is not recognized`, `command not found: node` or `node: not found` is not the end of the command. Follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node.js installed per user, for all users, or by a version manager, then runs the script again); only when it finds none, ask the person to install Node.js 18 or later.
