@@ -47,7 +47,7 @@ test('GitLab and Figma: browser sign-in or token, either one is enough', () => {
   assert.doesNotMatch(doc, /gitlab_mcp_url/)
 })
 test('connector status is not written to the config', () => {
-  assert.match(doc, /Nothing here is written to `\.claude\/quality-code\.json`/)
+  assert.match(doc, /Nothing here is written to the project config\./)
 })
 test('tools are named by operation, never by an mcp__ name', () => {
   assert.doesNotMatch(doc, /mcp__/)

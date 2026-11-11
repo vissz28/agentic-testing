@@ -213,6 +213,22 @@
         }
       }
     },
+    "ci": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional. How /quality-code:ci writes the CI file.",
+      "properties": {
+        "pluginSource": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where the CI jobs fetch the plugin from (a mirror, when the runners cannot reach github.com). Default: https://github.com/vissz28/agentic-testing.git at the tag of the plugin version. QUALITY_CODE_PLUGIN_URL and QUALITY_CODE_PLUGIN_REF in the environment override it.",
+          "properties": {
+            "url": { "type": "string", "pattern": "^https://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]{1,5})?(/[A-Za-z0-9._~%+-]+)+$", "description": "An https address with no credentials." },
+            "ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$", "description": "The tag or branch to clone. Default: quality-code--v<plugin version>." }
+          }
+        }
+      }
+    },
     "seed": {
       "type": "object",
       "additionalProperties": false,

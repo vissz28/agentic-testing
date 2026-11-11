@@ -1,6 +1,6 @@
 ---
 description: Writes the CI file for GitHub Actions or GitLab CI with two jobs for each pull or merge request. test_quality_gate (git and node only, seconds) checks the changed specs for honesty, assertions and the frozen evals. test_quality_tests installs the project and runs types, tests and mutation on the changed specs (a code-only change runs its side's whole suite without mutation), with Docker for Testcontainers and JUnit in the merge request. Toolchain and install are guessed from the repo; the provider too when not given.
-argument-hint: '[github|gitlab] [--smoke] [--print]'
+argument-hint: '[github|gitlab] [--smoke] [--print | --dry-run]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
 model: haiku
 effort: low
@@ -10,6 +10,7 @@ Writes the plugin's checks into the project's CI, so every pull request (GitHub)
 
 - **test_quality_gate** (git and node only, seconds): on the specs the request changed, honesty (no assertion or test removed, a deleted or renamed spec included; no skip without a ticket), assertions (every test asserts something) and the frozen evals.
 - **test_quality_tests** (installs the project): the changed specs through the pipeline, one run per module, with types, tests and mutation. A side whose code changed but no spec did runs its whole suite without mutation, as does a push to the default branch. The toolchain and install lines are guessed from the repo (lockfile, Prisma, Playwright, pytest, Maven or Gradle, Go, .NET); Testcontainers gets Docker; a dead runner is retried, a red test never is.
+- **Where the plugin comes from.** Both jobs clone the plugin from `https://github.com/vissz28/agentic-testing.git` at the tag of this version. When the runners cannot reach github.com, set `ci.pluginSource` in the project config (`{ "url": "https://<your mirror>.git", "ref": "<tag or branch>" }`; `ref` defaults to this version's tag), or `QUALITY_CODE_PLUGIN_URL` and `QUALITY_CODE_PLUGIN_REF` in the environment of the run (they win). Only an https address with no credentials and a plain tag or branch name are accepted: the script refuses anything else (exit 2).
 - **smoke_post_deploy** (only with `--smoke`, optional): after a deploy, the smoke suite (the tests tagged `@smoke`, read-only) against the address in the `SMOKE_URL` variable of the repo (GitHub: a repository variable; GitLab: a CI/CD variable). It runs on the default branch when the variable is set, and by hand. The address is never written into the file; ask the person to set the variable in the CI settings, never to paste it in the chat if it holds a secret.
 
 Plain English, short lines. The result is laid out with the **Richer cards** of the display guide: a headline row with the provider and the jobs written, marks as the guide lists them (✅ met, ⚠️ differs or not connected) for the Central Context check, and a `Next:` line with `/quality-code:check` and `/quality-code:ci --smoke`. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool.
@@ -24,6 +25,8 @@ Plain English, short lines. The result is laid out with the **Richer cards** of 
 
 1. **Write.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ci.mjs" --init $ARGUMENTS`.
    - Exit 0 with `--print`: show the file in a code block, then step 2, and stop.
+   - Exit 0 with `--dry-run`: show its one line (the file it would write and where the plugin is fetched from); nothing was written. Stop.
+   - Exit 2 because the plugin source is not valid: show the line and stop.
    - Exit 0: show its lines as printed. If they include an `include:` block, say to add it to `.gitlab-ci.yml` (into its `include:` list if it has one).
    - Exit 2 because neither provider could be guessed: ask `GitHub or GitLab?` and run step 1 again with the answer.
    - Exit 2 because the file is there already: show the line and stop.
@@ -36,3 +39,4 @@ Plain English, short lines. The result is laid out with the **Richer cards** of 
 - `/quality-code:ci gitlab`: write the GitLab jobs (in `.gitlab/quality-code.gitlab-ci.yml` when `.gitlab-ci.yml` exists, with the `include` line to add)
 - `/quality-code:ci --smoke`: the two jobs plus the optional post-deploy smoke job
 - `/quality-code:ci github --print`: show the GitHub Actions file without writing it
+- `/quality-code:ci --dry-run`: say which file it would write and where the plugin is fetched from; write nothing

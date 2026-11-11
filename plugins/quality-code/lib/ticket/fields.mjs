@@ -6,40 +6,47 @@ import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
 import { configHome } from '../base/config.mjs'
 import { ignoreFolder } from '../base/ignore.mjs'
+import { FIELDS_FILE, placeFolder, placeOf } from '../base/places.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
 const FIELD = /^customfield_\d+$/
 
-function storedAt(dir) {
+// The file lives beside the project config, in the place this person keeps their files (the session's temp folder
+// until they pick), never in the repo's .claude/ before they pick it. A file an older version left in .claude/ still counts.
+const placedPath = (home, env = process.env) => join(placeFolder(home, env), FIELDS_FILE)
+
+function readFields(path) {
   try {
-    const d = JSON.parse(readFileSync(join(dir, FIELDS_REL), 'utf8'))
+    const d = JSON.parse(readFileSync(path, 'utf8'))
     return d && typeof d.projects === 'object' && d.projects !== null && !Array.isArray(d.projects) ? d.projects : {}
   } catch {
     return {}
   }
 }
+const storedAt = (dir, env) => ({ ...readFields(join(dir, FIELDS_REL)), ...readFields(placedPath(dir, env)) })
 
 // A Jira project's criteria field is one fact for the repo, not for each project folder of a monorepo: it is kept
 // where the config is, and a file saved in the project folder before that still counts.
-const stored = root => ({ ...storedAt(configHome(root)), ...storedAt(root) })
+const stored = (root, env) => ({ ...storedAt(configHome(root), env), ...storedAt(root, env) })
 
 /** { field, source }: source "config" or "stored" (field is an id or null), else "unknown". */
-export function resolveField(root, config, project) {
+export function resolveField(root, config, project, env = process.env) {
   if (config.jira && 'acceptanceCriteriaField' in config.jira) return { field: config.jira.acceptanceCriteriaField, source: 'config' }
-  const p = stored(root)
+  const p = stored(root, env)
   if (Object.hasOwn(p, project) && (p[project] === null || FIELD.test(p[project]))) return { field: p[project], source: 'stored' }
   return { field: undefined, source: 'unknown' }
 }
 
 /** value: customfield_<digits>, or "none" when the project has no criteria field. */
-export function storeField(root, project, value) {
+export function storeField(root, project, value, env = process.env) {
   if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters, digits and "_", like "ABC"` }
   if (value !== 'none' && !FIELD.test(String(value))) return { ok: false, error: `the field must be customfield_<digits> or none (got "${value}")` }
   const home = configHome(root)
-  const projects = { ...storedAt(home), [project]: value === 'none' ? null : value }
-  const p = join(home, FIELDS_REL)
-  ignoreFolder(dirname(p))
+  const projects = { ...storedAt(home, env), [project]: value === 'none' ? null : value }
+  const p = placedPath(home, env)
+  if (placeOf(home, 'repo', env) === 'repo') ignoreFolder(dirname(p))
+  else mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, `${JSON.stringify({ projects }, null, 2)}\n`)
   return { ok: true }
 }

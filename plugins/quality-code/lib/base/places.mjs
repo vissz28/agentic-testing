@@ -18,6 +18,7 @@ export const PLACES = ['repo', 'local', 'chat']
 export const AUDIT_REL = '.claude/quality-code/audit'
 export const CONFIG_FILE = 'config.json'
 export const REPO_FOLDER = '.quality-code'
+export const FIELDS_FILE = 'jira-fields.json'
 
 const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
@@ -99,11 +100,21 @@ export function placeConfigPath(home, env = process.env, place = placeAt(home, e
   return join(folder, CONFIG_FILE)
 }
 
+/** The folder that holds the setup config of the project at home, in the place in force (the repo's .quality-code/, this machine, or the session's temp folder). */
+export const placeFolder = (home, env = process.env, place) => dirname(placeConfigPath(home, env, place))
+
 /** Remember the pick. */
 export function rememberPlace(root, source, place, env = process.env) {
   const p = prefsPath(env)
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, `${JSON.stringify({ ...readPrefs(env), [prefKey(root, source)]: place }, null, 2)}\n`)
+}
+
+// Removes a folder that holds nothing but its own .gitignore (what ignoreFolder leaves).
+function dropIfEmpty(dir) {
+  try {
+    if (readdirSync(dir).every(f => f === '.gitignore')) { unlinkSync(join(dir, '.gitignore')); rmdirSync(dir) }
+  } catch {}
 }
 
 // Moves every file under src into dst. A file already at dst is kept; a log (.jsonl) is appended to it.
@@ -141,6 +152,18 @@ export function pickPlace(root, opts, place, env = process.env) {
   if (from !== place && opts.source !== 'personal') {
     // The setup config moves with the other files (a config still in the repo's .claude/ stays where it is).
     const home = configHome(root)
+    // The Jira field file sits beside the config and moves with it.
+    const oldFields = join(placeFolder(home, env, from), FIELDS_FILE)
+    const newFields = join(placeFolder(home, env, place), FIELDS_FILE)
+    if (oldFields !== newFields && existsSync(oldFields)) {
+      if (existsSync(newFields)) counts.kept++
+      else {
+        mkdirSync(dirname(newFields), { recursive: true })
+        try { renameSync(oldFields, newFields) } catch { copyFileSync(oldFields, newFields); unlinkSync(oldFields) }
+        counts.moved++
+      }
+      if (place === 'repo') ignoreFolder(dirname(newFields))
+    }
     const oldCfg = placeConfigPath(home, env, from)
     const newCfg = placeConfigPath(home, env, place)
     if (oldCfg !== newCfg && existsSync(oldCfg)) {
@@ -151,13 +174,18 @@ export function pickPlace(root, opts, place, env = process.env) {
         counts.moved++
       }
       if (existsSync(newCfg) && place === 'repo') ignoreFolder(dirname(newCfg))
-      try { rmdirSync(dirname(oldCfg)) } catch {}
     }
   }
   if (from !== place) {
     const abs = d => resolve(root, d)
     if (abs(old.ticketsDir) !== abs(next.ticketsDir)) moveTree(abs(old.ticketsDir), abs(next.ticketsDir), counts)
     if (old.auditDir && next.auditDir && old.auditDir !== next.auditDir) moveTree(old.auditDir, next.auditDir, counts)
+    // The old place keeps no stray folder: the repo's .quality-code/ and .claude/quality-code/ go when nothing is left in them.
+    if (opts.source !== 'personal') {
+      const oldFolder = placeFolder(configHome(root), env, from)
+      if (oldFolder !== placeFolder(configHome(root), env, place)) dropIfEmpty(oldFolder)
+    }
+    if (from === 'repo') { dropIfEmpty(abs(dirname(AUDIT_REL))); try { rmdirSync(abs('.claude')) } catch {} }
   }
   return { from, to: place, ...counts, dirs: next }
 }

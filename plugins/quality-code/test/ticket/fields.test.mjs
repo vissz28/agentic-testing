@@ -7,6 +7,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIELDS_REL, resolveField, storeField } from '../../lib/ticket/fields.mjs'
+import { FIELDS_FILE, placeFolder } from '../../lib/base/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const base = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }
@@ -26,7 +27,8 @@ test('unknown until stored; stored per project; none is stored as null', () => {
   assert.equal(storeField(d, 'OTHER', 'none').ok, true)
   assert.deepEqual(resolveField(d, base, 'DEMO'), { field: 'customfield_10001', source: 'stored' })
   assert.deepEqual(resolveField(d, base, 'OTHER'), { field: null, source: 'stored' })
-  assert.deepEqual(JSON.parse(readFileSync(join(d, FIELDS_REL), 'utf8')), { projects: { DEMO: 'customfield_10001', OTHER: null } })
+  assert.deepEqual(JSON.parse(readFileSync(join(placeFolder(d), FIELDS_FILE), 'utf8')), { projects: { DEMO: 'customfield_10001', OTHER: null } }, 'beside the config, in the place in force (the session folder until a pick)')
+  assert.equal(existsSync(join(d, FIELDS_REL)), false, 'nothing is written into the repo')
 })
 test('the team config wins, null included', () => {
   const d = dir()

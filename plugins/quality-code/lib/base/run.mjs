@@ -1,7 +1,7 @@
 // The run marker: `run start` opens a test-writing run (the boundary hook then acts), `run stop`
 // closes it, `run status` shows it. A marker older than STALE_MS is ignored and replaced.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
 import { ignoreFolder } from './ignore.mjs'
@@ -41,6 +41,12 @@ export function startRun(root, key, now = Date.now()) {
 export function stopRun(root) {
   const had = readRunMarker(root) !== null
   rmSync(join(root, RUN_MARKER), { force: true })
+  // The marker's folder held only the marker and its own .gitignore: leave no stray folder behind.
+  const dir = join(root, dirname(RUN_MARKER))
+  try {
+    if (readdirSync(dir).every(f => f === '.gitignore')) { rmSync(join(dir, '.gitignore'), { force: true }); rmdirSync(dir) }
+    rmdirSync(join(root, '.claude'))
+  } catch {}
   return { removed: had }
 }
 
