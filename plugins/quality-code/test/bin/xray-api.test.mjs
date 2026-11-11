@@ -140,6 +140,12 @@ test('createTests: a failed or partly failed job says what went wrong', async ()
   assert.equal(r.ok, false)
   assert.deepEqual(r.errors, ['Project ABC not found'])
 })
+test('createTests: a pending job is waited for; a partly successful one still returns the tests it created', async () => {
+  const x = fakeRest([{ jobId: 'j4' }, { status: 'pending' }, { status: 'partially_successful', result: { issues: [{ elementIndex: 0, id: '1001', key: 'ABC-31' }], errors: [{ elementIndex: 1, errors: ['bad step'] }] } }])
+  const r = await xrayClient({ id: 'i', secret: 's', fetch: x.fetch, sleep: async () => {} }).createTests('ABC', [CASE, CASE])
+  assert.equal(r.status, 'partially_successful')
+  assert.deepEqual(r.created, [{ index: 0, key: 'ABC-31', id: '1001' }])
+})
 test('createTests: refuses bad input before any call, and a job that never ends says not to create again', async () => {
   const x = fakeRest([])
   const c = xrayClient({ id: 'i', secret: 's', fetch: x.fetch, sleep: async () => {}, polls: 2 })

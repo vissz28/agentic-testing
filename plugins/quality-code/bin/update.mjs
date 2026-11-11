@@ -57,11 +57,23 @@ function summarise(body) {
   return { items: items.slice(0, MAX_LINES), more: Math.max(0, items.length - MAX_LINES) }
 }
 
+// Claude Code's installed plugins, keyed `name@marketplace` ({} when it cannot be read).
+function installedPlugins(env) {
+  try {
+    const dir = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+    return JSON.parse(readFileSync(join(dir, 'plugins', 'installed_plugins.json'), 'utf8')).plugins ?? {}
+  } catch { return {} }
+}
+
+/** The id `name@marketplace` the plugin is installed as; `name@teamsystem` (the marketplace this repo publishes) when it cannot be read. */
+export function pluginId(name, env = process.env) {
+  return Object.keys(installedPlugins(env)).find(k => k.startsWith(`${name}@`)) ?? `${name}@teamsystem`
+}
+
 /** The highest version of `name` that Claude Code has installed on disk (null when it cannot be read). */
 export function diskVersion(name, env = process.env) {
   try {
-    const dir = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
-    const plugins = JSON.parse(readFileSync(join(dir, 'plugins', 'installed_plugins.json'), 'utf8')).plugins ?? {}
+    const plugins = installedPlugins(env)
     const versions = Object.entries(plugins)
       .filter(([k]) => k.startsWith(`${name}@`))
       .flatMap(([, entries]) => entries.map(e => e.version))
@@ -120,7 +132,7 @@ export function statusOf(installed, latest, running = installed) {
   return c === 0 ? 'current' : 'ahead'
 }
 
-export function formatCard({ name, installed, running = installed, latest, status, via, sections, hiddenVersions }) {
+export function formatCard({ id, installed, running = installed, latest, status, via, sections, hiddenVersions }) {
   const lines = ['quality-code update check']
   if (status === 'reload') lines.push(`  Running    ${running}`, `  Installed  ${installed}   (on disk, not loaded yet)`)
   else lines.push(`  Installed  ${installed}`)
@@ -137,7 +149,7 @@ export function formatCard({ name, installed, running = installed, latest, statu
     }
     if (hiddenVersions) lines.push('', `  ... and ${hiddenVersions} older version${hiddenVersions === 1 ? '' : 's'}: see the CHANGELOG.`)
     lines.push('', 'To update by hand, type these two commands in Claude Code, one after the other:',
-      `  /plugin update ${name}@teamsystem`, '  /reload-plugins')
+      `  /plugin update ${id}`, '  /reload-plugins')
   }
   return lines.join('\n')
 }
@@ -150,6 +162,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const name = manifest.name ?? 'quality-code'
   const running = manifest.version
   const onDisk = diskVersion(name, env)
+  const id = pluginId(name, env)
   const installed = onDisk && compareVersions(onDisk, running) > 0 ? onDisk : running
   let latest
   try {
@@ -161,9 +174,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const status = statusOf(installed, latest.version, running)
   const all = status === 'update' ? newerSections(latest.changelog, installed, latest.version) : []
   const sections = all.slice(0, MAX_VERSIONS)
-  const report = { name, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
-  const card = formatCard({ name, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
-  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\nCHECK_UPDATE_JSON:${JSON.stringify({ installed, running, latest: latest.version, status })}\n`)
+  const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
+  const card = formatCard({ id, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
+  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\nCHECK_UPDATE_JSON:${JSON.stringify({ id, installed, running, latest: latest.version, status })}\n`)
   return 0
 }
 

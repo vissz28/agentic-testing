@@ -58,6 +58,14 @@ test('attach: a refused ticket passes once a linked page holds the criteria; the
   writeFileSync(join(d, 'other.txt'), 'x')
   assert.equal(run('attach', '--in', `@${ticket}`, 'page', '@other.txt').status, 2)
   assert.equal(existsSync(join(d, 'other.txt')), true)
+
+  // A key that climbs out of the tickets folder reads (and deletes) nothing.
+  const victim = mkdtempSync(join(tmpdir(), 'at-victim-'))
+  writeFileSync(join(victim, 'important.txt'), 'keep me')
+  const bad = join(dir, 'DEMO-1', 'bad.json')
+  writeFileSync(join(d, bad), JSON.stringify({ key: `../../../../../../../../../../../..${victim}`, issuetype: 'Story', summary: 's', labels: [], text: { description: '' }, attachments: 0, links: [] }))
+  assert.equal(run('attach', '--in', `@${bad}`, 'page', `@${join(victim, 'important.txt')}`).status, 2)
+  assert.equal(readFileSync(join(victim, 'important.txt'), 'utf8'), 'keep me')
 })
 
 test('tickets-eval: a pass rate per Jira component, and refused tickets with unread files are counted', () => {
@@ -90,4 +98,20 @@ test('score refuses an epic (or initiative): exit 2, never scored', () => {
     assert.ok(r.stderr.includes(line), r.stderr)
     assert.ok(!r.stdout.includes('TICKET_EVAL_JSON'))
   }
+})
+
+test('attach: a new id in the attached text gets a new placeholder, not the description\'s', () => {
+  const d = mkdtempSync(join(tmpdir(), 'at-'))
+  mkdirSync(join(d, '.claude'))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify(config))
+  const run = (...argv) => spawnSync('node', [CLI, ...argv], { cwd: '/', env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
+  const dir = run('config', 'check').stdout.match(/^tickets folder: (.+?) \(/m)[1]
+  mkdirSync(join(d, dir, 'DEMO-1'), { recursive: true })
+  const ticket = join(dir, 'DEMO-1', 'ticket.json')
+  const p1 = '00000000-0000-4000-8000-000000000001'
+  writeFileSync(join(d, ticket), JSON.stringify({ key: 'DEMO-1', issuetype: 'Story', summary: 's', labels: [], text: { description: `workspace ${p1} fails` }, attachments: 1, links: [] }))
+  const txt = join(dir, 'DEMO-1', 'attached.txt')
+  writeFileSync(join(d, txt), 'tenant 9b2f6c1e-1d2a-4c3b-9a8b-7c6d5e4f3a2b')
+  assert.equal(run('attach', '--in', `@${ticket}`, 'page', `@${txt}`).status, 0)
+  assert.match(JSON.parse(readFileSync(join(d, ticket), 'utf8')).text.description, /tenant 00000000-0000-4000-8000-000000000002$/)
 })

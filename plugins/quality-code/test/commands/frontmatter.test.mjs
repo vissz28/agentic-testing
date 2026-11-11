@@ -31,7 +31,7 @@ test('simple commands run on Haiku with low effort, the gate on Sonnet, writing 
 const OWN = {
   ticket: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)',
   report: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)',
-  update: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@teamsystem)',
+  update: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@*)',
   help: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/help.mjs":*)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',

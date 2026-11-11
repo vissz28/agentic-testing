@@ -137,7 +137,8 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(jobId)) throw new Error('Xray did not start an import job')
       for (let i = 0; i < polls; i++) {
         const s = await rest('GET', `/api/v2/import/test/bulk/${jobId}/status`)
-        if (s?.status && s.status !== 'working') {
+        // pending and working: not done yet. partially_successful still lists the tests it created, so no retry duplicates them.
+        if (s?.status && !['pending', 'working'].includes(s.status)) {
           const issues = s.result?.issues ?? []
           return {
             ok: s.status === 'successful', status: s.status, jobId,

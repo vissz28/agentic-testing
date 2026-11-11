@@ -14,7 +14,7 @@ import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
 import { approachOf, isFullstack, SIDES, ticketSide, unitRunnerOf } from '../lib/base/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
-import { redact, sanitizeTicket } from '../lib/ticket/sanitize.mjs'
+import { redact, sanitizeTicket, uuidsOf } from '../lib/ticket/sanitize.mjs'
 import { docxText, DOCX_MAX_CHARS, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
@@ -352,7 +352,7 @@ function run(argv, env, cwd) {
       }
       let draft
       try { draft = readFileSync(resolve(root, a.draft.replace(/^@/, '')), 'utf8') } catch (e) { err(`story-check: cannot read the draft (${e.code ?? e.message})`); return 2 }
-      draft = redact(config, draft)
+      draft = redact(config, draft, uuidsOf(ticket))
       const drafted = draftTicket(ticket, draft)
       const before = buildBrief(config, ticket)
       const after = buildBrief(config, drafted)
@@ -370,7 +370,7 @@ function run(argv, env, cwd) {
       const from = draftPath(ticketsRoot, ticket.key), to = storyPath(ticketsRoot, ticket.key)
       if (!from) { err('story-save needs a ticket with a valid key'); return 2 }
       if (!existsSync(from)) { err(`story-save: no draft at ${from}`); return 2 }
-      try { mkdirSync(dirname(to), { recursive: true }); writeFileSync(from, redact(config, readFileSync(from, 'utf8'))); renameSync(from, to) } catch (e) { err(`story-save: cannot write (${e.code ?? e.message})`); return 2 }
+      try { mkdirSync(dirname(to), { recursive: true }); writeFileSync(from, redact(config, readFileSync(from, 'utf8'), uuidsOf(ticket))); renameSync(from, to) } catch (e) { err(`story-save: cannot write (${e.code ?? e.message})`); return 2 }
       out(`Saved the story at ${to}.`)
       return 0
     }
@@ -441,10 +441,10 @@ function run(argv, env, cwd) {
       const heading = ATTACHED[kind]
       if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { err('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
       const textPath = resolve(root, from.slice(1))
-      if (!ticket.key || dirname(textPath) !== join(ticketsRoot, ticket.key)) { err(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { err(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
       let raw
       try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { err(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
-      const text = redact(config, raw.trim()).slice(0, DOCX_MAX_CHARS)
+      const text = redact(config, raw.trim(), uuidsOf(ticket)).slice(0, DOCX_MAX_CHARS)
       const description = ticket.text?.description ?? ''
       const n = (description.match(new RegExp(`^## ${heading} \\d+$`, 'gm')) ?? []).length + 1
       const next = {

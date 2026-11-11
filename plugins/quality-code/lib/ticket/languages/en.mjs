@@ -9,8 +9,9 @@ export default {
   stepsHeading: ['steps to reproduce'],
   userStoryHeading: ['user story'],
   userStoryLine: ['\\bas an?\\b[^\\n]*\\bi want\\b'],
-  expectedHeading: ['expected'],
-  actualHeading: ['actual'],
+  // A label line names the bare word or one of these: "Expected result:", "Actual behaviour:".
+  expectedHeading: ['expected(?:[^\\S\\n]+(?:results?|behaviou?r|outcome))?'],
+  actualHeading: ['actual(?:[^\\S\\n]+(?:results?|behaviou?r|outcome))?'],
   environmentHeading: ['environment'],
   contextHeadingFE: ['context', 'summary', 'impact'],
   contextHeadingBE: ['context', 'summary'],

@@ -72,9 +72,17 @@ export function unmutated(src, passedTitles, mutants, { key = null, ungraded = n
   const range = key ? anchorRange(src, key, dialect, { whole }) : null
   const passed = new Set(passedTitles)
   const hit = new Set(mutants.map(m => m.title))
-  const left = findTestBlocks(src, dialect).filter(b => (!range || (b.start >= range[0] && b.start < range[1])) && dialect.mutation.eligible(b, passed, ungraded) && !hit.has(b.title))
-  return [...new Set(left.map(b => b.title))]
+  const blocks = findTestBlocks(src, dialect)
+  const left = blocks.filter(b => (!range || (b.start >= range[0] && b.start < range[1])) && dialect.mutation.eligible(b, passed, ungraded) && !hit.has(b.title))
+  // A passing test whose title no source block has, as the dialect matches titles (an escaped quote, a
+  // template title, a table's case), got no mutant either. Where it sits is unknown: it counts in any range.
+  // An each/for table's cases are its own, formatted at run time ("adds %i" ran as "adds 1"): never mutated by design.
+  const stray = passedTitles.filter(t => !ungraded?.test(t) && !blocks.some(b => b.mod === 'each' ? tableTitle(b.title).test(t) : dialect.mutation.eligible({ ...b, mod: null }, new Set([t]))))
+  return [...new Set([...left.map(b => b.title), ...stray])]
 }
+
+// A table title as a pattern: printf-style %s/%i/%#..., $name and ${...} stand for any text.
+const tableTitle = title => new RegExp(`^${String(title ?? '').split(/%[sdifjoOp#%]|\$\{[^}]*\}|\$[\w.]+/).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*')}$`)
 
 export function applyMutant(src, m) {
   return `${src.slice(0, m.start)}${m.replacement}${src.slice(m.end)}`

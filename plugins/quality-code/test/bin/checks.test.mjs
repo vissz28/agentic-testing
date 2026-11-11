@@ -136,7 +136,7 @@ test('a check that throws a non-Error still exits 2', async () => {
     process.stderr.write = orig
   }
 })
-test('hook: a bad config, a non-string path and null/number payloads all allow silently', () => {
+test('hook: a non-string path and null/number payloads allow silently; a bad config keeps the default rules', () => {
   const d = repo()
   put(d, '.claude/quality-code/run.active', '')
   const deny = JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(d, 'src/a.ts') } })
@@ -149,8 +149,9 @@ test('hook: a bad config, a non-string path and null/number payloads all allow s
   quiet(JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: { a: 1 } } }), 'object file_path')
   quiet('null', 'JSON null')
   quiet('5', 'JSON number')
+  const denied = why => assert.equal(JSON.parse(cli(d, ['boundary', '--hook'], deny).stdout).hookSpecificOutput.permissionDecision, 'deny', why)
   put(d, '.claude/quality-code.json', '{not json')
-  quiet(deny, 'config is not JSON')
+  denied('config is not JSON')
   put(d, '.claude/quality-code.json', JSON.stringify({ version: 1 }))
-  quiet(deny, 'config fails validation')
+  denied('config fails validation')
 })

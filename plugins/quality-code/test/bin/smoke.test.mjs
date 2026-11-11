@@ -26,6 +26,14 @@ test('the tag is found in a tag list and in a title, not in a longer word or an 
   assert.ok(!hasSmokeTag(undefined))
 })
 
+test('only a test or describe title or a tag option counts, as --grep matches: not a comment, a step or another string', () => {
+  assert.ok(hasSmokeTag("test.describe('cart @smoke', () => {})"))
+  assert.ok(hasSmokeTag("test.describe('cart', { tag: ['@smoke'] }, () => {})"))
+  assert.ok(!hasSmokeTag("// the @smoke tests live in login.spec.ts\ntest('cart', async () => {})"))
+  assert.ok(!hasSmokeTag("/* @smoke */\ntest('cart', async ({ page }) => { await page.fill('#q', '@smoke') })"))
+  assert.ok(!hasSmokeTag("test('cart', async () => { await test.step('@smoke step', async () => {}) })"))
+})
+
 test('smokeSpecs keeps the tagged files and drops the rest and the unreadable', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-smoke-'))
   put(d, 'e2e/a.spec.ts', TAGGED)
@@ -96,6 +104,14 @@ test('--url without --smoke, a bad url and the backend suite are refused', async
   assert.match((await smoke(d, ['e2e/a.spec.ts', '--url', 'https://x.test'])).err, /--url goes with --smoke/)
   assert.match((await smoke(d, ['--smoke', '--url', 'javascript:alert(1)'])).err, /http:\/\/ or https:\/\//)
   assert.match((await smoke(d, ['--smoke', '--suite', 'backend'])).err, /frontend \(Playwright\) suite/)
+})
+
+test('--smoke on another e2e runner (Cypress) is refused, not run against its own baseUrl', async () => {
+  const d = repo({ 'cypress/e2e/a.cy.ts': TAGGED, '.claude/quality-code.json': JSON.stringify({ version: 1, adapter: 'playwright', runners: { e2e: 'cypress' }, jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'cypress/e2e/' } }) })
+  const r = await smoke(d, ['--smoke', '--url', 'https://x.test', '--no-audit'])
+  assert.equal(r.code, 2, r.err)
+  assert.match(r.err, /--smoke runs the Playwright e2e suite: this project's e2e runner is cypress/)
+  assert.equal(r.seen, null)
 })
 
 const STACK = { backend: 'vitest', playwright: true, pm: 'npm', lock: true, prisma: false, containers: false, pip: [], pyproject: false, maven: false, go: '1.23', prefix: '', defaultBranch: 'main', smoke: true }

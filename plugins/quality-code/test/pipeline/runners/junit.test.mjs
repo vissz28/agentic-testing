@@ -137,6 +137,18 @@ test('Gradle: the wrapper, the module\'s project path, cleanTest so the test tas
   assert.equal(buildCommand(single, { tool: 'gradle', dir: single }, [{ cls: 'X' }]).cmd, 'gradle')
 })
 
+test('Windows: mvn.cmd and gradlew.bat run through cmd.exe as one line, each word quoted (Node refuses a .cmd without a shell)', () => {
+  const one = project({ 'pom.xml': '<project/>' })
+  const m = buildCommand(one, { tool: 'maven', dir: one }, [{ cls: 'a.BTest', method: 'it "works"' }], true)
+  assert.equal(m.shell, true)
+  assert.deepEqual(m.args, [])
+  assert.equal(m.cmd, '"mvn.cmd" "-B" "-q" "test" "-Dtest=a.BTest#it ""works""" "-DfailIfNoTests=false" "-Dsurefire.failIfNoSpecifiedTests=false" "-Dsurefire.rerunFailingTestsCount=0"')
+  const d = project({ 'settings.gradle': '', 'gradlew.bat': '', 'app/build.gradle': '' })
+  const g = buildCommand(d, { tool: 'gradle', dir: join(d, 'app') }, [{ cls: 'X' }], true)
+  assert.equal(g.cmd, `"${join(d, 'gradlew.bat')}" ":app:cleanTest" ":app:test" "--tests" "X" "--console=plain"`)
+  assert.equal(buildCommand(one, { tool: 'maven', dir: one }, [{ cls: 'X' }], false).shell, undefined)
+})
+
 test('selectors: whole top-level classes, or the named method in the class that declares it', () => {
   assert.deepEqual(selectorsFor(INFOS, undefined), [{ cls: 'demo.pricing.LineTotalTest' }, { cls: 'demo.pricing.TotalsTest' }, { cls: 'demo.pricing.RefundTotalsTest' }])
   assert.deepEqual(selectorsFor([INFOS[0]], 'zero'), [{ cls: 'demo.pricing.LineTotalTest$WhenEmpty', method: 'zero' }])

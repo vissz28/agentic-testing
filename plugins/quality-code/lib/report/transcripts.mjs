@@ -105,7 +105,8 @@ export function classifyUser(line) {
   const text = textOf(content)
   const name = text.match(/<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/)
   if (name) return { kind: 'command', name: name[1], args: text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1] ?? '' }
-  if (line.isMeta) return { kind: 'meta' }
+  // The auto-compaction summary ("This session is being continued...") is not a prompt.
+  if (line.isMeta || line.isCompactSummary || line.isVisibleInTranscriptOnly) return { kind: 'meta' }
   if (line.origin?.kind && line.origin.kind !== 'human') return { kind: 'meta' }
   if (SYSTEM_TEXT.test(text) || /^\s*<command-message>/.test(text)) return { kind: 'meta' }
   if (CARD_ANSWER.test(text)) return { kind: 'answer' }
@@ -160,22 +161,28 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
       if (Array.isArray(c)) for (const b of c) if (b?.type === 'tool_use' && b.id) toolRun.set(b.id, run)
     }
 
+    const open = (command, args, line) => {
+      const name = command.startsWith(`${PLUGIN}:`) ? command.slice(PLUGIN.length + 1) : null
+      current = name && /^[a-z][a-z0-9-]*$/.test(name)
+        ? { command: name, key: args.match(keyRe)?.[1] ?? null, start: t, sessionId: line.sessionId || s.id }
+        : null
+      if (current) runs.push(current)
+      segments.push({ t, run: current })
+    }
+
     for (const line of s.lines) {
       t = timeOf(line, t)
       if (line.type === 'user') {
         const c = classifyUser(line)
-        if (c.kind === 'command') {
-          const name = c.name.startsWith(`${PLUGIN}:`) ? c.name.slice(PLUGIN.length + 1) : null
-          current = name && /^[a-z][a-z0-9-]*$/.test(name)
-            ? { command: name, key: c.args.match(keyRe)?.[1] ?? null, start: t, sessionId: line.sessionId || s.id }
-            : null
-          if (current) runs.push(current)
-          segments.push({ t, run: current })
-        } else if (c.kind === 'prompt') {
+        if (c.kind === 'command') open(c.name, c.args, line)
+        else if (c.kind === 'prompt') {
           current = null
           segments.push({ t, run: null })
         }
       } else if (line.type === 'assistant') {
+        // A command the model starts with the Skill tool opens a run like a typed one.
+        const skill = Array.isArray(line.message?.content) && line.message.content.find(b => b?.type === 'tool_use' && b.name === 'Skill' && String(b.input?.skill ?? '').startsWith(`${PLUGIN}:`))
+        if (skill) open(skill.input.skill, String(skill.input.args ?? ''), line)
         record(line, current, t, line.sessionId || s.id)
         toolUses(line, current)
       }

@@ -152,6 +152,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const ref = [`origin/${bare}`, bare].find(r => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null)
   if (!ref) { stderr(`Branch ${branch} was not found (fetch it, or give --branch).\n`); return 2 }
   const tip = git(root, ['rev-parse', ref])
+  // Nothing checks the fetched tip out: the tests run on the working tree, so the sha kept and blamed is HEAD's.
+  // ponytail: no worktree for the tip (it has no node_modules); the card says when the two differ.
+  const tested = git(root, ['rev-parse', 'HEAD']) ?? tip
+  const drift = tested !== tip
   const stateName = `last${a.task ? `-${a.task}` : a.regression ? '-regression' : ''}.json`
   const prev = dir && existsSync(join(dir, stateName)) ? readState(join(dir, stateName)) : {}
 
@@ -159,18 +163,19 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const log = args => (git(root, ['log', '--format=%h%x09%an%x09%s', ...args]) ?? '').split('\n').filter(Boolean).map(l => { const [h, an, ...s] = l.split('\t'); return { sha: h, author: an, subject: s.join('\t') } })
   const known = a.sinceLast && prev.sha && prev.branch === ref
   let newCommits = []
-  if (known) newCommits = prev.sha === tip ? [] : log([`${prev.sha}..${tip}`])
-  else if (a.since) newCommits = log([`--since=${a.since}`, ref])
+  if (known) newCommits = prev.sha === tested ? [] : log([`${prev.sha}..${tested}`])
+  else if (a.since) newCommits = log([`--since=${a.since}`, tested])
   const filtering = a.sinceLast ? known : Boolean(a.since)
   const lines = [`quality-code routine · ${a.task ? `task ${a.task}` : a.regression ? '@regression suite' : 'whole suite'} · ${ref}${fetched ? '' : ' (could not fetch: using what is here)'}`]
+  if (drift) lines.push(`Tested your checkout ${tested.slice(0, 7)}, not ${ref} ${tip.slice(0, 7)} (pull to test what was pushed).`)
   if (filtering && !newCommits.length && !a.force) {
-    lines.push(`No new commits on ${ref} ${a.sinceLast ? `since the last check (${prev.sha.slice(0, 7)}, ${prev.verdict})` : `since ${a.since}`}: nothing to check.`)
+    lines.push(`No new commits on ${drift ? 'your checkout' : ref} ${a.sinceLast ? `since the last check (${prev.sha.slice(0, 7)}, ${prev.verdict})` : `since ${a.since}`}: nothing to check.`)
     stdout(`${lines.join('\n')}\n`)
     return 0
   }
   if (newCommits.length) {
     const authors = new Set(newCommits.map(c => c.author))
-    const changed = (git(root, ['diff', '--name-only', `${newCommits.at(-1).sha}^`, tip]) ?? '').split('\n').filter(Boolean)
+    const changed = (git(root, ['diff', '--name-only', `${newCommits.at(-1).sha}^`, tested]) ?? '').split('\n').filter(Boolean)
     const shared = changed.filter(f => SHARED_CONFIG.test(f))
     lines.push(`New: ${newCommits.length} commit${newCommits.length === 1 ? '' : 's'} by ${authors.size} author${authors.size === 1 ? '' : 's'}, ${changed.length} file${changed.length === 1 ? '' : 's'}.`)
     if (shared.length) lines.push(`Integral change: ${shared.slice(0, 5).join(', ')}${shared.length > 5 ? ` and ${shared.length - 5} more` : ''}.`)
@@ -197,24 +202,24 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   } else lines.push(`Running every test of the project${a.stability ? `, each test ${a.stability} times` : ''}.`)
   const result = await run({ root, config, specs, key: a.task, stability: a.stability, env })
   const green = result.exit === 0
-  const regression = !green && prev.verdict === 'green' && prev.sha && prev.sha !== tip
+  const regression = !drift && !green && prev.verdict === 'green' && prev.sha && prev.sha !== tested
   lines.push('')
   for (const p of result.phases) lines.push(`  ${String(p.name).padEnd(14)} ${p.verdict}${p.passed !== undefined ? ` · ${p.passed} passed · ${p.failed} failed` : ''}`)
   const flaky = [...new Set(result.flaky ?? [])]
   if (a.stability) lines.push(flaky.length ? `  Flaky (${flaky.length}), passed and failed on the same code in ${a.stability} runs:` : `  Stable: no test changed its result in ${a.stability} runs.`, ...flaky.slice(0, 10).map(t => `    ${t}`), ...(flaky.length > 10 ? [`    … and ${flaky.length - 10} more`] : []))
   lines.push('', `Result: ${green ? 'PASSED' : result.exit === 1 ? 'FAILED' : 'NOT VERIFIED'}${green ? '' : ` (exit ${result.exit})`}`)
   if (regression) {
-    const between = log([`${prev.sha}..${tip}`])
-    lines.push(`REGRESSION: green at ${prev.sha.slice(0, 7)} (${prev.at?.slice(0, 16).replace('T', ' ')}), not green at ${tip.slice(0, 7)}. Commits in between:`)
+    const between = log([`${prev.sha}..${tested}`])
+    lines.push(`REGRESSION: green at ${prev.sha.slice(0, 7)} (${prev.at?.slice(0, 16).replace('T', ' ')}), not green at ${tested.slice(0, 7)}. Commits in between:`)
     for (const c of between.slice(0, 15)) lines.push(`  ${c.sha} ${c.author}: ${c.subject}`)
     if (between.length > 15) lines.push(`  … and ${between.length - 15} more`)
   }
   if (dir && result.exit !== 2) {
-    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tip, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? '@regression' : null) }), false)
-    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tip, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.stability ? Number(a.stability) : null, flaky })}\n`, true)
+    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tested, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? '@regression' : null) }), false)
+    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.stability ? Number(a.stability) : null, flaky })}\n`, true)
   }
   if (a.junit) { try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(result.phases.map(p => ({ ...p, detail: p.detail || lines.join('\n') })))) } catch {} }
-  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tip, task: a.task ?? (a.regression ? '@regression' : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
+  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? '@regression' : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
   else stdout(`${lines.join('\n')}\n`)
   return result.exit
 }

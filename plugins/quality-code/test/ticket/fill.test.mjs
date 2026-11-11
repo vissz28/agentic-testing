@@ -318,3 +318,13 @@ test('applyAnswer drafted: the fill-in record and the ticket say drafted; a type
   assert.equal(rejected.ok, false)
   assert.equal(rejected.input, t, 'a rejected draft writes nothing')
 })
+
+test('ac_present: a concrete answer replaces a vague criterion, in the description or the AC field', () => {
+  for (const text of [{ description: '## Acceptance criteria\n- It works correctly', acField: '' }, { description: '', acField: 'It works correctly' }]) {
+    const t = { key: 'DEMO-9', issuetype: 'Story', labels: [], text }
+    assert.deepEqual(fillMenu(BE, buildBrief(BE, t)).items.filter(i => i.key.startsWith('ac_')).map(i => i.key), ['ac_present'])
+    const r = applyAnswer(BE, t, 'ac_present', LONG_AC)
+    assert.equal(r.ok, true, r.reason)
+    assert.equal(r.input.filled.at(-1).replacedVague, true)
+  }
+})

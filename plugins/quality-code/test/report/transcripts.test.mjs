@@ -58,6 +58,7 @@ test('classifyUser: commands, prompts, card answers and what never ends a run', 
   assert.equal(u([{ type: 'text', text: '<command-name>/clear</command-name>' }]).kind, 'command')
   assert.equal(u([{ type: 'tool_result', tool_use_id: 't', content: 'x' }]).kind, 'tool')
   assert.equal(u('expanded prompt', { isMeta: true }).kind, 'meta')
+  assert.equal(u('This session is being continued from a previous conversation.', { isCompactSummary: true }).kind, 'meta')
   assert.equal(u('<task-notification>x</task-notification>', { origin: { kind: 'task-notification' } }).kind, 'meta')
   assert.equal(u('<system-reminder>x</system-reminder>').kind, 'meta')
   assert.equal(u('[Request interrupted by user]').kind, 'meta')
@@ -93,6 +94,19 @@ test('runs: from the command line to the next real prompt; card answers keep the
   assert.equal(runOf(usage, '2026-10-10T11:00:10.000Z'), null, 'after the next real prompt')
   assert.equal(runOf(usage, '2026-10-11T08:00:10.000Z'), start)
   assert.equal(runOf(usage, '2026-10-11T09:00:10.000Z'), null, 'another plugin command ends the run')
+})
+
+test('a command the model starts with the Skill tool opens a run, its args give the key', () => {
+  const usage = { input_tokens: 1, output_tokens: 1 }
+  const at = (sec, line) => ({ timestamp: `2026-10-10T10:00:0${sec}Z`, ...line })
+  const lines = [
+    at(0, { type: 'user', message: { content: 'check ABC-9 please' } }),
+    at(1, { type: 'assistant', requestId: 'r1', message: { model: 'claude-opus-5-5', usage, content: [{ type: 'tool_use', id: 't1', name: 'Skill', input: { skill: 'quality-code:check', args: '--key ABC-9' } }] } }),
+    at(2, { type: 'assistant', requestId: 'r2', message: { model: 'claude-opus-5-5', usage, content: [{ type: 'text', text: 'ok' }] } }),
+  ]
+  const r = attribute([{ id: 's', lines, subagents: [] }])
+  assert.deepEqual(r.runs.map(x => [x.command, x.key]), [['check', 'ABC-9']])
+  assert.equal(r.events.at(-1).run, r.runs[0])
 })
 
 test('subagents belong to the run that spawned them: by tool call, else by start time', () => {

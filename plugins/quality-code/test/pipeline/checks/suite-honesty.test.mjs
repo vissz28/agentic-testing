@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { anchorRange, grade, scoreSpec, skippedGroupRanges } from '../../../lib/pipeline/checks/suite-honesty.mjs'
+import { anchorRange, countAssertions, grade, scoreSpec, skippedGroupRanges } from '../../../lib/pipeline/checks/suite-honesty.mjs'
 import { dialectFor } from '../../../lib/base/dialects/index.mjs'
 
 const V = dialectFor('vitest')
@@ -175,4 +175,9 @@ test('groups: describe.concurrent/.sequential, suite( and test.describe.serial/.
     assert.ok(anchorRange(`${g}('ABC-1 x', () => {})\n`, 'ABC-1', P), g)
   }
   assert.deepEqual(skippedGroupRanges("describe.skip.concurrent('ABC-1', () => {})\ndescribe('B', () => {})\n", V).length, 1)
+})
+
+test('a quote inside a regex literal is no string: the expect after it still counts', () => {
+  assert.equal(countAssertions("const re = /'/\nexpect(s.replace(re, '')).toBe('a')"), 1)
+  assert.equal(countAssertions("const n = a / b; const m = c / d\nexpect(n).toBe(m)"), 1, 'division is no regex')
 })

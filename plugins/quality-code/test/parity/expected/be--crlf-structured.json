@@ -3,7 +3,13 @@
   "repo": "be",
   "source": {
     "ref": "origin/agt-34-remove-audit-logs",
-    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f"
+    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f",
+    "recaptured": {
+      "why": "fill-in: a concrete AC answer replaces the vague criteria, and an AC heading left empty goes",
+      "ops": [
+        16
+      ]
+    }
   },
   "results": [
     {
@@ -242,7 +248,7 @@
           "Spinta_warehouse"
         ],
         "text": {
-          "description": "## Summary\r\nThe vague criterion below uses Windows line ends.\r\n## Steps to reproduce\r\n1. open\r\n2. filter 22\r\n## Acceptance criteria\r\n## Notes\r\nnothing else\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          "description": "## Summary\r\nThe vague criterion below uses Windows line ends.\r\n## Steps to reproduce\r\n1. open\r\n2. filter 22\r\n## Notes\r\nnothing else\n\n## Steps to reproduce\n1. Open the list\n2. Filter by 22\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
         },
         "filled": [
           {

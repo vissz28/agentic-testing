@@ -146,10 +146,13 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key
   if (!r.killed && !r.timeout && r.survived && r.untested === r.survived) return result('stryker', 'not_run', `Stryker ran no test against the ${r.survived} code change(s) it made`, [], { applicable: true, target, untested: r.untested })
   const threshold = strykerThreshold(ctx.config)
   const data = { applicable: true, target, threshold, score: r.score, killed: r.killed, survived: r.survived, timeout: r.timeout, noCoverage: r.noCoverage }
+  if ((r.score === null || r.score === undefined) && r.noCoverage) return result('stryker', 'not_run', `the tests run none of the code in ${target} (${r.noCoverage} code change(s), none covered)`, [], data)
   if (r.score === null || r.score === undefined) return result('stryker', 'not_run', `Stryker found no code change to try in ${target}`, [], data)
-  if (r.score >= threshold) return result('stryker', 'pass', `${r.score}% of code changes caught (bar ${threshold}%)`, [], data)
-  return result('stryker', 'fail', `${r.score}% of code changes caught, the bar is ${threshold}%`,
-    [{ file: target, kind: 'code changes not caught', detail: `${r.survived ?? 0} survived, ${r.noCoverage ?? 0} not covered` }], data)
+  // The score is over the code the tests run; the rest of the file is shown, not judged.
+  const rest = r.noCoverage ? `; ${r.noCoverage} in code these tests do not run` : ''
+  if (r.score >= threshold) return result('stryker', 'pass', `${r.score}% of code changes caught (bar ${threshold}%)${rest}`, [], data)
+  return result('stryker', 'fail', `${r.score}% of code changes caught, the bar is ${threshold}%${rest}`,
+    [{ file: target, kind: 'code changes not caught', detail: `${r.survived ?? 0} survived in the code the tests run` }], data)
 }
 
 // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.

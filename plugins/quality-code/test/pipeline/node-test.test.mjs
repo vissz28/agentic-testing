@@ -21,7 +21,7 @@ async function report(events) {
   return JSON.parse(out)
 }
 
-test('reporter: a test per result with its describe path; suites left out; skip and todo are skipped; a file that does not load is broken', async () => {
+test('reporter: a test per result with its describe path; suites left out; skip and todo (even a failing todo) are skipped; a file that does not load is broken', async () => {
   const f = '/p/test/a.test.js'
   const r = await report([
     { type: 'test:start', data: { file: f, nesting: 0, name: 'ABC-1 Sums' } },
@@ -31,11 +31,12 @@ test('reporter: a test per result with its describe path; suites left out; skip 
     { type: 'test:fail', data: { file: f, nesting: 1, name: 'fails', details: { type: 'test', error: { message: 'test failed', cause: { message: 'Expected values to be strictly equal:\n\n2 !== 3' } } } } },
     { type: 'test:pass', data: { file: f, nesting: 1, name: 'later', skip: true, details: { type: 'test' } } },
     { type: 'test:pass', data: { file: f, nesting: 1, name: 'someday', todo: true, details: { type: 'test' } } },
+    { type: 'test:fail', data: { file: f, nesting: 1, name: 'not yet', todo: true, details: { type: 'test', error: { message: 'test failed' } } } },
     { type: 'test:fail', data: { file: f, nesting: 0, name: 'ABC-1 Sums', details: { type: 'suite', error: { message: '1 subtest failed' } } } },
     { type: 'test:stderr', data: { file: 'test/b.test.js', message: "SyntaxError: Unexpected token '}'\n    at x\n" } },
     { type: 'test:fail', data: { file: '/p/test/b.test.js', nesting: 0, name: 'test/b.test.js', details: { type: 'test', error: { message: 'test failed' } } } },
   ])
-  assert.deepEqual(r.tests.map(t => [t.title, t.path, t.status]), [['adds', ['ABC-1 Sums'], 'passed'], ['fails', ['ABC-1 Sums'], 'failed'], ['later', ['ABC-1 Sums'], 'skipped'], ['someday', ['ABC-1 Sums'], 'skipped']])
+  assert.deepEqual(r.tests.map(t => [t.title, t.path, t.status]), [['adds', ['ABC-1 Sums'], 'passed'], ['fails', ['ABC-1 Sums'], 'failed'], ['later', ['ABC-1 Sums'], 'skipped'], ['someday', ['ABC-1 Sums'], 'skipped'], ['not yet', ['ABC-1 Sums'], 'skipped']])
   assert.match(r.tests[1].message, /^Expected values to be strictly equal/)
   assert.deepEqual(r.broken, [{ file: '/p/test/b.test.js', message: "SyntaxError: Unexpected token '}'" }])
 })

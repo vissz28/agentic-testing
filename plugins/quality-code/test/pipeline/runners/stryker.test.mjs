@@ -16,10 +16,14 @@ const report = (...statuses) => ({
 // The report path sits next to the temp config file Stryker is given (argv[1]).
 const outOf = argv => join(dirname(argv[1]), 'mutation.json')
 
-test('parseStrykerReport: counts per status, score over killed, survived, timeout and no coverage', () => {
+test('parseStrykerReport: counts per status, score over the code the tests run (no coverage is counted, not scored)', () => {
   const r = parseStrykerReport(report('Killed', 'Killed', 'Killed', 'Survived', 'Timeout', 'NoCoverage', 'CompileError', 'RuntimeError', 'Ignored', 'Pending'))
-  assert.deepEqual(r, { killed: 3, survived: 1, timeout: 1, noCoverage: 1, untested: 0, score: 66.7 }, 'a timeout is caught, as in Stryker\'s own score')
+  assert.deepEqual(r, { killed: 3, survived: 1, timeout: 1, noCoverage: 1, untested: 0, score: 80 }, 'a timeout is caught, as in Stryker\'s own score')
   assert.equal(parseStrykerReport(report('Killed', 'Killed', 'Survived')).score, 66.7)
+  // AGT-144: the ticket's tests cover one method of a large file; the rest of the file is not theirs to catch.
+  const big = report(...Array(60).fill('Killed'), ...Array(34).fill('Timeout'), ...Array(10).fill('Survived'), ...Array(381).fill('NoCoverage'))
+  assert.deepEqual(parseStrykerReport(big), { killed: 60, survived: 10, timeout: 34, noCoverage: 381, untested: 0, score: 90.4 })
+  assert.equal(parseStrykerReport(report('NoCoverage', 'NoCoverage')).score, null, 'no covered code: no score')
 })
 test('parseStrykerReport: mutants across files add up', () => {
   const json = { files: { 'a.ts': { mutants: [{ status: 'Killed' }] }, 'b.ts': { mutants: [{ status: 'Survived' }, { status: 'Killed' }, { status: 'Killed' }] } } }
@@ -37,7 +41,7 @@ test('runner: argv, cwd, score read from the report, temp dir removed, nothing w
   fakeBin(d, 'stryker', { report: report('Killed', 'Survived', 'Killed', 'NoCoverage') })
   const before = readdirSync(d).sort()
   const r = await runStryker(d, { target: 'src/my a.ts', specs: ['test/a.spec.ts'], timeoutMs: 10000 })
-  assert.deepEqual(r, { ran: true, killed: 2, survived: 1, timeout: 0, noCoverage: 1, untested: 0, score: 50 })
+  assert.deepEqual(r, { ran: true, killed: 2, survived: 1, timeout: 0, noCoverage: 1, untested: 0, score: 66.7 })
   const [argv] = calls(d, 'stryker')
   const out = outOf(argv)
   const tmp = dirname(out)

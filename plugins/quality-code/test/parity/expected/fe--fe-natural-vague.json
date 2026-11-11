@@ -3,7 +3,13 @@
   "repo": "fe",
   "source": {
     "ref": "origin/agentic-testing-fe",
-    "commit": "2ee3a1283bd99fca456034af8def946574e7b483"
+    "commit": "2ee3a1283bd99fca456034af8def946574e7b483",
+    "recaptured": {
+      "why": "fill-in: a concrete AC answer replaces the vague criteria, and an AC heading left empty goes",
+      "ops": [
+        16
+      ]
+    }
   },
   "results": [
     {
@@ -240,7 +246,7 @@
           "Giacenza_Prodotti"
         ],
         "text": {
-          "description": "## Acceptance criteria\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          "description": "## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
         },
         "filled": [
           {

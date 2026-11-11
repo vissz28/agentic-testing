@@ -16,7 +16,15 @@ export function adfToText(node) {
   if (Array.isArray(node)) return node.map(adfToText).join('')
   if (typeof node === 'object') {
     if (node.type === 'hardBreak') return '\n'
-    const bits = []
+    // Lists and headings keep their markdown markers, so the scorer reads them as in a markdown ticket.
+    if ((node.type === 'bulletList' || node.type === 'orderedList') && Array.isArray(node.content)) {
+      const start = Number(node.attrs?.order) || 1
+      return node.content.map((item, i) => {
+        const marker = node.type === 'orderedList' ? `${start + i}. ` : '- '
+        return marker + adfToText(item).split('\n').join(`\n${' '.repeat(marker.length)}`)
+      }).join('\n')
+    }
+    const bits = node.type === 'heading' ? ['#'.repeat(Math.min(Math.max(Number(node.attrs?.level) || 1, 1), 6)) + ' '] : []
     if (typeof node.text === 'string') bits.push(node.text)
     if (Array.isArray(node.content)) {
       const blocks = node.content.some(c => Array.isArray(c?.content))
@@ -40,10 +48,24 @@ export function redact(config, text, uuids = new Map()) {
   s = s.replace(EMAIL, 'user@example.test')
   s = s.replace(UUID, u => {
     const k = u.toLowerCase()
-    if (!uuids.has(k)) uuids.set(k, placeholder(uuids.size + 1))
+    if (!uuids.has(k)) {
+      const used = new Set(uuids.values())
+      let n = uuids.size
+      while (used.has(placeholder(++n)));
+      uuids.set(k, placeholder(n))
+    }
     return uuids.get(k)
   })
   return s
+}
+
+/**
+ * The numbering of a saved ticket, to redact more of its text (an attachment, a draft): its
+ * placeholders keep their own text and a new id gets a new number. The real ids are never saved.
+ */
+export function uuidsOf(ticket) {
+  const found = JSON.stringify(ticket ?? '').match(UUID) ?? []
+  return new Map(found.filter(u => /^00000000-0000-4000-8000-\d{12}$/.test(u)).map(u => [u, u]))
 }
 
 /** First merge-request (or pull-request) URL in the ticket (description, comments, remote links), on any host. */

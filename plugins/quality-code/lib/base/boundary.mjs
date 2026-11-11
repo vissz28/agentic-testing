@@ -91,14 +91,16 @@ export function rulesFor(config, root) {
   return { forbidden: forbidden.map(r => ({ ...r, path: norm(r.path) })), allow: (config.boundaries?.allow ?? []).map(norm), tests: testsAnywhere(config) }
 }
 
-export function violation(relPath, rules) {
+/** fold: the disk ignores case (macOS, Windows), so a new .ENV is .env: forbidden paths match in any case, allowed ones only as written. */
+export function violation(relPath, rules, { fold = false } = {}) {
   const p = String(relPath ?? '').replace(/\\/g, '/').replace(/^\.\//, '')
   if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
-  if (ALWAYS.some(a => matches(a, p))) return { path: p, why: 'never written by a test run.' }
+  const hit = (pattern, path) => (fold ? matches(pattern.toLowerCase(), path.toLowerCase()) : matches(pattern, path))
+  if (ALWAYS.some(a => hit(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
   if (rules.tests?.test(p)) return null
   if (BASELINE_IMAGE.test(p)) return null
-  const rule = rules.forbidden.find(r => matches(r.path, p) && !(r.path.includes('*') && ENV_TEMPLATE.test(p)))
+  const rule = rules.forbidden.find(r => hit(r.path, p) && !(r.path.includes('*') && ENV_TEMPLATE.test(p)))
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
 
@@ -142,15 +144,25 @@ export function onDisk(p) {
   }
 }
 
-/** home: the folder holding the config, above root when its root field names a subfolder. */
-export function hookDecision(payload, { root, home = root, config, now = Date.now() }) {
+const FOLDS = process.platform === 'darwin' || process.platform === 'win32'
+
+/**
+ * home: the folder holding the config, above root when its root field names a subfolder. runRoots: the folders whose
+ * run marker counts (the package's and the session's, for a run started at the top of a monorepo). guarded: files
+ * outside the project a run never writes (the config in its place, the place and root picks). A config that does
+ * not load during a run is judged by the default rules: breaking the config never switches the hook off.
+ */
+export function hookDecision(payload, { root, home = root, config, now = Date.now(), runRoots = [root], guarded = [], fold = FOLDS }) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
-  if (!target || !config || !runActive(root, now)) return { decision: 'allow' }
+  if (!target || !runRoots.some(r => runActive(r, now))) return { decision: 'allow' }
   // SRC/a.ts, a symlinked folder or the /tmp alias reach the same file as src/a.ts: compare the real paths.
   const file = onDisk(resolve(root, target))
-  const v = violation(relative(onDisk(root), file), rulesFor(config, root))
+  const same = (a, b) => (fold ? a.toLowerCase() === b.toLowerCase() : a === b)
+  const g = guarded.find(p => same(onDisk(p), file))
+  const v = violation(relative(onDisk(root), file), rulesFor(config ?? {}, root), { fold })
     // The config and Claude's settings at home stay off limits, though outside the project.
-    ?? (home === root ? null : violation(relative(onDisk(home), file), { forbidden: [], allow: [] }))
+    ?? (home === root ? null : violation(relative(onDisk(home), file), { forbidden: [], allow: [] }, { fold }))
+    ?? (g ? { path: g, why: 'never written by a test run.' } : null)
   return v ? { decision: 'deny', path: v.path, why: v.why } : { decision: 'allow' }
 }
 

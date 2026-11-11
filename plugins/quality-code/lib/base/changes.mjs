@@ -8,6 +8,8 @@ import { adaptersOf, asAdapter } from './stack.mjs'
 
 // Files whose change can break either side without touching a spec: dependencies, compiler and runner config.
 export const SHARED_CONFIG = /(?:^|\/)(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|tsconfig[^/]*\.json|vitest\.config\.[^/]+|vite\.config\.[^/]+|playwright\.config\.[^/]+|pom\.xml|build\.gradle(?:\.kts)?|go\.(?:mod|sum)|requirements[^/]*\.txt|pyproject\.toml|[^/]+\.(?:csproj|fsproj|sln)|\.claude\/quality-code\.json)$/
+// A spec's name, as branch.mjs kindOf reads it.
+const SPEC_NAME = /\.(spec|test|cy)\.[^/]+$/
 const FRONT_EXT = /\.(?:vue|svelte|astro|html|css|scss|less|tsx|jsx)$/
 const FRONT_DIR = /(?:^|\/)(?:frontend|front|client|web|ui|app|pages|components|public|e2e)(?:\/|$)/i
 const BACK_DIR = /(?:^|\/)(?:backend|back|server|api|services?|domain|db|migrations?)(?:\/|$)/i
@@ -41,7 +43,7 @@ export function moduleOf(config, root, spec, adapter) {
 /**
  * The plan for a list of changed files { path, status, kind }.
  *   specs   per side, the changed specs (not deleted) that the project's test folders hold, grouped by module
- *   source  per side, true when source files of that side changed (or a shared config file, for both)
+ *   source  per side, true when source files of that side changed (a test folder's helper too)
  * `known` is the project's specs: [{ path, adapter }].
  */
 export function planChanges(files, config, known) {
@@ -53,6 +55,12 @@ export function planChanges(files, config, known) {
   const modules = new Map()
   for (const f of files) {
     if (f.kind === 'test') {
+      // A page object, fixture or helper in a test folder (no spec name): its side runs, as for its code.
+      if (!bySpec.has(f.path) && !SPEC_NAME.test(f.path) && !BACKENDS[backendOf(config)]?.testFile.test(f.path)) {
+        const s = sideOfCode(f.path, config)
+        for (const side of s === 'both' ? ['backend', 'frontend'] : [s]) sides[side].source = true
+        continue
+      }
       if (f.status === 'D' || !bySpec.has(f.path)) continue
       const adapter = bySpec.get(f.path)
       const side = adapter === 'playwright' ? 'frontend' : 'backend'

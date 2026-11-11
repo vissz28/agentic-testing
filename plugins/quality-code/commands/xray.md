@@ -74,7 +74,7 @@ Writes XRay test cases from a ticket, and nothing else: no spec file, no test ru
 
 ## Examples
 
-- `/quality-code:xray ABC-123`: gate the ticket, plan the cases, write them for QA
+- `/quality-code:xray ABC-123`: check the ticket is ready, plan the cases, write them for QA
 - `/quality-code:xray ABC-123 --no-extras`: only the ticket's scenarios
 - `/quality-code:xray ABC-123 --route /orders/new`: cases for this screen
 - `/quality-code:xray ABC-123 --dry-run`: the gate and the plan, then stop; no case is written and nothing is posted

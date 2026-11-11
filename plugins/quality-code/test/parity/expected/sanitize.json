@@ -61,7 +61,7 @@
         "key": "FIC-103",
         "summary": "adf",
         "text": {
-          "description": "What happens?\nCustomer U###### sees 150\ninstead of 80.\nmail user@example.test\nws 00000000-0000-4000-8000-000000000001\nopen\nfilter 22\nSee https://gitlab.example/group/repo/-/merge_requests/42).",
+          "description": "## What happens?\nCustomer U###### sees 150\ninstead of 80.\n- mail user@example.test\n- ws 00000000-0000-4000-8000-000000000001\n1. open\n2. filter 22\nSee https://gitlab.example/group/repo/-/merge_requests/42).",
           "acField": "Then the KPI shows 80."
         },
         "gitlab": {

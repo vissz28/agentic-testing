@@ -1,9 +1,9 @@
 // Entry point for every check: node bin/checks.mjs <check> [args] [--json]
 // Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
 import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { configHome, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import * as boundary from '../lib/base/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
@@ -66,7 +66,10 @@ async function hook(sessionRoot, stdin) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
   const c = loadConfig(root)
-  const d = boundary.hookDecision(payload, { root, home: configHome(root), config: c.ok ? c.config : null })
+  const home = configHome(root)
+  const qc = join(claudeDir(), 'quality-code')
+  const guarded = [configPath(home), join(qc, 'save.json'), join(qc, 'roots.json')]
+  const d = boundary.hookDecision(payload, { root, home, config: c.ok ? c.config : null, runRoots: [root, sessionRoot], guarded })
   if (d.decision !== 'deny') return 0
   boundary.logBlocked(root, { decision: 'deny', tool: payload.tool_name ?? null, path: d.path, session: payload.session_id ?? null })
   process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: boundary.hookReason(d.path, d.why) } })}\n`)

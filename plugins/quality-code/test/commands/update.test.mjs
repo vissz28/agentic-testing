@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
 
 test('frontmatter: the only tool is its own script, on Haiku', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@teamsystem\)\nmodel: haiku\neffort: low\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@\*\)\nmodel: haiku\neffort: low\n---/)
 })
 test('runs the script with no arguments and never --json', () => {
   assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs"`'))
@@ -25,8 +25,9 @@ test('a menu follows the card, and it fits the case: update offers the update, t
   assert.match(doc, /`update` \(a new version is out\):[\s\S]*1\. Update to the latest version\n\s*2\. Check the version again\n\s*3\. Stop/)
   assert.match(doc, /`reload`, `current` or `ahead`:[\s\S]*1\. Check the version again\n\s*2\. Stop/)
 })
-test('the update runs the one pre-approved command, exactly as written, only after option 1', () => {
-  assert.ok(doc.includes('Run `claude plugin update quality-code@teamsystem`, exactly as written'))
+test('the update runs the one pre-approved command, with the id the script reports, only after option 1', () => {
+  assert.ok(doc.includes('Run `claude plugin update <id>` with the `id` of the last `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none)'))
+  assert.doesNotMatch(doc, /update quality-code@teamsystem/, "the id comes from the script, not hard-coded")
   assert.match(doc, /after the user picks it/)
   assert.match(doc, /Not exit 0: show its last lines as they are/)
   assert.match(doc, /\/reload-plugins` is the user's/)

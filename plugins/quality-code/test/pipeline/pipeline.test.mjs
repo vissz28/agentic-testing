@@ -303,6 +303,12 @@ test('stryker: over the bar passes, under it is checks_failed, with the target a
   assert.equal(bad.verdict, 'checks_failed')
   assert.equal(bad.decidedBy, 'stryker')
   assert.equal(bad.steps.at(-1).summary, '80% of code changes caught, the bar is 90%')
+  const part = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker({ ran: true, score: 90.4, killed: 60, survived: 10, timeout: 34, noCoverage: 381 }) }))
+  assert.equal(part.verdict, 'green', 'code the tests do not run is shown, not judged')
+  assert.equal(part.steps.at(-1).summary, '90.4% of code changes caught (bar 60%); 381 in code these tests do not run')
+  const uncovered = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-1', target: 'src/add.ts' }, ctx(d, { runStryker: stryker({ ran: true, score: null, killed: 0, survived: 0, timeout: 0, noCoverage: 7 }) }))
+  assert.equal(uncovered.verdict, 'not_verified', 'tests that run none of the target are never a pass')
+  assert.equal(uncovered.steps.at(-1).summary, 'the tests run none of the code in src/add.ts (7 code change(s), none covered)')
 })
 test('stryker: not installed is not applicable; an error or no mutants is not_run; red tests skip it as not applicable; not run tests skip it', async () => {
   const d = repo()

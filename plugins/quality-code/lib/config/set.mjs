@@ -217,7 +217,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   }
 
   const candidate = setPath(t.config, key, next)
-  const v = validateConfig(candidate)
+  const v = validateConfig(candidate, { allowAbsoluteTicketsDir: t.source === 'personal' })
   if (!v.ok) return fail(`${key}: not saved, nothing was written.\n${v.errors.join('\n')}`)
   return finish(() => `${key} set to ${show(next)}.`, () => {
     const w = t.source === 'repo' ? write(configHome(root), candidate, { configFile: t.path }) : writePersonal(candidate, env)

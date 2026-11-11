@@ -91,7 +91,7 @@ const FALLBACK_BASES = ['main', 'master', 'develop']
 
 function git(root, args) {
   try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
+    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 1e8, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
   } catch {
     return null
   }
@@ -167,7 +167,6 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
       if (!out.onBase) {
         for (const f of parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', out.mergeBase, 'HEAD']))) files.set(f.path, { ...f, committed: true })
       }
-      out.mergeBase = out.mergeBase.slice(0, 7)
     }
   }
   // Uncommitted work counts even with no merge base (a shallow CI clone, an orphan branch).
@@ -203,6 +202,8 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     }
   }
   const subjects = out.mergeBase && !out.onBase ? (git(root, ['log', '--format=%s', `${out.mergeBase}..HEAD`]) ?? '').split('\n') : []
+  // The full sha is for git; the report shows the short one.
+  if (out.mergeBase) out.mergeBase = out.mergeBase.slice(0, 7)
   out.branch = rawBranch === null ? null : clean(rawBranch)
   out.keys = keyCandidates([out.branch?.toUpperCase(), pr && clean(pr.title).toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
   // The branch's own commit messages, newest first and redacted: what a fill-in suggestion may quote.

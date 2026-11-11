@@ -15,6 +15,10 @@ test('criteria headings', () => {
   for (const s of ['## Acceptance criteria', '**Criteri di accettazione:**', 'AC:', 'Acceptance criteria']) yes(v.acHeading, s)
   no(v.acHeading, '## Actual')
 })
+test('Italian: "Criteri d\'accettazione" (either apostrophe) is a heading; every form of "funziona correttamente / bene" is vague', () => {
+  for (const s of ["## Criteri d'accettazione", '**Criteri d’accettazione:**']) yes(v.acHeading, s)
+  for (const s of ['Il filtro deve funzionare correttamente', 'I pulsanti funzionano bene', 'funzioni correttamente']) yes(v.vague, s)
+})
 test('section end', () => {
   for (const s of ['## Notes', '**Expected**', 'Expected result', 'Expected result:', 'Steps to reproduce', 'Risultato atteso', 'h2. Notes']) yes(v.sectionEnd, s)
   no(v.sectionEnd, 'The total is 150.')

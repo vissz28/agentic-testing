@@ -63,7 +63,7 @@ test('ADF: one block per line, inline runs joined as written, hardBreak a line b
     p(t('Given an order '), t('at 40.00')),
     p(t('When I open it'), { type: 'hardBreak' }, t('Then the total is '), t('108.00')),
   ] }
-  assert.equal(adfToText(doc), 'Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00')
+  assert.equal(adfToText(doc), '## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00')
 })
 test('distinct UUIDs keep distinct placeholders across a ticket; a file name is no e-mail', () => {
   const a = '3f2c1e4a-1b2c-4d3e-8f9a-0b1c2d3e4f5a'
@@ -76,4 +76,14 @@ test('distinct UUIDs keep distinct placeholders across a ticket; a file name is 
 test('a GitHub pull request and a Bitbucket one are found like a GitLab merge request', () => {
   assert.deepEqual(findMergeRequest({ d: 'see https://github.com/acme/app/pull/42.' }), { url: 'https://github.com/acme/app/pull/42', iid: 42 })
   assert.deepEqual(findMergeRequest({ d: 'https://bitbucket.org/acme/app/pull-requests/7' }), { url: 'https://bitbucket.org/acme/app/pull-requests/7', iid: 7 })
+})
+
+test('adfToText keeps heading and list markers, so an ADF bug scores like its markdown', () => {
+  const p = text => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  const li = (...content) => ({ type: 'listItem', content })
+  const doc = { type: 'doc', content: [
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Steps to reproduce' }] },
+    { type: 'orderedList', content: [li(p('Open the list')), li(p('Click Export'), { type: 'bulletList', content: [li(p('nested'))] })] },
+  ] }
+  assert.equal(adfToText(doc), '## Steps to reproduce\n1. Open the list\n2. Click Export\n   - nested')
 })

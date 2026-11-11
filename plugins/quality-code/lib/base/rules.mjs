@@ -64,8 +64,9 @@ export function testingRules(documents, stacks) {
     .sort(bySeverity)
 }
 
-const unquote = v => (/^".*"$/.test(v) ? JSON.parse(v) : /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v)
-const scalar = v => (v === '' || v === 'null' ? null : v.startsWith('[') && v.endsWith(']') ? v.slice(1, -1).split(',').map(x => unquote(x.trim())).filter(Boolean) : unquote(v))
+// A YAML escape JSON does not know ("C:\Users") keeps the text between the quotes as it is.
+const unquote = v => (/^".*"$/.test(v) ? (() => { try { return JSON.parse(v) } catch { return v.slice(1, -1) } })() : /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v)
+const scalar = v => (v === '' || v === 'null' ? null : v.startsWith('[') && v.endsWith(']') ? (v.slice(1, -1).match(/"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^,]+/g) ?? []).map(x => unquote(x.trim())).filter(Boolean) : unquote(v))
 
 /**
  * The frontmatter of a rule file, in the knowledge repository's shape: one `key: value` per line, a value a plain
@@ -93,7 +94,8 @@ export function localRules(root, dir, stacks) {
   let files
   try { files = readdirSync(join(root, dir)).filter(f => f.endsWith('.md') && !/^(README|CHANGELOG)\.md$/i.test(f)).sort() } catch { return { dir, rules: [], error: `folder not found: ${dir}` } }
   const want = new Set(stacks)
-  const docs = files.map(f => parseRule(readFileSync(join(root, dir, f), 'utf8'))).filter(d => d?.id && d.summary)
+  // One file that cannot be read or parsed is skipped, not fatal: readRules never throws.
+  const docs = files.map(f => { try { return parseRule(readFileSync(join(root, dir, f), 'utf8')) } catch { return null } }).filter(d => d?.id && d.summary)
   // The team's own drafts count: the folder is the team's choice. Deprecated and retired rules do not.
   const rules = docs.filter(d => LOCAL_STATUSES.has(d.status ?? 'active') && (d.applies_to ?? ['all']).some(a => want.has(a)))
     .map(d => ({ ...pick(d), status: d.status ?? 'active' })).sort(bySeverity)

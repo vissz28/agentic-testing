@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, statSync, utimesSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, statSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -123,6 +123,22 @@ test('feature branch: fallback base, counts, committed and uncommitted files, ke
   assert.deepEqual(r.files.find(f => f.path === 'test/b.spec.ts'), { path: 'test/b.spec.ts', status: 'A', kind: 'test', committed: true })
   assert.deepEqual(r.keys, ['DEMO-12'])
   assert.deepEqual(r.files.map(f => f.path), [...r.files.map(f => f.path)].sort())
+})
+test('a git output over 1 MB is read whole, and the commit log uses the full merge-base sha', () => {
+  const d = repo()
+  g(d, 'checkout', '-qb', 'DEMO-12-big')
+  commit(d, 'DEMO-12 big', { 'src/b.ts': 'b\n' })
+  for (let i = 0; i < 12000; i++) put(d, `untracked/${String(i).padStart(100, 'f')}.md`)
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim()
+  const log = join(d, '.git-log-args')
+  const git = fakeCommand('git')
+  git.act(`echo "$*" >> '${log}'\nexec '${real}' "$@"`)
+  try {
+    const r = detect(d, cfg())
+    assert.equal(r.files.filter(f => f.path.startsWith('untracked/')).length, 12000)
+    assert.match(readFileSync(log, 'utf8'), / log --format=%s [0-9a-f]{40}\.\.HEAD$/m)
+    assert.equal(r.mergeBase.length, 7)
+  } finally { git.restore() }
 })
 test('behind counts commits on the base after the branch started', () => {
   const d = repo()

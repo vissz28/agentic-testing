@@ -642,7 +642,8 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     toWrite.push([`vitest.config.${ts ? 'ts' : 'js'}`, vitestConfigText({ e2e: config.adapter === 'fullstack', integration: backend === 'vitest' ? containers?.folder ?? null : null })])
   }
   for (const [p, body] of containers?.files ?? []) if (!existsSync(join(root, p))) toWrite.push([p, body])
-  if (out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
+  // A config-set write (configFile) saves only the keys it previewed: no templates found on the way.
+  if (!configFile && out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
 
   let step = ''
   try {
@@ -680,7 +681,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
 
 /** Writes the personal config only: no repo file, no .gitignore, no template. */
 export function writePersonal(config, env = process.env) {
-  const v = validateConfig(config)
+  const v = validateConfig(config, { allowAbsoluteTicketsDir: true })
   if (!v.ok) return { ok: false, errors: v.errors }
   const p = personalConfigPath(env)
   try {

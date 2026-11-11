@@ -4,20 +4,30 @@
   "source": {
     "ref": "origin/agt-34-remove-audit-logs",
     "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f",
-    "recaptured": {
-      "ticket": "AGT-114",
-      "ops": [
-        0,
-        1,
-        3,
-        4,
-        5,
-        8,
-        9,
-        10,
-        11
-      ]
-    }
+    "recaptured": [
+      {
+        "ticket": "AGT-114",
+        "ops": [
+          0,
+          1,
+          3,
+          4,
+          5,
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      {
+        "why": "fill-in: a concrete AC answer replaces the vague criteria, and an AC heading left empty goes",
+        "ops": [
+          11,
+          12,
+          16
+        ]
+      }
+    ]
   },
   "results": [
     {
@@ -136,7 +146,7 @@
       "fileAfter": {
         "key": "FIC-26",
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          "description": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
         },
         "labels": [],
         "filled": [
@@ -159,7 +169,7 @@
       "fileAfter": {
         "key": "FIC-26",
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n## Environment\nEnv: staging"
+          "description": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n## Environment\nEnv: staging"
         },
         "labels": [],
         "filled": [
@@ -207,7 +217,7 @@
       "fileAfter": {
         "key": "FIC-26",
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          "description": "## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown.\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
         },
         "labels": [],
         "filled": [

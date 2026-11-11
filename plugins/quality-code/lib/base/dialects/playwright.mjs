@@ -42,7 +42,8 @@ function flipMutations(expectSrc) {
 function eligible(block, passed, ungraded = null) {
   if (block.mod === 'fixme' || block.mod === 'skip' || block.mod === 'fail' || ungraded?.test(block.title)) return false
   const key = block.title.split(' — ')[0]
-  return passed.has(block.title) || [...passed].some(t => t === key || t.startsWith(key))
+  // The prefix counts only up to the ' — ' it was cut at: "login" is not green because "login fails" passed.
+  return passed.has(block.title) || [...passed].some(t => t === key || t.startsWith(`${key} — `))
 }
 
 /** Every flip of every expect in a baseline-green test (by title or title prefix), inside the range. */

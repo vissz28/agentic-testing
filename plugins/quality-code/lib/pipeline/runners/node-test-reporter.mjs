@@ -28,7 +28,8 @@ export default async function * reporter(source) {
         broken.push({ file, message: why ?? message })
         continue
       }
-      const status = type === 'test:fail' ? 'failed' : data.skip || data.todo ? 'skipped' : 'passed'
+      // A failing todo test fails nothing: node exits 0 for it.
+      const status = data.skip || data.todo ? 'skipped' : type === 'test:fail' ? 'failed' : 'passed'
       tests.push({ file, title: data.name, path: (open.get(file) ?? []).slice(0, data.nesting), status, message: status === 'failed' ? message : '' })
     }
   }

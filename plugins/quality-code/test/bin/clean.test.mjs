@@ -187,6 +187,36 @@ test('the "this machine" place: its folder for this project is deleted, others s
   runClean(root, { groups: ['output'] }, e2)
   assert.ok(!existsSync(home) && existsSync(other) && existsSync(join(claude, 'quality-code', 'save.json')))
 })
+test('the project is the home folder: the personal config and the plugin\'s folder of every project are never setup or output', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'qc-clean-home-')))
+  const env = { CLAUDE_CONFIG_DIR: join(root, '.claude'), CLAUDE_PROJECT_DIR: root, QUALITY_CODE_PLACE: 'repo' }
+  put(root, '.claude/quality-code.json', JSON.stringify(CFG))
+  put(root, '.claude/quality-code/save.json', '{}')
+  put(root, '.claude/quality-code/projects/other-00000000/config.json', '{}')
+  put(root, '.quality-code/tickets/ABC-1/ticket.json', '{}')
+  const l = buildList(root, env)
+  assert.ok(!rels(l, 'setup').includes('.claude/quality-code.json') && !rels(l, 'output').includes('.claude/quality-code'))
+  runClean(root, { groups: ['setup', 'output'] }, env)
+  for (const p of ['.claude/quality-code.json', '.claude/quality-code/save.json', '.claude/quality-code/projects/other-00000000/config.json']) assert.ok(existsSync(join(root, p)), p)
+  assert.ok(!existsSync(join(root, '.quality-code/tickets')))
+})
+test('the "this machine" place with the config there: output takes the tickets, the config is setup\'s', () => {
+  const { root, env, claude } = project()
+  const e2 = { ...env, QUALITY_CODE_PLACE: 'local' }
+  const home = join(claude, 'quality-code', 'projects', `${slug(root)}-${short(root)}`)
+  rmDir(join(root, '.claude/quality-code.json'))
+  put(home, 'config.json', JSON.stringify(CFG))
+  put(home, 'tickets/ABC-1/ticket.json', '{}')
+  runClean(root, { groups: ['output'] }, e2)
+  assert.ok(existsSync(join(home, 'config.json')) && !existsSync(join(home, 'tickets')))
+  runClean(root, { groups: ['setup'] }, e2)
+  assert.ok(!existsSync(home))
+})
+test('a custom tickets folder: the person\'s own stories, sprint notes and CSVs stay', () => {
+  const { root, env } = project({ extra: { ticketsDir: 'docs', xray: { csv: 'docs/cases.csv' } } })
+  for (const p of ['docs/stories/login.md', 'docs/sprint/retro.md', 'docs/sprint/2026-01-01-goal.md', 'docs/testcases-plan.csv', 'docs/xray-notes.xlsx', 'docs/cases.csv']) put(root, p)
+  assert.deepEqual(rels(buildList(root, env), 'output'), ['.claude/quality-code', '.quality-code', 'docs/cases.csv', 'docs/sprint/2026-01-01-goal.md'])
+})
 
 test('tracked files are flagged and listed; the history is not touched', () => {
   const { root, env } = project()

@@ -9,6 +9,25 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.68.2] - 2026-11-11
+
+### Fixed
+
+- The test-run boundary could not be switched off: a bad or missing config now keeps the default rules, a path in other letter case is judged the same on macOS and Windows, the plugin's own config and saved state are never written by a run, and a run started at the monorepo top is seen.
+- `/quality-code:clean` never deletes the personal config or the plugin's folder in `~/.claude` (every project's config and tickets), even run from the home folder; with the config kept on this machine it takes the tickets, not the config. In a custom tickets folder it takes only the files the plugin writes, never your own `stories/`, sprint notes or CSVs.
+- `/quality-code:seed`: the SQL check catches `--` inside a string, a comment inside a keyword, and a tenant filter outside the WHERE or with an `OR`.
+- `ticket attach` refuses a key that leaves the tickets folder; two different ids keep two placeholders across the description and attachments.
+- Ticket scoring: "Expected result:" / "Actual result:" lines count, sub-headings inside Acceptance criteria keep their criteria, rich-text (ADF) descriptions keep headings and list markers, Italian criteria wording is read, the issue type's own template is used, and a project report keeps fill-ins and real ticket keys.
+- The fill-in accepts a concrete answer to vague criteria (before, it was refused because the vague line stayed), and no empty criteria heading is left behind.
+- Mutation: a passing test whose title the code cannot match (an escaped quote, a title built in a loop) no longer lets the step pass; `it.each` tables keep working. Stryker scores only the code the tests run and shows the rest.
+- CI runs a side's suite when only a page object, helper or fixture in its test folder changed. `--smoke` counts `@smoke` only in a test title or tag, and runs only with Playwright.
+- JUnit runs on Windows with Maven and Gradle wrappers (`.cmd`, `.bat`).
+- Routine says which commit it tested and does not blame a regression on local changes; Playwright titles, .NET quoting, Node `todo` tests, suite-honesty regexes, rules files and Xray polling are read right.
+- `/quality-code:update` updates the plugin under the id it is installed with. The cost report counts a command started from the Skill tool, and not compaction lines. Branch diffs work on large repos.
+- `config set --personal` works with an absolute tickets folder.
+
+**What to do:** nothing.
+
 ## [0.68.1] - 2026-11-11
 
 ### Changed

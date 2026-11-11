@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
@@ -80,13 +80,20 @@ export function formatCard({ rows, summary }) {
   ].join('\n')
 }
 
-/** Write each sanitized ticket to <ticketsDir>/<KEY>/ticket.json. Only used with --save. */
+/**
+ * Write each sanitized ticket to <ticketsDir>/<KEY>/ticket.json. Only used with --save. The fill-in
+ * answers (`filled`, `sent`) of a ticket already saved are kept: Jira's copy does not hold them.
+ */
 export function saveTickets(root, config, clean) {
   const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
-    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(t.key ?? '')) continue
+    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(t.key ?? '')) continue
     const d = resolve(root, dir, t.key)
+    const file = resolve(d, 'ticket.json')
+    let old = {}
+    try { old = JSON.parse(readFileSync(file, 'utf8')) } catch {}
+    const kept = Object.fromEntries(['filled', 'sent'].filter(k => old?.[k] !== undefined).map(k => [k, old[k]]))
     mkdirSync(d, { recursive: true })
-    writeFileSync(resolve(d, 'ticket.json'), `${JSON.stringify(t)}\n`)
+    writeFileSync(file, `${JSON.stringify({ ...t, ...kept })}\n`)
   }
 }

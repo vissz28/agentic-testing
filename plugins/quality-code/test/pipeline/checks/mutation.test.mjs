@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFile
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { applyMutant, findExpectRanges, originalOf, planMutants, run, sweepStale, tempSpecPath } from '../../../lib/pipeline/checks/mutation.mjs'
+import { applyMutant, findExpectRanges, originalOf, planMutants, run, sweepStale, tempSpecPath, unmutated } from '../../../lib/pipeline/checks/mutation.mjs'
 import { dialectFor } from '../../../lib/base/dialects/index.mjs'
 import { fakeRunner } from './fake-runner.mjs'
 
@@ -46,6 +46,11 @@ test('playwright: the frontend self-test', () => {
   assert.ok(plan.every(p => p.title === 'T-1-green'))
   const mut = applyMutant(src, plan.find(p => p.kind === 'flip-visible→count-999'))
   assert.ok(mut.includes('toHaveCount(999') && mut.includes("getByText('a')"))
+})
+test('playwright: a test is not green because a longer title that starts with it passed', () => {
+  const src = "test('login', async ({ page }) => { await expect(page.getByText('a')).toBeVisible() })\n"
+  assert.equal(planMutants(src, ['login fails with a bad password'], {}, P).length, 0)
+  assert.ok(planMutants(src, ['login — as admin'], {}, P).length > 0)
 })
 test('temp spec is a sibling, never the original', () => {
   const tp = tempSpecPath('/x/src/a/kpi.service.spec.ts')
@@ -221,8 +226,22 @@ test('it.each tests are not mutated (their run-time titles are formatted) and do
   assert.deepEqual(planMutants(src, ['one', 'adds 1'], {}, V).map(m => m.title), ['one'])
 })
 
+test('a passing test whose run-time title no source block has (escaped quote, template title) never lets the step pass', async () => {
+  const d = spec("it('adds', () => { expect(add(1, 1)).toBe(2) })\nit('it\\'s one', () => { expect(one()).toBe(1) })\nfor (const n of [1]) it(`case ${n}`, () => { expect(f(n)).toBe(1) })\n")
+  const runTests = async ({ testName }) => ({ ran: true, tests: [{ title: testName, status: 'failed' }] })
+  const r = await run({ spec: 'test/a.spec.ts', baseline: ['adds', "it's one", 'case 1'] }, { root: d, dialect: V, runTests })
+  assert.equal(r.status, 'not_run')
+  assert.deepEqual(r.findings.map(f => f.test), ["it's one", 'case 1'])
+})
+
 test('playwright.ungradedTitles: matching tests are not mutated; without it they are', () => {
   const src = "test('ABC-1 — design-conformance capture', async ({ page }) => { await expect(page.getByText('a')).toBeVisible() })\n"
   assert.equal(planMutants(src, ['ABC-1 — design-conformance capture'], { ungraded: /conformance|capture/i }, P).length, 0)
   assert.ok(planMutants(src, ['ABC-1 — design-conformance capture'], {}, P).length > 0)
+})
+
+test('an each table that ran green is its own cases, not a stray title; an unknown title still is', () => {
+  const src = "it('one', () => { expect(a).toBe(1) })\nit.each([[1, 2]])('adds %i to $b', (a, b) => { expect(a + 1).toBe(b) })\n"
+  assert.deepEqual(unmutated(src, ['one', 'adds 1 to 2'], [{ title: 'one' }], {}, V), [])
+  assert.deepEqual(unmutated(src, ['one', 'adds 1 to 2', 'other'], [{ title: 'one' }], {}, V), ['other'])
 })

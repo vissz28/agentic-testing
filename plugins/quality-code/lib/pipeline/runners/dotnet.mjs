@@ -104,7 +104,8 @@ export function filterFor(classes, testName) {
   return classes.map(c => `FullyQualifiedName~${c.fqn}.${testName === undefined ? '' : testName}`).join('|')
 }
 
-const quote = s => (/^[\w./:=~|-]+$/.test(s) ? s : `"${String(s).replace(/(["\\$`])/g, '\\$1')}"`)
+// No | in the safe class: filterFor joins classes with it, and the line runs through sh -c.
+const quote = s => (/^[\w./:=~-]+$/.test(s) ? s : `"${String(s).replace(/(["\\$`])/g, '\\$1')}"`)
 
 /** Every .trx file under a folder (the report, and one per target framework when there are several). */
 function trxFiles(dir) {

@@ -127,6 +127,9 @@ test('a redact pattern that matches empty text gets one clear error', () => {
   const r = validateConfig({ ...good, redact: { customerId: '\\bU\\d{5,}\\b', blank: 'a?' } })
   assert.deepEqual(r.errors, ['redact.blank: must not match empty text (it would insert the mask between every character)'])
 })
+test('a custom redact pattern adds to the default customerId one, it does not turn it off', () => {
+  assert.deepEqual(validateConfig({ ...good, redact: { iban: 'IT\\d{2}' } }).config.redact, { customerId: '\\bU\\d{5,}\\b', iban: 'IT\\d{2}' })
+})
 test('ticketsDir: backslashes become "/" and trailing slashes go', () => {
   assert.equal(validateConfig({ ...good, ticketsDir: 'tix\\sub\\' }).config.ticketsDir, 'tix/sub')
   assert.equal(validateConfig({ ...good, ticketsDir: 'tix//' }).config.ticketsDir, 'tix')

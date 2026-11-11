@@ -532,7 +532,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
       ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
-      redact: c.redact ?? DEFAULTS.redact,
+      // Merged: a custom pattern adds to the default customerId one, it does not turn it off.
+      redact: { ...DEFAULTS.redact, ...(c.redact ?? {}) },
       messages: c.messages ?? DEFAULTS.messages,
       ticketTemplates: { ...DEFAULTS.ticketTemplates, ...(c.ticketTemplates ?? {}) },
     },

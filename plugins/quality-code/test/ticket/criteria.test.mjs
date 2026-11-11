@@ -221,3 +221,21 @@ test('placeholder text is not a criterion: lorem ipsum, TBD, TODO, N/A, to be de
   assert.deepEqual(C.extractNaturalAC(v, '## Acceptance criteria\nTBD\nThe total shows 0 after a reload.'), ['The total shows 0 after a reload.'])
   assert.deepEqual(C.extractNaturalAC(v, 'Lorem ipsum dolor sit amet', { headingless: true }), [])
 })
+test('a deeper heading or a bold sub-heading groups criteria inside the section', () => {
+  const a = 'The exported file has one row per order, with the order number and the total.'
+  const b = 'Filtering by status Paid shows only paid orders.'
+  assert.deepEqual(C.extractNaturalAC(v, `## Acceptance criteria\n### Export\n- ${a}\n### Filters\n- ${b}\n## Notes\n- not a criterion`), [a, b])
+  assert.deepEqual(C.extractNaturalAC(v, `## Acceptance criteria\n**Export**\n- ${a}\n**Notes**\n- not a criterion`), [a])
+  assert.deepEqual(C.extractNaturalAC(v, `### Acceptance criteria\n- ${a}\n## Other\n- ${b}`), [a])
+})
+test('label lines with a trailing word: Expected result:, Actual behaviour:', () => {
+  for (const l of ['Expected result: 5 rows', 'Expected behaviour: 5 rows', 'Expected outcome: 5 rows']) assert.equal(C.hasHeading(v, l, v.expectedHeading), true, l)
+  for (const l of ['Actual result: empty', 'Actual behavior: empty']) assert.equal(C.hasHeading(v, l, v.actualHeading), true, l)
+  assert.equal(C.hasHeading(v, 'Expected delivery date: Monday', v.expectedHeading), false)
+})
+
+test('stripVagueCriteria drops an AC heading left empty, so the answer is not a second section', () => {
+  assert.equal(C.stripVagueCriteria(v, '## Acceptance criteria\n- It works correctly'), '')
+  assert.equal(C.stripVagueCriteria(v, 'Intro\n\n## Acceptance criteria\n- It works correctly\n\n## Notes\nx'), 'Intro\n\n## Notes\nx')
+  assert.equal(C.stripVagueCriteria(v, '## Acceptance criteria\n- It works correctly\n- The total is 150'), '## Acceptance criteria\n- The total is 150')
+})

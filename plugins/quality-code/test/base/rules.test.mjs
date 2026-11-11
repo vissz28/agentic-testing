@@ -107,6 +107,14 @@ test('parseRule: the knowledge repository\'s frontmatter, quoted strings, lists 
   assert.equal(parseRule('## no frontmatter'), null)
 })
 
+test('parseRule and localRules: a YAML escape JSON rejects and a quoted list item with a comma are read; a file that cannot be read is skipped', () => {
+  const d = parseRule(RULE('team.paths', 'path: "C:\\Users"\ntags: ["unit, integration", e2e]\n'))
+  assert.deepEqual([d.path, d.tags], ['C:\\Users', ['unit, integration', 'e2e']])
+  const root = mkdtempSync(join(tmpdir(), 'qc-bad-rule-'))
+  mkdirSync(join(root, 'rules/folder.md'), { recursive: true })
+  writeFileSync(join(root, 'rules/a.md'), RULE('team.ok'))
+  assert.deepEqual(localRules(root, 'rules/', ['all']).rules.map(r => r.id), ['team.ok'])
+})
 test('localRules: active rules for the stacks (status active and applies_to all by default), most severe first; a missing folder says so', () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-local-rules-'))
   mkdirSync(join(root, 'rules'))

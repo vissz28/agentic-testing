@@ -1,7 +1,7 @@
 ---
 description: Check whether a newer version of the quality-code plugin is out and what changed since yours, then update it on your yes (one command), or check the version again.
 argument-hint: (no arguments)
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@teamsystem)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@*)
 model: haiku
 effort: low
 ---
@@ -12,7 +12,7 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
 - **The script decides.** `update.mjs` reads the installed version and the latest one and compares them. Never compare, guess or invent a version or a change yourself.
-- **Two commands only.** The script below, and `claude plugin update quality-code@teamsystem` (option 1, after the user picks it). No other tool, and never edit the plugin's folder or its cache. The check sends nothing about the user or the project; it reads two public files of the plugin's GitHub repository (or its git tags).
+- **Two commands only.** The script below, and `claude plugin update <id>` (option 1, after the user picks it), where `<id>` is the `id` of the script's `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none). No other tool, and never edit the plugin's folder or its cache. The check sends nothing about the user or the project; it reads two public files of the plugin's GitHub repository (or its git tags).
 - **`/reload-plugins` is the user's.** It is a command typed in Claude Code; never try to run it.
 - **Never ask for a token**, key or password in the chat.
 
@@ -41,7 +41,7 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
      ```
 
 3. **Answer.**
-   - **Update to the latest version.** Run `claude plugin update quality-code@teamsystem`, exactly as written. Exit 0: say `Updated. Type /reload-plugins (or open a new session) to use the new version.`, then run the script again (step 1) and show its card, which now says the version is installed and waits for the reload; then show the `reload` card above. Not exit 0: show its last lines as they are, say `Update by hand: /plugin update quality-code@teamsystem, then /reload-plugins.` and stop.
+   - **Update to the latest version.** Run `claude plugin update <id>` with the `id` of the last `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none), nothing else. Exit 0: say `Updated. Type /reload-plugins (or open a new session) to use the new version.`, then run the script again (step 1) and show its card, which now says the version is installed and waits for the reload; then show the `reload` card above. Not exit 0: show its last lines as they are, say `Update by hand: /plugin update <id>, then /reload-plugins.` with that same id and stop.
    - **Check the version again.** Run the script again (step 1), show its card and the card that fits it.
    - **Stop.** Stop.
 

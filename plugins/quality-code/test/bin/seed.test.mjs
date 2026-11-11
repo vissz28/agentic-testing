@@ -49,6 +49,13 @@ test('the SQL check: no schema changes; with a tenant every delete and update ke
   ])
   assert.deepEqual(sqlProblems('DELETE FROM orders;'), [], 'with no tenant, the whole local table is emptied')
 })
+test('the SQL check: a "--" in a string, a comment inside a keyword, the tenant outside the WHERE or an OR do not slip through', () => {
+  assert.equal(sqlProblems("INSERT INTO notes(body) VALUES ('see A--B'); DROP TABLE users;", T).length, 1)
+  assert.equal(sqlProblems('DROP/**/TABLE users;').length, 1)
+  assert.equal(sqlProblems("UPDATE orders SET tenant_id = 't-1';", T).length, 1)
+  assert.equal(sqlProblems("DELETE FROM orders WHERE tenant_id = 't-1' OR true;", T).length, 1)
+  assert.deepEqual(sqlProblems("UPDATE orders SET note = 'a;b--c' WHERE tenant_id = 't-1' AND id = 2;", T), [])
+})
 
 test('no target or apply: a config line with an example, exit 2', () => {
   const r = run(['target'], project({}))

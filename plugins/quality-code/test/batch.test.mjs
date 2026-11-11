@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { evalTickets, formatCard } from '../lib/ticket/batch.mjs'
@@ -141,6 +141,17 @@ test('cli: writes no per-ticket files unless --save', () => {
   assert.equal(run(d, 'tickets-eval', '--in', '@r.json', '--save').status, 0)
   assert.deepEqual(readdirSync(join(d, '.quality-code/tickets')), ['ABC-1'])
   assert.ok(existsSync(join(d, '.quality-code/tickets/ABC-1/ticket.json')))
+})
+test('cli: --save keeps the fill-in answers of a ticket already saved, and saves a key with "_"', () => {
+  const d = proj()
+  const saved = join(d, '.quality-code/tickets/ABC-1')
+  mkdirSync(saved, { recursive: true })
+  writeFileSync(join(saved, 'ticket.json'), JSON.stringify({ ...thin('ABC-1'), filled: [{ key: 'environment' }], sent: 1 }))
+  writeFileSync(join(d, 'r.json'), JSON.stringify([thin('ABC-1'), thin('A_B-2')]))
+  assert.equal(run(d, 'tickets-eval', '--in', '@r.json', '--save').status, 0)
+  const t = JSON.parse(readFileSync(join(saved, 'ticket.json'), 'utf8'))
+  assert.deepEqual([t.filled, t.sent], [[{ key: 'environment' }], 1])
+  assert.ok(existsSync(join(d, '.quality-code/tickets/A_B-2/ticket.json')))
 })
 test('cli: --save keeps a configured ticketsDir (AGT-107)', () => {
   const d = proj({ ...cfg(), ticketsDir: '.claude/quality-code/tickets' })

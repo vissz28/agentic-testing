@@ -74,6 +74,19 @@ test('green before and red now is a regression, with the commits in between', as
   assert.doesNotMatch(text, /REGRESSION/, 'the last result was already not green: not a new regression')
 })
 
+test('a checkout behind origin is what was tested: the card says so, the sha kept is HEAD, and no origin commit is blamed', async () => {
+  const d = repo(), o = mkdtempSync(join(tmpdir(), 'qc-routine-origin-'))
+  git(o, 'init', '-q', '--bare'); git(d, 'remote', 'add', 'origin', o); git(d, 'push', '-q', 'origin', 'main')
+  await go(['run', '--since-last'], d, async () => green)
+  const head = git(d, 'rev-parse', 'HEAD').trim()
+  push(d, 'src/pricing.ts', 'x', 'Ana Rossi', 'round vat differently'); git(d, 'push', '-q', 'origin', 'main'); git(d, 'reset', '-q', '--hard', 'HEAD~1')
+  const r = await go(['run', '--since-last', '--force'], d, async () => red)
+  assert.match(r.out, new RegExp(`Tested your checkout ${head.slice(0, 7)}, not origin/main \\w{7}`))
+  assert.doesNotMatch(r.out, /REGRESSION/)
+  const j = JSON.parse((await go(['run', '--since-last', '--force', '--json'], d, async () => red)).out)
+  assert.equal(j.sha, head)
+})
+
 test('the text names the integral change and the commits in between', async () => {
   const d = repo()
   await go(['run', '--since-last'], d, async () => green)

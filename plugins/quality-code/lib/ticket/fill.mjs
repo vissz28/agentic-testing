@@ -222,7 +222,10 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
       const stepsOnly = !isGherkin && !hasThen(v, text) && unbulleted.some(l => v.gherkinStep.test(l))
       if (stepsOnly && length === 0) return reject(why.noThen)
       if (!isGherkin && length < MIN_NATURAL_AC) return reject(why.short(length))
-      if (key === 'ac_testable') {
+      // The menu folds ac_testable into ac_present, so an AC answer replaces the vague lines too.
+      const stripped = stripVagueCriteria(v, desc)
+      const acField = next.text.acField && stripVagueCriteria(v, next.text.acField, { headingless: true })
+      if (key === 'ac_testable' || stripped !== desc || acField !== next.text.acField) {
         entry.replacedVague = true
         desc = stripVagueCriteria(v, desc)
         if (next.text.acField) next.text.acField = stripVagueCriteria(v, next.text.acField, { headingless: true })

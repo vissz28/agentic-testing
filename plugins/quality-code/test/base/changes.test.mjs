@@ -44,6 +44,13 @@ test('changed specs are grouped by side; deleted ones and files outside the test
   assert.equal(p.backend.source || p.frontend.source, false)
 })
 
+test('a page object or helper in a test folder makes its side run, a deleted one too', () => {
+  let p = planChanges([f('e2e/pages/login.page.ts')], fe, [{ path: 'e2e/login.spec.ts', adapter: 'playwright' }])
+  assert.equal(p.frontend.source, true, 'not skipped as "nothing changed in frontend"')
+  p = planChanges([f('tests/helpers/db.ts', 'test', 'D')], cfg, known)
+  assert.deepEqual([p.backend.source, p.frontend.source], [true, true], 'the path does not say: both sides run')
+})
+
 test('source files mark their side; an undecided path marks both; docs mark nothing', () => {
   let p = planChanges([f('server/orders.ts', 'code')], cfg, known)
   assert.deepEqual([p.backend.source, p.frontend.source], [true, false])

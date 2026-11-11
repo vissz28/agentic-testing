@@ -184,12 +184,20 @@ function upTo(root, dir, names) {
 }
 
 const toPosix = p => p.split(sep).join('/')
+// A word for cmd.exe: in double quotes, a quote doubled.
+const cmdQuote = s => `"${String(s).replace(/"/g, '""')}"`
 
 /**
- * How to run one module: { cmd, args, cwd, reports } for Maven or Gradle. A module below the build's top
+ * How to run one module: { cmd, args, cwd, reports, shell } for Maven or Gradle. A module below the build's top
  * runs from the top (Maven -pl, a Gradle project path), so its siblings it depends on build too.
  */
-export function buildCommand(root, mod, selectors) {
+export function buildCommand(root, mod, selectors, win = WIN) {
+  const b = toolCommand(root, mod, selectors, win)
+  // Node starts a .cmd or .bat only through cmd.exe (EINVAL without a shell): one line, each word quoted.
+  return win && /\.(?:cmd|bat)$/i.test(b.cmd) ? { ...b, cmd: [b.cmd, ...b.args].map(cmdQuote).join(' '), args: [], shell: true } : b
+}
+
+function toolCommand(root, mod, selectors, win) {
   if (mod.tool === 'maven') {
     // The reactor's top: the highest pom.xml between the module and the root.
     let top = mod.dir
@@ -197,25 +205,25 @@ export function buildCommand(root, mod, selectors) {
       if (existsSync(join(d, 'pom.xml'))) top = d
       if (d === resolve(root) || dirname(d) === d) break
     }
-    const wrapper = upTo(root, mod.dir, [WIN ? 'mvnw.cmd' : 'mvnw'])
+    const wrapper = upTo(root, mod.dir, [win ? 'mvnw.cmd' : 'mvnw'])
     const pl = top === mod.dir ? [] : ['-pl', toPosix(relative(top, mod.dir)), '-am']
     return {
       tool: 'maven',
-      cmd: wrapper ? wrapper.path : WIN ? 'mvn.cmd' : 'mvn',
+      cmd: wrapper ? wrapper.path : win ? 'mvn.cmd' : 'mvn',
       cwd: top,
       args: ['-B', '-q', ...pl, 'test', `-Dtest=${selectors.map(s => (s.method ? `${s.cls}#${s.method}` : s.cls)).join(',')}`,
         '-DfailIfNoTests=false', '-Dsurefire.failIfNoSpecifiedTests=false', '-Dsurefire.rerunFailingTestsCount=0'],
       reports: join(mod.dir, 'target', 'surefire-reports'),
     }
   }
-  const wrapper = upTo(root, mod.dir, [WIN ? 'gradlew.bat' : 'gradlew'])
+  const wrapper = upTo(root, mod.dir, [win ? 'gradlew.bat' : 'gradlew'])
   const settings = upTo(root, mod.dir, ['settings.gradle.kts', 'settings.gradle'])
   const top = wrapper?.dir ?? settings?.dir ?? mod.dir
   const project = toPosix(relative(top, mod.dir)).split('/').filter(Boolean).map(p => `:${p}`).join('')
   // cleanTest: an up-to-date test task would run nothing and leave the last run's reports.
   return {
     tool: 'gradle',
-    cmd: wrapper ? wrapper.path : WIN ? 'gradle.bat' : 'gradle',
+    cmd: wrapper ? wrapper.path : win ? 'gradle.bat' : 'gradle',
     cwd: top,
     args: [`${project}:cleanTest`, `${project}:test`, ...selectors.flatMap(s => ['--tests', s.method ? `${s.cls}.${s.method}` : s.cls]), '--console=plain'],
     reports: join(mod.dir, 'build', 'test-results', 'test'),
@@ -224,7 +232,7 @@ export function buildCommand(root, mod, selectors) {
 
 /** The project's junit.command with its placeholders filled; each value quoted for the shell. */
 export function fillCommand(template, { files, report, tool, selectors }) {
-  const q = s => (WIN ? `"${String(s).replace(/"/g, '""')}"` : `'${String(s).replace(/'/g, `'\\''`)}'`)
+  const q = s => (WIN ? cmdQuote(s) : `'${String(s).replace(/'/g, `'\\''`)}'`)
   const test = tool === 'gradle'
     ? selectors.map(s => `--tests ${q(s.method ? `${s.cls}.${s.method}` : s.cls)}`).join(' ')
     : `-Dtest=${q(selectors.map(s => (s.method ? `${s.cls}#${s.method}` : s.cls)).join(','))}`
@@ -332,6 +340,8 @@ async function runModule(root, mod, infos, { testName, timeoutMs, template }) {
       clearReports(b.reports, selectors.map(s => s.cls))
       r = await spawnTool({ ...b, timeoutMs })
     }
+    // 9009: cmd.exe found no such command, its ENOENT.
+    if (!template && b.shell && r.code === 9009) return { ran: false, error: MISSING[b.tool] }
     if (!r.started) return { ran: false, error: r.error === 'ENOENT' ? MISSING[b.tool] : `could not start ${LABEL[b.tool]}: ${r.error}` }
     if (r.timedOut) return { ran: false, error: took(timeoutMs) }
     const cases = []

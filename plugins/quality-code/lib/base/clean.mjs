@@ -16,7 +16,8 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf } from './config.mjs'
+import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from './config.mjs'
+import { CONFIG_FILE } from './places.mjs'
 import { PLAIN } from './git.mjs'
 import { dirOf, short, slug } from './progress.mjs'
 import { adaptersOf, asAdapter } from './stack.mjs'
@@ -39,6 +40,10 @@ const MAX_WALK = 5000
 const lstat = p => { try { return lstatSync(p) } catch { return null } }
 const read = p => { try { return readFileSync(p, 'utf8') } catch { return null } }
 const posix = p => p.split(sep).join('/')
+const real = p => { try { return realpathSync(p) } catch { return resolve(p) } }
+/** a is b or inside it. */
+const inside = (a, b) => { const r = relative(real(b), real(a)); return r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r) }
+const GOAL = /^\d{4}-\d{2}-\d{2}-goal\.md$/
 
 /** null when `abs` may be deleted (it is inside `top`, no link on the way, not .git), else the reason. */
 export function unsafeReason(top, abs, { raw = abs } = {}) {
@@ -175,12 +180,17 @@ function ticketItems(top, root, config, env) {
   if (!rel || rel.startsWith('..') || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
   if (rel === '.quality-code' || rel.startsWith('.quality-code/') || rel === '.claude/quality-code' || rel.startsWith('.claude/quality-code/')) return { items: [item(top, abs)], kept }
   const items = []
+  const xcsv = xrayOf(config)?.csv
   for (const e of readdirSync(abs, { withFileTypes: true })) {
     const p = join(abs, e.name)
     if (e.isSymbolicLink()) continue
     if (e.isDirectory() && KEY_DIR.test(e.name) && TICKET_FILES.some(f => existsSync(join(p, f)))) items.push(item(top, p))
-    else if (e.isDirectory() && ['sprint', 'stories'].includes(e.name) && readdirSync(p, { withFileTypes: true }).every(x => x.isFile() && /\.(md|json|csv)$/.test(x.name))) items.push(item(top, p))
-    else if (e.isFile() && /^(xray|testcases)[\w.-]*\.(csv|xlsx)$/i.test(e.name)) items.push(item(top, p))
+    // Only what the plugin writes here: sprint/<date>-goal.md (transcript-goal) and the Xray CSV (xray).
+    else if (e.isDirectory() && e.name === 'sprint') {
+      const goals = readdirSync(p, { withFileTypes: true })
+      if (goals.every(x => x.isFile() && GOAL.test(x.name))) items.push(item(top, p))
+      else for (const x of goals) if (x.isFile() && GOAL.test(x.name)) items.push(item(top, join(p, x.name)))
+    } else if (e.isFile() && (e.name === 'xray-cases.csv' || (xcsv && resolve(root, xcsv) === p))) items.push(item(top, p))
   }
   return { items, kept }
 }
@@ -215,11 +225,19 @@ export function buildList(rootIn, env = process.env) {
   const root = resolve(rootIn)
   const tracked = trackedSet(top)
   const kept = []
+  // Never this project's: the personal config and the plugin's folder in the Claude folder (every project's files),
+  // which are <top>/.claude/... when the project is the home folder. This project's own items there are `outside`.
+  const globalDir = join(claudeDir(env), 'quality-code')
+  const theirs = i => !i.outside && (real(i.abs) === real(personalConfigPath(env)) || inside(i.abs, globalDir) || inside(globalDir, i.abs))
+  const own = items => items.filter(i => !theirs(i) || (kept.push({ rel: i.rel, why: 'the personal config and the plugin\'s own folder are never deleted from here' }), false))
 
   // Setup files
   const setup = []
   const cfgAbs = join(top, CONFIG_REL)
   if (lstat(cfgAbs)) setup.push(item(top, cfgAbs))
+  // The config in its place (with the saved output) is setup's too.
+  const placed = [configFileOf(top, env)].find(p => p && real(p) !== real(cfgAbs)) ?? null
+  if (placed) setup.push(inside(placed, top) ? item(top, placed) : { abs: placed, rel: placed, kind: 'file', files: 1, outside: 'config' })
   const scaffold = scaffoldFiles(root, config)
   for (const rel of [...templateFiles(root, config), ...scaffold.files]) if (lstat(join(root, rel))) setup.push(item(top, join(root, rel)))
   const gi = gitignoreItem(root, top, scaffold.playwright ? { signIn: scaffold.playwright.signIn } : false)
@@ -231,7 +249,10 @@ export function buildList(rootIn, env = process.env) {
   kept.push(...t.kept)
   out.push(...t.items)
   for (const rel of ['.quality-code', '.claude/quality-code']) if (lstat(join(top, rel))) out.push(item(top, join(top, rel)))
-  const output = dedupe(out)
+  // The folder that holds the config goes file by file, the config left to setup.
+  const output = dedupe(own(out)).flatMap(i => i.kind === 'dir' && placed && real(dirname(placed)) === real(i.abs)
+    ? readdirSync(i.abs).filter(n => n !== CONFIG_FILE).map(n => item(top, join(i.abs, n), i.outside ? { outside: i.outside } : {}))
+    : [i])
 
   // Cache
   const cache = []
@@ -244,17 +265,17 @@ export function buildList(rootIn, env = process.env) {
   if (lstat(pp)) personal.push({ abs: pp, rel: pp, kind: 'file', files: 1, outside: 'personal' })
 
   const groups = [
-    { id: 'setup', items: setup },
+    { id: 'setup', items: own(setup) },
     { id: 'output', items: output },
     { id: 'cache', items: cache },
     { id: 'personal', items: personal },
-    { id: 'specs', items: specItems(root, top, config) },
+    { id: 'specs', items: own(specItems(root, top, config)) },
   ].map(g => ({
     ...g,
     label: LABELS[g.id],
     items: g.items.map(i => ({ ...i, tracked: i.outside ? [] : i.kind === 'lines' ? trackedUnder(tracked, i.rel) : trackedUnder(tracked, i.rel) })),
   }))
-  return { ok: true, root, top, groups, kept, git: tracked !== null }
+  return { ok: true, root, top, groups, kept, git: tracked !== null, configDir: placed ? dirname(placed) : null }
 }
 
 /** Is the item's path where it must be? Setup files and output: inside the project; cache and personal: their known place. */
@@ -272,10 +293,16 @@ function allowed(list, it, env) {
     return st?.isFile() && !st.isSymbolicLink() ? null : 'the personal config is not a plain file'
   }
   if (it.outside === 'local') {
-    const home = join(claudeDir(env), 'quality-code', 'projects', `${slug(list.root)}-${short(list.root)}`)
+    const home = resolve(join(claudeDir(env), 'quality-code', 'projects', `${slug(list.root)}-${short(list.root)}`))
+    const at = resolve(it.abs)
     const st = lstat(it.abs)
-    if (resolve(it.abs) !== resolve(home)) return 'not this project\'s folder on this machine'
+    if (at !== home && (dirname(at) !== home || basename(at) === CONFIG_FILE)) return 'not this project\'s folder on this machine'
     return st?.isSymbolicLink() ? 'that folder is a link' : null
+  }
+  if (it.outside === 'config') {
+    if (resolve(it.abs) !== resolve(configFileOf(list.top, env) ?? '')) return 'not this project\'s config'
+    const st = lstat(it.abs)
+    return st?.isFile() && !st.isSymbolicLink() ? null : 'the config is not a plain file'
   }
   return unsafeReason(list.top, it.abs)
 }
@@ -334,6 +361,8 @@ export function runClean(rootIn, { groups = [], specs = [], dryRun = false } = {
       deleted.push({ rel: it.rel, group: it.group, kind: it.kind, files: it.files, tracked: it.tracked, lines: it.lines })
     } catch (err) { kept.push({ rel: it.rel, why: `could not delete: ${err.message}`, group: it.group }) }
   }
+  // The config's folder, once both its config and its output are gone.
+  if (!dryRun && list.configDir) { try { rmdirSync(list.configDir) } catch {} }
   // A tickets folder the plugin emptied, outside the plugin folders, goes too when nothing else is in it.
   if (!dryRun && groups.includes('output')) {
     const dir = list.groups.find(g => g.id === 'output')

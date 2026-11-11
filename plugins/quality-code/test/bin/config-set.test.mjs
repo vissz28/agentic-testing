@@ -30,6 +30,13 @@ test('set previews old -> new and writes nothing without --yes', () => {
   assert.match(r.stdout, /CONFIG_SET_JSON:.*"status":"preview"/)
   assert.equal(s.repoCfg().git, undefined)
 })
+test('set --yes writes only the previewed key: no ticketTemplates found in .github/ISSUE_TEMPLATE', () => {
+  const s = setup()
+  mkdirSync(join(s.d, '.github/ISSUE_TEMPLATE'), { recursive: true })
+  writeFileSync(join(s.d, '.github/ISSUE_TEMPLATE/bug_report.md'), '---\nname: Bug report\n---\n## Steps to reproduce\n')
+  assert.equal(s.run('set', 'git.base', 'develop', '--yes').status, 0)
+  assert.deepEqual(Object.keys(s.repoCfg()).sort(), [...Object.keys(base()), 'git'].sort())
+})
 test('set --yes writes a nested key into the repo config', () => {
   const s = setup()
   const r = s.run('set', 'git.base', 'develop', '--yes')
@@ -139,6 +146,15 @@ test('scope: default is the config that exists; --personal and --project pick on
   assert.equal(both.run('set', 'git.base', 'r', '--yes').status, 0)
   assert.equal(both.repoCfg().git.base, 'r')
   assert.equal(both.run('set', 'git.base', 'r', '--personal', '--project').status, 2)
+})
+test('a personal config with an absolute ticketsDir can still be changed', () => {
+  const s = setup({ repo: false })
+  const tickets = join(s.claude, 'my-tickets')
+  writeFileSync(join(s.claude, 'quality-code.json'), JSON.stringify({ ...base(), ticketsDir: tickets }))
+  const r = s.run('set', 'languages', 'en,it', '--personal', '--yes')
+  assert.equal(r.status, 0, r.stderr)
+  assert.deepEqual(s.persCfg().languages, ['en', 'it'])
+  assert.equal(s.persCfg().ticketsDir, tickets)
 })
 test('a personal config has no testFlow; no config at all is a setup hint', () => {
   const s = setup({ repo: false, personal: true })

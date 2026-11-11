@@ -179,6 +179,13 @@ test('a Defect is a bug; jira.bugTypes names them exactly', () => {
   assert.match(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'anomaly' })), /Steps to reproduce/)
   assert.doesNotMatch(formatRefuseComment(custom, buildBrief(custom, { ...story('x'), issuetype: 'Bug' })), /Steps to reproduce/)
 })
+test('jira.bugTypes also decides which keys a ticket is not asked for: a custom bug type scores as a Bug', () => {
+  const v = cfg('vitest')
+  const custom = { ...v, jira: { ...v.jira, bugTypes: ['Errore'] } }
+  const t = { ...story('## Acceptance criteria\nGiven an order at 40.00\nWhen I open it\nThen the total is 108.00'), issuetype: 'Errore' }
+  assert.equal(buildBrief(custom, t).omitted.has('environment'), false)
+  assert.equal(buildBrief(custom, t).score, buildBrief(v, { ...t, issuetype: 'Bug' }).score)
+})
 test('screenshots in the description never count: no criteria in the text is still a refuse (AGT-121)', () => {
   const img = '![](blob:https://media.staging.atl-paas.net/?type=file&id=00000000-0000-4000-8000-000000000001&height=827&width=930)'
   const prose = 'In the stamp configuration, a "Find Position" button must be added. Upon confirmation, the position must be returned to the main page.'

@@ -8,6 +8,9 @@
 //       for a missing environment or expected vs actual, which its fill-in never asks for, and the
 //       fill-in's gains are computed over the same keys as the score. In the line-by-line group, the
 //       ops it changes were re-captured from the plugin, and each file lists them in source.recaptured.
+//   Vague criteria, a bug fix: a concrete ac_present answer replaces the vague criteria (before, it was
+//       refused because the vague line stayed), and an AC heading left empty goes. Re-captured; listed in
+//       source.recaptured.
 // JSON lines (and the --json output) are compared as parsed objects (Ruling R2); every other line
 // must be identical, as must the exit code and, for `add`, the ticket file afterwards.
 // Sanitize: today's backend sanitizer and `ticket.mjs sanitize` under the backend config write the
@@ -17,7 +20,8 @@
 // Bug fixes after the capture, also hand edits of expected/sanitize.json (today's script has the bugs):
 //   adf-paragraphs-lists-breaks-marks  ADF blocks are one per line and a block's text runs join as
 //     written; before, "Customer \nU######\n sees 150" and "…acme-corp.itws <uuid>openfilter" glued
-//     blocks together, so a UUID inside a list item was never redacted.
+//     blocks together, so a UUID inside a list item was never redacted. Later its headings keep their
+//     "##" and its list items their "-" / "1." markers, so the scorer reads them as it reads markdown.
 //   plain-all-fields, uuid-versions  each distinct UUID of a ticket gets its own placeholder
 //     (…0001, …0002) instead of one for all, so "workspace A is not workspace B" survives.
 import { describe, test } from 'node:test'

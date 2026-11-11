@@ -230,6 +230,15 @@ test('dotnet.command: the project\'s own command, with the TRX logger and the fi
   assert.equal(args[args.indexOf('--filter') + 1], 'FullyQualifiedName~Demo.Tests.PricingTests.')
 })
 
+test('dotnet.command: a filter of two classes is quoted, not read by the shell as a pipe', async t => {
+  const d = project(`${SRC}\npublic class OtherTests\n{\n    [Fact]\n    public void Other() { Assert.True(true); }\n}\n`)
+  const fake = fakeDotnet(`return { trx: trx([{ cls: 'Demo.Tests.PricingTests', name: 'Rounds_up', outcome: 'Passed' }]) }`)
+  t.after(fake.restore)
+  await dotnetRunner(d, { adapter: 'dotnet', dotnet: { command: 'dotnet test {files}' } })({ files: [SPEC] })
+  const args = fake.calls()[0].args
+  assert.equal(args[args.indexOf('--filter') + 1], 'FullyQualifiedName~Demo.Tests.PricingTests.|FullyQualifiedName~Demo.Tests.OtherTests.')
+})
+
 test('the pipeline on .NET: green with every mutant killed in place, and the spec comes back byte for byte', async t => {
   const d = project()
   const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })

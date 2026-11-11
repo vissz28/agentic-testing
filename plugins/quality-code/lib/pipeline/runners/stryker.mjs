@@ -25,6 +25,8 @@ export function linkedFolders(root) {
 /**
  * Counts the mutants of a mutation-testing-report-schema report. CompileError, RuntimeError, Ignored and
  * Pending do not count; a Timeout is caught, as in Stryker's own score. untested: survivors no test ran on.
+ * The score is over the code the tests run (Stryker's score on covered code): the whole file is mutated, and
+ * a ticket's tests cover the part it names, so NoCoverage is counted and shown, never held against them.
  */
 export function parseStrykerReport(json) {
   const n = { Killed: 0, Survived: 0, Timeout: 0, NoCoverage: 0 }
@@ -35,7 +37,7 @@ export function parseStrykerReport(json) {
       if (m?.status === 'Survived' && m.testsCompleted === 0) untested++
     }
   }
-  const total = n.Killed + n.Survived + n.Timeout + n.NoCoverage
+  const total = n.Killed + n.Survived + n.Timeout
   const score = total ? Math.round(((n.Killed + n.Timeout) / total) * 1000) / 10 : null
   return { killed: n.Killed, survived: n.Survived, timeout: n.Timeout, noCoverage: n.NoCoverage, untested, score }
 }

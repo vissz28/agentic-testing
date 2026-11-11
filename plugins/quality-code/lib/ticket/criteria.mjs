@@ -116,17 +116,20 @@ const DOC_FENCE = /^\s*(?:\"\"\"|```)/
 function sectionRows(v, visible, headingless) {
   const rows = []
   let inSection = headingless
+  let acLevel = 0
   let run = 0
   let inDoc = false
   for (const line of visible.split('\n')) {
     if (v.acHeading.test(line)) {
       inSection = true
+      acLevel = headingLevel(line)
       inDoc = false
       run++
       continue
     }
     if (!inSection || !line.trim()) continue
     if (!headingless && v.sectionEnd.test(line)) {
+      if (!endsSection(v, line, acLevel)) { run++; continue } // a sub-heading groups criteria; it is none
       inSection = false
       inDoc = false
       run++
@@ -145,6 +148,24 @@ function sectionRows(v, visible, headingless) {
     if (!stepLike) run++
   }
   return rows
+}
+
+// The level of a markdown heading (## X: 2, Jira's h3. X: 3); 0 for any other line.
+const headingLevel = line => {
+  const m = line.match(/^\s*(?:(#{1,6})|h([1-6])\.)\s/)
+  return m ? m[1]?.length ?? Number(m[2]) : 0
+}
+
+/**
+ * Does a sectionEnd line close a criteria section under a heading of level `acLevel` (0: no
+ * markdown heading)? Under ## Acceptance criteria, a deeper heading (### Export) or a bold line
+ * that names no section (**Export**) is a sub-heading inside it.
+ */
+function endsSection(v, line, acLevel) {
+  if (!acLevel) return true
+  const level = headingLevel(line)
+  if (level) return level <= acLevel
+  return !/^\s*\*\*/.test(line) || v.namedSection.test(line.replace(/\*+/g, '').trim())
 }
 
 /** The runs that are real Gherkin: a Scenario-style header, or the hasGherkin rule on the run. */
@@ -166,18 +187,24 @@ function realGherkinRuns(v, rows) {
 export function stripVagueCriteria(v, text, { headingless = false } = {}) {
   if (text == null || text === '') return ''
   let inSection = headingless
+  let acLevel = 0
   const kept = []
+  // An AC heading whose every line was vague goes too, so the answer's own section is not a second one.
+  let head = null
+  const dropEmpty = () => { if (head?.dropped && !head.content) kept.splice(head.at); head = null }
   // The result is written back into the ticket, so each kept line keeps its own line end: read a
   // line without its CR, keep it with it.
   for (const raw of String(text).split('\n')) {
     const line = raw.replace(/\r$/, '')
-    if (v.acHeading.test(line)) inSection = true
-    else if (inSection && !headingless && line.trim() && v.sectionEnd.test(line)) inSection = false
+    if (v.acHeading.test(line)) { dropEmpty(); inSection = true; acLevel = headingLevel(line); head = { at: kept.length } }
+    else if (inSection && !headingless && line.trim() && v.sectionEnd.test(line) && endsSection(v, line, acLevel)) { inSection = false; dropEmpty() }
     const content = line.replace(v.listItem, '').trim()
     const isStep = v.thenStep.test(content) || v.continuation.test(content)
-    if (hasVaguePhrase(v, line) && (inSection || isStep)) continue
+    if (hasVaguePhrase(v, line) && (inSection || isStep)) { if (head && inSection) head.dropped = true; continue }
+    if (head && inSection && content && kept.length > head.at) head.content = true
     kept.push(raw)
   }
+  dropEmpty()
   return kept.join('\n')
 }
 

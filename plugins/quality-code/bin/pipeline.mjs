@@ -79,6 +79,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   let smokeVars = null
   if (a.smoke) {
+    // Only the Playwright runner reads the smoke grep and the url: any other would run every test against its own baseUrl.
+    if (runnerOf(config, 'playwright') !== 'playwright') return err(`--smoke runs the Playwright e2e suite: this project's e2e runner is ${runnerOf(config, 'playwright')}`)
     const u = a.url === undefined ? { url: null } : checkUrl(a.url)
     if (u.error) return err(u.error)
     const tagged = smokeSpecs(root, a.specs)

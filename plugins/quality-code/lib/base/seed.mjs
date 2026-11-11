@@ -25,13 +25,17 @@ export const isLocal = host => host === '::1' || /^127(\.\d{1,3}){3}$/.test(host
  * ponytail: a regex scan per statement, not a SQL parser; it catches the generated files' shapes, not a determined author.
  */
 export function sqlProblems(sql, tenant = null) {
-  const text = String(sql).replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  // Strings first (a "--" or ";" in one is text), kept only as whether they are the tenant id; then comments become a space.
+  const id = tenant ? `'${String(tenant.id).replace(/'/g, "''")}'` : null
+  const text = String(sql).replace(/'(?:[^']|'')*'/g, s => (s === id ? "'T'" : "''")).replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' ')
   const out = []
   if (/\b(?:DROP\s+(?:TABLE|SCHEMA|DATABASE|VIEW|INDEX|TYPE)|TRUNCATE|ALTER\s+(?:TABLE|SCHEMA|DATABASE|TYPE))\b/i.test(text)) out.push('it drops, truncates or alters something: mock data only deletes and inserts rows')
   if (tenant) {
-    const scoped = new RegExp(`\\b${tenant.column}"?\\s*=\\s*'${tenant.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`)
+    // The tenant equality must be in the WHERE, with no OR there to widen it.
+    const scoped = new RegExp(`\\b${tenant.column}"?\\s*=\\s*'T'`)
     for (const st of text.split(';').map(x => x.trim())) {
-      if (/^(?:DELETE\s+FROM|UPDATE)\b/i.test(st) && !scoped.test(st)) out.push(`"${st.split(/\s+/).slice(0, 3).join(' ')} …" does not keep to ${tenant.column} = '${tenant.id}'`)
+      const where = /\bWHERE\b([\s\S]*)$/i.exec(st)?.[1]
+      if (/^(?:DELETE\s+FROM|UPDATE)\b/i.test(st) && !(where && scoped.test(where) && !/\bOR\b/i.test(where))) out.push(`"${st.split(/\s+/).slice(0, 3).join(' ')} …" does not keep to ${tenant.column} = '${tenant.id}'`)
     }
   }
   return out

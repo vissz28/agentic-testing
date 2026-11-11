@@ -26,12 +26,34 @@ export function groups(src, dialect) {
   return out
 }
 
-/** Index just past the ")" closing the "(" at `open`, skipping strings. */
+/**
+ * The index of the slash closing a regex literal that starts at i, or -1: a quote inside one (/'/) is no string.
+ * ponytail: a regex starts after start of line, an operator or return; after another keyword it is read as division.
+ */
+function regexEnd(src, i) {
+  let j = i - 1
+  while (j >= 0 && (src[j] === ' ' || src[j] === '\t')) j--
+  if (!(j < 0 || '\n(,=:[!&|?{;'.includes(src[j]) || /(?<![\w$])return$/.test(src.slice(Math.max(0, j - 6), j + 1)))) return -1
+  let cls = false
+  for (let k = i + 1; k < src.length; k++) {
+    const c = src[k]
+    if (c === '\n') return -1
+    if (c === '\\') k++
+    else if (c === '[') cls = true
+    else if (c === ']') cls = false
+    else if (c === '/' && !cls) return k
+  }
+  return -1
+}
+
+/** Index just past the ")" closing the "(" at `open`, skipping strings and regex literals. */
 function closeAt(src, open) {
   let depth = 0
   for (let i = open; i < src.length; i++) {
     const c = src[i]
+    let e
     if (c === '"' || c === "'" || c === '`') { for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++ }
+    else if (c === '/' && src[i + 1] !== '/' && src[i + 1] !== '*' && (e = regexEnd(src, i)) > 0) i = e
     else if (c === '(') depth++
     else if (c === ')' && --depth === 0) return i + 1
   }
@@ -75,6 +97,7 @@ function codeOnly(src) {
       out += c
     } else if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; out += '\n' }
     else if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1 }
+    else if (c === '/' && regexEnd(src, i) > 0) { const e = regexEnd(src, i); out += `/${' '.repeat(e - i - 1)}/`; i = e }
     else out += c
   }
   return out

@@ -63,12 +63,12 @@ const configWith = entries => {
   return { CLAUDE_CONFIG_DIR: dir }
 }
 test('diskVersion: the highest installed version of this plugin only; null when unreadable', () => {
-  const env = configWith({ 'quality-code@teamsystem': [{ version: '0.28.1' }, { version: '0.29.0' }], 'other@x': [{ version: '9.0.0' }] })
+  const env = configWith({ 'quality-code@quality-code': [{ version: '0.28.1' }, { version: '0.29.0' }], 'other@x': [{ version: '9.0.0' }] })
   assert.equal(diskVersion('quality-code', env), '0.29.0')
   assert.equal(diskVersion('quality-code', { CLAUDE_CONFIG_DIR: '/nonexistent-qc' }), null)
 })
 test('updated on disk but not reloaded: the card says so and asks for /reload-plugins', async () => {
-  const env = configWith({ 'quality-code@teamsystem': [{ version: '0.28.1' }] })
+  const env = configWith({ 'quality-code@quality-code': [{ version: '0.28.1' }] })
   const r = await run('0.27.0', { env })
   assert.match(r.out, /Running {4}0\.27\.0\n {2}Installed {2}0\.28\.1 {3}\(on disk, not loaded yet\)/)
   assert.match(r.out, /Version 0\.28\.1 is installed\. Type \/reload-plugins/)
@@ -87,8 +87,11 @@ test('a newer version: card with the changes and the two commands, exit 0', asyn
   assert.match(r.out, /Installed {2}0\.27\.0\n {2}Latest {5}0\.28\.1 {3}\(from github\)/)
   assert.match(r.out, /A new version is out: 0\.27\.0 -> 0\.28\.1\./)
   assert.match(r.out, /0\.28\.0 {2}\(2026-10-29\)\n {4}- Spec discovery/)
-  assert.match(r.out, /\/plugin update quality-code@teamsystem\n {2}\/reload-plugins/)
-  assert.match(r.out, /CHECK_UPDATE_JSON:\{"installed":"0\.27\.0","running":"0\.27\.0","latest":"0\.28\.1","status":"update"\}\n$/)
+  assert.match(r.out, /\/plugin update quality-code@teamsystem\n {2}\/reload-plugins/, 'nothing installed: the default marketplace')
+  const other = await run('0.27.0', { env: configWith({ 'quality-code@acme': [{ version: '0.27.0' }] }) })
+  assert.match(other.out, /\/plugin update quality-code@acme\n/, 'the marketplace it is installed from')
+  assert.match(other.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@acme",/)
+  assert.match(r.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@teamsystem","installed":"0\.27\.0","running":"0\.27\.0","latest":"0\.28\.1","status":"update"\}\n$/)
 })
 test('up to date: one line, no commands to type', async () => {
   const r = await run('0.28.1')

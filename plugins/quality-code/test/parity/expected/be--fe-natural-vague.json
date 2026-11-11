@@ -3,7 +3,17 @@
   "repo": "be",
   "source": {
     "ref": "origin/agt-34-remove-audit-logs",
-    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f"
+    "commit": "285d3a787966edb8f06fdbf0c45144e7b71f853f",
+    "recaptured": {
+      "why": "fill-in: a concrete AC answer replaces the vague criteria, and an AC heading left empty goes",
+      "ops": [
+        9,
+        10,
+        11,
+        12,
+        16
+      ]
+    }
   },
   "results": [
     {
@@ -98,7 +108,7 @@
         "summary": "selftest ticket",
         "labels": [],
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+          "description": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
         },
         "filled": [
           {
@@ -123,7 +133,7 @@
         "summary": "selftest ticket",
         "labels": [],
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
+          "description": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows"
         },
         "filled": [
           {
@@ -148,7 +158,7 @@
         "summary": "selftest ticket",
         "labels": [],
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
+          "description": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too"
         },
         "filled": [
           {
@@ -177,7 +187,7 @@
         "summary": "selftest ticket",
         "labels": [],
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging"
+          "description": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging"
         },
         "filled": [
           {
@@ -231,7 +241,7 @@
         "summary": "selftest ticket",
         "labels": [],
         "text": {
-          "description": "## Acceptance criteria\n\n## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
+          "description": "## Acceptance criteria\nGiven a filter on code 22\nWhen I apply it\nThen the grid shows exactly 5 rows\n\n## Expected\nonly document 22\n\n## Actual\ndocuments 220 and 122 too\n\n## Environment\nEnv: staging\n\n## Acceptance criteria\n- The grid shows exactly 5 rows after filtering by code 22, one per matching product, and the counter above the grid reads 5 results. Rows for code 220 are not shown."
         },
         "filled": [
           {

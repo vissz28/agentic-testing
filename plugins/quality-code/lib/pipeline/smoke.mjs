@@ -3,12 +3,19 @@
 // matched by `--grep @smoke`. Pure helpers: the pipeline wires them in (bin/pipeline.mjs --smoke [--url U]).
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { stripComments } from './checks/external.mjs'
 
 export const SMOKE_TAG = '@smoke'
 const TAG = /(?:^|[^\w@])@smoke(?![\w-])/
+// Where --grep looks: a test or describe title (not a step's), and a tag: option, one tag or a list.
+const TITLE = /(?<![.\w$])(?:test|it|describe)(?:\.(?!step\b)\w+)*\s*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
+const TAG_OPT = /(?<![.\w$])tag\s*:\s*(\[[^\]]*\]|(['"`])(?:\\.|(?!\2)[^\\])*\2)/g
 
-/** True when the source text carries the @smoke tag. */
-export const hasSmokeTag = text => TAG.test(String(text ?? ''))
+/** True when a test title or tag in the source carries the @smoke tag; a comment or another string does not count. */
+export const hasSmokeTag = text => {
+  const code = stripComments(String(text ?? ''))
+  return [...code.matchAll(TITLE)].some(m => TAG.test(m[2])) || [...code.matchAll(TAG_OPT)].some(m => TAG.test(m[1]))
+}
 
 /** The specs (paths relative to root) whose source carries the tag; unreadable files are left out. */
 export function smokeSpecs(root, specs) {
