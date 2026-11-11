@@ -25,24 +25,23 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from `.claude/quality-code.json`.
 2. **Find.** From `$ARGUMENTS`, the first rule that applies:
-   - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,created,updated,description,parent,subtasks,issuelinks,comment` and `responseContentFormat` `markdown`. Go to step 3.
+   - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,description,parent,subtasks,issuelinks` and `responseContentFormat` `markdown` (never all fields, and no `comment`: a comment dump can fill the context). Go to step 3.
    - Only digits: the key is `<first of jira.projects>-<digits>`; as above.
    - Filters `assignee:` `reporter:` `status:` `label:` `epic:` `text:` (a value with spaces is in quotes): one JQL clause each, joined with `AND`, inside `project in (<jira.projects>)`. `assignee:me` and `reporter:me` are `currentUser()`; another name is looked up with `lookupJiraAccountId`. `epic:<KEY>` is `parent = <KEY>`. `text:<words>` is `text ~ "<words>"`. Escape `\` as `\\` and `"` as `\"` in every value first.
    - Anything else is search words: `project in (<jira.projects>) AND text ~ "<words>"`.
 
-   Search with `searchJiraIssuesUsingJql`: the JQL plus `ORDER BY updated DESC`, `maxResults` 10, fields `summary,issuetype,status,assignee`. No hit: `No ticket found. Try other words, or a key.` and stop. One hit: step 3 with it. More: show one line per hit, `[KEY](url) · <type> · <status> · <assignee or unassigned> · <summary>`, then `Which one? Type its number, or stop.` and end the turn.
+   Search with `searchJiraIssuesUsingJql`: the JQL plus `ORDER BY updated DESC`, `maxResults` 10, fields `summary,issuetype,status,assignee` and nothing else (no description). No hit: `No ticket found. Try other words, or a key.` and stop. One hit: step 3 with it. More: show one line per hit, `[KEY](url) · <type> · <status> · <assignee or unassigned> · <summary>`, then `Which one? Type its number, or stop.` and end the turn.
 3. **The ticket, in short.**
 
    ```
    [KEY](url) · <type> · <status>
    <summary>
-   Assignee <name or unassigned> · Reporter <name> · Created <date> · Updated <date>
+   Assignee <name or unassigned> · Reporter <name>
 
    <what the ticket asks, in 2 to 4 plain sentences from the description>
 
    Acceptance criteria: <the scenarios or criteria, one line each, or "none written">
    Subtasks: <KEY status, …>   Links: <KEY relation, …>   Parent: <KEY>
-   Last comments: <up to 3, newest first: who, date, one line each>
    ```
 
    Leave out a line that has nothing. Never paste the whole description.
