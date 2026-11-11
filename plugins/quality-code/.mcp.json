@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "atlassian-rovo": { "type": "http", "url": "https://mcp.atlassian.com/v1/mcp" },
+    "atlassian-rovo": { "type": "http", "url": "https://mcp.atlassian.com/v2/mcp" },
     "central-context": { "type": "http", "url": "${user_config.central_context_url}/mcp" },
     "figma": { "type": "http", "url": "https://mcp.figma.com/mcp" },
     "figma-token": {
@@ -25,14 +25,6 @@
         "XRAY_API_URL": "${user_config.xray_api_url}",
         "XRAY_CLIENT_ID": "${user_config.xray_client_id}",
         "XRAY_CLIENT_SECRET": "${user_config.xray_client_secret}"
-      }
-    },
-    "jira-files": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs", "jira-files", "--", "node", "${CLAUDE_PLUGIN_ROOT}/bin/jira-files.mjs"],
-      "env": {
-        "JIRA_EMAIL": "${user_config.jira_email}",
-        "JIRA_API_TOKEN": "${user_config.jira_api_token}"
       }
     }
   }

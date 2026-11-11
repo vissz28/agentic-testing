@@ -857,7 +857,7 @@ After `/quality-code:setup advanced` it can also hold, for example:
 | `qa` | optional, for `/quality-code:qa`: `executionTypes` (the Jira issue types of a test execution; default `Test Execution`, `Sub Test Execution`), `sprint` (`open`, the default, or `any`), `app` (the address to test), `statuses` (`ko`, `ready`, `done`: your status names, like `TEST KO` and `Ready to test`), `blockedStop` (stop after this many blocked tests in a row; default 2, 0 never), `autoPass` (record a test found OK without a card; default false) | Xray's types, open sprint, names detected |
 | `xray` | Playwright and fullstack: Xray test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
-| `centralContext.hub` | the Central Context hub (`http://localhost:8080` for the local preview, or the hosted hub), or `off`. `spec` reads from it the active testing rules of the quality domain that apply to the ticket's side and follows them while writing; `CC_HUB_URL` overrides it | TeamSystem's hosted hub (`https://centralcontext-dev.teamsystem.cloud`) |
+| `centralContext.hub` | the Central Context hub (`http://localhost:8080` for the local preview, or the hosted hub), or `off`. `spec` reads from it the active testing rules of the quality domain that apply to the ticket's side and follows them while writing, and `xray` the frontend ones for its cases; `CC_HUB_URL` overrides it | TeamSystem's hosted hub (`https://centralcontext-dev.teamsystem.cloud`) |
 | `jira.site` | your Jira site, `https://…`, no path | required |
 | `jira.projects` | project keys whose tickets you check (`ABC`) | required |
 | `jira.acceptanceCriteriaField` | id of the criteria field, or `null` for none. Leave it out to find it by name per project | found at ticket time |
@@ -921,7 +921,6 @@ enough; the other stays disconnected.
 | Jira (`atlassian-rovo`) | tickets, the refuse comment, the fill-in push, the risk note, Confluence QA plans | `/mcp`, choose `atlassian-rovo`, sign in. An Atlassian connection you already have in claude.ai works too | — |
 | GitLab (`gitlab`, `gitlab-token`) | the base branch from your merge request; merge requests in later parts. Read only | like Jira: `/mcp`, choose `gitlab`, sign in. Nothing to create or set: it is GitLab's own MCP server at `<gitlab_api_url>/mcp` (your GitLab admin must have it switched on, GitLab 19.5 or later) | set `gitlab_token` and `gitlab_username`, then `/mcp`, reconnect `gitlab-token` |
 | Figma (`figma`, `figma-token`) | design comparison (later parts) | `/mcp`, choose `figma`, sign in | set `figma_api_key`, then `/mcp`, reconnect `figma-token` |
-| Jira files (`jira-files`) | a ticket's `.docx` analysis and its screenshots, which the Jira connector cannot download. Optional, read only | — | set `jira_email` and `jira_api_token`, then `/mcp`, reconnect `jira-files` |
 
 `/quality-code:setup` and `/quality-code:spec` check the connectors first
 and show, for each one that is missing, exactly these steps. Figma is on that card only for
@@ -939,11 +938,10 @@ never typed in the chat. Every setting can be changed there later.
 | `gitlab_username` | both GitLab ways | your GitLab username (without `@`) or email. The connectors check confirms the signed-in account is yours and shows it on the card |
 | `jira_email` | Jira | the email of your Atlassian account. The connectors check confirms Jira is signed in with it and shows it on the card |
 | `figma_api_key` (secret) | Figma token | a Figma personal access token |
-| `jira_api_token` (secret) | Jira files | an Atlassian API token (id.atlassian.com, Security, API tokens) for the account of `jira_email` |
 
 The plugin only ever calls GitLab's read operations. The token connector also runs in read-only mode, and its token has only the `read_api` scope.
 
-**Jira files limits.** `jira-files` only reads, and only from an `https://<name>.atlassian.net` site. Per ticket it reads at most 3 `.docx` files and 3 images, each up to 5 MB; a `.docx` gives at most 20,000 characters of text. PDFs, spreadsheets and other files are not read: the ticket's flags name each one skipped. A `.docx`'s text is redacted and scored like the description; a screenshot is only used to draft criteria for the author to confirm, and never counts in the score. Without the token, `ticket-eval` asks for the `.docx` files' paths on your computer, and for the screenshots to be pasted.
+**Ticket files.** A ticket's Word files and screenshots are read with the Jira sign-in, through the connector's own short-lived download link (a v2 connection); no token is set. The plugin only reads, and only downloads from Atlassian's media address. Per ticket it reads at most 3 `.docx` files and 3 images, each up to 5 MB; a `.docx` gives at most 20,000 characters of text. PDFs, spreadsheets and other files are not read: the ticket's flags name each one skipped. A `.docx`'s text is redacted and scored like the description; a screenshot is only used to draft criteria for the author to confirm, and never counts in the score. On an older Jira connection that cannot download, `ticket --eval` asks for the `.docx` files' paths on your computer, and for the screenshots to be pasted.
 
 ---
 

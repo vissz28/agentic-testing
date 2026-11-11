@@ -143,3 +143,10 @@ test('which connectors: GitLab only for a GitLab remote, Figma for playwright an
   assert.match(doc, /From `spec`, `seed` and `xray`, an optional service/)
   for (const c of ['setup', 'spec', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
 })
+test('ticket files: the v2 download link goes to the plugin script, never to the shell command the connector gives', () => {
+  assert.match(doc, /\*\*Ticket files\.\*\* A ticket's screenshots and Word files are read with the Jira sign-in, on a v2 connection only; no token is needed/)
+  assert.match(doc, /Find `downloadJiraIssueAttachment` with `discover` and run it with `executeRead`, with `attachmentId`/)
+  assert.match(doc, /Never run the `downloadCommand` it also gives/)
+  assert.ok(doc.includes('bin/jira-file.mjs" <KEY> \'<downloadUrl>\' \'<filename>\'`'))
+  assert.ok(doc.includes('bin/jira-file.mjs" done <KEY>` deletes the saved images'))
+})

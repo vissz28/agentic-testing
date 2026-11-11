@@ -17,7 +17,7 @@ For QA. Takes the key of a task (it shows what to test and how, from its subtask
 - **Never invent.** An expected result comes from the test case's steps, or, on a retest, from the defect's expected result. If the test case does not give the steps or data, ask the tester, or mark the test Not verified.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option. Read only the first word for this; a sentence that says what happened is a typed answer.
 - **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Write defects and comments in the language of the tester's last defect (step 5); without one, in the test case's language. Quote the app's texts exactly as the screen shows them.
-- **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector. On the claude.ai connector some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`). Every key you show is a link: `[KEY](<jira.site>/browse/KEY)`.
+- **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector. On a v2 connection (the plugin's connector and claude.ai's) some operations have other names: use the table "Atlassian operation names" in `${CLAUDE_PLUGIN_ROOT}/guides/connectors.md`. When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`). Every key you show is a link: `[KEY](<jira.site>/browse/KEY)`.
 
 ## Steps
 

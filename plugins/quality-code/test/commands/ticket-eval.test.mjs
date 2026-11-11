@@ -199,13 +199,13 @@ test('ticket draft: screenshots are pasted by the user, 3 at most, never scored,
   assert.ok(draft.includes('The description has <n> screenshots, and I cannot open them from Jira.\n  Paste up to 3 here (or type their file paths) to draft from them too, or type skip.'))
   assert.match(draft, /Read at most 3/)
   assert.match(draft, /Never copy a name, an email, a customer code or other personal data from a screenshot/)
-  assert.match(draft, /Never save a screenshot or send it anywhere/)
+  assert.match(draft, /Never keep a screenshot or send it anywhere: after reading the downloaded ones, run `node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/jira-file\.mjs" done <KEY>`/)
   assert.match(draft, /A screenshot read here never changes the score/)
 })
-test('ticket draft: with the jira-files connector the screenshots are fetched, not asked for (AGT-121)', () => {
+test('ticket draft: the screenshots are downloaded with the Jira sign-in, not asked for, when the connection can (AGT-121)', () => {
   const shots = draft.slice(draft.indexOf('- **Screenshots.**'), draft.indexOf('- **Draft the item**'))
-  assert.match(shots, /the `get_ticket_files` tool of the `jira-files` connector is there, call it with `site` = `jira\.site`, the key and `kind` `images`/)
-  assert.match(shots, /No such tool, or it answers with an error: ask once before drafting/)
+  assert.match(shots, /download up to 3 of the ticket's images as \*\*Ticket files\*\* of `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/connectors\.md` says and look at each with the Read tool: nothing is asked/)
+  assert.match(shots, /The connection cannot download, or every download fails: ask once before drafting/)
 })
 test('step 2: Word files are read through the connector, or from paths the user types; scored like the description (AGT-117)', () => {
   const s2 = doc.slice(doc.indexOf('2. **Read the ticket.**'), doc.indexOf('3. **Save and sanitize.**'))
@@ -213,7 +213,7 @@ test('step 2: Word files are read through the connector, or from paths the user 
   assert.ok(word.length > 0)
   assert.match(word, /file name ends in `\.docx`/)
   assert.match(word, /PDFs and spreadsheets are not read/)
-  assert.match(word, /call it with `site` = `jira\.site`, the key and `kind` `docx`/)
+  assert.match(word, /download up to 3 as \*\*Ticket files\*\* of `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/connectors\.md` says: each prints its text on a `DOCX_JSON:` line/)
   assert.ok(word.includes('<KEY> has <n> Word files attached, and I cannot open them from Jira.\n     Type their paths on this computer to read them, or type skip.'))
   assert.match(word, /unless `--ci`, show this card and end the turn/)
   assert.ok(word.includes('ticket.mjs" docx \'<path>\''))
@@ -229,8 +229,8 @@ test('step 5b: screenshots and linked pages are read only for a refused ticket, 
   assert.match(doc, /\*\*refuse:\*\* first step 5b, once per run/)
   assert.match(s5b, /Word files were already read in step 2/)
   assert.ok(s5b.includes('ticket.mjs attach --in @<ticketsDir>/<KEY>/ticket.json <kind> @<ticketsDir>/<KEY>/attached.txt'))
-  assert.match(s5b, /the key and `kind` `images`/)
-  assert.doesNotMatch(s5b, /`kind` `docx`/)
+  assert.match(s5b, /download up to 3 as \*\*Ticket files\*\* of [^\n]* says and look at each saved file with the Read tool/)
+  assert.match(s5b, /jira-file\.mjs" done <KEY>`: it deletes the saved copies/)
   assert.match(s5b, /copy only the words it shows/)
   assert.match(s5b, /Leave out names, emails, customer codes and other personal data/)
   assert.match(s5b, /`getConfluencePage`/)
@@ -311,7 +311,7 @@ test('the fill-in list is never empty: with no items, the card says what is miss
 
 test('screenshots that cannot be read are said once, with the way to fix it; an epic is never scored', () => {
   assert.ok(doc.includes('Screenshots not readable.'))
-  assert.ok(doc.includes('`<n> screenshots on <KEY> were not read: the Jira files token is not set. To have them read: create an Atlassian API token (https://id.atlassian.com/manage-profile/security/api-tokens), type /plugin, choose quality-code, Configure options and set jira_api_token, then type /reload-plugins, then /mcp and reconnect jira-files. Or paste the words from them. This is shown once.`') && doc.includes('`<ticketsDir>/.jira-files-hint`'))
+  assert.ok(doc.includes('`<n> screenshots on <KEY> were not read: this Jira connection cannot download files. To have them read: type /reload-plugins, then /mcp, choose atlassian-rovo and sign in again. Or paste the words from them. This is shown once.`') && doc.includes('`<ticketsDir>/.jira-files-hint`'))
   assert.match(doc, /An epic is not scored\./)
   assert.match(doc, /never ask for acceptance criteria, never write any/)
 })

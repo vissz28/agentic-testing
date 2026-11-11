@@ -9,6 +9,24 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-11-11
+
+### Added
+
+- `/quality-code:xray` reads Central Context before it plans the cases, as `spec` does: one search on the ticket's topic with the `central-context` connector (the `Searched Central Context` step), then the frontend testing rules with `rules.mjs` (the `Read from Central Context` step). A rule that applies shapes how a case is worded and which of the guide's extra probes are picked first; it never adds a case, gives an expected result or stops a run. The two connector tools are pre-approved for xray.
+
+### Changed
+
+- The Jira connector (`atlassian-rovo`) uses Atlassian's v2 endpoint, `https://mcp.atlassian.com/v2/mcp`; the v1 endpoint is removed on 1 March 2027. The commands keep working on both: the connectors guide maps each operation to its v2 name.
+
+- A ticket's screenshots and Word files are read with the Jira sign-in: the v2 connector gives a short-lived download link, and `bin/jira-file.mjs` reads the file from it (only from Atlassian's media address, images and `.docx`, 5 MB each, at most 3 images per ticket; the saved images are deleted once read). Checked on a real ticket.
+
+### Removed
+
+- The `jira-files` connector and the `jira_api_token` setting: no Atlassian API token is needed any more. On an older connection that cannot download, the commands ask for the files as before.
+
+**What to do:** type `/reload-plugins`, then `/mcp`, choose `atlassian-rovo` and sign in again. The Jira API token in `/plugin` is no longer read; you can revoke it at id.atlassian.com.
+
 ## [0.70.2] - 2026-11-11
 
 ### Fixed

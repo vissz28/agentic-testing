@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 
 const doc = readFileSync(new URL('../../commands/xray.md', import.meta.url), 'utf8')
 const write = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
+// Without the header: only its allowed-tools line names a tool by its mcp__ id.
+const body = doc.slice(doc.indexOf('\n---\n', 4))
 const step = n => doc.slice(doc.indexOf(`\n${n}. **`), doc.indexOf(`\n${n + 1}. **`) === -1 ? doc.indexOf('\n## Examples') : doc.indexOf(`\n${n + 1}. **`))
 const XRAY = 'node "${CLAUDE_PLUGIN_ROOT}/bin/xray.mjs"'
 
@@ -22,7 +24,7 @@ test('the rules: the script writes the files, never invent, no tokens, no spec a
   assert.match(doc, /\*\*Never invent\.\*\*/)
   assert.match(doc, /Never ask for a token/)
   assert.match(doc, /no spec file, no test run, no check/)
-  assert.doesNotMatch(doc, /mcp__/)
+  assert.doesNotMatch(body, /mcp__/)
   assert.doesNotMatch(doc, /bin\/pipeline\.mjs/)
   assert.doesNotMatch(doc, /run start/)
 })
@@ -82,7 +84,21 @@ test('step 7: with the Xray API the tests are created in Xray after a yes, once,
   assert.match(s, /`add_tests_to_test_execution`/)
   assert.match(s, /Never call it twice for the same cases/)
   assert.match(s, /Nothing here runs a test or changes a status/)
-  assert.doesNotMatch(doc, /mcp__/)
+  assert.doesNotMatch(body, /mcp__/)
+})
+test('Central Context: step 4 searches the ticket\'s topic and reads the frontend testing rules, which never add a case, give a result or stop a run', () => {
+  const s = step(4)
+  assert.ok(s.startsWith('\n4. **Plan.** First search Central Context with the connector'))
+  // No --key: that saves what was read for the pipeline's result card, and xray has none.
+  assert.ok(s.includes('Then run `node "${CLAUDE_PLUGIN_ROOT}/bin/rules.mjs" --side frontend` and show its lines as printed'))
+  assert.ok(s.indexOf('bin/rules.mjs') < s.indexOf('guides/playwright-writing.md'), 'the rules are read before the extras are picked')
+  assert.match(s, /at most 3 extra probes from the guide's list that apply to this screen, first the ones a rule that applies points at/)
+  assert.match(doc, /`search_knowledge` with what the screen under test does in a few English words[^\n]*no `domain`, `max_results` 5, and `client_context` the project folder's name, `#` and the key, with no space \(`shop#ABC-123`/)
+  assert.match(doc, /One search, never more\./)
+  assert.match(doc, /A rule never adds a case of its own, never gives an expected result, never outranks the ticket's Then, the QA plan or a team guide, and never changes the gate's score/)
+  assert.match(doc, /the rules never stop a run/)
+  assert.match(doc, /Every read from Central Context, by `rules\.mjs` or by the connector, is shown to the person as a completed step/)
+  assert.ok(doc.includes('`RULES_JSON:`'))
 })
 test('step 2: the GitLab and GitHub links of the story are read read-only, with or without a repo, and add cases from the code', () => {
   const s = doc.slice(doc.indexOf('\n2. **Ticket and gate'), doc.indexOf('\n3. **Screen'))

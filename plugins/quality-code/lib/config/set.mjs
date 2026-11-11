@@ -119,7 +119,6 @@ export function pluginField(key) {
   if (k.startsWith('xray') && /token|key|secret|id$/.test(k)) return { field: /secret/.test(k) ? 'xray_client_secret' : 'xray_client_id', secret: true, where: 'Xray, API Keys: the Client ID and Client Secret of a key a Jira admin creates (set both: xray_client_id and xray_client_secret)' }
   if (k.startsWith('xray')) return { field: 'xray_api_url', secret: false, where: "Xray Cloud's address, like https://xray.cloud.getxray.app" }
   if (k.startsWith('jiraemail')) return { field: 'jira_email', secret: false, where: 'the email of your Atlassian account' }
-  if (/^jira(api)?token/.test(k)) return { field: 'jira_api_token', secret: true, where: 'an Atlassian API token (id.atlassian.com, Security, API tokens)' }
   return { field: null, secret: SECRET_KEY.test(key), where: null }
 }
 /** The exact steps to set a plugin field, one line each. Never holds a value. */

@@ -75,9 +75,9 @@ before they are scored (customer ids, emails), and everything else stays on your
 config, saved tickets, run logs and the audit log. Tokens live in your system keychain, never in the
 chat or the repository.
 
-With `jira_api_token` set, it also reads a ticket's `.docx` files and screenshots, which the Jira
-connector cannot download: read only, from your `*.atlassian.net` site, at most 3 of each per ticket,
-5 MB each, 20,000 characters per `.docx`. PDFs and spreadsheets are not read. Word files are
+It also reads a ticket's `.docx` files and screenshots, with the same Jira sign-in (no token): read
+only, through the Jira connector's own download link, at most 3 of each per ticket, 5 MB each,
+20,000 characters per `.docx`. PDFs and spreadsheets are not read. Word files are
 always read. Screenshots and linked Confluence pages are read only when a ticket is refused without
 them, so a ticket that passes costs nothing extra. Their text (a screenshot's words, copied as shown)
 is scored like the description, and once screenshots are read, an attachment earns its points only

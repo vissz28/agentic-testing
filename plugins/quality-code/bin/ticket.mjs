@@ -176,7 +176,7 @@ function run(argv, env, cwd) {
     return 0
   }
   if (cmd === 'docx') {
-    // A Word file the user named, when the Jira files connector cannot fetch it: its text, to add to the raw description.
+    // A Word file the user named, when the connection cannot download it: its text, to add to the raw description.
     const [file] = a._
     if (!file || a._.length > 1) { err("usage: ticket.mjs docx '<path to a .docx>'"); return 2 }
     const path = resolve(file.replace(/^~(?=\/|$)/, homedir()))

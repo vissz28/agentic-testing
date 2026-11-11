@@ -111,17 +111,29 @@ The plugin only ever calls GitLab's read operations.
 
 **GitHub fix.** Nothing to set in the plugin: the pull request is read with the `gh` CLI, signed in on this machine. Say `In a terminal, run gh auth login --hostname <host>, then come back.`; when `here.github.reason` is `gh is not installed`, say `Install the GitHub CLI (https://cli.github.com), then in a terminal run gh auth login --hostname <host>.` instead. Then show `1. Check again / 2. Continue without it` and end the turn. The plugin only reads with it: the pull request list and the sign-in status.
 
-**Atlassian operation names.** The commands name each Jira and Confluence operation as the plugin's `atlassian-rovo` connector does. The Atlassian connector of claude.ai has other names for some of them; use whichever the connection in this session offers:
+**Atlassian operation names.** The commands name each Jira and Confluence operation by its older (v1) name. The plugin's `atlassian-rovo` connector is on Atlassian's v2 endpoint (`https://mcp.atlassian.com/v2/mcp`), like the Atlassian connector of claude.ai, and v2 has other names for some of them. Use the v2 name when the connection in this session offers it, else the name the command says (an older connection):
 
-| Commands say | On the claude.ai Atlassian connector |
+| Commands say | On v2 (the plugin's connector and claude.ai's) |
 |---|---|
 | `getJiraIssue`, `editJiraIssue`, `searchJiraIssuesUsingJql`, `getAccessibleAtlassianResources`, `atlassianUserInfo`, `createJiraIssue`, `transitionJiraIssue` | the same names |
 | `addCommentToJiraIssue` | `addOrEditJiraIssueComment` |
 | `searchConfluenceUsingCql` | `searchConfluence` (pass the same CQL) |
 | reading a Confluence page | `getConfluenceContent` |
 | `getTransitionsForJiraIssue` | `listJiraIssueTransitions`, found with `discover` and run with `executeRead` |
-| `getVisibleJiraProjects`, `getJiraProjectIssueTypesMetadata`, `getJiraIssueTypeMetaWithFields`, `listJiraIssueRemoteIssueLinks`, `lookupJiraAccountId`, `listJiraIssueLinkTypes` | find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
+| `getVisibleJiraProjects` | `listJiraProjects`, found with `discover` and run with `executeRead`; its search word is `query`, not `searchString` |
+| `getJiraProjectIssueTypesMetadata` | `listJiraProjectIssueTypesMetadata`, found with `discover` and run with `executeRead` |
+| `getJiraIssueRemoteIssueLinks` | `listJiraIssueRemoteIssueLinks`, found with `discover` and run with `executeRead` |
+| `getJiraIssueTypeMetaWithFields`, `lookupJiraAccountId`, `listJiraIssueLinkTypes` | the same names: find the operation with `discover` (describe it in a few words), then run it with `executeRead` |
+| downloading a ticket's file | `downloadJiraIssueAttachment`, found with `discover` and run with `executeRead` (**Ticket files** below) |
 | `createJiraIssueLink`, `uploadAttachmentToJiraIssue` | find the operation with `discover`, then run it with `executeWrite`. Not found on the connection: skip that write and say so |
+
+**Ticket files.** A ticket's screenshots and Word files are read with the Jira sign-in, on a v2 connection only; no token is needed. For each file to read (an image, or a `.docx`; nothing else is read):
+
+1. Take its numeric `id`, `filename` and `size` from the ticket's `attachment` field (`getJiraIssue`). Over 5 MB: skip it, `Not read: <name> (over 5 MB)`.
+2. Find `downloadJiraIssueAttachment` with `discover` and run it with `executeRead`, with `attachmentId` = that id. It answers with a `downloadUrl`, a short-lived link. Never run the `downloadCommand` it also gives.
+3. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/jira-file.mjs" <KEY> '<downloadUrl>' '<filename>'`. An image: its `FILE_JSON:` line has the `path` of the saved copy, to look at with the Read tool. A Word file: its `DOCX_JSON:` line has the `text`; nothing is saved. Exit 2: the file is not read, and the line it prints says why.
+
+The script downloads only from Atlassian's media address, and at most 3 images per ticket. `node "${CLAUDE_PLUGIN_ROOT}/bin/jira-file.mjs" done <KEY>` deletes the saved images: run it once they are read. No `downloadJiraIssueAttachment` on the connection (an older one), or `discover` is not there: the connection cannot download, and the command says what to do then.
 
 **Co-author line.** Everything a command writes to Jira (a comment, a defect or task description, a note) ends with its own last line, `Co-authored via Quality Code` (`COAUTHOR_LINE` in the plugin's `lib/ticket/jira.mjs`, already added to the comments the scripts build). Show it in the preview, so the person sees it before the yes. A status change or a link carries no text and gets none; a second line is never added to an update of a comment that already ends with it.
 

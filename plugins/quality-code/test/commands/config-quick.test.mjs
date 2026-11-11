@@ -10,7 +10,7 @@ const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const config = read('commands/config.md')
 const CLI = fileURLToPath(new URL('../../bin/ticket.mjs', import.meta.url))
 const BIN = 'node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs"'
-const TOKEN_KEYS = ['gitlab_token', 'figma_api_key', 'xray_client_id', 'xray_client_secret', 'jira_api_token']
+const TOKEN_KEYS = ['gitlab_token', 'figma_api_key', 'xray_client_id', 'xray_client_secret']
 
 test('frontmatter: the argument hint names get, set and keys', () => {
   assert.match(config, /\nargument-hint: '?\[get <key> \| set <key> <value> \| keys\] \[--personal\|--project\] \[--yes\]'?\n/)
