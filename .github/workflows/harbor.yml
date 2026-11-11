@@ -1,5 +1,5 @@
 # Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality), image deploy-server.
-# Runs on every release tag (quality-code--vX.Y.Z) and by hand (Actions > "harbor" > Run workflow).
+# Runs on every push to main that changes the plugin (each release is one), and by hand (Actions > "harbor" > Run workflow).
 # No Azure here: it only builds the image and pushes it.
 #
 # Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
@@ -8,7 +8,8 @@ name: harbor
 
 on:
   push:
-    tags: ["quality-code--v*"]
+    branches: [main]
+    paths: ["plugins/quality-code/**", ".github/workflows/harbor.yml"]
   workflow_dispatch:
 
 permissions:
