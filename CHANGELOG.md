@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.71.2] - 2026-11-11
+
+### Fixed
+
+- Copilot in Visual Studio (Developer PowerShell) stopped `/quality-code:setup` at "Node.js not found" because the agent ran its own `Get-Command node` check and gave up. Every command and the check guide now say: do not check for Node yourself, run the script, and when it fails with "node is not recognized" follow `guides/node-missing.md` (it finds Node per user, for all users or with nvm, and runs the script again) before telling the person anything. The finder is `bin/find-node.ps1`, released in 0.69.1 and improved for nvm in 0.70.2.
+
+**What to do:** update the plugin (`/quality-code:update`) and open a new session. Plugins older than 0.69.1 do not have the finder at all.
+
 ## [0.71.1] - 2026-11-11
 
 ### Added

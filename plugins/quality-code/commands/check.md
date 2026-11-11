@@ -7,6 +7,7 @@ effort: low
 ---
 
 Checks the tests. Pick the suite from `$ARGUMENTS`, drop that flag, then read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite and the rest of the arguments. Its rules apply: **Run each plugin script exactly as written**, one call each.
+**Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 
 - **`--smoke`:** the suite `smoke`: only the Playwright tests tagged `@smoke`, in seconds, against the app your Playwright config starts or, with `--url`, against that environment (staging, a preview, production). Read `${CLAUDE_PLUGIN_ROOT}/guides/smoke.md` first for what a smoke run is. Show the verdict the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a live checklist, the pipeline card as a `###` section with the headline row first and the tests as a table and `diff` block, files as `HERE` links, never a code-block card. It makes nothing, so it has no wrap-up.
 - **`--backend`:** the suite `backend`: every spec of the backend runner (Vitest, pytest, JUnit, Go or .NET) in the project's test layers, or the spec paths given.

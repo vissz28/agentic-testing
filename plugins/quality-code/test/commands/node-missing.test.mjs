@@ -20,3 +20,14 @@ test('the Windows finder looks per user, for all users, in version managers and 
   assert.match(ps, /NODE_EXE=/)
   assert.match(read('guides/node-missing.md'), /find-node\.ps1/)
 })
+
+test('every command tells the agent not to check for node itself and to use the node-missing guide', async () => {
+  const { readdirSync } = await import('node:fs')
+  const files = readdirSync(join(root, 'commands')).filter(f => f.endsWith('.md')).map(f => `commands/${f}`)
+  for (const f of files) {
+    const s = read(f)
+    if (!s.includes('Run each plugin script exactly as written')) continue
+    assert.match(s, /do not check for it yourself/, f)
+    assert.match(s, /guides\/node-missing\.md/, f)
+  }
+})

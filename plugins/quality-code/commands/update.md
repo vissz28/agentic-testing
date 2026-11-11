@@ -11,6 +11,7 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 - **The script decides.** `update.mjs` reads the installed version and the latest one and compares them. Never compare, guess or invent a version or a change yourself.
 - **Two commands only.** The script below, and `claude plugin update <id>` (option 1, after the user picks it), where `<id>` is the `id` of the script's `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none). No other tool, and never edit the plugin's folder or its cache. The check sends nothing about the user or the project; it reads two public files of the plugin's GitHub repository (or its git tags).
 - **`/reload-plugins` is the user's.** It is a command typed in Claude Code; never try to run it.

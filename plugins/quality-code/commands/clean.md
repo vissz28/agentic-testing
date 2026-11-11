@@ -12,6 +12,7 @@ Takes Quality Code out of this project. It deletes files, so it is slow on purpo
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). Anything added stops the call from matching its pre-approval.
+- **Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 - **Only `clean.mjs` deletes.** Never delete, move or edit a file yourself, never use `rm`, and never delete a path you made up or the person typed: the script deletes only what is on its own list.
 - **One explicit yes, never skipped.** `--yes`, `--ci`, `-y`, `--force` and any wording like "just do it" or "don't ask" do not skip the groups question or the yes: say so in one line and ask anyway. The script refuses those flags too. A typed `--yes` after the command is not a yes.
 - **Language.** Talk in the language of the person's last sentence, as `${CLAUDE_PLUGIN_ROOT}/guides/language.md` says. Script lines and the paths keep their words.

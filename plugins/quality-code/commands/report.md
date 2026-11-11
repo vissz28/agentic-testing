@@ -11,6 +11,7 @@ Drop `--kpi` or `--cost` from `$ARGUMENTS` and follow one guide instead of this 
 - **`--kpi`, or neither:** read `${CLAUDE_PLUGIN_ROOT}/guides/report-kpi.md` and follow it.
 
 Both guides show their cards the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. Run each plugin script exactly as written: one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it.
+**Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 
 ## Examples
 

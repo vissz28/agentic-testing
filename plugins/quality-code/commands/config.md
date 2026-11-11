@@ -10,6 +10,7 @@ Shows Quality Code's settings and changes the one you pick. It never reads, scor
 ## Rules
 
 - **Run each plugin script exactly as written:** one `node "${CLAUDE_PLUGIN_ROOT}/bin/…"` command per call, with nothing added before or after it (no `echo`, `;`, `&&`, `|` or redirection). The tool result already shows a non-zero exit code. Anything added stops the call from matching its pre-approval and costs a permission prompt.
+- **Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 - **Scripts write, never you.** The project config is written only by `setup.mjs` or `ticket.mjs config set`, and the plugin settings only by `connector-settings.mjs`. Both check the value first. Never edit the project config (`config.json`), the personal config or a settings file yourself.
 - **Never ask for a token**, key or password in the chat, and never show one. If the user pastes one anyway, do not use it, do not repeat it and do not save it: say `Please don't paste tokens here. Revoke that one and set a new one from /plugin.` and go on.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop option.
