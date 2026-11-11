@@ -38,7 +38,7 @@ export function keyCandidates(texts, projects) {
 
 const NOT_A_PROJECT = new Set(['RELEASE', 'HOTFIX', 'FEATURE', 'BUGFIX', 'FIX', 'V', 'RC', 'SPRINT', 'VERSION'])
 
-/** A key-shaped name in the branch itself (FIC-2191), for a project the config does not list. The branch name is the person's own choice, so it is trusted more than a commit subject. */
+/** A key-shaped name in the branch itself (ABC-123), for a project the config does not list. The branch name is the person's own choice, so it is trusted more than a commit subject. */
 export function branchKey(branch) {
   for (const m of String(branch ?? '').toUpperCase().matchAll(/(?<![A-Z0-9])([A-Z][A-Z0-9]{1,9})[-_](\d+)(?!\d)/g)) {
     if (!NOT_A_PROJECT.has(m[1])) return `${m[1]}-${m[2]}`
