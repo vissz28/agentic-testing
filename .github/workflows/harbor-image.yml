@@ -1,4 +1,4 @@
-# Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality).
+# Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality), image deploy-server.
 # Runs on every release tag (quality-code--vX.Y.Z) and by hand (Actions > "Push image to Harbor" > Run workflow).
 # No Azure here: deploying the image is the separate "Deploy MCP server" workflow.
 #
@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/quality-code-mcp
+  IMAGE: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/deploy-server
 
 jobs:
   image:

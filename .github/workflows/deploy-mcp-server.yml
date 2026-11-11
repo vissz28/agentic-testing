@@ -91,8 +91,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/quality-code-mcp:${{ inputs.environment }}
-            ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/quality-code-mcp:${{ steps.version.outputs.value }}-${{ github.sha }}
+            ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/deploy-server:${{ inputs.environment }}
+            ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/deploy-server:${{ steps.version.outputs.value }}-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -109,7 +109,7 @@ jobs:
           az containerapp update \
             --name "${{ vars.APP_NAME }}" \
             --resource-group "${{ vars.RESOURCE_GROUP }}" \
-            --image "${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/quality-code-mcp:${{ steps.version.outputs.value }}-${{ github.sha }}" \
+            --image "${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}/${{ vars.HARBOR_PROJECT || 'quality' }}/deploy-server:${{ steps.version.outputs.value }}-${{ github.sha }}" \
             --revision-suffix "g${GITHUB_SHA::7}"
 
       # The checks of mcp-server/DEPLOY.md: /health is 200, /mcp without a token is 401.
@@ -135,4 +135,4 @@ jobs:
       - name: Summary (push only)
         if: ${{ inputs.push_only }}
         run: |
-          echo "Pushed quality-code-mcp:${{ inputs.environment }} to Harbor (no deploy)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed deploy-server:${{ inputs.environment }} to Harbor (no deploy)" >> "$GITHUB_STEP_SUMMARY"
