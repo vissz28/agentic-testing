@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-11-11
+
+### Changed
+
+- The commands guide shipped with the plugin (`assets/commands.pdf`, shown by `/quality-code:update`) is rebuilt for 0.68: the 15 commands after the merges of 0.61 to 0.68, and what is new, including the Copilot fixes and the guide itself.
+
+**What to do:** nothing.
+
 ## [0.68.0] - 2026-11-10
 
 ### Removed
