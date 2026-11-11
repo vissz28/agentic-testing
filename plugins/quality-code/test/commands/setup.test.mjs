@@ -23,7 +23,7 @@ test('A2: the label search can be narrowed before counting', () => {
   assert.ok(s.includes('labels = "<label>"'))
   assert.match(s, /searchResultMode`? `?count/)
   assert.match(s, /fields `labels,summary`/)
-  assert.match(s, /`maxResults` 100/)
+  assert.match(s, /`maxResults` 50/)
   assert.match(s, /unknown/i)
   assert.match(s, /Title prefixes[\s\S]*narrowed/)
 })
