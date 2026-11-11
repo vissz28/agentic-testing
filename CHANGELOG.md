@@ -9,6 +9,23 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-11-11
+
+Fixes from the 0.68.1 trial report on a monorepo of 24 Node services (Jest backend, Vitest and Playwright frontend).
+
+### Fixed
+
+- **Setup on a monorepo.** An npm, Yarn or pnpm workspaces root is one project: setup no longer asks which service the work is in, and adds no Playwright or Vitest scaffold at the root. Jest is detected, each workspace's own Jest config is found and written as `vitest.configs` (no hand mapping), and build copies (`.build-context/`, `.build/`, `.docker-context/`) and git-ignored folders are ignored. A project key that looks like a more-used one (`PF0` next to `PFO`) is no longer offered.
+- **Config.** `config get runners.unit`, `runners.e2e`, `vitest.configs` and `playwright.configs` can be read, set (a wrong runner name is refused) and cleared; `config get` with no key prints the whole config without secrets.
+- **Whole-suite check on a monorepo.** Git-ignored folders are skipped, a workspace on another unit runner is not handed to this one, and with no root `tsconfig.json` each spec is type-checked with the nearest one above it.
+- **Check on a spec with no ticket key.** Tests, assertions and mutation run on the whole spec and the card says `no ticket anchor: expected values not compared`; it no longer ends as "could not run".
+- **CI.** The plugin is fetched from `ci.pluginSource` (`url`, `ref`) of the config, or `QUALITY_CODE_PLUGIN_URL` and `QUALITY_CODE_PLUGIN_REF`; the default is unchanged. `ci --init --dry-run` works and writes nothing.
+- **Files and docs.** The saved Jira field is kept beside the config, not in the repo, until a place is picked, and `save set` leaves no stray folders. Guides now say "the project config" instead of `.claude/quality-code.json`.
+- **Fill-in.** `ticket add --drafted` needs `--confirmed`, passed only after the person picks Use it.
+- **Smaller Jira reads.** Narrower field lists and page sizes in ticket, tickets-eval, setup and spec; the issue-type field list is saved and searched, never read whole.
+
+**What to do:** nothing. On a monorepo, run `/quality-code:setup` again to get the detected runner and per-workspace configs. Not done: a per-workspace route when both sides use the same runner, and `--ticket <KEY>` for check.
+
 ## [0.69.1] - 2026-11-11
 
 ### Fixed
