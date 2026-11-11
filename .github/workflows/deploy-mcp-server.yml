@@ -27,6 +27,10 @@ on:
         type: choice
         options: [dev, test, main]
         default: dev
+      push_only:
+        description: Only build and push the image to Harbor (no Azure sign-in, no deploy)
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-mcp-${{ inputs.environment }}
@@ -65,6 +69,7 @@ jobs:
         run: echo "value=$(jq -r .version plugins/quality-code/.claude-plugin/plugin.json)" >> "$GITHUB_OUTPUT"
 
       - name: Sign in to Azure
+        if: ${{ !inputs.push_only }}
         run: az login --service-principal -u "${{ secrets.AZURE_CLIENT_ID }}" -p "${{ secrets.AZURE_CLIENT_SECRET }}" --tenant "${{ secrets.AZURE_TENANT_ID }}" --output none
 
       # The image goes to the Harbor project (robot account `robot$quality+github`), built here for linux/amd64
@@ -92,6 +97,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Deploy to the Container App
+        if: ${{ !inputs.push_only }}
         run: |
           # The Container App pulls from Harbor with the robot account.
           az containerapp registry set \
@@ -108,6 +114,7 @@ jobs:
 
       # The checks of mcp-server/DEPLOY.md: /health is 200, /mcp without a token is 401.
       - name: Check the deployment
+        if: ${{ !inputs.push_only }}
         run: |
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.PUBLIC_URL }}/health" || true)
@@ -121,5 +128,11 @@ jobs:
           [ "$mcp" = "401" ]
 
       - name: Summary
+        if: ${{ !inputs.push_only }}
         run: |
           echo "Deployed ${{ steps.version.outputs.value }} (${GITHUB_SHA::7}) to ${{ inputs.environment }} at ${{ vars.PUBLIC_URL }}/mcp" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (push only)
+        if: ${{ inputs.push_only }}
+        run: |
+          echo "Pushed quality-code-mcp:${{ inputs.environment }} to Harbor (no deploy)" >> "$GITHUB_STEP_SUMMARY"
