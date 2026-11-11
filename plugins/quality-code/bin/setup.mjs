@@ -21,6 +21,7 @@ import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
 import { backendOf, isBackend } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
+import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -33,12 +34,12 @@ export const RUNTIME_GITIGNORE = ['.claude/quality-code/*.jsonl', '.claude/quali
 
 const rawLine = ticketsDir => `${normaliseTicketsDir(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
 
-function boundaryCandidates(root) {
+function boundaryCandidates(root, ignored = new Set()) {
   let names = []
   try { names = readdirSync(root) } catch {}
-  const exists = p => existsSync(join(root, p.replace(/\/$/, '')))
+  const exists = p => existsSync(join(root, p.replace(/\/$/, ''))) && !ignored.has(p.replace(/\/$/, ''))
   // A workspace monorepo's packages each have their code folder.
-  const workspaceSrc = top => { try { return readdirSync(join(root, top)).some(n => existsSync(join(root, top, n, 'src'))) } catch { return false } }
+  const workspaceSrc = top => { try { return readdirSync(join(root, top)).some(n => !BUILD_COPIES.has(n) && !ignored.has(`${top}/${n}`) && existsSync(join(root, top, n, 'src'))) } catch { return false } }
   // Order: code folders, environment files, CI files.
   return [
     ...['src/', 'app/', 'lib/', 'server/', 'pages/', 'components/', 'prisma/', 'migrations/'].filter(exists),
@@ -70,12 +71,12 @@ const DOTNET_FILES = /\.(?:csproj|fsproj|sln)$/
  * The backend runners a repo shows, in the order setup proposes them: Vitest (package.json), pytest,
  * JUnit (Maven or Gradle), Go (go.mod), .NET (a project or solution file, at the top or one folder down).
  */
-export function detectBackends(root, deps = {}) {
+export function detectBackends(root, deps = {}, ignored = new Set()) {
   let names = []
   try { names = readdirSync(root) } catch {}
   const read = n => { try { return readFileSync(join(root, n), 'utf8').slice(0, 1 << 20) } catch { return '' } }
   const oneDown = re => names.some(n => re.test(n)) || names.some(n => {
-    if (n.startsWith('.') || n === 'node_modules') return false
+    if (n.startsWith('.') || n === 'node_modules' || BUILD_COPIES.has(n) || ignored.has(n)) return false
     try { return readdirSync(join(root, n)).some(m => re.test(m)) } catch { return false }
   })
   const found = []
@@ -98,17 +99,17 @@ function hasSpecBesideCode(dir, budget = { n: 5000 }) {
   return false
 }
 
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist'])
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', ...BUILD_COPIES])
 
 /** The folders (first two path segments, ending in "/") that hold specs: sorted, at most 10. */
-function specFolders(root, budget = { n: 20000 }) {
+function specFolders(root, ignored = new Set(), budget = { n: 20000 }) {
   const found = new Set()
   const walk = (rel, depth) => {
     let entries = []
     try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
     for (const e of entries) {
       if (--budget.n < 0) return
-      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(rel ? `${rel}/${e.name}` : e.name, depth + 1) }
+      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name) && !ignored.has(rel ? `${rel}/${e.name}` : e.name)) walk(rel ? `${rel}/${e.name}` : e.name, depth + 1) }
       else if (depth > 0 && SPEC_FILE.test(e.name)) found.add(`${rel.split('/').slice(0, 2).join('/')}/`)
     }
   }
@@ -120,7 +121,7 @@ function specFolders(root, budget = { n: 20000 }) {
  * Playwright config files at the root or up to two folders down (Playwright finds only the root one by
  * itself), each with the test folder its testDir gives, or null when it cannot be read.
  */
-function playwrightConfigs(root) {
+function playwrightConfigs(root, ignored = new Set()) {
   const names = new Set(CONFIG_FILES)
   const found = []
   const walk = (rel, depth) => {
@@ -128,7 +129,7 @@ function playwrightConfigs(root) {
     try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
     for (const e of entries) {
       const p = rel ? `${rel}/${e.name}` : e.name
-      if (e.isDirectory()) { if (depth < 2 && !SKIP_DIRS.has(e.name) && !e.name.startsWith('.')) walk(p, depth + 1) }
+      if (e.isDirectory()) { if (depth < 2 && !SKIP_DIRS.has(e.name) && !e.name.startsWith('.') && !ignored.has(p)) walk(p, depth + 1) }
       else if (names.has(e.name)) found.push({ config: p, folder: readTestDir(root, [p])?.value ?? null })
     }
   }
@@ -349,6 +350,12 @@ function gitOut(root, args) {
   }
 }
 
+/** The folders git ignores (relative to root, no trailing slash): detect never reads them. Empty outside a repo. */
+export function ignoredDirs(root) {
+  const out = gitOut(root, ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory']) ?? ''
+  return new Set(out.split('\n').filter(l => l.endsWith('/')).map(l => l.slice(0, -1)))
+}
+
 /** { host, path } of a remote (https or scp form), credentials dropped; else null. */
 export function remoteProject(url) {
   const u = stripCredentials(url)
@@ -405,7 +412,17 @@ export function projectCandidates(texts) {
   for (const t of texts) {
     for (const m of String(t ?? '').matchAll(JIRA_KEY)) if (!NOT_PROJECTS.has(m[1])) count.set(m[1], (count.get(m[1]) ?? 0) + 1)
   }
-  return [...count].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([key]) => key)
+  // A key that reads like another one (PF0 with a zero beside PFO with the letter, 1 and I) is a typo of the more used one: it is dropped.
+  const look = k => k.replace(/0/g, 'O').replace(/1/g, 'I')
+  const digits = k => (k.match(/[01]/g) ?? []).length
+  const kept = []
+  for (const [key, n] of [...count].sort((a, b) => b[1] - a[1])) {
+    const twin = kept.find(t => look(t[0]) === look(key))
+    // A tie between lookalikes keeps the one spelled with letters.
+    if (!twin) kept.push([key, n])
+    else if (twin[1] === n && digits(key) < digits(twin[0])) twin[0] = key
+  }
+  return kept.slice(0, 5).map(([key]) => key)
 }
 
 /** Project keys named by the local branches and the last 200 commit subjects: setup proposes them. */
@@ -448,9 +465,9 @@ const TEST_DEPS = [...UNIT_RUNNERS, '@playwright/test', 'cypress']
 const hasTestTool = (top, n) => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
 
 /** The folders one down that hold a package.json, those with a test tool first: where the project may live when the top has none. */
-function rootCandidates(top) {
+function rootCandidates(top, ignored = new Set()) {
   let names = []
-  try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name)).map(e => e.name).sort() } catch {}
+  try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name) && !ignored.has(e.name)).map(e => e.name).sort() } catch {}
   const tested = n => hasTestTool(top, n)
   const found = names.filter(n => existsSync(join(top, n, 'package.json')))
   return [...found.filter(tested), ...found.filter(n => !tested(n))]
@@ -507,11 +524,14 @@ export function detect(top, env = process.env, sub = null) {
   if (existsSync(cp)) {
     try { existing = readJson(cp) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }
-  const candidates = rootCandidates(top)
-  // The top of an npm-workspaces monorepo only orchestrates: the project is one of its workspaces.
+  const ignored = ignoredDirs(top)
   const topPkg = (() => { try { return readJson(join(top, 'package.json')) } catch { return null } })()
-  const orchestrates = Boolean(topPkg?.workspaces) && !TEST_DEPS.some(d => d in { ...topPkg.dependencies, ...topPkg.devDependencies })
-  const bare = (!existsSync(join(top, 'package.json')) && !detectBackends(top).length) || orchestrates
+  // A workspaces root (npm, Yarn, pnpm) is ONE project with many test roots: never a choice of which service.
+  const patterns = workspacePatterns(top, topPkg)
+  const wsDirs = patterns ? workspaceDirs(top, patterns, ignored) : []
+  const monorepo = wsDirs.length > 0 && !sub && typeof existing?.root !== 'string'
+  const candidates = monorepo ? [] : rootCandidates(top, ignored)
+  const bare = !monorepo && !existsSync(join(top, 'package.json')) && !detectBackends(top, {}, ignored).length
   const ranking = bare && !sub && typeof existing?.root !== 'string' ? rankRoots(top, candidates) : null
   const pick = sub ?? (typeof existing?.root === 'string' ? existing.root : bare ? ranking.ordered[0] ?? null : null)
   const proposed = pick && resolve(top, pick) !== resolve(top) ? pick : null
@@ -526,19 +546,26 @@ export function detect(top, env = process.env, sub = null) {
     } catch { deps = {}; pkg = null }
   }
   // The JavaScript unit runner (Vitest, else Jest, Mocha or node --test under the vitest adapter) and the e2e one.
-  const unit = UNIT_RUNNERS.find(r => r in deps) ?? (runsNodeTest(pkg) ? 'node' : null)
-  const e2e = '@playwright/test' in deps ? 'playwright' : 'cypress' in deps ? 'cypress' : null
+  // A monorepo is tested with what its workspaces are: the runner most of them use, each with its own config.
+  const wsRunners = monorepo ? workspaceRunners(top, wsDirs) : []
+  const wsRunner = majorityRunner(wsRunners)
+  const wsAll = monorepo ? { ...workspaceDeps(top, wsDirs), ...deps } : deps
+  const unit = wsRunner ?? UNIT_RUNNERS.find(r => r in wsAll) ?? (runsNodeTest(pkg) ? 'node' : null)
+  const e2e = '@playwright/test' in wsAll ? 'playwright' : 'cypress' in wsAll ? 'cypress' : null
+  // Each workspace's own config (Jest started at the root without --config trips over the copies of packages in build folders):
+  // the project's vitest.configs maps the folder to it. Only the workspaces on the runner the project uses.
+  const unitConfigs = wsRunners.filter(w => w.runner === unit && w.config).map(w => ({ match: `${w.dir}/`, config: w.config }))
   // The backend runner: the first one found; with an e2e runner too the repo is both (fullstack + backend).
-  const backends = detectBackends(root, deps)
+  const backends = detectBackends(root, deps, ignored)
   if (unit && !backends.includes('vitest')) backends.unshift('vitest')
   const backend = backends[0] ?? null
   const adapter = e2e && backend ? 'both' : e2e ? 'playwright' : backend
   // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
   const runners = { ...(backend === 'vitest' && unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
-  const pwConfigs = playwrightConfigs(root)
-  const vitest = vitestScaffold(root, pkg, adapter)
+  const pwConfigs = playwrightConfigs(root, ignored)
+  const vitest = monorepo ? null : vitestScaffold(root, pkg, adapter)
   // The backend that gets real databases: Vitest when it runs the tests (or setup adds it), else pytest, Go or .NET.
-  const containerBackend = unit === 'vitest' || (vitest && !vitest.problem) ? 'vitest' : backend && backend !== 'vitest' ? backend : null
+  const containerBackend = monorepo ? null : unit === 'vitest' || (vitest && !vitest.problem) ? 'vitest' : backend && backend !== 'vitest' ? backend : null
   const templates = {}
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
@@ -547,15 +574,17 @@ export function detect(top, env = process.env, sub = null) {
     // ask: several projects and nothing decides which one is this work: the person picks (setup shows the card).
     root: { proposed, candidates: ranking?.ordered ?? candidates, ask: Boolean(ranking && ranking.ordered.length > 1 && !ranking.decisive), evidence: ranking?.evidence ?? {} },
     adapter, backend, backends, runners, templates, existing,
+    // monorepo: one project over these workspace folders; unitConfigs is the vitest.configs proposal (folder -> its own config).
+    workspaces: monorepo ? { folders: wsDirs, unit, unitConfigs } : null,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
-    boundaries: boundaryCandidates(root),
+    boundaries: boundaryCandidates(root, ignored),
     vitestConfigs: vitestConfigs(root),
     specsBesideCode: hasSpecBesideCode(join(root, 'src')),
     colocated: colocatedProposal(root),
-    specFolders: specFolders(root),
+    specFolders: specFolders(root, ignored),
     conventions: detectConventions(root),
     playwrightConfigs: pwConfigs,
-    scaffold: playwrightScaffold(root, pkg, adapter, pwConfigs),
+    scaffold: monorepo ? null : playwrightScaffold(root, pkg, adapter, pwConfigs),
     vitestScaffold: vitest,
     containersScaffold: containersScaffold(root, containerBackend, { deps, config: existing, cmd: pkg ? { add: ADD_DEV[packageManager(root, pkg).pm], ts: existsSync(join(root, 'tsconfig.json')) } : {} }),
     here: here(root),

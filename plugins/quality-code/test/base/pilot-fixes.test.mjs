@@ -132,10 +132,12 @@ test('setup: tests beside the code are proposed, and the write wires the layer a
   assert.equal(writeSetup(tree({ 'test/a.spec.ts': 'x' }), { version: 1, adapter: 'vitest', jira }, { colocated: true }).ok, false)
 })
 
-test('the top of a workspaces monorepo proposes a workspace as the root, not adapter vitest with runner node', async () => {
+test('the top of a workspaces monorepo is one project (no workspace as the root), with the workspaces runner', async () => {
   const { detect } = await import('../../bin/setup.mjs')
   const d = tree({ 'package.json': '{"workspaces":["app","be"]}', 'app/package.json': '{"devDependencies":{"vitest":"1"}}', 'be/package.json': '{}' })
-  assert.equal(detect(d).root.proposed, 'app')
+  const r = detect(d)
+  assert.deepEqual([r.root.proposed, r.root.ask, r.adapter], [null, false, 'vitest'])
+  assert.deepEqual(detect(d, process.env, 'app').root.proposed, 'app', 'a root named by --root still works')
   const plain = tree({ 'package.json': '{"devDependencies":{"vitest":"1"}}', 'app/package.json': '{}' })
   assert.equal(detect(plain).root.proposed, null)
 })
