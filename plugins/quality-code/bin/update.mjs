@@ -137,7 +137,7 @@ export function formatCard({ id, installed, running = installed, latest, status,
   if (status === 'reload') lines.push(`  Running    ${running}`, `  Installed  ${installed}   (on disk, not loaded yet)`)
   else lines.push(`  Installed  ${installed}`)
   lines.push(`  Latest     ${latest}   (from ${via})`)
-  if (status === 'reload') lines.push('', `Version ${installed} is installed. Type /reload-plugins (or open a new session) to use it.`)
+  if (status === 'reload') lines.push('', `This session still runs ${running}. ${installed} is installed and is used from the next session, or after you type /reload-plugins here.`, 'If it still shows the old version after /reload-plugins, close this session and open a new one.')
   else if (status === 'current') lines.push('', `You have the latest version.`)
   else if (status === 'ahead') lines.push('', `You are ahead of the published version (a local or development copy).`)
   else {

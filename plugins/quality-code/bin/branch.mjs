@@ -36,6 +36,16 @@ export function keyCandidates(texts, projects) {
   return out
 }
 
+const NOT_A_PROJECT = new Set(['RELEASE', 'HOTFIX', 'FEATURE', 'BUGFIX', 'FIX', 'V', 'RC', 'SPRINT', 'VERSION'])
+
+/** A key-shaped name in the branch itself (FIC-2191), for a project the config does not list. The branch name is the person's own choice, so it is trusted more than a commit subject. */
+export function branchKey(branch) {
+  for (const m of String(branch ?? '').toUpperCase().matchAll(/(?<![A-Z0-9])([A-Z][A-Z0-9]{1,9})[-_](\d+)(?!\d)/g)) {
+    if (!NOT_A_PROJECT.has(m[1])) return `${m[1]}-${m[2]}`
+  }
+  return null
+}
+
 /** Playwright test folders: the e2e folder write uses (playwright.folder, else testDir), else e2e/ and tests/. */
 export function playwrightTestDirs(root, config) {
   const f = e2eFolder(root, config)
@@ -206,6 +216,9 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
   if (out.mergeBase) out.mergeBase = out.mergeBase.slice(0, 7)
   out.branch = rawBranch === null ? null : clean(rawBranch)
   out.keys = keyCandidates([out.branch?.toUpperCase(), pr && clean(pr.title).toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
+  // A ticket named in the branch counts even when its project is not in the config (the config may list another project, or none).
+  const named = branchKey(out.branch)
+  if (named && !out.keys.includes(named)) out.keys.unshift(named)
   // The branch's own commit messages, newest first and redacted: what a fill-in suggestion may quote.
   out.subjects = subjects.filter(Boolean).slice(0, 20).map(clean)
   if (pr) out.pullRequest = { base: clean(pr.baseRefName), title: clean(pr.title), description: clean(pr.body) }

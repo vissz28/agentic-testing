@@ -71,7 +71,7 @@ test('updated on disk but not reloaded: the card says so and asks for /reload-pl
   const env = configWith({ 'quality-code@quality-code': [{ version: '0.28.1' }] })
   const r = await run('0.27.0', { env })
   assert.match(r.out, /Running {4}0\.27\.0\n {2}Installed {2}0\.28\.1 {3}\(on disk, not loaded yet\)/)
-  assert.match(r.out, /Version 0\.28\.1 is installed\. Type \/reload-plugins/)
+  assert.match(r.out, /This session still runs 0\.27\.0\. 0\.28\.1 is installed and is used from the next session, or after you type \/reload-plugins/)
   assert.match(r.out, /"status":"reload"/)
   assert.doesNotMatch(r.out, /A new version is out/)
 })

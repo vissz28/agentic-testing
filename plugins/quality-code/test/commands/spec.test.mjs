@@ -562,3 +562,8 @@ test('step 1: a missing runner no longer stops the run; it is offered at the pla
   assert.match(s, /With `--ci`, show every line, say how to add the runner/)
   assert.doesNotMatch(s, /setup's `Not now`/)
 })
+
+test('a key in the arguments is the ticket and skips the branch name; without one the branch name gives it', () => {
+  assert.match(doc, /is the key: that Jira ticket is the one, and the branch name is not read for it/)
+  assert.match(doc, /Without one, take the ticket of the branch you are on \(a branch named `ABC-123-…` gives `ABC-123`/)
+})

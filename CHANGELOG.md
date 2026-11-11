@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.70.1] - 2026-11-11
+
+### Fixed
+
+- `/quality-code:spec` with no key takes the ticket named in the branch (`feature/ABC-123-export` gives `ABC-123`), also when its project is not in `jira.projects`; before, it asked "Which ticket?". With a key (`/quality-code:spec ABC-123`) that Jira ticket is used and the branch name is not read for it. A configured project in the branch still wins, and names like `release-2024` are not taken for keys.
+- The update card says plainly which version this session runs and which one is used next: `This session still runs 0.67.0. 0.69.1 is installed and is used from the next session, or after you type /reload-plugins here.` If it still shows the old version after the reload, open a new session.
+
+**What to do:** nothing. After an update, open a new session to be sure the latest version runs.
+
 ## [0.70.0] - 2026-11-11
 
 Fixes from the 0.68.1 trial report on a monorepo of 24 Node services (Jest backend, Vitest and Playwright frontend).
