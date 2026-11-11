@@ -13,6 +13,18 @@ function Test-Node($exe) {
   return $null
 }
 
+# Newest version first: v20.11.0 before v9.0.0 (a text sort would put v9 first).
+function Sort-Versions($dirs) {
+  $dirs | Sort-Object -Descending { $n = $_.Name.TrimStart('v'); try { [version]($n -replace '[^\d.].*$', '') } catch { [version]'0.0' } }
+}
+# nvm-windows: its root is NVM_HOME, the "root:" line of settings.txt, or the usual places. The active version is the folder NVM_SYMLINK points to.
+$nvmRoots = New-Object System.Collections.Generic.List[string]
+foreach ($r in @($env:NVM_HOME, "$env:APPDATA\nvm", 'C:\nvm', 'C:\nvm4w\nvm', "$env:ProgramData\nvm")) { if ($r) { $nvmRoots.Add($r) } }
+foreach ($r in @($nvmRoots)) {
+  $st = Join-Path $r 'settings.txt'
+  if (Test-Path -LiteralPath $st) { Get-Content -LiteralPath $st | ForEach-Object { if ($_ -match '^\s*root:\s*(.+?)\s*$') { $nvmRoots.Add($Matches[1]) } } }
+}
+
 $candidates = New-Object System.Collections.Generic.List[string]
 $add = { param($p) if ($p) { $candidates.Add($p) } }
 
@@ -30,8 +42,8 @@ foreach ($scope in 'Machine', 'User') {
 foreach ($d in @("$env:ProgramFiles\nodejs", "${env:ProgramFiles(x86)}\nodejs", "$env:LOCALAPPDATA\Programs\nodejs",
                  "$env:NVM_SYMLINK", "$env:USERPROFILE\scoop\apps\nodejs\current", "$env:USERPROFILE\scoop\apps\nodejs-lts\current",
                  "$env:LOCALAPPDATA\Volta\bin", "$env:USERPROFILE\.volta\bin")) { if ($d) { & $add (Join-Path $d 'node.exe') } }
-foreach ($root in @("$env:APPDATA\nvm", "$env:NVM_HOME", "$env:APPDATA\fnm\node-versions", "$env:LOCALAPPDATA\fnm\node-versions")) {
-  if ($root) { Get-ChildItem -LiteralPath $root -Directory | Sort-Object Name -Descending | ForEach-Object {
+foreach ($root in @($nvmRoots) + @("$env:APPDATA\fnm\node-versions", "$env:LOCALAPPDATA\fnm\node-versions")) {
+  if ($root) { Sort-Versions (Get-ChildItem -LiteralPath $root -Directory) | ForEach-Object {
     & $add (Join-Path $_.FullName 'node.exe'); & $add (Join-Path $_.FullName 'installation\node.exe') } }
 }
 # 4. every profile on the machine
@@ -40,8 +52,8 @@ Get-ChildItem 'C:\Users' -Directory | ForEach-Object {
   & $add "$u\AppData\Local\Programs\nodejs\node.exe"
   & $add "$u\scoop\apps\nodejs\current\node.exe"
   & $add "$u\.volta\bin\node.exe"
-  Get-ChildItem "$u\AppData\Roaming\nvm" -Directory | Sort-Object Name -Descending | ForEach-Object { & $add (Join-Path $_.FullName 'node.exe') }
-  Get-ChildItem "$u\AppData\Roaming\fnm\node-versions" -Directory | Sort-Object Name -Descending | ForEach-Object { & $add (Join-Path $_.FullName 'installation\node.exe') }
+  Sort-Versions (Get-ChildItem "$u\AppData\Roaming\nvm" -Directory) | ForEach-Object { & $add (Join-Path $_.FullName 'node.exe') }
+  Sort-Versions (Get-ChildItem "$u\AppData\Roaming\fnm\node-versions" -Directory) | ForEach-Object { & $add (Join-Path $_.FullName 'installation\node.exe') }
 }
 
 $seen = @{}

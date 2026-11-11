@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.70.2] - 2026-11-11
+
+### Fixed
+
+- Node.js installed with nvm is found. On Windows, `find-node.ps1` reads nvm-windows' root from `NVM_HOME` and the `root:` line of its `settings.txt`, also looks in `C:\nvm` and `C:\nvm4w\nvm`, and tries the newest version first (`v20` before `v9`; before, versions were sorted as text). On macOS and Linux the MCP server and the guide use `$NVM_DIR` or `~/.nvm`: the version of `alias/default` first, then the newest. nvm is a shell function, so a shell the agent starts does not have it on the PATH.
+
+**What to do:** nothing.
+
 ## [0.70.1] - 2026-11-11
 
 ### Fixed

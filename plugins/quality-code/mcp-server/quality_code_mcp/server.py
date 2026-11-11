@@ -6,6 +6,7 @@ import json
 import sys
 import asyncio
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -32,6 +33,14 @@ REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
+def _newest_first(dirs) -> list[Path]:
+    """Version folders (v20.11.0, 9.0.0) newest first: a text sort would put v9 before v20."""
+    def key(d: Path):
+        nums = [int(x) for x in re.findall(r"\d+", d.name)[:3]]
+        return nums + [0] * (3 - len(nums))
+    return sorted(dirs, key=key, reverse=True)
+
+
 def find_node() -> str | None:
     """Path of a Node.js 18+ `node`: the PATH first, then where it is usually installed (per user or for all users)."""
     found = shutil.which("node")
@@ -48,7 +57,7 @@ def find_node() -> str | None:
         dirs += [local / "Programs" / "nodejs", local / "Volta" / "bin", home / ".volta" / "bin", home / "scoop" / "apps" / "nodejs" / "current"]
         if os.environ.get("NVM_SYMLINK"):
             dirs.append(Path(os.environ["NVM_SYMLINK"]))
-        roots = [Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "nvm"]
+        roots = [Path(p) for p in (os.environ.get("NVM_HOME"), Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming") / "nvm", "C:\\nvm", "C:\\nvm4w\\nvm") if p]
         users = Path(os.environ.get("SystemDrive", "C:") + "\\Users")
         if users.is_dir():
             for u in sorted(users.iterdir()):
@@ -56,11 +65,16 @@ def find_node() -> str | None:
                 roots.append(u / "AppData" / "Roaming" / "nvm")
         for r in roots:
             if r.is_dir():
-                dirs += sorted((d for d in r.iterdir() if d.is_dir()), reverse=True)
+                dirs += _newest_first(d for d in r.iterdir() if d.is_dir())
     else:
         dirs = [Path("/usr/local/bin"), Path("/opt/homebrew/bin"), home / ".volta" / "bin", home / ".local" / "share" / "fnm" / "aliases" / "default" / "bin"]
-        for pattern in (".nvm/versions/node/*/bin", ".local/share/fnm/node-versions/*/installation/bin"):
-            dirs += sorted(home.glob(pattern), reverse=True)
+        nvm = Path(os.environ.get("NVM_DIR") or home / ".nvm")
+        default = nvm / "alias" / "default"  # the version `nvm use` picks in a new shell: try it first
+        if default.is_file():
+            want = default.read_text().strip().lstrip("v")
+            dirs += [d / "bin" for d in (nvm / "versions" / "node").glob("v*") if want and d.name.lstrip("v").startswith(want)]
+        dirs += [d / "bin" for d in _newest_first((nvm / "versions" / "node").glob("v*"))]
+        dirs += [d / "installation" / "bin" for d in _newest_first((home / ".local" / "share" / "fnm" / "node-versions").glob("v*"))]
     for d in dirs:
         for n in names:
             if (d / n).is_file():

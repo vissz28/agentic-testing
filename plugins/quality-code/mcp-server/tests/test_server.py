@@ -104,3 +104,26 @@ def test_find_node_uses_the_path_then_the_usual_folders(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "find_node", server.find_node)
     found = server.find_node()
     assert found is not None and found.endswith("node")
+
+
+def test_find_node_prefers_the_newest_nvm_version_and_nvms_default(monkeypatch, tmp_path):
+    from quality_code_mcp import server
+
+    monkeypatch.setattr(server.shutil, "which", lambda name: None)
+    monkeypatch.setattr(server.Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(server.os, "name", "posix")
+    monkeypatch.delenv("NVM_DIR", raising=False)
+    versions = tmp_path / ".nvm" / "versions" / "node"
+    for v in ("v9.11.2", "v20.11.0", "v18.19.1"):
+        (versions / v / "bin").mkdir(parents=True)
+        (versions / v / "bin" / "node").write_text("")
+    assert [d.name for d in server._newest_first(versions.glob("v*"))] == ["v20.11.0", "v18.19.1", "v9.11.2"]
+    found = server.find_node()
+    if found and str(tmp_path) in found:  # a real /usr/local/bin node would win on a machine that has one
+        assert "v20.11.0" in found
+    alias = tmp_path / ".nvm" / "alias"
+    alias.mkdir(parents=True)
+    (alias / "default").write_text("18\n")
+    found = server.find_node()
+    if found and str(tmp_path) in found:
+        assert "v18.19.1" in found
