@@ -448,3 +448,22 @@ test('stryker: survivors no test ran against are no verdict; the key reaches the
   assert.equal(s.status, 'not_run')
   assert.equal(s.summary, 'Stryker ran no test against the 5 code change(s) it made')
 })
+
+test('no ticket anchor: a spec that names no ticket is checked whole, expected values are a note, not a block', async () => {
+  const d = repo("describe('adder', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n})\n")
+  const tk = join(d, 'ticket.json')
+  writeFileSync(tk, JSON.stringify({ key: 'ABC-9', summary: 's', text: { description: 'Then the total is 80', acField: '' } }))
+  const spec = readFileSync(join(d, 'test/a.spec.ts'), 'utf8')
+  const runTests = async a => ({ ran: true, broken: [], tests: [{ title: 'adds', path: ['adder'], file: a.files[0], status: a.testName && readFileSync(join(d, a.files[0]), 'utf8') !== spec ? 'failed' : 'passed' }] })
+  for (const withTicket of [false, true]) {
+    const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-9', ...(withTicket ? { ticket: tk } : {}) }, ctx(d, { runTests }))
+    assert.equal(r.verdict, 'green', JSON.stringify(r.steps.filter(s => s.status !== 'pass')))
+    const e = r.steps.find(s => s.check === 'expected')
+    assert.equal(e.status, 'pass')
+    assert.equal(e.summary, 'no ticket anchor: expected values not compared')
+    assert.equal(r.steps.find(s => s.check === 'suite-honesty').status, 'pass')
+    const m = r.steps.find(s => s.check === 'mutation')
+    assert.equal(m.status, 'pass')
+    assert.ok(m.data.total >= 1)
+  }
+})

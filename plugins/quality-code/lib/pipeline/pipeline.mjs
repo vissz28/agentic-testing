@@ -9,8 +9,10 @@ import * as flaky from './checks/flaky.mjs'
 import * as honesty from './checks/honesty.mjs'
 import * as mutation from './checks/mutation.mjs'
 import { result } from '../base/result.mjs'
-import { ownTests } from '../base/keys.mjs'
+import { keyPattern, ownTests } from '../base/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
+import { anchorRange } from './checks/suite-honesty.mjs'
+import { readFileSync } from 'node:fs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { runStryker as realRunStryker } from './runners/stryker.mjs'
 import { playwrightRunner } from './runners/playwright.mjs'
@@ -178,15 +180,33 @@ export async function runPipeline(opts, ctx) {
   const parts = []
   for (const [adapter, list] of groups) {
     // Only Vitest has a Stryker step; the value check reads every side at once (below).
-    const own = { ...opts, specs: list, target: ADAPTERS[adapter]?.stryker ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket }
+    const own = { ...opts, specs: list, target: ADAPTERS[adapter]?.stryker ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket, multi: groups.length > 1 }
     parts.push({ adapter, runner: runnerOf(ctx.config, adapter), steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
   }
-  if (groups.length > 1 && opts.ticket) {
+  if (groups.length > 1 && (opts.ticket || opts.key)) {
     const dialectOf = p => dialectFor(runnerOf(ctx.config, adapterOfSpec(ctx.config, ctx.root, p)))
-    parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
+    const wholeBranch = ctx.config.ticketAnchor === 'branch' && Boolean(opts.range)
+    if (!wholeBranch && lacksAnchor(specs, opts.key, ctx, dialectOf)) parts.push({ adapter: null, steps: [noAnchorStep()] })
+    else if (opts.ticket) parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
   }
   return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }
 }
+
+const NO_ANCHOR = 'no ticket anchor: expected values not compared'
+
+/** True when a key is given but none of the specs names it (no top-level group, no test titled with it): an existing spec checked on its own. */
+function lacksAnchor(specs, key, ctx, dialectOf = () => ctx.dialect) {
+  if (!key || !specs.length) return false
+  return specs.every(p => {
+    let src
+    try { src = readFileSync(resolve(ctx.root, p), 'utf8') } catch { return false }
+    const d = dialectOf(p)
+    if (!d) return false
+    try { if (anchorRange(src, key, d)) return false } catch { return false }
+    return !keyPattern(key).test(src)
+  })
+}
+const noAnchorStep = () => result('expected', 'pass', NO_ANCHOR, [], { applicable: false, noAnchor: true })
 
 const withVerdict = steps => ({ ...decide(steps), steps })
 const LIST_MAX = 40
@@ -228,7 +248,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [], mutation: mutate = true }, ctx, { boundary: withBoundary = true } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
@@ -236,7 +256,10 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   const typeCheck = ctx.typeCheck ?? (adapter.typeCheck === 'tsc' ? s => realTypeCheck(ctx.root, ctx.config, s) : noTsc(ctx.config.adapter, ctx))
   const c = { ...ctx, runTests }
   // ticketAnchor "branch": a spec changed on the branch with no block of the key counts as a whole (an existing suite that does not name the key).
-  const whole = ctx.config.ticketAnchor === 'branch' && Boolean(range)
+  let whole = ctx.config.ticketAnchor === 'branch' && Boolean(range)
+  // A spec passed explicitly that names no ticket at all: run everything on the whole spec, and say the values were not compared.
+  const noAnchor = !whole && lacksAnchor(specs, key, ctx)
+  if (noAnchor) whole = true
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
   const steps = []
   // Boundary guards a test-writing run: without the run marker there is nothing it can judge.
@@ -256,7 +279,8 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     steps.push(testsStep(run, specs, key))
   }
   const tests = steps.at(-1)
-  if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
+  if (noAnchor) { if (!multi) steps.push(noAnchorStep()) }
+  else if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
   // A whole-suite CI run leaves mutation out (--no-mutation): it is the slow step, kept for the specs a change touched.
   if (!mutate) steps.push(result('mutation', 'pass', 'not applicable: left out of this run (--no-mutation)', [], { applicable: false }))
   else if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))

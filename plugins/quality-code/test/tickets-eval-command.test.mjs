@@ -28,7 +28,7 @@ test('one search with the spec JQL, markdown, the latest 50 and paging', () => {
   assert.ok(doc.includes('AND status = "<status>"'))
   assert.ok(doc.includes('ORDER BY updated DESC'))
   assert.match(doc, /`responseContentFormat` is `markdown`/)
-  assert.match(doc, /`maxResults` is 50/)
+  assert.match(doc, /`maxResults` is 25 per call/)
   assert.ok(doc.includes('nextPageToken'))
   assert.match(doc, /Escape `\\` as `\\\\` and `"` as `\\"`/)
 })
