@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-11-12
+
+### Added
+
+- `/quality-code:qa` checks what it drafts against Central Context, with the `central-context` connector: one search before a task's first test plan and one before a run's first defect (the `Searched Central Context` step). Each rule that applies gets one line under the plan or the defect's preview, `✅ <rule id>: met` or `⚠️ <rule id>: <what differs>`. A rule never adds a scenario, changes a verdict or writes to Jira, and the rule lines stay out of Jira. The two connector tools are pre-approved for qa.
+
+**What to do:** nothing.
+
 ## [0.71.2] - 2026-11-11
 
 ### Fixed

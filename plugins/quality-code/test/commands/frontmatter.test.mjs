@@ -41,8 +41,8 @@ const OWN = {
   spec: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document',
   // xray searches and reads Central Context the same way, before it plans the cases.
   xray: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document',
-  // qa also schedules its watch with Claude's scheduler and nothing else.
-  qa: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
+  // qa also schedules its watch with Claude's scheduler, and checks its plans and defects against Central Context.
+  qa: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document',
 }
 test('every command pre-approves only the plugin\'s own scripts', () => {
   for (const c of commands) assert.equal(front(c).fields['allowed-tools'], OWN[c] ?? SCRIPTS, c)
