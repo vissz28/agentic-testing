@@ -47,8 +47,9 @@ function fixture() {
 }
 
 /** The output with everything that differs between machines and runs replaced by a placeholder. */
+// Not the system temp folder itself: on Linux it is /tmp, which the CI files write as plain text.
 function normalise(text, { top, dir }) {
-  const swaps = [[dir, '<project>'], [top, '<tmp>'], [realpathSync(tmpdir()), '<tmpdir>'], [tmpdir(), '<tmpdir>'], [PLUGIN.replace(/\/$/, ''), '<plugin>'], [homedir(), '<home>']]
+  const swaps = [[dir, '<project>'], [top, '<tmp>'], [PLUGIN.replace(/\/$/, ''), '<plugin>'], [homedir(), '<home>']]
   let t = text
   for (const [from, to] of swaps) t = t.split(from).join(to)
   return t
