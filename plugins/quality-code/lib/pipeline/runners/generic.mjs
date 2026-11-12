@@ -4,7 +4,7 @@
 // its results through its Module API. Never writes into the project: reports and artifacts go to a temp
 // folder that is always deleted.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +14,7 @@ import { timeoutSecondsOf } from '../../base/config.mjs'
 import { RUNNERS } from '../../base/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { firstLine, toForwardSlashes } from '../../core/text.mjs'
+import { tryReadJson } from '../../core/files.mjs'
 
 // Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
@@ -27,8 +28,7 @@ const NODE_FLAG = /^(?:--import|--require|-r|--loader|--experimental-loader|--en
 
 /** The loading flags of the project's node --test script (its "test" script first), so the specs load as they do there. */
 export function nodeFlags(root) {
-  let scripts = {}
-  try { scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {} } catch {}
+  const scripts = tryReadJson(join(root, 'package.json'), null)?.scripts ?? {}
   const all = Object.entries(scripts).sort(([a], [b]) => (a === 'test' ? -1 : b === 'test' ? 1 : 0)).map(([, s]) => String(s))
   for (const script of all) {
     const command = script.split(/&&|\|\||;|\|/).map(c => c.trim().split(/\s+/)).find(t => t[0] === 'node' && t.includes('--test'))
@@ -174,8 +174,7 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
     child.on('close', () => {
       if (timedOut) return
       try {
-        let json = null
-        try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
+        const json = tryReadJson(out, null)
         const down = APP_DOWN.exec(output)
         if (down) return finish({ ran: false, error: `the app is not reachable at ${down[1]}: start it, then run again` })
         if (!json) return finish({ ran: false, error: firstLine(output) || `${label} wrote no report` })

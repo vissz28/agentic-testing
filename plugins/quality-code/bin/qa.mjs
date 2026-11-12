@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
-import { readJsonOr } from '../lib/core/files.mjs'
+import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
 
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
 const TEST_ID = /^[A-Za-z0-9_.-]{1,64}$/
@@ -102,7 +102,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     if (sub === 'runs') { out(runsJql(qa), { tag: 'QA_JQL_JSON', data: { jql: runsJql(qa), sprint: qa.sprint } }); return 0 }
     if (sub === 'watch') {
       if (!qa.statuses.ready) return err('qa --watch needs the name of the "ready to test" status: set qa.statuses.ready in the project config.json (for example "Ready to test").')
-      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => f.endsWith('.json') && isTicketKey(f.slice(0, -'.json'.length))).map(f => readJsonOr(join(dir, f), null, { whenBroken: 'fallback' })).filter(s => s?.closed === 'ko' && s.story)
+      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => f.endsWith('.json') && isTicketKey(f.slice(0, -'.json'.length))).map(f => tryReadJson(join(dir, f), null)).filter(s => s?.closed === 'ko' && s.story)
       const stories = [...new Set(targets.map(s => s.story))]
       const jql = stories.length ? `key in (${stories.join(', ')}) AND status = "${qa.statuses.ready}"` : null
       out(jql ?? 'Nothing to watch: no closed run with a failed test.', { tag: 'QA_WATCH_JSON', data: { jql, stories, runs: Object.fromEntries(targets.map(s => [s.story, s.run])) } })
@@ -114,7 +114,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   if (cmd === 'app') {
     const f = join(dir, 'app.json')
     if (sub === 'get') {
-      const last = readJsonOr(f, null, { whenBroken: 'fallback' })?.app ?? null
+      const last = tryReadJson(f, null)?.app ?? null
       out(qa.app ?? last ?? 'none', { tag: 'QA_APP_JSON', data: { app: qa.app ?? last, source: qa.app ? 'config' : last ? 'last run' : null } })
       return 0
     }
@@ -197,7 +197,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       s.closed = outcome
       write(dir, `${run}.json`, s)
       // A story that fails again is watched again: forget that its last "ready to retest" was told.
-      const w = readJsonOr(join(dir, 'watch.json'), null, { whenBroken: 'fallback' })
+      const w = tryReadJson(join(dir, 'watch.json'), null)
       if (outcome === 'ko' && s.story && w?.seen?.includes(s.story)) write(dir, 'watch.json', { seen: w.seen.filter(k => k !== s.story) })
       out('saved')
       return 0
@@ -214,7 +214,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     const found = String(flags.found ?? '').split(',').map(x => x.trim()).filter(Boolean)
     if (found.some(k => !isTicketKey(k))) return err('--found takes Jira keys, like ABC-100,ABC-101')
     const f = join(dir, 'watch.json')
-    const seen = readJsonOr(f, null, { whenBroken: 'fallback' })?.seen ?? []
+    const seen = tryReadJson(f, null)?.seen ?? []
     const fresh = found.filter(k => !seen.includes(k))
     if (fresh.length) write(dir, 'watch.json', { seen: [...seen, ...fresh] })
     out(fresh.length ? `Ready to retest: ${fresh.join(', ')}` : 'Nothing new.', { tag: 'QA_FRESH_JSON', data: { fresh } })

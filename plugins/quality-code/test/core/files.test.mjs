@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readJsonOr } from '../../lib/core/files.mjs'
+import { readJson, readJsonOr, tryReadJson } from '../../lib/core/files.mjs'
 
 test('readJsonOr: the content; the fallback for a missing file; a broken one throws, naming the file', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-files-'))
@@ -21,13 +21,31 @@ test('readJsonOr: the content; the fallback for a missing file; a broken one thr
   } finally { rmSync(d, { recursive: true, force: true }) }
 })
 
-test('readJsonOr with whenBroken fallback: a broken or unreadable file counts as missing, as the caller chose', () => {
+test('tryReadJson: the content; the fallback for a missing, unreadable or broken file', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-files-'))
   try {
+    writeFileSync(join(d, 'ok.json'), '{"a":1}')
+    writeFileSync(join(d, 'null.json'), 'null')
     writeFileSync(join(d, 'bad.json'), 'not json')
     mkdirSync(join(d, 'folder.json'))
-    assert.equal(readJsonOr(join(d, 'bad.json'), null, { whenBroken: 'fallback' }), null)
-    assert.deepEqual(readJsonOr(join(d, 'folder.json'), [], { whenBroken: 'fallback' }), [])
+    assert.deepEqual(tryReadJson(join(d, 'ok.json'), null), { a: 1 })
+    assert.equal(tryReadJson(join(d, 'null.json'), {}), null)
+    assert.equal(tryReadJson(join(d, 'gone.json'), null), null)
+    assert.equal(tryReadJson(join(d, 'bad.json'), null), null)
+    assert.deepEqual(tryReadJson(join(d, 'folder.json'), []), [])
+    assert.equal(tryReadJson(null, 'none'), 'none')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('readJson: the content; a missing or broken file throws what Node and JSON.parse throw', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-files-'))
+  try {
+    writeFileSync(join(d, 'ok.json'), '[1,"two"]')
+    writeFileSync(join(d, 'bad.json'), '{"a":')
+    assert.deepEqual(readJson(join(d, 'ok.json')), [1, 'two'])
+    assert.deepEqual(readJson(new URL(`file://${join(d, 'ok.json')}`)), [1, 'two'])
+    assert.throws(() => readJson(join(d, 'gone.json')), e => e.code === 'ENOENT')
+    assert.throws(() => readJson(join(d, 'bad.json')), SyntaxError)
   } finally { rmSync(d, { recursive: true, force: true }) }
 })
 

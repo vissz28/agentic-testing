@@ -10,6 +10,7 @@ import { dirname, extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine } from '../../core/text.mjs'
+import { tryReadJson } from '../../core/files.mjs'
 
 // Stryker's stderr starts with Node's stack frame; the error it names is the line to show.
 const errorOf = s => String(s ?? '').match(/\b[A-Za-z]*Error: [^\n]+/)?.[0] ?? firstLine(s)
@@ -171,8 +172,7 @@ export function runStryker(root, { target, mutate = [target], specs = [], timeou
     child.on('close', () => {
       if (timedOut) return
       try {
-        let json = null
-        try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
+        const json = tryReadJson(out, null)
         if (!json) return finish({ ran: false, error: errorOf(stderr) || 'Stryker wrote no report' })
         finish({ ran: true, ...parseStrykerReport(json) })
       } catch (e) {

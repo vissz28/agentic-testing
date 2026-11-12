@@ -26,6 +26,7 @@ import { DEFAULT_E2E_FOLDER } from './e2e-folder.mjs'
 import { projectSpecs } from '../report/quality-program.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
+import { readJson } from '../core/files.mjs'
 
 export const GROUPS = ['setup', 'output', 'cache', 'personal', 'specs']
 export const LABELS = { setup: 'Setup files', output: 'Saved output', cache: 'Cache', personal: 'Personal config', specs: 'Tests written by spec' }
@@ -107,7 +108,7 @@ const item = (top, abs, extra = {}) => {
 
 function rawTicketsDir(top) {
   try {
-    const c = JSON.parse(readFileSync(configFileOf(top) ?? join(top, CONFIG_REL), 'utf8'))
+    const c = readJson(configFileOf(top) ?? join(top, CONFIG_REL))
     return typeof c?.ticketsDir === 'string' ? normaliseTicketsDir(c.ticketsDir) : DEFAULTS.ticketsDir
   } catch { return DEFAULTS.ticketsDir }
 }

@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
 import { ignoreFolder } from './ignore.mjs'
+import { readJson } from '../core/files.mjs'
 
 export { ignoreFolder }
 
@@ -29,7 +30,7 @@ const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').
 
 function readPrefs(env) {
   try {
-    const p = JSON.parse(readFileSync(prefsPath(env), 'utf8'))
+    const p = readJson(prefsPath(env))
     return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
   } catch { return {} }
 }

@@ -2,11 +2,12 @@
 // after a break instead of starting over. One small file per project folder, command and ticket, on this machine
 // under the Claude folder, never in the repo and never sent anywhere. It holds answers (a site, a project key, a
 // pick), never a token, a key, a password or ticket text.
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { claudeDir } from './config.mjs'
 import { isTicketKey } from '../core/text.mjs'
+import { tryReadJson } from '../core/files.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
 // `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
@@ -47,8 +48,7 @@ export function secretIn(value, path = '') {
 export function getProgress(root, command, key = null, env = process.env, now = Date.now()) {
   const bad = check(command, key)
   if (bad) return { ok: false, reason: bad }
-  let saved
-  try { saved = JSON.parse(readFileSync(fileOf(root, command, key, env), 'utf8')) } catch { return { ok: true, found: false } }
+  const saved = tryReadJson(fileOf(root, command, key, env), null)
   const at = Date.parse(saved?.updated)
   if (!saved || !Number.isInteger(saved.step) || !Number.isFinite(at)) return { ok: true, found: false }
   if (command !== 'session' && now - at > MAX_AGE_MS) return { ok: true, found: false, expired: true }
