@@ -1,6 +1,7 @@
 // The shape of what the model extracted from a sprint planning transcript. The script checks the shape; the model
 // never invents what the transcript did not say: that becomes an open question, not a task or a decision.
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
+import { isTicketKey } from '../core/text.mjs'
+
 export const LIMITS = { goal: 300, line: 500, title: 200, items: 100 }
 
 const isStr = v => typeof v === 'string'
@@ -47,7 +48,7 @@ export function validateResult(input) {
         else task[f] = oneLine(String(t[f]))
       }
       if (t.ticket != null && t.ticket !== '') {
-        if (!isStr(t.ticket) || !KEY.test(t.ticket)) errors.push(`${at}.ticket: "${t.ticket}" is not a ticket key like ABC-123`)
+        if (!isTicketKey(t.ticket)) errors.push(`${at}.ticket: "${t.ticket}" is not a ticket key like ABC-123`)
         else task.ticket = t.ticket
       }
       tasks.push(task)

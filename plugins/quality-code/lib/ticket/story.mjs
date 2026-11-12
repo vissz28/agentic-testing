@@ -1,6 +1,7 @@
 // Is a ticket's story too long, unstructured or too thin? The script decides; the command only shows the offer.
 import { join } from 'node:path'
 import { normalise, stripComments } from './text.mjs'
+import { isTicketKey } from '../core/text.mjs'
 
 // Every threshold of the check, in one place.
 export const STORY_LIMITS = {
@@ -9,7 +10,6 @@ export const STORY_LIMITS = {
   minWords: 30,          // below this there is too little to write tests from
 }
 
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const HEADING = /^\s{0,3}(#{1,6}\s|\*\*[^*]+\*\*\s*:?\s*$|[A-Z][A-Za-z ]{2,30}:\s*$)/
 const LIST = /^\s*([-*+]|\d+[.)])\s+/
 const GOAL = /(^|\n)\s*(#{1,6}\s*|\*\*)?(goal|user story|obiettivo|storia utente)\b|\bas an?\s+[^,\n]{2,60},?\s+i\s+(want|need|would like)|\bcome\s+[^,\n]{2,60},?\s+(voglio|vorrei|devo)/i
@@ -64,5 +64,5 @@ export function storyShape(draft) {
 export const draftTicket = (ticket, draft) => ({ ...ticket, text: { ...ticket.text, description: draft, acField: '' }, scenarios: [] })
 
 /** <ticketsDir>/<KEY>/story.md and the draft beside it, or null for a key that could leave its folder. */
-export const storyPath = (ticketsRoot, key) => (KEY.test(key ?? '') ? join(ticketsRoot, key, 'story.md') : null)
-export const draftPath = (ticketsRoot, key) => (KEY.test(key ?? '') ? join(ticketsRoot, key, 'story-draft.md') : null)
+export const storyPath = (ticketsRoot, key) => (isTicketKey(key) ? join(ticketsRoot, key, 'story.md') : null)
+export const draftPath = (ticketsRoot, key) => (isTicketKey(key) ? join(ticketsRoot, key, 'story-draft.md') : null)

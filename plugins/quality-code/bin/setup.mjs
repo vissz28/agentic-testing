@@ -22,6 +22,7 @@ import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { toPosix } from '../lib/core/text.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -773,7 +774,7 @@ export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 12000
   try { list = how.files(JSON.parse(out.slice(out.indexOf('[')))) } catch { return { error: `${label} could not list its test files` } }
   let base = root
   try { base = realpathSync(root) } catch {}
-  const files = list.map(f => relative(base, String(f ?? '')).split('\\').join('/')).filter(f => f.startsWith(folder))
+  const files = list.map(f => toPosix(relative(base, String(f ?? '')))).filter(f => f.startsWith(folder))
   return { files: [...new Set(files)].sort() }
 }
 

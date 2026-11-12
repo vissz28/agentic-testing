@@ -11,8 +11,8 @@
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { isTicketKey } from '../lib/core/text.mjs'
 
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/
 const STATUS = /^[A-Za-z0-9 _-]{1,40}$/
 const PROJECT = /^[A-Z][A-Z0-9_]*$/
@@ -93,7 +93,7 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
   }
   return {
     async testRun(key) {
-      if (!KEY.test(String(key))) throw new Error(`not a Jira key: ${JSON.stringify(key)}`)
+      if (!isTicketKey(key)) throw new Error(`not a Jira key: ${JSON.stringify(key)}`)
       const runs = []
       let exec
       for (let start = 0, total = 1; start < total; start += PAGE) {
@@ -152,8 +152,8 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
     },
     /** Adds tests (by key) to a test execution (by key). */
     async addTestsToExecution(execKey, testKeys) {
-      if (!KEY.test(String(execKey))) throw new Error(`not a Jira key: ${JSON.stringify(execKey)}`)
-      if (!Array.isArray(testKeys) || testKeys.length < 1 || testKeys.length > 100 || testKeys.some(k => !KEY.test(String(k)))) throw new Error('give 1 to 100 test keys, like ABC-12')
+      if (!isTicketKey(execKey)) throw new Error(`not a Jira key: ${JSON.stringify(execKey)}`)
+      if (!Array.isArray(testKeys) || testKeys.length < 1 || testKeys.length > 100 || testKeys.some(k => !isTicketKey(k))) throw new Error('give 1 to 100 test keys, like ABC-12')
       const exec = (await gql(`{ getTestExecutions(jql: ${q(`key = "${execKey}"`)}, limit: 1) { results { issueId } } }`)).getTestExecutions?.results?.[0]
       if (!exec?.issueId || !ISSUE_ID.test(String(exec.issueId))) throw new Error(`${execKey} is not an Xray test execution`)
       const found = (await gql(`{ getTests(jql: ${q(`key in (${testKeys.join(', ')})`)}, limit: 100) { results { issueId jira(fields: ["key"]) } } }`)).getTests?.results ?? []
@@ -166,7 +166,7 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
     },
     async addDefect(runId, defect) {
       if (!RUN_ID.test(String(runId))) throw new Error(`not a test run id: ${JSON.stringify(runId)}`)
-      if (!KEY.test(String(defect))) throw new Error(`not a Jira key: ${JSON.stringify(defect)}`)
+      if (!isTicketKey(defect)) throw new Error(`not a Jira key: ${JSON.stringify(defect)}`)
       const d = await gql(`mutation { addDefectsToTestRun(id: ${q(runId)}, issues: [${q(defect)}]) { addedDefects warnings } }`)
       return { ok: true, runId, defect, warnings: [].concat(d.addDefectsToTestRun ?? []).flatMap(x => x?.warnings ?? []) }
     },

@@ -19,8 +19,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { isTicketKey } from '../lib/core/text.mjs'
 
-const RUN = /^[A-Z][A-Z0-9_]*-\d+$/
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
 const TEST_ID = /^[A-Za-z0-9_.-]{1,64}$/
 const USAGE = 'usage: qa.mjs config | jql runs|watch | app get|set <url> | state show|record|close|reset <RUN> … | evidence <RUN> <TEST> [--step N] | pick ok|ko|blocked|run-ko|run-done --from "A,B" | watch fresh --found K1,K2'
@@ -96,7 +96,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (sub === 'runs') { out(runsJql(qa), { tag: 'QA_JQL_JSON', data: { jql: runsJql(qa), sprint: qa.sprint } }); return 0 }
     if (sub === 'watch') {
       if (!qa.statuses.ready) return err('qa --watch needs the name of the "ready to test" status: set qa.statuses.ready in the project config.json (for example "Ready to test").')
-      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => /^[A-Z][A-Z0-9_]*-\d+\.json$/.test(f)).map(f => readJson(join(dir, f))).filter(s => s?.closed === 'ko' && s.story)
+      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => f.endsWith('.json') && isTicketKey(f.slice(0, -'.json'.length))).map(f => readJson(join(dir, f))).filter(s => s?.closed === 'ko' && s.story)
       const stories = [...new Set(targets.map(s => s.story))]
       const jql = stories.length ? `key in (${stories.join(', ')}) AND status = "${qa.statuses.ready}"` : null
       out(jql ?? 'Nothing to watch: no closed run with a failed test.', { tag: 'QA_WATCH_JSON', data: { jql, stories, runs: Object.fromEntries(targets.map(s => [s.story, s.run])) } })
@@ -125,7 +125,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (cmd === 'evidence') {
     const [run, test] = [sub, rest[0]]
     const step = flags.step ?? '1'
-    if (!RUN.test(run ?? '') || !TEST_ID.test(test ?? '') || !/^[1-9]\d{0,3}$/.test(step) || rest.length > 1) return err('usage: qa.mjs evidence <RUN> <TEST KEY> [--step N]')
+    if (!isTicketKey(run) || !TEST_ID.test(test ?? '') || !/^[1-9]\d{0,3}$/.test(step) || rest.length > 1) return err('usage: qa.mjs evidence <RUN> <TEST KEY> [--step N]')
     const folder = join(dir, 'evidence', run)
     mkdirSync(folder, { recursive: true })
     try { writeFileSync(join(dir, '.gitignore'), '*\n', { flag: 'wx' }) } catch {}
@@ -147,7 +147,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 
   if (cmd === 'state') {
     const run = rest[0] ?? ''
-    if (!RUN.test(run)) return err(`state ${sub ?? ''} needs the run key, like ABC-123. ${USAGE}`)
+    if (!isTicketKey(run)) return err(`state ${sub ?? ''} needs the run key, like ABC-123. ${USAGE}`)
     const s = load(run)
     if (sub === 'show') {
       const order = String(flags.tests ?? '').split(',').map(x => x.trim()).filter(Boolean)
@@ -161,8 +161,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (sub === 'record') {
       const [, test, verdict] = rest
       if (!TEST_ID.test(test ?? '') || !VERDICTS.includes(verdict) || rest.length > 3) return err(`usage: qa.mjs state record <RUN> <TEST KEY> ${VERDICTS.join('|')} [--note TEXT] [--step N] [--evidence PATH] [--defect KEY] [--run-id ID] [--xray set] [--story KEY]`)
-      if (flags.defect && !RUN.test(flags.defect)) return err('--defect must be a Jira key, like ABC-124')
-      if (flags.story && !RUN.test(flags.story)) return err('--story must be a Jira key, like ABC-100')
+      if (flags.defect && !isTicketKey(flags.defect)) return err('--defect must be a Jira key, like ABC-124')
+      if (flags.story && !isTicketKey(flags.story)) return err('--story must be a Jira key, like ABC-100')
       if (flags.step && !/^[1-9]\d{0,3}$/.test(flags.step)) return err('--step must be a step number')
       if (flags.xray && flags.xray !== 'set') return err('--xray takes only "set"')
       const before = s.tests[test]
@@ -206,7 +206,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 
   if (cmd === 'watch' && sub === 'fresh') {
     const found = String(flags.found ?? '').split(',').map(x => x.trim()).filter(Boolean)
-    if (found.some(k => !RUN.test(k))) return err('--found takes Jira keys, like ABC-100,ABC-101')
+    if (found.some(k => !isTicketKey(k))) return err('--found takes Jira keys, like ABC-100,ABC-101')
     const f = join(dir, 'watch.json')
     const seen = readJson(f)?.seen ?? []
     const fresh = found.filter(k => !seen.includes(k))

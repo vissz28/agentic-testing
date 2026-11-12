@@ -3,17 +3,17 @@
 // A failed append returns false and never throws, so it never changes a result or an exit code.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isTicketKey } from '../core/text.mjs'
 
 export const AUDIT_DIR = '.claude/quality-code/audit'
 export const KINDS = ['gate', 'pipeline', 'jira', 'override', 'fill']
 
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 // Verdicts, gates, step names, rubric and adapter ids, criterion keys.
 const WORD = /^[a-z][a-z0-9_-]{0,39}$/
 // A Jira issue type name, in any language ("Bug", "Story", "Sotto-task").
 const LABEL = /^\p{L}[\p{L}\p{N} -]{0,39}$/u
 
-const key = v => (typeof v === 'string' && KEY.test(v) ? v : null)
+const key = v => (isTicketKey(v) ? v : null)
 const word = v => (typeof v === 'string' && WORD.test(v) ? v : null)
 const oneOf = list => v => (list.includes(v) ? v : null)
 const num = v => (Number.isInteger(v) && v >= 0 ? v : null)

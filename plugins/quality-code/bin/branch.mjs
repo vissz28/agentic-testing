@@ -10,7 +10,7 @@ import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
-import { escapeRegExp } from '../lib/core/text.mjs'
+import { escapeRegExp, isTicketKey } from '../lib/core/text.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
@@ -279,7 +279,7 @@ const USAGE = 'usage: branch.mjs --detect [--base <branch>] [--mr-base <branch>]
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
   if (argv[0] === '--merged') {
     const key = argv[1]
-    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
+    if (!isTicketKey(key) || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
     const root = projectRoot(env, cwd)
     const c = loadConfig(root)
     if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }

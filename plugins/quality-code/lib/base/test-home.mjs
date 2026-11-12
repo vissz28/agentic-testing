@@ -4,6 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { detectConventions, testNameOf } from './conventions.mjs'
+import { toPosix } from '../core/text.mjs'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'target', 'bin', 'obj', '.venv', 'venv', '__pycache__', '.quality-code', '.claude'])
 const TESTS = /\b(?:it|test)(?:\.each)?\s*\(|@(?:Test|ParameterizedTest)\b|\bdef test_|\bfunc Test|\[(?:Fact|Theory)\]/g
@@ -47,7 +48,7 @@ function listTests(root, budget = { n: 20000 }) {
 export function findTestHome(root, target, conv = detectConventions(root)) {
   const none = reason => ({ kind: 'none', file: null, reason })
   if (!conv.specs) return none('the project has no tests yet')
-  const targetRel = String(target).replace(/\\/g, '/').replace(/^\.\//, '')
+  const targetRel = toPosix(target).replace(/^\.\//, '')
   const unit = basename(targetRel, extname(targetRel))
   const files = listTests(root)
   const sameUnit = files.filter(f => unitOfTest(basename(f)) === unit)

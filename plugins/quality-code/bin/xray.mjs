@@ -16,6 +16,7 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { toPosix } from '../lib/core/text.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // The test name is the cell's last line (buildRows puts it there), so a description line of its own
@@ -203,7 +204,7 @@ export async function sync(root, x, only = null) {
     if (!TICKET.test(key)) { lines.push(`skipped ${JSON.stringify(key)}: not a Jira key`); continue }
     const rows = groups.get(key)
     if (!rows) { lines.push(`No Xray test case for ${key} in ${x.csv}.`); continue }
-    const dir = join(x.folder, key).replace(/\\/g, '/')
+    const dir = toPosix(join(x.folder, key))
     mkdirSync(resolve(root, dir), { recursive: true })
     writeFileSync(resolve(root, dir, 'case.csv'), `${[headerRow(x.headers), ...rows].map(toLine).join('\n')}\n`)
     if (ExcelJS) await writeXlsx(ExcelJS, rows, x.headers, resolve(root, dir, 'case.xlsx'))

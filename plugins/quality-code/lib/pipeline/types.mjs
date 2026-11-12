@@ -11,6 +11,7 @@ import { matches } from '../base/boundary.mjs'
 import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
 import { runnerOf } from '../base/runners.mjs'
+import { toPosix } from '../core/text.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
@@ -42,15 +43,14 @@ const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') &&
 export function ownTsconfig(root, tsconfig, specs) {
   const base = readTsconfig(root, tsconfig)
   if (!base?.references?.length || !(base.files?.length === 0 || base.include?.length === 0)) return tsconfig
-  const slash = p => p.replace(/\\/g, '/')
   let best = tsconfig
   let most = 0
   for (const r of base.references) {
-    let p = posix.join(posix.dirname(slash(tsconfig)), slash(String(r?.path ?? '')))
+    let p = posix.join(posix.dirname(toPosix(tsconfig)), toPosix(String(r?.path ?? '')))
     if (!p.endsWith('.json')) p = posix.join(p, 'tsconfig.json')
     const include = readTsconfig(root, p)?.include ?? ['**/*']
     const n = specs.filter(s => {
-      const rel = posix.relative(posix.dirname(p), slash(s))
+      const rel = posix.relative(posix.dirname(p), toPosix(s))
       return !rel.startsWith('../') && include.some(e => covers(String(e).replace(/^\.\//, ''), rel))
     }).length
     if (n > most) { best = p; most = n }
@@ -75,7 +75,7 @@ export function readTsc(out, code, specs, truncated = false) {
 
 /** The nearest tsconfig.json above a spec, up to the project root (a workspace's own); null when none. */
 export function nearestTsconfig(root, spec) {
-  let dir = posix.dirname(String(spec).replace(/\\/g, '/'))
+  let dir = posix.dirname(toPosix(spec))
   for (;;) {
     const p = dir === '.' ? 'tsconfig.json' : `${dir}/tsconfig.json`
     if (existsSync(join(root, p))) return p

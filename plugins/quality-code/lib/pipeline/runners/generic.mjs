@@ -13,7 +13,7 @@ import { configFor as e2eConfigFor } from './playwright.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { RUNNERS } from '../../base/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { firstLine, toPosix } from '../../core/text.mjs'
 
 // Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
@@ -50,9 +50,9 @@ function relativeTo(root) {
   try { base = realpathSync(root) } catch {}
   return p => {
     const s = String(p ?? '')
-    if (!isAbsolute(s)) return s.split('\\').join('/')
+    if (!isAbsolute(s)) return toPosix(s)
     const r = relative(base, s)
-    return (r.startsWith('..') && base !== root ? relative(root, s) : r).split('\\').join('/')
+    return toPosix(r.startsWith('..') && base !== root ? relative(root, s) : r)
   }
 }
 
@@ -89,7 +89,7 @@ export function parseCypress(json) {
   const tests = []
   const broken = []
   for (const run of json.runs) {
-    const file = String(run.spec?.relative ?? '').split('\\').join('/')
+    const file = toPosix(run.spec?.relative ?? '')
     if (run.error) broken.push({ file, message: firstLine(run.error) })
     for (const t of run.tests ?? []) {
       const title = Array.isArray(t.title) ? t.title : [String(t.title ?? '')]

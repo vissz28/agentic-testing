@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { BACKENDS } from './backends.mjs'
-import { escapeRegExp } from '../core/text.mjs'
+import { escapeRegExp, toPosix } from '../core/text.mjs'
 
 export const CONTAINER_BACKENDS = Object.freeze(['vitest', 'pytest', 'go', 'dotnet'])
 
@@ -59,7 +59,7 @@ function dotnetProjects(root, depth = 3, rel = '') {
   try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return [] }
   const here = entries.filter(e => e.isFile() && /\.(?:csproj|fsproj)$/.test(e.name)).map(e => join(rel, e.name))
   const down = depth > 1 ? entries.filter(e => e.isDirectory() && !e.name.startsWith('.') && !['bin', 'obj', 'node_modules'].includes(e.name)).sort((a, b) => a.name.localeCompare(b.name)).flatMap(e => dotnetProjects(root, depth - 1, join(rel, e.name))) : []
-  return [...here.sort(), ...down].map(p => p.split('\\').join('/'))
+  return [...here.sort(), ...down].map(p => toPosix(p))
 }
 const hasNuget = (text, name) => new RegExp(`Include="${escapeRegExp(name)}(?=[".])`, 'i').test(text)
 

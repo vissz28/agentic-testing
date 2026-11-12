@@ -3,11 +3,11 @@
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
 import { THRESHOLD } from '../ticket/score.mjs'
+import { isTicketKey } from '../core/text.mjs'
 import { columns, gauge, hbar, legend, line } from './charts.mjs'
 import { card, empty, esc, grid, page, tiles } from './page.mjs'
 import { fmtCost, fmtTokens } from './consumption.mjs'
 
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const CUSTOMER_ID = /\bU\d{5,}\b/g
 const DAY = 86400000
 const MAX_DAYS = 31
@@ -18,7 +18,7 @@ const FOOT = 'Keys, scores and numbers only. Built on this machine; nothing was 
 /** Text that may reach the page: redacted with the config's patterns, and any customer id masked. */
 export const safe = (config, text) => redact(config, String(text ?? '')).replace(CUSTOMER_ID, 'U######')
 /** A ticket key as shown: the key when it is one, else a neutral word. */
-export const safeKey = (config, key) => (KEY.test(String(key ?? '')) ? safe(config, key) : 'no ticket')
+export const safeKey = (config, key) => (isTicketKey(key) ? safe(config, key) : 'no ticket')
 
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
 const dayOf = ms => new Date(ms).toISOString().slice(0, 10)
@@ -38,7 +38,7 @@ export function kpiSeries(events, period) {
   for (const r of runs) {
     const d = byDay.get(dayOf(at(r)))
     if (d && r.verdict in d.counts) d.counts[r.verdict]++
-    if (!KEY.test(r.key ?? '')) continue
+    if (!isTicketKey(r.key)) continue
     const t = tickets.get(r.key) ?? { key: r.key, runs: 0, green: 0 }
     t.runs++
     if (r.verdict === 'green') t.green++

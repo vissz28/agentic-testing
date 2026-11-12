@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
 import { DEFAULTS, normaliseTicketsDir } from '../base/config.mjs'
+import { isTicketKey } from '../core/text.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
@@ -87,7 +88,7 @@ export function formatCard({ rows, summary }) {
 export function saveTickets(root, config, clean) {
   const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
-    if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(t.key ?? '')) continue
+    if (!isTicketKey(t.key)) continue
     const d = resolve(root, dir, t.key)
     const file = resolve(d, 'ticket.json')
     let old = {}

@@ -27,6 +27,7 @@ import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { isTicketKey } from '../lib/core/text.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -103,9 +104,9 @@ function run(argv, env, cwd) {
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
   const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
-  const savedPath = key => (/^[A-Z][A-Z0-9_]*-\d+$/.test(key ?? '') ? join(ticketsRoot, key, 'ticket.json') : null)
+  const savedPath = key => (isTicketKey(key) ? join(ticketsRoot, key, 'ticket.json') : null)
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
-  const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && /^[A-Z][A-Z0-9_]*-\d+$/.test(basename(dirname(p)))
+  const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && isTicketKey(basename(dirname(p)))
   if (cmd === 'save') {
     // Where this person keeps the project's files and logs: asked once, after the first run that saved some.
     const [sub, place] = a._

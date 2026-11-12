@@ -8,7 +8,7 @@ import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
-import { escapeRegExp, firstLine } from '../../core/text.mjs'
+import { escapeRegExp, firstLine, toPosix } from '../../core/text.mjs'
 
 /** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
@@ -29,7 +29,7 @@ export function parseReport(json, root) {
   }
   for (const tr of json?.testResults ?? []) {
     // Forward slashes, as normalizeSpec spells the requested specs: Windows reports backslashes.
-    const file = (isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? '')).split('\\').join('/')
+    const file = toPosix(isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? ''))
     const ars = tr.assertionResults ?? []
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {

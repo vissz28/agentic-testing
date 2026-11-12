@@ -6,6 +6,7 @@ import { configFor } from '../pipeline/runners/playwright.mjs'
 import { e2eFolder } from './e2e-folder.mjs'
 import { matches } from './boundary.mjs'
 import { BACKEND_ADAPTERS, backendOf } from './backends.mjs'
+import { toPosix } from '../core/text.mjs'
 
 export const SIDES = Object.freeze(['frontend', 'backend', 'fullstack'])
 /** A ticket marked with one of these (title prefix in brackets, or label) is on that side. */
@@ -67,7 +68,7 @@ export function ticketSide(config, ticket) {
 export function adapterOfSpec(config, root, spec) {
   if (!isFullstack(config)) return config.adapter
   const backend = backendOf(config)
-  const p = String(spec).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
+  const p = toPosix(spec).replace(/^(?:\.\/)+/, '')
   if (configFor(p, config)) return 'playwright'
   if (backend === 'vitest' && (config.vitest?.configs ?? []).some(c => matches(c.match, p))) return 'vitest'
   const e2e = e2eFolder(root, config)

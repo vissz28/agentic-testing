@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, noColour } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, isTicketKey, noColour, toPosix } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -30,14 +30,32 @@ test('escapeRegExp: text with pattern characters matches only itself', () => {
   assert.equal(escapeRegExp(42), '42')
 })
 
-test('firstLine and escapeRegExp are written once: no script or library file has its own', () => {
+test('isTicketKey: a project key, a dash and a number, as a string and nothing else', () => {
+  for (const key of ['ABC-1', 'A-1', 'AB2_C-123', 'DEMO-000']) assert.equal(isTicketKey(key), true, key)
+  for (const not of ['abc-1', 'ABC', 'ABC-', '-1', '1AB-2', 'ABC-1 ', ' ABC-1', 'ABC-1.json', 'ABC-1/..', '../ABC-1', 'ABC-1\nDEF-2', '']) assert.equal(isTicketKey(not), false, JSON.stringify(not))
+  // Only a string: a list or an object that prints as a key is not one, so it never reaches a path.
+  for (const not of [['ABC-1'], { toString: () => 'ABC-1' }, 1, null, undefined]) assert.equal(isTicketKey(not), false)
+})
+
+test('toPosix: backslashes become forward slashes, nothing else changes', () => {
+  assert.equal(toPosix('src\\orders\\a.spec.ts'), 'src/orders/a.spec.ts')
+  assert.equal(toPosix('C:\\work\\app/test\\a.ts'), 'C:/work/app/test/a.ts')
+  assert.equal(toPosix('./already/fine/'), './already/fine/')
+  assert.equal(toPosix(''), '')
+})
+
+test('the helpers are written once: no script or library file has its own copy', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const walk = d => readdirSync(join(root, d), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.mjs') ? [join(d, e.name)] : []))
   // The character class every hand-written copy of the escape used.
   const ESCAPE_CLASS = '[.*+?^${}()|[' + '\\]' + '\\\\' + ']'
-  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs')).filter(f => {
+  // The shapes each helper replaced. The Node test reporter keeps its own slash line: it is loaded into the
+  // project's test process, so it imports nothing of the plugin.
+  const COPIES = [ESCAPE_CLASS, '/^[A-Z][A-Z0-9_]*-\\d+$/', ".replace(/\\\\/g, '/')", ".split('\\\\').join('/')"]
+  const ALLOWED = new Set([join('lib', 'core', 'text.mjs'), join('lib', 'pipeline', 'runners', 'node-test-reporter.mjs')])
+  const own = [...walk('bin'), ...walk('lib')].filter(f => !ALLOWED.has(f)).filter(f => {
     const src = readFileSync(join(root, f), 'utf8')
-    return /^(?:const|function) firstLine\b/m.test(src) || src.includes(ESCAPE_CLASS)
+    return /^(?:const|function) firstLine\b/m.test(src) || COPIES.some(c => src.includes(c))
   })
   assert.deepEqual(own, [])
 })

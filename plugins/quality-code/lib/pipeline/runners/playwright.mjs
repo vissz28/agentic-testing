@@ -9,13 +9,13 @@ import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { findUp, kill, toolScript, track } from './tool.mjs'
-import { escapeRegExp, firstLine, noColour } from '../../core/text.mjs'
+import { escapeRegExp, firstLine, noColour, toPosix } from '../../core/text.mjs'
 
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 
 /** Playwright reads a file argument as a regular expression over the path: anchor it to whole segments. */
-export const filePattern = file => `(?:^|/)${escapeRegExp(String(file).split('\\').join('/'))}$`
+export const filePattern = file => `(?:^|/)${escapeRegExp(toPosix(file))}$`
 
 /** -g sees the full title (project, file, describe titles, title) with the tags appended. */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}(?: @\\S+)*$`
@@ -72,7 +72,7 @@ export function parseReport(json, root, { read } = {}) {
   const rootDir = typeof json?.config?.rootDir === 'string' && json.config.rootDir ? json.config.rootDir : root
   const fileOf = f => {
     const p = String(f ?? '')
-    return rel(isAbsolute(p) ? p : resolve(rootDir, p)).split('\\').join('/')
+    return toPosix(rel(isAbsolute(p) ? p : resolve(rootDir, p)))
   }
   const merged = new Map()
   const walk = (suite, path) => {

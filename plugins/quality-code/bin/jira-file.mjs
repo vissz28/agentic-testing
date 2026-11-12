@@ -12,10 +12,10 @@ import { basename, extname, join, resolve } from 'node:path'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { isTicketKey } from '../lib/core/text.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
 export const MEDIA_HOST = 'api.media.atlassian.com'
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const IMAGES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp'])
 export const MAX_IMAGES = 3
 const TIMEOUT_MS = 30000
@@ -27,13 +27,13 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   // A key that cannot leave the tickets folder.
   const dirOf = key => join(resolve(root, normaliseTicketsDir(cfg.config.ticketsDir)), key, 'files')
   if (argv[0] === 'done') {
-    if (!KEY.test(argv[1] ?? '') || argv.length > 2) { err(USAGE); return 2 }
+    if (!isTicketKey(argv[1]) || argv.length > 2) { err(USAGE); return 2 }
     rmSync(dirOf(argv[1]), { recursive: true, force: true })
     out('ok')
     return 0
   }
   const [key, link, name] = argv
-  if (!KEY.test(key ?? '') || !link || !name || argv.length > 3) { err(USAGE); return 2 }
+  if (!isTicketKey(key) || !link || !name || argv.length > 3) { err(USAGE); return 2 }
   let url = null
   try { url = new URL(link) } catch {}
   if (url?.protocol !== 'https:' || url.hostname !== MEDIA_HOST) { err(`only a link to https://${MEDIA_HOST} is downloaded`); return 2 }

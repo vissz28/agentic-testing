@@ -6,13 +6,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { claudeDir } from './config.mjs'
+import { isTicketKey } from '../core/text.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
 // `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
 const LANGUAGE = /^[a-z]{2}$/
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 export const MAX_DATA_BYTES = 16 * 1024
-const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 // Anything that looks like a secret is refused: the cache holds answers, not credentials.
 const SECRET = /(ghp_|gho_|github_pat_|glpat-|xox[abp]-|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY)/
 const SECRET_FIELD = /^(token|password|passwd|secret|api[_-]?key|authorization)$/i
@@ -26,7 +26,7 @@ export const fileOf = (root, command, key, env = process.env) =>
 function check(command, key) {
   if (!COMMANDS.includes(command)) return `unknown command "${command}" (${COMMANDS.join(', ')})`
   if (command === 'session' && key != null) return 'session has no ticket key'
-  if (key != null && !KEY.test(key)) return `"${key}" is not a ticket key`
+  if (key != null && !isTicketKey(key)) return `"${key}" is not a ticket key`
   return null
 }
 

@@ -8,6 +8,7 @@ import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs
 import { RUNNERS } from './runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from './conventions.mjs'
+import { toPosix } from '../core/text.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -53,7 +54,7 @@ export const DEFAULTS = Object.freeze({
 })
 
 /** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
-export const normaliseTicketsDir = dir => String(dir).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
+export const normaliseTicketsDir = dir => toPosix(dir).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
 /** The config file of the project at dir: the one in its place (next to the tickets and audit files), else the legacy .claude/quality-code.json; null when there is none. */
 export function configFileOf(dir, env = process.env) {
@@ -72,7 +73,7 @@ function findHome(dir) {
   }
 }
 
-const folderKey = f => String(f).replace(/\\/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
+const folderKey = f => toPosix(f).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'quality-code', 'roots.json')
 
 /**
@@ -172,8 +173,8 @@ function folderRules(c) {
 function folderErrors(folder, name, rules, e) {
   if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
   if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
-  const f = folder.replace(/\\/g, '/').replace(/^(?:\.\/)+/, '')
-  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(r.path.replace(/\\/g, '/').replace(/^(?:\.\/)+/, ''), f))
+  const f = toPosix(folder).replace(/^(?:\.\/)+/, '')
+  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(toPosix(r.path).replace(/^(?:\.\/)+/, ''), f))
   if (rule) e.push(`${name} "${folder}" is inside the forbidden "${rule.path}"`)
 }
 
