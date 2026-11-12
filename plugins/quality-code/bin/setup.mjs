@@ -449,12 +449,24 @@ function templateHost(root, remote) {
   return existsSync(join(root, '.github')) && !existsSync(join(root, '.gitlab')) ? 'github' : 'gitlab'
 }
 
+/**
+ * A version 1 config (it names an adapter) as version 2 names its sides, so a rerun of setup rewrites it:
+ * playwright is the frontend, a backend runner the backend, fullstack both (Vitest when it named no backend).
+ */
+export function fromVersion1(c) {
+  if (!c || typeof c !== 'object' || !('adapter' in c)) return c
+  const { adapter, backend, ...rest } = c
+  const sides = adapter === 'fullstack' ? { frontend: 'playwright', backend: backend ?? 'vitest' }
+    : adapter === 'playwright' ? { frontend: 'playwright' } : { backend: adapter }
+  return { ...rest, version: 2, ...sides }
+}
+
 /** The personal config (no repo): its path and what it holds now (null when there is none). */
 function personalState(env) {
   const path = personalConfigPath(env)
   const state = { path, existing: null }
   if (existsSync(path)) {
-    try { state.existing = readJson(path) } catch (err) { state.existingError = `${path} is not valid JSON (${err.message})` }
+    try { state.existing = fromVersion1(readJson(path)) } catch (err) { state.existingError = `${path} is not valid JSON (${err.message})` }
   }
   return state
 }
@@ -523,7 +535,7 @@ export function detect(top, env = process.env, sub = null) {
   let existingError
   const cp = configPath(top)
   if (existsSync(cp)) {
-    try { existing = readJson(cp) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
+    try { existing = fromVersion1(readJson(cp)) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }
   const ignored = ignoredDirs(top)
   const topPkg = (() => { try { return readJson(join(top, 'package.json')) } catch { return null } })()

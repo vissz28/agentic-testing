@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
+import { SMOKE_TEXT, detect, fromVersion1, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
 import { validateConfig } from '../../lib/base/config.mjs'
 import { filesOf } from '../../lib/base/containers.mjs'
@@ -881,4 +881,19 @@ test('write with containersScaffold on pytest, Go and .NET: the helper, and the 
   const cs = readFileSync(join(net, 'Shop.Tests/Integration/TestDatabases.cs'), 'utf8')
   for (const line of ['namespace Acme.Shop.Tests.Integration;', 'using Testcontainers.MySql;', 'Start("MySQL", () => new MySqlBuilder("mysql:8.4").Build(), c => c.GetConnectionString());', 'public static Task<string> MySqlAsync() => MySql.Value;']) assert.ok(cs.includes(line), line)
   assert.deepEqual(JSON.parse(readFileSync(join(net, '.quality-code/config.json'), 'utf8')).dotnet.layers, [{ name: 'unit', folder: 'Shop.Tests/' }, { name: 'integration', folder: 'Shop.Tests/Integration/' }], "the team's layers kept")
+})
+
+test('a version 1 config comes back from detect with its sides, so a rerun of setup rewrites it', () => {
+  const jira = { site: 'https://e.atlassian.net', projects: ['DEMO'] }
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'playwright', jira }), { version: 2, jira, frontend: 'playwright' })
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'pytest', jira }), { version: 2, jira, backend: 'pytest' })
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', backend: 'go', jira }), { version: 2, jira, frontend: 'playwright', backend: 'go' })
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', jira }), { version: 2, jira, frontend: 'playwright', backend: 'vitest' }, 'the old default')
+  assert.deepEqual(fromVersion1({ version: 2, backend: 'vitest', jira }), { version: 2, backend: 'vitest', jira }, 'a version 2 file is left alone')
+  const d = repo({ devDependencies: { vitest: '1' } })
+  mkdirSync(join(d, '.claude'), { recursive: true })
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'fullstack', jira }))
+  const { existing } = detect(d)
+  assert.deepEqual(existing, { version: 2, jira, frontend: 'playwright', backend: 'vitest' })
+  assert.equal(validateConfig(existing).ok, true)
 })

@@ -11,9 +11,9 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Changed
 
-- **Breaking:** the project config names its sides, not an adapter. `"frontend": "playwright"` for screens tested end to end, `"backend": "<runner>"` (`vitest`, `pytest`, `junit`, `go` or `dotnet`) for the tests of the code, or both for a fullstack project. `adapter`, the `fullstack` value and the hidden default (a fullstack project with no `backend` ran Vitest) are gone, and `version` is now `2`. A version 1 file is refused with one line saying so. Cypress and Jest stay where they were, in `runners`.
+- **Breaking:** the project config names its sides, not an adapter. `"frontend": "playwright"` for screens tested end to end, `"backend": "<runner>"` (`vitest`, `pytest`, `junit`, `go` or `dotnet`) for the tests of the code, or both for a fullstack project. `adapter`, the `fullstack` value and the hidden default (a fullstack project with no `backend` ran Vitest) are gone, and `version` is now `2`. A version 1 file is refused with one line saying so; `/quality-code:setup` reads it and writes the new one. Cypress and Jest stay where they were, in `runners`.
 
-**What to do:** re-run `/quality-code:setup` (or `/quality-code:setup --personal` for a QA or PO setup) to write the new file.
+**What to do:** re-run `/quality-code:setup`: it converts the old file, then delete `.claude/quality-code.json` when it says so.
 
 ## [0.76.1] - 2026-11-12
 
