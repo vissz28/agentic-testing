@@ -1,7 +1,7 @@
 // The Vitest runner: runs specs with the project's own Vitest and reads its JSON report.
 // Implements the runner contract of the shared checks. Never writes into the project.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
@@ -80,7 +80,7 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
       if (timedOut) return
       try {
         const json = tryReadJson(out, null)
-        if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Vitest wrote no report' })
+        if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Vitest wrote a report that is not valid JSON' : 'Vitest wrote no report') })
         finish({ ran: true, ...parseReport(json, root) })
       } catch (e) {
         finish({ ran: false, error: `could not read the Vitest report: ${e.message}` })

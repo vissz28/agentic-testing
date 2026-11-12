@@ -173,7 +173,7 @@ export function runStryker(root, { target, mutate = [target], specs = [], timeou
       if (timedOut) return
       try {
         const json = tryReadJson(out, null)
-        if (!json) return finish({ ran: false, error: errorOf(stderr) || 'Stryker wrote no report' })
+        if (!json) return finish({ ran: false, error: errorOf(stderr) || (existsSync(out) ? 'Stryker wrote a report that is not valid JSON' : 'Stryker wrote no report') })
         finish({ ran: true, ...parseStrykerReport(json) })
       } catch (e) {
         finish({ ran: false, error: `could not read the Stryker report: ${e.message}` })

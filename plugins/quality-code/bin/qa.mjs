@@ -214,7 +214,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     const found = String(flags.found ?? '').split(',').map(x => x.trim()).filter(Boolean)
     if (found.some(k => !isTicketKey(k))) return err('--found takes Jira keys, like ABC-100,ABC-101')
     const f = join(dir, 'watch.json')
-    const seen = tryReadJson(f, null)?.seen ?? []
+    const seen = readJsonOr(f, null)?.seen ?? []
     const fresh = found.filter(k => !seen.includes(k))
     if (fresh.length) write(dir, 'watch.json', { seen: [...seen, ...fresh] })
     out(fresh.length ? `Ready to retest: ${fresh.join(', ')}` : 'Nothing new.', { tag: 'QA_FRESH_JSON', data: { fresh } })

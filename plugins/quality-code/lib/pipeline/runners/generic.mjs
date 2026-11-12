@@ -4,7 +4,7 @@
 // its results through its Module API. Never writes into the project: reports and artifacts go to a temp
 // folder that is always deleted.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -177,7 +177,7 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
         const json = tryReadJson(out, null)
         const down = APP_DOWN.exec(output)
         if (down) return finish({ ran: false, error: `the app is not reachable at ${down[1]}: start it, then run again` })
-        if (!json) return finish({ ran: false, error: firstLine(output) || `${label} wrote no report` })
+        if (!json) return finish({ ran: false, error: firstLine(output) || (existsSync(out) ? `${label} wrote a report that is not valid JSON` : `${label} wrote no report`) })
         const r = how.parse(json, root)
         if (r.error) return finish({ ran: false, error: r.error })
         finish({ ran: true, tests: r.tests, broken: r.broken })

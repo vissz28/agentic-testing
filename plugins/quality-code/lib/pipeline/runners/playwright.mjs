@@ -2,7 +2,7 @@
 // Implements the runner contract of the shared checks. Never writes into the project: the report
 // and Playwright's artifacts go to a temp folder that is always deleted.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
@@ -158,7 +158,7 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
       if (timedOut) return
       try {
         const json = tryReadJson(out, null)
-        if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Playwright wrote no report' })
+        if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Playwright wrote a report that is not valid JSON' : 'Playwright wrote no report') })
         const r = parseReport(json, root, { read: p => { try { return readFileSync(p, 'utf8') } catch { return null } } })
         if (r.error) return finish({ ran: false, error: r.error })
         const failed = r.tests.filter(t => t.status === 'failed')

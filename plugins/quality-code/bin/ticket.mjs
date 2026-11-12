@@ -28,7 +28,7 @@ import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyS
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
-import { readJson, readJsonOr, tryReadJson } from '../lib/core/files.mjs'
+import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
@@ -156,11 +156,9 @@ function run(argv, env, cwd) {
     }
     log('jira', { key, action })
     // The fill-in answers now on Jira are no longer waiting: `saved` stops offering them.
-    if (action === 'update' && existsSync(savedPath(key))) {
-      try {
-        const t = readJson(savedPath(key))
-        writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length }))
-      } catch {}
+    if (action === 'update') {
+      const t = readJsonOr(savedPath(key), null)
+      if (t) try { writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length })) } catch {}
     }
     printLine('ok')
     return 0

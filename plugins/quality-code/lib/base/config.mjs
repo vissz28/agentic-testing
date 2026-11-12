@@ -9,7 +9,7 @@ import { RUNNERS } from './runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from './conventions.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
-import { tryReadJson } from '../core/files.mjs'
+import { readJsonOr, tryReadJson } from '../core/files.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -109,7 +109,8 @@ export function setActiveRoot(home, folder, env = process.env) {
   if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
   if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
   const file = activeRootsFile(env)
-  const all = tryReadJson(file, {})
+  // A broken file stops here, naming it: rewriting it would drop the root picked in every other repo.
+  const all = readJsonOr(file, {})
   all[resolve(home)] = folderKey(folder)
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(all, null, 2))

@@ -13,6 +13,8 @@ import { saveTickets } from '../../lib/ticket/batch.mjs'
 import { createdOf } from '../../bin/xray.mjs'
 import { main as qa } from '../../bin/qa.mjs'
 import { main as routine } from '../../bin/routine.mjs'
+import { main as progress } from '../../bin/progress.mjs'
+import { fileOf as progressFile } from '../../lib/base/progress.mjs'
 
 const BROKEN = '{"filled": ['
 const project = config => {
@@ -74,4 +76,71 @@ test('routine: a broken record of the last check is reported, not taken for a fi
   const code = await routine(['run', '--since-last'], p.env, p.root, { ...streams, run: async () => ({ exit: 0, verdict: 'green', phases: [] }) })
   assert.equal(code, 2)
   assert.ok(o.err.startsWith(`routine.mjs: ${file} is not valid JSON`), o.err)
+})
+
+// Files a later command reads and then rewrites: rewriting a broken one would drop what else it held.
+const BIN = name => fileURLToPath(new URL(`../../bin/${name}.mjs`, import.meta.url))
+const cli = (p, name, args) => spawnSync(process.execPath, [BIN(name), ...args], { cwd: p.root, env: { ...process.env, ...p.env }, encoding: 'utf8' })
+
+test('save set: a broken list of where each project keeps its files stops it, naming the file, and is left as it is', () => {
+  const p = project()
+  const file = join(p.env.CLAUDE_CONFIG_DIR, 'quality-code', 'save.json')
+  put(file, BROKEN)
+  const r = cli(p, 'ticket', ['save', 'set', 'local'])
+  assert.equal(r.status, 2, r.stdout)
+  assert.ok(r.stderr.startsWith(`ticket.mjs: ${file} is not valid JSON`), r.stderr)
+  assert.equal(readFileSync(file, 'utf8'), BROKEN)
+})
+
+test('root set: a broken file of the roots picked in each repo stops it, naming the file, and is left as it is', () => {
+  const p = project({ roots: ['app', 'api'] })
+  mkdirSync(join(p.root, 'app')); mkdirSync(join(p.root, 'api'))
+  const file = join(p.env.CLAUDE_CONFIG_DIR, 'quality-code', 'roots.json')
+  put(file, BROKEN)
+  const r = cli(p, 'ticket', ['root', 'set', 'app'])
+  assert.equal(r.status, 2, r.stdout)
+  assert.ok(r.stderr.startsWith(`ticket.mjs: ${file} is not valid JSON`), r.stderr)
+  assert.equal(readFileSync(file, 'utf8'), BROKEN)
+})
+
+test('ticket jira-posted update: a broken saved ticket stops it, naming the file, and is left as it is', () => {
+  const p = project()
+  const file = resolve(p.root, p.cfg.config.ticketsDir, 'DEMO-1', 'ticket.json')
+  put(file, BROKEN)
+  const r = cli(p, 'ticket', ['jira-posted', 'DEMO-1', 'update'])
+  assert.equal(r.status, 2, r.stdout)
+  assert.ok(r.stderr.startsWith(`ticket.mjs: ${file} is not valid JSON`), r.stderr)
+  assert.equal(readFileSync(file, 'utf8'), BROKEN)
+})
+
+test('qa watch fresh: a broken watch list stops it, naming the file, and is left as it is', async () => {
+  const p = project()
+  const file = join(p.cfg.auditDir, 'qa', 'watch.json')
+  put(file, BROKEN)
+  const { o, io: streams } = io()
+  assert.equal(await qa(['watch', 'fresh', '--found', 'DEMO-2'], p.env, p.root, streams), 2)
+  assert.ok(o.err.startsWith(`qa.mjs: ${file} is not valid JSON`), o.err)
+  assert.equal(readFileSync(file, 'utf8'), BROKEN)
+})
+
+test('progress get: a broken saved step is reported, not taken for "nothing saved"', async () => {
+  const p = project()
+  const { o, io: streams } = io()
+  assert.equal(await progress(['set', 'spec', '--step', '2', '--label', 'tests written'], { ...streams, env: p.env, cwd: p.root }), 0)
+  const file = progressFile(p.root, 'spec', null, p.env)
+  put(file, BROKEN)
+  const again = io()
+  assert.equal(await progress(['get', 'spec'], { ...again.io, env: p.env, cwd: p.root }), 2)
+  assert.ok(again.o.err.startsWith(`progress.mjs: ${file} is not valid JSON`), again.o.err)
+  assert.equal(o.err, '')
+})
+
+test('pipeline --key: a broken rules.json stops the run before it starts, naming the file', () => {
+  const p = project()
+  put(join(p.root, 'test/a.spec.ts'), "test('DEMO-1 a', () => { expect(1).toBe(1) })")
+  const file = resolve(p.root, p.cfg.config.ticketsDir, 'DEMO-1', 'rules.json')
+  put(file, BROKEN)
+  const r = cli(p, 'pipeline', ['test/a.spec.ts', '--key', 'DEMO-1'])
+  assert.equal(r.status, 2, r.stdout)
+  assert.ok(r.stderr.startsWith(`${file} is not valid JSON`), r.stderr)
 })
