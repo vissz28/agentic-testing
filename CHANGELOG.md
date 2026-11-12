@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.75.1] - 2026-11-12
+
+### Fixed
+
+- The golden tests of 0.75.0 failed on Linux: they hid the system temp folder, `/tmp`, which the generated CI files write on purpose. Only the tests changed.
+
+**What to do:** nothing.
+
 ## [0.75.0] - 2026-11-12
 
 ### Fixed
