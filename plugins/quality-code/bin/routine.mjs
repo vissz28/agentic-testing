@@ -22,12 +22,15 @@ import { PLAIN } from '../lib/base/git.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
 import { SHARED_CONFIG } from '../lib/base/changes.mjs'
+import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
 const VALUE = ['--task', '--branch', '--since', '--until', '--flaky', '--junit', '--last', '--id']
 const DATE = /^\d{4}-\d{2}-\d{2}$/
+// A spec of the regression suite carries the tag as a whole word.
+const TAGGED = new RegExp(`${REGRESSION_TAG}\\b`)
 const MIN_RUNS = 3
 
 const git = (root, args) => {
@@ -53,7 +56,7 @@ function parse(argv) {
   // --id names the scheduled task that calls this; the script only accepts it.
   for (const k of ['flaky', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
   if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
-  if (a.regression && (a.task || cmd === 'status')) throw new Error('--regression runs the @regression suite: give it without --task, and only to run')
+  if (a.regression && (a.task || cmd === 'status')) throw new Error(`--regression runs the ${REGRESSION_TAG} suite: give it without --task, and only to run`)
   if (a.since !== undefined && a.sinceLast) throw new Error('give --since or --since-last, not both')
   if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.flaky || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')
   return a
@@ -98,7 +101,7 @@ function realRun({ root, config, specs, key, stability, env }) {
     return { name, verdict: o?.verdict ?? 'not_verified', passed: t.passed, failed: t.failed, flaky, detail: o ? '' : (r.stderr || r.stdout).trim() }
   }
   const has = adaptersOf(config)
-  const phases = specs ? [phase(key ?? '@regression', key ? [...specs, '--key', key] : specs)]
+  const phases = specs ? [phase(key ?? REGRESSION_TAG, key ? [...specs, '--key', key] : specs)]
     : ['backend', 'frontend'].filter(side => adaptersForSide(side, config).some(x => has.includes(x))).map(side => phase(side, ['--suite', side]))
   if (!specs) {
     const e = spawnSync(process.execPath, [join(HERE, 'evals.mjs')], { cwd: root, env, encoding: 'utf8' })
@@ -113,7 +116,7 @@ function status(a, cfg, dir, stdout) {
   else runs = runs.filter(r => !r.task)
   runs = runs.slice(-Number(a.last ?? 20))
   const s = stabilityOf(runs)
-  if (a.json) { stdout(`${JSON.stringify({ task: a.task ?? (a.regression ? '@regression' : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })}\n`); return 0 }
+  if (a.json) { stdout(`${JSON.stringify({ task: a.task ?? (a.regression ? REGRESSION_TAG : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })}\n`); return 0 }
   const lines = [`quality-code routine status · ${a.task ? `task ${a.task}` : 'whole suite'} · ${s.runs ? `last ${s.runs} run${s.runs === 1 ? '' : 's'}, ${runs[0].at.slice(0, 10)} to ${runs.at(-1).at.slice(0, 10)}` : 'no runs kept yet'}`]
   if (!dir) lines.push('Files and logs are kept only in the chat, so there is no history. Change it with /quality-code:config, item 7.')
   if (s.runs) {
@@ -165,7 +168,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (known) newCommits = prev.sha === tested ? [] : log([`${prev.sha}..${tested}`])
   else if (a.since) newCommits = log([`--since=${a.since}`, tested])
   const filtering = a.sinceLast ? known : Boolean(a.since)
-  const lines = [`quality-code routine · ${a.task ? `task ${a.task}` : a.regression ? '@regression suite' : 'whole suite'} · ${ref}${fetched ? '' : ' (could not fetch: using what is here)'}`]
+  const lines = [`quality-code routine · ${a.task ? `task ${a.task}` : a.regression ? `${REGRESSION_TAG} suite` : 'whole suite'} · ${ref}${fetched ? '' : ' (could not fetch: using what is here)'}`]
   if (drift) lines.push(`Tested your checkout ${tested.slice(0, 7)}, not ${ref} ${tip.slice(0, 7)} (pull to test what was pushed).`)
   if (filtering && !newCommits.length && !a.force) {
     lines.push(`No new commits on ${drift ? 'your checkout' : ref} ${a.sinceLast ? `since the last check (${prev.sha.slice(0, 7)}, ${prev.verdict})` : `since ${a.since}`}: nothing to check.`)
@@ -191,13 +194,13 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     }
     lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   } else if (a.regression) {
-    specs = projectSpecs(root, config).map(s => s.path).filter(p => /@regression\b/.test(readFileSync(join(root, p), 'utf8')))
+    specs = projectSpecs(root, config).map(s => s.path).filter(p => TAGGED.test(readFileSync(join(root, p), 'utf8')))
     if (!specs.length) {
-      lines.push('No spec carries @regression, so nothing was verified.')
+      lines.push(`No spec carries ${REGRESSION_TAG}, so nothing was verified.`)
       stdout(`${lines.join('\n')}\n`)
       return 3
     }
-    lines.push(`Running the @regression suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
+    lines.push(`Running the ${REGRESSION_TAG} suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   } else lines.push(`Running every test of the project${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   const result = await run({ root, config, specs, key: a.task, stability: a.flaky, env })
   const green = result.exit === 0
@@ -214,11 +217,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (between.length > 15) lines.push(`  … and ${between.length - 15} more`)
   }
   if (dir && result.exit !== 2) {
-    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tested, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? '@regression' : null) }), false)
-    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? '@regression' : null), exit: result.exit, stability: a.flaky ? Number(a.flaky) : null, flaky })}\n`, true)
+    keep(dir, stateName, JSON.stringify({ branch: ref, sha: tested, verdict: green ? 'green' : 'not green', at: now.toISOString(), task: a.task ?? (a.regression ? REGRESSION_TAG : null) }), false)
+    keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? REGRESSION_TAG : null), exit: result.exit, stability: a.flaky ? Number(a.flaky) : null, flaky })}\n`, true)
   }
   if (a.junit) { try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(result.phases.map(p => ({ ...p, detail: p.detail || lines.join('\n') })))) } catch {} }
-  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? '@regression' : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
+  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? REGRESSION_TAG : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
   else stdout(`${lines.join('\n')}\n`)
   return result.exit
 }

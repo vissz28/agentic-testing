@@ -31,14 +31,6 @@ const NEEDS_RUNNER = new Set(['flaky', 'mutation'])
 const USAGE = 'usage: checks.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | expected --ticket @file --key KEY <spec...> | boundary --hook | run start --key KEY | run stop | run status [--json] (run: exit 0 ok, 1 a run is already active, 2 usage; status exits 0 also with no active run)'
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 
-/** For parts 3–4: run one check with a ready context. */
-export async function runCheck(name, input, ctx) {
-  const c = CHECKS[name]
-  if (!c) throw new Error(`unknown check: ${name}`)
-  if (NEEDS_RUNNER.has(name) && typeof ctx.runTests !== 'function') throw new Error(`${name} needs ctx.runTests`)
-  return c.run(input, ctx)
-}
-
 export function registerCheck(name, run, specs) {
   CHECKS[name] = { run, specs }
 }

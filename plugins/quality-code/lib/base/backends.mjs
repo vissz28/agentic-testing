@@ -86,8 +86,5 @@ export function backendOf(config) {
   return null
 }
 
-/** The registry entry of the project's backend, or null on a frontend project. */
-export const backendEntry = config => BACKENDS[backendOf(config)] ?? null
-
 /** The runner's name as the card and the summaries show it: Vitest, pytest, …, Playwright. */
 export const runnerLabel = adapter => (adapter === 'playwright' ? 'Playwright' : BACKENDS[adapter]?.label ?? adapter)
