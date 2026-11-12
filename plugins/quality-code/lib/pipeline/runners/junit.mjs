@@ -4,11 +4,11 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { structure } from '../../base/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 
 const WIN = process.platform === 'win32'
 const OUTPUT_MAX = 1 << 20
@@ -183,7 +183,6 @@ function upTo(root, dir, names) {
   }
 }
 
-const toPosix = p => p.split(sep).join('/')
 // A word for cmd.exe: in double quotes, a quote doubled.
 const cmdQuote = s => `"${String(s).replace(/"/g, '""')}"`
 
@@ -206,7 +205,7 @@ function toolCommand(root, mod, selectors, win) {
       if (d === resolve(root) || dirname(d) === d) break
     }
     const wrapper = upTo(root, mod.dir, [win ? 'mvnw.cmd' : 'mvnw'])
-    const pl = top === mod.dir ? [] : ['-pl', toPosix(relative(top, mod.dir)), '-am']
+    const pl = top === mod.dir ? [] : ['-pl', localToForwardSlashes(relative(top, mod.dir)), '-am']
     return {
       tool: 'maven',
       cmd: wrapper ? wrapper.path : win ? 'mvn.cmd' : 'mvn',
@@ -219,7 +218,7 @@ function toolCommand(root, mod, selectors, win) {
   const wrapper = upTo(root, mod.dir, [win ? 'gradlew.bat' : 'gradlew'])
   const settings = upTo(root, mod.dir, ['settings.gradle.kts', 'settings.gradle'])
   const top = wrapper?.dir ?? settings?.dir ?? mod.dir
-  const project = toPosix(relative(top, mod.dir)).split('/').filter(Boolean).map(p => `:${p}`).join('')
+  const project = localToForwardSlashes(relative(top, mod.dir)).split('/').filter(Boolean).map(p => `:${p}`).join('')
   // cleanTest: an up-to-date test task would run nothing and leave the last run's reports.
   return {
     tool: 'gradle',

@@ -7,7 +7,7 @@ import { changedPaths } from './git.mjs'
 import { result } from './result.mjs'
 import { backendOf, BACKENDS } from './backends.mjs'
 import { ignoreFolder } from './ignore.mjs'
-import { toPosix } from '../core/text.mjs'
+import { toForwardSlashes } from '../core/text.mjs'
 
 // Never written by a test run: build output and packages at any depth (monorepos), git, and the
 // plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
@@ -38,9 +38,9 @@ export function matches(pattern, path) {
 
 /** True when an allow rule is about files inside `folder` (a rule on src/ files named *.unit.test.js covers the folder src/): the folder holds tests, whose names the rule lets through. */
 export function allowCovers(allow, folder) {
-  const f = toPosix(folder).replace(/^(?:\.\/)+/, '')
+  const f = toForwardSlashes(folder).replace(/^(?:\.\/)+/, '')
   return (allow ?? []).some(a => {
-    const lit = toPosix(a).replace(/^(?:\.\/)+/, '').split('*')[0]
+    const lit = toForwardSlashes(a).replace(/^(?:\.\/)+/, '').split('*')[0]
     return a.includes('*') && (lit.startsWith(f) || f.startsWith(lit))
   })
 }
@@ -75,7 +75,7 @@ export function defaultForbidden(root) {
 // beside the spec (guides/visual-regression.md): a run may write them even where the code folder is forbidden.
 const BASELINE_IMAGE = /(?:^|\/)[^/]+\.(?:spec|test)\.[cm]?[jt]sx?-snapshots\/[^/]+\.png$/
 
-const norm = p => toPosix(p).replace(/^(?:\.\/)+/, '')
+const norm = p => toForwardSlashes(p).replace(/^(?:\.\/)+/, '')
 
 /**
  * The test file names a run may write even inside a forbidden folder: those of a backend other than
@@ -94,7 +94,7 @@ export function rulesFor(config, root) {
 
 /** fold: the disk ignores case (macOS, Windows), so a new .ENV is .env: forbidden paths match in any case, allowed ones only as written. */
 export function violation(relPath, rules, { fold = false } = {}) {
-  const p = toPosix(relPath ?? '').replace(/^\.\//, '')
+  const p = toForwardSlashes(relPath ?? '').replace(/^\.\//, '')
   if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
   const hit = (pattern, path) => (fold ? matches(pattern.toLowerCase(), path.toLowerCase()) : matches(pattern, path))
   if (ALWAYS.some(a => hit(a, p))) return { path: p, why: 'never written by a test run.' }

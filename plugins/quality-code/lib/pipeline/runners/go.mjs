@@ -8,14 +8,13 @@
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { goName, scan } from '../../base/dialects/go.mjs'
 import { findUp, kill, track } from './tool.mjs'
-import { escapeRegExp, firstLine } from '../../core/text.mjs'
+import { escapeRegExp, firstLine, localToForwardSlashes } from '../../core/text.mjs'
 
 const LABEL = 'Go'
-const slash = p => p.split(sep).join('/')
 
 /** The module of a package folder: { root, path } from the nearest go.mod, or null. */
 export function moduleOf(dirAbs) {
@@ -37,8 +36,8 @@ export function indexSpecs(root, files) {
     let pkg = pkgs.get(dirAbs)
     if (!pkg) {
       const mod = moduleOf(dirAbs)
-      if (!mod) return { error: `no go.mod above ${slash(dirname(file)) || '.'}` }
-      const rel = slash(relative(mod.root, dirAbs))
+      if (!mod) return { error: `no go.mod above ${localToForwardSlashes(dirname(file)) || '.'}` }
+      const rel = localToForwardSlashes(relative(mod.root, dirAbs))
       pkg = { importPath: rel ? `${mod.path}/${rel}` : mod.path, dir: dirAbs, cwd: mod.root, pattern: rel ? `./${rel}` : '.', files: [], funcs: new Map() }
       pkgs.set(dirAbs, pkg)
     }

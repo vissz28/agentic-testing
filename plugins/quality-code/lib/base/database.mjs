@@ -1,7 +1,7 @@
 // Does a backend ticket or its target touch tables, queries or migrations? Then /quality-code:spec
 // proposes database tests (guides/database-tests.md). A word list, no AI: a plain word match, and the
 // person can drop the Database section from the plan card.
-import { toPosix } from '../core/text.mjs'
+import { toForwardSlashes } from '../core/text.mjs'
 
 const TEXT = [
   /\b(?:database|db)\b/i,
@@ -32,7 +32,7 @@ export function touchesData({ text = '', target = '' } = {}) {
     const m = String(text).match(re)
     if (m) reasons.push(`text: ${m[0].trim().slice(0, 40)}`)
   }
-  const path = toPosix(target)
+  const path = toForwardSlashes(target)
   if (PATH.some(re => re.test(path))) reasons.push(`target: ${path}`)
   return { touches: reasons.length > 0, reasons }
 }

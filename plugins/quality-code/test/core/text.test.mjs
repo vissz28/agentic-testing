@@ -2,9 +2,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, isTicketKey, noColour, toPosix } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -37,11 +37,19 @@ test('isTicketKey: a project key, a dash and a number, as a string and nothing e
   for (const not of [['ABC-1'], { toString: () => 'ABC-1' }, 1, null, undefined]) assert.equal(isTicketKey(not), false)
 })
 
-test('toPosix: backslashes become forward slashes, nothing else changes', () => {
-  assert.equal(toPosix('src\\orders\\a.spec.ts'), 'src/orders/a.spec.ts')
-  assert.equal(toPosix('C:\\work\\app/test\\a.ts'), 'C:/work/app/test/a.ts')
-  assert.equal(toPosix('./already/fine/'), './already/fine/')
-  assert.equal(toPosix(''), '')
+test('toForwardSlashes: a path someone else wrote; every backslash is turned, on any machine', () => {
+  assert.equal(toForwardSlashes('src\\orders\\a.spec.ts'), 'src/orders/a.spec.ts')
+  assert.equal(toForwardSlashes('C:\\work\\app/test\\a.ts'), 'C:/work/app/test/a.ts')
+  assert.equal(toForwardSlashes('./already/fine/'), './already/fine/')
+  assert.equal(toForwardSlashes(''), '')
+})
+
+test('localToForwardSlashes: a path this machine built; only its own separator is turned', () => {
+  assert.equal(localToForwardSlashes(join('src', 'orders', 'a.spec.ts')), 'src/orders/a.spec.ts')
+  assert.equal(localToForwardSlashes('already/fine'), 'already/fine')
+  // Where the separator is "/", a backslash is part of a file name and stays; on Windows it is the separator.
+  assert.equal(localToForwardSlashes('odd\\name.spec.ts'), sep === '/' ? 'odd\\name.spec.ts' : 'odd/name.spec.ts')
+  assert.equal(toForwardSlashes('odd\\name.spec.ts'), 'odd/name.spec.ts')
 })
 
 test('the helpers are written once: no script or library file has its own copy', () => {
@@ -51,7 +59,7 @@ test('the helpers are written once: no script or library file has its own copy',
   const ESCAPE_CLASS = '[.*+?^${}()|[' + '\\]' + '\\\\' + ']'
   // The shapes each helper replaced. The Node test reporter keeps its own slash line: it is loaded into the
   // project's test process, so it imports nothing of the plugin.
-  const COPIES = [ESCAPE_CLASS, '/^[A-Z][A-Z0-9_]*-\\d+$/', ".replace(/\\\\/g, '/')", ".split('\\\\').join('/')"]
+  const COPIES = [ESCAPE_CLASS, '/^[A-Z][A-Z0-9_]*-\\d+$/', ".replace(/\\\\/g, '/')", ".split('\\\\').join('/')", ".split(sep).join('/')"]
   const ALLOWED = new Set([join('lib', 'core', 'text.mjs'), join('lib', 'pipeline', 'runners', 'node-test-reporter.mjs')])
   const own = [...walk('bin'), ...walk('lib')].filter(f => !ALLOWED.has(f)).filter(f => {
     const src = readFileSync(join(root, f), 'utf8')

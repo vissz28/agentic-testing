@@ -13,7 +13,8 @@ import { keyPattern, ownTests } from '../base/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
 import { anchorRange } from './checks/suite-honesty.mjs'
 import { readFileSync } from 'node:fs'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
+import { localToForwardSlashes } from '../core/text.mjs'
 import { runStryker as realRunStryker } from './runners/stryker.mjs'
 import { playwrightRunner } from './runners/playwright.mjs'
 import { configFor } from './runners/vitest.mjs'
@@ -65,7 +66,7 @@ export function decide(steps) {
 // One spelling per spec: root-relative, forward slashes, no leading './'.
 export function normalizeSpec(root, spec) {
   const rel = isAbsolute(spec) ? relative(root, spec) : relative(root, resolve(root, spec))
-  return rel.split(sep).join('/')
+  return localToForwardSlashes(rel)
 }
 
 export function testsStep(run, requested = [], key = null) {

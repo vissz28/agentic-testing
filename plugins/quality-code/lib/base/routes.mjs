@@ -1,7 +1,8 @@
 // Is this path a screen of the app? Read from the router the code declares (React Router, Vue Router, Angular, a routes
 // array) and from the folders of a file-based router (Next, Nuxt, SvelteKit, Remix). Files are only read, never run.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join, relative } from 'node:path'
+import { localToForwardSlashes } from '../core/text.mjs'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.nuxt', '.svelte-kit', 'e2e', 'e2e-tests', 'test', 'tests', '__tests__', 'cypress'])
 const CODE = /\.(?:[cm]?[jt]sx?|vue|svelte)$/
@@ -57,7 +58,7 @@ export function declaredRoutes(root) {
     try { isDir = statSync(abs).isDirectory() } catch {}
     if (!isDir) continue
     for (const f of walk(root, dir, { n: MAX_FILES })) {
-      const parts = relative(abs, join(root, f)).split(sep).join('/').replace(/\.[^.]+$/, '').split('/')
+      const parts = localToForwardSlashes(relative(abs, join(root, f))).replace(/\.[^.]+$/, '').split('/')
       const last = parts.at(-1)
       if (dir.endsWith('app') && last !== 'page' && last !== '+page') continue
       if (/^_|^layout$|^api$/.test(last) && parts[0] !== 'api') continue

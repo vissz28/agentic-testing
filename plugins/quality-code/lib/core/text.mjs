@@ -1,4 +1,5 @@
-// Small jobs on a piece of text, written once. Imports nothing.
+// Small jobs on a piece of text, written once. Imports only Node's own modules.
+import { sep } from 'node:path'
 
 const COLOUR_CODES = /\x1b\[[0-9;]*[A-Za-z]/g
 
@@ -17,11 +18,20 @@ export const noColour = text => String(text ?? '').replace(COLOUR_CODES, '')
 export const escapeRegExp = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
- * A path with forward slashes, whatever the machine wrote: Windows paths compare and match like any other.
+ * A path someone else wrote (a config value, a tool's report) with forward slashes: every backslash is
+ * turned, on any machine, so a path typed on Windows compares and matches like any other.
  * @param {unknown} path
  * @returns {string}
  */
-export const toPosix = path => String(path).replace(/\\/g, '/')
+export const toForwardSlashes = path => String(path).replace(/\\/g, '/')
+
+/**
+ * A path this machine just built (path.join, path.relative) with forward slashes: only the machine's own
+ * separator is turned. On macOS and Linux nothing changes, where a backslash can be part of a file name.
+ * @param {string} path
+ * @returns {string}
+ */
+export const localToForwardSlashes = path => path.split(sep).join('/')
 
 const TICKET_KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 

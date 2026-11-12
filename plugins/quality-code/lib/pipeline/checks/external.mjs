@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
-import { toPosix } from '../../core/text.mjs'
+import { toForwardSlashes } from '../../core/text.mjs'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next'])
 const MAX_FILES = 5000
@@ -35,7 +35,7 @@ function* walk(dir, home, patterns, seen) {
     const full = join(dir, e.name)
     if (e.isDirectory()) { if (!SKIP.has(e.name)) yield* walk(full, home, patterns, seen); continue }
     seen.n++
-    const rel = toPosix(relative(home, full))
+    const rel = toForwardSlashes(relative(home, full))
     if (patterns.some(p => matches(p, rel))) yield { file: rel, full }
   }
 }

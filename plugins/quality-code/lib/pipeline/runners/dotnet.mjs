@@ -4,13 +4,12 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { classesOf } from '../../base/dialects/dotnet.mjs'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 
-const posix = p => p.split(sep).join('/')
 
 const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
 const decode = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e) =>
@@ -205,7 +204,7 @@ export function dotnetRunner(root, config) {
     }
     for (const [project, specs] of byProject) {
       const classes = specs.flatMap(s => s.classes.map(c => ({ ...c, file: s.file })))
-      const r = await runDotnet(root, posix(relative(root, project)) || project, { filter: filterFor(classes, testName), command, timeoutMs: timeoutMs ?? defaultMs })
+      const r = await runDotnet(root, localToForwardSlashes(relative(root, project)) || project, { filter: filterFor(classes, testName), command, timeoutMs: timeoutMs ?? defaultMs })
       if (!r.ran) return { ran: false, tests: [], broken: [], error: r.error }
       if (r.buildError) { out.broken.push(...specs.map(s => ({ file: s.file, message: `does not compile: ${r.buildError}` }))); continue }
       const byFqn = new Map(classes.map(c => [c.fqn, c]))

@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from './config.mjs'
 import { CONFIG_FILE } from './places.mjs'
 import { PLAIN } from './git.mjs'
@@ -39,7 +40,6 @@ const MAX_WALK = 5000
 
 const lstat = p => { try { return lstatSync(p) } catch { return null } }
 const read = p => { try { return readFileSync(p, 'utf8') } catch { return null } }
-const posix = p => p.split(sep).join('/')
 const real = p => { try { return realpathSync(p) } catch { return resolve(p) } }
 /** a is b or inside it. */
 const inside = (a, b) => { const r = relative(real(b), real(a)); return r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r) }
@@ -61,7 +61,7 @@ export function unsafeReason(top, abs, { raw = abs } = {}) {
     cur = join(cur, seg)
     const st = lstat(cur)
     if (!st) return null
-    if (st.isSymbolicLink()) return `a link on the way (${posix(relative(base, cur))})`
+    if (st.isSymbolicLink()) return `a link on the way (${localToForwardSlashes(relative(base, cur))})`
   }
   const st = lstat(full)
   if (st?.isSymbolicLink()) {
@@ -102,7 +102,7 @@ const trackedUnder = (set, rel) => (set ? [...set].filter(f => f === rel || f.st
 
 const item = (top, abs, extra = {}) => {
   const st = lstat(abs)
-  return { abs, rel: posix(relative(top, abs)), kind: st?.isDirectory() && !st.isSymbolicLink() ? 'dir' : 'file', files: count(abs), ...extra }
+  return { abs, rel: localToForwardSlashes(relative(top, abs)), kind: st?.isDirectory() && !st.isSymbolicLink() ? 'dir' : 'file', files: count(abs), ...extra }
 }
 
 function rawTicketsDir(top) {
@@ -138,7 +138,7 @@ function scaffoldFiles(root, config) {
   if (config) {
     const folders = new Set()
     for (const a of adaptersOf(config)) { try { for (const l of layersOf(asAdapter(config, a))) if (/integration/i.test(`${l.name} ${l.folder}`)) folders.add(l.folder) } catch {} }
-    for (const f of folders) for (const n of ['global-setup.ts', 'global-setup.js', 'databases.ts', 'databases.js', 'conftest.py', 'TestDatabases.cs']) if (marked(join(f, n))) out.push(posix(join(f, n)))
+    for (const f of folders) for (const n of ['global-setup.ts', 'global-setup.js', 'databases.ts', 'databases.js', 'conftest.py', 'TestDatabases.cs']) if (marked(join(f, n))) out.push(localToForwardSlashes(join(f, n)))
   }
   return { files: [...new Set(out)], playwright: pw }
 }
@@ -162,7 +162,7 @@ function gitignoreItem(root, top, ownsPlaywright) {
   const ticketsLine = `${rawTicketsDir(top)}/*/raw.json`
   const wanted = new Set([ticketsLine, FIELDS_REL, ...RUNTIME_GITIGNORE, ...(ownsPlaywright ? PLAYWRIGHT_LINES : []), ...(ownsPlaywright?.signIn ? SIGN_IN_LINES : [])])
   const present = [...new Set(text.split(/\r?\n/).map(l => l.trim()).filter(l => wanted.has(l)))]
-  return present.length ? { abs, rel: posix(relative(top, abs)), kind: 'lines', lines: present, files: 1 } : null
+  return present.length ? { abs, rel: localToForwardSlashes(relative(top, abs)), kind: 'lines', lines: present, files: 1 } : null
 }
 
 /** The tickets folder's items: whole when it sits in a plugin folder, else only the ticket folders and files the plugin wrote. */
@@ -175,7 +175,7 @@ function ticketItems(top, root, config, env) {
     return { items: [], kept: existsSync(dir) ? [{ rel: dir, why: 'a tickets folder outside the project is never deleted' }] : [] }
   }
   const abs = resolve(root, dir)
-  const rel = posix(relative(top, abs))
+  const rel = localToForwardSlashes(relative(top, abs))
   if (!lstat(abs)) return { items: [], kept }
   if (!rel || rel.startsWith('..') || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
   if (rel === '.quality-code' || rel.startsWith('.quality-code/') || rel === '.claude/quality-code' || rel.startsWith('.claude/quality-code/')) return { items: [item(top, abs)], kept }
@@ -368,7 +368,7 @@ export function runClean(rootIn, { groups = [], specs = [], dryRun = false } = {
     const dir = list.groups.find(g => g.id === 'output')
     const tdir = loadConfig(rootIn, env).config?.ticketsDir
     if (dir && tdir && !isAbsolute(tdir) && !unsafeReason(list.top, resolve(list.root, tdir), { raw: tdir })) {
-      const rel = posix(relative(list.top, resolve(list.root, tdir)))
+      const rel = localToForwardSlashes(relative(list.top, resolve(list.root, tdir)))
       if (rel && rel !== '.quality-code' && !rel.startsWith('.quality-code/') && !rel.startsWith('.claude/quality-code')) { try { rmdirSync(resolve(list.root, tdir)) } catch {} }
     }
   }

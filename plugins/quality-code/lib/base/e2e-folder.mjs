@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ALWAYS, allowCovers, matches, rulesFor } from './boundary.mjs'
 import { runnerOf } from './runners.mjs'
-import { toPosix } from '../core/text.mjs'
+import { toForwardSlashes } from '../core/text.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']
@@ -54,7 +54,7 @@ export function e2eFolder(root, config) {
     const t = readTestDir(root, [...new Set([...(config.playwright?.configs ?? []).map(c => c.config), ...CONFIG_FILES])])
     out = t ? { ok: true, folder: t.value, source: 'testDir', configFile: t.file } : { ok: true, folder: DEFAULT_E2E_FOLDER, source: 'default' }
   }
-  const f = toPosix(out.folder).replace(/^(?:\.\/)+/, '')
+  const f = toForwardSlashes(out.folder).replace(/^(?:\.\/)+/, '')
   const always = ALWAYS.find(a => matches(a, f))
   if (always) return { ok: false, error: `the e2e folder "${out.folder}" is inside "${always}", which a test run never writes: set playwright.folder` }
   const rules = rulesFor(config, root)
