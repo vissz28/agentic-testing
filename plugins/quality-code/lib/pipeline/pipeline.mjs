@@ -159,7 +159,7 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key
 
 // A step that throws is a crash, not a verdict: rethrow tagged with the step so the CLI exits 2.
 const step = async (name, fn) => {
-  try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e)); err.step = name; throw err }
+  try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e), { cause: e }); err.step = name; throw err }
 }
 
 export async function runPipeline(opts, ctx) {

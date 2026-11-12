@@ -144,7 +144,7 @@ test('testsStep and decide', () => {
 })
 test('a throwing type-check is reported with its step name', async () => {
   const d = repo()
-  await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { typeCheck: async () => { throw new Error('kaput') } })), e => e.step === 'types' && /kaput/.test(e.message))
+  await assert.rejects(runPipeline({ specs: ['test/a.spec.ts'] }, ctx(d, { typeCheck: async () => { throw new Error('kaput') } })), e => e.step === 'types' && /kaput/.test(e.message) && e.cause?.message === 'kaput' && /typeCheck|pipeline\.test/.test(e.cause.stack))
 })
 test('a throwing tests step is reported with its name', async () => {
   const d = repo()
