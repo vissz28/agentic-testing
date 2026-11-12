@@ -9,13 +9,13 @@
 // Exit 0 ok, 2 bad input or config.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
 import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -119,4 +119,4 @@ function run(argv, env, cwd) {
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exit(main())
+if (isMain(import.meta.url)) process.exit(main())

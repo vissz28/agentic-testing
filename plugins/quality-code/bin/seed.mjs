@@ -5,9 +5,9 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot, seedOf } from '../lib/base/config.mjs'
 import { isLocal, parseTarget, sqlProblems } from '../lib/base/seed.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const quote = s => (process.platform === 'win32' ? `"${String(s).replace(/"/g, '\\"')}"` : `'${String(s).replace(/'/g, "'\\''")}'`)
 const sh = (line, cwd, timeout) => spawnSync(line, { cwd, shell: true, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024 })
@@ -56,4 +56,4 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main()
+if (isMain(import.meta.url)) process.exitCode = main()

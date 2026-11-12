@@ -17,8 +17,8 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const RUN = /^[A-Z][A-Z0-9_]*-\d+$/
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
@@ -218,4 +218,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return err(USAGE)
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

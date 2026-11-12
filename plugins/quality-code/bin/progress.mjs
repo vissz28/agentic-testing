@@ -9,10 +9,10 @@
 // node bin/progress.mjs context file <path> [--role target|spec|config] | changed <path> | clear [<fact>] | list
 // Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
 import { execFileSync } from 'node:child_process'
-import { pathToFileURL } from 'node:url'
 import { projectRoot } from '../lib/base/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/base/context.mjs'
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/base/progress.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'
 
@@ -127,4 +127,4 @@ function context(a, root, env, stdout, fail) {
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

@@ -2,7 +2,6 @@
 // Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import * as boundary from '../lib/base/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
@@ -18,6 +17,7 @@ import * as runMarker from '../lib/base/run.mjs'
 import { EXIT } from '../lib/base/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -161,4 +161,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return EXIT[r.status]
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

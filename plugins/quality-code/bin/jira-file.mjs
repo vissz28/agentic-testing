@@ -9,9 +9,9 @@
 // Exit 0 read, 2 usage or a file that is not read (the reason on stderr).
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
 export const MEDIA_HOST = 'api.media.atlassian.com'
@@ -60,4 +60,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exit(await main())
+if (isMain(import.meta.url)) process.exit(await main())

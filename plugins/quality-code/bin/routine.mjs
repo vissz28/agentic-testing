@@ -15,7 +15,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { isProjectKey, keyPattern, projectKeys } from '../lib/base/keys.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
@@ -24,6 +24,7 @@ import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
 import { SHARED_CONFIG } from '../lib/base/changes.mjs'
 import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
@@ -226,4 +227,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return result.exit
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

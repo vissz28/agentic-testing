@@ -3,7 +3,6 @@
 // node bin/kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json]
 // Reads local files only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no audit data yet.
 import { basename, join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { AUDIT_DIR, KINDS, readAudit, readJsonl } from '../lib/base/audit.mjs'
 import { BOUNDARY_LOG } from '../lib/base/boundary.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
@@ -13,6 +12,7 @@ import { kpiReport, kpiSeries } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
@@ -168,4 +168,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

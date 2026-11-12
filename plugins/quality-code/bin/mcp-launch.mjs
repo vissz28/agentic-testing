@@ -9,10 +9,10 @@
 // so its pinned version stays in .mcp.json, the one place it is written.
 // The token itself is never read beyond "is it set", and never printed.
 import { spawn } from 'node:child_process'
-import { readFileSync, realpathSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { createInterface } from 'node:readline'
-import { pathToFileURL } from 'node:url'
+import { isMain } from '../lib/core/command-line.mjs'
 
 /** Each token connector and the environment variable that holds its token. */
 export const CONNECTORS = {
@@ -103,11 +103,7 @@ export function runReal(command) {
   })
 }
 
-const isMain = (() => {
-  try { return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href } catch { return false }
-})()
-
-if (isMain) {
+if (isMain(import.meta.url)) {
   const a = parseArgs(process.argv.slice(2))
   if (a.error) {
     process.stderr.write(`mcp-launch: ${a.error}\n`)

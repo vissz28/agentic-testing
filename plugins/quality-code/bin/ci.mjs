@@ -13,7 +13,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { backendOf, runnerLabel } from '../lib/base/backends.mjs'
@@ -27,6 +27,7 @@ import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -377,4 +378,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return a.tests ? tests(root, cfg.config, a, env, stdout, stderr) : gate(root, cfg.config, a, env, stdout)
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

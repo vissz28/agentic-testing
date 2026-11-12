@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // node bin/routes.mjs check </path> | list    (read-only; looks at the router the code declares)
 // check: exit 0 found or likely, 1 not found (with the closest routes), 3 no router found to check against, 2 usage error.
-import { pathToFileURL } from 'node:url'
 import { projectRoot } from '../lib/base/config.mjs'
 import { checkRoute, declaredRoutes } from '../lib/base/routes.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const [cmd, route] = argv
@@ -28,4 +28,4 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   return r.status === 'not_found' ? 1 : r.status === 'unknown' ? 3 : 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main()
+if (isMain(import.meta.url)) process.exitCode = main()

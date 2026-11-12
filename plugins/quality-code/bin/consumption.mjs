@@ -3,7 +3,6 @@
 // Reads local transcripts only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no transcripts found.
 import { statSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { keySource } from '../lib/base/keys.mjs'
 import { configHome, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { AS_OF, PRICES, SOURCE, loadPrices } from '../lib/report/prices.mjs'
@@ -11,6 +10,7 @@ import { BY, buildReport, formatCard, parsePeriod } from '../lib/report/consumpt
 import { consumptionReport } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import { attribute, configDir, findProjectDirs, loadSessions } from '../lib/report/transcripts.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const mtimeOf = p => { try { return statSync(p).mtimeMs } catch { return 0 } }
 const USAGE = 'usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--session] [--json | --report]'
@@ -84,4 +84,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

@@ -2,7 +2,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { pathToFileURL } from 'node:url'
 import { audit } from '../lib/base/audit.mjs'
 import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
 import { findTestHome } from '../lib/base/test-home.mjs'
@@ -27,6 +26,7 @@ import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
 import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -491,4 +491,4 @@ function run(argv, env, cwd) {
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exit(main())
+if (isMain(import.meta.url)) process.exit(main())

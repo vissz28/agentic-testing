@@ -12,8 +12,8 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { projectRoot } from '../lib/base/config.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -161,4 +161,4 @@ export async function main(argv = process.argv.slice(2)) {
   return 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

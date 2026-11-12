@@ -8,10 +8,9 @@
 // xray commands ask the tester before each write.
 //
 //   node bin/mcp-launch.mjs xray -- node bin/xray-api.mjs
-import { realpathSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/
@@ -231,11 +230,7 @@ export function handler(client) {
   }
 }
 
-const isMain = (() => {
-  try { return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href } catch { return false }
-})()
-
-if (isMain) {
+if (isMain(import.meta.url)) {
   const { XRAY_CLIENT_ID: id, XRAY_CLIENT_SECRET: secret, XRAY_API_URL: base } = process.env
   await serve(handler(xrayClient({ id, secret, base: tokenSet(base) ? base : '' })))
 }

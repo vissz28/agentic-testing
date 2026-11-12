@@ -9,7 +9,6 @@
 // Exit 0 every fixture holds, 1 one drifted, 2 usage or config error, 3 no fixture.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
@@ -18,6 +17,7 @@ import * as expected from '../lib/pipeline/checks/expected.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adapterOfSpec } from '../lib/base/stack.mjs'
 import { readCases } from './xray.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 export const EVALS_DIR = '.claude/quality-code/evals'
 const read = p => JSON.parse(readFileSync(p, 'utf8'))
@@ -89,4 +89,4 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   return drift.length ? 1 : 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main()
+if (isMain(import.meta.url)) process.exitCode = main()

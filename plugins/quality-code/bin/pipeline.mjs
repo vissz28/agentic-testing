@@ -5,7 +5,6 @@
 // --suite takes every spec of one side (frontend: the e2e folder, backend: the backend's layers) or of both.
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
 import { isProjectKey, projectKeys } from '../lib/base/keys.mjs'
@@ -20,6 +19,7 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -178,7 +178,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   return EXIT[outcome.verdict] ?? 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (isMain(import.meta.url)) {
   // A killed run (Ctrl-C, a tool call's timeout) stops the tools it started, their workers too, and
   // removes their temp files from the project. The mutation step's own handler, when one is set, exits.
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { stopAll(); if (process.listenerCount(sig) === 1) process.exit(130) })

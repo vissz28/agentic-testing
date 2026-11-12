@@ -15,6 +15,7 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // The test name is the cell's last line (buildRows puts it there), so a description line of its own
@@ -264,4 +265,4 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

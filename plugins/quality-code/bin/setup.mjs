@@ -4,7 +4,6 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, loadConfig, normaliseTicketsDir, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/base/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
@@ -22,6 +21,7 @@ import { backendOf, isBackend } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -831,4 +831,4 @@ function main(argv) {
   return 2
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) Promise.resolve(main(process.argv.slice(2))).then(code => { process.exitCode = code })
+if (isMain(import.meta.url)) Promise.resolve(main(process.argv.slice(2))).then(code => { process.exitCode = code })

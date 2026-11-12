@@ -3,13 +3,13 @@
 // contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/base/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
@@ -303,4 +303,4 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main()
+if (isMain(import.meta.url)) process.exitCode = main()

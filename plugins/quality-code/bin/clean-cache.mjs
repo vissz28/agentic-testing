@@ -4,9 +4,9 @@
 // node bin/clean-cache.mjs list [--all]
 // node bin/clean-cache.mjs delete [--all]
 // Exit 0 ok, 2 usage. Local only; nothing is sent anywhere.
-import { pathToFileURL } from 'node:url'
 import { projectRoot } from '../lib/base/config.mjs'
 import { deleteCache, human, listCache, strip } from '../lib/base/cache-clean.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const USAGE = 'usage: clean-cache.mjs list [--all] | delete [--all]'
 const n = (c, w) => `${c} ${w}${c === 1 ? '' : 's'}`
@@ -32,4 +32,4 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = await main()
+if (isMain(import.meta.url)) process.exitCode = await main()

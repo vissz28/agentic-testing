@@ -4,8 +4,8 @@
 // one keeps qa or po from setup's first card. The steps of each role are below; each command's usage comes
 // from the Examples section of its own command file, so it never drifts. Read-only. Exit 0 ok, 2 usage error.
 import { readdirSync, readFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { isMain } from '../lib/core/command-line.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)
 const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all]'
@@ -113,4 +113,4 @@ export function main(argv = process.argv.slice(2), { env = process.env, cwd = pr
   return 0
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main()
+if (isMain(import.meta.url)) process.exitCode = main()
