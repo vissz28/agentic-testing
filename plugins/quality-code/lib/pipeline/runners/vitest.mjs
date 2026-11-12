@@ -10,7 +10,6 @@ import { timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine } from '../../core/text.mjs'
 
-
 /** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
 

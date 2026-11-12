@@ -16,7 +16,6 @@ import { escapeRegExp, firstLine } from '../../core/text.mjs'
 
 const LABEL = 'Go'
 const slash = p => p.split(sep).join('/')
-/** A literal for Go's regexp (RE2): the same metacharacters as JavaScript's. */
 
 /** The module of a package folder: { root, path } from the nearest go.mod, or null. */
 export function moduleOf(dirAbs) {
