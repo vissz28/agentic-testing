@@ -17,7 +17,7 @@ import * as runMarker from '../lib/base/run.mjs'
 import { EXIT } from '../lib/base/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },

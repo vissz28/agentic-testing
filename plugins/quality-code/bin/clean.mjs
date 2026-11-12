@@ -8,7 +8,7 @@
 // command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
 import { projectRoot } from '../lib/base/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: clean.mjs list [--dry-run] | delete --groups setup,output,cache,personal,specs [--specs all|PATH,PATH] (--confirmed | --dry-run)'
 const NO_SKIP = /^(--yes|-y|--ci|--force|-f|--no-confirm|--assume-yes|--non-interactive)$/

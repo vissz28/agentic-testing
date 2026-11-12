@@ -10,7 +10,7 @@
 //   node bin/mcp-launch.mjs xray -- node bin/xray-api.mjs
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/

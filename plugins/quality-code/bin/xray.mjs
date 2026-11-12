@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // The test name is the cell's last line (buildRows puts it there), so a description line of its own

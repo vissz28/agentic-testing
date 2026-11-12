@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const RUN = /^[A-Z][A-Z0-9_]*-\d+$/
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']

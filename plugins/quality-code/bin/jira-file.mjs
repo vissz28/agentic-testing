@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { basename, extname, join, resolve } from 'node:path'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
 export const MEDIA_HOST = 'api.media.atlassian.com'

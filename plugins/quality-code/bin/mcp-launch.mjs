@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { createInterface } from 'node:readline'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 /** Each token connector and the environment variable that holds its token. */
 export const CONNECTORS = {

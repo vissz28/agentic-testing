@@ -8,7 +8,7 @@ import { isProjectKey } from '../lib/base/keys.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
 import { SIDES, stackOf } from '../lib/base/stack.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'
 

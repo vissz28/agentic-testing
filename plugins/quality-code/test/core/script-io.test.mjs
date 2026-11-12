@@ -1,4 +1,4 @@
-// lib/core/command-line.mjs: a script knows it was started directly, also through a symlinked folder.
+// lib/core/script-io.mjs: a script knows it was started directly, also through a symlinked folder.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -6,7 +6,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isMain } from '../../lib/core/command-line.mjs'
+import { isMain } from '../../lib/core/script-io.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../', import.meta.url))
 const BIN = join(PLUGIN, 'bin')

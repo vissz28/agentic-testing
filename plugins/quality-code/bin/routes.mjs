@@ -3,7 +3,7 @@
 // check: exit 0 found or likely, 1 not found (with the closest routes), 3 no router found to check against, 2 usage error.
 import { projectRoot } from '../lib/base/config.mjs'
 import { checkRoute, declaredRoutes } from '../lib/base/routes.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const [cmd, route] = argv

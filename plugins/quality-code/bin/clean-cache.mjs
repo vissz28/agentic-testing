@@ -6,7 +6,7 @@
 // Exit 0 ok, 2 usage. Local only; nothing is sent anywhere.
 import { projectRoot } from '../lib/base/config.mjs'
 import { deleteCache, human, listCache, strip } from '../lib/base/cache-clean.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: clean-cache.mjs list [--all] | delete [--all]'
 const n = (c, w) => `${c} ${w}${c === 1 ? '' : 's'}`

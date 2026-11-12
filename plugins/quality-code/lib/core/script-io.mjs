@@ -1,4 +1,4 @@
-// What every script in bin/ needs at its start and its end. Imports only Node's own modules.
+// What a script in bin/ needs between itself and whoever started it: how it starts, what it reads, how it reports. Imports only Node's own modules.
 import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 

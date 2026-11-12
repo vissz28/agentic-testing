@@ -17,7 +17,7 @@ import * as expected from '../lib/pipeline/checks/expected.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adapterOfSpec } from '../lib/base/stack.mjs'
 import { readCases } from './xray.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 export const EVALS_DIR = '.claude/quality-code/evals'
 const read = p => JSON.parse(readFileSync(p, 'utf8'))

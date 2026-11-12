@@ -10,7 +10,7 @@ import { BY, buildReport, formatCard, parsePeriod } from '../lib/report/consumpt
 import { consumptionReport } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import { attribute, configDir, findProjectDirs, loadSessions } from '../lib/report/transcripts.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const mtimeOf = p => { try { return statSync(p).mtimeMs } catch { return 0 } }
 const USAGE = 'usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--session] [--json | --report]'

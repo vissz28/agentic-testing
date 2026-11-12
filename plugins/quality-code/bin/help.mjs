@@ -5,7 +5,7 @@
 // from the Examples section of its own command file, so it never drifts. Read-only. Exit 0 ok, 2 usage error.
 import { readdirSync, readFileSync } from 'node:fs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/command-line.mjs'
+import { isMain } from '../lib/core/script-io.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)
 const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all]'
