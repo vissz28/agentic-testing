@@ -75,7 +75,7 @@ function fixFor(step, ctx) {
       const named = fs.filter(x => x.test)
       if (named.length > 1) return `${named.length} tests fail: ${quoted(named)}. ${redAdvice(ctx)}`
       const f = named[0] || fs[0] || {}
-      return `${f.test ? quoted([f]) : `'${f.test}'`}${f.detail ? `: ${f.detail}` : ''}. ${redAdvice(ctx)}`
+      return `${f.test ? quoted([f]) : f.file ?? 'a test fails'}${f.detail ? `: ${f.detail}` : ''}. ${redAdvice(ctx)}`
     }
     default: return null
   }

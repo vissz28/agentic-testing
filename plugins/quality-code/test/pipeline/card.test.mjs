@@ -48,6 +48,11 @@ test('what to do, per deciding step', () => {
   assert.equal(card('types', s('types', 'fail', 'a.ts(1,1): error TS1')), 'What to do: fix the compile error: a.ts(1,1): error TS1')
   assert.equal(card('mutation', s('mutation', 'fail', 'x', [{ test: 'adds' }, { test: 'subs' }])), "What to do: an assertion can't fail: bind the real expected value in 'adds', 'subs'.")
   assert.equal(card('flaky', s('flaky', 'fail', 'x', [{ test: 'a > t' }])), "What to do: fix the non-determinism in 'a > t', or skip them with a ticket.")
+  // A red run whose finding has no test name names the file, or says a test fails: never 'undefined'.
+  const red = (findings) => card('tests', s('tests', 'fail', '1 of 1 tests failed', findings), 'tests_red')
+  assert.match(red([{ file: 'x.spec.ts', detail: 'boom' }]), /^What to do: x\.spec\.ts: boom\. /)
+  assert.match(red([]), /^What to do: a test fails\. /)
+  assert.doesNotMatch(red([{ detail: 'boom' }]), /undefined/)
   assert.equal(card('tests', s('tests', 'fail', 'x', [{ test: 'adds', detail: 'Expected 2' }]), 'tests_red'), "What to do: 'adds': Expected 2. Either the code does not do what the ticket says, or the test is wrong.")
   assert.equal(card('tests', s('tests', 'not_run', 'could not run: db down'), 'not_verified'), 'What to do: tests could not run: could not run: db down')
   assert.equal(formatCard({ verdict: 'green', decidedBy: null, steps: [] }, { specs: ['a'] }).includes('What to do'), false)

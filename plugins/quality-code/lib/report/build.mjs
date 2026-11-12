@@ -2,6 +2,7 @@
 // numbers those commands already compute. Only keys, scores and numbers go in: every text is redacted and a
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
+import { THRESHOLD } from '../ticket/score.mjs'
 import { columns, gauge, hbar, legend, line } from './charts.mjs'
 import { card, empty, esc, grid, page, tiles } from './page.mjs'
 import { fmtCost, fmtTokens } from './consumption.mjs'
@@ -94,7 +95,7 @@ export function kpiReport(report, series, { config = null, now = new Date() } = 
     grid([
       card('Verdict trend', trend + legend(VERDICTS.map(([, name, tone]) => [tone, name])), { wide: true, note: series.truncated ? `The last ${MAX_DAYS} days of the period.` : '' }),
       card('Pass rate per ticket', hbar(perTicket.map(x => ({ label: safeKey(config, x.key), value: x.percent, text: `${x.percent}% of ${x.runs}`, tone: x.percent >= 70 ? 'pass' : x.percent > 0 ? 'warn' : 'fail' })), { max: 100, name: 'Green runs per ticket', emptyText: 'No pipeline run with a ticket key in this period.' }), { note: 'Share of a ticket\'s pipeline runs that ended green (up to 12 tickets with the most runs).' }),
-      card('Readiness score distribution', dist, { note: `Final score of ${plural(g.tickets, 'ticket')}; the gate passes at 70.` }),
+      card('Readiness score distribution', dist, { note: `Final score of ${plural(g.tickets, 'ticket')}; the gate passes at ${THRESHOLD}.` }),
       card('Mutation kill rate per run', line(series.mutation.map(m => ({ label: m.day.slice(5), value: m.value })), { name: 'Mutation kill rate per run', emptyText: 'No run had assertions to mutate yet.' })),
       ...(g.missing.length ? [card('Most often missing', hbar(g.missing.map(m => ({ label: s(m.label), value: m.tickets, tone: 'warn' })), { name: 'Most often missing' }), { note: 'Criteria missing on the most refused tickets.' })] : []),
     ]),
@@ -121,8 +122,8 @@ export function ticketsEvalReport({ rows, summary }, { config = null, project = 
     ]),
     grid([
       card('Passing', gauge(summary.passingPercent, { label: 'Tickets passing the gate', target: 100 })),
-      card('Score distribution', hbar(bands, { name: 'Tickets per score band' }), { note: 'The gate passes at 70.' }),
-      card('Score per ticket', hbar(shown.map(r => ({ label: safeKey(config, r.key), value: r.score, text: `${r.score}/100`, tone: r.gate === 'pass' ? 'pass' : r.score >= 50 ? 'warn' : 'fail' })), { max: 100, marker: 70, name: 'Readiness score per ticket' }), { wide: true, note: rows.length > shown.length ? `The ${shown.length} lowest scores of ${rows.length}. The dashed line is the 70-point gate.` : 'Lowest first. The dashed line is the 70-point gate.' }),
+      card('Score distribution', hbar(bands, { name: 'Tickets per score band' }), { note: `The gate passes at ${THRESHOLD}.` }),
+      card('Score per ticket', hbar(shown.map(r => ({ label: safeKey(config, r.key), value: r.score, text: `${r.score}/100`, tone: r.gate === 'pass' ? 'pass' : r.score >= 50 ? 'warn' : 'fail' })), { max: 100, marker: THRESHOLD, name: 'Readiness score per ticket' }), { wide: true, note: rows.length > shown.length ? `The ${shown.length} lowest scores of ${rows.length}. The dashed line is the 70-point gate.` : 'Lowest first. The dashed line is the 70-point gate.' }),
       card('Most often missing', hbar(summary.mostMissing.map(m => ({ label: s(m.item), value: m.tickets, tone: 'warn' })), { name: 'Most often missing', emptyText: 'Nothing is missing.' })),
       ...(summary.byTeam?.length ? [card('Pass rate per component', hbar(summary.byTeam.map(x => ({ label: s(x.team), value: x.passingPercent, text: `${x.passingPercent}% of ${x.scored}`, tone: x.passingPercent >= 70 ? 'pass' : 'warn' })), { max: 100, name: 'Pass rate per component' }))] : []),
     ]),

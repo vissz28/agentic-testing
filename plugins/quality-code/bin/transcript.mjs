@@ -119,4 +119,4 @@ function run(argv, env, cwd) {
   return 0
 }
 
-if (isMain(import.meta.url)) process.exit(main())
+if (isMain(import.meta.url)) process.exitCode = main()

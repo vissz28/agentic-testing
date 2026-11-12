@@ -396,3 +396,12 @@ test('risk-comment is only for a ticket below the bar: a passing one exits 2 and
   assert.equal(thin.status, 0)
   assert.match(thin.stdout, /RISK \/ NOT RECOMMENDED/)
 })
+
+test('output larger than a pipe buffer arrives whole (64 KB was the cut on macOS)', () => {
+  const d = proj()
+  const scenarios = Array.from({ length: 1500 }, (_, i) => ({ name: `scenario ${i}`, gherkin: 'Given a customer When they order Then the total is shown, number ' + i }))
+  writeFileSync(join(d, 'big.json'), JSON.stringify({ key: 'DEMO-1', issuetype: 'Bug', summary: 's', labels: [], text: { description: 'Broken.' }, scenarios }))
+  const r = run(d, 'score', '--in', '@big.json', '--json')
+  assert.ok(r.stdout.length > 100000, `${r.stdout.length} bytes`)
+  assert.equal(JSON.parse(r.stdout).scenarios.length, 1500)
+})
