@@ -1,5 +1,6 @@
 # Build the Quality Code MCP server image and push it to Harbor (harbor.ts-paas.com, project quality), image deploy-server.
-# Runs on every push to main that changes the plugin (each release is one), and by hand (Actions > "harbor" > Run workflow).
+# Runs on every push to main that changes the plugin (each release is one), and by hand. Harbor keeps only :latest:
+# the new image replaces it when the build and the smoke test pass, and the older images are deleted. (Actions > "harbor" > Run workflow).
 # No Azure here: it only builds the image and pushes it.
 #
 # Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
@@ -54,6 +55,10 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: quality-code-mcp:ci
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -75,22 +80,34 @@ jobs:
           echo "mcp without token: $mcp"
           [ "$mcp" = "401" ]
 
-      - name: Push to Harbor
-        if: env.HAS_HARBOR == 'true'
+      # Only after the build and the smoke test passed: the new image replaces :latest.
+      - name: Push to Harbor (replaces latest)
         run: |
-          VERSION="${{ steps.version.outputs.value }}"
-          for tag in "$VERSION" "$VERSION-${GITHUB_SHA::7}" latest; do
-            docker tag quality-code-mcp:ci "$IMAGE:$tag"
-            docker push "$IMAGE:$tag"
-          done
+          docker tag quality-code-mcp:ci "$IMAGE:latest"
+          docker push "$IMAGE:latest"
 
-      - name: Not pushed
-        if: env.HAS_HARBOR != 'true'
+      # Harbor keeps one image: every artifact that does not carry the tag latest (the previous latest, now untagged,
+      # and any old version tag) is deleted. The robot account needs the "delete artifact" permission on the project;
+      # without it this step only warns and the old images stay.
+      - name: Delete the old images
+        env:
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          HOST: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}
+          PROJECT: ${{ vars.HARBOR_PROJECT || 'quality' }}
         run: |
-          echo "::warning::The image was built and smoke tested, but not pushed: set the secrets HARBOR_USERNAME and HARBOR_PASSWORD."
-          echo "Built and smoke tested, not pushed: the secrets HARBOR_USERNAME and HARBOR_PASSWORD are not set." >> "$GITHUB_STEP_SUMMARY"
+          API="https://$HOST/api/v2.0/projects/$PROJECT/repositories/deploy-server/artifacts"
+          json=$(curl -fsS -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API?page_size=100&with_tag=true") || { echo "::warning::could not list the artifacts, old images kept"; exit 0; }
+          for digest in $(echo "$json" | jq -r '.[] | select(([.tags[]?.name] | index("latest")) | not) | .digest'); do
+            if curl -fsS -o /dev/null -X DELETE -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API/$digest"; then
+              echo "deleted $digest"
+            else
+              echo "::warning::could not delete $digest (the robot account needs the delete artifact permission)"
+            fi
+          done
+          echo "left in Harbor:"
+          curl -fsS -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API?page_size=100&with_tag=true" | jq -r '.[] | "\(.digest[0:19])  tags: \([.tags[]?.name] | join(","))"'
 
       - name: Summary
-        if: env.HAS_HARBOR == 'true'
         run: |
-          echo "Pushed $IMAGE:${{ steps.version.outputs.value }} (also :latest and :${{ steps.version.outputs.value }}-${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+          echo "Harbor now holds $IMAGE:latest only (version ${{ steps.version.outputs.value }}, commit ${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
