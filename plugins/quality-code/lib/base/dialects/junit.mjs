@@ -65,9 +65,17 @@ export const expected = {
   fieldNames: true,
   readsActual: true,
   calls: ['assertEquals', 'assertNotEquals', 'assertArrayEquals', 'assertIterableEquals', 'assertLinesMatch', 'assertSame', 'assertTrue', 'assertFalse', 'assertThrows',
-    'equalTo', 'is', 'closeTo', 'hasSize', 'containsString', 'hasItem', 'hasItems', 'hasEntry', 'contains', 'containsInAnyOrder', 'startsWith', 'endsWith'],
+    'assertNotSame', 'assertInstanceOf', 'assertIterableEquals', 'assertAll',
+    // Hamcrest matchers that carry the expected value (the BigDecimal one is comparesEqualTo; the numeric ones are greaterThan and friends).
+    'equalTo', 'is', 'not', 'closeTo', 'comparesEqualTo', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equalToIgnoringCase',
+    'equalToCompressingWhiteSpace', 'equalToObject', 'hasSize', 'hasLength', 'hasToString', 'containsString', 'containsStringIgnoringCase', 'matchesPattern',
+    'matchesRegex', 'hasItem', 'hasItems', 'hasEntry', 'hasKey', 'hasValue', 'hasProperty', 'samePropertyValuesAs', 'isIn', 'oneOf', 'contains',
+    'containsInAnyOrder', 'containsInRelativeOrder', 'arrayContaining', 'arrayContainingInAnyOrder', 'arrayWithSize', 'iterableWithSize', 'startsWith',
+    'endsWith', 'sameInstance', 'instanceOf'],
   matchers: ['isEqualTo', 'isEqualByComparingTo', 'isCloseTo', 'contains', 'containsExactly', 'containsExactlyInAnyOrder', 'containsOnly', 'containsEntry', 'hasSize',
     'hasMessage', 'hasMessageContaining', 'startsWith', 'endsWith', 'isGreaterThan', 'isGreaterThanOrEqualTo', 'isLessThan', 'isLessThanOrEqualTo', 'extracting',
+    'isNotEqualTo', 'isNotEqualByComparingTo', 'isBetween', 'isStrictlyBetween', 'isEqualToIgnoringCase', 'isEqualToIgnoringWhitespace', 'hasToString',
+    'hasSizeGreaterThan', 'hasSizeLessThan', 'containsSequence', 'containsSubsequence', 'containsAnyOf', 'isSameAs', 'isInstanceOf',
     'shouldBe', 'shouldContain', 'shouldHaveSize', 'shouldStartWith', 'shouldEndWith', 'shouldContainExactly'],
 }
 

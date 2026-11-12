@@ -195,3 +195,22 @@ test('mutation in place on a Java spec: each mutant in the spec itself, the byte
   assert.ok(seen.length === 5 && seen.every(Boolean))
   assert.equal(readFileSync(join(root, spec), 'utf8'), JAVA)
 })
+
+test('the value check reads Hamcrest matchers that carry the value, comparesEqualTo (BigDecimal) among them', () => {
+  const src = `
+import java.math.BigDecimal;
+@DisplayName("ABC-13 Ventilation share")
+class ShareTest {
+  @Test
+  void share() {
+    assertThat(share(), Matchers.comparesEqualTo(new BigDecimal("22")));
+    assertThat(other(), Matchers.comparesEqualTo(BigDecimal.valueOf(31)));
+    assertThat(list(), Matchers.hasSize(1));
+    assertThat(price(), Matchers.greaterThan(40));
+  }
+}`
+  const s = surface(src, 'ABC-13', d)
+  assert.match(s, /22/)
+  assert.match(s, /31/)
+  assert.match(s, /\b40\b/)
+})

@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.72.1] - 2026-11-11
+
+### Fixed
+
+- JUnit and Hamcrest: the expected-value check read an assertion only when its matcher was on a short fixed list, so `Matchers.comparesEqualTo(new BigDecimal("22"))` (the Hamcrest matcher for `BigDecimal`) was reported as "value 22 not asserted" although the test was right and mutation caught a break in it. The list now holds the Hamcrest matchers that carry a value (`comparesEqualTo`, `greaterThan`, `lessThan`, `equalToIgnoringCase`, `hasKey`, `hasValue`, `hasProperty`, `matchesPattern`, `arrayContaining` and more) and more AssertJ ones (`isNotEqualTo`, `isBetween`, `containsSequence`, `hasSizeGreaterThan`).
+
+**What to do:** nothing. Run `/quality-code:check` again on a JUnit project that uses these matchers.
+
 ## [0.72.0] - 2026-11-12
 
 ### Added
