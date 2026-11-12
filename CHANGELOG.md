@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-11-12
+
+### Fixed
+
+- A file the plugin saved itself that is now broken (half written, edited by hand) stops the command with its name: `qa.mjs: <file> is not valid JSON (…)`. Before, it was taken for a missing file, so saved fill-in answers were overwritten, a QA run started over from its first test, Xray tests could be created twice and the routine took its next run for the first. The broken file is left as it is.
+- A script started through a symlinked folder printed nothing and exited 0, which the pipeline read as a pass and the boundary hook as "allow". Every script now resolves the link first.
+- Piped output larger than 64 KB was cut on macOS (`ticket`, `transcript`, `jira-file`).
+- A failing run with no test name printed `'undefined'` on the card; it now names the file.
+- A crashing pipeline step keeps its original error as `cause`.
+
 ### Changed
 
 - **Stryker is faster and scores the ticket's own code** (`/quality-code:spec`, `pipeline.mjs --function`): the
@@ -17,6 +27,15 @@ Update with `/plugin update quality-code@teamsystem`.
   card says so). Stryker also keeps its results per target in `node_modules/.cache/quality-code/` (its incremental
   mode), so the next run of the ticket only tries again what changed. On a 753-line repository file: 8½ minutes
   before, under 2 minutes on the first run and about half a minute after.
+- `bin/checks.mjs` refuses `--runs`, `--timeout`, `--test`, `--baseline`, `--max` and `--thorough` (`unknown option`, exit 2): they were accepted and never read.
+- The commands guide (`assets/commands.pdf`, shown by `/quality-code:update`) is rebuilt for 0.72 and later; the builder writes it straight to `assets/`.
+- Internal: small helpers written once in `lib/core/` (`isMain`, `firstLine`, `escapeRegExp`, `isTicketKey`, `toForwardSlashes`, `localToForwardSlashes`, `readJsonOr`), replacing about 70 copies; golden tests of 51 script outputs in `test/golden/`. Nothing a user sees changes.
+
+### Removed
+
+- `docs/plans/`, `docs/specs/` and the old release PDFs in `docs/drafts/`: git keeps them.
+
+**What to do:** nothing. If a command now stops on a broken saved file, fix or delete the file it names.
 
 ## [0.74.0] - 2026-11-12
 
