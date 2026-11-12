@@ -1,9 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
 import { DEFAULTS, normaliseTicketsDir } from '../base/config.mjs'
 import { isTicketKey } from '../core/text.mjs'
+import { readJsonOr } from '../core/files.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
@@ -91,8 +92,7 @@ export function saveTickets(root, config, clean) {
     if (!isTicketKey(t.key)) continue
     const d = resolve(root, dir, t.key)
     const file = resolve(d, 'ticket.json')
-    let old = {}
-    try { old = JSON.parse(readFileSync(file, 'utf8')) } catch {}
+    const old = readJsonOr(file, {})
     const kept = Object.fromEntries(['filled', 'sent'].filter(k => old?.[k] !== undefined).map(k => [k, old[k]]))
     mkdirSync(d, { recursive: true })
     writeFileSync(file, `${JSON.stringify({ ...t, ...kept })}\n`)

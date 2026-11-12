@@ -28,6 +28,7 @@ import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyS
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
+import { readJsonOr } from '../lib/core/files.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -170,8 +171,7 @@ function run(argv, env, cwd) {
     // What an earlier run left for this ticket: fill-in answers typed here that never reached Jira.
     const [key] = a._
     if (!savedPath(key) || a._.length > 1) { err('usage: ticket.mjs saved <KEY>'); return 2 }
-    let t = null
-    try { t = JSON.parse(readFileSync(savedPath(key), 'utf8')) } catch {}
+    const t = readJsonOr(savedPath(key), null)
     const filled = Array.isArray(t?.filled) ? t.filled.length : 0
     out(`SAVED_JSON:${JSON.stringify({ key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null })}`)
     return 0

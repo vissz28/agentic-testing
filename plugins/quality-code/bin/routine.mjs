@@ -25,6 +25,7 @@ import { SHARED_CONFIG } from '../lib/base/changes.mjs'
 import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { readJsonOr } from '../lib/core/files.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
@@ -64,7 +65,6 @@ function parse(argv) {
 }
 
 const dirOf = cfg => (cfg.auditDir ? join(cfg.auditDir, 'routine') : null)
-const readState = f => { try { return JSON.parse(readFileSync(f, 'utf8')) } catch { return {} } }
 function keep(dir, name, text, append) {
   try {
     mkdirSync(dir, { recursive: true })
@@ -134,7 +134,12 @@ function status(a, cfg, dir, stdout) {
   return 0
 }
 
-export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), run = realRun, now = new Date() } = {}) {
+/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
+  try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`routine.mjs: ${e?.message ?? e}\n`); return 2 }
+}
+
+async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), run = realRun, now = new Date() } = {}) {
   let a
   try { a = parse(argv) } catch (e) { stderr(`${e.message}\n`); return 2 }
   const root = projectRoot(env, cwd)
@@ -160,7 +165,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const tested = git(root, ['rev-parse', 'HEAD']) ?? tip
   const drift = tested !== tip
   const stateName = `last${a.task ? `-${a.task}` : a.regression ? '-regression' : ''}.json`
-  const prev = dir && existsSync(join(dir, stateName)) ? readState(join(dir, stateName)) : {}
+  const prev = dir && existsSync(join(dir, stateName)) ? readJsonOr(join(dir, stateName), {}) : {}
 
   // What is new: since the last check (--since-last, needs the kept result), or since a date (--since); else everything counts.
   const log = args => (git(root, ['log', '--format=%h%x09%an%x09%s', ...args]) ?? '').split('\n').filter(Boolean).map(l => { const [h, an, ...s] = l.split('\t'); return { sha: h, author: an, subject: s.join('\t') } })

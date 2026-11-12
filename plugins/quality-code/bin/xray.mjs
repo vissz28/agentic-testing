@@ -16,6 +16,7 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { readJsonOr } from '../lib/core/files.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
@@ -216,10 +217,15 @@ export async function sync(root, x, only = null) {
 
 /** The cases of a ticket already created in Xray: { "<case name>": "<test key>" }, kept next to the ticket's case files. */
 export function createdOf(root, x, key) {
-  try { return JSON.parse(readFileSync(resolve(root, x.folder, key, 'xray-created.json'), 'utf8')) } catch { return {} }
+  return readJsonOr(resolve(root, x.folder, key, 'xray-created.json'), {})
 }
 
-export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
+  try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`xray.mjs: ${e?.message ?? e}\n`); return 2 }
+}
+
+async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   if (argv[0] === 'created') {
     const [, key, verb, name, testKey, ...more] = argv
     const bad = !TICKET.test(key ?? '') || more.length || (verb !== undefined && (verb !== 'add' || !name || !name.trim() || /[\r\n]/.test(name) || !TICKET.test(testKey ?? '')))

@@ -68,7 +68,12 @@ function write(dir, name, value) {
   writeFileSync(join(dir, name), `${JSON.stringify(value, null, 2)}\n`)
 }
 
-export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), now = () => new Date().toISOString() } = {}) {
+/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
+  try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`qa.mjs: ${e?.message ?? e}\n`); return 2 }
+}
+
+async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), now = () => new Date().toISOString() } = {}) {
   const err = m => { stderr(`${m}\n`); return 2 }
   const flags = {}
   const pos = []
@@ -87,7 +92,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const qa = qaOf(c.config)
   const dir = c.auditDir ? join(c.auditDir, 'qa') : join(tmpdir(), `quality-code-qa-${createHash('sha1').update(root).digest('hex').slice(0, 10)}`)
   const runFile = run => join(dir, `${run}.json`)
-  const load = run => readJsonOr(runFile(run), null, { whenBroken: 'fallback' }) ?? { run, story: null, app: null, closed: 'open', startedAt: now(), tests: {} }
+  const load = run => readJsonOr(runFile(run), null) ?? { run, story: null, app: null, closed: 'open', startedAt: now(), tests: {} }
   const out = (line, json) => stdout(`${line ? `${line}\n` : ''}${json ? `${json.tag}:${JSON.stringify(json.data)}\n` : ''}`)
 
   if (cmd === 'config' && !sub) { out('', { tag: 'QA_JSON', data: { ...qa, dir } }); return 0 }
