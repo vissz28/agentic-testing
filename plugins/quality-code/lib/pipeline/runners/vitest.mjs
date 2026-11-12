@@ -1,7 +1,7 @@
 // The Vitest runner: runs specs with the project's own Vitest and reads its JSON report.
 // Implements the runner contract of the shared checks. Never writes into the project.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
@@ -9,6 +9,7 @@ import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, toForwardSlashes } from '../../core/text.mjs'
+import { tryReadJson } from '../../core/files.mjs'
 
 /** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
@@ -78,9 +79,8 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
     child.on('close', () => {
       if (timedOut) return
       try {
-        let json = null
-        try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
-        if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Vitest wrote no report' })
+        const json = tryReadJson(out, null)
+        if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Vitest wrote a report that is not valid JSON' : 'Vitest wrote no report') })
         finish({ ran: true, ...parseReport(json, root) })
       } catch (e) {
         finish({ ran: false, error: `could not read the Vitest report: ${e.message}` })

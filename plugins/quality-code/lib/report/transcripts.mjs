@@ -4,6 +4,7 @@
 import { existsSync, readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
+import { tryReadJson } from '../core/files.mjs'
 
 const PLUGIN = 'quality-code'
 const SYSTEM_TEXT = /^\s*(<(task-notification|system-reminder|local-command-stdout|local-command-stderr|local-command-caveat|user-prompt-submit-hook|bash-stdout|bash-stderr)\b|\[Request interrupted by user)/
@@ -76,10 +77,6 @@ function readLines(file) {
   return out
 }
 
-function readJson(file) {
-  try { return JSON.parse(readFileSync(file, 'utf8')) } catch { return null }
-}
-
 /** Sessions of one transcript folder (only `files` when given), each with its subagents. */
 export function loadSessions(dir, files = jsonlIn(dir)) {
   return files.map(f => {
@@ -87,7 +84,7 @@ export function loadSessions(dir, files = jsonlIn(dir)) {
     const subDir = join(dir, id, 'subagents')
     const subagents = jsonlIn(subDir).map(s => ({
       lines: readLines(join(subDir, s)),
-      meta: readJson(join(subDir, s.replace(/\.jsonl$/, '.meta.json'))),
+      meta: tryReadJson(join(subDir, s.replace(/\.jsonl$/, '.meta.json')), null),
     }))
     return { id, lines: readLines(join(dir, f)), subagents }
   })

@@ -9,10 +9,10 @@
 // so its pinned version stays in .mcp.json, the one place it is written.
 // The token itself is never read beyond "is it set", and never printed.
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { createInterface } from 'node:readline'
 import { isMain, printError } from '../lib/core/script-io.mjs'
+import { tryReadJson } from '../lib/core/files.mjs'
 
 /** Each token connector and the environment variable that holds its token. */
 export const CONNECTORS = {
@@ -36,9 +36,7 @@ export function parseArgs(argv) {
   return { name, token, command }
 }
 
-const version = (() => {
-  try { return JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8')).version ?? '0.0.0' } catch { return '0.0.0' }
-})()
+const version = tryReadJson(new URL('../.claude-plugin/plugin.json', import.meta.url), null)?.version ?? '0.0.0'
 
 /** The reply to one JSON-RPC message, or null for a notification (no id). */
 export function reply(msg, name) {

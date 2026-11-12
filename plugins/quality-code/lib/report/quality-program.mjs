@@ -14,7 +14,7 @@ import { detectConventions } from '../base/conventions.mjs'
 import { BACKENDS, isBackend } from '../base/backends.mjs'
 import { changedPaths } from '../base/git.mjs'
 import { execFileSync } from 'node:child_process'
-import { readJsonOr } from '../core/files.mjs'
+import { readJson, tryReadJson } from '../core/files.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -105,7 +105,7 @@ function workspaceTools(root, spec, cache) {
   let dir = spec.includes('/') ? spec.slice(0, spec.lastIndexOf('/')) : ''
   for (;;) {
     if (cache.has(dir)) return cache.get(dir)
-    const pkg = readJsonOr(join(root, dir, 'package.json'), null, { whenBroken: 'fallback' })
+    const pkg = tryReadJson(join(root, dir, 'package.json'), null)
     if (pkg) {
       const deps = { ...pkg.devDependencies, ...pkg.dependencies }
       const tools = new Set(['jest', 'vitest', 'mocha'].filter(t => t in deps || (t === 'jest' && 'ts-jest' in deps)))
@@ -179,7 +179,7 @@ export function branchTrace(root, config, specs, tracedPaths) {
 export function readCoverage(root) {
   const p = 'coverage/coverage-summary.json'
   try {
-    const v = JSON.parse(readFileSync(join(root, p), 'utf8'))?.total?.lines?.pct
+    const v = readJson(join(root, p))?.total?.lines?.pct
     if (typeof v === 'number') return { pct: Math.round(v), file: p }
   } catch {}
   const l = 'coverage/lcov.info'

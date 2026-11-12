@@ -8,6 +8,7 @@ import { result } from './result.mjs'
 import { backendOf, BACKENDS } from './backends.mjs'
 import { ignoreFolder } from './ignore.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
+import { readJson } from '../core/files.mjs'
 
 // Never written by a test run: build output and packages at any depth (monorepos), git, and the
 // plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
@@ -116,7 +117,7 @@ export function readRunMarker(root, now = Date.now()) {
   try { st = statSync(p) } catch { return null }
   let marker = null
   try {
-    const m = JSON.parse(readFileSync(p, 'utf8'))
+    const m = readJson(p)
     if (m && typeof m === 'object' && !Array.isArray(m)) marker = m
   } catch {}
   const t = typeof marker?.startedAt === 'string' ? Date.parse(marker.startedAt) : NaN

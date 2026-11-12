@@ -1,6 +1,6 @@
 // Installs a fake tool: the package that has the bin <name> (vitest, playwright, stryker, tsc), in
 // <dir>/node_modules, as the runners look for it. Its behaviour comes from
-// <dir>/.fake-<name>.json: { report?, reportFor?: { [config or 'default']: report }, exit?, stderr?,
+// <dir>/.fake-<name>.json: { report?, rawReport? (text written as the report, as it is: a broken one), reportFor?: { [config or 'default']: report }, exit?, stderr?,
 // stdout?, sleepMs?, grandchild?, mkdir? (Stryker: create the sandbox its temp config names), mutantReport?: { title, status } }. With mutantReport, a call with -t (a mutant run) reports
 // that one test with that status for the file in argv[1]. With grandchild, a long-lived child process is started and its pid
 // written to <dir>/.fake-<name>.grandchild. Each call's argv is appended as one JSON line to <dir>/.fake-<name>.calls,
@@ -45,7 +45,8 @@ if (args.includes('-g') && spec.mutantReport) {
   report = { config: { rootDir: dir }, errors: [], suites: [{ title: file, file, specs: [{ title: spec.mutantReport.title, file, tags: [], tests: [t] }], suites: [] }] }
 }
 setTimeout(() => {
-  if (out && report) fs.writeFileSync(out, JSON.stringify(report))
+  if (out && spec.rawReport !== undefined) fs.writeFileSync(out, spec.rawReport)
+  else if (out && report) fs.writeFileSync(out, JSON.stringify(report))
   if (spec.stdout) process.stdout.write(spec.stdout)
   if (spec.stderr) process.stderr.write(spec.stderr)
   process.exit(spec.exit ?? 0)

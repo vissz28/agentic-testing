@@ -12,8 +12,19 @@ Update with `/plugin update quality-code@teamsystem`.
 ### Changed
 
 - **Breaking:** the project config names its sides, not an adapter. `"frontend": "playwright"` for screens tested end to end, `"backend": "<runner>"` (`vitest`, `pytest`, `junit`, `go` or `dotnet`) for the tests of the code, or both for a fullstack project. `adapter`, the `fullstack` value and the hidden default (a fullstack project with no `backend` ran Vitest) are gone, and `version` is now `2`. A version 1 file is refused with one line saying so; `/quality-code:setup` reads it and writes the new one. Cypress and Jest stay where they were, in `runners`.
+- Internal: `readJson` and `tryReadJson` in `lib/core/files.mjs` replace 33 hand-written JSON reads; `tryReadJson` marks the reads that may treat a broken file as missing, and `readJsonOr` no longer takes a `whenBroken` option.
 
 **What to do:** re-run `/quality-code:setup`: it converts the old file, then delete `.claude/quality-code.json` when it says so.
+
+### Fixed
+
+- A broken file the plugin saved and later rewrites now stops the command with its name, instead of being read as empty and then overwritten. `ticket.mjs save set` no longer wipes where every other project keeps its files, `ticket.mjs root set` no longer wipes the root picked in every other repo, `qa watch fresh` no longer forgets the stories already announced, and `ticket.mjs jira-posted <KEY> update` no longer leaves already-sent answers on offer. The broken file is left as it is.
+- `progress.mjs get` reports a broken saved step instead of starting the command over from its first step.
+- `ci.mjs --init` stops (exit 2) on a broken `package.json`, naming it, instead of writing a CI file with no install step.
+- `pipeline.mjs --key` stops before running (exit 2) when the ticket's saved `rules.json` is broken, instead of dropping the rules line from the card.
+- A test runner that leaves a broken report (cut off, overwritten) says so: `Vitest wrote a report that is not valid JSON`, not `Vitest wrote no report`. The runner's own first error line still comes first when there is one. The same for Playwright, Stryker, Jest, Mocha and node --test.
+
+**What to do:** nothing. If a command now stops on a broken file, fix or delete the file it names.
 
 ## [0.76.1] - 2026-11-12
 

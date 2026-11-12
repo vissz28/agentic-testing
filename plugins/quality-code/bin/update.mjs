@@ -4,10 +4,10 @@
 // else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
 // 2 usage error, 3 the latest version could not be read.
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { readJson } from '../lib/core/files.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
 const USAGE = 'usage: update.mjs [--json]'
@@ -61,7 +61,7 @@ function summarise(body) {
 function installedPlugins(env) {
   try {
     const dir = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
-    return JSON.parse(readFileSync(join(dir, 'plugins', 'installed_plugins.json'), 'utf8')).plugins ?? {}
+    return readJson(join(dir, 'plugins', 'installed_plugins.json')).plugins ?? {}
   } catch { return {} }
 }
 
@@ -84,7 +84,7 @@ export function diskVersion(name, env = process.env) {
 }
 
 function readInstalled() {
-  return JSON.parse(readFileSync(new URL('.claude-plugin/plugin.json', PLUGIN_DIR), 'utf8'))
+  return readJson(new URL('.claude-plugin/plugin.json', PLUGIN_DIR))
 }
 
 async function getText(fetchImpl, url) {

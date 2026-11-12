@@ -23,6 +23,7 @@ import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
+import { readJson } from '../lib/core/files.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -137,8 +138,6 @@ function playwrightConfigs(root, ignored = new Set()) {
   walk('', 0)
   return found.sort((a, b) => a.config.split('/').length - b.config.split('/').length || (a.config < b.config ? -1 : 1)).slice(0, 5)
 }
-
-const readJson = p => JSON.parse(readFileSync(p, 'utf8'))
 
 // A frontend: one of these in its dependencies, or an index.html at the root.
 const UI_DEPS = ['react', 'vue', '@angular/core', 'svelte', 'solid-js', 'preact', 'lit', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'ember-source', 'vite', 'parcel', 'webpack-dev-server']

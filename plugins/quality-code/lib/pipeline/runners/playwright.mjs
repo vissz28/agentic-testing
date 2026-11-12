@@ -2,7 +2,7 @@
 // Implements the runner contract of the shared checks. Never writes into the project: the report
 // and Playwright's artifacts go to a temp folder that is always deleted.
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path'
 import { matches } from '../../base/boundary.mjs'
@@ -10,6 +10,7 @@ import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { findUp, kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, noColour, toForwardSlashes } from '../../core/text.mjs'
+import { tryReadJson } from '../../core/files.mjs'
 
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
@@ -156,9 +157,8 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
     child.on('close', () => {
       if (timedOut) return
       try {
-        let json = null
-        try { json = JSON.parse(readFileSync(out, 'utf8')) } catch {}
-        if (!json) return finish({ ran: false, error: firstLine(stderr) || 'Playwright wrote no report' })
+        const json = tryReadJson(out, null)
+        if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Playwright wrote a report that is not valid JSON' : 'Playwright wrote no report') })
         const r = parseReport(json, root, { read: p => { try { return readFileSync(p, 'utf8') } catch { return null } } })
         if (r.error) return finish({ ran: false, error: r.error })
         const failed = r.tests.filter(t => t.status === 'failed')

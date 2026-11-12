@@ -1,7 +1,8 @@
 // The project's own copy of a tool, found the way Node finds a package (so in a monorepo's hoisted
 // node_modules too) and run with this Node: a .bin shell shim does not start on Windows.
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { readJson } from '../../core/files.mjs'
 
 /** The first <folder>/<rel> that exists, from root up to the filesystem root; or null. */
 export function findUp(root, rel) {
@@ -17,7 +18,7 @@ export function toolScript(root, packages, name) {
     const manifest = findUp(root, join('node_modules', pkg, 'package.json'))
     if (!manifest) continue
     try {
-      const bin = JSON.parse(readFileSync(manifest, 'utf8')).bin
+      const bin = readJson(manifest).bin
       const rel = typeof bin === 'string' ? bin : bin?.[name]
       if (rel) return join(dirname(manifest), rel)
     } catch {}

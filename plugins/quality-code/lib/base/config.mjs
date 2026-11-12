@@ -9,6 +9,7 @@ import { RUNNERS } from './runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from './conventions.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
+import { readJsonOr, tryReadJson } from '../core/files.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -83,22 +84,20 @@ function chosenRoot(home, c, env = process.env) {
   if (!Array.isArray(c?.roots)) return null
   const allowed = new Set([...c.roots, c.root].filter(pathOk).map(folderKey))
   let pick = env.QUALITY_CODE_ROOT
-  if (!pick) { try { pick = JSON.parse(readFileSync(activeRootsFile(env), 'utf8'))[resolve(home)] } catch {} }
+  if (!pick) pick = tryReadJson(activeRootsFile(env), null)?.[resolve(home)]
   return pick && allowed.has(folderKey(pick)) ? pick : null
 }
 
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
 function withRoot(home) {
-  let c
-  try { c = JSON.parse(readFileSync(configFileOf(home), 'utf8')) } catch {}
+  const c = tryReadJson(configFileOf(home), undefined)
   const r = chosenRoot(home, c) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
 }
 
 /** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
 export function rootsOf(home, env = process.env) {
-  let c
-  try { c = JSON.parse(readFileSync(configFileOf(home), 'utf8')) } catch {}
+  const c = tryReadJson(configFileOf(home), undefined)
   const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
   return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
@@ -109,8 +108,8 @@ export function setActiveRoot(home, folder, env = process.env) {
   if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
   if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
   const file = activeRootsFile(env)
-  let all = {}
-  try { all = JSON.parse(readFileSync(file, 'utf8')) } catch {}
+  // A broken file stops here, naming it: rewriting it would drop the root picked in every other repo.
+  const all = readJsonOr(file, {})
   all[resolve(home)] = folderKey(folder)
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(all, null, 2))

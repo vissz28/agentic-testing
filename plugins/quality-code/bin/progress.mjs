@@ -31,7 +31,12 @@ function parse(argv) {
   return a
 }
 
-export async function main(argv = process.argv.slice(2), { env = process.env, cwd = process.cwd(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+// A file it cannot trust (a broken config or saved step) stops it with the file's name, as qa.mjs does.
+export async function main(argv = process.argv.slice(2), io = {}) {
+  try { return await handle(argv, io) } catch (e) { lineWriter(io.stderr ?? (s => process.stderr.write(s)))(`progress.mjs: ${e?.message ?? e}`); return 2 }
+}
+
+async function handle(argv = process.argv.slice(2), { env = process.env, cwd = process.cwd(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   let a
   try { a = parse(argv) } catch (e) { printError(`${e.message}\n${USAGE}`); return 2 }

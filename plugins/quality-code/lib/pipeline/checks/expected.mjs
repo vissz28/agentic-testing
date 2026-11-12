@@ -10,6 +10,7 @@ import { anchorRange } from './suite-honesty.mjs'
 import { result } from '../../base/result.mjs'
 import { configHome } from '../../base/config.mjs'
 import { externalChecks } from './external.mjs'
+import { readJson } from '../../core/files.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
@@ -323,7 +324,7 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
   let t
   try {
     // The ticket file's path, or the ticket itself (a frozen eval's).
-    t = ticket && typeof ticket === 'object' ? ticket : JSON.parse(readFileSync(resolve(ctx.root, ticket ?? ''), 'utf8'))
+    t = ticket && typeof ticket === 'object' ? ticket : readJson(resolve(ctx.root, ticket ?? ''))
     if (!t || typeof t !== 'object') throw new Error('not a ticket object')
   } catch (e) {
     return result('expected', 'not_run', `cannot read the ticket file: ${String(e.message).split('\n')[0]}`)

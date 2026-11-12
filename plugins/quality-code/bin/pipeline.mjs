@@ -20,6 +20,7 @@ import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
+import { readJsonOr } from '../lib/core/files.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -134,7 +135,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   // What /quality-code:spec read before it wrote these tests (rules.mjs --key): Central Context, or the fallback.
   let rules = null
-  if (a.key) try { rules = JSON.parse(readFileSync(resolve(root, config.ticketsDir, a.key, 'rules.json'), 'utf8')) } catch {}
+  if (a.key) try { rules = readJsonOr(resolve(root, config.ticketsDir, a.key, 'rules.json'), null) } catch (e) { return err(e.message) }
   // A fullstack run picks the dialect per spec.
   const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(runnerOf(config)), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }

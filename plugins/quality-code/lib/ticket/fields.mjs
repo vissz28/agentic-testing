@@ -1,12 +1,13 @@
 // The acceptance-criteria field of each Jira project, found when a ticket is first checked and
 // remembered on this machine. A field named in the team config always wins.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
 import { configHome } from '../base/config.mjs'
 import { ignoreFolder } from '../base/ignore.mjs'
 import { FIELDS_FILE, placeFolder, placeOf } from '../base/places.mjs'
+import { readJson } from '../core/files.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
@@ -18,7 +19,7 @@ const placedPath = (home, env = process.env) => join(placeFolder(home, env), FIE
 
 function readFields(path) {
   try {
-    const d = JSON.parse(readFileSync(path, 'utf8'))
+    const d = readJson(path)
     return d && typeof d.projects === 'object' && d.projects !== null && !Array.isArray(d.projects) ? d.projects : {}
   } catch {
     return {}

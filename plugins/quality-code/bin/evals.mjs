@@ -18,14 +18,14 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adapterOfSpec } from '../lib/base/stack.mjs'
 import { readCases } from './xray.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
+import { readJson } from '../lib/core/files.mjs'
 
 export const EVALS_DIR = '.claude/quality-code/evals'
-const read = p => JSON.parse(readFileSync(p, 'utf8'))
 const list = v => (Array.isArray(v) ? v : [])
 
 /** The problems of one fixture; none means it holds. */
 export function checkFixture(root, config, dir, key) {
-  const want = read(join(dir, 'expected.json'))
+  const want = readJson(join(dir, 'expected.json'))
   const k = want.key ?? key
   const own = keyPattern(k)
   const specs = want.spec ? [want.spec].filter(p => existsSync(join(root, p)))
@@ -51,7 +51,7 @@ export function checkFixture(root, config, dir, key) {
       else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its Xray case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)
     }
   }
-  const input = existsSync(join(dir, 'input.json')) ? read(join(dir, 'input.json')) : null
+  const input = existsSync(join(dir, 'input.json')) ? readJson(join(dir, 'input.json')) : null
   if (input?.ticket && specs.length) {
     const ticket = typeof input.ticket === 'string' ? JSON.parse(input.ticket) : input.ticket
     const ctx = { root, config, dialectOf: p => dialectFor(runnerOf(config, adapterOfSpec(config, root, p))) }

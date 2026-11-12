@@ -28,7 +28,7 @@ import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyS
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
-import { readJsonOr } from '../lib/core/files.mjs'
+import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
@@ -46,8 +46,8 @@ const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', 
 
 /** A line per runner the config writes tests in that this project has not installed, saying how to add it. */
 function missingRunners(root, config) {
-  let deps = {}
-  try { const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')); deps = { ...pkg.dependencies, ...pkg.devDependencies } } catch {}
+  const pkg = tryReadJson(join(root, 'package.json'), null)
+  const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
   const wants = { vitest: backendOf(config) === 'vitest', playwright: config.adapter === 'playwright' || isFullstack(config) }
   return ADDABLE
     .filter(([adapter, , packages]) => wants[adapter] && runnerOf(config, adapter) === adapter && !toolScript(root, packages, adapter))
@@ -58,7 +58,8 @@ function missingRunners(root, config) {
 
 /** The ticketsDir the config file itself names, before the place moves it; undefined when it names none. */
 function rawTicketsDir(path) {
-  try { const c = JSON.parse(readFileSync(path, 'utf8')); return typeof c?.ticketsDir === 'string' ? c.ticketsDir : undefined } catch { return undefined }
+  const c = tryReadJson(path, null)
+  return typeof c?.ticketsDir === 'string' ? c.ticketsDir : undefined
 }
 
 function parseArgs(argv) {
@@ -155,11 +156,9 @@ function run(argv, env, cwd) {
     }
     log('jira', { key, action })
     // The fill-in answers now on Jira are no longer waiting: `saved` stops offering them.
-    if (action === 'update' && existsSync(savedPath(key))) {
-      try {
-        const t = JSON.parse(readFileSync(savedPath(key), 'utf8'))
-        writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length }))
-      } catch {}
+    if (action === 'update') {
+      const t = readJsonOr(savedPath(key), null)
+      if (t) try { writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length })) } catch {}
     }
     printLine('ok')
     return 0

@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { dirOf, secretIn, short, slug } from './progress.mjs'
+import { readJson } from '../core/files.mjs'
 
 export const FACTS = ['flow', 'tests', 'style', 'stack', 'base', 'connectors', 'jira', 'features']
 export const SOURCE_KINDS = ['ttl', 'hash', 'head', 'ticket', 'none']
@@ -18,7 +19,7 @@ const fileOf = (root, env) => join(dirOf(env), `${slug(root)}-${short(root)}`, '
 
 function read(root, env) {
   try {
-    const c = JSON.parse(readFileSync(fileOf(root, env), 'utf8'))
+    const c = readJson(fileOf(root, env))
     return { facts: c?.facts && typeof c.facts === 'object' ? c.facts : {}, files: c?.files && typeof c.files === 'object' ? c.files : {} }
   } catch { return { facts: {}, files: {} } }
 }
