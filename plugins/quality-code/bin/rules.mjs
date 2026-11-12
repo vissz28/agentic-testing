@@ -8,28 +8,29 @@ import { isProjectKey } from '../lib/base/keys.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
 import { SIDES, stackOf } from '../lib/base/stack.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { fetchImpl, stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   let side = null
   let key = null
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--side' && SIDES.includes(argv[i + 1])) side = argv[++i]
     else if (argv[i] === '--key' && argv[i + 1]) key = argv[++i]
-    else { stderr(`${argv[i] === '--side' ? `--side must be ${SIDES.join(', ')}` : `unknown option ${argv[i]}`}. ${USAGE}\n`); return 2 }
+    else { printError(`${argv[i] === '--side' ? `--side must be ${SIDES.join(', ')}` : `unknown option ${argv[i]}`}. ${USAGE}`); return 2 }
   }
   const cfg = loadConfig(projectRoot(env, cwd), env)
   const config = cfg.ok ? cfg.config : null
   const root = projectRoot(env, cwd)
-  if (key && !(config && isProjectKey(config, key))) { stderr(`--key ${key} is not a ticket key of this project. ${USAGE}\n`); return 2 }
+  if (key && !(config && isProjectKey(config, key))) { printError(`--key ${key} is not a ticket key of this project. ${USAGE}`); return 2 }
   const r = await readRules({ side: side ?? stackOf(config) ?? 'fullstack', config, root, env, fetchImpl })
   if (key) {
     const f = resolve(root, config.ticketsDir, key, 'rules.json')
     try { mkdirSync(resolve(f, '..'), { recursive: true }); writeFileSync(f, `${JSON.stringify(rulesRecord(r))}\n`) } catch {}
   }
-  stdout(`${formatRules(r)}\n${tag('RULES', r)}\n`)
+  printLine(`${formatRules(r)}\n${tag('RULES', r)}`)
   return 0
 }
 

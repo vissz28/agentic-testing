@@ -1,0 +1,6 @@
+$ seed target
+exit 2
+--- stdout
+--- stderr
+Loading mock data needs "seed.target" and "seed.apply" in the project config.json, for example:
+  "seed": { "target": "echo localhost:5432/app", "apply": "psql -h localhost -d app -v ON_ERROR_STOP=1 -f {file}" }

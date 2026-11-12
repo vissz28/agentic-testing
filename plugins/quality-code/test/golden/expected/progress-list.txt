@@ -1,0 +1,6 @@
+$ progress list
+exit 0
+--- stdout
+Nothing saved for this project.
+PROGRESS_JSON:{"items":[]}
+--- stderr

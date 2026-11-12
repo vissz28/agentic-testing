@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 
@@ -74,7 +74,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 }
 
 async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), now = () => new Date().toISOString() } = {}) {
-  const err = m => { stderr(`${m}\n`); return 2 }
+  const printError = lineWriter(stderr)
+  const err = m => { printError(m); return 2 }
   const flags = {}
   const pos = []
   for (let i = 0; i < argv.length; i++) {

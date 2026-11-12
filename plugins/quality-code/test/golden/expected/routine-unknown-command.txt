@@ -1,0 +1,5 @@
+$ routine nope
+exit 2
+--- stdout
+--- stderr
+the first word is run or status. usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]

@@ -1,0 +1,5 @@
+$ branch --nope
+exit 2
+--- stdout
+--- stderr
+usage: branch.mjs --detect [--base <branch>] [--mr-base <branch>] | --merged <KEY>

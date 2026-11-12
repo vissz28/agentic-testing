@@ -1,0 +1,5 @@
+$ setup 
+exit 2
+--- stdout
+usage: setup.mjs --detect [--root DIR] | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap
+--- stderr

@@ -5,7 +5,7 @@
 // from the Examples section of its own command file, so it never drifts. Read-only. Exit 0 ok, 2 usage error.
 import { readdirSync, readFileSync } from 'node:fs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)
 const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all]'
@@ -80,36 +80,36 @@ export function oneCommand(name) {
 export const allCommands = () => ['### Every command', '', '| Command | What it does |', '|---|---|', ...commandNames().map(n => `| ${cmd(n)} | ${firstSentence(commandInfo(n).description).replace(/\|/g, '\\|')} |`)].join('\n')
 
 export function main(argv = process.argv.slice(2), { env = process.env, cwd = process.cwd(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   const flags = argv.filter(a => a.startsWith('-'))
   const names = argv.filter(a => !a.startsWith('-'))
   const roleFlags = flags.filter(f => ['--dev', '--qa', '--po'].includes(f))
   const bad = flags.find(f => !roleFlags.includes(f) && f !== '--all')
-  if (bad || names.length > 1 || roleFlags.length > 1) { stderr(`${bad ? `unknown option ${bad}. ` : ''}${USAGE}\n`); return 2 }
-  const out = s => stdout(`${s}\n`)
+  if (bad || names.length > 1 || roleFlags.length > 1) { printError(`${bad ? `unknown option ${bad}. ` : ''}${USAGE}`); return 2 }
   // Reference answers need no setup.
-  if (flags.includes('--all')) { out(allCommands()); return 0 }
+  if (flags.includes('--all')) { printLine(allCommands()); return 0 }
   if (names.length) {
     const one = oneCommand(names[0].replace(/^\/?(quality-code:)?/, ''))
-    if (!one) { stderr(`no command ${names[0]}. Every command: /quality-code:help --all\n`); return 2 }
-    out(one)
+    if (!one) { printError(`no command ${names[0]}. Every command: /quality-code:help --all`); return 2 }
+    printLine(one)
     return 0
   }
   const cfg = loadConfig(projectRoot(env, cwd), env)
   const asked = roleFlags[0]?.slice(2)
   if (!cfg.ok) {
-    out(cfg.missing
+    printLine(cfg.missing
       ? 'Quality Code is not set up here yet. Run `/quality-code:setup` first: in your repo as a developer, or from any folder as QA or PO (Jira only, no repo).'
       : `Quality Code's config has a problem:\n${cfg.errors.map(e => `- ${e}`).join('\n')}\nFix it with \`/quality-code:setup\`.`)
     // A role asked for is still shown, as a preview of what setup leads to.
-    if (asked) out(`\n${rolePath(asked)}`)
+    if (asked) printLine(`\n${rolePath(asked)}`)
     return 0
   }
   const c = cfg.config
-  out(`Set up: Jira ${c.jira.site.replace(/^https:\/\//, '')}, project(s) ${c.jira.projects.join(', ')} (${cfg.source === 'repo' ? 'this repo' : 'personal, no repo'}).\n`)
+  printLine(`Set up: Jira ${c.jira.site.replace(/^https:\/\//, '')}, project(s) ${c.jira.projects.join(', ')} (${cfg.source === 'repo' ? 'this repo' : 'personal, no repo'}).\n`)
   // A personal config written before setup kept the role shows both of its roles.
   const roles = asked ? [asked] : cfg.source === 'repo' ? ['dev'] : c.role ? [c.role] : ['qa', 'po']
-  out(roles.map(rolePath).join('\n\n'))
-  out(`\nAnother role: \`--dev\`, \`--qa\` or \`--po\`. Every command: \`--all\`.`)
+  printLine(roles.map(rolePath).join('\n\n'))
+  printLine(`\nAnother role: \`--dev\`, \`--qa\` or \`--po\`. Every command: \`--all\`.`)
   return 0
 }
 

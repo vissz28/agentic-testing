@@ -1,0 +1,5 @@
+$ connector-settings 
+exit 2
+--- stdout
+--- stderr
+usage: connector-settings.mjs --gitlab-check <address> | --gitlab-save <address> <username or email> | --jira-save <email> | --xray-save <address> | --style [on|off]

@@ -1,0 +1,5 @@
+$ qa 
+exit 2
+--- stdout
+--- stderr
+usage: qa.mjs config | jql runs|watch | app get|set <url> | state show|record|close|reset <RUN> … | evidence <RUN> <TEST> [--step N] | pick ok|ko|blocked|run-ko|run-done --from "A,B" | watch fresh --found K1,K2

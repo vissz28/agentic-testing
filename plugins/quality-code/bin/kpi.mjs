@@ -12,7 +12,7 @@ import { kpiReport, kpiSeries } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
@@ -141,29 +141,30 @@ export function formatKpiCard(r) {
 }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { now = Date.now(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   let a, period
   try {
     a = parse(argv)
     period = parsePeriod(a, now)
-  } catch (e) { stderr(`${e.message}. ${USAGE}\n`); return 2 }
+  } catch (e) { printError(`${e.message}. ${USAGE}`); return 2 }
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root, env)
   const events = loadEvents(root, cfg.ok ? cfg.auditDir : undefined)
   if (![...KINDS, 'boundary'].some(k => events[k].length)) {
     const chat = cfg.ok && cfg.place === 'chat' ? 'Files and logs are kept only in the chat for this project, so no log is kept (change it with /quality-code:config).\n' : ''
-    stdout(`No quality-code audit data yet for ${root}.\n${chat}Looked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.\n`)
+    printLine(`No quality-code audit data yet for ${root}.\n${chat}Looked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.`)
     return 3
   }
   // The spec files are read for traceability and suite honesty; without a config there is nothing to find them by.
   const report = buildKpi(events, { period, project: basename(root), scan: cfg.ok ? scanSpecs(root, cfg.config) : null, coverage: readCoverage(root) })
-  stdout(`${a.json ? JSON.stringify(report) : formatKpiCard(report)}\n`)
+  printLine(a.json ? JSON.stringify(report) : formatKpiCard(report))
   if (a.report) {
     // One self-contained HTML file, saved where this person keeps their files; the card above stays the text version.
     const built = kpiReport(report, kpiSeries(events, period), { config: cfg.ok ? cfg.config : null, now: new Date(now) })
     try {
       const path = saveReport(reportsRoot(root, cfg, env), 'kpi', new Date(now).toISOString().slice(0, 10), built.html)
-      stdout(`${reportLines(path, 'Quality Code KPI', built.headline).join('\n')}\n`)
-    } catch (e) { stderr(`kpi: cannot save the report (${e.code ?? e.message})\n`); return 2 }
+      printLine(reportLines(path, 'Quality Code KPI', built.headline).join('\n'))
+    } catch (e) { printError(`kpi: cannot save the report (${e.code ?? e.message})`); return 2 }
   }
   return 0
 }

@@ -27,7 +27,7 @@ import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -201,29 +201,30 @@ export function guessProvider(top) {
 }
 
 function init(root, config, a, env, stdout, stderr) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   // The CI file goes at the top of the repo, also for a project in a subfolder.
   const top = git(root, ['rev-parse', '--show-toplevel']) || root
   const provider = a.provider ?? guessProvider(top)
-  if (!provider) { stderr('Say which CI: github or gitlab (the repo has no CI file and its remote names neither).\n'); return 2 }
+  if (!provider) { printError('Say which CI: github or gitlab (the repo has no CI file and its remote names neither).'); return 2 }
   const version = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version
   const source = pluginSource(config, env, version)
-  if (source.error) { stderr(`${source.error}\n`); return 2 }
+  if (source.error) { printError(source.error); return 2 }
   const text = template(provider, version, { ...stackOf(root, config), smoke: a.smoke }, source)
   if (a.print) { stdout(text); return 0 }
   // Only a file Quality Code wrote is replaced; an existing .gitlab-ci.yml gets the jobs in a file of their own, to include.
   const free = p => !existsSync(join(top, p)) || readText(join(top, p)).startsWith(HEADER)
   const target = provider === 'github' ? '.github/workflows/quality-code.yml' : free('.gitlab-ci.yml') ? '.gitlab-ci.yml' : '.gitlab/quality-code.gitlab-ci.yml'
-  if (!free(target)) { stderr(`${target} is there already and Quality Code did not write it: not overwritten. Print the jobs instead: --init ${provider} --print\n`); return 2 }
+  if (!free(target)) { printError(`${target} is there already and Quality Code did not write it: not overwritten. Print the jobs instead: --init ${provider} --print`); return 2 }
   // --dry-run: say what would be written and where the plugin would be fetched from; write nothing.
   if (a.dryRun) {
-    stdout(`dry run: would write ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}, ${text.split('\n').length} lines), nothing written. The jobs fetch the plugin from ${source.url} at ${source.ref}.\n`)
+    printLine(`dry run: would write ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}, ${text.split('\n').length} lines), nothing written. The jobs fetch the plugin from ${source.url} at ${source.ref}.`)
     return 0
   }
   mkdirSync(dirname(join(top, target)), { recursive: true })
   writeFileSync(join(top, target), text)
-  stdout(`ok: wrote ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'})\n`)
+  printLine(`ok: wrote ${target} (${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'})`)
   if (target.startsWith('.gitlab/') && !readText(join(top, '.gitlab-ci.yml')).includes(target)) {
-    stdout(`Add it to your .gitlab-ci.yml (into its include: list, if it has one):\ninclude:\n  - local: ${target}\n`)
+    printLine(`Add it to your .gitlab-ci.yml (into its include: list, if it has one):\ninclude:\n  - local: ${target}`)
   }
   return 0
 }
@@ -231,14 +232,15 @@ function init(root, config, a, env, stdout, stderr) {
 // ---- The gate ----
 
 async function gate(root, config, a, env, stdout) {
+  const printLine = lineWriter(stdout)
   const det = detect(root, config, { base: a.base ?? baseFromEnv(env) })
   const cannot = !det.isRepo ? 'this is not a git checkout' : !det.base || !det.mergeBase ? `the target branch was not found (${FETCH_HINT})` : det.shallow ? `the checkout is shallow (${FETCH_HINT})` : null
-  if (cannot) { stdout(`quality-code ci: could not run: ${cannot}, so the changed specs cannot be read.\n`); return 3 }
-  if (det.onBase) { stdout(`quality-code ci: this is ${det.base.replace(/^origin\//, '')} itself, nothing to compare.\n`); return 0 }
+  if (cannot) { printLine(`quality-code ci: could not run: ${cannot}, so the changed specs cannot be read.`); return 3 }
+  if (det.onBase) { printLine(`quality-code ci: this is ${det.base.replace(/^origin\//, '')} itself, nothing to compare.`); return 0 }
   const changed = det.files.filter(f => f.committed && f.kind === 'test')
   const head = `quality-code ci · changes since ${det.base}`
-  if (!changed.length) { stdout(`${head}: no spec changed, nothing to check.\n`); return 0 }
-  stdout(`${head}: ${changed.length} spec${changed.length === 1 ? '' : 's'}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n\n`)
+  if (!changed.length) { printLine(`${head}: no spec changed, nothing to check.`); return 0 }
+  printLine(`${head}: ${changed.length} spec${changed.length === 1 ? '' : 's'}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n`)
 
   // Honesty reads the diff, so a deleted spec and a renamed spec's old path count; assertions read the specs there now.
   const known = new Set(projectSpecs(root, config).map(s => s.path))
@@ -254,7 +256,7 @@ async function gate(root, config, a, env, stdout) {
   if (evals.length) results.push(result('evals', drift.length ? 'fail' : 'pass', drift.length ? `${drift.length} of ${evals.length} frozen fixture(s) drifted` : `${evals.length} frozen fixture(s) hold`, drift.flatMap(r => r.problems.map(p => ({ file: r.key, detail: p })))))
 
   const code = Math.max(...results.map(r => EXIT[r.status]))
-  stdout(`${results.map(r => formatResult({ ...r, check: label(r.check) })).join('\n')}\n\nResult: ${code === 0 ? 'PASSED' : code === 1 ? 'FAILED' : 'COULD NOT RUN'}${code ? ` (exit ${code})` : ''}\n`)
+  printLine(`${results.map(r => formatResult({ ...r, check: label(r.check) })).join('\n')}\n\nResult: ${code === 0 ? 'PASSED' : code === 1 ? 'FAILED' : 'COULD NOT RUN'}${code ? ` (exit ${code})` : ''}`)
   return code
 }
 
@@ -282,6 +284,7 @@ function runPhase(root, job, range, env) {
 }
 
 async function tests(root, config, a, env, stdout, stderr) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   const provider = providerOf(env)
   const has = adaptersOf(config)
   const sides = ['backend', 'frontend'].filter(side => adaptersForSide(side, config).some(x => has.includes(x)))
@@ -303,7 +306,7 @@ async function tests(root, config, a, env, stdout, stderr) {
       scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${det.counts.test} test file${det.counts.test === 1 ? '' : 's'}, ${det.counts.code} code file${det.counts.code === 1 ? '' : 's'}` }
     }
   }
-  stdout(`quality-code ci tests${provider ? ` · ${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}` : ''}\n${scope.mode === 'all' ? `Running the whole suite, without mutation: ${scope.why}.` : `Running only what changed (${scope.why}).`}\n`)
+  printLine(`quality-code ci tests${provider ? ` · ${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}` : ''}\n${scope.mode === 'all' ? `Running the whole suite, without mutation: ${scope.why}.` : `Running only what changed (${scope.why}).`}`)
 
   // One run per module: the changed specs of a module together, or a side's whole suite.
   const jobs = []
@@ -321,7 +324,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     } else if (p.source || p.shared) jobs.push({ side, name: side, note: p.shared && !p.source ? 'a shared config or dependency file changed' : `${side} code changed and no ${side} spec did` })
     else {
       phases.push({ name: side, verdict: 'skipped', detail: `nothing changed in ${side}` })
-      stdout(`\n== ${side} · skipped (nothing changed in ${side})\n`)
+      printLine(`\n== ${side} · skipped (nothing changed in ${side})`)
     }
   }
 
@@ -332,7 +335,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!specs.length) {
       // Zero tests must never read as a pass.
       phases.push({ name: job.name, verdict: 'not_verified', detail: `no ${runner} spec files found in the project's test folders` })
-      stdout(`\n== ${job.name} (${runner}) · could not run\nNo ${runner} spec files found in the project's test folders.\n`)
+      printLine(`\n== ${job.name} (${runner}) · could not run\nNo ${runner} spec files found in the project's test folders.`)
       continue
     }
     if (job.note) stdout(`\n(${job.note}: running the whole ${job.side} suite, without mutation)`)
@@ -340,40 +343,41 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!outcome) {
       const detail = (r.stderr || r.stdout || 'the pipeline did not answer').trim()
       phases.push({ name: job.name, verdict: 'not_verified', detail })
-      stdout(`\n== ${job.name} (${runner}) · could not run\n${detail}\n`)
+      printLine(`\n== ${job.name} (${runner}) · could not run\n${detail}`)
       continue
     }
     const t = outcome.steps?.find(x => x.check === 'tests')?.data ?? {}
     phases.push({ name: job.name, verdict: outcome.verdict, detail: formatCard(outcome, { specs }).replace(/\nPIPELINE_JSON:.*$/s, ''), passed: t.passed, failed: t.failed })
-    stdout(`\n== ${job.name} (${runner}) · ${WORDS[outcome.verdict] ?? outcome.verdict}\n${phases.at(-1).detail}\n`)
+    printLine(`\n== ${job.name} (${runner}) · ${WORDS[outcome.verdict] ?? outcome.verdict}\n${phases.at(-1).detail}`)
   }
-  if (scope.mode === 'changes' && !jobs.length) stdout('\nNothing to test: no backend or frontend test or code changed.\n')
+  if (scope.mode === 'changes' && !jobs.length) printLine('\nNothing to test: no backend or frontend test or code changed.')
 
   const code = phases.reduce((m, p) => Math.max(m, ORDER[p.verdict] ?? 3), 0)
   const verdict = code === 0 ? (jobs.length ? 'PASSED' : 'NOTHING TO TEST') : code === 1 ? 'FAILED' : 'COULD NOT RUN'
   const width = Math.max(9, ...phases.map(p => p.name.length))
-  stdout(`\nSummary\n${phases.map(p => `  ${p.name.padEnd(width)} ${WORDS[p.verdict] ?? p.verdict}${p.passed !== undefined ? ` · ${p.passed} passed · ${p.failed} failed` : ''}`).join('\n')}\nResult: ${verdict}${code ? ` (exit ${code})` : ''}\n`)
+  printLine(`\nSummary\n${phases.map(p => `  ${p.name.padEnd(width)} ${WORDS[p.verdict] ?? p.verdict}${p.passed !== undefined ? ` · ${p.passed} passed · ${p.failed} failed` : ''}`).join('\n')}\nResult: ${verdict}${code ? ` (exit ${code})` : ''}`)
 
   if (a.junit) {
-    try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(phases)) } catch (e) { stderr(`could not write ${a.junit}: ${e.message}\n`) }
+    try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(phases)) } catch (e) { printError(`could not write ${a.junit}: ${e.message}`) }
   }
   if (provider === 'github' && env.GITHUB_STEP_SUMMARY) {
     try {
       const rows = phases.map(p => `| ${p.name} | ${WORDS[p.verdict] ?? p.verdict} | ${p.passed !== undefined ? `${p.passed} passed · ${p.failed} failed` : ''} |`)
       appendFileSync(env.GITHUB_STEP_SUMMARY, `## Quality Code: ${verdict}\n\n| Phase | Verdict | Tests |\n|---|---|---|\n${rows.join('\n')}\n`)
     } catch {}
-    for (const p of phases.filter(x => ORDER[x.verdict] > 0)) stdout(`::error title=Quality Code ${p.name}::${WORDS[p.verdict]}\n`)
+    for (const p of phases.filter(x => ORDER[x.verdict] > 0)) printLine(`::error title=Quality Code ${p.name}::${WORDS[p.verdict]}`)
   }
   return code
 }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printError = lineWriter(stderr)
   let a
-  try { a = parse(argv) } catch (e) { stderr(`${e.message}\n${USAGE}\n`); return 2 }
+  try { a = parse(argv) } catch (e) { printError(`${e.message}\n${USAGE}`); return 2 }
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root)
-  if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
-  if (cfg.source === 'personal') { stderr('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).\n'); return 2 }
+  if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
+  if (cfg.source === 'personal') { printError('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).'); return 2 }
   if (a.init) return init(root, cfg.config, a, env, stdout, stderr)
   return a.tests ? tests(root, cfg.config, a, env, stdout, stderr) : gate(root, cfg.config, a, env, stdout)
 }

@@ -1,0 +1,5 @@
+$ ci --init
+exit 2
+--- stdout
+--- stderr
+Say which CI: github or gitlab (the repo has no CI file and its remote names neither).

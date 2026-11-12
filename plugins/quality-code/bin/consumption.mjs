@@ -10,7 +10,7 @@ import { BY, buildReport, formatCard, parsePeriod } from '../lib/report/consumpt
 import { consumptionReport } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import { attribute, configDir, findProjectDirs, loadSessions } from '../lib/report/transcripts.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const mtimeOf = p => { try { return statSync(p).mtimeMs } catch { return 0 } }
 const USAGE = 'usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--session] [--json | --report]'
@@ -35,7 +35,8 @@ function parse(argv) {
 }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { now = Date.now(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
-  const err = m => { stderr(`${m}\n`); return 2 }
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
+  const err = m => { printError(m); return 2 }
   let a, period
   try {
     a = parse(argv)
@@ -65,20 +66,20 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   const sessions = dirs.flatMap(d => loadSessions(d, files[d]))
   if (!sessions.length) {
-    stdout(`No Claude Code transcripts found for ${root}.\nLooked in:\n${looked.map(l => `  ${l}`).join('\n')}\n`)
+    printLine(`No Claude Code transcripts found for ${root}.\nLooked in:\n${looked.map(l => `  ${l}`).join('\n')}`)
     return 3
   }
   const cfg = loadConfig(root, env)
   const usage = attribute(sessions, cfg.ok ? { keySource: keySource(cfg.config) } : {})
   const report = buildReport(usage, { period, by: a.by, prices, project: basename(root), priceInfo })
-  stdout(`${a.json ? JSON.stringify(report) : formatCard(report)}\n`)
+  printLine(a.json ? JSON.stringify(report) : formatCard(report))
   if (a.report) {
     // One self-contained HTML file with the cost by command, day and model; the card above stays the text version.
     const by = Object.fromEntries(['command', 'day', 'model'].map(b => [b, b === a.by ? report : buildReport(usage, { period, by: b, prices, project: basename(root), priceInfo })]))
     const built = consumptionReport(by, { config: cfg.ok ? cfg.config : null, now: new Date(now) })
     try {
       const path = saveReport(reportsRoot(root, cfg, env), 'consumption', new Date(now).toISOString().slice(0, 10), built.html)
-      stdout(`${reportLines(path, 'Quality Code consumption', built.headline).join('\n')}\n`)
+      printLine(reportLines(path, 'Quality Code consumption', built.headline).join('\n'))
     } catch (e) { return err(`consumption: cannot save the report (${e.code ?? e.message})`) }
   }
   return 0

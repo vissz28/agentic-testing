@@ -21,7 +21,7 @@ import { backendOf, isBackend } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
@@ -784,8 +784,8 @@ function main(argv) {
   if (argv[0] === '--detect' && (argv.length === 1 || (argv[1] === '--root' && argv.length === 3))) {
     const sub = argv[2] ?? null
     const bad = sub && sub !== '.' && (pathProblem(root, '--root', sub) ?? (existsSync(join(root, sub)) ? null : `--root "${sub}" is not a folder of this repository`))
-    if (bad) { process.stdout.write(`${bad}\n`); return 2 }
-    process.stdout.write(`${tag('SETUP', detect(root, process.env, sub))}\n`)
+    if (bad) { printLine(bad); return 2 }
+    printLine(tag('SETUP', detect(root, process.env, sub)))
     return 0
   }
   if ((argv[0] === '--write' || argv[0] === '--write-personal') && argv[1]) {
@@ -794,28 +794,28 @@ function main(argv) {
     const ref = argv[1].startsWith('@') ? argv[1].slice(1) : argv[1]
     let proposal
     try { proposal = inline ? JSON.parse(argv[1]) : readJson(resolve(root, ref)) } catch (err) {
-      process.stdout.write(`proposal: cannot read ${inline ? 'the inline JSON' : ref} (${err.message})\n`)
+      printLine(`proposal: cannot read ${inline ? 'the inline JSON' : ref} (${err.message})`)
       return 2
     }
     if (argv[0] === '--write-personal' || proposal?.scope === 'personal') {
       const r = writePersonal(proposal?.config)
-      if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
-      process.stdout.write('ok\n')
+      if (!r.ok) { printLine(r.errors.join('\n')); return 2 }
+      printLine('ok')
       return 0
     }
     const r = write(root, proposal?.config, { templates: proposal?.templates, scaffold: proposal?.scaffold, vitestScaffold: proposal?.vitestScaffold, containersScaffold: proposal?.containersScaffold, colocated: proposal?.colocated })
-    if (!r.ok) { process.stdout.write(`${r.errors.join('\n')}\n`); return 2 }
+    if (!r.ok) { printLine(r.errors.join('\n')); return 2 }
     process.stdout.write(`ok\n${r.note ? `${r.note}\n` : ''}`)
     return 0
   }
   if (argv[0] === '--smoke' && argv.slice(1).every(a => a === '--if-first')) {
     const cfg = loadConfig(root)
-    if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
-    return smoke(resolve(root, cfg.config.root ?? '.'), cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { process.stdout.write(`${r.line}\n`); return r.code })
+    if (!cfg.ok) { printLine(cfg.errors.join('\n')); return 2 }
+    return smoke(resolve(root, cfg.config.root ?? '.'), cfg.config, { ifFirst: argv.includes('--if-first') }).then(r => { printLine(r.line); return r.code })
   }
   if (argv[0] === '--unit-overlap' && argv.length === 1) {
     const cfg = loadConfig(root)
-    if (!cfg.ok) { process.stdout.write(`${cfg.errors.join('\n')}\n`); return 2 }
+    if (!cfg.ok) { printLine(cfg.errors.join('\n')); return 2 }
     // A pytest, JUnit, Go or .NET backend never runs the Playwright specs: its runner lists none of them.
     const backend = backendOf(cfg.config)
     const runner = backend && backend !== 'vitest' ? backend : runnerOf(cfg.config, 'vitest')
@@ -823,12 +823,12 @@ function main(argv) {
     const proj = resolve(root, cfg.config.root ?? '.')
     const e2e = e2eFolder(proj, cfg.config)
     const r = e2e.ok ? unitOverlap(proj, e2e.folder, runner) : { error: e2e.error }
-    if (r.error) { process.stdout.write(`${r.error}\n`); return 2 }
-    if (!r.files.length) { process.stdout.write(`ok: ${label} runs none of the specs in ${e2e.folder}\n`); return 0 }
-    process.stdout.write(`${label} also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}\n`)
+    if (r.error) { printLine(r.error); return 2 }
+    if (!r.files.length) { printLine(`ok: ${label} runs none of the specs in ${e2e.folder}`); return 0 }
+    printLine(`${label} also runs ${r.files.length} spec(s) in ${e2e.folder}, and fails on them:\n${r.files.map(f => `  ${f}`).join('\n')}`)
     return 1
   }
-  process.stdout.write("usage: setup.mjs --detect [--root DIR] | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap\n")
+  printLine("usage: setup.mjs --detect [--root DIR] | --write '<proposal json>'|@proposal.json | --write-personal '<proposal json>'|@proposal.json | --smoke [--if-first] | --unit-overlap")
   return 2
 }
 

@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { createInterface } from 'node:readline'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, printError } from '../lib/core/script-io.mjs'
 
 /** Each token connector and the environment variable that holds its token. */
 export const CONNECTORS = {
@@ -94,7 +94,7 @@ export function runReal(command) {
   const forward = sig => () => { try { child.kill(sig) } catch {} }
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, forward(sig))
   child.on('error', e => {
-    process.stderr.write(`mcp-launch: could not start ${cmd}: ${e.code ?? e.message}\n`)
+    printError(`mcp-launch: could not start ${cmd}: ${e.code ?? e.message}`)
     process.exit(127)
   })
   child.on('exit', (code, signal) => {
@@ -106,7 +106,7 @@ export function runReal(command) {
 if (isMain(import.meta.url)) {
   const a = parseArgs(process.argv.slice(2))
   if (a.error) {
-    process.stderr.write(`mcp-launch: ${a.error}\n`)
+    printError(`mcp-launch: ${a.error}`)
     process.exit(2)
   }
   if (tokenSet(process.env[a.token])) runReal(a.command)

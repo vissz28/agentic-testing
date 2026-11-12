@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { basename, extname, join, resolve } from 'node:path'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
@@ -20,7 +20,7 @@ const IMAGES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp'])
 export const MAX_IMAGES = 3
 const TIMEOUT_MS = 30000
 
-export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { fetchImpl = globalThis.fetch, out = s => process.stdout.write(`${s}\n`), err = s => process.stderr.write(`${s}\n`) } = {}) {
+export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { fetchImpl = globalThis.fetch, out = printLine, err = printError } = {}) {
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root, env)
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }

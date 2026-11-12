@@ -1,0 +1,10 @@
+$ clean delete --groups cache --dry-run
+exit 0
+--- stdout
+DRY RUN: would delete
+  nothing
+
+Kept
+  - .claude/quality-code.json (Setup files not picked)
+CLEAN_JSON:{"dryRun":true,"deleted":[],"kept":[{"rel":".claude/quality-code.json","why":"Setup files not picked","group":"setup"}]}
+--- stderr

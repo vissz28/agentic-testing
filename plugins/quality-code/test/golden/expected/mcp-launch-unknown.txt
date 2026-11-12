@@ -1,0 +1,5 @@
+$ mcp-launch --nope
+exit 2
+--- stdout
+--- stderr
+mcp-launch: unknown connector "--nope": one of figma-token, gitlab-token, xray

@@ -1,0 +1,5 @@
+$ xray created DEMO-1
+exit 2
+--- stdout
+--- stderr
+Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").

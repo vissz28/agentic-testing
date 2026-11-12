@@ -1,0 +1,5 @@
+$ update --nope
+exit 2
+--- stdout
+--- stderr
+unknown option --nope. usage: update.mjs [--json]

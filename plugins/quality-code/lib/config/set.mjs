@@ -8,7 +8,7 @@ import { pickPlace, placeDirs, placeOf, placesFor } from '../base/places.mjs'
 import { FLOWS } from '../base/conventions.mjs'
 import { RUNNERS } from '../base/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
-import { tag } from '../core/script-io.mjs'
+import { tag, printLine, printError } from '../core/script-io.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -175,7 +175,7 @@ export function keyRows() {
   }))
 }
 /** `config keys`: prints a row per key and a CONFIG_KEYS_JSON line. Needs no config. */
-export function configKeys(io = { out: s => process.stdout.write(`${s}\n`) }) {
+export function configKeys(io = { out: printLine }) {
   const rows = keyRows()
   for (const r of rows) io.out(`${r.key} | ${r.takes} | ${r.example}${r.optional ? ' | none removes it' : ''}${r.project ? ' | project only' : ''}`)
   io.out(tag('CONFIG_KEYS', rows))
@@ -185,7 +185,7 @@ export function configKeys(io = { out: s => process.stdout.write(`${s}\n`) }) {
 const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get [<key>] [--personal|--project] (no key: the whole config, secrets left out)'
 
 /** Runs `config set|get` (argv starts at set|get). Returns the exit code: 0 ok or a preview, 2 an error with nothing written. */
-export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = { out: s => process.stdout.write(`${s}\n`), err: s => process.stderr.write(`${s}\n`) }) {
+export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = { out: printLine, err: printError }) {
   const { out, err } = io
   const fail = m => { err(m); return 2 }
   const [sub, ...rest] = argv

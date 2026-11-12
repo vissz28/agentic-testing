@@ -24,7 +24,7 @@ import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
 import { SHARED_CONFIG } from '../lib/base/changes.mjs'
 import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -112,12 +112,13 @@ function realRun({ root, config, specs, key, stability, env }) {
 }
 
 function status(a, cfg, dir, stdout) {
+  const printLine = lineWriter(stdout)
   let runs = dir ? readHistory(dir) : []
   if (a.task) runs = runs.filter(r => r.task === a.task)
   else runs = runs.filter(r => !r.task)
   runs = runs.slice(-Number(a.last ?? 20))
   const s = stabilityOf(runs)
-  if (a.json) { stdout(`${JSON.stringify({ task: a.task ?? (a.regression ? REGRESSION_TAG : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })}\n`); return 0 }
+  if (a.json) { printLine(JSON.stringify({ task: a.task ?? (a.regression ? REGRESSION_TAG : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })); return 0 }
   const lines = [`quality-code routine status · ${a.task ? `task ${a.task}` : 'whole suite'} · ${s.runs ? `last ${s.runs} run${s.runs === 1 ? '' : 's'}, ${runs[0].at.slice(0, 10)} to ${runs.at(-1).at.slice(0, 10)}` : 'no runs kept yet'}`]
   if (!dir) lines.push('Files and logs are kept only in the chat, so there is no history. Change it with /quality-code:config, item 7.')
   if (s.runs) {
@@ -130,7 +131,7 @@ function status(a, cfg, dir, stdout) {
     else lines.push('  flaky tests were not looked for: run the routine with --flaky 5')
   }
   lines.push(`Stability: ${s.verdict}${s.verdict === 'NOT ENOUGH DATA' ? ` (needs ${MIN_RUNS} runs)` : s.verdict === 'UNSTABLE' ? ' (a flaky test was seen, or fewer than 90% of the runs were green)' : ''}`)
-  stdout(`${lines.join('\n')}\n`)
+  printLine(lines.join('\n'))
   return 0
 }
 
@@ -140,25 +141,26 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 }
 
 async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), run = realRun, now = new Date() } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   let a
-  try { a = parse(argv) } catch (e) { stderr(`${e.message}\n`); return 2 }
+  try { a = parse(argv) } catch (e) { printError(e.message); return 2 }
   const root = projectRoot(env, cwd)
   const today = now.toISOString().slice(0, 10)
-  if (a.cmd === 'run' && a.until && today > a.until) { stdout(`routine ended on ${a.until}: nothing to do. Delete its schedule.\n`); return 0 }
+  if (a.cmd === 'run' && a.until && today > a.until) { printLine(`routine ended on ${a.until}: nothing to do. Delete its schedule.`); return 0 }
   const cfg = loadConfig(root)
-  if (!cfg.ok) { stderr(`${cfg.errors.join('\n')}\n`); return 2 }
-  if (cfg.source === 'personal') { stderr('A routine needs a repo with its own project config (run /quality-code:setup in the project).\n'); return 2 }
+  if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
+  if (cfg.source === 'personal') { printError('A routine needs a repo with its own project config (run /quality-code:setup in the project).'); return 2 }
   const config = cfg.config
-  if (a.task && !isProjectKey(config, a.task)) { stderr(`--task ${a.task} is not a key of ${projectKeys(config).join(', ')}\n`); return 2 }
+  if (a.task && !isProjectKey(config, a.task)) { printError(`--task ${a.task} is not a key of ${projectKeys(config).join(', ')}`); return 2 }
   const dir = dirOf(cfg)
   if (a.cmd === 'status') return status(a, cfg, dir, stdout)
-  if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') { stderr('A routine needs a git repo: it watches what others push.\n'); return 2 }
+  if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') { printError('A routine needs a git repo: it watches what others push.'); return 2 }
 
   const branch = a.branch ?? config.git?.base ?? git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']) ?? 'main'
   const bare = branch.replace(/^origin\//, '')
   const fetched = git(root, ['fetch', '--quiet', 'origin', bare]) !== null
   const ref = [`origin/${bare}`, bare].find(r => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null)
-  if (!ref) { stderr(`Branch ${branch} was not found (fetch it, or give --branch).\n`); return 2 }
+  if (!ref) { printError(`Branch ${branch} was not found (fetch it, or give --branch).`); return 2 }
   const tip = git(root, ['rev-parse', ref])
   // Nothing checks the fetched tip out: the tests run on the working tree, so the sha kept and blamed is HEAD's.
   // ponytail: no worktree for the tip (it has no node_modules); the card says when the two differ.
@@ -178,7 +180,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   if (drift) lines.push(`Tested your checkout ${tested.slice(0, 7)}, not ${ref} ${tip.slice(0, 7)} (pull to test what was pushed).`)
   if (filtering && !newCommits.length && !a.force) {
     lines.push(`No new commits on ${drift ? 'your checkout' : ref} ${a.sinceLast ? `since the last check (${prev.sha.slice(0, 7)}, ${prev.verdict})` : `since ${a.since}`}: nothing to check.`)
-    stdout(`${lines.join('\n')}\n`)
+    printLine(lines.join('\n'))
     return 0
   }
   if (newCommits.length) {
@@ -195,7 +197,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     specs = projectSpecs(root, config).map(s => s.path).filter(p => own.test(p) || own.test(readFileSync(join(root, p), 'utf8')))
     if (!specs.length) {
       lines.push(`No spec names ${a.task}, so nothing was verified.`)
-      stdout(`${lines.join('\n')}\n`)
+      printLine(lines.join('\n'))
       return 3
     }
     lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
@@ -203,7 +205,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     specs = projectSpecs(root, config).map(s => s.path).filter(p => TAGGED.test(readFileSync(join(root, p), 'utf8')))
     if (!specs.length) {
       lines.push(`No spec carries ${REGRESSION_TAG}, so nothing was verified.`)
-      stdout(`${lines.join('\n')}\n`)
+      printLine(lines.join('\n'))
       return 3
     }
     lines.push(`Running the ${REGRESSION_TAG} suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
@@ -227,8 +229,8 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     keep(dir, 'history.jsonl', `${JSON.stringify({ at: now.toISOString(), sha: tested, task: a.task ?? (a.regression ? REGRESSION_TAG : null), exit: result.exit, stability: a.flaky ? Number(a.flaky) : null, flaky })}\n`, true)
   }
   if (a.junit) { try { mkdirSync(dirname(resolve(root, a.junit)), { recursive: true }); writeFileSync(resolve(root, a.junit), junit(result.phases.map(p => ({ ...p, detail: p.detail || lines.join('\n') })))) } catch {} }
-  if (a.json) stdout(`${JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? REGRESSION_TAG : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) })}\n`)
-  else stdout(`${lines.join('\n')}\n`)
+  if (a.json) printLine(JSON.stringify({ exit: result.exit, ref, sha: tested, ...(drift ? { tip } : {}), task: a.task ?? (a.regression ? REGRESSION_TAG : null), regression, newCommits: newCommits.length, flaky, phases: result.phases.map(({ detail, ...p }) => p) }))
+  else printLine(lines.join('\n'))
   return result.exit
 }
 

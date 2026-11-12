@@ -17,7 +17,7 @@ import * as expected from '../lib/pipeline/checks/expected.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adapterOfSpec } from '../lib/base/stack.mjs'
 import { readCases } from './xray.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 export const EVALS_DIR = '.claude/quality-code/evals'
 const read = p => JSON.parse(readFileSync(p, 'utf8'))
@@ -71,20 +71,21 @@ export function runEvals(root, config, folder = EVALS_DIR) {
 }
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   const json = argv.includes('--json')
   const rest = argv.filter(a => a !== '--json')
-  if (rest.length > 1 || rest.some(a => a.startsWith('-'))) { stderr('usage: evals.mjs [folder] [--json]\n'); return 2 }
+  if (rest.length > 1 || rest.some(a => a.startsWith('-'))) { printError('usage: evals.mjs [folder] [--json]'); return 2 }
   const root = projectRoot(env, cwd)
   const c = loadConfig(root)
-  if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
+  if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   const results = runEvals(root, c.config, rest[0] ?? EVALS_DIR)
-  if (!results.length) { stdout(`No eval fixture in ${rest[0] ?? EVALS_DIR}/ (one <KEY>/expected.json per ticket).\n`); return 3 }
+  if (!results.length) { printLine(`No eval fixture in ${rest[0] ?? EVALS_DIR}/ (one <KEY>/expected.json per ticket).`); return 3 }
   const drift = results.filter(r => r.problems.length)
-  if (json) stdout(`${JSON.stringify(results)}\n`)
+  if (json) printLine(JSON.stringify(results))
   else {
     const lines = results.flatMap(r => (r.problems.length ? [`✗ ${r.key}`, ...r.problems.map(p => `    ${p}`)] : [`✓ ${r.key}`]))
     lines.push('', drift.length ? `EVAL DRIFT: ${drift.length} of ${results.length} fixture(s) failed. Do not ship the change that caused it.` : `evals ok (${results.length} fixture(s))`)
-    stdout(`${lines.join('\n')}\n`)
+    printLine(lines.join('\n'))
   }
   return drift.length ? 1 : 0
 }

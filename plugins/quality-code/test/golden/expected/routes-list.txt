@@ -1,0 +1,5 @@
+$ routes list
+exit 0
+--- stdout
+No routes found in the code.
+--- stderr

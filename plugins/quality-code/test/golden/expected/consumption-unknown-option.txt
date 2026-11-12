@@ -1,0 +1,5 @@
+$ consumption --nope
+exit 2
+--- stdout
+--- stderr
+unknown option --nope. usage: consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file.json] [--session] [--json | --report]

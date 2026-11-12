@@ -1,0 +1,6 @@
+$ progress get spec
+exit 0
+--- stdout
+Nothing saved.
+PROGRESS_JSON:{"ok":true,"found":false}
+--- stderr

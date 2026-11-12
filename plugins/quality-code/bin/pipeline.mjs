@@ -19,7 +19,7 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -62,7 +62,7 @@ function parse(argv) {
 const isFile = p => { try { return statSync(p).isFile() } catch { return false } }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { runPipeline = realRunPipeline } = {}) {
-  const err = m => { process.stderr.write(`${m}\n`); return 2 }
+  const err = m => { printError(m); return 2 }
   let a
   try { a = parse(argv) } catch (e) { return err(e.message) }
   if (a.smoke && !a.specs.length) a.suite = 'frontend'
@@ -148,7 +148,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, ctx)
   } catch (e) {
     restore()
-    process.stderr.write(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}\n`)
+    printError(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}`)
     return 2
   }
   restore()
@@ -176,7 +176,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     } catch {}
   }
   const color = Boolean(process.stdout.isTTY) && !env.NO_COLOR
-  process.stdout.write(`${a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), log: logPath, rules })}\n`)
+  printLine(a.json ? JSON.stringify(outcome) : formatCard(outcome, { specs, key: a.key ?? null, color, jiraStatus, issueType, doneStatuses: doneStatusesOf(config), log: logPath, rules }))
   return EXIT[outcome.verdict] ?? 2
 }
 

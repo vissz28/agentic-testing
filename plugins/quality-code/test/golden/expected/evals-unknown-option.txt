@@ -1,0 +1,5 @@
+$ evals --nope
+exit 2
+--- stdout
+--- stderr
+usage: evals.mjs [folder] [--json]

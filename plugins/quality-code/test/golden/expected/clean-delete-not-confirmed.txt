@@ -1,0 +1,5 @@
+$ clean delete --groups specs
+exit 2
+--- stdout
+--- stderr
+delete needs --confirmed, which is passed only after the person said yes (or --dry-run to only list)

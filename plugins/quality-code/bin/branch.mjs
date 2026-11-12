@@ -9,7 +9,7 @@ import { adaptersOf } from '../lib/base/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { escapeRegExp, isTicketKey } from '../lib/core/text.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
@@ -296,28 +296,28 @@ const USAGE = 'usage: branch.mjs --detect [--base <branch>] [--mr-base <branch>]
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
   if (argv[0] === '--merged') {
     const key = argv[1]
-    if (!isTicketKey(key) || argv.length > 2) { process.stderr.write(`${USAGE}\n`); return 2 }
+    if (!isTicketKey(key) || argv.length > 2) { printError(USAGE); return 2 }
     const root = projectRoot(env, cwd)
     const c = loadConfig(root)
-    if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }
-    process.stdout.write(`${tag('MERGED', merged(root, c.config, key))}\n`)
+    if (!c.ok) { printError(c.errors.join('\n')); return 2 }
+    printLine(tag('MERGED', merged(root, c.config, key)))
     return 0
   }
-  if (argv[0] !== '--detect') { process.stderr.write(`${USAGE}\n`); return 2 }
+  if (argv[0] !== '--detect') { printError(USAGE); return 2 }
   const opts = {}
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--base' && argv[i + 1] !== undefined) {
       opts.base = argv[++i]
-      if (opts.base.startsWith('-') || !opts.base.trim()) { process.stderr.write(`--base needs a branch name, not "${opts.base}"\n`); return 2 }
+      if (opts.base.startsWith('-') || !opts.base.trim()) { printError(`--base needs a branch name, not "${opts.base}"`); return 2 }
     } else if (argv[i] === '--mr-base' && argv[i + 1] !== undefined) {
       opts.mrBase = argv[++i]
-      if (opts.mrBase.startsWith('-') || !opts.mrBase.trim()) { process.stderr.write(`--mr-base needs a branch name, not "${opts.mrBase}"\n`); return 2 }
-    } else { process.stderr.write(`${USAGE}\n`); return 2 }
+      if (opts.mrBase.startsWith('-') || !opts.mrBase.trim()) { printError(`--mr-base needs a branch name, not "${opts.mrBase}"`); return 2 }
+    } else { printError(USAGE); return 2 }
   }
   const root = projectRoot(env, cwd)
   const c = loadConfig(root)
-  if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }
-  process.stdout.write(`${tag('BRANCH', detect(root, c.config, opts))}\n`)
+  if (!c.ok) { printError(c.errors.join('\n')); return 2 }
+  printLine(tag('BRANCH', detect(root, c.config, opts)))
   return 0
 }
 

@@ -1,0 +1,6 @@
+$ clean-cache list
+exit 0
+--- stdout
+Nothing to delete for this project: the cache is empty.
+CACHE_JSON:{"ok":true,"all":false,"dir":"<tmp>/home/.claude/quality-code/progress","projects":[],"files":0,"bytes":0,"skipped":0}
+--- stderr

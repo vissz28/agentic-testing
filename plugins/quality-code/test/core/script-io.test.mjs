@@ -1,4 +1,4 @@
-// lib/core/script-io.mjs: a script knows it was started directly, also through a symlinked folder, and prints its tag line.
+// lib/core/script-io.mjs: a script knows it was started directly, also through a symlinked folder, prints its tag line, and prints one line at a time.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -6,7 +6,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isMain, tag } from '../../lib/core/script-io.mjs'
+import { isMain, lineWriter, printError, printLine, tag } from '../../lib/core/script-io.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../', import.meta.url))
 const BIN = join(PLUGIN, 'bin')
@@ -59,4 +59,24 @@ test('tag: NAME_JSON: and the data as one line, whatever the data holds', () => 
   assert.equal(tag('X', null), 'X_JSON:null')
   assert.equal(tag('X', ['a\nb', 'é']), 'X_JSON:["a\\nb","é"]')
   assert.equal(tag('X', { n: 'two\nlines' }).split('\n').length, 1)
+})
+
+test('lineWriter: one write per call, the text then one "\\n", and whatever the write returns', () => {
+  const got = []
+  const line = lineWriter(t => { got.push(t); return got.length })
+  assert.equal(line('ok'), 1)
+  assert.equal(line(''), 2)
+  assert.equal(line('two\nlines\n'), 3)
+  line(42)
+  line(null)
+  assert.deepEqual(got, ['ok\n', '\n', 'two\nlines\n\n', '42\n', 'null\n'])
+})
+
+test('printLine and printError: exactly the text and one "\\n", printLine on stdout, printError on stderr', () => {
+  const kit = new URL('../../lib/core/script-io.mjs', import.meta.url).href
+  const code = `import { printLine, printError } from ${JSON.stringify(kit)}; printLine('out 1'); printError('err 1'); printLine('a\\nb'); printError('')`
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { encoding: 'utf8' })
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(r.stdout, 'out 1\na\nb\n')
+  assert.equal(r.stderr, 'err 1\n\n')
 })

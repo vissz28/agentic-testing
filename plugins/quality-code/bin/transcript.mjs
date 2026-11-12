@@ -15,10 +15,7 @@ import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
 import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
-
-const out = s => process.stdout.write(`${s}\n`)
-const err = s => process.stderr.write(`${s}\n`)
+import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 
 /** Characters of transcript printed for the model to read; more is cut and said so. */
 export const MAX_CHARS = 60000
@@ -59,23 +56,23 @@ export function readTranscriptFile(path) {
 }
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
-  try { return run(argv, env, cwd) } catch (e) { err(`transcript.mjs: ${e.message}`); return 2 }
+  try { return run(argv, env, cwd) } catch (e) { printError(`transcript.mjs: ${e.message}`); return 2 }
 }
 
 function run(argv, env, cwd) {
   const [cmd, ...rest] = argv
   const a = parseArgs(rest)
-  if (!['parse', 'validate', 'save'].includes(cmd)) { err(USAGE); return 2 }
+  if (!['parse', 'validate', 'save'].includes(cmd)) { printError(USAGE); return 2 }
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root, env)
-  if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
+  if (!cfg.ok) { cfg.errors.forEach(e => printError(e)); return 2 }
   const config = cfg.config
 
   if (cmd === 'parse') {
-    if (a.file == null && a.text == null) { err(USAGE); return 2 }
+    if (a.file == null && a.text == null) { printError(USAGE); return 2 }
     const text = a.file != null ? readTranscriptFile(resolve(cwd, a.file)) : a.text
     const turns = redactTurns(config, parseTranscript(text), { maskSpeakers: a.mask })
-    if (!turns.length) { err('no words found in the transcript'); return 2 }
+    if (!turns.length) { printError('no words found in the transcript'); return 2 }
     let shown = 0
     let truncated = false
     const lines = []
@@ -85,27 +82,27 @@ function run(argv, env, cwd) {
       lines.push(line)
       shown += line.length + 1
     }
-    out(lines.join('\n'))
+    printLine(lines.join('\n'))
     const speakers = speakersOf(turns)
-    out(tag('TRANSCRIPT', { turns: turns.length, shown: lines.length, truncated, speakers, source: a.file != null ? extname(a.file).toLowerCase() : 'pasted' }))
+    printLine(tag('TRANSCRIPT', { turns: turns.length, shown: lines.length, truncated, speakers, source: a.file != null ? extname(a.file).toLowerCase() : 'pasted' }))
     return 0
   }
 
   const input = readJson(a, root)
   const checked = validateResult(input)
   if (cmd === 'validate') {
-    if (!checked.ok) { checked.errors.forEach(e => out(`error: ${e}`)); out(tag('TRANSCRIPT_RESULT', { ok: false, errors: checked.errors })); return 2 }
-    out(`ok: goal, ${checked.result.decisions.length} decisions, ${checked.result.tasks.length} tasks, ${checked.result.risks.length} risks, ${checked.result.openQuestions.length} open questions`)
-    out(tag('TRANSCRIPT_RESULT', { ok: true, result: checked.result }))
+    if (!checked.ok) { checked.errors.forEach(e => printLine(`error: ${e}`)); printLine(tag('TRANSCRIPT_RESULT', { ok: false, errors: checked.errors })); return 2 }
+    printLine(`ok: goal, ${checked.result.decisions.length} decisions, ${checked.result.tasks.length} tasks, ${checked.result.risks.length} risks, ${checked.result.openQuestions.length} open questions`)
+    printLine(tag('TRANSCRIPT_RESULT', { ok: true, result: checked.result }))
     return 0
   }
 
   // save
-  if (!checked.ok) { checked.errors.forEach(e => err(`error: ${e}`)); return 2 }
+  if (!checked.ok) { checked.errors.forEach(e => printError(`error: ${e}`)); return 2 }
   const date = a.date ?? today()
-  if (!isDate(date)) { err(`--date "${date}" is not a date like 2026-11-04`); return 2 }
+  if (!isDate(date)) { printError(`--date "${date}" is not a date like 2026-11-04`); return 2 }
   const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
-  if (!goalPath(ticketsRoot, date)) { err('cannot build a safe path for the goal file'); return 2 }
+  if (!goalPath(ticketsRoot, date)) { printError('cannot build a safe path for the goal file'); return 2 }
   // Redact every text of the result: what is saved never holds a customer id, an e-mail or an id.
   const r = checked.result
   const clean = s => redactText(config, s)
@@ -114,8 +111,8 @@ function run(argv, env, cwd) {
     tasks: r.tasks.map(t => ({ ...t, title: clean(t.title), ...(t.owner ? { owner: clean(t.owner) } : {}), ...(t.estimate != null ? { estimate: clean(String(t.estimate)) } : {}) })),
   }
   const path = saveGoal(ticketsRoot, date, renderGoal(result, date))
-  out(`Saved the sprint goal at ${path}.`)
-  out(tag('SAVED', { path, date }))
+  printLine(`Saved the sprint goal at ${path}.`)
+  printLine(tag('SAVED', { path, date }))
   return 0
 }
 

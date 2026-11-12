@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
 const USAGE = 'usage: update.mjs [--json]'
@@ -155,8 +155,9 @@ export function formatCard({ id, installed, running = installed, latest, status,
 }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), fetchImpl = fetch, ls = defaultLs, installedManifest = null } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   const bad = argv.find(a => a !== '--json')
-  if (bad) { stderr(`unknown option ${bad}. ${USAGE}\n`); return 2 }
+  if (bad) { printError(`unknown option ${bad}. ${USAGE}`); return 2 }
   const json = argv.includes('--json')
   const manifest = installedManifest ?? readInstalled()
   const name = manifest.name ?? 'quality-code'
@@ -168,7 +169,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   try {
     latest = await fetchLatest({ repository: manifest.repository, name, fetchImpl, ls })
   } catch (e) {
-    stdout(`Could not read the latest version: ${e.message}.\nInstalled: ${installed}. Check your connection, or type /plugin to look at the plugin there.\n`)
+    printLine(`Could not read the latest version: ${e.message}.\nInstalled: ${installed}. Check your connection, or type /plugin to look at the plugin there.`)
     return 3
   }
   const status = statusOf(installed, latest.version, running)

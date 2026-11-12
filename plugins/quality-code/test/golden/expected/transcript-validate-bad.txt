@@ -1,0 +1,7 @@
+$ transcript validate --in {}
+exit 2
+--- stdout
+error: goal: one sentence is required (if none was said, ask for it; do not invent one)
+error: tasks: must be a list
+TRANSCRIPT_RESULT_JSON:{"ok":false,"errors":["goal: one sentence is required (if none was said, ask for it; do not invent one)","tasks: must be a list"]}
+--- stderr

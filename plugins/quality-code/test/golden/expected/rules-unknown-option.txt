@@ -1,0 +1,5 @@
+$ rules --nope
+exit 2
+--- stdout
+--- stderr
+unknown option --nope. usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]

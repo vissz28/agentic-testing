@@ -1,0 +1,5 @@
+$ checks nope
+exit 2
+--- stdout
+--- stderr
+usage: checks.mjs <boundary|honesty|suite-honesty|flaky|mutation> [spec...] [--range A...B] [--key KEY] [--json] | expected --ticket @file --key KEY <spec...> | boundary --hook | run start --key KEY | run stop | run status [--json] (run: exit 0 ok, 1 a run is already active, 2 usage; status exits 0 also with no active run)

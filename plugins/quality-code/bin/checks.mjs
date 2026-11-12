@@ -17,7 +17,7 @@ import * as runMarker from '../lib/base/run.mjs'
 import { EXIT } from '../lib/base/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -64,7 +64,7 @@ async function hook(sessionRoot, stdin) {
   const d = boundary.hookDecision(payload, { root, home, config: c.ok ? c.config : null, runRoots: [root, sessionRoot], guarded })
   if (d.decision !== 'deny') return 0
   boundary.logBlocked(root, { decision: 'deny', tool: payload.tool_name ?? null, path: d.path, session: payload.session_id ?? null })
-  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: boundary.hookReason(d.path, d.why) } })}\n`)
+  printLine(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: boundary.hookReason(d.path, d.why) } }))
   return 0
 }
 
@@ -80,8 +80,8 @@ function runCmd(root, rest, err) {
     if (!cfg.ok) return err(cfg.errors.join('\n'))
     if (!isProjectKey(cfg.config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(cfg.config).join(', ')}`)
     const r = runMarker.startRun(root, a.key)
-    if (!r.ok) { process.stderr.write(`${r.error}\n`); return 1 }
-    process.stdout.write(`run started for ${r.marker.key}${r.replacedStale ? ' (a stale marker was replaced)' : ''}\n`)
+    if (!r.ok) { printError(r.error); return 1 }
+    printLine(`run started for ${r.marker.key}${r.replacedStale ? ' (a stale marker was replaced)' : ''}`)
     return 0
   }
   if (sub === 'stop') {
@@ -91,7 +91,7 @@ function runCmd(root, rest, err) {
   }
   if (sub === 'status') {
     const s = runMarker.runStatus(root)
-    process.stdout.write(`${a.flags.has('--json') ? JSON.stringify(s) : runMarker.statusLine(s)}\n`)
+    printLine(a.flags.has('--json') ? JSON.stringify(s) : runMarker.statusLine(s))
     return 0
   }
   return err(USAGE)
@@ -127,7 +127,7 @@ export function formatResult(r) {
 }
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), stdin = null) {
-  const err = m => { process.stderr.write(`${m}\n`); return 2 }
+  const err = m => { printError(m); return 2 }
   const [name, ...rest] = argv
   const root = projectRoot(env, cwd)
   if (name === 'boundary' && rest.includes('--hook')) {
@@ -153,11 +153,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     r = await checkProject(name, args, config, root)
   } catch (e) {
     const msg = String(e?.message ?? e).split('\n')[0]
-    process.stderr.write(`check ${name} crashed: ${msg}\n`)
+    printError(`check ${name} crashed: ${msg}`)
     return 2
   }
-  if (a.flags.has('--json')) process.stdout.write(`${JSON.stringify(r)}\n`)
-  else process.stdout.write(`${formatResult(r)}\n${tag('CHECK', r)}\n`)
+  if (a.flags.has('--json')) printLine(JSON.stringify(r))
+  else printLine(`${formatResult(r)}\n${tag('CHECK', r)}`)
   return EXIT[r.status]
 }
 

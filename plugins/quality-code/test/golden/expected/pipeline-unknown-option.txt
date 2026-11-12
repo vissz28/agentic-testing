@@ -1,0 +1,5 @@
+$ pipeline --nope
+exit 2
+--- stdout
+--- stderr
+unknown option --nope

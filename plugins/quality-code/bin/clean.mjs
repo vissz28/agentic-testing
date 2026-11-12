@@ -8,7 +8,7 @@
 // command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
 import { projectRoot } from '../lib/base/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: clean.mjs list [--dry-run] | delete --groups setup,output,cache,personal,specs [--specs all|PATH,PATH] (--confirmed | --dry-run)'
 const NO_SKIP = /^(--yes|-y|--ci|--force|-f|--no-confirm|--assume-yes|--non-interactive)$/
@@ -53,27 +53,28 @@ export function card(list, { dryRun = false } = {}) {
 }
 
 export async function main(argv = process.argv.slice(2), { env = process.env, cwd = process.cwd(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   let a
-  try { a = parse(argv) } catch (e) { stderr(`${e.message}\n${USAGE}\n`); return 2 }
+  try { a = parse(argv) } catch (e) { printError(`${e.message}\n${USAGE}`); return 2 }
   const root = projectRoot(env, cwd)
   const sub = a._[0]
-  if (a._.length !== 1 || !['list', 'delete'].includes(sub)) { stderr(`${USAGE}\n`); return 2 }
+  if (a._.length !== 1 || !['list', 'delete'].includes(sub)) { printError(USAGE); return 2 }
   if (sub === 'list') {
-    if (a.groups || a.specs || a.confirmed) { stderr(`${USAGE}\n`); return 2 }
+    if (a.groups || a.specs || a.confirmed) { printError(USAGE); return 2 }
     const list = buildList(root, env)
-    stdout(`${card(list, { dryRun: a.dryRun })}\n`)
+    printLine(card(list, { dryRun: a.dryRun }))
     const json = { root: list.root, git: list.git, dryRun: a.dryRun, kept: list.kept, groups: list.groups.map(g => ({ id: g.id, label: g.label, default: g.id !== 'personal' && g.id !== 'specs', items: g.items.map(({ abs, ...i }) => i) })) }
-    stdout(`${tag('CLEAN', json)}\n`)
+    printLine(tag('CLEAN', json))
     return 0
   }
-  if (!a.groups?.length) { stderr(`delete needs --groups (${GROUPS.join(', ')})\n`); return 2 }
-  if (!a.dryRun && !a.confirmed) { stderr('delete needs --confirmed, which is passed only after the person said yes (or --dry-run to only list)\n'); return 2 }
+  if (!a.groups?.length) { printError(`delete needs --groups (${GROUPS.join(', ')})`); return 2 }
+  if (!a.dryRun && !a.confirmed) { printError('delete needs --confirmed, which is passed only after the person said yes (or --dry-run to only list)'); return 2 }
   const r = runClean(root, { groups: a.groups, specs: a.specs ?? [], dryRun: a.dryRun }, env)
-  if (!r.ok) { stderr(`${r.errors.join('\n')}\n`); return 2 }
+  if (!r.ok) { printError(r.errors.join('\n')); return 2 }
   const out = [a.dryRun ? 'DRY RUN: would delete' : 'Deleted', ...(r.deleted.length ? r.deleted.map(d => `  - ${LABELS[d.group]}: ${what(d)}${d.tracked.length ? ' [was tracked by git]' : ''}`) : ['  nothing'])]
   out.push('', 'Kept', ...(r.kept.length ? r.kept.map(k => `  - ${k.rel} (${k.why})`) : ['  nothing']))
-  stdout(`${out.join('\n')}\n`)
-  stdout(`${tag('CLEAN', { dryRun: a.dryRun, deleted: r.deleted, kept: r.kept })}\n`)
+  printLine(out.join('\n'))
+  printLine(tag('CLEAN', { dryRun: a.dryRun, deleted: r.deleted, kept: r.kept }))
   return 0
 }
 

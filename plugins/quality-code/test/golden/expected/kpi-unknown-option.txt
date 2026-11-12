@@ -1,0 +1,5 @@
+$ kpi --nope
+exit 2
+--- stdout
+--- stderr
+unknown option --nope. usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]

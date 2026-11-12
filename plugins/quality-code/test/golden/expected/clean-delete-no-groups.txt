@@ -1,0 +1,5 @@
+$ clean delete
+exit 2
+--- stdout
+--- stderr
+delete needs --groups (setup, output, cache, personal, specs)

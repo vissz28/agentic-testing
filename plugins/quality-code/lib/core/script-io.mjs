@@ -22,3 +22,17 @@ export function isMain(metaUrl, started = process.argv[1]) {
  * @returns {string}
  */
 export const tag = (name, data) => `${name}_JSON:${JSON.stringify(data)}`
+
+/**
+ * Wraps a write function so each call prints one line: the text, then "\n". A script whose tests pass
+ * their own stdout or stderr builds its printLine and printError from those with it.
+ * @param {(text: string) => unknown} write
+ * @returns {(text: unknown) => unknown} what write returns
+ */
+export const lineWriter = write => text => write(`${text}\n`)
+
+/** Prints one line on stdout. */
+export const printLine = lineWriter(text => process.stdout.write(text))
+
+/** Prints one line on stderr. */
+export const printError = lineWriter(text => process.stderr.write(text))

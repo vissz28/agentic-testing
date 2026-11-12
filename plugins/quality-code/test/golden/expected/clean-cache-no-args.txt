@@ -1,0 +1,5 @@
+$ clean-cache 
+exit 2
+--- stdout
+--- stderr
+usage: clean-cache.mjs list [--all] | delete [--all]

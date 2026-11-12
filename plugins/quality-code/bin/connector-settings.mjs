@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFil
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { projectRoot } from '../lib/base/config.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -147,7 +147,7 @@ export function saveXraySettings({ file, url }) {
 
 export async function main(argv = process.argv.slice(2)) {
   const [cmd, a, b] = argv
-  const out = r => { console.log(tag('CONNECTOR_SETTINGS', r)); return r.ok ? 0 : 1 }
+  const out = r => { printLine(tag('CONNECTOR_SETTINGS', r)); return r.ok ? 0 : 1 }
   if (cmd === '--gitlab-check' && a) {
     const apiUrl = apiUrlOf(a)
     if (!apiUrl) return out({ ok: false, reason: `not a GitLab address: ${JSON.stringify(a)}` })

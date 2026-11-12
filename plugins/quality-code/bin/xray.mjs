@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
-import { isMain, tag } from '../lib/core/script-io.mjs'
+import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
 
@@ -226,48 +226,49 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 }
 
 async function handle(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
+  const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   if (argv[0] === 'created') {
     const [, key, verb, name, testKey, ...more] = argv
     const bad = !TICKET.test(key ?? '') || more.length || (verb !== undefined && (verb !== 'add' || !name || !name.trim() || /[\r\n]/.test(name) || !TICKET.test(testKey ?? '')))
-    if (bad) { stderr('usage: xray.mjs created <KEY> [add "<case name>" <TEST KEY>]\n'); return 2 }
+    if (bad) { printError('usage: xray.mjs created <KEY> [add "<case name>" <TEST KEY>]'); return 2 }
     const root = projectRoot(env, cwd)
     const c = loadConfig(root, env)
-    if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
+    if (!c.ok) { printError(c.errors.join('\n')); return 2 }
     const x = xrayOf(c.config, c.source)
-    if (!x) { stderr('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").\n'); return 2 }
+    if (!x) { printError('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").'); return 2 }
     const created = createdOf(root, x, key)
     if (verb === 'add') {
       created[name.trim()] = testKey
       mkdirSync(resolve(root, x.folder, key), { recursive: true })
       writeFileSync(resolve(root, x.folder, key, 'xray-created.json'), `${JSON.stringify(created, null, 2)}\n`)
     }
-    stdout(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\n${tag('XRAY_CREATED', { key, created })}\n`)
+    printLine(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\n${tag('XRAY_CREATED', { key, created })}`)
     return 0
   }
   const [cmd, arg, ...extra] = argv
-  const usage = () => { stderr('usage: xray.mjs add <json|@file> | sync [KEY] | created <KEY> [add "<case name>" <TEST KEY>]\n'); return 2 }
+  const usage = () => { printError('usage: xray.mjs add <json|@file> | sync [KEY] | created <KEY> [add "<case name>" <TEST KEY>]'); return 2 }
   if (extra.length || !['add', 'sync'].includes(cmd) || (cmd === 'add' && !arg) || (cmd === 'sync' && arg && !TICKET.test(arg))) return usage()
   const root = projectRoot(env, cwd)
   const c = loadConfig(root, env)
-  if (!c.ok) { stderr(`${c.errors.join('\n')}\n`); return 2 }
+  if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   const x = xrayOf(c.config, c.source)
-  if (!x) { stderr('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").\n'); return 2 }
+  if (!x) { printError('Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").'); return 2 }
   try {
-    if (cmd === 'sync') { stdout(`${(await sync(root, x, arg ?? null)).join('\n')}\n`); return 0 }
+    if (cmd === 'sync') { printLine((await sync(root, x, arg ?? null)).join('\n')); return 0 }
     let input
-    try { input = JSON.parse(arg.startsWith('@') ? readFileSync(resolve(root, arg.slice(1)), 'utf8') : arg) } catch (e) { stderr(`not valid JSON: ${String(e.message).split('\n')[0]}\n`); return 2 }
+    try { input = JSON.parse(arg.startsWith('@') ? readFileSync(resolve(root, arg.slice(1)), 'utf8') : arg) } catch (e) { printError(`not valid JSON: ${String(e.message).split('\n')[0]}`); return 2 }
     const given = Array.isArray(input) ? input : [input]
     const errors = given.map(caseError).filter(Boolean)
     if (!given.length) errors.push('no case given')
-    if (errors.length) { stderr(`${errors.join('\n')}\nNothing was written.\n`); return 2 }
+    if (errors.length) { printError(`${errors.join('\n')}\nNothing was written.`); return 2 }
     // The CSV reads a key back trimmed, so it is stored trimmed: else the same case is added twice.
     const cases = given.map(tc => ({ ...tc, key: tc.key.trim() }))
     const lines = append(root, x, cases)
     for (const t of new Set(cases.map(tc => tc.ticket))) lines.push(...(await sync(root, x, t)))
-    stdout(`Xray test cases in ${x.csv}:\n${lines.join('\n')}\n`)
+    printLine(`Xray test cases in ${x.csv}:\n${lines.join('\n')}`)
     return 0
   } catch (e) {
-    stderr(`${String(e.message).split('\n')[0]}\n`)
+    printError(String(e.message).split('\n')[0])
     return 2
   }
 }
