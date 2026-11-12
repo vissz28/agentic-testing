@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.76.1] - 2026-11-12
+
+### Changed
+
+- Internal: three more helpers written once in `lib/core/script-io.mjs`: `tag` builds the `NAME_JSON:` line (57 copies gone), `printLine` and `printError` print one line, and `lineWriter` does the same for scripts whose tests pass their own output (159 hand-added line ends gone). 27 more golden tests, 78 in all, recorded before the change. Nothing a user sees changes.
+
+**What to do:** nothing.
+
 ## [0.76.0] - 2026-11-12
 
 ### Fixed
