@@ -1,6 +1,6 @@
 # No Playwright yet: offer it
 
-Used by `/quality-code:check --frontend` (and `--smoke`) when the script stops with `This project has no frontend (Playwright) tests: its adapter is <adapter>.` or `No @smoke tests found` on a project that has no Playwright config. Playwright runs the app in a real browser; without it there is nothing to check on the frontend. With `--ci`, never ask: show the script's line and stop.
+Used by `/quality-code:check --frontend` (and `--smoke`) when the script stops with `This project has no frontend (Playwright) tests: its config has no "frontend".` or `No @smoke tests found` on a project that has no Playwright config. Playwright runs the app in a real browser; without it there is nothing to check on the frontend. With `--ci`, never ask: show the script's line and stop.
 
 ## 1. The card
 
@@ -30,7 +30,7 @@ Playwright setup
   Installs  <scaffold.install, or "the Chromium browser" when it is null>
   Writes    <scaffold.files, comma-separated>
   App       <command> at <url>
-  Config    adapter <current> becomes <fullstack | playwright>
+  Config    adds "frontend": "playwright"
 1. Go ahead
 2. Stop
 ```
@@ -38,6 +38,6 @@ Playwright setup
 ## 3. Install and write
 
 1. Say `Installing Playwright; this can take a minute.` Run `scaffold.install` when it is set, then `scaffold.browsers`, each exactly as detect gave it, one call each. If one fails, show its last lines and stop: nothing is written.
-2. Build the proposal from `existing`: keep every field. The adapter: `vitest` becomes `fullstack` (a backend runner other than Vitest, `pytest`, `junit`, `go` or `dotnet`, becomes `fullstack` with `"backend": "<that runner>"`); `playwright` and `fullstack` stay. Add `"scaffold": { "command": …, "url": …, "signIn": true|false }` next to `config`.
+2. Build the proposal from `existing`: keep every field. Add `"frontend": "playwright"`; `backend` stays as it is. Add `"scaffold": { "command": …, "url": …, "signIn": true|false }` next to `config`.
 3. `node "${CLAUDE_PLUGIN_ROOT}/bin/setup.mjs" --write '<proposal JSON>'` (the JSON inline, one single-quoted argument; a `'` inside a value is `'\''`). Errors: show them as they are and stop. It never replaces a file that exists.
 4. Say `Playwright is set up: <files written>.` then run the check again as the command says (the same suite, `--frontend` or `--smoke`) and show its card.

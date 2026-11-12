@@ -24,7 +24,7 @@ Finds tickets and shows one in short. Read-only on Jira: nothing is ever written
 
 ## Steps
 
-1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `adapter` and `sides` from the project config (`ticket.mjs config check` shows where it is).
+1. **Config.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/ticket.mjs" config check`. If it does not print `ok`, show its lines and stop (a missing config is never a dead end: show the **Not set up** card of the display guide). Read `jira.site`, `jira.projects`, `features`, `titlePrefixes`, `frontend`, `backend` and `sides` from the project config (`ticket.mjs config check` shows where it is).
 2. **Find.** From `$ARGUMENTS`, the first rule that applies:
    - A key (`[A-Z][A-Z0-9_]*-\d+`): `getJiraIssue` with fields `summary,issuetype,status,labels,assignee,reporter,description,parent,subtasks,issuelinks` and `responseContentFormat` `markdown` (never all fields, and no `comment`: a comment dump can fill the context). Go to step 3.
    - Only digits: the key is `<first of jira.projects>-<digits>`; as above.

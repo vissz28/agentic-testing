@@ -97,12 +97,12 @@ test('option 3 posts nothing itself: spec offers the risk note at its end', () =
 
 test('fullstack: step 4b finds the side, asks only when the ticket does not say, never with --ci', () => {
   const b = doc.slice(doc.indexOf('4b. **Side**'), doc.indexOf('5. **Score.**'))
-  assert.ok(b.includes('(only for `adapter: fullstack`)'))
+  assert.ok(b.includes('(only when the config has both `frontend` and `backend`)'))
   assert.ok(b.includes('`ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json`'))
   assert.ok(b.includes('1. The frontend: a screen (Playwright tests)\n   2. The backend: the code behind it (Vitest tests)\n   3. Both (fullstack)'))
   assert.match(b, /`--ci` never asks: it goes on, and the ticket is scored for both sides/)
   assert.ok(b.includes('`ticket.mjs side --in @<ticketsDir>/<KEY>/ticket.json <frontend|backend|fullstack>`'))
-  assert.match(qa, /or `adapter: fullstack` and the ticket is not marked backend/)
+  assert.match(qa, /alone, or with `backend` when the ticket is not marked backend/)
   assert.ok(doc.includes('`SIDE_JSON:`'), 'the machine line is dropped')
 })
 

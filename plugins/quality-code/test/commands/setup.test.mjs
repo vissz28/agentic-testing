@@ -137,7 +137,7 @@ test('the short setup does not mention test folders', () => {
 
 test('fullstack: a repo with both asks what the project is; sides, Playwright configs in a subfolder', () => {
   assert.ok(doc.includes('This repo has both <Runner> and Playwright.\n     1. Fullstack: backend tests with <Runner>, frontend tests with Playwright\n     2. Frontend only: Playwright\n     3. Backend only: <Runner>'))
-  assert.match(doc, /`1` gives `adapter: "fullstack"` \(plus `backend` when it is not `vitest`\), `2` `"playwright"`, `3` `"<backend>"`/)
+  assert.match(doc, /`1` gives `"frontend": "playwright", "backend": "<backend>"`, `2` `"frontend": "playwright"` alone, `3` `"backend": "<backend>"` alone/)
   assert.match(doc, /\*\*Ticket sides\*\* \(only for `fullstack`\)/)
   assert.match(doc, /\*\*Where Playwright runs\.\*\* Only for `playwright` and `fullstack`, and only when `playwrightConfigs`/)
   assert.match(doc, /For `fullstack`, leave out the e2e folder/)
@@ -175,19 +175,19 @@ test('Change something asks only for the value to change, then shows the Confirm
   assert.match(s, /ask only which value to change/)
   assert.match(s, /type the new value with the number \(for example `4 main`\)/)
   assert.match(s, /show the Confirm card again with the new value/)
-  assert.match(s, /Stack only when `adapter` is `both`/)
+  assert.match(s, /Stack only when the detect result has both `frontend` and `backend`/)
 })
 test('both runners: fullstack is proposed and the both card is shown only to change it', () => {
   const s = step(2)
-  assert.match(s, /`both` \(the repo has Vitest and Playwright, or another backend runner and Playwright\): propose `fullstack`, with `"backend": "<backend>"` when `backend` is not `vitest`/)
+  assert.match(s, /Propose `frontend` and `backend` from the detect result as they are \(leave out a field that is null\)/)
   assert.match(s, /Ask nothing now; to change it from the Confirm card/)
 })
 test('the stack names the backend runner: pytest, JUnit, Go or .NET as well as Vitest', () => {
   const s = step(2)
-  assert.match(s, /another backend runner \(`pytest`, `junit`, `go`, `dotnet`\): that one/)
+  assert.match(s, /`"backend": "<runner>"` \(`vitest`, `pytest`, `junit`, `go` or `dotnet`\)/)
   assert.match(s, /Vitest, pytest, JUnit, Go or \.NET/)
-  assert.ok(step(4).includes('Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from adapter and backend'))
-  assert.match(step(4), /`backend` \(only for `fullstack` with a backend runner other than Vitest\)/)
+  assert.ok(step(4).includes('Stack    <frontend (Playwright) | backend (<Runner>) | fullstack (<Runner> and Playwright), from frontend and backend'))
+  assert.match(step(4), /`frontend` and `backend` \(each only when the project has that side\)/)
 })
 test('the site is not asked when there is exactly one', () => {
   assert.match(step(3), /exactly one site, use it and ask nothing/)
@@ -236,9 +236,9 @@ test('setup has no Playwright or Vitest scaffold card, and never installs or wri
   assert.doesNotMatch(s, /"scaffold": \{ "command"/)
   assert.match(doc, /\*\*Setup only connects and configures\.\*\* It never installs a package and never writes a test, a test config or a sign-in/)
   assert.match(step(2), /\*\*Stack found, nothing added\.\*\*/)
-  assert.match(step(2), /`adapter`, `scaffold` and `vitestScaffold` are all null: stop with `This stack is not supported yet/)
-  assert.match(step(2), /a `vitest` repo stays|`adapter` `vitest` stays `vitest`/)
-  assert.match(step(4), /Stack only when `adapter` is `both`;/)
+  assert.match(step(2), /`frontend`, `backend`, `scaffold` and `vitestScaffold` are all null: stop with `This stack is not supported yet/)
+  assert.match(step(2), /a `backend` `vitest` with no `frontend` stays so/)
+  assert.match(step(4), /Stack only when the detect result has both `frontend` and `backend`;/)
 })
 test('the repo\'s own runner: setup names it in runners and on the Stack line, with the generic checks', () => {
   const s = step(2)

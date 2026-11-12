@@ -437,10 +437,10 @@ test('--suite backend runs every Vitest spec of the project', async () => {
 test('--suite for a side the project does not have: exit 2, and says so', async () => {
   const r = await suiteRun(repo(), ['--suite', 'frontend'])
   assert.equal(r.code, 2)
-  assert.match(r.err, /This project has no frontend \(Playwright\) tests: its adapter is vitest\./)
+  assert.match(r.err, /This project has no frontend \(Playwright\) tests: its config has no "frontend"\./)
   const p = await suiteRun(repo({ adapter: 'playwright' }), ['--suite', 'backend'])
   assert.equal(p.code, 2)
-  assert.match(p.err, /no backend \(Vitest\) tests: its adapter is playwright/)
+  assert.match(p.err, /no backend \(Vitest\) tests: its config has no "backend"/)
 })
 test('--suite on a fullstack project: frontend, backend, or both in one run', async () => {
   const d = fullstack()

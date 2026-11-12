@@ -25,8 +25,8 @@ test('GitHub: no call to make, gh\'s account from setup --detect, fixed in a ter
   assert.ok(doc.includes('`gh is not installed`'))
 })
 test('Figma only for playwright', () => {
-  assert.match(doc, /Figma only when the adapter is `playwright`/)
-  assert.match(doc, /For `vitest`, leave Figma off the card/)
+  assert.match(doc, /Figma only when the project has a frontend: `frontend` in the project config/)
+  assert.match(doc, /Without one, leave Figma off the card/)
 })
 test('the card has the three states and the two choices', () => {
   for (const s of ['✅', '⚠️', '➖', '1. Continue', '2. Fix one first']) assert.ok(doc.includes(s), s)
@@ -139,7 +139,7 @@ test('which connectors: GitLab only for a GitLab remote, Figma for playwright an
   assert.match(doc, /GitLab only when `here\.gitlab` is set \(the repo's `origin` is a GitLab project\): otherwise \(a GitHub or other remote, or none\) leave GitLab off the card/)
   assert.match(doc, /`gitlab_api_url` always has a value \(its default\), so it never puts GitLab on the card/)
   assert.match(doc, /GitHub only when `here\.github` is set/)
-  assert.match(doc, /Figma only when the adapter is `playwright` or `fullstack`/)
+  assert.match(doc, /Figma only when the project has a frontend/)
   assert.match(doc, /From `spec`, `seed` and `xray`, an optional service/)
   for (const c of ['setup', 'spec', 'seed', 'xray']) assert.ok(doc.split('\n')[2].includes(`/quality-code:${c}`), c)
 })

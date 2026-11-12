@@ -123,7 +123,7 @@ test('setup: the first card after the connectors, with both options', () => {
 })
 test('setup: the personal setup confirms on the same card; tickets default to both and change with their card', () => {
   const s = cmd('setup')
-  assert.match(s, /Which tickets the user reads is a value on the Confirm card: `personal\.existing\.adapter` on a rerun, else both \(`"fullstack"`\)/)
+  assert.match(s, /Which tickets the user reads is a value on the Confirm card: `personal\.existing\.frontend` and `personal\.existing\.backend` on a rerun, else both/)
   assert.match(s, /Skip step 2 \(no project folder, no stack, no base branch, no GitLab\)/)
   assert.ok(s.includes('shows `Tickets  <frontend | backend | both>` under Jira'))
   assert.ok(s.includes('`Saved in <personal.path>; no repo file is touched.`'))
