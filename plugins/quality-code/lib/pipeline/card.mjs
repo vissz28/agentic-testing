@@ -1,6 +1,7 @@
 import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
 import { rulesLine } from '../base/rules.mjs'
+import { tag } from '../core/script-io.mjs'
 const LABEL = { boundary: 'only tests', honesty: 'removals', 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ all good', checks_failed: '❌ problem in the tests', not_verified: '⚠️ could not run', tests_red: '🔴 tests fail' }
@@ -159,7 +160,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
     lines.push('', ...(items.length === 1 ? [`${head}: ${items[0].text}`] : [`${head}:`, ...todoLines(items, '  • ')]))
   }
   if (log) lines.push('', `Full details: ${log}`)
-  lines.push(`PIPELINE_JSON:${JSON.stringify(outcome)}`)
+  lines.push(tag('PIPELINE', outcome))
   return lines.join('\n')
 }
 

@@ -1,4 +1,4 @@
-// lib/core/script-io.mjs: a script knows it was started directly, also through a symlinked folder.
+// lib/core/script-io.mjs: a script knows it was started directly, also through a symlinked folder, and prints its tag line.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -6,7 +6,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isMain } from '../../lib/core/script-io.mjs'
+import { isMain, tag } from '../../lib/core/script-io.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../', import.meta.url))
 const BIN = join(PLUGIN, 'bin')
@@ -51,4 +51,12 @@ test('a script started through a symlinked folder does what it does started dire
       assert.ok(direct.stdout || direct.stderr || direct.status !== 0, `${s}: says nothing and exits 0 with no arguments`)
     }
   } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('tag: NAME_JSON: and the data as one line, whatever the data holds', () => {
+  assert.equal(tag('GATE', { ok: true }), 'GATE_JSON:{"ok":true}')
+  assert.equal(tag('TEST_HOME', 'test/'), 'TEST_HOME_JSON:"test/"')
+  assert.equal(tag('X', null), 'X_JSON:null')
+  assert.equal(tag('X', ['a\nb', 'é']), 'X_JSON:["a\\nb","é"]')
+  assert.equal(tag('X', { n: 'two\nlines' }).split('\n').length, 1)
 })

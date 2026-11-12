@@ -15,7 +15,7 @@ import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
 import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const out = s => process.stdout.write(`${s}\n`)
 const err = s => process.stderr.write(`${s}\n`)
@@ -87,16 +87,16 @@ function run(argv, env, cwd) {
     }
     out(lines.join('\n'))
     const speakers = speakersOf(turns)
-    out(`TRANSCRIPT_JSON:${JSON.stringify({ turns: turns.length, shown: lines.length, truncated, speakers, source: a.file != null ? extname(a.file).toLowerCase() : 'pasted' })}`)
+    out(tag('TRANSCRIPT', { turns: turns.length, shown: lines.length, truncated, speakers, source: a.file != null ? extname(a.file).toLowerCase() : 'pasted' }))
     return 0
   }
 
   const input = readJson(a, root)
   const checked = validateResult(input)
   if (cmd === 'validate') {
-    if (!checked.ok) { checked.errors.forEach(e => out(`error: ${e}`)); out(`TRANSCRIPT_RESULT_JSON:${JSON.stringify({ ok: false, errors: checked.errors })}`); return 2 }
+    if (!checked.ok) { checked.errors.forEach(e => out(`error: ${e}`)); out(tag('TRANSCRIPT_RESULT', { ok: false, errors: checked.errors })); return 2 }
     out(`ok: goal, ${checked.result.decisions.length} decisions, ${checked.result.tasks.length} tasks, ${checked.result.risks.length} risks, ${checked.result.openQuestions.length} open questions`)
-    out(`TRANSCRIPT_RESULT_JSON:${JSON.stringify({ ok: true, result: checked.result })}`)
+    out(tag('TRANSCRIPT_RESULT', { ok: true, result: checked.result }))
     return 0
   }
 
@@ -115,7 +115,7 @@ function run(argv, env, cwd) {
   }
   const path = saveGoal(ticketsRoot, date, renderGoal(result, date))
   out(`Saved the sprint goal at ${path}.`)
-  out(`SAVED_JSON:${JSON.stringify({ path, date })}`)
+  out(tag('SAVED', { path, date }))
   return 0
 }
 

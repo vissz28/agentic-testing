@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
 
@@ -241,7 +241,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       mkdirSync(resolve(root, x.folder, key), { recursive: true })
       writeFileSync(resolve(root, x.folder, key, 'xray-created.json'), `${JSON.stringify(created, null, 2)}\n`)
     }
-    stdout(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\nXRAY_CREATED_JSON:${JSON.stringify({ key, created })}\n`)
+    stdout(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\n${tag('XRAY_CREATED', { key, created })}\n`)
     return 0
   }
   const [cmd, arg, ...extra] = argv

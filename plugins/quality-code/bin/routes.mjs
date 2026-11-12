@@ -3,7 +3,7 @@
 // check: exit 0 found or likely, 1 not found (with the closest routes), 3 no router found to check against, 2 usage error.
 import { projectRoot } from '../lib/base/config.mjs'
 import { checkRoute, declaredRoutes } from '../lib/base/routes.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const [cmd, route] = argv
@@ -24,7 +24,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     unknown: `no router found in the code, so ${r.route} cannot be checked. It is used as it is.`,
     not_found: `${r.route} is not a route the app declares.${r.suggestions.length ? ` Closest: ${r.suggestions.join(', ')}.` : ''}`,
   }[r.status]
-  stdout(`${line}\nROUTE_JSON:${JSON.stringify(r)}\n`)
+  stdout(`${line}\n${tag('ROUTE', r)}\n`)
   return r.status === 'not_found' ? 1 : r.status === 'unknown' ? 3 : 0
 }
 

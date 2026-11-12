@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { basename, extname, join, resolve } from 'node:path'
 import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
@@ -51,12 +51,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (Number(res.headers.get('content-length')) > MAX_BYTES) throw new Error('over 5 MB, not read')
     buf = Buffer.from(await res.arrayBuffer())
     if (buf.length > MAX_BYTES) throw new Error('over 5 MB, not read')
-    if (ext === '.docx') { out(`DOCX_JSON:${JSON.stringify(docxText(buf))}`); return 0 }
+    if (ext === '.docx') { out(tag('DOCX', docxText(buf))); return 0 }
   } catch (e) { err(`${file}: ${String(e?.message ?? e).split('\n')[0]}`); return 2 }
   mkdirSync(dir, { recursive: true })
   const path = join(dir, `${saved + 1}${ext}`)
   writeFileSync(path, buf)
-  out(`FILE_JSON:${JSON.stringify({ path, name: file, bytes: buf.length })}`)
+  out(tag('FILE', { path, name: file, bytes: buf.length }))
   return 0
 }
 

@@ -17,7 +17,7 @@ import * as runMarker from '../lib/base/run.mjs'
 import { EXIT } from '../lib/base/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/base/backends.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -157,7 +157,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     return 2
   }
   if (a.flags.has('--json')) process.stdout.write(`${JSON.stringify(r)}\n`)
-  else process.stdout.write(`${formatResult(r)}\nCHECK_JSON:${JSON.stringify(r)}\n`)
+  else process.stdout.write(`${formatResult(r)}\n${tag('CHECK', r)}\n`)
   return EXIT[r.status]
 }
 

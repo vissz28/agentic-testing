@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process'
 import { projectRoot } from '../lib/base/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/base/context.mjs'
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/base/progress.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'
 
@@ -41,7 +41,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
   if (sub === 'list' && a._.length === 1) {
     const items = listProgress(root, env)
     stdout(`${items.length ? items.map(i => `${i.command}${i.key ? ` ${i.key}` : ''}: step ${i.step}${i.label ? `, ${i.label}` : ''} (${i.ageMinutes} min ago)`).join('\n') : 'Nothing saved for this project.'}\n`)
-    stdout(`PROGRESS_JSON:${JSON.stringify({ items })}\n`)
+    stdout(`${tag('PROGRESS', { items })}\n`)
     return 0
   }
   if (!command || a._.length !== 2) return fail(USAGE)
@@ -49,7 +49,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
     const r = getProgress(root, command, a.key, env)
     if (!r.ok) return fail(r.reason)
     stdout(`${r.found ? `Saved: ${command}${a.key ? ` ${a.key}` : ''} stopped at step ${r.step}${r.label ? ` (${r.label})` : ''}, ${r.ageMinutes} min ago.` : r.expired ? 'The saved stop is older than 7 days and is ignored.' : 'Nothing saved.'}\n`)
-    stdout(`PROGRESS_JSON:${JSON.stringify(r)}\n`)
+    stdout(`${tag('PROGRESS', r)}\n`)
     return 0
   }
   if (sub === 'set') {
@@ -58,7 +58,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
     if (a.data !== null) { try { data = JSON.parse(a.data) } catch { return fail('--data is not valid JSON') } }
     const r = setProgress(root, command, { key: a.key, step: Number(a.step), label: a.label, data }, env)
     if (!r.ok) return fail(r.reason)
-    stdout(`ok: ${command}${a.key ? ` ${a.key}` : ''} saved at step ${r.step}.\nPROGRESS_JSON:${JSON.stringify(r)}\n`)
+    stdout(`ok: ${command}${a.key ? ` ${a.key}` : ''} saved at step ${r.step}.\n${tag('PROGRESS', r)}\n`)
     return 0
   }
   if (sub === 'clear') {
@@ -83,7 +83,7 @@ function parseSource(text) {
 
 function context(a, root, env, stdout, fail) {
   const [, what, name] = a._
-  const json = o => stdout(`CONTEXT_JSON:${JSON.stringify(o)}\n`)
+  const json = o => stdout(`${tag('CONTEXT', o)}\n`)
   if (what === 'list' && a._.length === 2) {
     const l = listContext(root, env)
     stdout(`${l.facts.length || l.files.length ? [...l.facts.map(f => `${f.name} (${f.source}, ${f.ageMinutes} min ago)`), ...l.files.map(f => `${f.path} (${f.role})`)].join('\n') : 'Nothing saved for this project.'}\n`)

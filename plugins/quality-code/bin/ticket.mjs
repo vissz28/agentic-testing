@@ -26,7 +26,7 @@ import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
 import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 
@@ -116,14 +116,14 @@ function run(argv, env, cwd) {
     const where = p => placeDirs(root, opts, p, env)
     const show = p => { const d = where(p); return { place: p, ticketsDir: d.ticketsDir, auditDir: d.auditDir } }
     if (sub === 'get' && a._.length === 1) {
-      out(`SAVE_JSON:${JSON.stringify({ ...show(cfg.place), asked: savedPlace(root, cfg.source, env) !== null, source: cfg.source, options: options.map(show) })}`)
+      out(tag('SAVE', { ...show(cfg.place), asked: savedPlace(root, cfg.source, env) !== null, source: cfg.source, options: options.map(show) }))
       return 0
     }
     if (sub === 'set' && a._.length === 2 && options.includes(place)) {
       const r = pickPlace(root, opts, place, env)
       const line = { repo: `in the project, in ${r.dirs.ticketsDir}/ (git-ignored)`, local: `on this machine, in ${r.dirs.ticketsDir}/`, chat: `in this session, in ${r.dirs.ticketsDir}/ (a temp folder: the machine may clear it)` }[place]
       out(`ok: files and logs go ${line}.${r.moved ? ` Moved ${r.moved} file${r.moved === 1 ? '' : 's'} from the old place.` : ''}${r.kept ? ` ${r.kept} already there kept as they were.` : ''}`)
-      out(`SAVE_JSON:${JSON.stringify({ ...show(place), asked: true, source: cfg.source, moved: r.moved, kept: r.kept })}`)
+      out(tag('SAVE', { ...show(place), asked: true, source: cfg.source, moved: r.moved, kept: r.kept }))
       return 0
     }
     err(`usage: ticket.mjs save get | save set ${options.join('|')}`)
@@ -135,14 +135,14 @@ function run(argv, env, cwd) {
     const [sub, folder] = a._
     if (sub === 'get' && a._.length === 1) {
       const r = rootsOf(home, env)
-      out(`ROOT_JSON:${JSON.stringify(r)}`)
+      out(tag('ROOT', r))
       return 0
     }
     if (sub === 'set' && a._.length === 2) {
       const r = setActiveRoot(home, folder, env)
       if (!r.ok) { err(r.error); return 2 }
       out(`ok: the active root is ${folder.replace(/\/+$/, '')}. Every command now works in it.`)
-      out(`ROOT_JSON:${JSON.stringify(rootsOf(home, env))}`)
+      out(tag('ROOT', rootsOf(home, env)))
       return 0
     }
     err('usage: ticket.mjs root get | root set <folder>')
@@ -173,7 +173,7 @@ function run(argv, env, cwd) {
     if (!savedPath(key) || a._.length > 1) { err('usage: ticket.mjs saved <KEY>'); return 2 }
     const t = readJsonOr(savedPath(key), null)
     const filled = Array.isArray(t?.filled) ? t.filled.length : 0
-    out(`SAVED_JSON:${JSON.stringify({ key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null })}`)
+    out(tag('SAVED', { key, exists: Boolean(t), unsent: Math.max(0, filled - (t?.sent ?? 0)), score: t ? buildBrief(config, t).score : null }))
     return 0
   }
   if (cmd === 'docx') {
@@ -183,7 +183,7 @@ function run(argv, env, cwd) {
     const path = resolve(file.replace(/^~(?=\/|$)/, homedir()))
     try {
       if (statSync(path).size > MAX_BYTES) { err(`${basename(path)}: over 5 MB, not read`); return 2 }
-      out(`DOCX_JSON:${JSON.stringify(docxText(readFileSync(path)))}`)
+      out(tag('DOCX', docxText(readFileSync(path))))
       return 0
     } catch (e) { err(`${basename(path)}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`); return 2 }
   }
@@ -202,7 +202,7 @@ function run(argv, env, cwd) {
         ? `test style: like the existing tests: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
         : "test style: like the existing tests, but the project has none yet: Quality Code's naming is used until it has")
       : 'test style: the Quality Code way: the ticket key in the file name, the configured test folders')
-    out(`FLOW_JSON:${JSON.stringify({ flow, source: flag ? 'run' : config.testStyle ? 'config' : 'detected', configured: config.testStyle ?? null, ...conv })}`)
+    out(tag('FLOW', { flow, source: flag ? 'run' : config.testStyle ? 'config' : 'detected', configured: config.testStyle ?? null, ...conv }))
     return 0
   }
   if (cmd === 'config' && a._[0] === 'test-home') {
@@ -210,14 +210,14 @@ function run(argv, env, cwd) {
     if (!a._[1] || a._.length > 2) { err('usage: ticket.mjs config test-home <target>'); return 2 }
     const home = findTestHome(root, a._[1])
     out(home.kind === 'none' ? `test home: none yet: ${home.reason}` : `test home: ${home.file} (${home.kind === 'unit-file' ? 'tests this file' : "the project's central tests"}): ${home.reason}`)
-    out(`TEST_HOME_JSON:${JSON.stringify(home)}`)
+    out(tag('TEST_HOME', home))
     return 0
   }
   if (cmd === 'config' && a._[0] === 'e2e-folder') {
     const r = e2eFolder(root, config)
     if (!r.ok) { err(r.error); return 2 }
     out(e2eFolderLine(r))
-    out(`E2E_FOLDER_JSON:${JSON.stringify(r)}`)
+    out(tag('E2E_FOLDER', r))
     return 0
   }
   if (cmd === 'rules') {
@@ -230,7 +230,7 @@ function run(argv, env, cwd) {
     }
     const r = Object.fromEntries(['backend', 'frontend'].map(side => [side, { set: config.testRules?.[side] ?? null, guides: guides[side].filter((g, i, all) => all.indexOf(g) === i) }]))
     out(`rules: backend ${r.backend.set ?? 'not set'}, frontend ${r.frontend.set ?? 'not set'}`)
-    out(`RULES_JSON:${JSON.stringify(r)}`)
+    out(tag('RULES', r))
     return 0
   }
   if (cmd === 'approach') {
@@ -244,14 +244,14 @@ function run(argv, env, cwd) {
     const guideFound = guide ? existsSync(resolve(root, guide)) : false
     const r = { feature: feature?.label ?? null, approach, unitRunner: unitRunnerOf(config), guide, guideFound, set: feature?.approach ?? null }
     out(`${label}: ${approach === 'e2e' ? 'end-to-end tests (Playwright)' : approach === 'unit' ? 'unit tests' : 'unit tests and end-to-end tests'}${feature?.approach ? '' : ' (the default: no approach set for it)'}${guide ? `; team guide ${guide}${guideFound ? '' : ' (not found)'}` : ''}`)
-    out(`APPROACH_JSON:${JSON.stringify(r)}`)
+    out(tag('APPROACH', r))
     return 0
   }
   if (cmd === 'field') {
     const [sub, project, value] = a._
     if (sub === 'get' && project) {
       const r = resolveField(root, config, project, env)
-      out(`FIELD_JSON:${JSON.stringify({ project, field: r.field ?? null, source: r.source })}`)
+      out(tag('FIELD', { project, field: r.field ?? null, source: r.source }))
       return 0
     }
     if (sub === 'set' && project && value) {
@@ -266,7 +266,7 @@ function run(argv, env, cwd) {
       try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { err(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
       const r = findFields(config, text)
       if (!r.ok) { err(r.error); return 2 }
-      out(`FIELD_MATCHES_JSON:${JSON.stringify({ matches: r.matches })}`)
+      out(tag('FIELD_MATCHES', { matches: r.matches }))
       return 0
     }
     err('usage: ticket.mjs field get <PROJECT> | field set <PROJECT> <customfield_N|none> | field find @<metadata file>')
@@ -287,7 +287,7 @@ function run(argv, env, cwd) {
     // The raw search results go once they are scored (as sanitize removes raw.json).
     // Only the search results file the command writes; any other input is left as it is.
     if (listPath === join(ticketsRoot, 'tickets-eval.json')) { try { unlinkSync(listPath) } catch { /* already gone */ } }
-    const machine = `TICKETS_EVAL_JSON:${JSON.stringify({ summary: r.summary, tickets: r.rows })}`
+    const machine = tag('TICKETS_EVAL', { summary: r.summary, tickets: r.rows })
     if (a.flags.has('--json')) out(machine)
     else { out(formatCard(r)); out(machine) }
     if (a.flags.has('--report')) {
@@ -344,8 +344,8 @@ function run(argv, env, cwd) {
       else {
         out(formatReport(b))
         if (next && formatNextStep(next)) out(formatNextStep(next))
-        out(`TICKET_EVAL_JSON:${JSON.stringify(b)}`)
-        if (next) out(`GATE_JSON:${JSON.stringify(next)}`)
+        out(tag('TICKET_EVAL', b))
+        if (next) out(tag('GATE', next))
       }
       return b.gate === 'refuse' ? 1 : 0
     }
@@ -353,7 +353,7 @@ function run(argv, env, cwd) {
       // Does the ticket name invalid input, errors or permission denied? A suggestion only: it never changes the score or the gate.
       const c = checkNegative(ticket)
       if (a.flags.has('--json')) out(JSON.stringify(c))
-      else { out(formatNegativeCheck(c)); out(`NEGATIVE_JSON:${JSON.stringify(c)}`) }
+      else { out(formatNegativeCheck(c)); out(tag('NEGATIVE', c)) }
       return 0
     }
     case 'story-check': {
@@ -362,7 +362,7 @@ function run(argv, env, cwd) {
       if (!a.draft) {
         const check = checkStory(ticket)
         if (a.flags.has('--json')) out(JSON.stringify(check))
-        else { out(formatStoryCheck(check)); out(`STORY_JSON:${JSON.stringify(check)}`) }
+        else { out(formatStoryCheck(check)); out(tag('STORY', check)) }
         return 0
       }
       let draft
@@ -377,7 +377,7 @@ function run(argv, env, cwd) {
       out(`Score: ${before.score} before, ${after.score} with the new story (needs ${after.threshold}).`)
       if (shape.missing.length) out(`Missing sections: ${shape.missing.join(', ')}.`)
       if (after.missing.length) out(`Still missing: ${after.missing.map(m => m.label).join('; ')}.`)
-      out(`STORY_SCORE_JSON:${JSON.stringify(r)}`)
+      out(tag('STORY_SCORE', r))
       return 0
     }
     case 'story-save': {
@@ -404,7 +404,7 @@ function run(argv, env, cwd) {
     case 'fill-menu': {
       const m = fillMenu(config, buildBrief(config, ticket))
       out(formatFillMenu(m))
-      out(`FILL_JSON:${JSON.stringify({ score: m.score, threshold: m.threshold, items: m.items, figma: figmaLinks(ticket) })}`)
+      out(tag('FILL', { score: m.score, threshold: m.threshold, items: m.items, figma: figmaLinks(ticket) }))
       return 0
     }
     case 'pick': {
@@ -412,7 +412,7 @@ function run(argv, env, cwd) {
       const nums = a._.join(' ').split(/[\s,]+/).filter(Boolean)
       const p = projectPick(fillMenu(config, buildBrief(config, ticket)), nums)
       out(formatPick(p))
-      out(`FILL_JSON:${JSON.stringify(p)}`)
+      out(tag('FILL', p))
       return p.error ? 2 : p.enough ? 0 : 1
     }
     case 'add': {
@@ -437,7 +437,7 @@ function run(argv, env, cwd) {
         out(`Not accepted: ${r.reason}${example ? `\nExample: ${example.replace(/\n/g, ' / ')}` : ''}`)
       }
       const after = r.brief ?? buildBrief(config, ticket)
-      out(`FILL_JSON:${JSON.stringify({ ok: r.ok, ...(r.pending ? { pending: true } : {}), reason: r.reason ?? null, score: after.score, gate: after.gate })}`)
+      out(tag('FILL', { ok: r.ok, ...(r.pending ? { pending: true } : {}), reason: r.reason ?? null, score: after.score, gate: after.gate }))
       return r.ok ? 0 : 1
     }
     case 'attachments': {
@@ -449,7 +449,7 @@ function run(argv, env, cwd) {
       try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
       const b = buildBrief(config, next)
       out(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
-      out(`FILL_JSON:${JSON.stringify({ attachments: n, score: b.score, gate: b.gate })}`)
+      out(tag('FILL', { attachments: n, score: b.score, gate: b.gate }))
       return 0
     }
     case 'attach': {
@@ -477,7 +477,7 @@ function run(argv, env, cwd) {
       try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { err(`attach: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
       const b = buildBrief(config, next)
       out(`${text ? `Added ${heading.toLowerCase()} ${n}` : `Nothing to add from this ${kind === 'page' ? 'page' : 'file'}`}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
-      out(`ATTACH_JSON:${JSON.stringify({ kind, added: Boolean(text), score: b.score, gate: b.gate })}`)
+      out(tag('ATTACH', { kind, added: Boolean(text), score: b.score, gate: b.gate }))
       return 0
     }
     case 'side': {
@@ -486,7 +486,7 @@ function run(argv, env, cwd) {
       const [value] = a._
       if (value === undefined) {
         const side = sideFor(config, ticket)
-        out(`SIDE_JSON:${JSON.stringify({ side, source: ticket.side ? 'set' : side ? 'ticket' : null })}`)
+        out(tag('SIDE', { side, source: ticket.side ? 'set' : side ? 'ticket' : null }))
         return 0
       }
       if (!SIDES.includes(value)) { err(`side must be one of ${SIDES.join(', ')}, not "${value}"`); return 2 }
@@ -498,7 +498,7 @@ function run(argv, env, cwd) {
     case 'jira-update': {
       const u = jiraUpdate(config, ticket)
       out(formatJiraUpdate(u))
-      out(`JIRA_UPDATE_JSON:${JSON.stringify(u)}`)
+      out(tag('JIRA_UPDATE', u))
       return 0
     }
     default: err(`unknown command: ${cmd}`); return 2

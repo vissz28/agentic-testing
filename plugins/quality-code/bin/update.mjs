@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
 const USAGE = 'usage: update.mjs [--json]'
@@ -176,7 +176,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const sections = all.slice(0, MAX_VERSIONS)
   const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
   const card = formatCard({ id, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
-  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\nCHECK_UPDATE_JSON:${JSON.stringify({ id, installed, running, latest: latest.version, status })}\n`)
+  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\n${tag('CHECK_UPDATE', { id, installed, running, latest: latest.version, status })}\n`)
   return 0
 }
 

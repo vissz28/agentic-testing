@@ -8,6 +8,7 @@ import { pickPlace, placeDirs, placeOf, placesFor } from '../base/places.mjs'
 import { FLOWS } from '../base/conventions.mjs'
 import { RUNNERS } from '../base/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
+import { tag } from '../core/script-io.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -177,7 +178,7 @@ export function keyRows() {
 export function configKeys(io = { out: s => process.stdout.write(`${s}\n`) }) {
   const rows = keyRows()
   for (const r of rows) io.out(`${r.key} | ${r.takes} | ${r.example}${r.optional ? ' | none removes it' : ''}${r.project ? ' | project only' : ''}`)
-  io.out(`CONFIG_KEYS_JSON:${JSON.stringify(rows)}`)
+  io.out(tag('CONFIG_KEYS', rows))
   return 0
 }
 
@@ -199,7 +200,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
     if (t.error) return fail(t.error)
     const shown = withoutSecrets(t.config)
     out(JSON.stringify(shown, null, 2))
-    out(`CONFIG_GET_JSON:${JSON.stringify({ key: null, value: shown, set: true, source: t.source })}`)
+    out(tag('CONFIG_GET', { key: null, value: shown, set: true, source: t.source }))
     return 0
   }
   const bad = refusal(key, value)
@@ -220,14 +221,14 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   if (sub === 'get') {
     const dflt = key === 'ticketsDir' && old === undefined ? ` (default ${t.source === 'personal' ? personalTicketsDir(env) : DEFAULTS.ticketsDir})` : ''
     out(`${key} = ${show(old)}${dflt} (${t.source}: ${t.path})`)
-    out(`CONFIG_GET_JSON:${JSON.stringify({ key, value: old ?? null, set: old !== undefined, source: t.source })}`)
+    out(tag('CONFIG_GET', { key, value: old ?? null, set: old !== undefined, source: t.source }))
     return 0
   }
 
   const parsed = parseValue(spec, key, value)
   if (parsed.error) return fail(parsed.error)
   const next = parsed.clear ? undefined : parsed.value
-  const report = (status, extra = {}) => out(`CONFIG_SET_JSON:${JSON.stringify({ status, key, old: old ?? null, new: next ?? null, source: t.source, ...extra })}`)
+  const report = (status, extra = {}) => out(tag('CONFIG_SET', { status, key, old: old ?? null, new: next ?? null, source: t.source, ...extra }))
   const finish = (line, writer) => {
     out(`${key}: ${show(old)} -> ${show(next)}`)
     if (JSON.stringify(old) === JSON.stringify(next)) { out('Nothing to change: already set.'); report('same'); return 0 }

@@ -1,5 +1,6 @@
 // Totals, groups and the plain-text card for /quality-code:report --cost. Dates are UTC.
 import { costOf, priceFor } from './prices.mjs'
+import { tag } from '../core/script-io.mjs'
 
 const DAY = 86400000
 export const BY = ['command', 'ticket', 'day', 'model']
@@ -129,6 +130,6 @@ export function formatCard(r) {
   lines.push('', `Other (not quality-code): ${o.requests} request${o.requests === 1 ? '' : 's'} · in ${fmtTokens(o.tokens.input)} · out ${fmtTokens(o.tokens.output)} · cache ${fmtTokens(cache(o.tokens))} · ${fmtCost(o.cost, o.costPartial)}`)
   if (r.unknownModels.length) lines.push(`Unknown price for ${r.unknownModels.join(', ')}: tokens counted, no cost.`)
   lines.push(`Estimate at API list prices as of ${r.prices.asOf ?? 'unknown date'} (${r.prices.override ? `with ${r.prices.override}` : 'claude-api skill'}); subscription plans are not billed this way.`)
-  lines.push(`CONSUMPTION_JSON:${JSON.stringify(r)}`)
+  lines.push(tag('CONSUMPTION', r))
   return lines.join('\n')
 }

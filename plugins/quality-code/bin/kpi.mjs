@@ -12,7 +12,7 @@ import { kpiReport, kpiSeries } from '../lib/report/build.mjs'
 import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
@@ -136,7 +136,7 @@ export function formatKpiCard(r) {
   lines.push(row('Boundary', r.boundary.blocked ? `${plural(r.boundary.blocked, 'write')} blocked` : 'no write blocked'))
   if (r.quality) lines.push('', ...formatQuality(r.quality))
   lines.push('', `AI cost: ${r.consumption}`)
-  lines.push(`KPI_JSON:${JSON.stringify(r)}`)
+  lines.push(tag('KPI', r))
   return lines.join('\n')
 }
 

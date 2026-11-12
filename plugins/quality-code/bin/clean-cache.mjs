@@ -6,7 +6,7 @@
 // Exit 0 ok, 2 usage. Local only; nothing is sent anywhere.
 import { projectRoot } from '../lib/base/config.mjs'
 import { deleteCache, human, listCache, strip } from '../lib/base/cache-clean.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: clean-cache.mjs list [--all] | delete [--all]'
 const n = (c, w) => `${c} ${w}${c === 1 ? '' : 's'}`
@@ -23,12 +23,12 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
       ? `Cache to delete (${scope}): ${n(r.files, 'file')}, ${human(r.bytes)}${all ? ` in ${n(r.projects.length, 'project folder')}` : ''}.\nFolder: ${r.dir}\n`
       : `Nothing to delete for ${scope}: the cache is empty.\n`)
     if (all) for (const p of r.projects) stdout(`- ${p.name}: ${n(p.files, 'file')}, ${human(p.bytes)}\n`)
-    stdout(`CACHE_JSON:${JSON.stringify(strip(r))}\n`)
+    stdout(`${tag('CACHE', strip(r))}\n`)
     return 0
   }
   const r = deleteCache(root, { all, env })
   stdout(r.deleted ? `Deleted ${n(r.deleted, 'cache file')} (${human(r.bytes)}) for ${scope}.\n` : `Nothing deleted for ${scope}: the cache was empty.\n`)
-  stdout(`CACHE_JSON:${JSON.stringify(r)}\n`)
+  stdout(`${tag('CACHE', r)}\n`)
   return 0
 }
 

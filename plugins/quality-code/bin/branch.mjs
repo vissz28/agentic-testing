@@ -9,7 +9,7 @@ import { adaptersOf } from '../lib/base/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 import { escapeRegExp, isTicketKey } from '../lib/core/text.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
@@ -300,7 +300,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     const root = projectRoot(env, cwd)
     const c = loadConfig(root)
     if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }
-    process.stdout.write(`MERGED_JSON:${JSON.stringify(merged(root, c.config, key))}\n`)
+    process.stdout.write(`${tag('MERGED', merged(root, c.config, key))}\n`)
     return 0
   }
   if (argv[0] !== '--detect') { process.stderr.write(`${USAGE}\n`); return 2 }
@@ -317,7 +317,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const root = projectRoot(env, cwd)
   const c = loadConfig(root)
   if (!c.ok) { process.stderr.write(`${c.errors.join('\n')}\n`); return 2 }
-  process.stdout.write(`BRANCH_JSON:${JSON.stringify(detect(root, c.config, opts))}\n`)
+  process.stdout.write(`${tag('BRANCH', detect(root, c.config, opts))}\n`)
   return 0
 }
 

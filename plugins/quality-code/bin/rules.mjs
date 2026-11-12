@@ -8,7 +8,7 @@ import { isProjectKey } from '../lib/base/keys.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
 import { SIDES, stackOf } from '../lib/base/stack.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'
 
@@ -29,7 +29,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const f = resolve(root, config.ticketsDir, key, 'rules.json')
     try { mkdirSync(resolve(f, '..'), { recursive: true }); writeFileSync(f, `${JSON.stringify(rulesRecord(r))}\n`) } catch {}
   }
-  stdout(`${formatRules(r)}\nRULES_JSON:${JSON.stringify(r)}\n`)
+  stdout(`${formatRules(r)}\n${tag('RULES', r)}\n`)
   return 0
 }
 

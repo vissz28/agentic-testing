@@ -21,7 +21,7 @@ import { backendOf, isBackend } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 import { toForwardSlashes } from '../lib/core/text.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
@@ -785,7 +785,7 @@ function main(argv) {
     const sub = argv[2] ?? null
     const bad = sub && sub !== '.' && (pathProblem(root, '--root', sub) ?? (existsSync(join(root, sub)) ? null : `--root "${sub}" is not a folder of this repository`))
     if (bad) { process.stdout.write(`${bad}\n`); return 2 }
-    process.stdout.write(`SETUP_JSON:${JSON.stringify(detect(root, process.env, sub))}\n`)
+    process.stdout.write(`${tag('SETUP', detect(root, process.env, sub))}\n`)
     return 0
   }
   if ((argv[0] === '--write' || argv[0] === '--write-personal') && argv[1]) {

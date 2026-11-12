@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { normaliseTicketsDir } from '../base/config.mjs'
 import { placeDirs, placeOf } from '../base/places.mjs'
+import { tag } from '../core/script-io.mjs'
 
 export const KINDS = ['kpi', 'tickets-eval', 'consumption']
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -32,5 +33,5 @@ export function saveReport(dir, kind, date, html) {
 
 /** The lines the commands print after the card: the file, and the headline for the small gauge card. */
 export function reportLines(path, title, headline) {
-  return [`Report: ${path}`, `REPORT_JSON:${JSON.stringify({ path, title, gauge: headline })}`]
+  return [`Report: ${path}`, tag('REPORT', { path, title, gauge: headline })]
 }

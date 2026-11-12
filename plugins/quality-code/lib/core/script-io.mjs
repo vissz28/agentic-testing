@@ -14,3 +14,11 @@ export function isMain(metaUrl, started = process.argv[1]) {
   if (!started) return false
   try { return realpathSync(started) === realpathSync(fileURLToPath(metaUrl)) } catch { return false }
 }
+
+/**
+ * The line a prompt reads a script's result from: NAME_JSON: and the data as one line of JSON.
+ * @param {string} name the tag's name, like "TICKET_EVAL"
+ * @param {unknown} data
+ * @returns {string}
+ */
+export const tag = (name, data) => `${name}_JSON:${JSON.stringify(data)}`

@@ -8,7 +8,7 @@
 // command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
 import { projectRoot } from '../lib/base/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
-import { isMain } from '../lib/core/script-io.mjs'
+import { isMain, tag } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: clean.mjs list [--dry-run] | delete --groups setup,output,cache,personal,specs [--specs all|PATH,PATH] (--confirmed | --dry-run)'
 const NO_SKIP = /^(--yes|-y|--ci|--force|-f|--no-confirm|--assume-yes|--non-interactive)$/
@@ -63,7 +63,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
     const list = buildList(root, env)
     stdout(`${card(list, { dryRun: a.dryRun })}\n`)
     const json = { root: list.root, git: list.git, dryRun: a.dryRun, kept: list.kept, groups: list.groups.map(g => ({ id: g.id, label: g.label, default: g.id !== 'personal' && g.id !== 'specs', items: g.items.map(({ abs, ...i }) => i) })) }
-    stdout(`CLEAN_JSON:${JSON.stringify(json)}\n`)
+    stdout(`${tag('CLEAN', json)}\n`)
     return 0
   }
   if (!a.groups?.length) { stderr(`delete needs --groups (${GROUPS.join(', ')})\n`); return 2 }
@@ -73,7 +73,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
   const out = [a.dryRun ? 'DRY RUN: would delete' : 'Deleted', ...(r.deleted.length ? r.deleted.map(d => `  - ${LABELS[d.group]}: ${what(d)}${d.tracked.length ? ' [was tracked by git]' : ''}`) : ['  nothing'])]
   out.push('', 'Kept', ...(r.kept.length ? r.kept.map(k => `  - ${k.rel} (${k.why})`) : ['  nothing']))
   stdout(`${out.join('\n')}\n`)
-  stdout(`CLEAN_JSON:${JSON.stringify({ dryRun: a.dryRun, deleted: r.deleted, kept: r.kept })}\n`)
+  stdout(`${tag('CLEAN', { dryRun: a.dryRun, deleted: r.deleted, kept: r.kept })}\n`)
   return 0
 }
 
