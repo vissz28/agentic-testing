@@ -1031,31 +1031,7 @@ items, not promises:
 - design (Figma) captures for Playwright tests.
 
 Seeding, the audit log with `/quality-code:report --kpi`, and what option 3 leads to were decided on 14 Oct
-and ship in 0.8.0 (see the part 5 spec, §8).
-
-Details:
-part 1 [spec](specs/2026-10-12-part-1-core-config-design.md) ·
-[plan](plans/2026-10-12-part-1-core-config.md);
-part 2 [spec](specs/2026-10-14-part-2-shared-checks-design.md) ·
-[plan](plans/2026-10-14-part-2-shared-checks.md);
-start command [spec](specs/2026-10-14-start-command-design.md) ·
-[plan](plans/2026-10-14-start-command.md);
-part 4a [spec](specs/2026-10-14-part-4a-vitest-pipeline-design.md) ·
-[plan](plans/2026-10-14-part-4a-vitest-pipeline.md);
-part 4b [spec](specs/2026-10-14-part-4b-write-tests-design.md) ·
-[plan](plans/2026-10-14-part-4b-write-tests.md);
-part 3 [spec](specs/2026-10-14-part-3-playwright-design.md) ·
-[plan](plans/2026-10-14-part-3-playwright.md);
-part 5 [spec](specs/2026-10-14-part-5-rollout-design.md) ·
-[plan](plans/2026-10-14-part-5-rollout.md);
-consumption [spec](specs/2026-10-14-consumption-design.md) ·
-[plan](plans/2026-10-14-consumption.md);
-part 3b [spec](specs/2026-10-14-part-3b-playwright-writing-design.md) ·
-[plan](plans/2026-10-14-part-3b-playwright-writing.md);
-seed [spec](specs/2026-10-14-seed-design.md) ·
-[plan](plans/2026-10-14-seed.md);
-audit and KPI [spec](specs/2026-10-14-audit-kpi-design.md) ·
-[plan](plans/2026-10-14-audit-kpi.md).
+and ship in 0.8.0.
 
 ---
 

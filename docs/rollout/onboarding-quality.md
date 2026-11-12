@@ -1,6 +1,6 @@
 # onboarding-quality: switching a warehouse repo to quality-code (draft)
 
-Draft runbook for Jira AGT-86 (part 5, [spec](../specs/2026-10-14-part-5-rollout-design.md) §4–5).
+Draft runbook for Jira AGT-86 (part 5).
 One merge request per repo, **backend first**. Each step says what to run and what you should see.
 Nothing here is automatic: read each list before you delete anything.
 
