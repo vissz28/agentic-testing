@@ -1,0 +1,6 @@
+$ ticket config check
+exit 0
+--- stdout
+ok (repo: <project>/.claude/quality-code.json)
+tickets folder: .quality-code/tickets (files kept in the project)
+--- stderr

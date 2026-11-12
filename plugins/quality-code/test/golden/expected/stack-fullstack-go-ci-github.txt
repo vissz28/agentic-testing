@@ -1,0 +1,44 @@
+$ ci --init github --print
+exit 0
+--- stdout
+# Quality Code: two jobs on each pull request. No model is involved: scripts decide.
+# test_quality_gate: on the specs the pull request changed, honesty (no assertion or test removed, no skip without
+#   a ticket), assertions (every test asserts something) and the frozen evals. git and node only, seconds.
+# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed
+#   but no spec did runs its whole suite without mutation, as does a push to main.
+# The install lines were guessed from the project: change them if it installs differently (a private registry,
+#   a generated file); add the variables and secrets the tests need.
+# Playwright starts the app through webServer in its config; without one, start the app before the tests.
+# The plugin is fetched from GitHub at a fixed version: mirror it if your runners cannot reach github.com (ci.pluginSource in the project config, or QUALITY_CODE_PLUGIN_URL and QUALITY_CODE_PLUGIN_REF).
+# Written by /quality-code:ci; run it again after a plugin update (it rewrites this file).
+name: quality-code
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test_quality_gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: git clone --quiet --depth 1 --branch quality-code--v<version> https://github.com/vissz28/agentic-testing.git /tmp/quality-code
+      - run: node /tmp/quality-code/plugins/quality-code/bin/ci.mjs
+  test_quality_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: 'go.mod' }
+      - run: npm install
+      - run: npx playwright install --with-deps
+      - run: go mod download
+      - run: git clone --quiet --depth 1 --branch quality-code--v<version> https://github.com/vissz28/agentic-testing.git /tmp/quality-code
+      - run: node /tmp/quality-code/plugins/quality-code/bin/ci.mjs --tests
+--- stderr

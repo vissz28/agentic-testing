@@ -1,0 +1,5 @@
+$ ticket score --in @tickets/DEMO-1.json --json
+exit 0
+--- stdout
+{"key":"DEMO-1","browse":null,"issuetype":"Story","status":null,"score":83,"threshold":70,"gate":"pass","legacy":false,"feature":null,"scenarios":[],"derivable":5,"missing":[{"key":"attachments","label":"an attachment (a screenshot, a video or a file on the ticket)","weight":10},{"key":"links","label":"a link (a linked issue, or a web link such as Figma or Confluence)","weight":5}],"flags":[],"signals":{"ac_present":true,"ac_testable":true,"steps":true,"expected_defined":true,"context":true,"title_prefix":false,"feature_label":false,"environment":true,"attachments":false,"links":false}}
+--- stderr

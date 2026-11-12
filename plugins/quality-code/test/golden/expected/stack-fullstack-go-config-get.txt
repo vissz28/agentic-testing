@@ -1,0 +1,16 @@
+$ ticket config get
+exit 0
+--- stdout
+{
+  "version": 1,
+  "adapter": "fullstack",
+  "jira": {
+    "site": "https://example.atlassian.net",
+    "projects": [
+      "DEMO"
+    ]
+  },
+  "backend": "go"
+}
+CONFIG_GET_JSON:{"key":null,"value":{"version":1,"adapter":"fullstack","jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"backend":"go"},"set":true,"source":"repo"}
+--- stderr

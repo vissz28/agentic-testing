@@ -153,10 +153,39 @@ const CASES = [
   ['transcript-validate-bad', 'transcript', ['validate', '--in', '{}']],
 ]
 
-const fx = fixture()
-test.after(() => rmSync(fx.top, { recursive: true, force: true }))
+// The same project under each stack's config: what the stack decides (config, CI file, scoring, change detection).
+const STACKS = [
+  ['frontend', { adapter: 'playwright' }],
+  ['pytest', { adapter: 'pytest' }],
+  ['junit', { adapter: 'junit' }],
+  ['fullstack-go', { adapter: 'fullstack', backend: 'go' }],
+  ['fullstack-vitest', { adapter: 'fullstack' }],
+]
+const STACK_CASES = [
+  ['config-check', 'ticket', ['config', 'check']],
+  ['config-get', 'ticket', ['config', 'get']],
+  ['ci-github', 'ci', ['--init', 'github', '--print']],
+  ['ci-gitlab', 'ci', ['--init', 'gitlab', '--print']],
+  ['branch-detect', 'branch', ['--detect']],
+  ['score', 'ticket', ['score', '--in', `@${T}/DEMO-1.json`, '--json']],
+  ['routine-status', 'routine', ['status']],
+]
 
-for (const [name, script, args] of CASES) {
+const fx = fixture()
+const stackFx = STACKS.map(([stack, fields]) => {
+  const f = fixture()
+  const file = join(f.dir, '.claude/quality-code.json')
+  const { vitest, ...rest } = JSON.parse(readFileSync(file, 'utf8'))
+  writeFileSync(file, JSON.stringify({ ...rest, ...fields, ...(fields.adapter === 'pytest' || fields.adapter === 'junit' || fields.backend === 'go' || fields.adapter === 'playwright' ? {} : { vitest }) }, null, 2))
+  return [stack, f]
+})
+test.after(() => { for (const f of [fx, ...stackFx.map(([, f]) => f)]) rmSync(f.top, { recursive: true, force: true }) })
+
+const cases = [
+  ...CASES.map(c => [...c, fx]),
+  ...stackFx.flatMap(([stack, f]) => STACK_CASES.map(([name, script, args]) => [`stack-${stack}-${name}`, script, args, f])),
+]
+for (const [name, script, args, fx] of cases) {
   test(`golden: ${name}`, () => {
     const r = spawnSync(process.execPath, [join(PLUGIN, 'bin', `${script}.mjs`), ...args], { cwd: fx.dir, env: fx.env, encoding: 'utf8', input: '', timeout: 30000 })
     const shown = args.map(a => (/[\s'"]/.test(a) ? JSON.stringify(a) : a)).join(' ')
