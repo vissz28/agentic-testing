@@ -28,7 +28,7 @@ import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
-import { readJson } from '../lib/core/files.mjs'
+import { readJson, readJsonOr } from '../lib/core/files.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -76,8 +76,8 @@ const PIP_FILES = ['requirements.txt', 'requirements-dev.txt', 'requirements-tes
 
 /** What the CI file needs to know about the project: its runners, how it installs, where it is in the repo. */
 export function stackOf(root, config) {
-  let pkg = null
-  try { pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) } catch {}
+  // A broken package.json throws, naming it: the CI file would otherwise have no install step.
+  const pkg = readJsonOr(join(root, 'package.json'), null)
   const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
   return {
     backend: adaptersOf(config).includes(backendOf(config)) ? backendOf(config) : null,
@@ -210,7 +210,9 @@ function init(root, config, a, env, stdout, stderr) {
   const version = readJson(join(HERE, '..', '.claude-plugin', 'plugin.json')).version
   const source = pluginSource(config, env, version)
   if (source.error) { printError(source.error); return 2 }
-  const text = template(provider, version, { ...stackOf(root, config), smoke: a.smoke }, source)
+  let stack
+  try { stack = stackOf(root, config) } catch (e) { printError(e.message); return 2 }
+  const text = template(provider, version, { ...stack, smoke: a.smoke }, source)
   if (a.print) { stdout(text); return 0 }
   // Only a file Quality Code wrote is replaced; an existing .gitlab-ci.yml gets the jobs in a file of their own, to include.
   const free = p => !existsSync(join(top, p)) || readText(join(top, p)).startsWith(HEADER)

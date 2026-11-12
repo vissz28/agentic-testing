@@ -144,3 +144,13 @@ test('pipeline --key: a broken rules.json stops the run before it starts, naming
   assert.equal(r.status, 2, r.stdout)
   assert.ok(r.stderr.startsWith(`${file} is not valid JSON`), r.stderr)
 })
+
+test('ci --init: a broken package.json stops it, naming the file, instead of writing a CI file with no install step', () => {
+  const p = project()
+  const file = join(p.root, 'package.json')
+  put(file, '{"name": "app",')
+  const r = cli(p, 'ci', ['--init', 'github', '--print'])
+  assert.equal(r.status, 2, r.stdout)
+  assert.equal(r.stdout, '')
+  assert.ok(r.stderr.startsWith(`${file} is not valid JSON`), r.stderr)
+})

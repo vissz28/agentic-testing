@@ -13,12 +13,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 - A broken file the plugin saved and later rewrites now stops the command with its name, instead of being read as empty and then overwritten. `ticket.mjs save set` no longer wipes where every other project keeps its files, `ticket.mjs root set` no longer wipes the root picked in every other repo, `qa watch fresh` no longer forgets the stories already announced, and `ticket.mjs jira-posted <KEY> update` no longer leaves already-sent answers on offer. The broken file is left as it is.
 - `progress.mjs get` reports a broken saved step instead of starting the command over from its first step.
+- `ci.mjs --init` stops (exit 2) on a broken `package.json`, naming it, instead of writing a CI file with no install step.
 - `pipeline.mjs --key` stops before running (exit 2) when the ticket's saved `rules.json` is broken, instead of dropping the rules line from the card.
 - A test runner that leaves a broken report (cut off, overwritten) says so: `Vitest wrote a report that is not valid JSON`, not `Vitest wrote no report`. The runner's own first error line still comes first when there is one. The same for Playwright, Stryker, Jest, Mocha and node --test.
 
 ### Changed
 
-- Internal: `readJson` and `tryReadJson` in `lib/core/files.mjs` replace 31 hand-written JSON reads; `tryReadJson` marks the reads that may treat a broken file as missing, and `readJsonOr` no longer takes a `whenBroken` option.
+- Internal: `readJson` and `tryReadJson` in `lib/core/files.mjs` replace 33 hand-written JSON reads; `tryReadJson` marks the reads that may treat a broken file as missing, and `readJsonOr` no longer takes a `whenBroken` option.
 
 **What to do:** nothing. If a command now stops on a broken file, fix or delete the file it names.
 
