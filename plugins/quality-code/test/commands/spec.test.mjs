@@ -504,9 +504,10 @@ test('spec confirms the base when the request targets another feature branch, an
 test('spec follows the feature\'s testing approach: e2e, unit or both, and the team\'s own guide', () => {
   assert.match(doc, /\*\*Frontend approach\*\*/)
   assert.ok(doc.includes('bin/ticket.mjs" approach <feature>'))
+  assert.match(doc, /the approach is `both`/)
+  assert.match(doc, /\*\*Only one of the two runners\.\*\*/)
   assert.match(doc, /`unit` writes unit tests of the feature's changed frontend code/)
   assert.match(doc, /When `guideFound` is true, read the file at `guide` before the plan/)
-  assert.match(doc, /How do you test <feature>\?/)
   assert.match(guide, /## Frontend unit tests/)
 })
 

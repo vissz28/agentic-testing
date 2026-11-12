@@ -35,11 +35,13 @@ test('unit tests for a frontend feature need a JavaScript unit runner', () => {
   assert.deepEqual(errors({ adapter: 'vitest', features: [{ label: 'orders', approach: 'unit' }] }), [])
 })
 
-test('approachOf: the feature\'s own, case-insensitive, e2e by default and when there is no unit runner', () => {
+test('approachOf: the feature\'s own, case-insensitive, both by default with a unit runner, e2e without one', () => {
   const c = { adapter: 'fullstack', features: [{ label: 'orders', approach: 'both' }, { label: 'cart' }] }
   assert.equal(approachOf(c, 'ORDERS'), 'both')
-  assert.equal(approachOf(c, 'cart'), 'e2e')
-  assert.equal(approachOf(c, 'unknown'), 'e2e')
+  assert.equal(approachOf(c, 'cart'), 'both')
+  assert.equal(approachOf(c, 'unknown'), 'both')
+  assert.equal(approachOf({ adapter: 'playwright', features: [{ label: 'cart' }] }, 'cart'), 'e2e')
+  assert.equal(approachOf({ adapter: 'fullstack', features: [{ label: 'cart', approach: 'e2e' }] }, 'cart'), 'e2e')
   assert.equal(approachOf({ adapter: 'playwright', features: [{ label: 'orders', approach: 'unit' }] }, 'orders'), 'e2e')
   assert.equal(unitRunnerOf(c), 'vitest')
   assert.equal(unitRunnerOf({ adapter: 'playwright' }), null)
@@ -54,6 +56,6 @@ test('ticket.mjs approach: the line, the JSON, and whether the team guide exists
   const json = JSON.parse(r.stdout.split('\n').find(l => l.startsWith('APPROACH_JSON:')).slice('APPROACH_JSON:'.length))
   assert.deepEqual(json, { feature: 'orders', approach: 'both', unitRunner: 'vitest', guide: 'docs/testing/orders.md', guideFound: true, set: 'both' })
   r = run('cart')
-  assert.match(r.stdout, /^cart: end-to-end tests \(Playwright\) \(the default: no approach set for it\)\n/)
+  assert.match(r.stdout, /^cart: unit tests and end-to-end tests \(the default: no approach set for it\)\n/)
   assert.equal(run().status, 2)
 })

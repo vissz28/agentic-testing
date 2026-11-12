@@ -35,12 +35,13 @@ export function adaptersForSide(side, config = null) {
 }
 
 /**
- * How a frontend feature is tested: the feature's own `approach` ("e2e", "unit" or "both"), else e2e. "unit"
- * and "both" need a JavaScript unit runner; where there is none the feature falls back to e2e.
+ * How a frontend feature is tested: the feature's own `approach` ("e2e", "unit" or "both"), else both
+ * when the project has a JavaScript unit runner (unit and Playwright tests together), else e2e. "unit" and
+ * "both" need a unit runner; where there is none the feature falls back to e2e.
  */
 export function approachOf(config, label) {
   const f = (config?.features ?? []).find(x => String(x.label).toLowerCase() === String(label ?? '').toLowerCase())
-  const approach = f?.approach ?? 'e2e'
+  const approach = f?.approach ?? (unitRunnerOf(config) ? 'both' : 'e2e')
   return approach !== 'e2e' && !unitRunnerOf(config) ? 'e2e' : approach
 }
 

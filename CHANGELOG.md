@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-11-12
+
+### Changed
+
+- `/quality-code:spec` on a project with a unit runner (Vitest) and Playwright now writes both unit tests and Playwright tests for a frontend ticket by default, instead of Playwright only. A feature can still pin `e2e` or `unit` with `features[].approach`; the ask-once card is gone.
+- A project with only one of the two runners gets one card: `Add Vitest too` or `Add Playwright too`, with `Yes: add it` and `Not now` (never with `--ci`). A project with neither gets the existing runner card, which adds both.
+
+**What to do:** update with `/plugin update quality-code@teamsystem`, then `/reload-plugins`. To keep Playwright only for a feature, set `features[].approach` to `e2e` in the project config.
+
 ## [0.72.1] - 2026-11-11
 
 ### Fixed
