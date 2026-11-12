@@ -9,6 +9,18 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-11-12
+
+### Fixed
+
+- **File writes were refused when `node` was not on the hook's PATH** (Copilot CLI with nvm on Windows: `Create raw.json` was denied with "hook errored", and spec stopped before writing any ticket file). The write-boundary hook now runs through `bin/run-node.cmd`, which finds Node the way the Node finder does (PATH, nvm, fnm, Volta, Homebrew, user profiles on Windows). When Node is nowhere, the hook is skipped with one line instead of denying every write.
+
+### Added
+
+- `/quality-code:spec` notices a branch cut from a sibling of the configured base (`develop12` while the config says `develop`) and asks which one is its base, so the diff does not carry about a thousand files of noise. It shows only when no pull or merge request names the base. One answer saves the base as `git.base`.
+
+**What to do:** update with `/plugin update quality-code@teamsystem`, then `/reload-plugins` (restart the Copilot CLI). Not tested on a real Windows machine: try a spec run on the machine where the hook failed.
+
 ## [0.75.1] - 2026-11-12
 
 ### Fixed

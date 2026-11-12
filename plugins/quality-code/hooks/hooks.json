@@ -4,7 +4,7 @@
       {
         "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/checks.mjs\" boundary --hook" }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/run-node.cmd\" checks.mjs boundary --hook" }
         ]
       }
     ]

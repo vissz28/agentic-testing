@@ -124,7 +124,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
   const clean = t => redact(config, t)
   const out = {
     repo: basename(root), remote: null, isRepo: false, branch: null, detached: false, head: null,
-    base: null, baseSource: null, integration: null, baseKind: null, needsConfirm: false, wholeFeature: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
+    base: null, baseSource: null, closerBase: null, integration: null, baseKind: null, needsConfirm: false, wholeFeature: null, mergeBase: null, onBase: false, shallow: false, ahead: 0, behind: 0,
     files: [], counts: { code: 0, test: 0, other: 0, uncommitted: 0 }, keys: [], subjects: [], pullRequest: null, branches: [],
   }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
@@ -175,6 +175,23 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     if (out.mergeBase) {
       const [behind, ahead] = (git(root, ['rev-list', '--left-right', '--count', `${out.base}...HEAD`]) ?? '0 0').split(/\s+/).map(Number)
       Object.assign(out, { ahead, behind })
+      // No pull request or merge request names the base: the branch may still have been cut from a sibling of the
+      // configured one (develop12 for develop). When another long-lived branch is clearly closer, say so; the diff
+      // against the configured base would hold that branch's commits as noise.
+      if (!baseFlag && !out.onBase && ['config', 'origin-head', 'fallback'].includes(out.baseSource) && ahead > 0) {
+        const heads = (git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/', 'refs/heads/']) ?? '').split('\n')
+        const names = [...new Set(heads.filter(r => r && !r.endsWith('/HEAD')).map(r => r.replace(/^origin\//, '')))]
+        const own = rawBranch
+        const candidates = names.filter(n => n !== own && /^(main|master|develop.*|release.*)$/.test(n)).slice(0, 20)
+        let best = null
+        for (const n of candidates) {
+          const ref = local(n)
+          if (!ref || ref === out.base) continue
+          const count = Number(git(root, ['rev-list', '--count', `${ref}..HEAD`]))
+          if (Number.isFinite(count) && (!best || count < best.ahead)) best = { ref, ahead: count }
+        }
+        if (best && best.ahead < ahead && ahead - best.ahead >= 10 && best.ahead * 2 <= ahead) out.closerBase = { ...best, baseAhead: ahead }
+      }
       if (!out.onBase) {
         for (const f of parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', out.mergeBase, 'HEAD']))) files.set(f.path, { ...f, committed: true })
       }
