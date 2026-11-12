@@ -22,9 +22,6 @@ export function acSignals(v, description, acField) {
   return { ac_present, ac_testable }
 }
 
-/** A regular-expression source that matches `text` literally. */
-export const escapeRegExp = text => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
 /**
  * The keys this config can never credit: no features means no feature label to add. They are left
  * out of the score (it is scaled over the rest) and of the missing list, so nobody is asked for them.

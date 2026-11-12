@@ -10,6 +10,7 @@ import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { escapeRegExp } from '../lib/core/text.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
@@ -24,7 +25,7 @@ export function stripCredentials(url) {
 export function keyCandidates(texts, projects) {
   if (!projects.length) return []
   // The configured keys themselves, longest first: MY_PROJ-12 is never also read as PROJ-12.
-  const names = [...new Set(projects)].sort((a, b) => b.length - a.length).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const names = [...new Set(projects)].sort((a, b) => b.length - a.length).map(escapeRegExp)
   const re = new RegExp(`(?<![A-Z0-9])(${names.join('|')})[-_](\\d+)(?!\\d)`, 'g')
   const out = []
   for (const t of texts) {
@@ -237,7 +238,7 @@ const MAX_COMMITS = 20
 export function merged(root, config, key) {
   const out = { key, found: null, commit: null, files: [], counts: { code: 0, test: 0, other: 0 } }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
-  const own = new RegExp(`(?<![A-Za-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`, 'i')
+  const own = new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(key)}(?!\\d)`, 'i')
   const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
   const playwright = adaptersOf(config).includes('playwright')
   const dirs = playwright ? playwrightTestDirs(root, config) : []

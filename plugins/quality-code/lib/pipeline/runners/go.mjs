@@ -12,12 +12,11 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { goName, scan } from '../../base/dialects/go.mjs'
 import { findUp, kill, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { escapeRegExp, firstLine } from '../../core/text.mjs'
 
 const LABEL = 'Go'
 const slash = p => p.split(sep).join('/')
 /** A literal for Go's regexp (RE2): the same metacharacters as JavaScript's. */
-export const reEscape = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** The module of a package folder: { root, path } from the nearest go.mod, or null. */
 export function moduleOf(dirAbs) {
@@ -59,13 +58,13 @@ export function runPattern(pkgs, testName) {
   const all = pkgs.flatMap(p => [...p.funcs.entries()])
   if (testName === undefined) {
     const names = [...new Set(all.map(([n]) => n))]
-    return names.length ? `^(${names.map(reEscape).join('|')})$` : null
+    return names.length ? `^(${names.map(escapeRegExp).join('|')})$` : null
   }
-  if (all.some(([n]) => n === testName)) return `^${reEscape(testName)}$`
+  if (all.some(([n]) => n === testName)) return `^${escapeRegExp(testName)}$`
   const owners = [...new Set(all.filter(([, f]) => [...f.literal.values()].includes(testName)).map(([n]) => n))]
   if (!owners.length) return null
   // A "/" in a name is a level of its own for go test: each level gets its own anchored pattern.
-  return [`^(${owners.map(reEscape).join('|')})$`, ...goName(testName).split('/').map(p => `^${reEscape(p)}$`)].join('/')
+  return [`^(${owners.map(escapeRegExp).join('|')})$`, ...goName(testName).split('/').map(p => `^${escapeRegExp(p)}$`)].join('/')
 }
 
 /** The JSON events of a `go test -json` stream; other lines are left out. */

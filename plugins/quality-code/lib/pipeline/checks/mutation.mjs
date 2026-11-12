@@ -9,6 +9,7 @@ import { result } from '../../base/result.mjs'
 import { anchorRange, testMarks } from './suite-honesty.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
 import { inKeyBlock } from '../../base/keys.mjs'
+import { escapeRegExp } from '../../core/text.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/
 
@@ -82,7 +83,7 @@ export function unmutated(src, passedTitles, mutants, { key = null, ungraded = n
 }
 
 // A table title as a pattern: printf-style %s/%i/%#..., $name and ${...} stand for any text.
-const tableTitle = title => new RegExp(`^${String(title ?? '').split(/%[sdifjoOp#%]|\$\{[^}]*\}|\$[\w.]+/).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*')}$`)
+const tableTitle = title => new RegExp(`^${String(title ?? '').split(/%[sdifjoOp#%]|\$\{[^}]*\}|\$[\w.]+/).map(escapeRegExp).join('[\\s\\S]*')}$`)
 
 export function applyMutant(src, m) {
   return `${src.slice(0, m.start)}${m.replacement}${src.slice(m.end)}`

@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { BACKENDS } from './backends.mjs'
+import { escapeRegExp } from '../core/text.mjs'
 
 export const CONTAINER_BACKENDS = Object.freeze(['vitest', 'pytest', 'go', 'dotnet'])
 
@@ -42,7 +43,6 @@ const DATABASES = [
 ]
 
 const read = (root, p) => { try { return readFileSync(join(root, p), 'utf8').slice(0, 1 << 20) } catch { return '' } }
-const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ponytail: a Python package is found by its name as a word in these files, so a comment that names it counts too.
 const PYTHON_DEPS = /^(?:pyproject\.toml|setup\.cfg|setup\.py|Pipfile|requirements[\w.-]*\.txt)$/
@@ -51,7 +51,7 @@ function pythonDeps(root) {
   try { names = readdirSync(root).filter(n => PYTHON_DEPS.test(n)) } catch {}
   return names.map(n => read(root, n)).join('\n').toLowerCase().replace(/_/g, '-')
 }
-const hasPython = (text, name) => new RegExp(`(?<![\\w.-])${escape(name)}(?![\\w.-])`).test(text)
+const hasPython = (text, name) => new RegExp(`(?<![\\w.-])${escapeRegExp(name)}(?![\\w.-])`).test(text)
 
 // The .NET project files, at most three folders down: bin, obj and dot folders skipped.
 function dotnetProjects(root, depth = 3, rel = '') {
@@ -61,7 +61,7 @@ function dotnetProjects(root, depth = 3, rel = '') {
   const down = depth > 1 ? entries.filter(e => e.isDirectory() && !e.name.startsWith('.') && !['bin', 'obj', 'node_modules'].includes(e.name)).sort((a, b) => a.name.localeCompare(b.name)).flatMap(e => dotnetProjects(root, depth - 1, join(rel, e.name))) : []
   return [...here.sort(), ...down].map(p => p.split('\\').join('/'))
 }
-const hasNuget = (text, name) => new RegExp(`Include="${escape(name)}(?=[".])`, 'i').test(text)
+const hasNuget = (text, name) => new RegExp(`Include="${escapeRegExp(name)}(?=[".])`, 'i').test(text)
 
 /** What the backend's code depends on, read once: the text the drivers are looked for in, and per backend the extras it needs. */
 function backendDeps(root, backend, deps) {

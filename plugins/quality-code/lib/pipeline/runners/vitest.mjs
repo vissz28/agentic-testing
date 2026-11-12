@@ -8,11 +8,11 @@ import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { escapeRegExp, firstLine } from '../../core/text.mjs'
 
 
 /** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
-export const titlePattern = title => `(?:^| )${String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
 
 export function configFor(file, config) {
   for (const c of config.vitest?.configs ?? []) if (matches(c.match, originalOf(file))) return c.config

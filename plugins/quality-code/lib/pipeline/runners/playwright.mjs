@@ -9,17 +9,16 @@ import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { findUp, kill, toolScript, track } from './tool.mjs'
-import { firstLine, noColour } from '../../core/text.mjs'
+import { escapeRegExp, firstLine, noColour } from '../../core/text.mjs'
 
-const ESC = /[.*+?^${}()|[\]\\]/g
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 
 /** Playwright reads a file argument as a regular expression over the path: anchor it to whole segments. */
-export const filePattern = file => `(?:^|/)${String(file).split('\\').join('/').replace(ESC, '\\$&')}$`
+export const filePattern = file => `(?:^|/)${escapeRegExp(String(file).split('\\').join('/'))}$`
 
 /** -g sees the full title (project, file, describe titles, title) with the tags appended. */
-export const titlePattern = title => `(?:^| )${String(title).replace(ESC, '\\$&')}(?: @\\S+)*$`
+export const titlePattern = title => `(?:^| )${escapeRegExp(title)}(?: @\\S+)*$`
 
 export function configFor(file, config) {
   for (const c of config.playwright?.configs ?? []) if (matches(c.match, originalOf(file))) return c.config

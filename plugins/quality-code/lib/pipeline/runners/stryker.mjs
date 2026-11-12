@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { kill, toolScript, track } from './tool.mjs'
-import { firstLine } from '../../core/text.mjs'
+import { escapeRegExp, firstLine } from '../../core/text.mjs'
 
 // Stryker's stderr starts with Node's stack frame; the error it names is the line to show.
 const errorOf = s => String(s ?? '').match(/\b[A-Za-z]*Error: [^\n]+/)?.[0] ?? firstLine(s)
@@ -51,7 +51,7 @@ const VITEST_CONFIGS = ['vitest', 'vite'].flatMap(n => ['ts', 'mts', 'cts', 'js'
  * Vitest 4 under Stryker's runner ran no test against a mutant and every mutant "survived".
  */
 export function vitestConfigSource(base, specs, key) {
-  const scope = `include: ${JSON.stringify(specs)}${key ? `, testNamePattern: ${JSON.stringify(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}` : ''}`
+  const scope = `include: ${JSON.stringify(specs)}${key ? `, testNamePattern: ${JSON.stringify(escapeRegExp(key))}` : ''}`
   if (!base) return `export default { test: { ${scope} } }\n`
   // No top-level await: Vite bundles a config as CommonJS in a project without "type": "module".
   return `import own from ${JSON.stringify(`./${base}`)}\nconst scoped = base => ({ ...base, test: { ...base.test, ${scope} } })\nexport default typeof own === 'function' ? env => Promise.resolve(own(env)).then(scoped) : scoped(own)\n`

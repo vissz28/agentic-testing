@@ -1,5 +1,6 @@
 import { countDerivableFromText, hasHeading } from '../criteria.mjs'
-import { acSignals, attachmentsSignal, linksSignal, envSignal, escapeRegExp, featureOf, hasFeatureLabel, hasListChecks, introSignal, omittedKeys, stepsSignal } from './shared.mjs'
+import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, hasListChecks, introSignal, omittedKeys, stepsSignal } from './shared.mjs'
+import { escapeRegExp } from '../../core/text.mjs'
 
 // Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
 const weights = {
