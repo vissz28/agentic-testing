@@ -39,7 +39,7 @@ test('the backend config keeps the old harness layers and Vitest configs', () =>
 
 test('the frontend config forbids .env.* like the backend', () => {
   const c = load('warehouse-frontend.quality-code.json')
-  assert.equal(c.adapter, 'playwright')
+  assert.equal(c.frontend, 'playwright')
   assert.ok(c.boundaries.forbidden.some(r => r.path === '.env.*'))
 })
 

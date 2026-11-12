@@ -4,10 +4,11 @@ import assert from 'node:assert/strict'
 import { SHARED_CONFIG, moduleOf, planChanges, sideOfCode } from '../../lib/base/changes.mjs'
 
 const jira = { site: 'https://x.atlassian.net', projects: ['ABC'] }
-const full = { version: 1, adapter: 'fullstack', jira, playwright: { folder: 'e2e/' } }
-const be = { version: 1, adapter: 'vitest', jira }
-const fe = { version: 1, adapter: 'playwright', jira, playwright: { folder: 'e2e/' } }
-const py = { version: 1, adapter: 'fullstack', backend: 'pytest', jira, playwright: { folder: 'e2e/' } }
+// Loaded configs: the two sides and the side the code runs.
+const full = { version: 2, adapter: 'fullstack', frontend: 'playwright', backend: 'vitest', jira, playwright: { folder: 'e2e/' } }
+const be = { version: 2, adapter: 'vitest', backend: 'vitest', jira }
+const fe = { version: 2, adapter: 'playwright', frontend: 'playwright', jira, playwright: { folder: 'e2e/' } }
+const py = { version: 2, adapter: 'fullstack', frontend: 'playwright', backend: 'pytest', jira, playwright: { folder: 'e2e/' } }
 
 test('a one-sided project: every code file is that side', () => {
   assert.equal(sideOfCode('src/a.ts', be), 'backend')

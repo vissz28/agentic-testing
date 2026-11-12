@@ -39,7 +39,7 @@ function project(spec, config = {}) {
   mkdirSync(join(root, 'test'), { recursive: true })
   writeFileSync(join(root, 'test/a.spec.ts'), spec)
   writeFileSync(join(root, 'ticket.json'), JSON.stringify({ key: 'PFO-1', summary: 'S', text: { description: '### Acceptance Criteria\n- Given a paid document, when the user clicks "Rectify", then the dialog shows "Reinvio per variazione" and sts_submission is written.' } }))
-  return { root, ctx: { root, config: { version: 1, adapter: 'vitest', jira, ...config }, dialect: dialectFor('vitest'), dialectOf: () => dialectFor('vitest') } }
+  return { root, ctx: { root, config: { version: 2, backend: 'vitest', jira, ...config }, dialect: dialectFor('vitest'), dialectOf: () => dialectFor('vitest') } }
 }
 const SPEC = "describe('PFO-1 dialog', () => { it('shows', () => { expect(screen.getByText('Reinvio per variazione')).toBeVisible() }) })\n"
 
@@ -91,7 +91,7 @@ test('assertions through page objects: expect/assert/verify methods and the conf
 })
 
 test('config: expected, assertionHelpers, ticketAnchor, roots and sides.default are checked', () => {
-  const base = { version: 1, adapter: 'fullstack', jira }
+  const base = { version: 2, frontend: 'playwright', backend: 'vitest', jira }
   assert.equal(validateConfig({ ...base, expected: { aliases: { A: 'B', C: ['D'] }, ignore: ['x'], fields: false }, assertionHelpers: ['check'], ticketAnchor: 'branch', roots: ['app', 'be'], sides: { default: 'fullstack' } }).ok, true)
   const bad = validateConfig({ ...base, expected: { aliases: { A: 5 }, ignore: 'x', fields: 'no', other: 1 }, assertionHelpers: ['a b'], ticketAnchor: 'x', roots: ['../x'], sides: { default: 'mobile' } }).errors
   for (const m of [/expected\.aliases\.A/, /expected\.ignore/, /expected\.fields/, /expected\.other/, /assertionHelpers/, /ticketAnchor/, /roots/, /sides\.default/]) assert.ok(bad.some(x => m.test(x)), String(m))
@@ -124,26 +124,26 @@ test('setup: tests beside the code are proposed, and the write wires the layer a
   assert.deepEqual(p.layer, { name: 'unit', folder: 'src/' })
   assert.deepEqual(p.allow, ['src/**/*.unit.test.jsx'])
   assert.equal(colocatedProposal(tree({ 'test/a.spec.ts': 'x', 'src/a.ts': 'x' })), null)
-  const r = writeSetup(d, { version: 1, adapter: 'vitest', jira }, { colocated: true })
+  const r = writeSetup(d, { version: 2, backend: 'vitest', jira }, { colocated: true })
   assert.equal(r.ok, true, JSON.stringify(r.errors))
   const cfg = JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8'))
   assert.deepEqual(cfg.vitest.layers, [{ name: 'unit', folder: 'src/' }])
   assert.deepEqual(cfg.boundaries.allow, ['src/**/*.unit.test.jsx'])
-  assert.equal(writeSetup(tree({ 'test/a.spec.ts': 'x' }), { version: 1, adapter: 'vitest', jira }, { colocated: true }).ok, false)
+  assert.equal(writeSetup(tree({ 'test/a.spec.ts': 'x' }), { version: 2, backend: 'vitest', jira }, { colocated: true }).ok, false)
 })
 
 test('the top of a workspaces monorepo is one project (no workspace as the root), with the workspaces runner', async () => {
   const { detect } = await import('../../bin/setup.mjs')
   const d = tree({ 'package.json': '{"workspaces":["app","be"]}', 'app/package.json': '{"devDependencies":{"vitest":"1"}}', 'be/package.json': '{}' })
   const r = detect(d)
-  assert.deepEqual([r.root.proposed, r.root.ask, r.adapter], [null, false, 'vitest'])
+  assert.deepEqual([r.root.proposed, r.root.ask, r.backend], [null, false, 'vitest'])
   assert.deepEqual(detect(d, process.env, 'app').root.proposed, 'app', 'a root named by --root still works')
   const plain = tree({ 'package.json': '{"devDependencies":{"vitest":"1"}}', 'app/package.json': '{}' })
   assert.equal(detect(plain).root.proposed, null)
 })
 
 test('roots: one config, several projects; the active one is picked per person, and only a listed folder counts', () => {
-  const home = tree({ '.claude/quality-code.json': JSON.stringify({ version: 1, root: 'app', roots: ['app', 'be'], adapter: 'vitest', jira }), 'app/x': '1', 'be/x': '1' })
+  const home = tree({ '.claude/quality-code.json': JSON.stringify({ version: 2, root: 'app', roots: ['app', 'be'], backend: 'vitest', jira }), 'app/x': '1', 'be/x': '1' })
   const claude = mkdtempSync(join(tmpdir(), 'qc-claude-'))
   const env = { CLAUDE_PROJECT_DIR: home, CLAUDE_CONFIG_DIR: claude }
   const run = (...argv) => { let out = '', err = ''; const logs = []; const o = process.stdout.write.bind(process.stdout); const e = process.stderr.write.bind(process.stderr); process.stdout.write = s => { out += s; return true }; process.stderr.write = s => { err += s; return true }; let code; try { code = ticketMain(argv, env, home) } finally { process.stdout.write = o; process.stderr.write = e } return { code, out, err } }
@@ -155,7 +155,7 @@ test('roots: one config, several projects; the active one is picked per person, 
   assert.match(run('root', 'get').out, /ROOT_JSON:.*"active":"be"/)
   assert.equal(run('root', 'set', 'app').code, 0)
   assert.equal(rootsOf(home, env).active, 'app')
-  const none = tree({ '.claude/quality-code.json': JSON.stringify({ version: 1, adapter: 'vitest', jira }) })
+  const none = tree({ '.claude/quality-code.json': JSON.stringify({ version: 2, backend: 'vitest', jira }) })
   assert.deepEqual(rootsOf(none, env).roots, [])
 })
 
@@ -166,7 +166,7 @@ test('gate: items a project omits never count against a ticket, and the intro pa
   assert.equal(introSignal('## Acceptance Criteria\n- x'), false)
   assert.equal(introSignal('Short.\n\n## AC'), false)
   const ticket = { summary: 'S', issuetype: 'Story', labels: [], text: { description: intro }, attachments: 0, links: [] }
-  const base = { version: 1, adapter: 'vitest', jira }
+  const base = { version: 2, backend: 'vitest', jira }
   const sig = (config) => vitestRubric.deriveSignals(v, config, ticket)
   assert.equal(sig(base).context, false)
   assert.equal(sig({ ...base, gate: { contextFromIntro: true } }).context, true)

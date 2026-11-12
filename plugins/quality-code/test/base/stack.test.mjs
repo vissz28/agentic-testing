@@ -9,15 +9,16 @@ import { buildBrief, formatReport } from '../../lib/ticket/score.mjs'
 import { applyAnswer, fillMenu } from '../../lib/ticket/fill.mjs'
 import { adapterOfSpec, adaptersOf, specsByAdapter, stackOf, ticketSide } from '../../lib/base/stack.mjs'
 import { main } from '../../bin/ticket.mjs'
+import { sides } from '../config-fields.mjs'
 
-const base = { version: 1, jira: { site: 'https://example.atlassian.net', projects: ['ABC'] }, features: [{ label: 'Orders', route: '/orders' }] }
-const cfg = (extra = {}) => validateConfig({ ...base, adapter: 'fullstack', ...extra }).config
+const base = { version: 2, jira: { site: 'https://example.atlassian.net', projects: ['ABC'] }, features: [{ label: 'Orders', route: '/orders' }] }
+const cfg = (extra = {}) => validateConfig({ ...base, frontend: 'playwright', backend: 'vitest', ...extra }).config
 const DESC = '## Acceptance criteria\nScenario: total\nGiven an order of 3 items at 40.00 each\nWhen I open the order summary\nThen the total is 108.00\n## Context\nOrders get a volume discount.\n## Environment\nenv: staging'
 const ticket = (summary, labels = ['Orders']) => ({ key: 'ABC-1', summary, issuetype: 'Story', labels, text: { description: DESC } })
 
 test('the stack of a project: frontend, backend or fullstack', () => {
-  assert.equal(stackOf(validateConfig({ ...base, adapter: 'playwright' }).config), 'frontend')
-  assert.equal(stackOf(validateConfig({ ...base, adapter: 'vitest' }).config), 'backend')
+  assert.equal(stackOf(validateConfig({ ...base, frontend: 'playwright' }).config), 'frontend')
+  assert.equal(stackOf(validateConfig({ ...base, backend: 'vitest' }).config), 'backend')
   assert.equal(stackOf(cfg()), 'fullstack')
   assert.deepEqual(adaptersOf(cfg()), ['vitest', 'playwright'])
 })
@@ -50,7 +51,7 @@ test('a spec goes to Playwright in the e2e folder or under a Playwright config, 
   assert.deepEqual(specsByAdapter(c, d, ['test/b.spec.ts']), [['vitest', ['test/b.spec.ts']]], 'a side with no spec is left out')
   // With no folder set: the default e2e/.
   assert.equal(adapterOfSpec(cfg(), d, 'e2e/orders.spec.ts'), 'playwright')
-  const single = validateConfig({ ...base, adapter: 'vitest' }).config
+  const single = validateConfig({ ...base, backend: 'vitest' }).config
   assert.equal(adapterOfSpec(single, d, 'e2e/orders.spec.ts'), 'vitest', 'a one-adapter project never splits')
 })
 
@@ -69,7 +70,7 @@ test('a frontend ticket is scored by the Playwright rubric, a backend one by Vit
   assert.match(formatReport(fe), /\nSide: frontend: Playwright tests of a screen\n/)
   assert.match(formatReport(buildBrief(c, ticket('Orders total'))), /Side: not marked on the ticket, so scored for both/)
   // One-adapter projects keep their brief as it was.
-  assert.ok(!('side' in buildBrief(validateConfig({ ...base, adapter: 'vitest' }).config, ticket('[BE] x'))))
+  assert.ok(!('side' in buildBrief(validateConfig({ ...base, backend: 'vitest' }).config, ticket('[BE] x'))))
 })
 
 test('fill-in on a fullstack ticket: the menu and the answer use the rubric that decided', () => {
@@ -92,7 +93,7 @@ test('fill-in on a fullstack ticket: the menu and the answer use the rubric that
 test('cli side: prints the side, saves a chosen one, refuses on a one-adapter project', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-side-'))
   mkdirSync(join(d, '.claude'))
-  const write = adapter => writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ ...base, adapter }))
+  const write = adapter => writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ ...base, ...sides(adapter) }))
   write('fullstack')
   const file = join(d, 't.json')
   writeFileSync(file, JSON.stringify(ticket('[FE] Orders total')))

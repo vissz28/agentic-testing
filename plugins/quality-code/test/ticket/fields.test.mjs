@@ -10,7 +10,7 @@ import { FIELDS_REL, resolveField, storeField } from '../../lib/ticket/fields.mj
 import { FIELDS_FILE, placeFolder } from '../../lib/base/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
-const base = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }
+const base = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }
 const dir = (cfg = base) => {
   const d = mkdtempSync(join(tmpdir(), 'qc-f-'))
   mkdirSync(join(d, '.claude'))

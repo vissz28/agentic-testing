@@ -15,11 +15,10 @@ const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
 /** How a team tests a frontend feature: Playwright (e2e), unit tests of its components and code, or both. */
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
-/** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
-const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'testRules', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+/** A JavaScript unit runner is there: a Vitest backend, or a Jest, Mocha or node --test runner named in `runners.unit`. */
+const hasUnitRunner = c => c.backend === 'vitest' || c.runners?.unit !== undefined
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'frontend', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'testRules', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
-const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
 const OTHER_BACKENDS = BACKEND_ADAPTERS.filter(a => a !== 'vitest')
 // The placeholders a backend's own test command may hold.
@@ -218,17 +217,17 @@ function otherBackendErrors(b, name, e) {
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
   const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
-  for (const k of Object.keys(c)) if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
-  if (c.version !== 1) e.push(`version: must be 1 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
-  if (c.root !== undefined && !pathOk(c.root)) e.push(`root ${JSON.stringify(c.root)} must be a folder inside the repository, like "web" (no "..", not absolute, one line)`)
-  if (!ADAPTERS.includes(c.adapter)) e.push(`adapter: must be "playwright" (frontend), ${orList(quoted(BACKEND_ADAPTERS))} (backend) or "fullstack" (both) (found ${JSON.stringify(c.adapter)})`)
-  // The backend side of a fullstack project: the "backend" field, else Vitest.
-  const backend = c.adapter === 'fullstack' ? (isBackend(c.backend) ? c.backend : 'vitest') : c.adapter
-  const uses = a => c.adapter === a || (c.adapter === 'fullstack' && (a === 'playwright' || a === backend))
-  if (c.backend !== undefined) {
-    if (c.adapter !== 'fullstack') e.push('backend: only allowed with "adapter": "fullstack" (on a backend project the adapter names the runner)')
-    else if (!isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
+  for (const k of Object.keys(c)) {
+    if (k === 'adapter') e.push('adapter: replaced by "frontend" and "backend" (like "frontend": "playwright", "backend": "vitest"): re-run /quality-code:setup')
+    else if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
   }
+  if (c.version !== 2) e.push(`version: must be 2 (found ${JSON.stringify(c.version)}); re-run /quality-code:setup`)
+  if (c.root !== undefined && !pathOk(c.root)) e.push(`root ${JSON.stringify(c.root)} must be a folder inside the repository, like "web" (no "..", not absolute, one line)`)
+  if (c.frontend === undefined && c.backend === undefined && !('adapter' in c)) e.push(`frontend, backend: set one or both: "frontend": "playwright" (e2e tests of screens), "backend": ${orList(quoted(BACKEND_ADAPTERS))} (tests of the code)`)
+  if (c.frontend !== undefined && c.frontend !== 'playwright') e.push(`frontend: must be "playwright" (found ${JSON.stringify(c.frontend)})`)
+  if (c.backend !== undefined && !isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
+  const backend = c.backend
+  const uses = a => c.frontend === a || c.backend === a
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
   const j = isObj(c.jira) ? c.jira : {}
   if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
@@ -375,11 +374,11 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
       // Jest and Mocha run JavaScript: a pytest, JUnit, Go or .NET backend has its own runner already.
       else if (kind === 'unit' && isBackend(backend) && backend !== 'vitest') e.push(`runners.unit: ${JSON.stringify(name)} runs JavaScript tests, and this project's backend is ${BACKENDS[backend].label}, which runs its own tests: leave runners.unit out (it is only for a Vitest backend)`)
-      else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with "adapter": "${kind === 'unit' ? 'vitest' : 'playwright'}" or "fullstack"`)
+      else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with ${kind === 'unit' ? '"backend": "vitest"' : '"frontend": "playwright"'}`)
     }
   }
   if (c.vitest !== undefined) {
-    if (!uses('vitest')) e.push('vitest: only allowed with "adapter": "vitest" or "fullstack"')
+    if (!uses('vitest')) e.push('vitest: only allowed with "backend": "vitest"')
     else if (!isObj(c.vitest)) e.push('vitest: must be an object')
     else {
       for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
@@ -398,12 +397,12 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   for (const name of OTHER_BACKENDS) {
     if (c[name] === undefined) continue
-    if (!uses(name)) e.push(`${name}: only allowed with "adapter": "${name}", or "fullstack" with "backend": "${name}"`)
+    if (!uses(name)) e.push(`${name}: only allowed with "backend": "${name}"`)
     else if (!isObj(c[name])) e.push(`${name}: must be an object`)
     else otherBackendErrors(c[name], name, e)
   }
   if (c.playwright !== undefined) {
-    if (!uses('playwright')) e.push('playwright: only allowed with "adapter": "playwright" or "fullstack"')
+    if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
       for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
@@ -482,7 +481,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.xray !== undefined) {
-    if (!uses('playwright')) e.push('xray: only allowed with "adapter": "playwright" or "fullstack" (Xray test cases are written for Playwright tests)')
+    if (!uses('playwright')) e.push('xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)')
     else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
     else {
       const x = c.xray
@@ -523,7 +522,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.sides !== undefined) {
-    if (c.adapter !== 'fullstack') e.push('sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)')
+    if (!(c.frontend && c.backend)) e.push('sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)')
     else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
     else for (const [k, v] of Object.entries(c.sides)) {
       if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
@@ -536,6 +535,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     ok: true,
     config: {
       ...c,
+      // The side the code runs, never written back to the file: the one side, or fullstack for both.
+      adapter: c.frontend && c.backend ? 'fullstack' : c.frontend ?? c.backend,
       // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
       jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
       languages: c.languages ?? DEFAULTS.languages,

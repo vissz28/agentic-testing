@@ -13,7 +13,7 @@ const node = s => `node -e ${JSON.stringify(s)}`
 const APPLY = `${node("require('fs').appendFileSync('loaded.sql', require('fs').readFileSync(process.argv[1]))")} {file}`
 function project(seed, files = {}) {
   const d = mkdtempSync(join(tmpdir(), 'qc-seed-'))
-  const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, seed }
+  const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, seed }
   for (const [p, s] of Object.entries({ '.claude/quality-code.json': JSON.stringify(cfg), ...files })) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
   return d
 }

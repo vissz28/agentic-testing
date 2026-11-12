@@ -124,7 +124,7 @@ before(() => {
   writeFileSync(join(root, 'src/Demo/Pricing.cs'), PRICING)
   writeFileSync(join(root, '.gitignore'), 'bin/\nobj/\n')
   mkdirSync(join(root, '.claude'), { recursive: true })
-  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'dotnet', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] }, dotnet: { layers: [{ name: 'unit', folder: 'tests/' }] } }, null, 2))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'dotnet', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] }, dotnet: { layers: [{ name: 'unit', folder: 'tests/' }] } }, null, 2))
   mkdirSync(join(root, 'tickets'), { recursive: true })
   for (const [key, t] of Object.entries(TICKETS)) {
     writeFileSync(join(root, `tickets/${key}.json`), JSON.stringify({ key, summary: t.summary, issuetype: 'Story', text: { description: `## Summary\n${t.summary}.`, acField: t.ac }, labels: [], gitlab: null }))

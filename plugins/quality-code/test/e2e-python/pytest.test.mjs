@@ -116,7 +116,7 @@ class TestOrderTotal:
         assert True
 `
 
-const CONFIG = { version: 1, adapter: 'pytest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] }, pytest: { layers: [{ name: 'unit', folder: 'tests/' }] } }
+const CONFIG = { version: 2, backend: 'pytest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] }, pytest: { layers: [{ name: 'unit', folder: 'tests/' }] } }
 const SPEC = 'tests/test_pricing_demo_1.py'
 
 function sample(spec, pricing = PRICING) {

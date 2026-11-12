@@ -13,7 +13,7 @@ import { dirOf, short, slug } from '../../lib/base/progress.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
-const CFG = { version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+const CFG = { version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 const put = (root, rel, body = 'x\n') => { mkdirSync(dirname(join(root, rel)), { recursive: true }); writeFileSync(join(root, rel), body) }
 const git = (root, ...a) => execFileSync('git', a, { cwd: root, env: GIT_ENV, stdio: 'ignore' })
 

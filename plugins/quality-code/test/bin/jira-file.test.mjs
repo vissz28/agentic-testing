@@ -12,7 +12,7 @@ const LINK = `https://${MEDIA_HOST}/file/abc/binary?token=t`
 const proj = () => {
   const d = mkdtempSync(join(tmpdir(), 'jf-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }))
   return d
 }
 const serve = (body, { status = 200, length } = {}) => async () => ({ ok: status === 200, status, headers: new Headers(length ? { 'content-length': String(length) } : {}), arrayBuffer: async () => body })

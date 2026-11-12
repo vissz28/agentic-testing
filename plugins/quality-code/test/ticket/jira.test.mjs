@@ -6,7 +6,7 @@ import { naturalLength } from '../../lib/ticket/criteria.mjs'
 import { messagesFor } from '../../lib/ticket/messages.mjs'
 import { formatRefuseComment, formatRiskComment, templateLine, browseUrl, jiraUpdate, formatJiraUpdate, isRefuseComment, REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK, RISK_COMMENT_FOOTER, COAUTHOR_LINE } from '../../lib/ticket/jira.mjs'
 
-const base = { version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders' }] }
+const base = { version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders' }] }
 const cfg = (patch = {}) => validateConfig({ ...base, ...patch }).config
 const bare = { key: 'DEMO-1', issuetype: 'Bug', labels: [], summary: 's', text: { description: 'Broken.' } }
 
@@ -61,7 +61,7 @@ test('refuse markers', () => {
   assert.ok(!isRefuseComment('hello'))
 })
 test('qa_plan_found never appears in the comment', () => {
-  const c = cfg({ adapter: 'playwright' })
+  const c = cfg({ frontend: 'playwright' })
   const out = formatRefuseComment(c, buildBrief(c, bare))
   assert.doesNotMatch(out, /QA plan/)
 })

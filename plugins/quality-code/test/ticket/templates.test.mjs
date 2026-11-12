@@ -6,6 +6,7 @@ import { buildBrief } from '../../lib/ticket/score.mjs'
 import { validateConfig } from '../../lib/base/config.mjs'
 import { hasHeading } from '../../lib/ticket/criteria.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
+import { sides } from '../config-fields.mjs'
 
 const read = n => readFileSync(new URL(`../../templates/${n}.md`, import.meta.url), 'utf8')
 const fill = t => t.replace(/\{\{([^}]+)\}\}/g, (_, k) => ({
@@ -14,7 +15,7 @@ const fill = t => t.replace(/\{\{([^}]+)\}\}/g, (_, k) => ({
 }[k] ?? `sample ${k}`))
 
 const cfg = adapter => validateConfig({
-  version: 1, adapter,
+  version: 2, ...sides(adapter),
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en'], features: [{ label: 'Orders', route: '/orders' }],
 }).config

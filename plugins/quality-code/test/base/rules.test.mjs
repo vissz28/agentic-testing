@@ -65,7 +65,7 @@ test('readRules: the hub\'s release and rules; no hub, "off" or a failing hub re
 test('rules.mjs: the project side by default, --side for a ticket, a RULES_JSON line, exit 2 on a bad side', async () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-rules-'))
   mkdirSync(join(root, '.claude'))
-  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
   const run = async argv => { let out = ''; let err = ''; const code = await main(argv, { CLAUDE_PROJECT_DIR: root }, root, { fetchImpl: fetchOk, stdout: s => { out += s }, stderr: s => { err += s } }); return { code, out, err } }
   const fe = await run([])
   assert.equal(fe.code, 0)
@@ -80,7 +80,7 @@ test('rules.mjs: the project side by default, --side for a ticket, a RULES_JSON 
 test('rules.mjs --key saves what was read for the card; a key of another project is refused and saves nothing', async () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-rules-key-'))
   mkdirSync(join(root, '.claude'))
-  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', ticketsDir: 't', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 2, frontend: 'playwright', ticketsDir: 't', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, centralContext: { hub: 'http://hub' } }))
   const run = (argv, fetchImpl = fetchOk) => main(argv, { CLAUDE_PROJECT_DIR: root, QUALITY_CODE_PLACE: 'repo' }, root, { fetchImpl, stdout: () => {}, stderr: () => {} })
   assert.equal(await run(['--side', 'frontend', '--key', 'ABC-1']), 0)
   const rec = JSON.parse(readFileSync(join(root, 't/ABC-1/rules.json'), 'utf8'))

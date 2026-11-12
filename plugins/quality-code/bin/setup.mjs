@@ -17,7 +17,7 @@ import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { RUNNERS, runnerLabel, runnerOf } from '../lib/base/runners.mjs'
-import { backendOf, isBackend } from '../lib/base/backends.mjs'
+import { backendOf } from '../lib/base/backends.mjs'
 import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
@@ -279,7 +279,7 @@ const packageDeps = root => { const pkg = packageJson(root); return { ...pkg.dep
 
 function vitestScaffoldProblems(config, v) {
   if (v !== true) return ['vitestScaffold: must be true']
-  if (backendOf(config) !== 'vitest' || runnerOf(config, 'vitest') !== 'vitest') return ['vitestScaffold: only for "adapter": "vitest", or "fullstack" with a Vitest backend']
+  if (backendOf(config) !== 'vitest' || runnerOf(config, 'vitest') !== 'vitest') return ['vitestScaffold: only for "backend": "vitest"']
   return []
 }
 
@@ -329,7 +329,7 @@ test('the app opens', async ({ page }) => {
 function scaffoldProblems(root, config, s) {
   if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
   const e = []
-  if (config.adapter !== 'playwright' && config.adapter !== 'fullstack') e.push('scaffold: only for "adapter": "playwright" or "fullstack"')
+  if (config.adapter !== 'playwright' && config.adapter !== 'fullstack') e.push('scaffold: only for "frontend": "playwright"')
   else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
   if (typeof s.command !== 'string' || !s.command.trim() || /[\r\n]/.test(s.command)) e.push('scaffold.command: must be the one-line command that starts the app, like "npm run dev"')
   if (typeof s.url !== 'string' || !/^https?:\/\/[^\s'"`\\]+$/.test(s.url)) e.push('scaffold.url: must be the address the app opens at, like "http://localhost:5173"')
@@ -560,6 +560,7 @@ export function detect(top, env = process.env, sub = null) {
   const backends = detectBackends(root, deps, ignored)
   if (unit && !backends.includes('vitest')) backends.unshift('vitest')
   const backend = backends[0] ?? null
+  const frontend = e2e ? 'playwright' : null
   const adapter = e2e && backend ? 'both' : e2e ? 'playwright' : backend
   // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
   const runners = { ...(backend === 'vitest' && unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
@@ -574,7 +575,7 @@ export function detect(top, env = process.env, sub = null) {
   const result = {
     // ask: several projects and nothing decides which one is this work: the person picks (setup shows the card).
     root: { proposed, candidates: ranking?.ordered ?? candidates, ask: Boolean(ranking && ranking.ordered.length > 1 && !ranking.decisive), evidence: ranking?.evidence ?? {} },
-    adapter, backend, backends, runners, templates, existing,
+    frontend, backend, backends, runners, templates, existing,
     // monorepo: one project over these workspace folders; unitConfigs is the vitest.configs proposal (folder -> its own config).
     workspaces: monorepo ? { folders: wsDirs, unit, unitConfigs } : null,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
@@ -618,7 +619,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     if (colocated !== true) return { ok: false, errors: ['colocated: must be true'] }
     const proposal = colocatedProposal(resolve(top, config?.root ?? '.'))
     if (!proposal) return { ok: false, errors: ['colocated: this project has no tests next to its code'] }
-    const block = isBackend(config?.adapter) ? config.adapter : backendOf(config) ?? 'vitest'
+    const block = config?.backend ?? 'vitest'
     config = {
       ...config,
       [block]: { ...config[block], layers: config[block]?.layers ?? [proposal.layer] },
@@ -627,6 +628,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   }
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
+  const loaded = v.config
   // The config stays at the top; every file it names, and what setup adds, is in the project root.
   const root = resolve(top, config.root ?? '.')
   if (!existsSync(root)) return { ok: false, errors: [`root "${config.root}" is not a folder of this repository`] }
@@ -634,9 +636,9 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   const named = [['ticketsDir', config.ticketsDir], ...Object.entries(config.ticketTemplates ?? {}).filter(([, p]) => p !== null).map(([k, p]) => [`ticketTemplates.${k}`, p])]
   for (const [label, p] of named) if (p !== undefined) { const m = pathProblem(root, label, p); if (m) errors.push(m) }
   if (gitignoreLine !== undefined && typeof gitignoreLine !== 'string') errors.push('gitignoreLine: must be text')
-  if (scaffold !== undefined) errors.push(...scaffoldProblems(root, config, scaffold))
-  if (vitestScaffold !== undefined) errors.push(...vitestScaffoldProblems(config, vitestScaffold))
-  if (containersScaffold !== undefined) errors.push(...containersProblems(config, containersScaffold))
+  if (scaffold !== undefined) errors.push(...scaffoldProblems(root, loaded, scaffold))
+  if (vitestScaffold !== undefined) errors.push(...vitestScaffoldProblems(loaded, vitestScaffold))
+  if (containersScaffold !== undefined) errors.push(...containersProblems(loaded, containersScaffold))
   if (errors.length) return { ok: false, errors }
 
   const { templates: found, here: h } = detect(root, process.env, '.')
@@ -657,7 +659,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   }
   const ts = existsSync(join(root, 'tsconfig.json'))
   let out = { ...config }
-  const backend = backendOf(config)
+  const backend = config.backend ?? null
   // The project's own Vitest config, which the integration config builds on: the one there, else the one written now.
   const own = vitestConfigs(root).filter(n => !n.startsWith('vitest.integration.config.'))
   const containers = containersScaffold === undefined ? null
@@ -669,7 +671,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     out = containers.config
   }
   if (vitestScaffold !== undefined && !own.length) {
-    toWrite.push([`vitest.config.${ts ? 'ts' : 'js'}`, vitestConfigText({ e2e: config.adapter === 'fullstack', integration: backend === 'vitest' ? containers?.folder ?? null : null })])
+    toWrite.push([`vitest.config.${ts ? 'ts' : 'js'}`, vitestConfigText({ e2e: Boolean(config.frontend && config.backend), integration: backend === 'vitest' ? containers?.folder ?? null : null })])
   }
   for (const [p, body] of containers?.files ?? []) if (!existsSync(join(root, p))) toWrite.push([p, body])
   // A config-set write (configFile) saves only the keys it previewed: no templates found on the way.

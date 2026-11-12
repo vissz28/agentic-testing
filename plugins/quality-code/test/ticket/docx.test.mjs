@@ -46,7 +46,7 @@ test('an unzipped body over the cap is refused (a zip bomb)', () => {
 test('cli: ticket.mjs docx prints the text of a file the user names; a missing file or no path exits 2', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-docx-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }))
   const run = (...argv) => spawnSync('node', [CLI, ...argv], { cwd: d, env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
   const ok = run('docx', SAMPLE.pathname)
   assert.equal(ok.status, 0, ok.stderr)
@@ -60,7 +60,7 @@ test('an analysis added as ticket-eval says is redacted and scored like the desc
   const { validateConfig } = await import('../../lib/base/config.mjs')
   const { sanitizeTicket } = await import('../../lib/ticket/sanitize.mjs')
   const { buildBrief } = await import('../../lib/ticket/score.mjs')
-  const c = validateConfig({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }).config
+  const c = validateConfig({ version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }).config
   const id = 'U' + '123456'
   const analysis = `Scenario: stamp position\nGiven the stamp of customer ${id}\nWhen the user confirms the position\nThen the main page shows x=10 and y=20`
   const raw = { key: 'ABC-1', issuetype: 'Story', summary: 'Find position', text: { description: `Develop the prototype defined in the analysis.\n\n## Attached analysis 1\n${analysis}`, acField: '' } }

@@ -2,14 +2,14 @@ $ ticket config get
 exit 0
 --- stdout
 {
-  "version": 1,
-  "adapter": "junit",
+  "version": 2,
   "jira": {
     "site": "https://example.atlassian.net",
     "projects": [
       "DEMO"
     ]
-  }
+  },
+  "backend": "junit"
 }
-CONFIG_GET_JSON:{"key":null,"value":{"version":1,"adapter":"junit","jira":{"site":"https://example.atlassian.net","projects":["DEMO"]}},"set":true,"source":"repo"}
+CONFIG_GET_JSON:{"key":null,"value":{"version":2,"jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"backend":"junit"},"set":true,"source":"repo"}
 --- stderr

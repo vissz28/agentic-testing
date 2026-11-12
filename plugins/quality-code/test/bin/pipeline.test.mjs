@@ -9,10 +9,11 @@ import { fileURLToPath } from 'node:url'
 import { main } from '../../bin/pipeline.mjs'
 import { ENV } from '../git-env.mjs'
 import { calls, fakeBin } from '../fake-bin.mjs'
+import { sides } from '../config-fields.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/pipeline.mjs')
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
-const CONFIG = adapter => JSON.stringify({ version: 1, adapter, jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } })
+const CONFIG = adapter => JSON.stringify({ version: 2, ...sides(adapter), jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } })
 // A strict matcher: mutation makes mutants, and the fake vitest fails them (killed).
 const GOOD = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n})\n"
 const SNAP = "describe('ABC-1 — anchor', () => {\n  it('adds', () => { expect(add(1, 1)).toMatchSnapshot() })\n})\n"
@@ -469,7 +470,7 @@ test('--suite backend on another backend runner takes its own test files; --targ
   assert.equal(t.code, 2)
   assert.match(t.err, /--target runs Stryker, which is for Vitest projects: leave it out for pytest specs/)
   const fs = repo()
-  put(fs, '.claude/quality-code.json', JSON.stringify({ version: 1, adapter: 'fullstack', backend: 'go', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
+  put(fs, '.claude/quality-code.json', JSON.stringify({ version: 2, frontend: 'playwright', backend: 'go', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
   const none = await suiteRun(fs, ['--suite', 'backend'])
   assert.equal(none.code, 2)
   assert.match(none.err, /No backend \(Go\) spec files found/)

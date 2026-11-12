@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process'
 import { parseValue, KEYS } from '../../lib/config/set.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/ticket.mjs')
-const base = () => ({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] })
+const base = () => ({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] })
 function setup({ repo = true, personal = false } = {}) {
   const d = mkdtempSync(join(tmpdir(), 'qc-set-')), claude = mkdtempSync(join(tmpdir(), 'qc-setc-'))
   if (repo) { mkdirSync(join(d, '.claude')); writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify(base())) }

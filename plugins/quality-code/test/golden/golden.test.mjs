@@ -155,11 +155,11 @@ const CASES = [
 
 // The same project under each stack's config: what the stack decides (config, CI file, scoring, change detection).
 const STACKS = [
-  ['frontend', { adapter: 'playwright' }],
-  ['pytest', { adapter: 'pytest' }],
-  ['junit', { adapter: 'junit' }],
-  ['fullstack-go', { adapter: 'fullstack', backend: 'go' }],
-  ['fullstack-vitest', { adapter: 'fullstack' }],
+  ['frontend', { frontend: 'playwright' }],
+  ['pytest', { backend: 'pytest' }],
+  ['junit', { backend: 'junit' }],
+  ['fullstack-go', { frontend: 'playwright', backend: 'go' }],
+  ['fullstack-vitest', { frontend: 'playwright', backend: 'vitest' }],
 ]
 const STACK_CASES = [
   ['config-check', 'ticket', ['config', 'check']],
@@ -175,8 +175,8 @@ const fx = fixture()
 const stackFx = STACKS.map(([stack, fields]) => {
   const f = fixture()
   const file = join(f.dir, '.claude/quality-code.json')
-  const { vitest, ...rest } = JSON.parse(readFileSync(file, 'utf8'))
-  writeFileSync(file, JSON.stringify({ ...rest, ...fields, ...(fields.adapter === 'pytest' || fields.adapter === 'junit' || fields.backend === 'go' || fields.adapter === 'playwright' ? {} : { vitest }) }, null, 2))
+  const { vitest, backend, ...rest } = JSON.parse(readFileSync(file, 'utf8'))
+  writeFileSync(file, JSON.stringify({ ...rest, ...fields, ...(fields.backend === 'vitest' ? { vitest } : {}) }, null, 2))
   return [stack, f]
 })
 test.after(() => { for (const f of [fx, ...stackFx.map(([, f]) => f)]) rmSync(f.top, { recursive: true, force: true }) })

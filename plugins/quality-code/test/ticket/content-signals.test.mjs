@@ -6,9 +6,10 @@ import { validateConfig } from '../../lib/base/config.mjs'
 import { buildBrief } from '../../lib/ticket/score.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
 import { extractListCriteria, hasActionSteps, namesObservable } from '../../lib/ticket/criteria.mjs'
+import { sides } from '../config-fields.mjs'
 
 const cfg = adapter => validateConfig({
-  version: 1, adapter,
+  version: 2, ...sides(adapter),
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
   features: [{ label: 'Documents', route: '/documents', qaPlanSearch: 'documents' }],

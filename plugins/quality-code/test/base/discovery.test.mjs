@@ -10,7 +10,7 @@ import { validateConfig } from '../../lib/base/config.mjs'
 import { detectConventions, testNameOf } from '../../lib/base/conventions.mjs'
 import { projectSpecs } from '../../lib/report/quality-program.mjs'
 
-const base = { version: 1, adapter: 'fullstack', jira: { site: 'https://x.atlassian.net', projects: ['PFO'] }, playwright: { folder: 'e2e-tests/' } }
+const base = { version: 2, frontend: 'playwright', backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['PFO'] }, playwright: { folder: 'e2e-tests/' } }
 function project(files) {
   const d = mkdtempSync(join(tmpdir(), 'qc-disc-'))
   for (const [p, s] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -51,7 +51,7 @@ test('specs beside the code are found wherever they are; the e2e folder keeps on
     'test/cases/old.test.js': 'x',
     'e2e-tests/tax/list.spec.js': 'x', 'e2e-tests/ivn/expected-values.unit.test.js': 'x', 'e2e-tests/page.js': 'x',
   })
-  const by = Object.fromEntries(projectSpecs(d, cfg).map(s => [s.path, s.adapter]))
+  const by = Object.fromEntries(projectSpecs(d, validateConfig(cfg).config).map(s => [s.path, s.adapter]))
   assert.equal(by['src/a/A.unit.test.jsx'], 'vitest')
   assert.equal(by['src/b/C.unit.test.js'], 'vitest')
   assert.equal(by['test/cases/old.test.js'], 'vitest')
@@ -62,8 +62,8 @@ test('specs beside the code are found wherever they are; the e2e folder keeps on
 })
 
 test('a project whose tests are in its test folder is read as before', () => {
-  const cfg = { version: 1, adapter: 'vitest', jira: base.jira }
+  const cfg = { version: 2, backend: 'vitest', jira: base.jira }
   const d = project({ 'test/a.spec.ts': 'x', 'src/a.ts': 'x', 'src/deep/b.spec.ts': 'x' })
-  const paths = projectSpecs(d, cfg).map(s => s.path).sort()
+  const paths = projectSpecs(d, validateConfig(cfg).config).map(s => s.path).sort()
   assert.deepEqual(paths, ['test/a.spec.ts'], 'most tests are in test/: a stray spec in src/ is not pulled in')
 })

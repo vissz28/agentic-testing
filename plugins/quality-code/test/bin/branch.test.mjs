@@ -84,7 +84,7 @@ const ENV = {
 }
 const g = (d, ...a) => execFileSync('git', a, { cwd: d, env: ENV, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 const cfg = (over = {}) => ({
-  version: 1, adapter: 'vitest',
+  version: 2, backend: 'vitest',
   jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], trackingProjects: ['TRK'], acceptanceCriteriaField: null },
   languages: ['en'], features: [], redact: { customerId: '\\bU\\d{5,}\\b' }, ...over,
 })

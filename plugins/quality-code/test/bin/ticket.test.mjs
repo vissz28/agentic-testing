@@ -9,7 +9,7 @@ const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const proj = () => {
   const d = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
   writeFileSync(join(d, 't.json'), JSON.stringify({ key: 'DEMO-1', issuetype: 'Bug', summary: 's', labels: [], text: { description: 'Broken.' } }))
   return d
 }
@@ -59,9 +59,9 @@ test('config check --runner names a runner the config writes tests in that the p
   assert.deepEqual(lines('--runner'), [], 'installed')
   const cfgPath = join(d, '.claude/quality-code.json')
   const c = JSON.parse(readFileSync(cfgPath, 'utf8'))
-  writeFileSync(cfgPath, JSON.stringify({ ...c, adapter: 'fullstack' }))
+  writeFileSync(cfgPath, JSON.stringify({ ...c, frontend: 'playwright', backend: 'vitest' }))
   assert.deepEqual(lines('--runner'), ['missing: Playwright is not installed in this project: run /quality-code:spec to add it.'])
-  writeFileSync(cfgPath, JSON.stringify({ ...c, adapter: 'fullstack', runners: { e2e: 'cypress' } }))
+  writeFileSync(cfgPath, JSON.stringify({ ...c, frontend: 'playwright', backend: 'vitest', runners: { e2e: 'cypress' } }))
   assert.deepEqual(lines('--runner'), [], 'setup adds Vitest and Playwright only: a Cypress project is left to its own install')
 })
 test('config check: a lowercase jira.projects key exits 2 naming jira.projects[0]', () => {
@@ -255,7 +255,7 @@ test('missing --in and unknown command exit 2', () => {
 })
 test('add rejection: no Example line for a key the rubric does not score', () => {
   const d = proj()
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
   const r = run(d, 'add', '--in', '@t.json', 'context', 'Order filter matches substrings')
   assert.equal(r.status, 1)
   assert.equal(r.stdout.split('\n')[0], 'Not accepted: There is no criterion called context that can be typed in.')
@@ -310,7 +310,7 @@ test('a crash is exit 2 with a message, never 1 (refuse); a single label or scen
   writeFileSync(join(d, 'bad.json'), JSON.stringify({ key: 'DEMO-1', labels: 'Orders', scenarios: 'Then x', text: { description: 'Broken.' } }))
   assert.equal(run(d, 'score', '--in', '@bad.json').status, 1, 'a thin ticket, not a crash')
   const c = JSON.parse(readFileSync(join(d, '.claude/quality-code.json'), 'utf8'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ ...c, adapter: 'playwright' }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ ...c, frontend: 'playwright' }))
   const r = run(d, 'score', '--in', '{"key":"DEMO-1","text":{"description":"x"},"qaPlan":{"scenarios":5}}')
   assert.equal(r.status, 2)
   assert.match(r.stderr, /^ticket\.mjs: /)

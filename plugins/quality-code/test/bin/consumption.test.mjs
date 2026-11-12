@@ -105,7 +105,7 @@ test('with "root" set, sessions that ran at the repo top are found too', async (
   mkdirSync(join(top, 'app', '.claude'), { recursive: true })
   writeFileSync(join(top, '.claude-placeholder'), '')
   mkdirSync(join(top, '.claude'), { recursive: true })
-  writeFileSync(join(top, '.claude/quality-code.json'), JSON.stringify({ version: 1, root: 'app', adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
+  writeFileSync(join(top, '.claude/quality-code.json'), JSON.stringify({ version: 2, root: 'app', backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
   // the transcript was recorded at the repo top, not in app/
   const dir = join(claude, 'projects', slugFor(top))
   mkdirSync(dir, { recursive: true })

@@ -10,7 +10,7 @@ import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } f
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const tmp = () => mkdtempSync(join(tmpdir(), 'qc-place-'))
-const CFG = { version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
+const CFG = { version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
 
 function repo(extra = {}) {
   const root = tmp()

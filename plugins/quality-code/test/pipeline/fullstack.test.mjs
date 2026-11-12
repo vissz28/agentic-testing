@@ -10,7 +10,7 @@ import { formatCard } from '../../lib/pipeline/card.mjs'
 import { result } from '../../lib/base/result.mjs'
 import { ENV } from '../git-env.mjs'
 
-const config = { adapter: 'fullstack', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
+const config = { adapter: 'fullstack', backend: 'vitest', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const BE = "describe('ABC-1 Orders total', () => {\n  it('totals the order', () => { expect(total([40, 40, 40])).toBe(108) })\n})\n"
 const FE = "import { test, expect } from '@playwright/test'\n\ntest.describe('ABC-1 Orders total', { tag: '@ABC-1' }, () => {\n  test('shows the total', async ({ page }) => {\n    await page.goto('/orders')\n\n    await expect(page.getByRole('cell', { name: 'Total' })).toHaveText('€ 108,00')\n  })\n})\n"

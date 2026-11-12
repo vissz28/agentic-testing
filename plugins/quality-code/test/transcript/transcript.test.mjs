@@ -15,7 +15,7 @@ const CID = `U${'123456'}`
 const RAW = readFileSync(new URL('../fixtures/transcript/planning.vtt', import.meta.url), 'utf8').replace('{{CID}}', CID)
 const VTT = join(mkdtempSync(join(tmpdir(), 'qctf-')), 'planning.vtt')
 writeFileSync(VTT, RAW)
-const cfg = (extra = {}) => ({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ...extra })
+const cfg = (extra = {}) => ({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ...extra })
 const proj = (config = cfg()) => {
   const d = mkdtempSync(join(tmpdir(), 'qct-'))
   mkdirSync(join(d, '.claude'))

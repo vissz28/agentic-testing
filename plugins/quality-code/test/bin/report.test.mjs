@@ -23,7 +23,7 @@ const reportOf = out => JSON.parse(out.split('\n').find(l => l.startsWith('REPOR
 test('kpi --report writes the file under <ticketsDir>/reports and keeps the card', async () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-kpi-rep-'))
   mkdirSync(join(root, '.claude/quality-code/audit'), { recursive: true })
-  writeFileSync(join(root, '.claude/quality-code/audit/pipeline.jsonl'), `${JSON.stringify({ key: 'ABC-1', verdict: 'green', decidedBy: null, adapter: 'vitest', steps: [], counts: {}, date: day(10) })}\n`)
+  writeFileSync(join(root, '.claude/quality-code/audit/pipeline.jsonl'), `${JSON.stringify({ key: 'ABC-1', verdict: 'green', decidedBy: null, backend: 'vitest', steps: [], counts: {}, date: day(10) })}\n`)
   const env = { CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: join(root, '.claude-home'), QUALITY_CODE_PLACE: 'repo' }
   const r = await call(kpi, ['--report'], env)
   assert.equal(r.code, 0, r.err)
@@ -74,7 +74,7 @@ test('consumption --report writes the file and keeps the card', async () => {
 test('tickets-eval --report writes the file in <ticketsDir>/reports and keeps the card', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-te-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }))
   writeFileSync(join(d, 'list.json'), JSON.stringify([{ key: 'DEMO-1', issuetype: 'Bug', summary: 'PRIVATE words', labels: [], text: { description: 'Broken.' } }]))
   const env = { ...process.env, CLAUDE_PROJECT_DIR: d, QUALITY_CODE_PLACE: 'repo' }
   const r = spawnSync('node', [TICKET, 'tickets-eval', '--in', '@list.json', '--report'], { cwd: '/', env, encoding: 'utf8' })

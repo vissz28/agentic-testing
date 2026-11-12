@@ -8,7 +8,7 @@ import { detectConventions, flowOf, runFlow, testNameOf } from '../../lib/base/c
 import { validateConfig } from '../../lib/base/config.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
-const CFG = { version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
+const CFG = { version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
 function project(files = [], config = CFG) {
   const root = mkdtempSync(join(tmpdir(), 'qc-conv-'))
   mkdirSync(join(root, '.claude'), { recursive: true })
@@ -132,7 +132,7 @@ test('Java: a Spec suffix, a base class, AssertJ and mirrored packages are detec
   assert.ok(c.testStyle.extensions.includes('@ExtendWith(MockitoExtension)'))
   assert.equal(c.testStyle.assertions[0], 'assertj')
   assert.ok(c.testStyle.annotations.includes('@Test'))
-  const j = { adapter: 'junit', jira: CFG.jira }
+  const j = { backend: 'junit', jira: CFG.jira }
   assert.equal(runFlow(j, c), 'project', 'JUnit too follows the project when it has tests')
   assert.equal(runFlow(j, c, 'quality-code'), 'quality-code', '--style still wins')
   const f = flowJson(run(root, 'config', 'flow').stdout)

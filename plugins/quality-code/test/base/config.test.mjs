@@ -6,8 +6,8 @@ import { join } from 'node:path'
 import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf, redTagsOf, doneStatusesOf } from '../../lib/base/config.mjs'
 
 const good = {
-  version: 1,
-  adapter: 'playwright',
+  version: 2,
+  frontend: 'playwright',
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en'],
   features: [{ label: 'Orders', route: '/orders' }],
@@ -34,9 +34,10 @@ const bad = (patch, field) =>
     assert.ok(r.errors.some(e => e.startsWith(field)), `${field} not named in: ${r.errors.join(' | ')}`)
   })
 
-bad({ version: 2 }, 'version')
+bad({ version: 1 }, 'version')
 bad({ version: undefined }, 'version')
-bad({ adapter: 'jest' }, 'adapter')
+bad({ frontend: 'jest' }, 'frontend')
+bad({ adapter: 'playwright' }, 'adapter')
 bad({ jira: { ...good.jira, site: 'example.atlassian.net' } }, 'jira.site')
 bad({ jira: { ...good.jira, projects: [] } }, 'jira.projects')
 bad({ jira: { ...good.jira, projects: ['fic'] } }, 'jira.projects[0]')
@@ -68,7 +69,7 @@ test('loadConfig reads and validates the file', () => {
 test('loadConfig names a JSON syntax error', () => {
   const dir = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(dir, '.claude'))
-  writeFileSync(join(dir, '.claude/quality-code.json'), '{ "version": 1, ')
+  writeFileSync(join(dir, '.claude/quality-code.json'), '{ "version": 2, ')
   const r = loadConfig(dir)
   assert.equal(r.ok, false)
   assert.match(r.errors[0], /not valid JSON/)
@@ -165,8 +166,8 @@ test('the schema documents confluenceSpaces with the validator\'s pattern', () =
 // An empty list would build "space in ()", which Confluence rejects; leave the field out for all spaces.
 bad({ confluenceSpaces: [] }, 'confluenceSpaces')
 
-test('the short setup config: only version, adapter and Jira site and projects', () => {
-  const r = validateConfig({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } })
+test('the short setup config: only version, a side and Jira site and projects', () => {
+  const r = validateConfig({ version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.deepEqual(r.config.languages, ['en'], 'Italian is opt-in: its "e" step word read English text')
   assert.deepEqual(r.config.features, [])
@@ -184,9 +185,10 @@ test('given languages and features still win over the defaults', () => {
   assert.deepEqual(r.config.features, [{ label: 'Orders', route: '/orders' }])
   assert.equal(r.config.jira.acceptanceCriteriaField, null)
 })
-test('the schema requires only version, adapter and jira site and projects', () => {
+test('the schema requires only version, jira site and projects, and frontend or backend', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
-  assert.deepEqual(schema.required, ['version', 'adapter', 'jira'])
+  assert.deepEqual(schema.required, ['version', 'jira'])
+  assert.deepEqual(schema.anyOf, [{ required: ['frontend'] }, { required: ['backend'] }])
   assert.deepEqual(schema.properties.jira.required, ['site', 'projects'])
 })
 
@@ -221,16 +223,17 @@ test('the schema documents boundaries', () => {
   assert.ok(!schema.required.includes('boundaries'))
 })
 
-const vgood = { ...good, adapter: 'vitest' }
+const { frontend: _, ...noSide } = good
+const vgood = { ...noSide, backend: 'vitest' }
 test('vitest block: configs, tsconfig, timeout', () => {
   const r = validateConfig({ ...vgood, vitest: { configs: [{ match: 'test/integration/**', config: 'vitest.config.db.ts' }], tsconfig: 'tsconfig.test.json', timeoutSeconds: 120 } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.equal(r.config.vitest.timeoutSeconds, 120)
 })
-test('vitest block: absent stays absent; only with adapter vitest', () => {
+test('vitest block: absent stays absent; only with backend vitest', () => {
   assert.equal(validateConfig(vgood).config.vitest, undefined)
   const r = validateConfig({ ...good, vitest: {} })
-  assert.ok(r.errors.includes('vitest: only allowed with "adapter": "vitest" or "fullstack"'))
+  assert.ok(r.errors.includes('vitest: only allowed with "backend": "vitest"'))
 })
 test('vitest block: each wrong part is named', () => {
   const r = validateConfig({ ...vgood, vitest: { configs: [{ match: '../x', config: 'a.ts' }, { match: 'test/', config: '/abs.ts' }, { match: 'x' }, 'no'], tsconfig: '', timeoutSeconds: 5, extra: 1 } })
@@ -347,11 +350,11 @@ test('playwright block: configs, projects, tsconfig, timeout', () => {
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.deepEqual(r.config.playwright.projects, ['chromium', 'Mobile Safari'])
 })
-test('playwright block: absent stays absent; only with adapter playwright; not an object', () => {
+test('playwright block: absent stays absent; only with frontend playwright; not an object', () => {
   assert.equal(validateConfig(good).config.playwright, undefined)
-  assert.ok(validateConfig({ ...vgood, playwright: {} }).errors.includes('playwright: only allowed with "adapter": "playwright" or "fullstack"'))
+  assert.ok(validateConfig({ ...vgood, playwright: {} }).errors.includes('playwright: only allowed with "frontend": "playwright"'))
   for (const v of ['x', 5, null, ['a']]) assert.ok(validateConfig({ ...good, playwright: v }).errors.includes('playwright: must be an object'), JSON.stringify(v))
-  assert.ok(validateConfig({ ...good, vitest: {} }).errors.includes('vitest: only allowed with "adapter": "vitest" or "fullstack"'))
+  assert.ok(validateConfig({ ...good, vitest: {} }).errors.includes('vitest: only allowed with "backend": "vitest"'))
 })
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
@@ -425,7 +428,7 @@ test('seed block: absent gives the defaults; a valid block on any adapter', () =
   assert.deepEqual(seedOf(validateConfig(vgood).config), none)
   assert.deepEqual(seedOf(null), none)
   const block = { schema: 'prisma/schema.prisma', target: 'echo localhost:5432/app', apply: 'psql -d app -f {file}', tenant: { column: 'tenant_id', id: 't-1' }, guide: 'docs/mock.md' }
-  for (const cfg of [vgood, good, { ...good, adapter: 'pytest' }]) {
+  for (const cfg of [vgood, good, { ...noSide, backend: 'pytest' }]) {
     const v = validateConfig({ ...cfg, seed: block })
     assert.equal(v.ok, true, v.errors?.join(' | '))
     assert.deepEqual(seedOf(v.config), block)
@@ -438,16 +441,21 @@ test('seed block: the test-data printer\'s old fields are ignored, so an old con
   assert.deepEqual(seedOf(v.config), { schema: null, target: null, apply: null, tenant: null, guide: null })
 })
 test('fullstack: both blocks and sides are allowed; sides only on fullstack', () => {
-  const fs = { ...good, adapter: 'fullstack' }
+  const fs = { ...good, backend: 'vitest' }
   const r = validateConfig({ ...fs, vitest: { tsconfig: 'tsconfig.json' }, playwright: { folder: 'e2e/' }, sides: { frontend: ['FE', 'web'], backend: ['BE'] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
-  assert.deepEqual(validateConfig({ ...good, sides: { frontend: ['FE'] } }).errors, ['sides: only allowed with "adapter": "fullstack" (it tells frontend, backend and fullstack tickets apart)'])
+  assert.deepEqual(validateConfig({ ...good, sides: { frontend: ['FE'] } }).errors, ['sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)'])
   assert.deepEqual(validateConfig({ ...fs, sides: { mobile: ['MO'], backend: ['[BE]'], frontend: 'FE' } }).errors, [
     'sides.mobile: unknown field (only "frontend", "backend", "fullstack" and "default")',
     'sides.backend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
     'sides.frontend: must be a list of title prefixes or labels, like ["FE"] (no brackets)',
   ])
-  assert.deepEqual(validateConfig({ ...good, adapter: 'jest' }).errors, ['adapter: must be "playwright" (frontend), "vitest", "pytest", "junit", "go" or "dotnet" (backend) or "fullstack" (both) (found "jest")'])
+  assert.deepEqual(validateConfig({ ...good, frontend: 'jest' }).errors, ['frontend: must be "playwright" (found "jest")'])
+  assert.deepEqual(validateConfig({ ...noSide, backend: 'jest' }).errors, ['backend: must be "vitest", "pytest", "junit", "go" or "dotnet" (found "jest")'])
+  assert.deepEqual(validateConfig(noSide).errors, ['frontend, backend: set one or both: "frontend": "playwright" (e2e tests of screens), "backend": "vitest", "pytest", "junit", "go" or "dotnet" (tests of the code)'])
+  assert.deepEqual(validateConfig({ ...noSide, version: 1, adapter: 'fullstack' }).errors, ['adapter: replaced by "frontend" and "backend" (like "frontend": "playwright", "backend": "vitest"): re-run /quality-code:setup', 'version: must be 2 (found 1); re-run /quality-code:setup'])
+  assert.equal(validateConfig(fs).config.adapter, 'fullstack', 'the side the code runs, from the two fields')
+  assert.equal(validateConfig(vgood).config.adapter, 'vitest')
 })
 test('git.base: a branch name, optional; the config keeps it as given', () => {
   assert.equal(validateConfig({ ...good, git: { base: 'develop' } }).ok, true)
@@ -524,7 +532,8 @@ test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
 
 test('the schema knows every top-level field the validator takes, fullstack included', () => {
   const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
-  assert.deepEqual(schema.properties.adapter.enum, ['playwright', 'vitest', 'pytest', 'junit', 'go', 'dotnet', 'fullstack'])
+  assert.equal(schema.properties.frontend.const, 'playwright')
+  assert.equal(schema.properties.adapter, undefined)
   assert.deepEqual(schema.properties.backend.enum, ['vitest', 'pytest', 'junit', 'go', 'dotnet'])
   for (const f of ['sides', 'qaPlans', 'xray', 'git', 'backend', 'pytest', 'junit', 'go', 'dotnet']) assert.ok(schema.properties[f], f)
   for (const b of ['pytest', 'junit', 'go', 'dotnet']) assert.deepEqual(Object.keys(schema.properties[b].properties), ['layers', 'timeoutSeconds', 'command', ...(b === 'pytest' ? ['typeCheck'] : [])], b)
@@ -536,8 +545,8 @@ test('the schema knows every top-level field the validator takes, fullstack incl
 test('xray: Playwright or fullstack only, a .csv, a folder outside the boundaries, known columns with distinct headers', () => {
   const x = { csv: 'qa/cases.csv' }
   assert.equal(validateConfig({ ...good, xray: x }).ok, true)
-  assert.equal(validateConfig({ ...good, adapter: 'fullstack', xray: { ...x, folder: 'e2e/tickets/', headers: { action: 'Azione', data: 'Dati' } } }).ok, true)
-  assert.deepEqual(validateConfig({ ...vgood, xray: x }).errors, ['xray: only allowed with "adapter": "playwright" or "fullstack" (Xray test cases are written for Playwright tests)'])
+  assert.equal(validateConfig({ ...good, backend: 'vitest', xray: { ...x, folder: 'e2e/tickets/', headers: { action: 'Azione', data: 'Dati' } } }).ok, true)
+  assert.deepEqual(validateConfig({ ...vgood, xray: x }).errors, ['xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)'])
   assert.deepEqual(validateConfig({ ...good, xray: [] }).errors, ['xray: must be an object with "csv" and optional "folder" and "headers"'])
   assert.deepEqual(validateConfig({ ...good, xray: { csv: 'cases.xlsx', more: 1 } }).errors, ['xray.more: unknown field (only "csv", "folder" and "headers")', 'xray.csv "cases.xlsx" must be a relative path to a .csv file inside the project'])
   assert.deepEqual(validateConfig({ ...good, xray: { csv: '../cases.csv' } }).errors, ['xray.csv "../cases.csv" must be a relative path to a .csv file inside the project'])
@@ -560,7 +569,7 @@ test('vitest.stryker.timeoutSeconds: 60 to 7200, default 1800', async () => {
 })
 
 test('$schema is accepted; git.base; ticketsDir stays inside and drops ./; jira.site may end in / or have a path', () => {
-  const b = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net/', projects: ['ABC'] } }
+  const b = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net/', projects: ['ABC'] } }
   const r = validateConfig({ ...b, $schema: './node_modules/x/schema.json', git: { base: 'develop' }, ticketsDir: './qa/tickets' })
   assert.equal(r.ok, true, r.errors?.join('\n'))
   assert.equal(r.config.jira.site, 'https://x.atlassian.net')
@@ -571,7 +580,7 @@ test('$schema is accepted; git.base; ticketsDir stays inside and drops ./; jira.
 })
 
 test('centralContext: an object with hub, a base URL or "off"; nothing else; optional', () => {
-  const base = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const base = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
   const ok = v => validateConfig({ ...base, centralContext: v })
   assert.equal(ok({ hub: 'http://localhost:8080' }).ok, true)
   assert.equal(ok({ hub: 'https://hub.teamsystem.com/' }).ok, true)
@@ -591,7 +600,7 @@ test('centralContext: an object with hub, a base URL or "off"; nothing else; opt
 })
 
 test('centralContext.local: a folder inside the project, ending with /', () => {
-  const base = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const base = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
   const ok = v => validateConfig({ ...base, centralContext: { hub: 'off', local: v } })
   assert.equal(ok('.claude/quality-code/rules/').ok, true)
   for (const bad of ['rules', '/abs/rules/', '../up/', '']) assert.match(ok(bad).errors[0], /^centralContext\.local .* must be a folder inside the project, ending with "\/"/, bad)

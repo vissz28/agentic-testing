@@ -7,11 +7,15 @@ import { join } from 'node:path'
 import { evalTickets, formatCard } from '../lib/ticket/batch.mjs'
 import { buildBrief } from '../lib/ticket/score.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
+import { sides } from './config-fields.mjs'
+import { validateConfig } from '../lib/base/config.mjs'
 
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const cfg = (adapter = 'vitest', extra = {}) => ({
-  version: 1, adapter, jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ...extra,
+  version: 2, ...sides(adapter), jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ...extra,
 })
+// The config as the scripts get it from the file.
+const loaded = (...a) => validateConfig(cfg(...a)).config
 const proj = (config = cfg()) => {
   const d = mkdtempSync(join(tmpdir(), 'qcb-'))
   mkdirSync(join(d, '.claude'))
@@ -39,7 +43,7 @@ const good = key => raw(key, GOOD, { attachments: 1, links: [{ url: 'https://jir
 const thin = key => raw(key, 'Broken.')
 
 test('a thin ticket is refused and a well-written one passes, each scored like cli score', () => {
-  const config = cfg()
+  const config = loaded()
   const r = evalTickets(config, [good('ABC-1'), thin('ABC-2')])
   const by = Object.fromEntries(r.rows.map(x => [x.key, x]))
   assert.equal(by['ABC-2'].gate, 'refuse')
@@ -53,16 +57,16 @@ test('a thin ticket is refused and a well-written one passes, each scored like c
   assert.ok(by['ABC-1'].score > by['ABC-2'].score)
 })
 test('rows are sorted lowest score first, ties by key', () => {
-  const r = evalTickets(cfg(), [good('ABC-3'), thin('ABC-9'), thin('ABC-10'), good('ABC-1')])
+  const r = evalTickets(loaded(), [good('ABC-3'), thin('ABC-9'), thin('ABC-10'), good('ABC-1')])
   assert.deepEqual(r.rows.map(x => x.key), ['ABC-9', 'ABC-10', 'ABC-1', 'ABC-3'])
 })
 test('a legacy ticket (prose, no Gherkin) is flagged legacy', () => {
-  const r = evalTickets(cfg(), [raw('ABC-4', 'The export should download a file when the user clicks the button and show a message when there are no orders.')])
+  const r = evalTickets(loaded(), [raw('ABC-4', 'The export should download a file when the user clicks the button and show a message when there are no orders.')])
   assert.equal(typeof r.rows[0].legacy, 'boolean')
-  assert.equal(r.rows[0].score, buildBrief(cfg(), sanitizeTicket(cfg(), raw('ABC-4', 'The export should download a file when the user clicks the button and show a message when there are no orders.'))).score)
+  assert.equal(r.rows[0].score, buildBrief(loaded(), sanitizeTicket(loaded(), raw('ABC-4', 'The export should download a file when the user clicks the button and show a message when there are no orders.'))).score)
 })
 test('fullstack: both sides are scored and the lower decides', () => {
-  const config = cfg('fullstack')
+  const config = loaded('fullstack')
   const t = good('ABC-5')
   const row = evalTickets(config, [t]).rows[0]
   const b = buildBrief(config, sanitizeTicket(config, t))
@@ -70,16 +74,16 @@ test('fullstack: both sides are scored and the lower decides', () => {
   if (b.sides) assert.equal(row.score, Math.min(...Object.values(b.sides).map(s => s.score)))
 })
 test('summary: passing count and rounded percent, rounded average', () => {
-  const s = evalTickets(cfg(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).summary
+  const s = evalTickets(loaded(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).summary
   assert.equal(s.scored, 3)
-  const passing = evalTickets(cfg(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).rows.filter(r => r.gate === 'pass').length
+  const passing = evalTickets(loaded(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).rows.filter(r => r.gate === 'pass').length
   assert.equal(s.passing, passing)
   assert.equal(s.passingPercent, Math.round((passing / 3) * 100))
-  const scores = evalTickets(cfg(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).rows.map(r => r.score)
+  const scores = evalTickets(loaded(), [good('ABC-1'), thin('ABC-2'), thin('ABC-3')]).rows.map(r => r.score)
   assert.equal(s.average, Math.round(scores.reduce((a, b) => a + b, 0) / 3))
 })
 test('summary: top-3 missing items by count, ties broken by name, at most 3', () => {
-  const s = evalTickets(cfg(), [thin('ABC-1'), thin('ABC-2'), good('ABC-3')]).summary
+  const s = evalTickets(loaded(), [thin('ABC-1'), thin('ABC-2'), good('ABC-3')]).summary
   assert.ok(s.mostMissing.length <= 3 && s.mostMissing.length >= 1)
   for (let i = 1; i < s.mostMissing.length; i++) {
     const a = s.mostMissing[i - 1], b = s.mostMissing[i]
@@ -88,12 +92,12 @@ test('summary: top-3 missing items by count, ties broken by name, at most 3', ()
   assert.equal(s.mostMissing[0].tickets, 2)
 })
 test('an empty list gives an empty summary without dividing by zero', () => {
-  const r = evalTickets(cfg(), [])
+  const r = evalTickets(loaded(), [])
   assert.deepEqual(r.summary, { scored: 0, passing: 0, passingPercent: 0, average: 0, mostMissing: [], unreadFiles: 0, byTeam: [] })
   assert.equal(formatCard(r), 'No tickets to score.')
 })
 test('the card: one line per ticket, then the project lines', () => {
-  const card = formatCard(evalTickets(cfg(), [good('ABC-1'), thin('ABC-2')]))
+  const card = formatCard(evalTickets(loaded(), [good('ABC-1'), thin('ABC-2')]))
   const lines = card.split('\n')
   assert.match(lines[0], /^ABC-2 · \d+\/100 · refuse · missing: .+/)
   assert.match(lines[1], /^ABC-1 · \d+\/100 · (pass|refuse)/)
@@ -104,7 +108,7 @@ test('the card: one line per ticket, then the project lines', () => {
 })
 test('customer ids are redacted before scoring and never reach the output', () => {
   const id = `U${'7'.repeat(7)}`
-  const r = evalTickets(cfg('vitest', { redact: { customerId: '\\bU\\d{5,}\\b' } }), [raw('ABC-1', `Customer ${id} cannot export.`)])
+  const r = evalTickets(loaded('vitest', { redact: { customerId: '\\bU\\d{5,}\\b' } }), [raw('ABC-1', `Customer ${id} cannot export.`)])
   assert.ok(!JSON.stringify(r).includes(id))
 })
 

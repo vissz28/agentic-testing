@@ -28,6 +28,6 @@ export function install({ folder = null, config = null } = {}) {
 }
 
 export const CONFIG = {
-  version: 1, adapter: 'vitest',
+  version: 2, backend: 'vitest',
   jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null },
 }

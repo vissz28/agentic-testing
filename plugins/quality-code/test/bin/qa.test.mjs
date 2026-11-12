@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { pickTransition, pickXray, runsJql, stopCheck, main } from '../../bin/qa.mjs'
 import { qaOf, validateConfig } from '../../lib/base/config.mjs'
 
-const BASE = { version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['AB'] } }
+const BASE = { version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['AB'] } }
 function project(qa) {
   const root = mkdtempSync(join(tmpdir(), 'qc-qa-'))
   mkdirSync(join(root, '.claude'))

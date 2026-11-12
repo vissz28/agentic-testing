@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { SMOKE_TEXT, detect, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../bin/setup.mjs'
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
+import { validateConfig } from '../../lib/base/config.mjs'
 import { filesOf } from '../../lib/base/containers.mjs'
 import { audit } from '../../lib/base/audit.mjs'
 import { logBlocked } from '../../lib/base/boundary.mjs'
@@ -18,16 +19,18 @@ import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const SETUP = join(dirname(fileURLToPath(import.meta.url)), '../../bin/setup.mjs')
 const repo = pkg => { const d = mkdtempSync(join(tmpdir(), 'at-')); writeFileSync(join(d, 'package.json'), JSON.stringify(pkg)); return d }
-const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+/** The two sides a detection proposes. */
+const sidesOf = r => [r.frontend, r.backend]
+const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 const LINE = '.quality-code/tickets/*/raw.json'
 const cli = (d, ...args) => spawnSync(process.execPath, [SETUP, ...args], { cwd: d, env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
 
 test('detects the stack', () => {
-  assert.equal(detect(repo({ devDependencies: { '@playwright/test': '1' } })).adapter, 'playwright')
-  assert.equal(detect(repo({ devDependencies: { vitest: '1' } })).adapter, 'vitest')
-  assert.equal(detect(repo({ devDependencies: { vitest: '1', '@playwright/test': '1' } })).adapter, 'both')
-  assert.equal(detect(repo({})).adapter, null)
-  assert.equal(detect(mkdtempSync(join(tmpdir(), 'at-'))).adapter, null)
+  assert.deepEqual(sidesOf(detect(repo({ devDependencies: { '@playwright/test': '1' } }))), ['playwright', null])
+  assert.deepEqual(sidesOf(detect(repo({ devDependencies: { vitest: '1' } }))), [null, 'vitest'])
+  assert.deepEqual(sidesOf(detect(repo({ devDependencies: { vitest: '1', '@playwright/test': '1' } }))), ['playwright', 'vitest'])
+  assert.deepEqual(sidesOf(detect(repo({}))), [null, null])
+  assert.deepEqual(sidesOf(detect(mkdtempSync(join(tmpdir(), 'at-')))), [null, null])
 })
 test('detects the backend of every stack, alone or with Playwright', () => {
   const dir = files => {
@@ -35,25 +38,25 @@ test('detects the backend of every stack, alone or with Playwright', () => {
     for (const [p, s] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
     return d
   }
-  const pick = d => { const r = detect(d); return [r.adapter, r.backend] }
-  assert.deepEqual(pick(dir({ 'pyproject.toml': '[tool.pytest.ini_options]\naddopts = "-q"\n' })), ['pytest', 'pytest'])
-  assert.deepEqual(pick(dir({ 'pytest.ini': '' })), ['pytest', 'pytest'])
-  assert.deepEqual(pick(dir({ 'requirements-dev.txt': 'pytest==8.0\n' })), ['pytest', 'pytest'])
-  assert.deepEqual(pick(dir({ 'tox.ini': '[testenv]\ncommands = pytest\n' })), ['pytest', 'pytest'])
+  const pick = d => sidesOf(detect(d))
+  assert.deepEqual(pick(dir({ 'pyproject.toml': '[tool.pytest.ini_options]\naddopts = "-q"\n' })), [null, 'pytest'])
+  assert.deepEqual(pick(dir({ 'pytest.ini': '' })), [null, 'pytest'])
+  assert.deepEqual(pick(dir({ 'requirements-dev.txt': 'pytest==8.0\n' })), [null, 'pytest'])
+  assert.deepEqual(pick(dir({ 'tox.ini': '[testenv]\ncommands = pytest\n' })), [null, 'pytest'])
   assert.deepEqual(pick(dir({ 'requirements.txt': 'flask\n' })), [null, null], 'Python without pytest is no backend yet')
-  assert.deepEqual(pick(dir({ 'pom.xml': '<project/>' })), ['junit', 'junit'])
-  assert.deepEqual(pick(dir({ 'build.gradle.kts': '' })), ['junit', 'junit'])
-  assert.deepEqual(pick(dir({ 'go.mod': 'module example.com/demo\n' })), ['go', 'go'])
-  assert.deepEqual(pick(dir({ 'Demo.sln': '' })), ['dotnet', 'dotnet'])
+  assert.deepEqual(pick(dir({ 'pom.xml': '<project/>' })), [null, 'junit'])
+  assert.deepEqual(pick(dir({ 'build.gradle.kts': '' })), [null, 'junit'])
+  assert.deepEqual(pick(dir({ 'go.mod': 'module example.com/demo\n' })), [null, 'go'])
+  assert.deepEqual(pick(dir({ 'Demo.sln': '' })), [null, 'dotnet'])
   assert.deepEqual(pick(dir({ 'src/Demo.Api/Demo.Api.csproj': '' })), [null, null], 'two folders down is too deep')
-  assert.deepEqual(pick(dir({ 'Demo.Api/Demo.Api.csproj': '' })), ['dotnet', 'dotnet'])
+  assert.deepEqual(pick(dir({ 'Demo.Api/Demo.Api.csproj': '' })), [null, 'dotnet'])
   const pw = JSON.stringify({ devDependencies: { '@playwright/test': '1' } })
-  assert.deepEqual(pick(dir({ 'package.json': pw, 'go.mod': 'module demo\n' })), ['both', 'go'])
-  assert.deepEqual(pick(dir({ 'package.json': pw, 'pytest.ini': '' })), ['both', 'pytest'])
-  assert.deepEqual(pick(dir({ 'package.json': JSON.stringify({ devDependencies: { vitest: '1', '@playwright/test': '1' } }) })), ['both', 'vitest'])
+  assert.deepEqual(pick(dir({ 'package.json': pw, 'go.mod': 'module demo\n' })), ['playwright', 'go'])
+  assert.deepEqual(pick(dir({ 'package.json': pw, 'pytest.ini': '' })), ['playwright', 'pytest'])
+  assert.deepEqual(pick(dir({ 'package.json': JSON.stringify({ devDependencies: { vitest: '1', '@playwright/test': '1' } }) })), ['playwright', 'vitest'])
   // Vitest first, then the others in the order of the spec; every one found is listed.
   const many = detect(dir({ 'package.json': JSON.stringify({ devDependencies: { vitest: '1' } }), 'go.mod': 'module demo\n', 'pom.xml': '<project/>' }))
-  assert.deepEqual([many.adapter, many.backend, many.backends], ['vitest', 'vitest', ['vitest', 'junit', 'go']])
+  assert.deepEqual([...sidesOf(many), many.backends], [null, 'vitest', ['vitest', 'junit', 'go']])
 })
 test('finds GitLab templates', () => {
   const d = repo({}); mkdirSync(join(d, '.gitlab/issue_templates'), { recursive: true })
@@ -155,7 +158,7 @@ test('CLI --detect prints one SETUP_JSON line and exits 0', () => {
   assert.equal(r.status, 0)
   const lines = r.stdout.trimEnd().split('\n')
   assert.equal(lines.length, 1)
-  assert.equal(JSON.parse(lines[0].replace(/^SETUP_JSON:/, '')).adapter, 'vitest')
+  assert.deepEqual(sidesOf(JSON.parse(lines[0].replace(/^SETUP_JSON:/, ''))), [null, 'vitest'])
 })
 test('CLI --write @file writes and prints ok', () => {
   const d = repo({})
@@ -167,7 +170,7 @@ test('CLI --write @file writes and prints ok', () => {
 })
 test('CLI --write prints each error on its own line, exits 2, writes nothing', () => {
   const d = repo({})
-  writeFileSync(join(d, 'p.json'), JSON.stringify({ config: { ...cfg, languages: [], adapter: 'x' } }))
+  writeFileSync(join(d, 'p.json'), JSON.stringify({ config: { ...cfg, languages: [], backend: 'x' } }))
   const r = cli(d, '--write', '@p.json')
   assert.equal(r.status, 2)
   assert.equal(r.stdout.trimEnd().split('\n').length >= 2, true)
@@ -263,7 +266,7 @@ test('CLI --write takes the proposal inline, no temp file', () => {
   const d = repo({})
   const r = cli(d, '--write', JSON.stringify({ config: cfg }))
   assert.equal(r.stdout, 'ok\n')
-  assert.equal(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).adapter, 'vitest')
+  assert.equal(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')).backend, 'vitest')
   assert.equal(cli(d, '--write', '{nope').status, 2)
 })
 test('detect: a vite.config with a test block is a Vitest config; a ./ ticketsDir folder ignores itself', () => {
@@ -368,7 +371,7 @@ test('detect: Playwright configs at the root or up to two folders down, with the
   mkdirSync(join(d, 'node_modules/x'), { recursive: true })
   writeFileSync(join(d, 'node_modules/x/playwright.config.ts'), "export default { testDir: 'nope' }\n")
   const r = detect(d)
-  assert.equal(r.adapter, 'both')
+  assert.ok(r.frontend && r.backend, 'both')
   assert.deepEqual(r.playwrightConfigs, [{ config: 'e2e/playwright.config.ts', folder: 'e2e/tests/' }])
   writeFileSync(join(d, 'playwright.config.ts'), 'export default { testDir: path.join(__dirname, "t") }\n')
   assert.deepEqual(detect(d).playwrightConfigs.map(c => [c.config, c.folder]), [['playwright.config.ts', null], ['e2e/playwright.config.ts', 'e2e/tests/']])
@@ -423,13 +426,16 @@ test('the proposed base is written as git.base', () => {
 })
 
 // A frontend with no Playwright: setup offers to add it, and a smoke test proves the setup works.
-const pwCfg = { ...cfg, adapter: 'playwright' }
+const { backend: _, ...noSide } = cfg
+const pwCfg = { ...noSide, frontend: 'playwright' }
+// What the scripts get from the file: the config loaded, as smoke and the e2e folder read it.
+const pwLoaded = validateConfig(pwCfg).config
 const SCAFFOLD = { command: 'npm run dev', url: 'http://localhost:5173', signIn: false }
 const SMOKE = 'e2e/smoke.spec.js'
 
 test('detect: a frontend with no test runner gets a scaffold; a backend or a Playwright config gets none', () => {
   const vite = repo({ scripts: { dev: 'vite --port 3000 --strictPort' }, dependencies: { react: '19' } })
-  assert.equal(detect(vite).adapter, null)
+  assert.deepEqual(sidesOf(detect(vite)), [null, null])
   assert.deepEqual(detect(vite).scaffold, { install: 'npm install --save-dev @playwright/test', browsers: 'npx playwright install chromium', command: 'npm run dev', url: 'http://localhost:3000', files: ['playwright.config.js', 'e2e/smoke.spec.js'] })
   assert.equal(detect(repo({ dependencies: { express: '5' }, scripts: { dev: 'node server.js' } })).scaffold, null, 'a backend')
   const plain = repo({ scripts: { dev: 'serve' } })
@@ -489,7 +495,7 @@ test('write with a scaffold: the Playwright config from the command and address,
   const gi = readFileSync(join(d, '.gitignore'), 'utf8').split('\n')
   assert.ok(gi.includes('test-results/') && gi.includes('playwright-report/'))
   assert.ok(!gi.includes('.env.e2e'))
-  assert.deepEqual(e2eFolder(d, pwCfg), { ok: true, folder: 'e2e/', source: 'testDir', configFile: 'playwright.config.js' }, 'the plugin reads its testDir')
+  assert.deepEqual(e2eFolder(d, pwLoaded), { ok: true, folder: 'e2e/', source: 'testDir', configFile: 'playwright.config.js' }, 'the plugin reads its testDir')
   assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')), pwCfg)
 })
 test('write with a sign-in: a setup project every test depends on; its state and .env.e2e are git-ignored', () => {
@@ -523,7 +529,7 @@ test('write refuses a scaffold over an existing config, a bad command, address o
     ['an address that is no URL', pwCfg, { ...SCAFFOLD, url: 'localhost:3000' }, /scaffold\.url/],
     ['signIn', pwCfg, { ...SCAFFOLD, signIn: 'yes' }, /scaffold\.signIn/],
     ['no object', pwCfg, null, /scaffold: must be an object/],
-    ['a backend', cfg, SCAFFOLD, /only for "adapter": "playwright" or "fullstack"/],
+    ['a backend', cfg, SCAFFOLD, /only for "frontend": "playwright"/],
   ]) {
     const d = repo({})
     prep(d)
@@ -554,32 +560,32 @@ const ran = (tests, broken = []) => async () => ({ ran: true, tests, broken })
 
 test('smoke: ok, the app down, a file that does not load, the sign-in, no signed-in state, a red or skipped smoke test', async () => {
   const d = smokeRepo()
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([PASS]) }), { code: 0, line: 'ok: the app opens' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: async () => ({ ran: false, tests: [], error: 'Error: Process from config.webServer was not able to start. Exit code: 1' }) }),
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([PASS]) }), { code: 0, line: 'ok: the app opens' })
+  assert.deepEqual(await smoke(d, pwLoaded, { run: async () => ({ ran: false, tests: [], error: 'Error: Process from config.webServer was not able to start. Exit code: 1' }) }),
     { code: 1, line: 'The app did not open: Process from config.webServer was not able to start. Exit code: 1' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([], [{ file: 'e2e/auth.setup.js', message: 'SyntaxError: Unexpected token' }]) }),
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([], [{ file: 'e2e/auth.setup.js', message: 'SyntaxError: Unexpected token' }]) }),
     { code: 1, line: 'e2e/auth.setup.js does not load: SyntaxError: Unexpected token' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([{ file: 'e2e/auth.setup.js', title: 'sign in', status: 'failed', message: 'Error: Set E2E_USERNAME and E2E_PASSWORD in .env.e2e' }, { ...PASS, status: 'skipped' }]) }),
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([{ file: 'e2e/auth.setup.js', title: 'sign in', status: 'failed', message: 'Error: Set E2E_USERNAME and E2E_PASSWORD in .env.e2e' }, { ...PASS, status: 'skipped' }]) }),
     { code: 1, line: 'The sign-in failed (e2e/auth.setup.js): Set E2E_USERNAME and E2E_PASSWORD in .env.e2e' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([{ ...PASS, status: 'failed', message: 'Error reading storage state from playwright/.auth/user.json:' }]) }),
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([{ ...PASS, status: 'failed', message: 'Error reading storage state from playwright/.auth/user.json:' }]) }),
     { code: 1, line: 'The smoke test found no signed-in state: the sign-in (e2e/auth.setup.js) is missing, or it does not save playwright/.auth/user.json' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([{ ...PASS, status: 'failed', message: 'Error: the app should open past its sign-in page' }]) }),
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([{ ...PASS, status: 'failed', message: 'Error: the app should open past its sign-in page' }]) }),
     { code: 1, line: 'The smoke test failed: the app should open past its sign-in page' })
-  assert.deepEqual(await smoke(d, pwCfg, { run: ran([{ ...PASS, status: 'skipped' }]) }), { code: 1, line: 'The smoke test did not run: check the projects in the Playwright config' })
+  assert.deepEqual(await smoke(d, pwLoaded, { run: ran([{ ...PASS, status: 'skipped' }]) }), { code: 1, line: 'The smoke test did not run: check the projects in the Playwright config' })
 })
 test('smoke --if-first runs only while the smoke test is the only frontend spec; no smoke test, nothing to run', async () => {
   let n = 0
   const run = async () => { n++; return { ran: true, tests: [PASS], broken: [] } }
   const d = smokeRepo()
-  assert.equal((await smoke(d, pwCfg, { ifFirst: true, run })).code, 0)
+  assert.equal((await smoke(d, pwLoaded, { ifFirst: true, run })).code, 0)
   assert.equal(n, 1)
   writeFileSync(join(d, 'e2e/orders.abc-1.spec.js'), '')
-  assert.deepEqual(await smoke(d, pwCfg, { ifFirst: true, run }), { code: 0, line: 'skip: the e2e folder has other specs' })
+  assert.deepEqual(await smoke(d, pwLoaded, { ifFirst: true, run }), { code: 0, line: 'skip: the e2e folder has other specs' })
   assert.equal(n, 1)
-  assert.equal((await smoke(d, pwCfg, { run })).code, 0, 'without --if-first it runs')
+  assert.equal((await smoke(d, pwLoaded, { run })).code, 0, 'without --if-first it runs')
   assert.equal(n, 2)
-  assert.deepEqual(await smoke(repo({}), pwCfg, { run }), { code: 0, line: 'skip: no smoke test in the e2e folder' })
-  assert.equal((await smoke(repo({}), cfg, { run })).code, 2, 'a backend project has no e2e folder')
+  assert.deepEqual(await smoke(repo({}), pwLoaded, { run }), { code: 0, line: 'skip: no smoke test in the e2e folder' })
+  assert.equal((await smoke(repo({}), validateConfig(cfg).config, { run })).code, 2, 'a backend project has no e2e folder')
 })
 test('CLI --smoke runs the project\'s Playwright on the smoke test: exit 0, or 1 with the reason; 2 without a config', () => {
   const d = smokeRepo()
@@ -600,7 +606,7 @@ test('CLI --smoke runs the project\'s Playwright on the smoke test: exit 0, or 1
 
 test('detect: a frontend with Vitest and a script that serves it gets a scaffold; a UI library tested with Vitest alone does not', () => {
   const app = repo({ scripts: { dev: 'vite', test: 'vitest run' }, dependencies: { react: '19' }, devDependencies: { vitest: '3' } })
-  assert.equal(detect(app).adapter, 'vitest')
+  assert.deepEqual(sidesOf(detect(app)), [null, 'vitest'])
   assert.deepEqual([detect(app).scaffold.install, detect(app).scaffold.url], ['npm install --save-dev @playwright/test', 'http://localhost:5173'])
   assert.equal(detect(repo({ scripts: { build: 'vite build', test: 'vitest run' }, peerDependencies: { react: '19' }, devDependencies: { vitest: '3', react: '19' } })).scaffold, null, 'a UI library')
   assert.equal(detect(repo({ scripts: { dev: 'tsx watch src/server.ts' }, devDependencies: { vitest: '3' } })).scaffold, null, 'a backend with Vitest')
@@ -621,7 +627,7 @@ test('unitOverlap (Vitest): the e2e specs the project\'s own Vitest lists, from 
 })
 test('CLI --unit-overlap (Vitest): exit 0 when Vitest leaves the e2e folder alone, 1 with the specs it would run, 2 when it cannot tell', () => {
   const d = repo({})
-  assert.equal(write(d, { ...cfg, adapter: 'fullstack' }, { scaffold: SCAFFOLD }).ok, true)
+  assert.equal(write(d, { ...cfg, frontend: 'playwright' }, { scaffold: SCAFFOLD }).ok, true)
   const real = realpathSync(d)
   fakeBin(d, 'vitest', { stdout: JSON.stringify([{ file: join(real, 'src/sum.test.js') }, { file: join(real, SMOKE) }]) })
   let r = cli(d, '--unit-overlap')
@@ -636,20 +642,20 @@ test('CLI --unit-overlap (Vitest): exit 0 when Vitest leaves the e2e folder alon
 
 // Another runner: the repo keeps its own, and the config names it.
 test('detect: Jest, Mocha and Cypress are the repo\'s own runners, named in runners; Vitest and Playwright are the default', () => {
-  const r = deps => { const x = detect(repo({ devDependencies: deps })); return [x.adapter, x.runners] }
-  assert.deepEqual(r({ jest: '30' }), ['vitest', { unit: 'jest' }])
-  assert.deepEqual(r({ mocha: '12', chai: '5' }), ['vitest', { unit: 'mocha' }])
-  assert.deepEqual(r({ cypress: '16' }), ['playwright', { e2e: 'cypress' }])
-  assert.deepEqual(r({ jest: '30', cypress: '16' }), ['both', { unit: 'jest', e2e: 'cypress' }])
-  assert.deepEqual(r({ vitest: '3', jest: '30', '@playwright/test': '1' }), ['both', {}], 'Vitest and Playwright win')
-  assert.deepEqual(r({}), [null, {}])
+  const r = deps => { const x = detect(repo({ devDependencies: deps })); return [...sidesOf(x), x.runners] }
+  assert.deepEqual(r({ jest: '30' }), [null, 'vitest', { unit: 'jest' }])
+  assert.deepEqual(r({ mocha: '12', chai: '5' }), [null, 'vitest', { unit: 'mocha' }])
+  assert.deepEqual(r({ cypress: '16' }), ['playwright', null, { e2e: 'cypress' }])
+  assert.deepEqual(r({ jest: '30', cypress: '16' }), ['playwright', 'vitest', { unit: 'jest', e2e: 'cypress' }])
+  assert.deepEqual(r({ vitest: '3', jest: '30', '@playwright/test': '1' }), ['playwright', 'vitest', {}], 'Vitest and Playwright win')
+  assert.deepEqual(r({}), [null, null, {}])
 })
 test('detect: a non-JavaScript backend with Cypress names only the e2e runner; Jest beside pytest makes the JavaScript side the backend', () => {
   const d = (pkg, files) => { const x = repo(pkg); for (const [p, t] of Object.entries(files)) writeFileSync(join(x, p), t); return x }
   const pyCy = detect(d({ devDependencies: { cypress: '16' } }, { 'pytest.ini': '' }))
-  assert.deepEqual([pyCy.adapter, pyCy.backend, pyCy.runners], ['both', 'pytest', { e2e: 'cypress' }])
+  assert.deepEqual([...sidesOf(pyCy), pyCy.runners], ['playwright', 'pytest', { e2e: 'cypress' }])
   const jestPy = detect(d({ devDependencies: { jest: '30' } }, { 'pytest.ini': '' }))
-  assert.deepEqual([jestPy.adapter, jestPy.backend, jestPy.backends, jestPy.runners], ['vitest', 'vitest', ['vitest', 'pytest'], { unit: 'jest' }])
+  assert.deepEqual([...sidesOf(jestPy), jestPy.backends, jestPy.runners], [null, 'vitest', ['vitest', 'pytest'], { unit: 'jest' }])
 })
 test('detect: a frontend that runs Cypress keeps it, so setup offers no Playwright; a Jest frontend is offered it next to Jest', () => {
   assert.equal(detect(repo({ scripts: { dev: 'vite' }, dependencies: { react: '19' }, devDependencies: { cypress: '16' } })).scaffold, null)
@@ -657,7 +663,7 @@ test('detect: a frontend that runs Cypress keeps it, so setup offers no Playwrig
 })
 test('write refuses a Playwright scaffold in a project whose e2e runner is Cypress', () => {
   const d = repo({})
-  const r = write(d, { ...cfg, adapter: 'playwright', runners: { e2e: 'cypress' } }, { scaffold: SCAFFOLD })
+  const r = write(d, { ...noSide, frontend: 'playwright', runners: { e2e: 'cypress' } }, { scaffold: SCAFFOLD })
   assert.equal(r.ok, false)
   assert.match(r.errors.join('\n'), /sets up Playwright, and this project's e2e runner is cypress/)
 })
@@ -668,12 +674,12 @@ test('unitOverlap (Jest): the e2e specs Jest lists; Mocha is taken to leave the 
   assert.deepEqual(unitOverlap(d, 'e2e/', 'jest'), { files: ['e2e/smoke.spec.js'] })
   assert.deepEqual(calls(d, 'jest')[0], ['--listTests', '--json'])
   assert.deepEqual(unitOverlap(d, 'e2e/', 'mocha'), { files: [] })
-  assert.equal(write(d, { ...cfg, adapter: 'fullstack', runners: { unit: 'jest' } }, { scaffold: SCAFFOLD }).ok, true)
+  assert.equal(write(d, { ...cfg, frontend: 'playwright', runners: { unit: 'jest' } }, { scaffold: SCAFFOLD }).ok, true)
   const r = cli(d, '--unit-overlap')
   assert.deepEqual([r.status, r.stdout], [1, 'Jest also runs 1 spec(s) in e2e/, and fails on them:\n  e2e/smoke.spec.js\n'])
 })
 test('detect: a script that runs node --test names Node\'s own runner; a runner in the dependencies wins', () => {
-  assert.deepEqual([detect(repo({ scripts: { test: 'node --test' } })).adapter, detect(repo({ scripts: { test: 'node --test' } })).runners], ['vitest', { unit: 'node' }])
+  assert.deepEqual([...sidesOf(detect(repo({ scripts: { test: 'node --test' } }))), detect(repo({ scripts: { test: 'node --test' } })).runners], [null, 'vitest', { unit: 'node' }])
   assert.deepEqual(detect(repo({ scripts: { test: 'npm run build && node --import tsx --test src/' } })).runners, { unit: 'node' })
   assert.deepEqual(detect(repo({ scripts: { test: 'node --test' }, devDependencies: { jest: '30' } })).runners, { unit: 'jest' })
   assert.deepEqual(detect(repo({ scripts: { start: 'node server.js', lint: 'eslint --test-mode' } })).runners, {}, 'no node --test')
@@ -682,7 +688,7 @@ test('detect: a script that runs node --test names Node\'s own runner; a runner 
 test('detect: a repo with no test runner that is not a frontend alone gets Vitest; a frontend with its server gets both', () => {
   const nest = repo({ dependencies: { '@nestjs/core': '11' }, scripts: { start: 'nest start' } })
   writeFileSync(join(nest, 'tsconfig.json'), '{}')
-  assert.equal(detect(nest).adapter, null)
+  assert.deepEqual(sidesOf(detect(nest)), [null, null])
   assert.deepEqual(detect(nest).vitestScaffold, { install: 'npm install --save-dev vitest', files: ['vitest.config.ts'] })
   assert.equal(detect(nest).scaffold, null, 'a backend gets no Playwright')
   assert.deepEqual(detect(repo({ dependencies: { express: '5' } })).vitestScaffold, { install: 'npm install --save-dev vitest', files: ['vitest.config.js'] })
@@ -713,7 +719,7 @@ test('write with vitestScaffold: the Vitest config, e2e/ left to Playwright on a
   assert.ok(c.includes('resolve: { tsconfigPaths: true },'), "imports through the tsconfig's baseUrl or paths resolve")
   assert.deepEqual(JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8')), cfg)
   const fs = repo({ dependencies: { react: '19', express: '5' } })
-  assert.equal(write(fs, { ...cfg, adapter: 'fullstack' }, { vitestScaffold: true, scaffold: SCAFFOLD }).ok, true)
+  assert.equal(write(fs, { ...cfg, frontend: 'playwright' }, { vitestScaffold: true, scaffold: SCAFFOLD }).ok, true)
   assert.match(readFileSync(join(fs, 'vitest.config.js'), 'utf8'), /test: \{ exclude: \[\.\.\.configDefaults\.exclude, 'e2e\/\*\*'\] \}/)
   assert.ok(existsSync(join(fs, 'playwright.config.js')) && existsSync(join(fs, SMOKE)))
   const mine = repo({})
@@ -730,9 +736,9 @@ test('the generated Vitest configs are valid JavaScript', () => {
 })
 test('write refuses vitestScaffold on a project whose tests are not Vitest\'s; nothing is written', () => {
   for (const [label, c, v, re] of [
-    ['a frontend', pwCfg, true, /only for "adapter": "vitest", or "fullstack" with a Vitest backend/],
-    ['Jest', { ...cfg, runners: { unit: 'jest' } }, true, /only for "adapter": "vitest"/],
-    ['a pytest backend', { ...cfg, adapter: 'fullstack', backend: 'pytest' }, true, /only for "adapter": "vitest"/],
+    ['a frontend', pwCfg, true, /only for "backend": "vitest"/],
+    ['Jest', { ...cfg, runners: { unit: 'jest' } }, true, /only for "backend": "vitest"/],
+    ['a pytest backend', { ...cfg, frontend: 'playwright', backend: 'pytest' }, true, /only for "backend": "vitest"/],
     ['not true', cfg, 'yes', /vitestScaffold: must be true/],
   ]) {
     const d = repo({})
@@ -811,7 +817,7 @@ test('write with containersScaffold: the integration config on the project\'s ow
   assert.ok(readFileSync(join(fresh, 'vitest.integration.config.js'), 'utf8').includes("import base from './vitest.config.js'"))
 
   assert.deepEqual(write(repo({ devDependencies: { vitest: '5' } }), cfg, { containersScaffold: true }).errors, ['containersScaffold: this project uses no database Testcontainers starts here (Postgres, MySQL, MongoDB or Redis)'])
-  assert.deepEqual(write(own, { ...cfg, adapter: 'junit' }, { containersScaffold: true }).errors, ['containersScaffold: only for a Vitest, pytest, Go or .NET backend (this one is JUnit)'])
+  assert.deepEqual(write(own, { ...cfg, backend: 'junit' }, { containersScaffold: true }).errors, ['containersScaffold: only for a Vitest, pytest, Go or .NET backend (this one is JUnit)'])
   assert.match(write(own, { ...cfg, runners: { unit: 'jest' } }, { containersScaffold: true }).errors[0], /^containersScaffold: only for a Vitest backend, not Jest/)
 })
 
@@ -859,19 +865,19 @@ test('detect: a Go backend gets the testdb helper; a .NET one a helper in its te
 
 test('write with containersScaffold on pytest, Go and .NET: the helper, and the integration layer in the backend block (Go: none)', () => {
   const py = dir({ 'pytest.ini': '[pytest]', 'requirements.txt': 'pymongo\n' })
-  assert.equal(write(py, { ...cfg, adapter: 'pytest' }, { containersScaffold: true }).ok, true)
+  assert.equal(write(py, { ...cfg, backend: 'pytest' }, { containersScaffold: true }).ok, true)
   const conftest = readFileSync(join(py, 'tests/integration/conftest.py'), 'utf8')
   for (const line of ['from testcontainers.community.mongodb import MongoDbContainer', 'def mongodb_url():', 'mongodb = _start("MongoDB", lambda: MongoDbContainer("mongo:8"))', 'yield mongodb.get_connection_url()', 'is Docker running?']) assert.ok(conftest.includes(line), line)
   assert.deepEqual(JSON.parse(readFileSync(join(py, '.quality-code/config.json'), 'utf8')).pytest, { layers: [{ name: 'unit', folder: 'tests/' }, { name: 'integration', folder: 'tests/integration/' }] })
 
   const go = dir({ 'go.mod': 'module example.com/shop\nrequire github.com/redis/go-redis/v9 v9.7.0\n' })
-  assert.equal(write(go, { ...cfg, adapter: 'go' }, { containersScaffold: true }).ok, true)
+  assert.equal(write(go, { ...cfg, backend: 'go' }, { containersScaffold: true }).ok, true)
   const helper = readFileSync(join(go, 'internal/testdb/testdb.go'), 'utf8')
   for (const line of ['package testdb', 'import it as example.com/shop/internal/testdb', '"github.com/testcontainers/testcontainers-go/modules/redis"', 'var RedisURL = start("Redis"', 'c, err := redis.Run(ctx, "redis:7-alpine")']) assert.ok(helper.includes(line), line)
   assert.equal(JSON.parse(readFileSync(join(go, '.quality-code/config.json'), 'utf8')).go, undefined, 'Go tests sit beside the code: no layer')
 
   const net = dir({ 'Shop.Tests/Shop.Tests.csproj': '<Project><PropertyGroup><RootNamespace>Acme.Shop.Tests</RootNamespace></PropertyGroup><ItemGroup><PackageReference Include="xunit" /><PackageReference Include="MySqlConnector" /></ItemGroup></Project>' })
-  assert.equal(write(net, { ...cfg, adapter: 'dotnet', dotnet: { layers: [{ name: 'unit', folder: 'Shop.Tests/' }] } }, { containersScaffold: true }).ok, true)
+  assert.equal(write(net, { ...cfg, backend: 'dotnet', dotnet: { layers: [{ name: 'unit', folder: 'Shop.Tests/' }] } }, { containersScaffold: true }).ok, true)
   const cs = readFileSync(join(net, 'Shop.Tests/Integration/TestDatabases.cs'), 'utf8')
   for (const line of ['namespace Acme.Shop.Tests.Integration;', 'using Testcontainers.MySql;', 'Start("MySQL", () => new MySqlBuilder("mysql:8.4").Build(), c => c.GetConnectionString());', 'public static Task<string> MySqlAsync() => MySql.Value;']) assert.ok(cs.includes(line), line)
   assert.deepEqual(JSON.parse(readFileSync(join(net, '.quality-code/config.json'), 'utf8')).dotnet.layers, [{ name: 'unit', folder: 'Shop.Tests/' }, { name: 'integration', folder: 'Shop.Tests/Integration/' }], "the team's layers kept")

@@ -88,7 +88,7 @@ function project({ spec = GREEN, bug = false } = {}) {
   put('stock/reorder.go', CODE(bug))
   put(SPEC, spec)
   put('tickets/DEMO-1.json', JSON.stringify(TICKET, null, 2))
-  put('.claude/quality-code.json', JSON.stringify({ version: 1, adapter: 'go', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } }))
+  put('.claude/quality-code.json', JSON.stringify({ version: 2, backend: 'go', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'] } }))
   const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV, stdio: 'ignore' })
   g('init', '-q', '-b', 'main')
   g('add', '-A')

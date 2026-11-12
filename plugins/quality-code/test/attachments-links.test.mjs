@@ -11,9 +11,10 @@ import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { applyAnswer, fillMenu, formatFillMenu } from '../lib/ticket/fill.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
+import { sides } from './config-fields.mjs'
 
 const raw = (adapter, extra = {}) => ({
-  version: 1, adapter,
+  version: 2, ...sides(adapter),
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
   features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],

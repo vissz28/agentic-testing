@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { DESIGN_ITEMS, figmaLinks } from '../lib/ticket/fill.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
+import { sides } from './config-fields.mjs'
 
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const F = 'https://www.figma.com'
@@ -57,7 +58,7 @@ test('the design items are exactly acceptance criteria, expected behaviour and s
 function menu(ticket, adapter = 'vitest') {
   const d = mkdtempSync(join(tmpdir(), 'fg-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter, jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders', route: '/orders' }] }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, ...sides(adapter), jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders', route: '/orders' }] }))
   writeFileSync(join(d, 't.json'), JSON.stringify(ticket))
   const r = spawnSync('node', [CLI, 'fill-menu', '--in', '@t.json'], { cwd: '/', env: { ...process.env, CLAUDE_PROJECT_DIR: d }, encoding: 'utf8' })
   assert.equal(r.status, 0, r.stderr)

@@ -8,7 +8,7 @@ import { loadConfig } from '../../lib/base/config.mjs'
 import { approachOf, unitRunnerOf } from '../../lib/base/stack.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
-const base = { version: 1, jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
+const base = { version: 2, jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
 function project(config, files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'qc-appr-'))
   mkdirSync(join(root, '.claude'))
@@ -18,7 +18,7 @@ function project(config, files = {}) {
 }
 const env = { CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-appr-cfg-')) }
 const errors = config => { const r = loadConfig(project(config), env); return r.ok ? [] : r.errors }
-const fullstack = features => ({ adapter: 'fullstack', features })
+const fullstack = features => ({ frontend: 'playwright', backend: 'vitest', features })
 
 test('a feature says how it is tested: e2e, unit or both, and where the team wrote its approach', () => {
   assert.deepEqual(errors(fullstack([{ label: 'orders', route: '/orders', approach: 'both', guide: 'docs/testing/orders.md' }])), [])
@@ -29,19 +29,19 @@ test('a feature says how it is tested: e2e, unit or both, and where the team wro
 })
 
 test('unit tests for a frontend feature need a JavaScript unit runner', () => {
-  assert.match(errors({ adapter: 'playwright', features: [{ label: 'orders', route: '/orders', approach: 'unit' }] }).join('\n'), /needs a JavaScript unit test runner/)
-  assert.deepEqual(errors({ adapter: 'playwright', features: [{ label: 'orders', route: '/orders', approach: 'e2e' }] }), [])
-  assert.match(errors({ adapter: 'fullstack', backend: 'pytest', features: [{ label: 'orders', approach: 'both' }] }).join('\n'), /needs a JavaScript unit test runner/)
-  assert.deepEqual(errors({ adapter: 'vitest', features: [{ label: 'orders', approach: 'unit' }] }), [])
+  assert.match(errors({ frontend: 'playwright', features: [{ label: 'orders', route: '/orders', approach: 'unit' }] }).join('\n'), /needs a JavaScript unit test runner/)
+  assert.deepEqual(errors({ frontend: 'playwright', features: [{ label: 'orders', route: '/orders', approach: 'e2e' }] }), [])
+  assert.match(errors({ frontend: 'playwright', backend: 'pytest', features: [{ label: 'orders', approach: 'both' }] }).join('\n'), /needs a JavaScript unit test runner/)
+  assert.deepEqual(errors({ backend: 'vitest', features: [{ label: 'orders', approach: 'unit' }] }), [])
 })
 
 test('approachOf: the feature\'s own, case-insensitive, both by default with a unit runner, e2e without one', () => {
-  const c = { adapter: 'fullstack', features: [{ label: 'orders', approach: 'both' }, { label: 'cart' }] }
+  const c = { adapter: 'fullstack', backend: 'vitest', features: [{ label: 'orders', approach: 'both' }, { label: 'cart' }] }
   assert.equal(approachOf(c, 'ORDERS'), 'both')
   assert.equal(approachOf(c, 'cart'), 'both')
   assert.equal(approachOf(c, 'unknown'), 'both')
   assert.equal(approachOf({ adapter: 'playwright', features: [{ label: 'cart' }] }, 'cart'), 'e2e')
-  assert.equal(approachOf({ adapter: 'fullstack', features: [{ label: 'cart', approach: 'e2e' }] }, 'cart'), 'e2e')
+  assert.equal(approachOf({ adapter: 'fullstack', backend: 'vitest', features: [{ label: 'cart', approach: 'e2e' }] }, 'cart'), 'e2e')
   assert.equal(approachOf({ adapter: 'playwright', features: [{ label: 'orders', approach: 'unit' }] }, 'orders'), 'e2e')
   assert.equal(unitRunnerOf(c), 'vitest')
   assert.equal(unitRunnerOf({ adapter: 'playwright' }), null)
@@ -61,14 +61,14 @@ test('ticket.mjs approach: the line, the JSON, and whether the team guide exists
 })
 
 test('testRules: own or plugin per side, checked by the config', () => {
-  assert.deepEqual(errors({ adapter: 'fullstack', testRules: { backend: 'own', frontend: 'plugin' } }), [])
-  assert.match(errors({ adapter: 'fullstack', testRules: { backend: 'ours' } }).join('\n'), /testRules\.backend: must be "own"/)
-  assert.match(errors({ adapter: 'fullstack', testRules: { mobile: 'own' } }).join('\n'), /testRules\.mobile: unknown field/)
-  assert.match(errors({ adapter: 'fullstack', testRules: 'own' }).join('\n'), /testRules: must be an object/)
+  assert.deepEqual(errors({ frontend: 'playwright', backend: 'vitest', testRules: { backend: 'own', frontend: 'plugin' } }), [])
+  assert.match(errors({ frontend: 'playwright', backend: 'vitest', testRules: { backend: 'ours' } }).join('\n'), /testRules\.backend: must be "own"/)
+  assert.match(errors({ frontend: 'playwright', backend: 'vitest', testRules: { mobile: 'own' } }).join('\n'), /testRules\.mobile: unknown field/)
+  assert.match(errors({ frontend: 'playwright', backend: 'vitest', testRules: 'own' }).join('\n'), /testRules: must be an object/)
 })
 
 test('ticket.mjs rules: what the team answered and the team\'s own guide files, per side', () => {
-  const root = project({ adapter: 'fullstack', testRules: { frontend: 'plugin' }, playwright: { guide: 'docs/e2e.md' }, vitest: { layers: [{ name: 'service', folder: 'test/service/', guide: 'docs/service.md' }] } }, { 'docs/e2e.md': '#', 'docs/service.md': '#' })
+  const root = project({ frontend: 'playwright', backend: 'vitest', testRules: { frontend: 'plugin' }, playwright: { guide: 'docs/e2e.md' }, vitest: { layers: [{ name: 'service', folder: 'test/service/', guide: 'docs/service.md' }] } }, { 'docs/e2e.md': '#', 'docs/service.md': '#' })
   const r = spawnSync(process.execPath, [CLI, 'rules'], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env }, encoding: 'utf8' })
   assert.equal(r.status, 0, r.stderr)
   const json = JSON.parse(r.stdout.split('\n').find(l => l.startsWith('RULES_JSON:')).slice('RULES_JSON:'.length))

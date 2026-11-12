@@ -77,7 +77,7 @@ test('a project without tests: none', () => {
 })
 
 test('config test-home prints a line and TEST_HOME_JSON', () => {
-  const root = project({ 'src/pricing.spec.ts': tests(2), '.claude/quality-code.json': JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }) })
+  const root = project({ 'src/pricing.spec.ts': tests(2), '.claude/quality-code.json': JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }) })
   const r = spawnSync('node', [CLI, 'config', 'test-home', 'src/pricing.ts'], { cwd: root, encoding: 'utf8' })
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /^test home: src\/pricing\.spec\.ts/m)
