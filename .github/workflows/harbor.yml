@@ -82,6 +82,7 @@ jobs:
 
       # Only after the build and the smoke test passed: the new image replaces :latest.
       - name: Push to Harbor (replaces latest)
+        if: env.HAS_HARBOR == 'true'
         run: |
           docker tag quality-code-mcp:ci "$IMAGE:latest"
           docker push "$IMAGE:latest"
@@ -90,6 +91,7 @@ jobs:
       # and any old version tag) is deleted. The robot account needs the "delete artifact" permission on the project;
       # without it this step only warns and the old images stay.
       - name: Delete the old images
+        if: env.HAS_HARBOR == 'true'
         env:
           HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
