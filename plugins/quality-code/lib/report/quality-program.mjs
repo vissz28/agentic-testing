@@ -14,6 +14,7 @@ import { detectConventions } from '../base/conventions.mjs'
 import { BACKENDS, isBackend } from '../base/backends.mjs'
 import { changedPaths } from '../base/git.mjs'
 import { execFileSync } from 'node:child_process'
+import { readJsonOr } from '../core/files.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -99,13 +100,12 @@ export function withoutIgnored(root, paths) {
   return all
 }
 
-const readJson = p => { try { return JSON.parse(readFileSync(p, 'utf8')) } catch { return null } }
 /** The unit test tools the nearest package.json above a spec depends on (its workspace's own); null when no package.json is found. */
 function workspaceTools(root, spec, cache) {
   let dir = spec.includes('/') ? spec.slice(0, spec.lastIndexOf('/')) : ''
   for (;;) {
     if (cache.has(dir)) return cache.get(dir)
-    const pkg = readJson(join(root, dir, 'package.json'))
+    const pkg = readJsonOr(join(root, dir, 'package.json'), null, { whenBroken: 'fallback' })
     if (pkg) {
       const deps = { ...pkg.devDependencies, ...pkg.dependencies }
       const tools = new Set(['jest', 'vitest', 'mocha'].filter(t => t in deps || (t === 'jest' && 'ts-jest' in deps)))

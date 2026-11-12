@@ -14,12 +14,13 @@
 //   node bin/qa.mjs watch fresh --found K1,K2
 // Exit 0 done, 2 usage or config error. Progress lives in <audit folder>/qa/ (ignored by git); in the chat place, in a temp folder.
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/base/config.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'
+import { readJsonOr } from '../lib/core/files.mjs'
 
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
 const TEST_ID = /^[A-Za-z0-9_.-]{1,64}$/
@@ -61,7 +62,6 @@ export function pickTransition(kind, names, statuses) {
   return { pick: null, ask: true, candidates: names, source: null }
 }
 
-const readJson = f => { try { return JSON.parse(readFileSync(f, 'utf8')) } catch { return null } }
 function write(dir, name, value) {
   mkdirSync(dir, { recursive: true })
   try { writeFileSync(join(dir, '.gitignore'), '*\n', { flag: 'wx' }) } catch {}
@@ -87,7 +87,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const qa = qaOf(c.config)
   const dir = c.auditDir ? join(c.auditDir, 'qa') : join(tmpdir(), `quality-code-qa-${createHash('sha1').update(root).digest('hex').slice(0, 10)}`)
   const runFile = run => join(dir, `${run}.json`)
-  const load = run => readJson(runFile(run)) ?? { run, story: null, app: null, closed: 'open', startedAt: now(), tests: {} }
+  const load = run => readJsonOr(runFile(run), null, { whenBroken: 'fallback' }) ?? { run, story: null, app: null, closed: 'open', startedAt: now(), tests: {} }
   const out = (line, json) => stdout(`${line ? `${line}\n` : ''}${json ? `${json.tag}:${JSON.stringify(json.data)}\n` : ''}`)
 
   if (cmd === 'config' && !sub) { out('', { tag: 'QA_JSON', data: { ...qa, dir } }); return 0 }
@@ -96,7 +96,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (sub === 'runs') { out(runsJql(qa), { tag: 'QA_JQL_JSON', data: { jql: runsJql(qa), sprint: qa.sprint } }); return 0 }
     if (sub === 'watch') {
       if (!qa.statuses.ready) return err('qa --watch needs the name of the "ready to test" status: set qa.statuses.ready in the project config.json (for example "Ready to test").')
-      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => f.endsWith('.json') && isTicketKey(f.slice(0, -'.json'.length))).map(f => readJson(join(dir, f))).filter(s => s?.closed === 'ko' && s.story)
+      const targets = (existsSync(dir) ? readdirSync(dir) : []).filter(f => f.endsWith('.json') && isTicketKey(f.slice(0, -'.json'.length))).map(f => readJsonOr(join(dir, f), null, { whenBroken: 'fallback' })).filter(s => s?.closed === 'ko' && s.story)
       const stories = [...new Set(targets.map(s => s.story))]
       const jql = stories.length ? `key in (${stories.join(', ')}) AND status = "${qa.statuses.ready}"` : null
       out(jql ?? 'Nothing to watch: no closed run with a failed test.', { tag: 'QA_WATCH_JSON', data: { jql, stories, runs: Object.fromEntries(targets.map(s => [s.story, s.run])) } })
@@ -108,7 +108,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (cmd === 'app') {
     const f = join(dir, 'app.json')
     if (sub === 'get') {
-      const last = readJson(f)?.app ?? null
+      const last = readJsonOr(f, null, { whenBroken: 'fallback' })?.app ?? null
       out(qa.app ?? last ?? 'none', { tag: 'QA_APP_JSON', data: { app: qa.app ?? last, source: qa.app ? 'config' : last ? 'last run' : null } })
       return 0
     }
@@ -191,7 +191,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
       s.closed = outcome
       write(dir, `${run}.json`, s)
       // A story that fails again is watched again: forget that its last "ready to retest" was told.
-      const w = readJson(join(dir, 'watch.json'))
+      const w = readJsonOr(join(dir, 'watch.json'), null, { whenBroken: 'fallback' })
       if (outcome === 'ko' && s.story && w?.seen?.includes(s.story)) write(dir, 'watch.json', { seen: w.seen.filter(k => k !== s.story) })
       out('saved')
       return 0
@@ -208,7 +208,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     const found = String(flags.found ?? '').split(',').map(x => x.trim()).filter(Boolean)
     if (found.some(k => !isTicketKey(k))) return err('--found takes Jira keys, like ABC-100,ABC-101')
     const f = join(dir, 'watch.json')
-    const seen = readJson(f)?.seen ?? []
+    const seen = readJsonOr(f, null, { whenBroken: 'fallback' })?.seen ?? []
     const fresh = found.filter(k => !seen.includes(k))
     if (fresh.length) write(dir, 'watch.json', { seen: [...seen, ...fresh] })
     out(fresh.length ? `Ready to retest: ${fresh.join(', ')}` : 'Nothing new.', { tag: 'QA_FRESH_JSON', data: { fresh } })

@@ -2,6 +2,7 @@
 // test config, and the folders detect never reads (build copies such as .build-context/, and what git ignores).
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { readJsonOr } from '../core/files.mjs'
 
 /** Folders that only hold copies of the code (Docker build contexts, build output): never a boundary, spec folder or project. */
 export const BUILD_COPIES = new Set(['.build-context', 'build-context', '.build', '.docker-context'])
@@ -9,7 +10,6 @@ export const BUILD_COPIES = new Set(['.build-context', 'build-context', '.build'
 const JEST_CONFIG = /^jest\.config\.[cm]?[jt]s$|^jest\.config\.json$/
 const VITEST_CONFIG = /^vitest\.config\.[cm]?[jt]s$/
 
-const readJson = p => { try { return JSON.parse(readFileSync(p, 'utf8')) } catch { return null } }
 const join2 = (rel, n) => (rel ? `${rel}/${n}` : n)
 
 /** The workspace patterns of a root: package.json "workspaces" (a list, or { packages }), else pnpm-workspace.yaml's packages list; null when none. */
@@ -58,7 +58,7 @@ export function workspaceDirs(root, patterns, ignored = new Set()) {
 export function workspaceRunners(root, dirs) {
   const found = []
   for (const dir of dirs) {
-    const pkg = readJson(join(root, dir, 'package.json'))
+    const pkg = readJsonOr(join(root, dir, 'package.json'), null, { whenBroken: 'fallback' })
     if (!pkg) continue
     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
     let names = []
@@ -82,6 +82,6 @@ export function majorityRunner(found) {
 /** The dependencies of every workspace, merged: what the monorepo as a whole is tested with. */
 export function workspaceDeps(root, dirs) {
   const all = {}
-  for (const dir of dirs) { const pkg = readJson(join(root, dir, 'package.json')); Object.assign(all, pkg?.dependencies, pkg?.devDependencies) }
+  for (const dir of dirs) { const pkg = readJsonOr(join(root, dir, 'package.json'), null, { whenBroken: 'fallback' }); Object.assign(all, pkg?.dependencies, pkg?.devDependencies) }
   return all
 }
