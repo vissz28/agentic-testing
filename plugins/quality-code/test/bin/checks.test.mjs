@@ -56,6 +56,12 @@ test('usage and config errors exit 2', () => {
   assert.equal(cli(d, ['honesty', 'test/a.spec.ts', '--range', '--output=x']).status, 2)
   assert.equal(cli(d, ['suite-honesty', 'test/a.spec.ts', '--key', 'XYZ-1']).status, 2)
   assert.equal(cli(d, ['honesty', 'test/a.spec.ts', '--what']).status, 2)
+  // An option no check reads is refused, not taken and dropped.
+  for (const o of [['--runs', '3'], ['--timeout', '5'], ['--test', 'x'], ['--baseline', 'x'], ['--max', '2'], ['--thorough']]) {
+    const r = cli(d, ['honesty', 'test/a.spec.ts', ...o])
+    assert.equal(r.status, 2, o[0])
+    assert.match(r.stderr, new RegExp(`unknown option ${o[0]}`))
+  }
   const bare = mkdtempSync(join(tmpdir(), 'qc-cli-'))
   const r = cli(bare, ['honesty', 'x'])
   assert.equal(r.status, 2)

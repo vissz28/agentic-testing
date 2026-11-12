@@ -45,14 +45,14 @@ export function registerCheck(name, run, specs) {
 
 function parse(argv) {
   const a = { flags: new Set(), specs: [] }
-  const VALUE = new Set(['--range', '--key', '--runs', '--timeout', '--test', '--baseline', '--max', '--ticket'])
+  const VALUE = new Set(['--range', '--key', '--ticket'])
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]
     if (VALUE.has(x)) {
       const v = argv[++i]
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
       a[x.slice(2)] = v
-    } else if (x === '--json' || x === '--hook' || x === '--thorough') a.flags.add(x)
+    } else if (x === '--json' || x === '--hook') a.flags.add(x)
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
   }
