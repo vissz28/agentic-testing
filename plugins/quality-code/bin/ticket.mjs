@@ -46,8 +46,8 @@ const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', 
 
 /** A line per runner the config writes tests in that this project has not installed, saying how to add it. */
 function missingRunners(root, config) {
-  let deps = {}
-  try { const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')); deps = { ...pkg.dependencies, ...pkg.devDependencies } } catch {}
+  const pkg = tryReadJson(join(root, 'package.json'), null)
+  const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
   const wants = { vitest: backendOf(config) === 'vitest', playwright: config.adapter === 'playwright' || isFullstack(config) }
   return ADDABLE
     .filter(([adapter, , packages]) => wants[adapter] && runnerOf(config, adapter) === adapter && !toolScript(root, packages, adapter))

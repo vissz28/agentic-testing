@@ -28,6 +28,7 @@ import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
+import { readJson } from '../lib/core/files.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -206,7 +207,7 @@ function init(root, config, a, env, stdout, stderr) {
   const top = git(root, ['rev-parse', '--show-toplevel']) || root
   const provider = a.provider ?? guessProvider(top)
   if (!provider) { printError('Say which CI: github or gitlab (the repo has no CI file and its remote names neither).'); return 2 }
-  const version = JSON.parse(readFileSync(join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8')).version
+  const version = readJson(join(HERE, '..', '.claude-plugin', 'plugin.json')).version
   const source = pluginSource(config, env, version)
   if (source.error) { printError(source.error); return 2 }
   const text = template(provider, version, { ...stackOf(root, config), smoke: a.smoke }, source)
