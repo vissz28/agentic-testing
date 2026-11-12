@@ -6,8 +6,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { baseFromEnv, junit, main, providerOf, stackOf, template } from '../../bin/ci.mjs'
+import { validateConfig } from '../../lib/base/config.mjs'
 
-const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
 const SPEC = "import { it, expect } from 'vitest'\nit('adds', () => {\n  expect(1 + 1).toBe(2)\n})\nit('subtracts', () => {\n  expect(2 - 1).toBe(1)\n})\nit('divides', () => {\n  expect(6 / 3).toBe(2)\n})\n"
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const git = (d, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: d, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
@@ -87,9 +88,9 @@ test('stackOf reads the lockfile, Prisma, Testcontainers and the folder from the
   put(d, 'web/package-lock.json', '{}')
   put(d, 'web/.claude/quality-code.json', JSON.stringify(cfg))
   git(d, 'init', '-q', '-b', 'main'); git(d, 'add', '-A'); git(d, 'commit', '-qm', 'base')
-  const s = stackOf(join(d, 'web'), cfg)
+  const s = stackOf(join(d, 'web'), validateConfig(cfg).config)
   assert.deepEqual({ backend: s.backend, pm: s.pm, lock: s.lock, prisma: s.prisma, containers: s.containers, prefix: s.prefix }, { backend: 'vitest', pm: 'npm', lock: true, prisma: true, containers: true, prefix: 'web/' })
-  assert.equal(stackOf(project(), cfg).containers, false)
+  assert.equal(stackOf(project(), validateConfig(cfg).config).containers, false)
 })
 
 test('--init writes the file for the CI the repo uses at the repo top, replaces only its own, and --print writes nothing', async () => {

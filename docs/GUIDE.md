@@ -96,14 +96,14 @@ Jasmine and Karma, and ticket languages other than English and Italian. See [Kno
 
 ## Frontend, backend or fullstack
 
-A project is one of three, set by `adapter` in the config (`/quality-code:setup` asks when the repo
-has both runners):
+A project is one of three, set by `frontend` and `backend` in the config (`/quality-code:setup` asks when the
+repo has both runners):
 
-| Project | `adapter` | Tests it writes and checks |
+| Project | Config | Tests it writes and checks |
 |---|---|---|
-| Frontend | `playwright` | e2e tests of a screen |
-| Backend | `vitest` | tests of the code, in your test layers |
-| Fullstack | `fullstack` | both: specs in the e2e folder run under Playwright, every other spec under Vitest |
+| Frontend | `"frontend": "playwright"` | e2e tests of a screen |
+| Backend | `"backend": "vitest"` | tests of the code, in your test layers |
+| Fullstack | both | both: specs in the e2e folder run under Playwright, every other spec under Vitest |
 
 ### Other runners
 
@@ -147,7 +147,7 @@ Playwright test).
 | Gate tickets in CI | `ticket <KEY> --eval --ci` | ✅ available |
 | Deterministic checks on generated tests (honesty, assertions, expected values, mutation, boundaries, flakiness) | building blocks of the pipeline; run by hand with `bin/checks.mjs` | ✅ available (building blocks) |
 | Run and grade the tests: the frontend suite, the backend suite, or both | `/quality-code:check --frontend`, `/quality-code:check --backend`, `/quality-code:check` (`--branch` for the tests your branch changed) | ✅ available (Vitest, Playwright, both) |
-| Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"adapter": "fullstack"`, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
+| Fullstack repos: one plugin for the backend (Vitest) and the frontend (Playwright); each ticket is frontend, backend or both | `"frontend"` and `"backend"` both set, see [Frontend, backend or fullstack](#frontend-backend-or-fullstack) | ✅ available |
 | Find a ticket and see it in short, with suggestions for its author (never posted) | `/quality-code:ticket <KEY or words>` | ✅ available |
 | Add Quality Code to CI (GitHub Actions, GitLab CI): the honesty gate, and types, tests and mutation on what each pull or merge request changed | `/quality-code:ci` (`github\|gitlab` to choose, `--print` to only show it) | ✅ available |
 | See what to do next for your role, with how each command is used (setup first, when it is not done) | `/quality-code:help` (`--dev`, `--qa`, `--po`, `--all`, `<command>`) | ✅ available |
@@ -340,9 +340,9 @@ It exits 0 whatever the pass rate (a bad input exits 2). To fix a ticket, run
 
 ## Backends
 
-The backend can be any of five runners, set by `adapter` (or by `backend` on a fullstack project):
+The backend can be any of five runners, set by `backend`:
 
-| `adapter` | Stack | Runs | Ticket block | Assertions mutated |
+| `backend` | Stack | Runs | Ticket block | Assertions mutated |
 |---|---|---|---|---|
 | `vitest` | TypeScript, Node | the project's Vitest | `describe('<KEY> …')` | `expect(…)` matchers |
 | `pytest` | Python | `python -m pytest` (`.venv` first) | a `class Test…` whose docstring starts with the key | `assert` statements, `pytest.raises` |
@@ -355,7 +355,7 @@ Setup detects the stack (`package.json`, `pyproject.toml`/`pytest.ini`, `pom.xml
 project's own test command, when the default is wrong: `{files}`, `{report}` and `{test}` are filled in).
 Stryker and the TypeScript type-check are Vitest's: elsewhere the card says `not applicable`, and a compiled
 stack's compile error makes the tests `not run`, never a pass. Compiled stacks are mutated in place, and the
-spec is always restored. The writing guides are `guides/<adapter>-writing.md`. Seeding is Vitest and Playwright
+spec is always restored. The writing guides are `guides/<backend>-writing.md`. Seeding is Vitest and Playwright
 only.
 
 ---
@@ -832,8 +832,8 @@ What `/quality-code:setup` writes:
 
 ```json
 {
-  "version": 1,
-  "adapter": "vitest",
+  "version": 2,
+  "backend": "vitest",
   "jira": { "site": "https://example.atlassian.net", "projects": ["ABC"] }
 }
 ```
@@ -851,9 +851,10 @@ After `/quality-code:setup advanced` it can also hold, for example:
 
 | Field | Meaning | Default |
 |---|---|---|
-| `version` | always `1` | required |
-| `adapter` | `playwright` (frontend), `vitest` (backend) or `fullstack` (both) | required |
-| `sides` | fullstack only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
+| `version` | always `2` (a version 1 file, with `adapter`, is refused: re-run `/quality-code:setup`) | required |
+| `frontend` | `playwright`: the project has screens tested end to end | one of `frontend` and `backend` |
+| `backend` | `vitest`, `pytest`, `junit`, `go` or `dotnet`: the runner of the tests of the code | one of `frontend` and `backend` |
+| `sides` | with both `frontend` and `backend` only: the title prefixes or labels that mark a ticket `frontend`, `backend` or `fullstack` | `FE`, `BE`, `FS` |
 | `qa` | optional, for `/quality-code:qa`: `executionTypes` (the Jira issue types of a test execution; default `Test Execution`, `Sub Test Execution`), `sprint` (`open`, the default, or `any`), `app` (the address to test), `statuses` (`ko`, `ready`, `done`: your status names, like `TEST KO` and `Ready to test`), `blockedStop` (stop after this many blocked tests in a row; default 2, 0 never), `autoPass` (record a test found OK without a card; default false) | Xray's types, open sprint, names detected |
 | `xray` | Playwright and fullstack: Xray test cases for QA. `csv` (the file with every case, required), `folder` (where each ticket's `case.csv` and `case.xlsx` go, ending in `/`), `headers` (column to header text, for your Xray import mapping; `data` is the word before a step's data) | off; folder: the tickets folder; English headers |
 | `qaPlans` | a folder of QA plans as Markdown, one `<feature label>.md` each; `write` reads the ticket's as extra rules (never scored) | none |
@@ -1094,7 +1095,7 @@ Diff mode (`boundary`, `honesty`) reads git, so it cannot see git-ignored files 
 (`expected --ticket @<ticketsDir>/ABC-123/ticket.json --key ABC-123 <spec…>`); `flaky` and
 `mutation` need a test runner: both runners are there (Vitest and Playwright).
 `run start --key KEY`, `run stop` and `run status` open, close and show a test-writing run (`run
-start` exits `1` when a run is already active). The pipeline runs the checks in order, picking the runner from `adapter` (Playwright has no Stryker step and refuses `--target`):
+start` exits `1` when a run is already active). The pipeline runs the checks in order, picking the runner from `frontend` and `backend` (Playwright has no Stryker step and refuses `--target`):
 `node <plugin>/bin/pipeline.mjs <spec…> [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--target path] [--json]`
 (exit `0` green, `1` problem in the tests or tests fail, `2` usage or config error, `3` could not run).
 

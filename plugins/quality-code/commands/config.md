@@ -38,7 +38,7 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
    ```
    Quality Code settings
    Project · <path> (<repo: shared with your team, commit it | personal: only you, no repo>)
-     1. Stack           <adapter and backend: frontend (Playwright) | backend (<Runner>: Vitest, pytest, JUnit, Go or .NET) | fullstack (<Runner> and Playwright); a runner of `runners` in place of its default, for example backend (Jest, generic checks)>
+     1. Stack           <frontend and backend: frontend (Playwright) | backend (<Runner>: Vitest, pytest, JUnit, Go or .NET) | fullstack (<Runner> and Playwright); a runner of `runners` in place of its default, for example backend (Jest, generic checks)>
      2. Jira site       <jira.site host>
      3. Jira projects   <jira.projects>
      4. Base branch     <git.base, or "detected">
@@ -65,7 +65,7 @@ When the person gives `set <key> <value>`, `get <key>` or `keys` (for example `/
 
 3. **Change one.** Ask for the new value as below and end the turn. Then write it:
    - **1 to 5 (project).** Ask:
-     - Stack: `1. Frontend (Playwright) / 2. Backend (<Runner>) / 3. Fullstack`, `<Runner>` being the backend runner the config already names (`backend` on fullstack, else the adapter; Vitest when there is none); Backend writes that runner's adapter (`vitest`, `pytest`, `junit`, `go` or `dotnet`), Fullstack keeps `backend`.
+     - Stack: `1. Frontend (Playwright) / 2. Backend (<Runner>) / 3. Fullstack`, `<Runner>` being the backend runner the config already names in `backend` (Vitest when there is none). Frontend writes `"frontend": "playwright"` and no `backend`, Backend writes `"backend": "<runner>"` (`vitest`, `pytest`, `junit`, `go` or `dotnet`) and no `frontend`, Fullstack writes both.
      - Jira site: an address like `acme.atlassian.net`.
      - Jira projects: keys separated by commas.
      - Base branch: a branch name.

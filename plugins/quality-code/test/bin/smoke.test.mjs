@@ -59,7 +59,7 @@ function repo(files) {
   g('init', '-q', '-b', 'main')
   put(d, 'README.md', 'x')
   put(d, 'tsconfig.json', '{}')
-  put(d, '.claude/quality-code.json', JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
+  put(d, '.claude/quality-code.json', JSON.stringify({ version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }))
   g('add', '-A'); g('commit', '-qm', 'i')
   for (const [p, s] of Object.entries(files)) put(d, p, s)
   return d
@@ -107,7 +107,7 @@ test('--url without --smoke, a bad url and the backend suite are refused', async
 })
 
 test('--smoke on another e2e runner (Cypress) is refused, not run against its own baseUrl', async () => {
-  const d = repo({ 'cypress/e2e/a.cy.ts': TAGGED, '.claude/quality-code.json': JSON.stringify({ version: 1, adapter: 'playwright', runners: { e2e: 'cypress' }, jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'cypress/e2e/' } }) })
+  const d = repo({ 'cypress/e2e/a.cy.ts': TAGGED, '.claude/quality-code.json': JSON.stringify({ version: 2, frontend: 'playwright', runners: { e2e: 'cypress' }, jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'cypress/e2e/' } }) })
   const r = await smoke(d, ['--smoke', '--url', 'https://x.test', '--no-audit'])
   assert.equal(r.code, 2, r.err)
   assert.match(r.err, /--smoke runs the Playwright e2e suite: this project's e2e runner is cypress/)

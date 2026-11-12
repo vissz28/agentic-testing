@@ -21,5 +21,5 @@ test('the guide installs with what detect gives, writes through setup --write an
   assert.match(g, /scaffold\.install/)
   assert.match(g, /setup\.mjs" --write/)
   assert.match(g, /run the check again/)
-  assert.match(g, /`vitest` becomes `fullstack`/)
+  assert.match(g, /Add `"frontend": "playwright"`; `backend` stays as it is/)
 })

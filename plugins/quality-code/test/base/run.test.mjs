@@ -11,7 +11,7 @@ import { gitHead, runStatus, startRun, statusLine, stopRun } from '../../lib/bas
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/checks.mjs')
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
-const CFG = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], trackingProjects: ['TRK'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+const CFG = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], trackingProjects: ['TRK'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 const H = 3600 * 1000
 const dir = () => mkdtempSync(join(tmpdir(), 'qc-run-'))
 function repo({ commit = true } = {}) {

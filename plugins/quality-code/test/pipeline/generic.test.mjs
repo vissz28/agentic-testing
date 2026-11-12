@@ -19,8 +19,9 @@ import { HOW, genericRunner, parseCypress, parseMocha, runGeneric } from '../../
 import { result } from '../../lib/base/result.mjs'
 import { calls, fakeBin } from '../fake-bin.mjs'
 import { ENV } from '../git-env.mjs'
+import { sides } from '../config-fields.mjs'
 
-const base = { version: 1, jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
+const base = { version: 2, jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
 const unit = dialectFor('jest')
 const e2e = dialectFor('cypress')
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -28,29 +29,29 @@ const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); 
 test('runners: the config names another runner per kind; Vitest and Playwright stay the default and the specialized', () => {
   assert.equal(runnerOf({ adapter: 'vitest' }), 'vitest')
   assert.equal(runnerOf({ adapter: 'vitest', runners: { unit: 'jest' } }), 'jest')
-  assert.equal(runnerOf({ adapter: 'fullstack', runners: { e2e: 'cypress' } }, 'playwright'), 'cypress')
-  assert.equal(runnerOf({ adapter: 'fullstack', runners: { e2e: 'cypress' } }, 'vitest'), 'vitest')
+  assert.equal(runnerOf({ adapter: 'fullstack', backend: 'vitest', runners: { e2e: 'cypress' } }, 'playwright'), 'cypress')
+  assert.equal(runnerOf({ adapter: 'fullstack', backend: 'vitest', runners: { e2e: 'cypress' } }, 'vitest'), 'vitest')
   assert.deepEqual(['vitest', 'jest', 'cypress'].map(runnerLabel), ['Vitest', 'Jest (generic checks)', 'Cypress (generic checks)'])
-  assert.equal(validateConfig({ ...base, adapter: 'vitest', runners: { unit: 'mocha' } }).ok, true)
-  assert.equal(validateConfig({ ...base, adapter: 'fullstack', runners: { unit: 'jest', e2e: 'cypress' } }).ok, true)
+  assert.equal(validateConfig({ ...base, backend: 'vitest', runners: { unit: 'mocha' } }).ok, true)
+  assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'vitest', runners: { unit: 'jest', e2e: 'cypress' } }).ok, true)
   for (const [runners, adapter, re] of [
     [{ unit: 'karma' }, 'vitest', /runners\.unit: must be "vitest", "jest", "mocha"/],
     [{ unit: 'cypress' }, 'vitest', /runners\.unit: must be/],
-    [{ e2e: 'cypress' }, 'vitest', /runners\.e2e: only allowed with "adapter": "playwright" or "fullstack"/],
+    [{ e2e: 'cypress' }, 'vitest', /runners\.e2e: only allowed with "frontend": "playwright"/],
     [{ api: 'jest' }, 'vitest', /runners\.api: unknown field/],
     ['jest', 'vitest', /runners: must be an object/],
-  ]) assert.match(validateConfig({ ...base, adapter, runners }).errors.join('\n'), re, JSON.stringify(runners))
+  ]) assert.match(validateConfig({ ...base, ...sides(adapter), runners }).errors.join('\n'), re, JSON.stringify(runners))
 })
 
 // AGT-128 beside the generic tier: runners.unit is a JavaScript runner, so only for a Vitest backend.
 test('runners with the non-JavaScript backends: runners.unit is refused beside them, runners.e2e still works', async () => {
   const { isSpecialized } = await import('../../lib/base/runners.mjs')
-  for (const [cfg, backend] of [[{ adapter: 'pytest' }, 'pytest'], [{ adapter: 'fullstack', backend: 'go' }, 'Go']]) {
+  for (const [cfg, backend] of [[{ backend: 'pytest' }, 'pytest'], [{ frontend: 'playwright', backend: 'go' }, 'Go']]) {
     const errs = validateConfig({ ...base, ...cfg, runners: { unit: 'jest' } }).errors.join('\n')
     assert.match(errs, new RegExp(`runners\\.unit: "jest" runs JavaScript tests, and this project's backend is ${backend}`), JSON.stringify(cfg))
   }
-  assert.equal(validateConfig({ ...base, adapter: 'fullstack', backend: 'pytest', runners: { e2e: 'cypress' } }).ok, true)
-  assert.equal(validateConfig({ ...base, adapter: 'fullstack', backend: 'vitest', runners: { unit: 'jest' } }).ok, true)
+  assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'pytest', runners: { e2e: 'cypress' } }).ok, true)
+  assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'vitest', runners: { unit: 'jest' } }).ok, true)
   const cfg = { adapter: 'fullstack', backend: 'pytest', runners: { e2e: 'cypress' } }
   assert.equal(runnerOf(cfg, 'pytest'), 'pytest')
   assert.equal(runnerOf(cfg, 'playwright'), 'cypress')

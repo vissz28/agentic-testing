@@ -72,7 +72,7 @@ test('commands never grade, edit tests or retry', () => {
 test('Vitest and Playwright projects run the same pipeline; Playwright gets the line about the app', () => {
   assert.doesNotMatch(doc, /part 3/)
   assert.doesNotMatch(doc, /Vitest projects only/)
-  assert.match(doc, /`vitest`, `playwright` and `fullstack` projects are checked the same way/)
+  assert.match(doc, /a `playwright` project has only `frontend`, a `vitest` project only `"backend": "vitest"`, a `fullstack` project both\. They are checked the same way/)
   assert.match(doc, /on a fullstack project, per spec: the e2e folder's specs run under Playwright/)
   assert.match(doc, /for `fullstack` when a spec is in the e2e folder, add this second line/)
   assert.ok(doc.includes('The tests open the app: your Playwright config starts it (its webServer), or it must already be running.'))
@@ -90,7 +90,7 @@ test('with a key, the saved ticket and target are passed, so the value check and
   assert.ok(doc.includes("[--ticket @<ticketsDir>/<KEY>/ticket.json] [--expected @<ticketsDir>/<KEY>/expected.json] [--target '<target>']"))
   assert.match(doc, /and `--expected @<ticketsDir>\/<KEY>\/expected\.json` when that file is there/)
   assert.match(doc, /when `ticket\.json` is there, pass `--ticket @<ticketsDir>\/<KEY>\/ticket\.json`/)
-  assert.match(doc, /when `target` is there and names an existing file that is not one of the specs, and the adapter is `vitest` or `fullstack`, pass `--target/)
+  assert.match(doc, /when `target` is there and names an existing file that is not one of the specs, and the project is `vitest` or `fullstack`, pass `--target/)
   assert.match(doc, /Never pass `--target` on a `playwright` project/)
   assert.match(doc, /do not read the ticket from Jira here/)
 })

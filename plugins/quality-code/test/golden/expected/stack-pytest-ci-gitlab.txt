@@ -1,0 +1,45 @@
+$ ci --init gitlab --print
+exit 0
+--- stdout
+# Quality Code: two jobs on each merge request. No model is involved: scripts decide.
+# test_quality_gate: on the specs the merge request changed, honesty (no assertion or test removed, no skip without
+#   a ticket), assertions (every test asserts something) and the frozen evals. git and node only, seconds.
+# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed
+#   but no spec did runs its whole suite without mutation, as does a push to the default branch.
+# The install lines were guessed from the project: change them if it installs differently (a private registry,
+#   a generated file); add the variables and secrets the tests need.
+# The plugin is fetched from GitHub at a fixed version: mirror it if your runners cannot reach github.com (ci.pluginSource in the project config, or QUALITY_CODE_PLUGIN_URL and QUALITY_CODE_PLUGIN_REF).
+# Written by /quality-code:ci; run it again after a plugin update (it rewrites this file).
+test_quality_gate:
+  stage: test
+  image: node:22
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - git clone --quiet --depth 1 --branch quality-code--v<version> https://github.com/vissz28/agentic-testing.git /tmp/quality-code
+    - node /tmp/quality-code/plugins/quality-code/bin/ci.mjs
+
+test_quality_tests:
+  stage: test
+  image: python:3.12
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  # A runner that dies is retried; a red test never is.
+  retry:
+    max: 2
+    when: [runner_system_failure, stuck_or_timeout_failure, scheduler_failure, api_failure]
+  script:
+    - curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.gz | tar -xz -C /usr/local --strip-components=1
+    - npm install
+    - git clone --quiet --depth 1 --branch quality-code--v<version> https://github.com/vissz28/agentic-testing.git /tmp/quality-code
+    - node /tmp/quality-code/plugins/quality-code/bin/ci.mjs --tests --junit quality-code-junit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: quality-code-junit.xml
+--- stderr

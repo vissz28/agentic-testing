@@ -4,25 +4,26 @@
   "description": "Documentation of the rules enforced by lib/base/config.mjs.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "adapter", "jira"],
+  "required": ["version", "jira"],
+  "anyOf": [{ "required": ["frontend"] }, { "required": ["backend"] }],
   "properties": {
     "$schema": { "type": "string", "description": "Ignored: lets an editor validate the file against this schema." },
-    "version": { "const": 1 },
+    "version": { "const": 2 },
     "root": {
       "type": "string",
       "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$",
       "description": "The project's folder when it is not the repository's top, like \"web\": the config stays at the top, every script, runner and the boundary hook work in this folder, and every other path in the config and the paths the scripts print and take are relative to it. Inside the repository: no \"..\", not absolute, one line."
     },
-    "adapter": { "enum": ["playwright", "vitest", "pytest", "junit", "go", "dotnet", "fullstack"], "description": "playwright: a frontend project (e2e tests of screens). vitest, pytest, junit, go or dotnet: a backend project (tests of the code), run by Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test. fullstack: both in one repo; the e2e folder's specs run under Playwright, the rest under the backend runner (backend, default vitest)." },
-    "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "default": "vitest", "description": "Only with adapter fullstack: the runner of the backend side." },
+    "frontend": { "const": "playwright", "description": "The project has screens tested end to end, under Playwright (runners.e2e names Cypress instead). Set one or both of frontend and backend; with both, the e2e folder's specs run under Playwright and the rest under the backend runner." },
+    "backend": { "enum": ["vitest", "pytest", "junit", "go", "dotnet"], "description": "The runner of the tests of the code: Vitest, pytest, JUnit (Maven or Gradle), go test or dotnet test." },
     "role": { "enum": ["dev", "qa", "po"], "description": "Who uses this config, from setup's first card: qa or po on a personal setup (no repo). Setup ends with that role's next steps." },
     "runners": {
       "type": "object",
       "additionalProperties": false,
       "description": "The project's own runner when it is not Vitest or Playwright. Its tests get the generic checks; Vitest and Playwright keep the specialized ones.",
       "properties": {
-        "unit": { "enum": ["vitest", "jest", "mocha", "node"], "description": "The runner of the tests of the code (the vitest adapter, or fullstack with backend vitest): node is Node's own runner, node --test. Default vitest. Not with a pytest, junit, go or dotnet backend: they run their own tests." },
-        "e2e": { "enum": ["playwright", "cypress"], "description": "The runner of the e2e tests of screens (the playwright adapter). Default playwright." }
+        "unit": { "enum": ["vitest", "jest", "mocha", "node"], "description": "The runner of the tests of the code (backend vitest): node is Node's own runner, node --test. Default vitest. Not with a pytest, junit, go or dotnet backend: they run their own tests." },
+        "e2e": { "enum": ["playwright", "cypress"], "description": "The runner of the e2e tests of screens (frontend playwright). Default playwright." }
       }
     },
     "jira": {
@@ -141,7 +142,7 @@
     "vitest": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter vitest or fullstack. How quality-code runs your Vitest specs.",
+      "description": "Only with backend vitest. How quality-code runs your Vitest specs.",
       "properties": {
         "configs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["match", "config"], "properties": { "match": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Spec path pattern: a prefix ending in /, an exact path, or a glob with * and **." }, "config": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Vitest config file for the specs that match." } } }, "description": "First match wins; none means Vitest's default config." },
         "tsconfig": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Project file for the type-check. Default tsconfig.json when it exists." },
@@ -153,7 +154,7 @@
     "pytest": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter pytest, or fullstack with backend pytest. How quality-code runs your pytest tests.",
+      "description": "Only with backend pytest. How quality-code runs your pytest tests.",
       "properties": {
         "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:spec may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"tests/\" }." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300, "description": "Seconds one test process may take." },
@@ -164,7 +165,7 @@
     "junit": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter junit, or fullstack with backend junit. How quality-code runs your JUnit (Maven or Gradle) tests.",
+      "description": "Only with backend junit. How quality-code runs your JUnit (Maven or Gradle) tests.",
       "properties": {
         "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:spec may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"src/test/java/\" }." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one test process may take." },
@@ -174,7 +175,7 @@
     "go": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter go, or fullstack with backend go. How quality-code runs your go test tests.",
+      "description": "Only with backend go. How quality-code runs your go test tests.",
       "properties": {
         "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. \"./\" is the whole repo: Go tests live beside the code. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:spec may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"./\" }." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 300, "description": "Seconds one test process may take." },
@@ -184,7 +185,7 @@
     "dotnet": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter dotnet, or fullstack with backend dotnet. How quality-code runs your dotnet test tests.",
+      "description": "Only with backend dotnet. How quality-code runs your dotnet test tests.",
       "properties": {
         "layers": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["name", "folder"], "properties": { "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,30}$", "description": "Unique; lower-case letters, digits and -, like \"unit\"." }, "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where the layer's tests go, ending in /. Test files are written by their name even inside a code folder." }, "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's conventions for this layer, read on top of the plugin's writing guide." } } }, "description": "The test folders /quality-code:spec may write in. Default: one layer, { \"name\": \"unit\", \"folder\": \"tests/\" }." },
         "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 3600, "default": 600, "description": "Seconds one test process may take." },
@@ -194,7 +195,7 @@
     "playwright": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter playwright or fullstack. How quality-code runs your Playwright specs, and where it writes new ones.",
+      "description": "Only with frontend playwright. How quality-code runs your Playwright specs, and where it writes new ones.",
       "properties": {
         "configs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["match", "config"], "properties": { "match": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Spec path pattern: a prefix ending in /, an exact path, or a glob with * and **." }, "config": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Playwright config file for the specs that match." } } }, "description": "First match wins; none means Playwright's default config." },
         "projects": { "type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?!-)(?!\\s*$)[^\\r\\n]+$" }, "description": "Playwright projects to run, for example [\"chromium\"]. Left out, every project of the config runs." },
@@ -284,7 +285,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["csv"],
-      "description": "Optional, Playwright and fullstack only: write Xray test cases for QA. /quality-code:spec adds one case per Playwright test it writes, /quality-code:xray writes them without tests.",
+      "description": "Optional, only with frontend playwright: write Xray test cases for QA. /quality-code:spec adds one case per Playwright test it writes, /quality-code:xray writes them without tests.",
       "properties": {
         "csv": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "The CSV with every case, a relative path ending in .csv. Created on first use." },
         "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where each ticket's case.csv (and case.xlsx, when the project has exceljs) go, as <folder><KEY>/, ending in /. Default: the tickets folder." },
@@ -313,7 +314,7 @@
     "sides": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Only with adapter fullstack: the title prefixes (no brackets) or labels that mark a ticket frontend, backend or fullstack. Default: FE, BE and FS. An unmarked ticket is scored for both sides.",
+      "description": "Only with both frontend and backend: the title prefixes (no brackets) or labels that mark a ticket frontend, backend or fullstack. Default: FE, BE and FS. An unmarked ticket is scored for both sides.",
       "properties": {
         "frontend": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } },
         "backend": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^\\[\\]\\r\\n]+$" } },

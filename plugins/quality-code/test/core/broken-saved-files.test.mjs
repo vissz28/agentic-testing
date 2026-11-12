@@ -18,7 +18,7 @@ const BROKEN = '{"filled": ['
 const project = config => {
   const root = mkdtempSync(join(tmpdir(), 'qc-broken-'))
   mkdirSync(join(root, '.claude'))
-  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, ...config }))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, ...config }))
   const env = { CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: join(root, '.home'), QUALITY_CODE_PLACE: 'repo' }
   return { root, env, cfg: loadConfig(root, env) }
 }
@@ -64,7 +64,7 @@ test('xray: a broken list of tests already created is reported, so no test is cr
 })
 
 test('routine: a broken record of the last check is reported, not taken for a first check', async () => {
-  const p = project({ adapter: 'playwright', playwright: { folder: 'e2e/' } })
+  const p = project({ frontend: 'playwright', playwright: { folder: 'e2e/' } })
   put(join(p.root, 'e2e/one.spec.ts'), "test('DEMO-1 a', () => {})")
   const git = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...a], { cwd: p.root, stdio: 'ignore' })
   git('init', '-q', '-b', 'main'); git('add', '-A'); git('commit', '-qm', 'base')

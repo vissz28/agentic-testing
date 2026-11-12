@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { attachmentsSignal } from '../../lib/ticket/rubrics/shared.mjs'
 import { evalTickets, formatCard } from '../../lib/ticket/batch.mjs'
+import { validateConfig } from '../../lib/base/config.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
-const config = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+const config = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 
 test('attachments: counted until read, then only a file that gave text (or one added since) counts', () => {
   assert.equal(attachmentsSignal({ attachments: 0 }), false)
@@ -71,7 +72,7 @@ test('attach: a refused ticket passes once a linked page holds the criteria; the
 test('tickets-eval: a pass rate per Jira component, and refused tickets with unread files are counted', () => {
   const t = (key, components, description, attachments = 0) => ({ key, issuetype: 'Story', summary: 's', labels: [], components, text: { description }, attachments, links: [] })
   const good = '## Context\nPayments close the order.\n\n## User story\nAs a buyer I want to pay so that my order is placed.\n\n## Acceptance criteria\nGiven a cart\nWhen the user pays\nThen the order status is "Paid"'
-  const r = evalTickets(config, [t('DEMO-1', ['Billing'], good), t('DEMO-2', ['Billing'], 'Fix it.', 1), t('DEMO-3', [], 'Fix it.')])
+  const r = evalTickets(validateConfig(config).config, [t('DEMO-1', ['Billing'], good), t('DEMO-2', ['Billing'], 'Fix it.', 1), t('DEMO-3', [], 'Fix it.')])
   assert.equal(r.rows.find(x => x.key === 'DEMO-1').gate, 'pass')
   assert.deepEqual(r.summary.byTeam.map(g => [g.team, g.scored, g.passing]), [['no component', 1, 0], ['Billing', 2, 1]])
   assert.equal(r.summary.unreadFiles, 1)
@@ -79,7 +80,7 @@ test('tickets-eval: a pass rate per Jira component, and refused tickets with unr
   assert.match(card, /^By component \(lowest pass rate first\):$/m)
   assert.match(card, /^1 refused ticket has files this report does not read/m)
   // One component only: no breakdown, the project line says it all.
-  assert.deepEqual(evalTickets(config, [t('DEMO-1', ['Billing'], good)]).summary.byTeam, [])
+  assert.deepEqual(evalTickets(validateConfig(config).config, [t('DEMO-1', ['Billing'], good)]).summary.byTeam, [])
 })
 
 test('score refuses an epic (or initiative): exit 2, never scored', () => {

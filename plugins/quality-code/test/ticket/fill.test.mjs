@@ -6,14 +6,16 @@ import { messagesFor } from '../../lib/ticket/messages.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
 import { stripVagueCriteria } from '../../lib/ticket/criteria.mjs'
 import { applyAnswer, exampleFor, fillMenu, formatFillMenu, formatPick, projectPick } from '../../lib/ticket/fill.mjs'
+import { sides } from '../config-fields.mjs'
 
-const cfg = adapter => validateConfig({
-  version: 1, adapter,
+const raw = adapter => ({
+  version: 2, ...sides(adapter),
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
   features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }, { label: 'Invoices', route: '/invoices' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
-}).config
+})
+const cfg = adapter => validateConfig(raw(adapter)).config
 const FE = cfg('playwright')
 const BE = cfg('vitest')
 const NOT_ON_STORY = ['environment', 'expected_defined']
@@ -194,13 +196,13 @@ test('vitest: context and title prefix', () => {
   const bad = applyAnswer(BE, beBare, 'title_prefix', 'backend team')
   assert.ok(!bad.ok && bad.reason.includes('FE, BE or FS'))
   assert.deepEqual(applyAnswer(BE, beBare, 'title_prefix', 'BE').input.filled, [{ key: 'title_prefix', prefix: 'BE' }])
-  const own = validateConfig({ ...BE, titlePrefixes: ['UI', 'API'] }).config
+  const own = validateConfig({ ...raw('vitest'), titlePrefixes: ['UI', 'API'] }).config
   assert.equal(applyAnswer(own, beBare, 'title_prefix', 'api').input.summary, '[API] order filter wrong', 'prefixes come from config')
   assert.ok(!applyAnswer(own, beBare, 'title_prefix', 'BE').ok)
 })
 test('title_prefix rejection text is overridable from config messages', () => {
   const custom = 'Type BE (backend), FE (frontend) or FS (both).'
-  const c = validateConfig({ ...BE, messages: { title_prefix: { reject: custom } } }).config
+  const c = validateConfig({ ...raw('vitest'), messages: { title_prefix: { reject: custom } } }).config
   assert.equal(applyAnswer(c, beBare, 'title_prefix', 'backend team').reason, custom)
   assert.equal(applyAnswer(BE, beBare, 'title_prefix', 'backend team').reason, 'Type FE, BE or FS.')
 })

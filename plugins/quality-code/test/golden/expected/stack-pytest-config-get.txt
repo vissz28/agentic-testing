@@ -1,0 +1,15 @@
+$ ticket config get
+exit 0
+--- stdout
+{
+  "version": 2,
+  "jira": {
+    "site": "https://example.atlassian.net",
+    "projects": [
+      "DEMO"
+    ]
+  },
+  "backend": "pytest"
+}
+CONFIG_GET_JSON:{"key":null,"value":{"version":2,"jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"backend":"pytest"},"set":true,"source":"repo"}
+--- stderr

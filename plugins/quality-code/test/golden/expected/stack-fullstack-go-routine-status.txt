@@ -1,0 +1,6 @@
+$ routine status
+exit 0
+--- stdout
+quality-code routine status · whole suite · no runs kept yet
+Stability: NOT ENOUGH DATA (needs 3 runs)
+--- stderr

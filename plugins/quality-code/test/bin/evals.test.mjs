@@ -7,8 +7,9 @@ import { dirname, join } from 'node:path'
 import { main, runEvals } from '../../bin/evals.mjs'
 import { XRAY_HEADERS } from '../../lib/base/config.mjs'
 import { buildRows, headerRow, toLine } from '../../bin/xray.mjs'
+import { validateConfig } from '../../lib/base/config.mjs'
 
-const cfg = { version: 1, adapter: 'fullstack', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
+const cfg = { version: 2, frontend: 'playwright', backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
 function project(files) {
   const d = mkdtempSync(join(tmpdir(), 'qc-evals-'))
   const all = { '.claude/quality-code.json': JSON.stringify(cfg), ...files }
@@ -27,7 +28,7 @@ test('the old backend shape (regexes, minSpecs, a frozen ticket) and the old fro
     '.claude/quality-code/evals/ABC-1/input.json': { ticket: JSON.stringify(TICKET), candidates: ['58.86'] },
     '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', tests: [{ key: 'ABC-2-1', mustContain: ['Nessun dato'] }] },
   })
-  assert.deepEqual(runEvals(d, cfg), [{ key: 'ABC-1', problems: [] }, { key: 'ABC-2', problems: [] }])
+  assert.deepEqual(runEvals(d, validateConfig(cfg).config), [{ key: 'ABC-1', problems: [] }, { key: 'ABC-2', problems: [] }])
 })
 
 test('drift: a softened assertion, a forbidden pattern, a lost value, a gone test or spec', () => {
@@ -39,7 +40,7 @@ test('drift: a softened assertion, a forbidden pattern, a lost value, a gone tes
     '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', tests: [{ key: 'ABC-2-1', mustContain: ['Nessun dato'] }, { key: 'ABC-2-9' }] },
     '.claude/quality-code/evals/ABC-3/expected.json': { spec: 'e2e/gone.spec.ts' },
   })
-  const r = Object.fromEntries(runEvals(d, cfg).map(x => [x.key, x.problems]))
+  const r = Object.fromEntries(runEvals(d, validateConfig(cfg).config).map(x => [x.key, x.problems]))
   assert.deepEqual(r['ABC-1'], [
     '1 spec file(s) name ABC-1, at least 2 expected',
     'no spec matches /MovementService/',
@@ -71,7 +72,7 @@ test('with requirement and an xray block, each test needs its Xray case, linked 
     '.claude/quality-code/evals/ABC-2/expected.json': { spec: 'e2e/empty.spec.ts', requirement: 'ABC-2', tests: [{ key: 'ABC-2-1' }, { key: 'ABC-2-2' }, { key: 'ABC-2-3' }] },
   })
   assert.deepEqual(runEvals(d, xcfg)[0].problems, ['test ABC-2-3 is gone', 'ABC-2-2: its Xray case links ABC-9, not ABC-2', 'qa/cases.csv has no Xray case for ABC-2-3'])
-  assert.deepEqual(runEvals(d, cfg)[0].problems, ['test ABC-2-3 is gone'], 'no xray block: no link check')
+  assert.deepEqual(runEvals(d, validateConfig(cfg).config)[0].problems, ['test ABC-2-3 is gone'], 'no xray block: no link check')
   const same = project({
     '.claude/quality-code.json': JSON.stringify(xcfg),
     'e2e/empty.spec.ts': FE,

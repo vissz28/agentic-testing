@@ -13,7 +13,7 @@ const col = c => Object.keys(XRAY_HEADERS).filter(k => k !== 'data').indexOf(c)
 
 function project(xray = { csv: 'qa/cases.csv', folder: 'e2e/tickets/', headers: { action: 'Azione', expected: 'Risultato atteso', priority: 'Piorità', component: 'Componenti', ticket: 'Ticket collegati', epic: 'Epica', data: 'Dati' } }, files = {}) {
   const d = mkdtempSync(join(tmpdir(), 'qc-xray-'))
-  const cfg = { version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, ...(xray ? { xray } : {}) }
+  const cfg = { version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, ...(xray ? { xray } : {}) }
   for (const [p, s] of Object.entries({ '.claude/quality-code.json': JSON.stringify(cfg), 'package.json': '{}', ...files })) {
     mkdirSync(dirname(join(d, p)), { recursive: true })
     writeFileSync(join(d, p), s)
@@ -157,7 +157,7 @@ test('created: the cases already created in Xray are kept per ticket, so none is
   const { join } = await import('node:path')
   const root = mkdtempSync(join(tmpdir(), 'qc-xc-'))
   mkdirSync(join(root, '.claude'))
-  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, xray: { csv: 'xray/cases.csv' } }))
+  writeFileSync(join(root, '.claude/quality-code.json'), JSON.stringify({ version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, xray: { csv: 'xray/cases.csv' } }))
   const run = async (...args) => {
     let out = ''
     let err = ''

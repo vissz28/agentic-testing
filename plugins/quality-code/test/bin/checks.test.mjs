@@ -10,7 +10,7 @@ import { main, registerCheck } from '../../bin/checks.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/checks.mjs')
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
-const CFG = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+const CFG = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 function repo() {
   const d = mkdtempSync(join(tmpdir(), 'qc-cli-'))
   const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })
@@ -158,6 +158,6 @@ test('hook: a non-string path and null/number payloads allow silently; a bad con
   const denied = why => assert.equal(JSON.parse(cli(d, ['boundary', '--hook'], deny).stdout).hookSpecificOutput.permissionDecision, 'deny', why)
   put(d, '.claude/quality-code.json', '{not json')
   denied('config is not JSON')
-  put(d, '.claude/quality-code.json', JSON.stringify({ version: 1 }))
+  put(d, '.claude/quality-code.json', JSON.stringify({ version: 2 }))
   denied('config fails validation')
 })

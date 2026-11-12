@@ -9,12 +9,13 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { loadConfig, personalConfigPath, personalTicketsDir } from '../lib/base/config.mjs'
 import { writePersonal, detect } from '../bin/setup.mjs'
+import { sides } from './config-fields.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLI = join(HERE, '../bin/ticket.mjs')
 const SETUP = join(HERE, '../bin/setup.mjs')
 const tmp = () => mkdtempSync(join(tmpdir(), 'qc-pers-'))
-const cfg = adapter => ({ version: 1, adapter, jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] })
+const cfg = adapter => ({ version: 2, ...sides(adapter), jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] })
 const repoWith = (d, adapter) => { mkdirSync(join(d, '.claude'), { recursive: true }); writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify(cfg(adapter))) }
 const personalWith = (claude, c) => { mkdirSync(claude, { recursive: true }); writeFileSync(join(claude, 'quality-code.json'), JSON.stringify(c)) }
 const run = (cwd, claude, ...args) => spawnSync(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, CLAUDE_PROJECT_DIR: cwd, CLAUDE_CONFIG_DIR: claude }, encoding: 'utf8' })
@@ -122,7 +123,7 @@ test('setup: the first card after the connectors, with both options', () => {
 })
 test('setup: the personal setup confirms on the same card; tickets default to both and change with their card', () => {
   const s = cmd('setup')
-  assert.match(s, /Which tickets the user reads is a value on the Confirm card: `personal\.existing\.adapter` on a rerun, else both \(`"fullstack"`\)/)
+  assert.match(s, /Which tickets the user reads is a value on the Confirm card: `personal\.existing\.frontend` and `personal\.existing\.backend` on a rerun, else both/)
   assert.match(s, /Skip step 2 \(no project folder, no stack, no base branch, no GitLab\)/)
   assert.ok(s.includes('shows `Tickets  <frontend | backend | both>` under Jira'))
   assert.ok(s.includes('`Saved in <personal.path>; no repo file is touched.`'))

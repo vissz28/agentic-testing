@@ -1,0 +1,24 @@
+$ ticket config get
+exit 0
+--- stdout
+{
+  "version": 2,
+  "jira": {
+    "site": "https://example.atlassian.net",
+    "projects": [
+      "DEMO"
+    ]
+  },
+  "frontend": "playwright",
+  "backend": "vitest",
+  "vitest": {
+    "layers": [
+      {
+        "name": "unit",
+        "folder": "test/unit/"
+      }
+    ]
+  }
+}
+CONFIG_GET_JSON:{"key":null,"value":{"version":2,"jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"frontend":"playwright","backend":"vitest","vitest":{"layers":[{"name":"unit","folder":"test/unit/"}]}},"set":true,"source":"repo"}
+--- stderr

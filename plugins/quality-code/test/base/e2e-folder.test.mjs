@@ -6,7 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../../lib/base/e2e-folder.mjs'
 
-const base = { version: 1, adapter: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, features: [] }
+const base = { version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, features: [] }
+// The config as the scripts get it, loaded: e2eFolder reads the side it runs.
+const pw = { ...base, adapter: 'playwright' }
+const { frontend: _, ...noSide } = base
 const dir = (files = {}) => {
   const d = mkdtempSync(join(tmpdir(), 'qc-e2e-'))
   for (const [f, src] of Object.entries(files)) writeFileSync(join(d, f), src)
@@ -55,23 +58,23 @@ test('readTestDir: the same value twice is one value', () => {
 
 test('e2eFolder: playwright.folder wins', () => {
   const d = dir({ 'playwright.config.ts': "export default {\n  testDir: 'tests',\n}" })
-  assert.deepEqual(e2eFolder(d, { ...base, playwright: { folder: 'tests/checkout/' } }), { ok: true, folder: 'tests/checkout/', source: 'config' })
+  assert.deepEqual(e2eFolder(d, { ...pw, playwright: { folder: 'tests/checkout/' } }), { ok: true, folder: 'tests/checkout/', source: 'config' })
 })
 test('e2eFolder: the testDir of the Playwright config, else e2e/', () => {
   const d = dir({ 'playwright.config.ts': "export default {\n  testDir: './specs',\n}" })
-  assert.deepEqual(e2eFolder(d, base), { ok: true, folder: 'specs/', source: 'testDir', configFile: 'playwright.config.ts' })
-  assert.deepEqual(e2eFolder(dir(), base), { ok: true, folder: 'e2e/', source: 'default' })
+  assert.deepEqual(e2eFolder(d, pw), { ok: true, folder: 'specs/', source: 'testDir', configFile: 'playwright.config.ts' })
+  assert.deepEqual(e2eFolder(dir(), pw), { ok: true, folder: 'e2e/', source: 'default' })
 })
 test('e2eFolder: only for Playwright projects', () => {
-  assert.deepEqual(e2eFolder(dir(), { ...base, adapter: 'vitest' }), { ok: false, error: 'the e2e folder is for Playwright projects: this project uses vitest' })
+  assert.deepEqual(e2eFolder(dir(), { ...pw, adapter: 'vitest' }), { ok: false, error: 'the e2e folder is for Playwright projects: this project uses vitest' })
 })
 test('e2eFolder: a folder inside a forbidden boundary is refused, naming the rule; allow opens it', () => {
   const d = dir({ 'playwright.config.ts': "export default {\n  testDir: 'src/e2e',\n}" })
   const msg = (f, rule) => `the e2e folder "${f}" is inside the forbidden "${rule}": set playwright.folder, or allow it in boundaries.allow`
-  assert.deepEqual(e2eFolder(d, base), { ok: false, error: msg('src/e2e/', 'src/') })
-  assert.deepEqual(e2eFolder(dir(), { ...base, boundaries: { forbidden: [{ path: 'e2e/**' }] } }), { ok: false, error: msg('e2e/', 'e2e/**') })
-  assert.equal(e2eFolder(d, { ...base, boundaries: { allow: ['src/e2e/'] } }).ok, true)
-  assert.deepEqual(e2eFolder(dir(), { ...base, playwright: { folder: 'node_modules/x/' } }), { ok: false, error: 'the e2e folder "node_modules/x/" is inside "**/node_modules/", which a test run never writes: set playwright.folder' })
+  assert.deepEqual(e2eFolder(d, pw), { ok: false, error: msg('src/e2e/', 'src/') })
+  assert.deepEqual(e2eFolder(dir(), { ...pw, boundaries: { forbidden: [{ path: 'e2e/**' }] } }), { ok: false, error: msg('e2e/', 'e2e/**') })
+  assert.equal(e2eFolder(d, { ...pw, boundaries: { allow: ['src/e2e/'] } }).ok, true)
+  assert.deepEqual(e2eFolder(dir(), { ...pw, playwright: { folder: 'node_modules/x/' } }), { ok: false, error: 'the e2e folder "node_modules/x/" is inside "**/node_modules/", which a test run never writes: set playwright.folder' })
 })
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
@@ -96,7 +99,7 @@ test('cli config e2e-folder: one plain line, then the JSON line; exit 0', () => 
   assert.equal(json(r.stdout).source, 'default')
 })
 test('cli config e2e-folder: errors on stderr, exit 2', () => {
-  let r = run(proj({ ...base, adapter: 'vitest' }))
+  let r = run(proj({ ...noSide, backend: 'vitest' }))
   assert.equal(r.status, 2)
   assert.match(r.stderr, /for Playwright projects/)
   assert.equal(r.stdout, '')
@@ -115,7 +118,7 @@ test('a config in a subfolder: its testDir is relative to it; one named in playw
   assert.deepEqual(readTestDir(d, ['e2e/playwright.config.ts']), { value: 'e2e/tests/', file: 'e2e/playwright.config.ts' })
   assert.equal(readTestDir(d), null, 'Playwright itself looks only at the root')
   const configs = [{ match: 'e2e/**', config: 'e2e/playwright.config.ts' }]
-  assert.deepEqual(e2eFolder(d, { ...base, playwright: { configs } }), { ok: true, folder: 'e2e/tests/', source: 'testDir', configFile: 'e2e/playwright.config.ts' })
-  assert.equal(e2eFolder(d, { ...base, adapter: 'fullstack', playwright: { configs } }).folder, 'e2e/tests/', 'fullstack projects have an e2e folder too')
-  assert.equal(e2eFolder(d, { ...base, adapter: 'vitest' }).ok, false)
+  assert.deepEqual(e2eFolder(d, { ...pw, playwright: { configs } }), { ok: true, folder: 'e2e/tests/', source: 'testDir', configFile: 'e2e/playwright.config.ts' })
+  assert.equal(e2eFolder(d, { ...pw, adapter: 'fullstack', playwright: { configs } }).folder, 'e2e/tests/', 'fullstack projects have an e2e folder too')
+  assert.equal(e2eFolder(d, { ...pw, adapter: 'vitest' }).ok, false)
 })

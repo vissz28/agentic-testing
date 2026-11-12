@@ -12,7 +12,7 @@ import { detect, write } from '../bin/setup.mjs'
 import { ENV } from './git-env.mjs'
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '../bin')
-const CFG = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }
+const CFG = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 // Claude Code starts at the top: CLAUDE_PROJECT_DIR and the working folder are both the top.
 const cli = (top, script, args, input) => spawnSync(process.execPath, [join(BIN, script), ...args], { cwd: top, env: { ...ENV, CLAUDE_PROJECT_DIR: top, QC_NO_AUDIT: '1' }, encoding: 'utf8', input })
@@ -79,7 +79,7 @@ test('setup proposes the subfolder with a package.json, a test tool first, and w
   assert.equal(d.root.proposed, 'web')
   assert.deepEqual(d.root.candidates, ['web', 'docs'])
   assert.equal(d.root.ask, false, 'only web can run tests: nothing to ask')
-  assert.equal(d.adapter, 'vitest', 'read from web/package.json')
+  assert.deepEqual([d.frontend, d.backend], [null, 'vitest'], 'read from web/package.json')
   assert.deepEqual(d.boundaries, ['src/'], 'paths from the project root')
   assert.equal(detect(top, process.env, 'docs').root.proposed, 'docs', 'the user picked another folder')
   assert.equal(detect(top, process.env, '.').root.proposed, null, 'the user picked the top')

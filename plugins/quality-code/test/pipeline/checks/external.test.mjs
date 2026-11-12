@@ -39,7 +39,7 @@ test('externalChecks finds the files by glob, relative to the config folder', ()
 })
 
 test('config: externalChecks is a list of project paths', () => {
-  const base = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
+  const base = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'] } }
   assert.equal(validateConfig({ ...base, externalChecks: ['hasura-migrations/tests/**/*.sql'] }).ok, true)
   assert.match(validateConfig({ ...base, externalChecks: [] }).errors.join(), /non-empty list/)
   assert.match(validateConfig({ ...base, externalChecks: ['../x.sql'] }).errors.join(), /externalChecks\[0\]/)

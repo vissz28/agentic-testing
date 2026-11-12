@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "adapter": "playwright",
+  "version": 2,
+  "frontend": "playwright",
   "jira": {
     "site": "https://teamsystem.atlassian.net",
     "projects": [

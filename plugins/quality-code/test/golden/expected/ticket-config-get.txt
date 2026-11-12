@@ -2,8 +2,8 @@ $ ticket config get
 exit 0
 --- stdout
 {
-  "version": 1,
-  "adapter": "vitest",
+  "version": 2,
+  "backend": "vitest",
   "jira": {
     "site": "https://example.atlassian.net",
     "projects": [
@@ -19,5 +19,5 @@ exit 0
     ]
   }
 }
-CONFIG_GET_JSON:{"key":null,"value":{"version":1,"adapter":"vitest","jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"vitest":{"layers":[{"name":"unit","folder":"test/unit/"}]}},"set":true,"source":"repo"}
+CONFIG_GET_JSON:{"key":null,"value":{"version":2,"backend":"vitest","jira":{"site":"https://example.atlassian.net","projects":["DEMO"]},"vitest":{"layers":[{"name":"unit","folder":"test/unit/"}]}},"set":true,"source":"repo"}
 --- stderr

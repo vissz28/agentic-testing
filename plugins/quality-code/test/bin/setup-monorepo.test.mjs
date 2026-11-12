@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { detect, projectCandidates, write } from '../../bin/setup.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
-const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
+const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 const tree = files => {
   const d = realpathSync(mkdtempSync(join(tmpdir(), 'at-')))
   for (const [p, s] of Object.entries(files)) { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), typeof s === 'string' ? s : JSON.stringify(s)) }
@@ -33,7 +33,7 @@ test('detect: an npm-workspaces root is one project, never a choice of which ser
 test('detect: a Jest monorepo is Jest (not node), each workspace with its own config', () => {
   const d = monorepo({})
   const r = detect(d, {})
-  assert.deepEqual([r.adapter, r.runners], ['vitest', { unit: 'jest' }])
+  assert.deepEqual([r.frontend, r.backend, r.runners], [null, 'vitest', { unit: 'jest' }])
   assert.deepEqual(r.workspaces.unitConfigs, ['a', 'b', 'c'].map(n => ({ match: `services/${n}/`, config: `services/${n}/jest.config.js` })))
   const config = { ...cfg, runners: { unit: 'jest' }, vitest: { configs: r.workspaces.unitConfigs } }
   assert.equal(write(d, config).ok, true)

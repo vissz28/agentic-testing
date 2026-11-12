@@ -10,8 +10,8 @@ const jira = { site: 'https://e.atlassian.net', projects: ['DEMO'] }
 const run = (argv, { personal, repo } = {}) => {
   const claude = tmp(), cwd = tmp()
   mkdirSync(join(cwd, '.git'))
-  if (personal) writeFileSync(join(claude, 'quality-code.json'), JSON.stringify({ version: 1, adapter: 'fullstack', jira, ...personal }))
-  if (repo) { mkdirSync(join(cwd, '.claude')); writeFileSync(join(cwd, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira })) }
+  if (personal) writeFileSync(join(claude, 'quality-code.json'), JSON.stringify({ version: 2, frontend: 'playwright', backend: 'vitest', jira, ...personal }))
+  if (repo) { mkdirSync(join(cwd, '.claude')); writeFileSync(join(cwd, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira })) }
   let out = '', err = ''
   const code = main(argv, { env: { CLAUDE_CONFIG_DIR: claude, QUALITY_CODE_PLACE: 'repo' }, cwd, stdout: s => { out += s }, stderr: s => { err += s } })
   return { code, out, err }

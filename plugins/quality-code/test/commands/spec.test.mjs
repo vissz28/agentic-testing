@@ -333,8 +333,8 @@ test('a fill-in that passes still goes on to writing, with or without the Jira u
 })
 
 test('fullstack: the side picks the parts; every flag is allowed; one run with both sides', () => {
-  assert.match(doc, /A \*\*fullstack\*\* project \(`adapter: fullstack`\) has both: a backend ticket takes the Vitest parts of each step, a frontend ticket the Playwright parts, and a fullstack ticket both, the Vitest part first/)
-  assert.match(step(1), /its `adapter` is `vitest`, `playwright` or `fullstack`/)
+  assert.match(doc, /A \*\*fullstack\*\* project \(both `frontend` and `backend` in its config\) has both: a backend ticket takes the Vitest parts of each step, a frontend ticket the Playwright parts, and a fullstack ticket both, the Vitest part first/)
+  assert.match(step(1), /its `frontend` and `backend` \(a `playwright` project has only/)
   assert.match(step(1), /\*\*Fullstack:\*\* every flag is allowed: `--layer` and `--target` for the backend part, `--route` and `--no-extras` for the frontend part/)
   const two = step(2)
   assert.match(two, /\*\*Fullstack:\*\* the side is the `side` of the last `TICKET_EVAL_JSON:` line/)

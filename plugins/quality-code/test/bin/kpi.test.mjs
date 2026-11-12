@@ -11,7 +11,7 @@ const NOW = Date.parse('2026-10-14T12:00:00Z')
 const day = (d, h = 9) => `2026-10-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:00:00.000Z`
 const jsonl = rows => rows.map(r => JSON.stringify(r)).join('\n') + '\n'
 const gate = (key, d, score, more = {}) => ({ key, issuetype: 'Story', score, gate: score >= 70 ? 'pass' : 'refuse', rubric: 'vitest', legacy: false, missing: [], filled: 0, date: day(d), ...more })
-const pipe = (key, d, verdict, decidedBy, more = {}) => ({ key, verdict, decidedBy, adapter: 'vitest', steps: [], counts: {}, incompleteTicket: null, date: day(d), ...more })
+const pipe = (key, d, verdict, decidedBy, more = {}) => ({ key, verdict, decidedBy, backend: 'vitest', steps: [], counts: {}, incompleteTicket: null, date: day(d), ...more })
 
 function project(files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'qc-kpi-'))
@@ -170,7 +170,7 @@ test('the script runs from the command line', () => {
 })
 
 test('quality: traceability and suite honesty from the specs, gate integrity, mutation mean and coverage', async () => {
-  const cfg = { version: 1, adapter: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+  const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
   const root = project({
     '.claude/quality-code.json': JSON.stringify(cfg),
     'test/a.abc-1.spec.ts': "describe('ABC-1 Pricing', () => {\n  it('adds', () => { expect(1).toBe(1) })\n})\n",

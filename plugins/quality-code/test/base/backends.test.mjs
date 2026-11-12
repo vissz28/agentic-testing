@@ -12,8 +12,9 @@ import { dialectFor } from '../../lib/base/dialects/index.mjs'
 import { kindOf } from '../../bin/branch.mjs'
 import { projectSpecs } from '../../lib/report/quality-program.mjs'
 import { buildBrief, formatReport, rubricFor } from '../../lib/ticket/score.mjs'
+import { sides } from '../config-fields.mjs'
 
-const base = { version: 1, jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
+const base = { version: 2, jira: { site: 'https://example.atlassian.net', projects: ['ABC'] } }
 const valid = extra => validateConfig({ ...base, ...extra })
 const OTHERS = ['pytest', 'junit', 'go', 'dotnet']
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
@@ -51,10 +52,10 @@ test('the test file names of each stack, and code that is not a test', () => {
   }
 })
 
-test('backendOf: the adapter on a backend project, backend (default vitest) on fullstack, null on frontend', () => {
+test('backendOf: the adapter on a backend project, backend on fullstack, null on frontend', () => {
   assert.equal(backendOf({ adapter: 'pytest' }), 'pytest')
   assert.equal(backendOf({ adapter: 'vitest' }), 'vitest')
-  assert.equal(backendOf({ adapter: 'fullstack' }), 'vitest')
+  assert.equal(backendOf({ adapter: 'fullstack', backend: 'vitest' }), 'vitest')
   assert.equal(backendOf({ adapter: 'fullstack', backend: 'go' }), 'go')
   assert.equal(backendOf({ adapter: 'playwright' }), null)
   assert.equal(backendOf(null), null)
@@ -62,63 +63,62 @@ test('backendOf: the adapter on a backend project, backend (default vitest) on f
 
 test('config: every backend is an adapter, with its own block of options', () => {
   for (const a of OTHERS) {
-    const r = valid({ adapter: a, [a]: { layers: [{ name: 'unit', folder: 'src/test/' }], timeoutSeconds: 120, command: 'make test FILES="{files}" REPORT={report} ONLY={test}' } })
+    const r = valid({ ...sides(a), [a]: { layers: [{ name: 'unit', folder: 'src/test/' }], timeoutSeconds: 120, command: 'make test FILES="{files}" REPORT={report} ONLY={test}' } })
     assert.equal(r.ok, true, `${a}: ${r.errors?.join(' | ')}`)
     assert.equal(timeoutSecondsOf(r.config), 120)
     assert.equal(commandOf(r.config), 'make test FILES="{files}" REPORT={report} ONLY={test}')
     assert.deepEqual(layersOf(r.config), [{ name: 'unit', folder: 'src/test/' }])
     assert.deepEqual(adapterOptions(r.config), r.config[a])
     // Defaults: the backend's own layers and timeout.
-    const d = valid({ adapter: a }).config
+    const d = valid({ ...sides(a) }).config
     assert.deepEqual(layersOf(d), BACKENDS[a].defaultLayers)
     assert.equal(timeoutSecondsOf(d), BACKENDS[a].timeoutSeconds)
     assert.equal(commandOf(d), null)
   }
-  assert.equal(valid({ adapter: 'pytest', pytest: { typeCheck: 'mypy {files}' } }).ok, true)
-  assert.deepEqual(valid({ adapter: 'go', go: { layers: [{ name: 'unit', folder: './' }] } }).errors, undefined)
+  assert.equal(valid({ backend: 'pytest', pytest: { typeCheck: 'mypy {files}' } }).ok, true)
+  assert.deepEqual(valid({ backend: 'go', go: { layers: [{ name: 'unit', folder: './' }] } }).errors, undefined)
 })
 
 test('config: a backend block only on its own project, with only its own fields', () => {
-  assert.deepEqual(valid({ adapter: 'vitest', pytest: {} }).errors, ['pytest: only allowed with "adapter": "pytest", or "fullstack" with "backend": "pytest"'])
-  assert.deepEqual(valid({ adapter: 'fullstack', junit: {} }).errors, ['junit: only allowed with "adapter": "junit", or "fullstack" with "backend": "junit"'])
-  assert.deepEqual(valid({ adapter: 'go', go: [] }).errors, ['go: must be an object'])
-  assert.deepEqual(valid({ adapter: 'junit', junit: { typeCheck: 'x', stryker: {} } }).errors, [
+  assert.deepEqual(valid({ backend: 'vitest', pytest: {} }).errors, ['pytest: only allowed with "backend": "pytest"'])
+  assert.deepEqual(valid({ frontend: 'playwright', backend: 'vitest', junit: {} }).errors, ['junit: only allowed with "backend": "junit"'])
+  assert.deepEqual(valid({ backend: 'go', go: [] }).errors, ['go: must be an object'])
+  assert.deepEqual(valid({ backend: 'junit', junit: { typeCheck: 'x', stryker: {} } }).errors, [
     'junit.typeCheck: unknown field (only "layers", "timeoutSeconds" or "command")',
     'junit.stryker: unknown field (only "layers", "timeoutSeconds" or "command")',
   ])
-  assert.deepEqual(valid({ adapter: 'dotnet', dotnet: { timeoutSeconds: 5, command: 'dotnet test\nrm -rf /' } }).errors, [
+  assert.deepEqual(valid({ backend: 'dotnet', dotnet: { timeoutSeconds: 5, command: 'dotnet test\nrm -rf /' } }).errors, [
     'dotnet.timeoutSeconds: must be a whole number from 10 to 3600',
     'dotnet.command: must be one line of text, the project\'s test command, like "make test"',
   ])
-  assert.deepEqual(valid({ adapter: 'pytest', pytest: { command: 'pytest {files} --junitxml={out}', typeCheck: '' } }).errors, [
+  assert.deepEqual(valid({ backend: 'pytest', pytest: { command: 'pytest {files} --junitxml={out}', typeCheck: '' } }).errors, [
     'pytest.command: unknown placeholder {out} (only {files}, {report} and {test})',
     'pytest.typeCheck: must be one line of text, the type-check command, like "mypy {files}"',
   ])
-  assert.deepEqual(valid({ adapter: 'pytest', pytest: { layers: [{ name: 'Unit', folder: 'tests' }] } }).errors, [
+  assert.deepEqual(valid({ backend: 'pytest', pytest: { layers: [{ name: 'Unit', folder: 'tests' }] } }).errors, [
     'pytest.layers[0].name "Unit" must be lower-case letters, digits and "-", starting with a letter, like "unit"',
     'pytest.layers[0].folder "tests" must end with "/"',
   ])
   // The vitest block stays Vitest's: a fullstack project on another backend has none.
-  const fsPy = { adapter: 'fullstack', backend: 'pytest' }
-  assert.deepEqual(valid({ ...fsPy, vitest: {} }).errors, ['vitest: only allowed with "adapter": "vitest" or "fullstack"'])
+  const fsPy = { frontend: 'playwright', backend: 'pytest' }
+  assert.deepEqual(valid({ ...fsPy, vitest: {} }).errors, ['vitest: only allowed with "backend": "vitest"'])
 })
 
-test('config: backend only on fullstack, and only a backend runner', () => {
-  const r = valid({ adapter: 'fullstack', backend: 'pytest', pytest: { layers: [{ name: 'api', folder: 'api/tests/' }] } })
+test('config: backend names a backend runner, alone or with a frontend', () => {
+  const r = valid({ frontend: 'playwright', backend: 'pytest', pytest: { layers: [{ name: 'api', folder: 'api/tests/' }] } })
   assert.equal(r.ok, true, r.errors?.join(' | '))
   assert.deepEqual(layersOf(r.config), [{ name: 'api', folder: 'api/tests/' }])
-  assert.deepEqual(valid({ adapter: 'pytest', backend: 'pytest' }).errors, ['backend: only allowed with "adapter": "fullstack" (on a backend project the adapter names the runner)'])
-  assert.deepEqual(valid({ adapter: 'fullstack', backend: 'playwright' }).errors, ['backend: must be "vitest", "pytest", "junit", "go" or "dotnet" (found "playwright")'])
-  assert.equal(valid({ adapter: 'fullstack', backend: 'vitest', vitest: { layers: [{ name: 'unit', folder: 'test/' }] } }).ok, true)
+  assert.deepEqual(valid({ frontend: 'playwright', backend: 'playwright' }).errors, ['backend: must be "vitest", "pytest", "junit", "go" or "dotnet" (found "playwright")'])
+  assert.equal(valid({ frontend: 'playwright', backend: 'vitest', vitest: { layers: [{ name: 'unit', folder: 'test/' }] } }).ok, true)
 })
 
 test('config: Vitest keeps its layers, defaults and timeouts', () => {
-  const v = valid({ adapter: 'vitest' }).config
+  const v = valid({ backend: 'vitest' }).config
   assert.deepEqual(layersOf(v), [{ name: 'unit', folder: 'test/' }])
   assert.equal(timeoutSecondsOf(v), 300)
-  assert.equal(timeoutSecondsOf(valid({ adapter: 'playwright' }).config), 600)
-  assert.deepEqual(layersOf(valid({ adapter: 'playwright' }).config), [{ name: 'unit', folder: 'test/' }])
-  assert.deepEqual(valid({ adapter: 'vitest', vitest: { layers: [{ name: 'unit', folder: 'src/' }] } }).errors, ['vitest.layers[0].folder "src/" is inside the forbidden "src/"'])
+  assert.equal(timeoutSecondsOf(valid({ frontend: 'playwright' }).config), 600)
+  assert.deepEqual(layersOf(valid({ frontend: 'playwright' }).config), [{ name: 'unit', folder: 'test/' }])
+  assert.deepEqual(valid({ backend: 'vitest', vitest: { layers: [{ name: 'unit', folder: 'src/' }] } }).errors, ['vitest.layers[0].folder "src/" is inside the forbidden "src/"'])
 })
 
 test('stack: every backend is the backend side; fullstack runs its backend with Playwright', () => {
@@ -129,7 +129,7 @@ test('stack: every backend is the backend side; fullstack runs its backend with 
   }
   const fs = { adapter: 'fullstack', backend: 'go', playwright: { folder: 'e2e/' } }
   assert.deepEqual(adaptersOf(fs), ['go', 'playwright'])
-  assert.deepEqual(adaptersOf({ adapter: 'fullstack' }), ['vitest', 'playwright'])
+  assert.deepEqual(adaptersOf({ adapter: 'fullstack', backend: 'vitest' }), ['vitest', 'playwright'])
   assert.deepEqual(adaptersForSide('backend', fs), ['go'])
   assert.deepEqual(adaptersForSide('fullstack', fs), ['go', 'playwright'])
   assert.deepEqual(adaptersForSide(null, fs), ['go', 'playwright'])
@@ -204,18 +204,18 @@ test('the spec listing walks each backend\'s layers by its own test names; Go\'s
 
 test('rubric: every backend scores with the backend rubric, as Vitest does', () => {
   const ticket = { key: 'ABC-1', summary: 'Orders total', issuetype: 'Story', labels: [], text: { description: '## Acceptance criteria\nScenario: total\nGiven an order of 3 items at 40.00 each\nWhen the total is computed\nThen the total is 108.00\n## Context\nOrders get a volume discount.' } }
-  const v = buildBrief(valid({ adapter: 'vitest' }).config, ticket)
+  const v = buildBrief(valid({ backend: 'vitest' }).config, ticket)
   for (const a of OTHERS) {
-    const c = valid({ adapter: a }).config
+    const c = valid({ ...sides(a) }).config
     assert.equal(rubricFor(c).id, 'vitest', a)
     const b = buildBrief(c, ticket)
     assert.deepEqual({ ...b }, { ...v }, a)
     assert.equal(formatReport(b), formatReport(v), a)
   }
-  const fs = valid({ adapter: 'fullstack', backend: 'pytest' }).config
+  const fs = valid({ frontend: 'playwright', backend: 'pytest' }).config
   const be = buildBrief(fs, { ...ticket, summary: '[BE] Orders total' })
   assert.equal(be.rubric, 'vitest')
-  assert.equal(be.score, buildBrief(valid({ adapter: 'fullstack' }).config, { ...ticket, summary: '[BE] Orders total' }).score)
+  assert.equal(be.score, buildBrief(valid({ frontend: 'playwright', backend: 'vitest' }).config, { ...ticket, summary: '[BE] Orders total' }).score)
   assert.match(formatReport(be), /Side: backend: pytest tests of the code/)
-  assert.match(formatReport(buildBrief(valid({ adapter: 'fullstack' }).config, { ...ticket, summary: '[BE] Orders total' })), /Side: backend: Vitest tests of the code/)
+  assert.match(formatReport(buildBrief(valid({ frontend: 'playwright', backend: 'vitest' }).config, { ...ticket, summary: '[BE] Orders total' })), /Side: backend: Vitest tests of the code/)
 })

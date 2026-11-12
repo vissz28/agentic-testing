@@ -4,14 +4,16 @@ import { validateConfig } from '../../lib/base/config.mjs'
 import { buildBrief, decideGate, formatReport, THRESHOLD } from '../../lib/ticket/score.mjs'
 import { formatRefuseComment } from '../../lib/ticket/jira.mjs'
 import { fillMenu } from '../../lib/ticket/fill.mjs'
+import { sides } from '../config-fields.mjs'
 
-const cfg = adapter => validateConfig({
-  version: 1, adapter,
+const raw = adapter => ({
+  version: 2, ...sides(adapter),
   jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null },
   languages: ['en', 'it'],
   features: [{ label: 'Orders', route: '/orders', qaPlanSearch: 'orders' }],
   titlePrefixes: ['FE', 'BE', 'FS'],
-}).config
+})
+const cfg = adapter => validateConfig(raw(adapter)).config
 
 test('the bar is 70 and fixed', () => {
   assert.equal(THRESHOLD, 70)
@@ -71,7 +73,7 @@ test('legacy flag and report text are per rubric; rubric is not in the JSON', ()
 
 // Spec §10 amendment: an empty titlePrefixes or features list can never be met, so its signal is
 // left out of what the author reads (missing list, report, refuse comment, fill menu).
-const own = (adapter, patch) => validateConfig({ ...cfg(adapter), ...patch }).config
+const own = (adapter, patch) => validateConfig({ ...raw(adapter), ...patch }).config
 const thin = { key: 'DEMO-1', issuetype: 'Bug', labels: ['Orders'], summary: '[] s', text: { description: 'x' } }
 
 test('titlePrefixes with regex characters are matched literally', () => {

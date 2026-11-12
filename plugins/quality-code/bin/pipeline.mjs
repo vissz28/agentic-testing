@@ -74,7 +74,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (a.suite !== undefined) {
     const has = adaptersOf(config)
     const want = suiteAdapters(a.suite, config) ?? has
-    if (!want.some(x => has.includes(x))) return err(`This project has no ${sideName(a.suite, config)} tests: its adapter is ${config.adapter}.`)
+    if (!want.some(x => has.includes(x))) return err(`This project has no ${sideName(a.suite, config)} tests: its config has no "${a.suite}".`)
     a.specs = projectSpecs(root, config).filter(s => want.includes(s.adapter)).map(s => s.path)
     if (!a.specs.length) return err(`No ${a.suite === 'full' ? '' : `${sideName(a.suite, config)} `}spec files found in the project's test folders.`)
     if (a.target !== undefined && a.suite === 'frontend') return err('--target runs Stryker, which is for Vitest specs: leave it out for the frontend suite')

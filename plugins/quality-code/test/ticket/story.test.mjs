@@ -73,7 +73,7 @@ const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const proj = () => {
   const d = mkdtempSync(join(tmpdir(), 'at-'))
   mkdirSync(join(d, '.claude'))
-  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ticketsDir: 'tickets' }))
+  writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ticketsDir: 'tickets' }))
   writeFileSync(join(d, 't.json'), JSON.stringify({ key: 'DEMO-1', issuetype: 'Story', summary: 's', labels: [], text: { description: 'Broken.' } }))
   writeFileSync(join(d, 'draft.md'), DRAFT)
   return d

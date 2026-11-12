@@ -77,13 +77,12 @@ export const BACKEND_ADAPTERS = Object.freeze(Object.keys(BACKENDS))
 export const isBackend = adapter => typeof adapter === 'string' && Object.hasOwn(BACKENDS, adapter)
 
 /**
- * The adapter of a project's backend side: the adapter itself on a backend project, the "backend"
- * field (default vitest) on a fullstack one, null on a frontend project.
+ * The adapter of a config's backend side: the adapter itself on a backend project or a backend view,
+ * the "backend" field on a fullstack one, null on a frontend project or the Playwright view.
  */
 export function backendOf(config) {
   if (isBackend(config?.adapter)) return config.adapter
-  if (config?.adapter === 'fullstack') return isBackend(config.backend) ? config.backend : 'vitest'
-  return null
+  return config?.adapter === 'fullstack' ? config.backend : null
 }
 
 /** The runner's name as the card and the summaries show it: Vitest, pytest, …, Playwright. */
