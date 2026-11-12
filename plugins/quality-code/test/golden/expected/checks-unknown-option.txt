@@ -1,0 +1,5 @@
+$ checks honesty test/unit/vat.demo-2.spec.ts --runs 3
+exit 2
+--- stdout
+--- stderr
+unknown option --runs

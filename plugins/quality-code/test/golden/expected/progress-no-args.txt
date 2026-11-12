@@ -1,0 +1,5 @@
+$ progress 
+exit 2
+--- stdout
+--- stderr
+usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …

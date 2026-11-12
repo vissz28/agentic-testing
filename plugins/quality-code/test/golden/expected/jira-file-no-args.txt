@@ -1,0 +1,5 @@
+$ jira-file 
+exit 2
+--- stdout
+--- stderr
+usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>

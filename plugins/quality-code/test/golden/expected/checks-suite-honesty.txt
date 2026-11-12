@@ -1,0 +1,6 @@
+$ checks suite-honesty test/unit/pricing.demo-1.spec.ts test/unit/vat.demo-2.spec.ts
+exit 0
+--- stdout
+✅ suite-honesty: 10/10 tests carry assertions (100%)
+CHECK_JSON:{"check":"suite-honesty","status":"pass","summary":"10/10 tests carry assertions (100%)","findings":[],"data":{"tests":10,"withAssertion":10,"hollow":0,"todo":0,"skipped":0,"capture":0,"percent":100}}
+--- stderr

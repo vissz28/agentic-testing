@@ -1,0 +1,5 @@
+$ checks flaky test/unit/vat.demo-2.spec.ts
+exit 2
+--- stdout
+--- stderr
+flaky needs the test runner: it runs in the pipeline, node bin/pipeline.mjs <spec…> --flaky N

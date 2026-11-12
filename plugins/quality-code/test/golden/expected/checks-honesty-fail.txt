@@ -1,0 +1,7 @@
+$ checks honesty test/unit/pricing.demo-1.spec.ts --range main...HEAD
+exit 1
+--- stdout
+❌ honesty: 1 honesty problem(s): assertion removed
+   test/unit/pricing.demo-1.spec.ts [assertion removed]: expect(order.discount).toBe(0.00)
+CHECK_JSON:{"check":"honesty","status":"fail","summary":"1 honesty problem(s): assertion removed","findings":[{"file":"test/unit/pricing.demo-1.spec.ts","kind":"assertion removed","detail":"expect(order.discount).toBe(0.00)"}],"data":{"removedAssertions":1,"removedTests":0,"newSkips":0,"untaggedAnchors":0}}
+--- stderr

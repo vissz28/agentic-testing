@@ -1,0 +1,5 @@
+$ xray 
+exit 2
+--- stdout
+--- stderr
+usage: xray.mjs add <json|@file> | sync [KEY] | created <KEY> [add "<case name>" <TEST KEY>]

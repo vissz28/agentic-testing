@@ -1,0 +1,6 @@
+$ ticket story-check --in @tickets/DEMO-1.json
+exit 0
+--- stdout
+Story check: ok (278 words).
+STORY_JSON:{"flagged":false,"reasons":[],"words":278,"paragraphs":10,"proseParagraphs":5,"headings":5,"hasGoal":true,"hasCriteria":true}
+--- stderr

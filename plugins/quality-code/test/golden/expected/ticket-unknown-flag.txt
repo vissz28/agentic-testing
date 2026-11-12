@@ -1,0 +1,5 @@
+$ ticket score --in @tickets/DEMO-1.json --what
+exit 2
+--- stdout
+--- stderr
+unknown arg: --what

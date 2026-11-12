@@ -1,0 +1,30 @@
+$ ticket config keys
+exit 0
+--- stdout
+jira.site | address | acme.atlassian.net
+jira.projects | list, comma separated | ABC,DEF
+jira.trackingProjects | list, comma separated | ABC | none removes it
+jira.bugTypes | list, comma separated | Bug,Defect | none removes it
+jira.doneStatuses | list, comma separated | Done,Closed | none removes it
+jira.acceptanceCriteriaField | text | customfield_10100 | none removes it
+git.base | text | develop | none removes it
+root | text | apps/web | none removes it | project only
+ticketsDir | text | .qc/tickets | none removes it
+testStyle | project | quality-code | both | project | none removes it | project only
+languages | list, comma separated | en,it
+titlePrefixes | list, comma separated | Spike:,Chore: | none removes it
+qa.app | text | https://app.example.com | none removes it
+qa.sprint | open | any | open | none removes it
+qa.executionTypes | list, comma separated | Test Execution | none removes it
+qa.statuses.ko | text | TEST KO | none removes it
+qa.statuses.ready | text | Ready to test | none removes it
+qa.statuses.done | text | Done | none removes it
+qa.blockedStop | whole number | 2 | none removes it
+qa.autoPass | true | false | false | none removes it
+runners.unit | vitest | jest | mocha | node | jest | none removes it | project only
+runners.e2e | playwright | cypress | playwright | none removes it | project only
+vitest.configs | match=config pairs, comma separated | services/**=jest.config.js,web/**=web/vitest.config.ts | none removes it | project only
+playwright.configs | match=config pairs, comma separated | e2e/**=e2e/playwright.config.ts | none removes it | project only
+place | repo | local | chat | local
+CONFIG_KEYS_JSON:[{"key":"jira.site","takes":"address","optional":false,"project":false,"example":"acme.atlassian.net"},{"key":"jira.projects","takes":"list, comma separated","optional":false,"project":false,"example":"ABC,DEF"},{"key":"jira.trackingProjects","takes":"list, comma separated","optional":true,"project":false,"example":"ABC"},{"key":"jira.bugTypes","takes":"list, comma separated","optional":true,"project":false,"example":"Bug,Defect"},{"key":"jira.doneStatuses","takes":"list, comma separated","optional":true,"project":false,"example":"Done,Closed"},{"key":"jira.acceptanceCriteriaField","takes":"text","optional":true,"project":false,"example":"customfield_10100"},{"key":"git.base","takes":"text","optional":true,"project":false,"example":"develop"},{"key":"root","takes":"text","optional":true,"project":true,"example":"apps/web"},{"key":"ticketsDir","takes":"text","optional":true,"project":false,"example":".qc/tickets"},{"key":"testStyle","takes":"project | quality-code | both","optional":true,"project":true,"example":"project"},{"key":"languages","takes":"list, comma separated","optional":false,"project":false,"example":"en,it"},{"key":"titlePrefixes","takes":"list, comma separated","optional":true,"project":false,"example":"Spike:,Chore:"},{"key":"qa.app","takes":"text","optional":true,"project":false,"example":"https://app.example.com"},{"key":"qa.sprint","takes":"open | any","optional":true,"project":false,"example":"open"},{"key":"qa.executionTypes","takes":"list, comma separated","optional":true,"project":false,"example":"Test Execution"},{"key":"qa.statuses.ko","takes":"text","optional":true,"project":false,"example":"TEST KO"},{"key":"qa.statuses.ready","takes":"text","optional":true,"project":false,"example":"Ready to test"},{"key":"qa.statuses.done","takes":"text","optional":true,"project":false,"example":"Done"},{"key":"qa.blockedStop","takes":"whole number","optional":true,"project":false,"example":"2"},{"key":"qa.autoPass","takes":"true | false","optional":true,"project":false,"example":"false"},{"key":"runners.unit","takes":"vitest | jest | mocha | node","optional":true,"project":true,"example":"jest"},{"key":"runners.e2e","takes":"playwright | cypress","optional":true,"project":true,"example":"playwright"},{"key":"vitest.configs","takes":"match=config pairs, comma separated","optional":true,"project":true,"example":"services/**=jest.config.js,web/**=web/vitest.config.ts"},{"key":"playwright.configs","takes":"match=config pairs, comma separated","optional":true,"project":true,"example":"e2e/**=e2e/playwright.config.ts"},{"key":"place","takes":"repo | local | chat","optional":false,"project":false,"example":"local"}]
+--- stderr

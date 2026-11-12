@@ -1,0 +1,5 @@
+$ checks run status
+exit 0
+--- stdout
+no active run
+--- stderr

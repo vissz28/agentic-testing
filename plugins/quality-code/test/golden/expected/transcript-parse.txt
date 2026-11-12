@@ -1,0 +1,7 @@
+$ transcript parse --text "Anna: we ship the export this sprint\nMarco: I take the CSV part"
+exit 0
+--- stdout
+Anna: we ship the export this sprint
+Marco: I take the CSV part
+TRANSCRIPT_JSON:{"turns":2,"shown":2,"truncated":false,"speakers":[{"name":"Anna","turns":1},{"name":"Marco","turns":1}],"source":"pasted"}
+--- stderr

@@ -1,0 +1,5 @@
+$ routes 
+exit 2
+--- stdout
+--- stderr
+usage: routes.mjs check </path> | routes.mjs list (the path starts with /, like /orders)

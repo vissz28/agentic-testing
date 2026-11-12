@@ -1,0 +1,5 @@
+$ ticket score --in @tickets/NOPE-1.json
+exit 2
+--- stdout
+--- stderr
+--in is not readable JSON: ENOENT: no such file or directory, open '<project>/tickets/NOPE-1.json'

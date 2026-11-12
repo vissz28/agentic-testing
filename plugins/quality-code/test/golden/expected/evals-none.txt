@@ -1,0 +1,5 @@
+$ evals 
+exit 3
+--- stdout
+No eval fixture in .claude/quality-code/evals/ (one <KEY>/expected.json per ticket).
+--- stderr

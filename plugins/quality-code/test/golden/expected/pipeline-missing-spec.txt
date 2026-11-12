@@ -1,0 +1,5 @@
+$ pipeline test/unit/nope.spec.ts
+exit 2
+--- stdout
+--- stderr
+spec not found: test/unit/nope.spec.ts

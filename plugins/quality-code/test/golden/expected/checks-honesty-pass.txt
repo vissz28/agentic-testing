@@ -1,0 +1,6 @@
+$ checks honesty test/unit/vat.demo-2.spec.ts --range main...HEAD
+exit 0
+--- stdout
+✅ honesty: no assertion or test removed, no skip without a ticket
+CHECK_JSON:{"check":"honesty","status":"pass","summary":"no assertion or test removed, no skip without a ticket","findings":[],"data":{"removedAssertions":0,"removedTests":0,"newSkips":0,"untaggedAnchors":0}}
+--- stderr

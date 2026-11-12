@@ -1,0 +1,12 @@
+$ ci 
+exit 1
+--- stdout
+quality-code ci · changes since main: 1 spec
+  M test/unit/pricing.demo-1.spec.ts
+
+❌ removals: 1 honesty problem(s): assertion removed
+   test/unit/pricing.demo-1.spec.ts [assertion removed]: expect(order.discount).toBe(0.00)
+✅ assertions: 6/6 tests carry assertions (100%)
+
+Result: FAILED (exit 1)
+--- stderr

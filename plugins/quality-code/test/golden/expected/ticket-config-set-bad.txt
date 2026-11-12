@@ -1,0 +1,6 @@
+$ ticket config set git.base "bad name"
+exit 2
+--- stdout
+--- stderr
+git.base: not saved, nothing was written.
+git.base "bad name" must be a branch name, like "develop"

@@ -1,0 +1,5 @@
+$ branch --detect
+exit 0
+--- stdout
+BRANCH_JSON:{"repo":"sample-service","remote":null,"isRepo":true,"branch":"feature/DEMO-1-discount","detached":false,"head":"<sha>","base":"main","baseSource":"fallback","integration":"main","baseKind":"integration","needsConfirm":false,"wholeFeature":null,"mergeBase":"<sha>","onBase":false,"shallow":false,"ahead":1,"behind":0,"files":[{"path":"test/unit/pricing.demo-1.spec.ts","status":"M","kind":"test","committed":true}],"counts":{"code":0,"test":1,"other":0,"uncommitted":0},"keys":["DEMO-1"],"subjects":["DEMO-1 drop a check"],"pullRequest":null,"branches":["feature/DEMO-1-discount","main"]}
+--- stderr

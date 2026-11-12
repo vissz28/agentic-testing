@@ -1,0 +1,5 @@
+$ qa config
+exit 0
+--- stdout
+QA_JSON:{"executionTypes":["Test Execution","Sub Test Execution"],"sprint":"open","app":null,"statuses":{"ko":null,"ready":null,"done":null},"blockedStop":2,"autoPass":false,"dir":"<project>/.claude/quality-code/audit/qa"}
+--- stderr

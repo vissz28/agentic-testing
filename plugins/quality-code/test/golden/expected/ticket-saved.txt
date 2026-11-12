@@ -1,0 +1,5 @@
+$ ticket saved DEMO-1
+exit 0
+--- stdout
+SAVED_JSON:{"key":"DEMO-1","exists":false,"unsent":0,"score":null}
+--- stderr

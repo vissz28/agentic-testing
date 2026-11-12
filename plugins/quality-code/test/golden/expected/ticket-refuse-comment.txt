@@ -1,0 +1,72 @@
+$ ticket refuse-comment --in @tickets/DEMO-9.json
+exit 1
+--- stdout
+Hi, this ticket needs a bit more information before we can start the checks.
+
+Here is what to add:
+
+### 1. Acceptance criteria
+We could not find acceptance criteria.
+
+You can copy this and adjust it to your case. Either format works. A short list under an "Acceptance criteria" heading, one result per line:
+
+## Acceptance criteria
+- After saving, the list shows the new item with its name and today's date, and the counter above the list goes up by one.
+
+Or Given / When / Then, each at the start of its line:
+
+Given an empty list
+When I save a new item
+Then the list shows one row with that item
+
+### 2. Expected and actual result
+Expected and Actual are not both filled in.
+
+Please add both sections, for example:
+
+## Expected
+Only code 22 is listed
+
+## Actual
+Code 220 is listed as well
+
+### 3. Steps to reproduce
+There is no Steps to reproduce section (or user story).
+
+A short numbered list is enough. You can adapt this:
+
+## Steps to reproduce
+1. Open the list
+2. Filter by code 22
+3. Look at the rows that come back
+
+### 4. Attachment
+There is no attachment (screenshot, video or file) on the ticket.
+
+Please attach a screenshot, a video or a file that shows the problem or the design, on the Jira ticket itself.
+
+### 5. Link
+There is no link on the ticket (no linked issue and no web link).
+
+Please add a link: a linked issue, or a web link to the design (Figma), the spec (Confluence) or the page.
+
+### 6. Summary
+There is no Summary or Context section.
+
+A couple of sentences is enough, for example:
+
+## Summary
+When the filter is empty, the list keeps the previous rows instead of clearing.
+
+### 7. Environment
+There is no Environment section with Env: …
+
+Please add which environment you used (prod, staging or local):
+
+## Environment
+Env: staging
+
+Thanks, we can continue as soon as these are on the ticket.
+
+Co-authored via Quality Code
+--- stderr

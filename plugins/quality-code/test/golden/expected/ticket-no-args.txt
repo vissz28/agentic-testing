@@ -1,0 +1,5 @@
+$ ticket 
+exit 2
+--- stdout
+--- stderr
+usage: ticket.mjs <score|negative-check|story-check|story-save|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]

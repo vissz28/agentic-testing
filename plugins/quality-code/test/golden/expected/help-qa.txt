@@ -1,0 +1,23 @@
+$ help --qa
+exit 0
+--- stdout
+Set up: Jira example.atlassian.net, project(s) DEMO (this repo).
+
+### What you can do now (QA)
+
+1. `/quality-code:ticket`: with `<KEY> --eval`, checks the ticket is ready for tests and says what is missing.
+   - `/quality-code:ticket ABC-123 --eval`: score it for test-readiness
+   - `/quality-code:ticket ABC --eval`: score the latest 50 tickets of ABC
+2. `/quality-code:xray`: writes the ticket's Xray test cases, ready to import.
+   - `/quality-code:xray ABC-123`: check the ticket is ready, plan the cases, write them for QA
+   - `/quality-code:xray ABC-123 --no-extras`: only the ticket's scenarios
+   - `/quality-code:xray ABC-123 --route /orders/new`: cases for this screen
+3. `/quality-code:qa`: runs your test execution with you in the browser and drafts each defect.
+   - `/quality-code:qa ABC-123 --app https://app-test.example.com`: run that one on that app
+   - `/quality-code:qa ABC-123` with the run's Xray export (CSV) attached: the tests come from the file, not the Jira page
+   - `/quality-code:qa ABC-123 --auto-pass`: record the tests that pass without a card, stop at the first failure
+
+Also: `/quality-code:report`, `/quality-code:config`, `/quality-code:update`, `/quality-code:clean`. More on any command: `/quality-code:help <command>`.
+
+Another role: `--dev`, `--qa` or `--po`. Every command: `--all`.
+--- stderr

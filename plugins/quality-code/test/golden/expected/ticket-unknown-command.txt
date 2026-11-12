@@ -1,0 +1,5 @@
+$ ticket nope --in @tickets/DEMO-1.json
+exit 2
+--- stdout
+--- stderr
+unknown command: nope

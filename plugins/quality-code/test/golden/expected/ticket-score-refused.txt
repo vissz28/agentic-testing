@@ -1,0 +1,20 @@
+$ ticket score --in @tickets/DEMO-9.json --next
+exit 1
+--- stdout
+DEMO-9: test-readiness 0/100 · free text only (needs 70)
+Missing (points each would add):
+  - acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description (+28)
+  - testable acceptance criteria: each one names a result you can see, not "works correctly" (+17)
+  - clear expected behaviour (Expected vs Actual, or AC present) (+17)
+  - steps to reproduce (Bug) or a user story (Story) (+11)
+  - an attachment (a screenshot, a video or a file on the ticket) (+11)
+  - a link (a linked issue, or a web link such as Figma or Confluence) (+6)
+  - a Context / Summary section (+6)
+  - environment / workspace context (+6)
+Flags:
+  - free text only: no sections such as Acceptance criteria or Steps. Refused until it reaches 70 points.
+Result: not ready, below 70 points. Do not write tests. Add the missing items on the ticket, then run again. The ticket is free text only.
+To pass: add Acceptance criteria, Expected and actual result and Steps to reproduce (→ 72 points, needs 70).
+TICKET_EVAL_JSON:{"key":"DEMO-9","browse":null,"issuetype":"Bug","status":null,"score":0,"threshold":70,"gate":"refuse","legacy":true,"feature":null,"scenarios":[],"derivable":0,"missing":[{"key":"ac_present","label":"acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description","weight":25},{"key":"ac_testable","label":"testable acceptance criteria: each one names a result you can see, not \"works correctly\"","weight":15},{"key":"expected_defined","label":"clear expected behaviour (Expected vs Actual, or AC present)","weight":15},{"key":"steps","label":"steps to reproduce (Bug) or a user story (Story)","weight":10},{"key":"attachments","label":"an attachment (a screenshot, a video or a file on the ticket)","weight":10},{"key":"links","label":"a link (a linked issue, or a web link such as Figma or Confluence)","weight":5},{"key":"context","label":"a Context / Summary section","weight":5},{"key":"environment","label":"environment / workspace context","weight":5}],"flags":["free text only: no sections such as Acceptance criteria or Steps. Refused until it reaches 70 points."],"signals":{"ac_present":false,"ac_testable":false,"steps":false,"expected_defined":false,"context":false,"title_prefix":false,"feature_label":false,"environment":false,"attachments":false,"links":false}}
+GATE_JSON:{"band":"refused","fix":[{"key":"ac_present","title":"Acceptance criteria","gain":61},{"key":"expected_defined","title":"Expected and actual result","gain":17},{"key":"steps","title":"Steps to reproduce","gain":11}],"reach":72,"threshold":70,"enough":true}
+--- stderr

@@ -1,0 +1,5 @@
+$ routine run --flaky 0
+exit 2
+--- stdout
+--- stderr
+--flaky must be a whole number of 1 or more, not "0"

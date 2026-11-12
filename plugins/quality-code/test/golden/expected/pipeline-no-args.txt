@@ -1,0 +1,5 @@
+$ pipeline 
+exit 2
+--- stdout
+--- stderr
+needs at least one spec path, or --suite. usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]

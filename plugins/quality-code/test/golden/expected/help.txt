@@ -1,0 +1,21 @@
+$ help 
+exit 0
+--- stdout
+Set up: Jira example.atlassian.net, project(s) DEMO (this repo).
+
+### What you can do now (Developer)
+
+1. Create a feature branch for the ticket.
+2. `/quality-code:spec`: checks the ticket is ready, writes its tests and checks them.
+   - `/quality-code:spec`: the ticket of this branch: check it is ready, plan, write and check the tests
+   - `/quality-code:spec ABC-123`: check the ticket is ready, pick the code or the screen, plan, write and check the tests
+   - `/quality-code:spec ABC-123 --layer unit`: Vitest, write only in the `unit` layer
+3. `/quality-code:seed`: loads mock data for the ticket into your local database, to try it by hand.
+   - `/quality-code:seed ABC-123`: load mock data for the ticket into the local database
+4. `/quality-code:check`: with `--branch`, before the merge request, checks the tests changed on your branch.
+   - `/quality-code:check --branch` checks only the tests changed on this branch.
+
+Also: `/quality-code:ticket`, `/quality-code:ci`, `/quality-code:routine`, `/quality-code:report`, `/quality-code:config`, `/quality-code:update`, `/quality-code:clean`. More on any command: `/quality-code:help <command>`.
+
+Another role: `--dev`, `--qa` or `--po`. Every command: `--all`.
+--- stderr

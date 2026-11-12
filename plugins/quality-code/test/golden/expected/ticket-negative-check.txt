@@ -1,0 +1,6 @@
+$ ticket negative-check --in @tickets/DEMO-1.json
+exit 0
+--- stdout
+Negative cases: the ticket names errors.
+NEGATIVE_JSON:{"covered":true,"kinds":["error"],"missing":["invalid_input","permission"]}
+--- stderr

@@ -1,0 +1,6 @@
+$ checks boundary --range main...HEAD
+exit 0
+--- stdout
+✅ boundary: 1 changed file(s), all in the allowed test paths
+CHECK_JSON:{"check":"boundary","status":"pass","summary":"1 changed file(s), all in the allowed test paths","findings":[],"data":{"mode":"diff","paths":1}}
+--- stderr

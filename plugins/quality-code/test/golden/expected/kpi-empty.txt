@@ -1,0 +1,9 @@
+$ kpi 
+exit 3
+--- stdout
+No quality-code audit data yet for <project>.
+Looked in:
+  <project>/.claude/quality-code/audit/
+  <project>/.claude/quality-code/boundary.jsonl
+The log fills as tickets are gated and checks run.
+--- stderr

@@ -1,0 +1,12 @@
+$ ticket score --in @tickets/DEMO-1.json --next
+exit 0
+--- stdout
+DEMO-1: test-readiness 83/100 · ready (needs 70)
+Missing (points each would add):
+  - an attachment (a screenshot, a video or a file on the ticket) (+11)
+  - a link (a linked issue, or a web link such as Figma or Confluence) (+6)
+Flags: none
+Result: ready, tests can be written.
+TICKET_EVAL_JSON:{"key":"DEMO-1","browse":null,"issuetype":"Story","status":null,"score":83,"threshold":70,"gate":"pass","legacy":false,"feature":null,"scenarios":[],"derivable":5,"missing":[{"key":"attachments","label":"an attachment (a screenshot, a video or a file on the ticket)","weight":10},{"key":"links","label":"a link (a linked issue, or a web link such as Figma or Confluence)","weight":5}],"flags":[],"signals":{"ac_present":true,"ac_testable":true,"steps":true,"expected_defined":true,"context":true,"title_prefix":false,"feature_label":false,"environment":true,"attachments":false,"links":false}}
+GATE_JSON:{"band":"ready","fix":[],"reach":83,"threshold":70,"enough":true}
+--- stderr

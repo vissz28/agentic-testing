@@ -1,0 +1,19 @@
+$ help spec
+exit 0
+--- stdout
+### `/quality-code:spec` [KEY] [--dry-run] [--ci]
+
+Take a Jira ticket to checked tests, for developers and QA. The readiness check stops only when the ticket is not workable, you confirm the plan, then Vitest or Playwright tests (or both, on a fullstack project) are written in the team's test folders, checked by the pipeline, and read back. With no key, it takes the ticket of your feature branch.
+
+**Examples**
+- `/quality-code:spec`: the ticket of this branch: check it is ready, plan, write and check the tests
+- `/quality-code:spec ABC-123`: check the ticket is ready, pick the code or the screen, plan, write and check the tests
+- `/quality-code:spec ABC-123 --layer unit`: Vitest, write only in the `unit` layer
+- `/quality-code:spec ABC-123 --target src/pricing.ts`: Vitest, skip the target card
+- `/quality-code:spec ABC-123 --route /orders/new`: Playwright, test this screen
+- `/quality-code:spec ABC-123 --no-extras`: Playwright, only the ticket's scenarios
+- `/quality-code:spec ABC-123 --no-axe`: Playwright, without the accessibility scan
+- `/quality-code:spec ABC-123 --target src/pricing.ts --route /orders`: fullstack, a backend target and a screen
+- `/quality-code:spec ABC-123 --dry-run`: the readiness check and the plan, then stop; no test is written and nothing is posted
+- `/quality-code:spec ABC-123 --ci`: no questions; stops where it would have to ask
+--- stderr

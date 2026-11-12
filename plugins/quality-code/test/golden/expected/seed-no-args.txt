@@ -1,0 +1,5 @@
+$ seed 
+exit 2
+--- stdout
+--- stderr
+usage: seed.mjs target | seed.mjs load <file.sql>...

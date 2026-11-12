@@ -1,0 +1,6 @@
+$ ticket config get jira.site
+exit 0
+--- stdout
+jira.site = https://example.atlassian.net (repo: <project>/.claude/quality-code.json)
+CONFIG_GET_JSON:{"key":"jira.site","value":"https://example.atlassian.net","set":true,"source":"repo"}
+--- stderr

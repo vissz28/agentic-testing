@@ -1,0 +1,19 @@
+$ clean list
+exit 0
+--- stdout
+CLEAN: what Quality Code owns in <project>
+
+Setup files: 1 item
+  - .claude/quality-code.json [tracked by git]
+
+Saved output: nothing
+
+Cache: nothing
+
+Personal config: nothing
+
+Tests written by spec (kept unless you pick them): nothing
+
+TRACKED BY GIT: 1 file on this list is in git (.claude/quality-code.json). Run git status, and commit or stash first if you want to keep them in git history; deleting them does not touch the history.
+CLEAN_JSON:{"root":"<project>","git":true,"dryRun":false,"kept":[],"groups":[{"id":"setup","label":"Setup files","default":true,"items":[{"rel":".claude/quality-code.json","kind":"file","files":1,"tracked":[".claude/quality-code.json"]}]},{"id":"output","label":"Saved output","default":true,"items":[]},{"id":"cache","label":"Cache","default":true,"items":[]},{"id":"personal","label":"Personal config","default":false,"items":[]},{"id":"specs","label":"Tests written by spec","default":false,"items":[]}]}
+--- stderr

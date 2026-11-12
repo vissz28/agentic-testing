@@ -1,0 +1,23 @@
+$ help --all
+exit 0
+--- stdout
+### Every command
+
+| Command | What it does |
+|---|---|
+| `/quality-code:check` | Check the project's tests through the pipeline: tests, assertions, types and mutation, then one verdict card. |
+| `/quality-code:ci` | Writes the CI file for GitHub Actions or GitLab CI with two jobs for each pull or merge request. |
+| `/quality-code:clean` | Remove what Quality Code created in this project, so it is as before. |
+| `/quality-code:config` | See and change Quality Code's settings, one at a time: the project config (the repo's, or your personal one), where your files and logs are kept (the project repo, this machine, or only the chat), your own plugin settings (Jira email, GitLab, Xray address), and whether each token and key is set (GitLab, Figma, Xray, GitHub), with the steps to set one in /plugin. |
+| `/quality-code:help` | What to do with Quality Code, for your role. |
+| `/quality-code:qa` | Run your Xray manual tests with an agent. |
+| `/quality-code:report` | Read-only reports of this project, read locally, sent nowhere. |
+| `/quality-code:routine` | Schedule a check that runs by itself, at a time you choose, for a period or once, with Claude's scheduler. |
+| `/quality-code:seed` | Load realistic mock data for a Jira ticket into your LOCAL database, so you can test the ticket by hand in the running app. |
+| `/quality-code:setup` | Set this repo up for quality code. |
+| `/quality-code:spec` | Take a Jira ticket to checked tests, for developers and QA. |
+| `/quality-code:ticket` | Find a Jira ticket and show it in short, with suggestions for what its author could add (never written to Jira). |
+| `/quality-code:transcript-goal` | Turn a Microsoft Teams sprint planning transcript into a sprint goal and a task list. |
+| `/quality-code:update` | Check whether a newer version of the quality-code plugin is out and what changed since yours, then update it on your yes (one command), or check the version again. |
+| `/quality-code:xray` | Write Xray test cases for QA from a Jira ticket that passes the readiness check: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. |
+--- stderr
