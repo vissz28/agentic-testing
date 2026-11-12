@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds docs/drafts/quality-code-<version>-commands.pdf: the commands, grouped, with what is new.
+"""Builds plugins/quality-code/assets/commands.pdf, the guide shipped with the plugin: the commands, grouped, with what is new.
 
     python3 scripts/build-commands-pdf.py
 """
@@ -18,7 +18,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = json.loads((ROOT / 'plugins/quality-code/.claude-plugin/plugin.json').read_text())['version']
 SHORT = '.'.join(VERSION.split('.')[:2])
-OUT = ROOT / 'docs' / 'drafts' / f'quality-code-{SHORT}-commands.pdf'
+OUT = ROOT / 'plugins' / 'quality-code' / 'assets' / 'commands.pdf'  # shipped with the plugin: update points to it
 TODAY = date.today().strftime('%-d %b %Y')
 
 TS_BLUE, TS_DARK, TS_PALE = colors.HexColor('#0090D1'), colors.HexColor('#005075'), colors.HexColor('#E5F4FB')
@@ -72,6 +72,13 @@ def page(canvas, doc):
 
 
 new = [
+    ('qa checks its drafts against Central Context (0.72).', '/quality-code:qa searches Central Context once before a task\'s first test plan and once before a run\'s first defect, and adds one line per rule that applies. A rule never adds a scenario, changes a verdict or reaches Jira.'),
+    ('Playwright set up from check (0.71.1).', '/quality-code:check --frontend (and --smoke) on a project with no Playwright asks Set it up now? and, on Yes, installs it, writes the config and a first smoke test, then runs the check.'),
+    ('Jira without a token (0.71).', 'The Jira connector uses Atlassian\'s v2 endpoint. A ticket\'s screenshots and Word files are read with the normal Jira sign-in, so the Jira API token setting and the jira-files connector are gone. After updating: /reload-plugins, then /mcp, choose atlassian-rovo and sign in again. xray reads Central Context before it plans its cases.'),
+    ('The ticket from the branch (0.70.1).', '/quality-code:spec with no key takes the ticket named in the branch (feature/ABC-123-export gives ABC-123), also for a project the config does not list. The update card says which version this session runs and which one is used next.'),
+    ('Monorepos (0.70).', 'An npm, Yarn or pnpm workspaces root is one project; Jest is detected; a whole-suite check skips git-ignored folders; check runs on a spec with no ticket key; the CI source is configurable (ci.pluginSource).'),
+    ('Node.js is found on Windows (0.69.1-0.71.2).', 'Setup and every command find Node.js installed for one user, on the user PATH or with nvm, and follow one guide when it is missing.'),
+    ('Plain words (0.69).', 'The readiness score is in points with one phrase (83/100, needs 70) and each missing item shows the points it adds. Verdicts are all good, problem in the tests, tests fail and could not run. QA results are Passed, Failed and Blocked. testFlow and --flow are now testStyle and --style; routine --stability is now --flaky. A command run before setup offers to run setup, then starts again.'),
     ('A shorter spec (0.68).', '/quality-code:spec drops --gate-only (use ticket --eval) and --yes (use --ci); its hint shows only [KEY] [--dry-run] [--ci].'),
     ('Copilot loads all the commands (0.67.1-0.67.2).', 'In GitHub Copilot CLI the commands were not found, then only four showed. The plugin now has a Copilot manifest (.plugin/plugin.json), and every command header is valid YAML. In Copilot: copilot plugin update quality-code@teamsystem, then restart copilot. Claude Code is unchanged.'),
     ('Help for your role (0.67).', '/quality-code:help says whether setup is done, then what you can do now for your role, with how each command is used. --dev, --qa, --po, --all, or a command name.'),
@@ -110,7 +117,7 @@ story += [p('Update first', 'h1'), p(M('/plugin update quality-code@teamsystem')
           PageBreak()]
 
 story += [p('1. Set up and settings', 'h1'), cmds([
-    ('/quality-code:setup', 'Checks the connectors, finds the project, its stack, Jira project and base branch, shows one card to confirm and writes .claude/quality-code.json. Option 2 is a personal setup for QA and PO with no repo.', '/quality-code:setup\n/quality-code:setup advanced'),
+    ('/quality-code:setup', 'Checks the connectors, finds the project, its stack, Jira project and base branch, shows one card to confirm and saves the config. QA and PO pick their role and get a personal setup with no repo.', '/quality-code:setup\n/quality-code:setup advanced'),
     ('/quality-code:config', 'Shows a short summary and changes one setting at a time. Directly: get <key>, set <key> <value> (dotted keys, lists with commas; --personal, --project, --yes) and keys. Tokens and plugin settings (Jira email, GitLab, Xray) are checked, never echoed.', '/quality-code:config\n/quality-code:config set git.base develop\n/quality-code:config get jira.site'),
     ('/quality-code:help', 'Says whether setup is done, then the steps for your role with how each command is used. --dev, --qa, --po another role, --all every command, a name one command.', '/quality-code:help --all'),
     ('/quality-code:update', 'Says whether a newer version is out and what changed; offers to update.', '/quality-code:update'),
@@ -118,7 +125,7 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:clean', 'Removes what the plugin created in the project. A script lists it by group; you pick the groups and say yes once. Never skipped by --yes or --ci. --dry-run only lists.', '/quality-code:clean --dry-run'),
 ]),
           p('2. Every day: from ticket to tests', 'h1'), cmds([
-    ('/quality-code:spec', 'The main command. Runs the readiness gate, shows the plan (with Negative, Accessibility, Visual and Database lines when they apply), writes the tests in your test folders, runs the pipeline and reads the card back. A Bug ticket leaves a @regression test.', '/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --dry-run'),
+    ('/quality-code:spec', 'The main command. Checks the ticket is ready, shows the plan (with Errors and invalid input, Accessibility, Visual and Database lines when they apply), writes the tests in your test folders, runs the pipeline and reads the card back. A Bug ticket leaves a @regression test.', '/quality-code:spec ABC-123\n/quality-code:spec ABC-123 --dry-run'),
     ('/quality-code:ticket --eval', 'Scores one ticket out of 100 (70 passes). If the story is long or thin, offers to rewrite it from the description, Figma or Confluence; post to Jira after a preview, or save locally.', '/quality-code:ticket ABC-123 --eval'),
     ('/quality-code:ticket', 'Finds a ticket and shows it in short, with tips for its author. Read-only.', '/quality-code:ticket assignee:me'),
     ('/quality-code:transcript-goal', 'Reads a Teams planning transcript (file, pasted text or the Microsoft 365 connector), drafts the sprint goal and tasks, asks only what was not said, shows review cards, then creates the tasks in Jira after a preview and your yes, or saves them locally.', '/quality-code:transcript-goal --file planning.vtt'),
@@ -130,10 +137,10 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:check --backend', 'Every backend spec: Vitest, pytest, JUnit, Go or .NET.', '/quality-code:check --backend'),
     ('/quality-code:check --smoke', 'Only the tests tagged @smoke, against the running app or any URL. Read-only. Frontend only for now.', '/quality-code:check --smoke --url https://staging.example.com'),
 ]),
-          p('The card ends in one verdict, decided by a script: green, tests red, checks failed or not verified. A Bug ticket also shows the fail-then-pass proof (--regression-before red|green).'),
+          p('The card ends in one verdict, decided by a script: all good, tests fail, problem in the tests or could not run. A Bug ticket also shows the fail-then-pass proof (--regression-before red|green).'),
           p('4. CI and scheduled checks', 'h1'), cmds([
-    ('/quality-code:ci', 'Writes the CI file for GitHub Actions or GitLab: a quick quality-gate and a quality-tests job. --smoke adds an optional post-deploy job that runs the smoke suite against SMOKE_URL.', '/quality-code:ci github\n/quality-code:ci --smoke'),
-    ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --stability N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
+    ('/quality-code:ci', 'Writes the CI file for GitHub Actions or GitLab: a quick quality-gate job and a quality-tests job. --smoke adds an optional post-deploy job that runs the smoke suite against SMOKE_URL.', '/quality-code:ci github\n/quality-code:ci --smoke'),
+    ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --flaky N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
 ]),
           p('5. For QA and product owners', 'h1'), cmds([
     ('/quality-code:ticket <PROJECT> --eval', 'Scores a whole Jira project, read-only. --report writes an HTML page with charts.', '/quality-code:ticket ABC --eval'),
@@ -142,12 +149,10 @@ story += [p('1. Set up and settings', 'h1'), cmds([
     ('/quality-code:seed', 'Loads realistic mock data for a ticket into your local database only.', '/quality-code:seed ABC-123'),
 ]),
           p('6. Numbers', 'h1'), cmds([
-    ('/quality-code:report --kpi', 'Tickets gated, fill-ins, verdicts and the Quality Program numbers. Read-only. --report writes an HTML page with charts.', '/quality-code:report --kpi --since 30d --report'),
+    ('/quality-code:report --kpi', 'Tickets checked, fill-ins, verdicts and the Quality Program numbers. Read-only. --report writes an HTML page with charts.', '/quality-code:report --kpi --since 30d --report'),
     ('/quality-code:report --cost', 'AI usage and estimated cost of the plugin\'s runs, read locally. --report writes an HTML page with charts.', '/quality-code:report --cost --by command'),
 ])]
 
 SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm, bottomMargin=20 * mm,
                   title=f'Quality Code {SHORT} commands', author='Elvis Zefaj').build(story, onFirstPage=page, onLaterPages=page)
-import shutil
-shutil.copyfile(OUT, ROOT / 'plugins' / 'quality-code' / 'assets' / 'commands.pdf')  # shipped with the plugin: update points to it
 print(OUT)
