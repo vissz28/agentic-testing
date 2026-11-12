@@ -12,9 +12,9 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { goName, scan } from '../../base/dialects/go.mjs'
 import { findUp, kill, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
 const LABEL = 'Go'
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const slash = p => p.split(sep).join('/')
 /** A literal for Go's regexp (RE2): the same metacharacters as JavaScript's. */
 export const reEscape = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

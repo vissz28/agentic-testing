@@ -8,8 +8,8 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { classesOf } from '../../base/dialects/dotnet.mjs'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const posix = p => p.split(sep).join('/')
 
 const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }

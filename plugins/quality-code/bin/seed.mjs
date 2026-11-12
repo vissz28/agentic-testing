@@ -8,10 +8,10 @@ import { resolve } from 'node:path'
 import { loadConfig, projectRoot, seedOf } from '../lib/base/config.mjs'
 import { isLocal, parseTarget, sqlProblems } from '../lib/base/seed.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
+import { firstLine } from '../lib/core/text.mjs'
 
 const quote = s => (process.platform === 'win32' ? `"${String(s).replace(/"/g, '\\"')}"` : `'${String(s).replace(/'/g, "'\\''")}'`)
 const sh = (line, cwd, timeout) => spawnSync(line, { cwd, shell: true, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024 })
-const firstLine = s => String(s ?? '').split('\n').find(l => l.trim())?.trim() ?? ''
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const [cmd, ...files] = argv

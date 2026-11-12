@@ -8,8 +8,8 @@ import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { kill, toolScript, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 // Stryker's stderr starts with Node's stack frame; the error it names is the line to show.
 const errorOf = s => String(s ?? '').match(/\b[A-Za-z]*Error: [^\n]+/)?.[0] ?? firstLine(s)
 

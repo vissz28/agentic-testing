@@ -11,10 +11,10 @@ import { adapterOptions, commandOf, timeoutSecondsOf } from '../../base/config.m
 import { classTitles, locate } from '../../base/dialects/pytest.mjs'
 import { result } from '../../base/result.mjs'
 import { kill, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
 const LABEL = 'pytest'
 const CAP = 1 << 20
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const slash = p => String(p).replace(/\\/g, '/').replace(/^\.\//, '')
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
 

@@ -9,10 +9,9 @@ import { matches } from '../../base/boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { findUp, kill, toolScript, track } from './tool.mjs'
+import { firstLine, noColour } from '../../core/text.mjs'
 
 const ESC = /[.*+?^${}()|[\]\\]/g
-const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g
-const firstLine = s => String(s ?? '').replace(ANSI, '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 
@@ -42,10 +41,10 @@ const clipText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
  */
 export function contextOf(result, { read = () => null, rel = p => p } = {}) {
   const err = result?.error ?? result?.errors?.[0] ?? {}
-  const msg = String(err.message ?? '').replace(ANSI, '')
+  const msg = noColour(err.message)
   const out = {}
   const loc = err.location?.file ? `${rel(err.location.file)}:${err.location.line ?? '?'}` : null
-  const step = String(err.snippet ?? '').replace(ANSI, '').split('\n').find(l => /^\s*>\s*\d+\s*\|/.test(l))?.replace(/^\s*>\s*\d+\s*\|\s*/, '').trim()
+  const step = noColour(err.snippet).split('\n').find(l => /^\s*>\s*\d+\s*\|/.test(l))?.replace(/^\s*>\s*\d+\s*\|\s*/, '').trim()
   if (loc || step) out.at = [loc, step && clipText(step, 100)].filter(Boolean).join(' · ')
   const locator = /(?:^|\n)\s*Locator:\s*(.+)/.exec(msg)?.[1] ?? /waiting for ((?:getBy\w+|locator|frameLocator|page\.)[^\n]*)/.exec(msg)?.[1]
   if (locator) out.locator = clipText(locator.trim(), 140)

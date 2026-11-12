@@ -8,8 +8,8 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { structure } from '../../base/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 const WIN = process.platform === 'win32'
 const OUTPUT_MAX = 1 << 20
 

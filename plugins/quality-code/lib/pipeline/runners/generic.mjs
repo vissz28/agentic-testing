@@ -13,8 +13,8 @@ import { configFor as e2eConfigFor } from './playwright.mjs'
 import { timeoutSecondsOf } from '../../base/config.mjs'
 import { RUNNERS } from '../../base/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
+import { firstLine } from '../../core/text.mjs'
 
-const firstLine = s => String(s ?? '').split('\n').map(l => l.trim()).find(Boolean) ?? ''
 // Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
 const CYPRESS_RUN = fileURLToPath(new URL('./cypress-run.mjs', import.meta.url))
