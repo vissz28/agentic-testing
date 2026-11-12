@@ -18,6 +18,14 @@ Update with `/plugin update quality-code@teamsystem`.
   mode), so the next run of the ticket only tries again what changed. On a 753-line repository file: 8½ minutes
   before, under 2 minutes on the first run and about half a minute after.
 
+## [0.74.0] - 2026-11-12
+
+### Added
+
+- `/quality-code:spec` asks, once per side (backend, frontend), whose rules the new tests follow when the project already tests with its own library: the team's or the plugin's. The agent finds the team's runner, libraries, specs, helpers and guides itself; nothing has to be listed in the config. With the team's rules the flow is the same as always, done in the team's library: existing specs, helpers, fixtures, config and dependencies are never changed, the specs already covering the target are listed first, and the check runs them with the new ones. The answer is saved as `testRules.backend` / `testRules.frontend`; `ticket.mjs rules` shows it.
+
+**What to do:** update with `/plugin update quality-code@teamsystem`, then `/reload-plugins`. To change an answer, set `testRules.<side>` to `own` or `plugin` in the project config.
+
 ## [0.73.0] - 2026-11-12
 
 ### Changed

@@ -575,3 +575,13 @@ test('Stryker on the ticket\'s functions: step 3 names them, step 6 passes them,
   assert.ok(step(6).includes("--target '<target>' --function '<functions>'`, without `--function` when step 3 named none"))
   assert.ok(step(6).includes("(and `--function '<functions>'` when step 3 named some)"))
 })
+
+test('spec asks whose rules to follow, the team\'s or the plugin\'s, once per side', () => {
+  assert.match(doc, /\*\*Whose rules: the team's or the plugin's\.\*\*/)
+  assert.ok(doc.includes('bin/ticket.mjs" rules'))
+  assert.match(doc, /Whose rules should the new tests follow\?/)
+  assert.match(doc, /`testRules\.<side>`/)
+  assert.match(doc, /detect it yourself whether the team already has its own way of testing; nothing has to be listed in the config/)
+  assert.match(doc, /\*\*Change nothing the team has:\*\* never edit, move, rename or delete an existing spec/)
+  assert.match(doc, /Miss nothing:/)
+})

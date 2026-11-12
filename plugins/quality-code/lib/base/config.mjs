@@ -17,7 +17,7 @@ const KEY = /^[A-Z][A-Z0-9_]+$/
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
 /** A JavaScript unit runner is there: Vitest alone or on a fullstack project, or a Jest, Mocha or node --test runner named in `runners.unit`. */
 const hasUnitRunner = c => c.adapter === 'vitest' || (c.adapter === 'fullstack' && (c.backend ?? 'vitest') === 'vitest') || c.runners?.unit !== undefined
-const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
+const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'adapter', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'testRules', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
 const ADAPTERS = ['playwright', ...BACKEND_ADAPTERS, 'fullstack']
 // The backends other than Vitest: each has a block of its own options, named after it.
@@ -503,6 +503,13 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
+  if (c.testRules !== undefined) {
+    if (!isObj(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
+    else for (const [side, v] of Object.entries(c.testRules)) {
+      if (side !== 'backend' && side !== 'frontend') e.push(`testRules.${side}: unknown field (only "backend" and "frontend")`)
+      else if (v !== 'own' && v !== 'plugin') e.push(`testRules.${side}: must be "own" (the team's rules and specs win) or "plugin" (the plugin's rules win), found ${JSON.stringify(v)}`)
+    }
+  }
   if (c.centralContext !== undefined) {
     const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
     if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')

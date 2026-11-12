@@ -59,3 +59,18 @@ test('ticket.mjs approach: the line, the JSON, and whether the team guide exists
   assert.match(r.stdout, /^cart: unit tests and end-to-end tests \(the default: no approach set for it\)\n/)
   assert.equal(run().status, 2)
 })
+
+test('testRules: own or plugin per side, checked by the config', () => {
+  assert.deepEqual(errors({ adapter: 'fullstack', testRules: { backend: 'own', frontend: 'plugin' } }), [])
+  assert.match(errors({ adapter: 'fullstack', testRules: { backend: 'ours' } }).join('\n'), /testRules\.backend: must be "own"/)
+  assert.match(errors({ adapter: 'fullstack', testRules: { mobile: 'own' } }).join('\n'), /testRules\.mobile: unknown field/)
+  assert.match(errors({ adapter: 'fullstack', testRules: 'own' }).join('\n'), /testRules: must be an object/)
+})
+
+test('ticket.mjs rules: what the team answered and the team\'s own guide files, per side', () => {
+  const root = project({ adapter: 'fullstack', testRules: { frontend: 'plugin' }, playwright: { guide: 'docs/e2e.md' }, vitest: { layers: [{ name: 'service', folder: 'test/service/', guide: 'docs/service.md' }] } }, { 'docs/e2e.md': '#', 'docs/service.md': '#' })
+  const r = spawnSync(process.execPath, [CLI, 'rules'], { cwd: root, env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env }, encoding: 'utf8' })
+  assert.equal(r.status, 0, r.stderr)
+  const json = JSON.parse(r.stdout.split('\n').find(l => l.startsWith('RULES_JSON:')).slice('RULES_JSON:'.length))
+  assert.deepEqual(json, { backend: { set: null, guides: ['docs/service.md'] }, frontend: { set: 'plugin', guides: ['docs/e2e.md'] } })
+})

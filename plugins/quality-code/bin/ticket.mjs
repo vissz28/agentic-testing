@@ -15,7 +15,7 @@ import { approachOf, isFullstack, SIDES, ticketSide, unitRunnerOf } from '../lib
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
 import { redact, sanitizeTicket, uuidsOf } from '../lib/ticket/sanitize.mjs'
 import { docxText, DOCX_MAX_CHARS, MAX_BYTES } from '../lib/ticket/docx.mjs'
-import { backendOf } from '../lib/base/backends.mjs'
+import { BACKEND_ADAPTERS, backendOf } from '../lib/base/backends.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
@@ -218,6 +218,19 @@ function run(argv, env, cwd) {
     if (!r.ok) { err(r.error); return 2 }
     out(e2eFolderLine(r))
     out(`E2E_FOLDER_JSON:${JSON.stringify(r)}`)
+    return 0
+  }
+  if (cmd === 'rules') {
+    // Whose rules the tests follow, per side: "own" (the team's guides and existing specs win, the plugin's guide fills
+    // the gaps) or "plugin" (the plugin's guide wins, the team's specs are read only for imports and fixtures).
+    // `set` null: not answered yet, spec asks once. `guides` are the team's own files the config names for the side.
+    const guides = {
+      backend: BACKEND_ADAPTERS.map(k => config[k]).flatMap(b => (b?.layers ?? []).map(l => l.guide)).filter(Boolean),
+      frontend: [config.playwright?.guide, ...(config.features ?? []).map(f => f.guide)].filter(Boolean)
+    }
+    const r = Object.fromEntries(['backend', 'frontend'].map(side => [side, { set: config.testRules?.[side] ?? null, guides: guides[side].filter((g, i, all) => all.indexOf(g) === i) }]))
+    out(`rules: backend ${r.backend.set ?? 'not set'}, frontend ${r.frontend.set ?? 'not set'}`)
+    out(`RULES_JSON:${JSON.stringify(r)}`)
     return 0
   }
   if (cmd === 'approach') {
