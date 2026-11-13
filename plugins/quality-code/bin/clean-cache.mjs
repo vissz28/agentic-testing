@@ -5,7 +5,7 @@
 // node bin/clean-cache.mjs delete [--all]
 // Exit 0 ok, 2 usage. Local only; nothing is sent anywhere.
 import { projectRoot } from '../lib/base/config.mjs'
-import { deleteCache, human, listCache, strip } from '../lib/base/cache-clean.mjs'
+import { deleteCache, human, listCache, strip } from '../lib/state/cache-clean.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { plural } from '../lib/core/text.mjs'
 

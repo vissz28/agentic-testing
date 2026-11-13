@@ -10,8 +10,8 @@
 // Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
 import { execFileSync } from 'node:child_process'
 import { projectRoot } from '../lib/base/config.mjs'
-import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/base/context.mjs'
-import { clearProgress, getProgress, listProgress, setProgress } from '../lib/base/progress.mjs'
+import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/state/context.mjs'
+import { clearProgress, getProgress, listProgress, setProgress } from '../lib/state/progress.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'

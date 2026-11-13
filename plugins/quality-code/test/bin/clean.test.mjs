@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { main } from '../../bin/clean.mjs'
 import { buildList, runClean, unsafeReason } from '../../lib/base/clean.mjs'
 import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE } from '../../bin/setup.mjs'
-import { dirOf, short, slug } from '../../lib/base/progress.mjs'
+import { dirOf, short, slug } from '../../lib/state/progress.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')

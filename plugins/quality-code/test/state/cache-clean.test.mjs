@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { deleteCache, listCache } from '../../lib/base/cache-clean.mjs'
-import { dirOf, fileOf, setProgress } from '../../lib/base/progress.mjs'
-import { setFact } from '../../lib/base/context.mjs'
+import { deleteCache, listCache } from '../../lib/state/cache-clean.mjs'
+import { dirOf, fileOf, setProgress } from '../../lib/state/progress.mjs'
+import { setFact } from '../../lib/state/context.mjs'
 import { main } from '../../bin/clean-cache.mjs'
 
 function setup() {

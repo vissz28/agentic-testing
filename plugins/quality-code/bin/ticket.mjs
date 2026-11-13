@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { audit } from '../lib/base/audit.mjs'
+import { audit } from '../lib/state/audit.mjs'
 import { detectConventions, flowOf, runFlow } from '../lib/base/conventions.mjs'
 import { findTestHome } from '../lib/base/test-home.mjs'
 import { configKeys, configSetGet } from '../lib/config/set.mjs'

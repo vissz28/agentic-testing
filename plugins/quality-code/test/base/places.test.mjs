@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { audit, readAudit } from '../../lib/base/audit.mjs'
+import { audit, readAudit } from '../../lib/state/audit.mjs'
 import { loadConfig } from '../../lib/base/config.mjs'
 import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/base/places.mjs'
 

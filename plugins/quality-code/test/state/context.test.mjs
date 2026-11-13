@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CONNECTORS_TTL_MS, clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../../lib/base/context.mjs'
+import { CONNECTORS_TTL_MS, clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../../lib/state/context.mjs'
 import { main } from '../../bin/progress.mjs'
 
 const env = () => ({ CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-ctx-')) })

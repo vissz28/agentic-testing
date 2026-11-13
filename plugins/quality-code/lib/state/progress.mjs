@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
-import { claudeDir } from './config.mjs'
+import { claudeDir } from '../base/config.mjs'
 import { hasLineBreak, isTicketKey } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 

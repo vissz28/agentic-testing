@@ -14,7 +14,7 @@ import { createdOf } from '../../bin/xray.mjs'
 import { main as qa } from '../../bin/qa.mjs'
 import { main as routine } from '../../bin/routine.mjs'
 import { main as progress } from '../../bin/progress.mjs'
-import { fileOf as progressFile } from '../../lib/base/progress.mjs'
+import { fileOf as progressFile } from '../../lib/state/progress.mjs'
 
 const BROKEN = '{"filled": ['
 const project = config => {

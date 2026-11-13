@@ -9,7 +9,7 @@ import { SMOKE_TEXT, detect, fromVersion1, ghAccount, playwrightConfigText, proj
 import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
 import { validateConfig } from '../../lib/base/config.mjs'
 import { filesOf } from '../../lib/base/containers.mjs'
-import { audit } from '../../lib/base/audit.mjs'
+import { audit } from '../../lib/state/audit.mjs'
 import { logBlocked } from '../../lib/base/boundary.mjs'
 import { startRun } from '../../lib/base/run.mjs'
 import { FIELDS_REL, storeField } from '../../lib/ticket/fields.mjs'

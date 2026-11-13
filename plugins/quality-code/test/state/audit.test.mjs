@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileS
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AUDIT_DIR, KINDS, audit, auditOff, readAudit } from '../../lib/base/audit.mjs'
+import { AUDIT_DIR, KINDS, audit, auditOff, readAudit } from '../../lib/state/audit.mjs'
 
 const dir = () => mkdtempSync(join(tmpdir(), 'qc-audit-'))
 const NOW = new Date('2026-10-14T09:00:00.000Z')
