@@ -102,10 +102,14 @@ function installLines(s) {
   // Prisma's client is generated, not installed: without it the types step reports errors that are not there.
   if (s.prisma) lines.push(`${EXEC[s.pm]} prisma generate`)
   if (s.playwright) lines.push(`${EXEC[s.pm ?? 'npm']} playwright install --with-deps`)
-  if (s.backend === 'pytest') lines.push(...(s.pip.length ? s.pip.map(f => `pip install -r ${f}`) : s.pyproject ? ['pip install -e .'] : []))
-  if (s.backend === 'go') lines.push('go mod download')
-  if (s.backend === 'dotnet') lines.push('dotnet restore')
-  return lines
+  return [...lines, ...(BACKEND_INSTALL[s.backend]?.(s) ?? [])]
+}
+
+// What a backend that is not JavaScript installs (JUnit's build fetches its own).
+const BACKEND_INSTALL = {
+  pytest: s => (s.pip.length ? s.pip.map(f => `pip install -r ${f}`) : s.pyproject ? ['pip install -e .'] : []),
+  go: () => ['go mod download'],
+  dotnet: () => ['dotnet restore'],
 }
 
 // A backend that is not JavaScript brings its own toolchain; node runs the plugin beside it.
