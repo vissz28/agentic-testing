@@ -76,7 +76,7 @@ export function getFact(root, name, current = null, env = process.env, now = Dat
   if (kind === 'ttl' && now - at > value) stale = 'older than its time limit'
   if (['hash', 'head', 'ticket'].includes(kind)) {
     if (current === null || current === undefined) stale = `no current ${kind} to compare`
-    else if (current !== value) stale = kind === 'head' ? 'the code changed (new git commit)' : kind === 'ticket' ? 'the ticket changed' : 'its source changed'
+    else if (current !== value) stale = { head: 'the code changed (new git commit)', ticket: 'the ticket changed', hash: 'its source changed' }[kind]
   }
   return stale ? { ok: true, found: true, fresh: false, reason: stale, ageMinutes } : { ok: true, found: true, fresh: true, value: f.value, ageMinutes }
 }

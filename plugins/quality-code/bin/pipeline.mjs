@@ -38,7 +38,7 @@ function parse(argv) {
     if (VALUE.has(x)) {
       const v = argv[++i]
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
-      a[x === '--incomplete-ticket' ? 'incomplete' : x === '--regression-before' ? 'regressionBefore' : x.slice(2)] = v
+      a[{ '--incomplete-ticket': 'incomplete', '--regression-before': 'regressionBefore' }[x] ?? x.slice(2)] = v
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
     else if (x === '--no-mutation') a.mutation = false

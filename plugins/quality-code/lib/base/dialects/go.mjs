@@ -56,7 +56,7 @@ export function mask(src) {
 /** Index of the bracket closing the one at `open`, in masked code. */
 function closing(m, open) {
   const o = m[open]
-  const c = o === '(' ? ')' : o === '{' ? '}' : ']'
+  const c = { '(': ')', '{': '}' }[o] ?? ']'
   let d = 0
   for (let i = open; i < m.length; i++) {
     if (m[i] === o) d++

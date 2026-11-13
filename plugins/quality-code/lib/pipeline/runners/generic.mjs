@@ -93,7 +93,7 @@ export function parseCypress(json) {
     if (run.error) broken.push({ file, message: firstLine(run.error) })
     for (const t of run.tests ?? []) {
       const title = Array.isArray(t.title) ? t.title : [String(t.title ?? '')]
-      const status = t.state === 'passed' ? 'passed' : t.state === 'failed' ? 'failed' : 'skipped'
+      const status = ['passed', 'failed'].includes(t.state) ? t.state : 'skipped'
       tests.push({ title: title.at(-1), path: title.slice(0, -1), file, status, message: status === 'failed' ? firstLine(t.displayError) : '' })
     }
   }
