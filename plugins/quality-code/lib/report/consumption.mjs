@@ -63,7 +63,8 @@ export function buildReport({ runs, events }, { period, by = 'command', prices, 
   const total = bucket('total')
   const other = bucket('other')
   const groups = new Map()
-  const groupOf = (e, r) => by === 'command' ? r.command : by === 'ticket' ? r.key ?? 'no ticket' : by === 'day' ? day(r.start) : e.model
+  const GROUP = { command: (e, r) => r.command, ticket: (e, r) => r.key ?? 'no ticket', day: (e, r) => day(r.start), model: e => e.model }
+  const groupOf = GROUP[by] ?? GROUP.model
   for (const r of runsIn) {
     total.runs.add(r)
     if (by !== 'model') {

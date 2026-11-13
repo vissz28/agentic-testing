@@ -164,13 +164,14 @@ const COMMANDS = {
     if (flag !== undefined && !['project', 'quality-code', 'both'].includes(flag)) { printError('usage: ticket.mjs config flow [project|quality-code|both]'); return 2 }
     const conv = detectConventions(root)
     const flow = runFlow(config, conv, flag)
-    printLine(flow === 'both'
-      ? "test style: both: every test is written twice, like the project's existing tests and the Quality Code way (the ticket key in the file name)"
-      : flow === 'project'
-      ? (conv.specs > 0
-        ? `test style: like the existing tests: ${plural(conv.specs, 'test file')} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
-        : "test style: like the existing tests, but the project has none yet: Quality Code's naming is used until it has")
-      : 'test style: the Quality Code way: the ticket key in the file name, the configured test folders')
+    const project = conv.specs > 0
+      ? `like the existing tests: ${plural(conv.specs, 'test file')} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
+      : "like the existing tests, but the project has none yet: Quality Code's naming is used until it has"
+    printLine(`test style: ${{
+      both: "both: every test is written twice, like the project's existing tests and the Quality Code way (the ticket key in the file name)",
+      project,
+      'quality-code': 'the Quality Code way: the ticket key in the file name, the configured test folders',
+    }[flow]}`)
     printLine(tag('FLOW', { flow, source: flag ? 'run' : config.testStyle ? 'config' : 'detected', configured: config.testStyle ?? null, ...conv }))
     return 0
   },
@@ -212,7 +213,7 @@ const COMMANDS = {
     const guide = feature?.guide ?? null
     const guideFound = guide ? existsSync(resolve(root, guide)) : false
     const r = { feature: feature?.label ?? null, approach, unitRunner: unitRunnerOf(config), guide, guideFound, set: feature?.approach ?? null }
-    printLine(`${label}: ${approach === 'e2e' ? 'end-to-end tests (Playwright)' : approach === 'unit' ? 'unit tests' : 'unit tests and end-to-end tests'}${feature?.approach ? '' : ' (the default: no approach set for it)'}${guide ? `; team guide ${guide}${guideFound ? '' : ' (not found)'}` : ''}`)
+    printLine(`${label}: ${{ e2e: 'end-to-end tests (Playwright)', unit: 'unit tests', both: 'unit tests and end-to-end tests' }[approach]}${feature?.approach ? '' : ' (the default: no approach set for it)'}${guide ? `; team guide ${guide}${guideFound ? '' : ' (not found)'}` : ''}`)
     printLine(tag('APPROACH', r))
     return 0
   },

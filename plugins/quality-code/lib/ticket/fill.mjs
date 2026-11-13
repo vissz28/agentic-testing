@@ -104,7 +104,7 @@ export function projectPick(menu, nums) {
     if (!picked.includes(item)) picked.push(item)
   }
   if (!picked.length) return { error: 'Type at least one number from the list.' }
-  const rubric = menu.rubric === 'vitest' ? vitest : menu.rubric === 'playwright' ? playwright : rubricOfSignals(menu.signals)
+  const rubric = { vitest, playwright }[menu.rubric] ?? rubricOfSignals(menu.signals)
   const score = scoreTicket(rubric, credit(menu.signals, picked.map(i => i.key)), new Set(menu.omitted ?? [])).score
   return {
     picked: picked.map(({ n, key, title, question, example }) => ({ n, key, title, question, example })),

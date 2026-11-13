@@ -27,7 +27,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     not_found: `${r.route} is not a route the app declares.${r.suggestions.length ? ` Closest: ${r.suggestions.join(', ')}.` : ''}`,
   }[r.status]
   printLine(`${line}\n${tag('ROUTE', r)}`)
-  return r.status === 'not_found' ? 1 : r.status === 'unknown' ? 3 : 0
+  return { not_found: 1, unknown: 3 }[r.status] ?? 0
 }
 
 if (isMain(import.meta.url)) process.exitCode = main()

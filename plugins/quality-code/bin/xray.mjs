@@ -164,7 +164,8 @@ async function writeXlsx(ExcelJS, rows, headers, path) {
   const GRID = { style: 'thin', color: { argb: 'FFBFBFBF' } }
   const box = { top: GRID, left: GRID, bottom: GRID, right: GRID }
   const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
-  const width = c => (c === 'description' ? 60 : c === 'action' || c === 'expected' ? 44 : c === 'testType' ? 14 : 18)
+  const WIDTH = { description: 60, action: 44, expected: 44, testType: 14 }
+  const width = c => WIDTH[c] ?? 18
   const tcidCol = XRAY_COLUMNS.indexOf('tcid') + 1
   const typeCol = XRAY_COLUMNS.indexOf('testType') + 1
   const wb = new ExcelJS.Workbook()

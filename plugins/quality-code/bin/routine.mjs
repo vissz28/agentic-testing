@@ -131,7 +131,7 @@ function status(a, cfg, dir, stdout) {
     } else if (runs.some(r => r.stability)) lines.push('  no flaky test seen')
     else lines.push('  flaky tests were not looked for: run the routine with --flaky 5')
   }
-  lines.push(`Stability: ${s.verdict}${s.verdict === 'NOT ENOUGH DATA' ? ` (needs ${MIN_RUNS} runs)` : s.verdict === 'UNSTABLE' ? ' (a flaky test was seen, or fewer than 90% of the runs were green)' : ''}`)
+  lines.push(`Stability: ${s.verdict}${{ 'NOT ENOUGH DATA': ` (needs ${MIN_RUNS} runs)`, UNSTABLE: ' (a flaky test was seen, or fewer than 90% of the runs were green)' }[s.verdict] ?? ''}`)
   printLine(lines.join('\n'))
   return 0
 }
