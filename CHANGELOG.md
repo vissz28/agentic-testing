@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-11-13
+
+### Changed
+
+- Internal: shared helpers in `lib/core` replace copies rebuilt in each file: `plural()` (31 copies), `shellQuote` and `fillPlaceholders` in `lib/core/shell.mjs`, and `isLine`, `hasLineBreak` and `withoutOrigin` in `lib/core/text.mjs`.
+- Internal: `ci.mjs` keeps the backend install lines in one table, and `ticket.mjs` its commands that need no ticket, instead of long if/else runs.
+
+**What to do:** nothing. Output is unchanged.
+
 ## [0.77.0] - 2026-11-13
 
 ### Changed
