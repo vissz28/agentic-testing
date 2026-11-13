@@ -13,6 +13,7 @@ import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { goName, scan } from '../../base/dialects/go.mjs'
 import { findUp, kill, track } from './tool.mjs'
 import { escapeRegExp, firstLine, localToForwardSlashes } from '../../core/text.mjs'
+import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
 
 const LABEL = 'Go'
 
@@ -185,8 +186,6 @@ export function results(events, pkgs, stderr = '') {
   return { tests, broken }
 }
 
-const quote = s => (process.platform === 'win32' ? `"${String(s).replace(/"/g, '\\"')}"` : `'${String(s).replace(/'/g, "'\\''")}'`)
-
 /**
  * The command for one module: go test -json, or go.command with {files} (the package patterns),
  * {test} (the -run regex) and {report} (a file for the JSON stream, else it is read from stdout).
@@ -196,10 +195,9 @@ export function commandFor(config, patterns, run, report) {
   const flags = ['-json', '-count=1', ...(run ? ['-run', run] : [])]
   const custom = commandOf(config)
   if (!custom) return { file: 'go', args: ['test', ...flags, ...patterns], shell: false }
-  if (!/\{(?:files|test|report)\}/.test(custom)) return { line: `${custom} ${[...flags, ...patterns].map(quote).join(' ')}`, shell: true }
+  if (!/\{(?:files|test|report)\}/.test(custom)) return { line: `${custom} ${[...flags, ...patterns].map(q => shellQuote(q)).join(' ')}`, shell: true }
   return {
-    // Functions as replacements: a "$" in the -run regex is no replacement pattern.
-    line: custom.replace(/\{files\}/g, () => patterns.map(quote).join(' ')).replace(/\{test\}/g, () => quote(run ?? '.')).replace(/\{report\}/g, () => quote(report)),
+    line: fillPlaceholders(custom, { files: patterns.map(q => shellQuote(q)).join(' '), test: shellQuote(run ?? '.'), report: shellQuote(report) }),
     shell: true,
     report: /\{report\}/.test(custom),
   }

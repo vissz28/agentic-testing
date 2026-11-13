@@ -8,9 +8,9 @@ import { resolve } from 'node:path'
 import { loadConfig, projectRoot, seedOf } from '../lib/base/config.mjs'
 import { isLocal, parseTarget, sqlProblems } from '../lib/base/seed.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
+import { fillPlaceholders, shellQuote } from '../lib/core/shell.mjs'
 import { firstLine } from '../lib/core/text.mjs'
 
-const quote = s => (process.platform === 'win32' ? `"${String(s).replace(/"/g, '\\"')}"` : `'${String(s).replace(/'/g, "'\\''")}'`)
 const sh = (line, cwd, timeout) => spawnSync(line, { cwd, shell: true, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024 })
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
@@ -48,7 +48,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     if (why.length) { printLine(`refused: ${files[i]}: ${why.join('; ')}. Nothing was loaded.`); return 1 }
   }
   for (const [i, p] of paths.entries()) {
-    const r = sh(seed.apply.replace(/\{file\}/g, () => quote(p)), root, 600_000)
+    const r = sh(fillPlaceholders(seed.apply, { file: shellQuote(p) }), root, 600_000)
     if (r.stdout) stdout(r.stdout.endsWith('\n') ? r.stdout : `${r.stdout}\n`)
     if (r.stderr) stderr(r.stderr.endsWith('\n') ? r.stderr : `${r.stderr}\n`)
     if (r.status !== 0) { printLine(`failed: seed.apply ${r.error ? r.error.message : `exited ${r.status}`} on ${files[i]}.`); return 1 }
