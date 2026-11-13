@@ -1,5 +1,5 @@
 // Find, load and validate the team config. The only module that knows where it lives.
-import { ciErrors } from './ci-source.mjs'
+import { ciErrors } from '../ci/ci-source.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
