@@ -2,7 +2,7 @@
 // Judged from the runner's per-test results, never from an exit code. Not a proof: a local
 // re-run does not reproduce CI load or cross-file interference.
 import { result } from '../../base/result.mjs'
-import { ownTests } from '../../base/keys.mjs'
+import { ownTests } from '../../config/keys.mjs'
 
 export function classify(passes, fails) {
   if (fails > 0 && passes > 0) return 'flaky'

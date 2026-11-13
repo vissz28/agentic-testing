@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { result } from '../../base/result.mjs'
-import { keyPattern } from '../../base/keys.mjs'
+import { keyPattern } from '../../config/keys.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
 
 // An x- or f- prefix (xdescribe, xit, fit: Jest, Jasmine, Mocha) skips or focuses like .skip and .only.

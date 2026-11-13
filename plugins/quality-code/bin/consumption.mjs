@@ -3,7 +3,7 @@
 // Reads local transcripts only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no transcripts found.
 import { statSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
-import { keySource } from '../lib/base/keys.mjs'
+import { keySource } from '../lib/config/keys.mjs'
 import { configHome, loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { AS_OF, PRICES, SOURCE, loadPrices } from '../lib/report/prices.mjs'
 import { BY, buildReport, formatCard, parsePeriod } from '../lib/report/consumption.mjs'

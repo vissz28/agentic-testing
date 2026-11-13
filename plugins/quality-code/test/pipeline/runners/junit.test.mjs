@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import {
   buildCommand, collect, compileError, decodeEntities, fillCommand, junitRunner, moduleOf, parseJUnitXml, parseXml, selectorsFor, specInfo, titleOf,
 } from '../../../lib/pipeline/runners/junit.mjs'
-import { inKeyBlock } from '../../../lib/base/keys.mjs'
+import { inKeyBlock } from '../../../lib/config/keys.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
 
 const FIX = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/junit')

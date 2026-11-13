@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { audit, readAudit } from '../../lib/state/audit.mjs'
 import { loadConfig } from '../../lib/base/config.mjs'
-import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/base/places.mjs'
+import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/config/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const tmp = () => mkdtempSync(join(tmpdir(), 'qc-place-'))
@@ -131,7 +131,7 @@ test('a monorepo: the pick and the criteria field are one per repo, not one per 
 
 // The setup config sits with the tickets and audit files, in the place picked at setup's last step.
 import { configFileOf, configPath } from '../../lib/base/config.mjs'
-import { placeConfigPath } from '../../lib/base/places.mjs'
+import { placeConfigPath } from '../../lib/config/places.mjs'
 import { write } from '../../bin/setup.mjs'
 
 test('the setup config is in the picked place, beside the tickets folder and the audit log', () => {

@@ -18,7 +18,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from './config.mjs'
-import { CONFIG_FILE } from './places.mjs'
+import { CONFIG_FILE } from '../config/places.mjs'
 import { PLAIN } from './git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from './stack.mjs'

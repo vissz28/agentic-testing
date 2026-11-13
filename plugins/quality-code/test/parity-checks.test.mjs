@@ -9,7 +9,7 @@ import { grade } from '../lib/pipeline/checks/suite-honesty.mjs'
 import { violation, rulesFor } from '../lib/base/boundary.mjs'
 import { classify, overall } from '../lib/pipeline/checks/flaky.mjs'
 import { planMutants } from '../lib/pipeline/checks/mutation.mjs'
-import { keySource } from '../lib/base/keys.mjs'
+import { keySource } from '../lib/config/keys.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { ungradedTitlesOf } from '../lib/base/config.mjs'
 

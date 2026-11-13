@@ -6,7 +6,7 @@ import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
 import { configHome } from '../base/config.mjs'
 import { ignoreFolder } from '../base/ignore.mjs'
-import { FIELDS_FILE, placeFolder, placeOf } from '../base/places.mjs'
+import { FIELDS_FILE, placeFolder, placeOf } from '../config/places.mjs'
 import { readJson } from '../core/files.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'

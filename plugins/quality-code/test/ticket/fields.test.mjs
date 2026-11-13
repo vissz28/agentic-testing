@@ -7,7 +7,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIELDS_REL, resolveField, storeField } from '../../lib/ticket/fields.mjs'
-import { FIELDS_FILE, placeFolder } from '../../lib/base/places.mjs'
+import { FIELDS_FILE, placeFolder } from '../../lib/config/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const base = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] } }

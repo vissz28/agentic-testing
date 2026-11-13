@@ -8,7 +8,7 @@ import { basename, dirname, join, posix, resolve } from 'node:path'
 import { result } from '../../base/result.mjs'
 import { anchorRange, testMarks } from './suite-honesty.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
-import { inKeyBlock } from '../../base/keys.mjs'
+import { inKeyBlock } from '../../config/keys.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/

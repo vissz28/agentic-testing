@@ -1,7 +1,7 @@
 // Honesty: did the change to a spec remove an assertion or a test, or skip one without a ticket?
 // Static analysis of a git diff. The dialect decides what counts as a test declaration and
 // whether moved lines are forgiven (see the plan's Ruling 1).
-import { keySource } from '../../base/keys.mjs'
+import { keySource } from '../../config/keys.mjs'
 import { specDiff } from '../../base/git.mjs'
 import { result } from '../../base/result.mjs'
 import { redTagsOf } from '../../base/config.mjs'

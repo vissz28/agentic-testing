@@ -4,7 +4,7 @@
 // secret (a token-like key or value) is refused before anything else.
 import { existsSync, readFileSync } from 'node:fs'
 import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from '../base/config.mjs'
-import { pickPlace, placeDirs, placeOf, placesFor } from '../base/places.mjs'
+import { pickPlace, placeDirs, placeOf, placesFor } from './places.mjs'
 import { FLOWS } from '../base/conventions.mjs'
 import { RUNNERS } from '../base/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'

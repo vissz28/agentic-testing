@@ -17,7 +17,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
-import { isProjectKey, keyPattern, projectKeys } from '../lib/base/keys.mjs'
+import { isProjectKey, keyPattern, projectKeys } from '../lib/config/keys.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
