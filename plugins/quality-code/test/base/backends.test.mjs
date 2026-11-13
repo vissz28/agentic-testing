@@ -53,11 +53,11 @@ test('the test file names of each stack, and code that is not a test', () => {
 })
 
 test('backendOf: the adapter on a backend project, backend on fullstack, null on frontend', () => {
-  assert.equal(backendOf({ adapter: 'pytest' }), 'pytest')
-  assert.equal(backendOf({ adapter: 'vitest' }), 'vitest')
-  assert.equal(backendOf({ adapter: 'fullstack', backend: 'vitest' }), 'vitest')
-  assert.equal(backendOf({ adapter: 'fullstack', backend: 'go' }), 'go')
-  assert.equal(backendOf({ adapter: 'playwright' }), null)
+  assert.equal(backendOf({ adapter: 'pytest', backend: 'pytest' }), 'pytest')
+  assert.equal(backendOf({ adapter: 'vitest', backend: 'vitest' }), 'vitest')
+  assert.equal(backendOf({ frontend: 'playwright', backend: 'vitest' }), 'vitest')
+  assert.equal(backendOf({ frontend: 'playwright', backend: 'go' }), 'go')
+  assert.equal(backendOf({ adapter: 'playwright', frontend: 'playwright' }), null)
   assert.equal(backendOf(null), null)
 })
 
@@ -124,18 +124,18 @@ test('config: Vitest keeps its layers, defaults and timeouts', () => {
 test('stack: every backend is the backend side; fullstack runs its backend with Playwright', () => {
   for (const a of BACKEND_ADAPTERS) {
     assert.equal(sideOfAdapter(a), 'backend', a)
-    assert.equal(stackOf({ adapter: a }), 'backend', a)
-    assert.deepEqual(adaptersOf({ adapter: a }), [a])
+    assert.equal(stackOf({ adapter: a, ...(a === 'playwright' ? { frontend: a } : { backend: a }) }), 'backend', a)
+    assert.deepEqual(adaptersOf({ adapter: a, ...(a === 'playwright' ? { frontend: a } : { backend: a }) }), [a])
   }
-  const fs = { adapter: 'fullstack', backend: 'go', playwright: { folder: 'e2e/' } }
+  const fs = { frontend: 'playwright', backend: 'go', playwright: { folder: 'e2e/' } }
   assert.deepEqual(adaptersOf(fs), ['go', 'playwright'])
-  assert.deepEqual(adaptersOf({ adapter: 'fullstack', backend: 'vitest' }), ['vitest', 'playwright'])
+  assert.deepEqual(adaptersOf({ frontend: 'playwright', backend: 'vitest' }), ['vitest', 'playwright'])
   assert.deepEqual(adaptersForSide('backend', fs), ['go'])
   assert.deepEqual(adaptersForSide('fullstack', fs), ['go', 'playwright'])
   assert.deepEqual(adaptersForSide(null, fs), ['go', 'playwright'])
   assert.deepEqual(adaptersForSide('frontend', fs), ['playwright'])
   assert.deepEqual(adaptersForSide('backend'), ['vitest'])
-  assert.deepEqual(adaptersForSide('backend', { adapter: 'dotnet' }), ['dotnet'])
+  assert.deepEqual(adaptersForSide('backend', { adapter: 'dotnet', backend: 'dotnet' }), ['dotnet'])
   const d = mkdtempSync(join(tmpdir(), 'qc-be-'))
   assert.equal(adapterOfSpec(fs, d, 'orders/total_test.go'), 'go')
   assert.equal(adapterOfSpec(fs, d, 'e2e/orders.spec.ts'), 'playwright')
@@ -178,15 +178,15 @@ test('branch kinds: each backend\'s test names are tests, its sources code; JS/T
 
 test('boundary: a backend\'s test files go through a forbidden code folder; Vitest\'s rules stay as they are', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-bd-'))
-  const junit = rulesFor({ adapter: 'junit' }, d)
+  const junit = rulesFor({ adapter: 'junit', backend: 'junit' }, d)
   assert.equal(violation('src/test/java/com/acme/OrderTest.java', junit), null)
   assert.ok(violation('src/main/java/com/acme/Order.java', junit))
   assert.ok(violation('src/test/java/Helpers.java', junit))
-  const go = rulesFor({ adapter: 'fullstack', backend: 'go' }, d)
+  const go = rulesFor({ frontend: 'playwright', backend: 'go' }, d)
   assert.equal(violation('src/orders/total_test.go', go), null)
   assert.ok(violation('src/orders/total.go', go))
   assert.ok(violation('.claude/quality-code.json', go), 'the plugin\'s own files stay out of reach')
-  const vitest = rulesFor({ adapter: 'vitest' }, d)
+  const vitest = rulesFor({ adapter: 'vitest', backend: 'vitest' }, d)
   assert.equal(vitest.tests, null)
   assert.ok(violation('src/orders.spec.ts', vitest))
 })
@@ -194,12 +194,12 @@ test('boundary: a backend\'s test files go through a forbidden code folder; Vite
 test('the spec listing walks each backend\'s layers by its own test names; Go\'s "./" is the whole repo', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-ps-'))
   put(d, 'orders/total_test.go'); put(d, 'orders/total.go'); put(d, 'total_test.go'); put(d, 'vendor/x/y_test.go'); put(d, 'e2e/orders.spec.ts')
-  assert.deepEqual(projectSpecs(d, { adapter: 'go' }).map(s => s.path).sort(), ['orders/total_test.go', 'total_test.go'])
-  assert.deepEqual(projectSpecs(d, { adapter: 'fullstack', backend: 'go', playwright: { folder: 'e2e/' } }).sort((a, b) => (a.path < b.path ? -1 : 1)),
+  assert.deepEqual(projectSpecs(d, { adapter: 'go', backend: 'go' }).map(s => s.path).sort(), ['orders/total_test.go', 'total_test.go'])
+  assert.deepEqual(projectSpecs(d, { frontend: 'playwright', backend: 'go', playwright: { folder: 'e2e/' } }).sort((a, b) => (a.path < b.path ? -1 : 1)),
     [{ path: 'e2e/orders.spec.ts', adapter: 'playwright' }, { path: 'orders/total_test.go', adapter: 'go' }, { path: 'total_test.go', adapter: 'go' }])
   const p = mkdtempSync(join(tmpdir(), 'qc-py-'))
   put(p, 'tests/test_orders.py'); put(p, 'tests/conftest.py'); put(p, 'tests/unit/orders_test.py'); put(p, 'tests/a.spec.ts')
-  assert.deepEqual(projectSpecs(p, { adapter: 'pytest' }).map(s => s.path).sort(), ['tests/test_orders.py', 'tests/unit/orders_test.py'])
+  assert.deepEqual(projectSpecs(p, { adapter: 'pytest', backend: 'pytest' }).map(s => s.path).sort(), ['tests/test_orders.py', 'tests/unit/orders_test.py'])
 })
 
 test('rubric: every backend scores with the backend rubric, as Vitest does', () => {

@@ -27,10 +27,10 @@ const e2e = dialectFor('cypress')
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 
 test('runners: the config names another runner per kind; Vitest and Playwright stay the default and the specialized', () => {
-  assert.equal(runnerOf({ adapter: 'vitest' }), 'vitest')
-  assert.equal(runnerOf({ adapter: 'vitest', runners: { unit: 'jest' } }), 'jest')
-  assert.equal(runnerOf({ adapter: 'fullstack', backend: 'vitest', runners: { e2e: 'cypress' } }, 'playwright'), 'cypress')
-  assert.equal(runnerOf({ adapter: 'fullstack', backend: 'vitest', runners: { e2e: 'cypress' } }, 'vitest'), 'vitest')
+  assert.equal(runnerOf({ adapter: 'vitest', backend: 'vitest' }), 'vitest')
+  assert.equal(runnerOf({ adapter: 'vitest', backend: 'vitest', runners: { unit: 'jest' } }), 'jest')
+  assert.equal(runnerOf({ frontend: 'playwright', backend: 'vitest', runners: { e2e: 'cypress' } }, 'playwright'), 'cypress')
+  assert.equal(runnerOf({ frontend: 'playwright', backend: 'vitest', runners: { e2e: 'cypress' } }, 'vitest'), 'vitest')
   assert.deepEqual(['vitest', 'jest', 'cypress'].map(runnerLabel), ['Vitest', 'Jest (generic checks)', 'Cypress (generic checks)'])
   assert.equal(validateConfig({ ...base, backend: 'vitest', runners: { unit: 'mocha' } }).ok, true)
   assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'vitest', runners: { unit: 'jest', e2e: 'cypress' } }).ok, true)
@@ -52,7 +52,7 @@ test('runners with the non-JavaScript backends: runners.unit is refused beside t
   }
   assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'pytest', runners: { e2e: 'cypress' } }).ok, true)
   assert.equal(validateConfig({ ...base, frontend: 'playwright', backend: 'vitest', runners: { unit: 'jest' } }).ok, true)
-  const cfg = { adapter: 'fullstack', backend: 'pytest', runners: { e2e: 'cypress' } }
+  const cfg = { frontend: 'playwright', backend: 'pytest', runners: { e2e: 'cypress' } }
   assert.equal(runnerOf(cfg, 'pytest'), 'pytest')
   assert.equal(runnerOf(cfg, 'playwright'), 'cypress')
   for (const b of ['pytest', 'junit', 'go', 'dotnet']) {
@@ -182,7 +182,7 @@ test('runGeneric: Cypress through its Module API, with its artifacts kept out of
 test('genericRunner: specs grouped by the config that runs them (vitest.configs for Jest)', async () => {
   const d = realpathSync(mkdtempSync(join(tmpdir(), 'qc-gen-')))
   fakeBin(d, 'jest', { report: { testResults: [] } })
-  const run = genericRunner(d, { adapter: 'vitest', runners: { unit: 'jest' }, vitest: { configs: [{ match: 'test/int/**', config: 'jest.int.config.js' }] } }, 'jest')
+  const run = genericRunner(d, { adapter: 'vitest', backend: 'vitest', runners: { unit: 'jest' }, vitest: { configs: [{ match: 'test/int/**', config: 'jest.int.config.js' }] } }, 'jest')
   await run({ files: ['test/a.spec.js', 'test/int/b.spec.js'] })
   const c = calls(d, 'jest')
   assert.equal(c.length, 2)
@@ -196,7 +196,7 @@ test('pipeline: a Jest project runs the generic checks, its card says so, and St
   g('init', '-q', '-b', 'main'); put(d, 'README.md', 'x'); g('add', '-A'); g('commit', '-qm', 'i')
   const SPEC = "describe('ABC-1 Sums', () => {\n  it('adds', () => {\n    expect(sum(1, 2)).toBe(3)\n  })\n})\n"
   put(d, 'test/a.spec.js', SPEC)
-  const config = { adapter: 'vitest', runners: { unit: 'jest' }, jira: { projects: ['ABC'] } }
+  const config = { adapter: 'vitest', backend: 'vitest', runners: { unit: 'jest' }, jira: { projects: ['ABC'] } }
   const runTests = async ({ files, testName }) => {
     const changed = readFileSync(join(d, files[0]), 'utf8') !== SPEC
     return { ran: true, broken: [], tests: [{ title: 'adds', path: ['ABC-1 Sums'], file: files[0], status: testName && changed ? 'failed' : 'passed', message: '' }] }
@@ -214,7 +214,7 @@ test('pipeline: a Jest project runs the generic checks, its card says so, and St
 
 test('e2e folder: a Cypress project\'s specs are in cypress/e2e/ unless playwright.folder says otherwise', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-cy-'))
-  const cfg = { ...base, adapter: 'playwright', runners: { e2e: 'cypress' } }
+  const cfg = { ...base, adapter: 'playwright', frontend: 'playwright', runners: { e2e: 'cypress' } }
   assert.deepEqual(e2eFolder(d, cfg), { ok: true, folder: 'cypress/e2e/', source: 'cypress' })
   assert.equal(e2eFolder(d, { ...cfg, playwright: { folder: 'cy/' } }).folder, 'cy/')
 })

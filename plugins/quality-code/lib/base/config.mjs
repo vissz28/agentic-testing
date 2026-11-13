@@ -535,7 +535,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     config: {
       ...c,
       // The side the code runs, never written back to the file: the one side, or fullstack for both.
-      adapter: c.frontend && c.backend ? 'fullstack' : c.frontend ?? c.backend,
+      // A one-side project is its own one-side view: the adapter the pipeline runs. A fullstack one has none.
+      ...(c.frontend && c.backend ? {} : { adapter: c.frontend ?? c.backend }),
       // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
       jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
       languages: c.languages ?? DEFAULTS.languages,

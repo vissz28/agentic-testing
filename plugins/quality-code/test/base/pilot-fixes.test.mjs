@@ -98,10 +98,10 @@ test('config: expected, assertionHelpers, ticketAnchor, roots and sides.default 
 })
 
 test('a ticket with no mark takes the configured side; marked tickets keep theirs', () => {
-  const cfg = { adapter: 'fullstack', sides: { default: 'backend' } }
+  const cfg = { frontend: 'playwright', backend: 'vitest', sides: { default: 'backend' } }
   assert.equal(ticketSide(cfg, { summary: 'No prefix', labels: [] }), 'backend')
   assert.equal(ticketSide(cfg, { summary: '[FE] Screen', labels: [] }), 'frontend')
-  assert.equal(ticketSide({ adapter: 'fullstack' }, { summary: 'No prefix' }), null)
+  assert.equal(ticketSide({ frontend: 'playwright', backend: 'vitest' }, { summary: 'No prefix' }), null)
 })
 
 import { colocatedProposal, write as writeSetup } from '../../bin/setup.mjs'

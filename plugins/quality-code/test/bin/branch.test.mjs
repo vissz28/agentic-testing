@@ -40,7 +40,7 @@ test('kindOf: tests by name, code by extension, the rest other', () => {
 })
 test('playwrightTestDirs: the e2e folder write uses (playwright.folder, else a plain testDir), else e2e/ and tests/', () => {
   const d = mkdtempSync(join(tmpdir(), 'at-pw-'))
-  const pw = { adapter: 'playwright', jira: { projects: ['DEMO'] } }
+  const pw = { adapter: 'playwright', frontend: 'playwright', jira: { projects: ['DEMO'] } }
   assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/', 'tests/'])
   put(d, 'playwright.config.ts', "export default defineConfig({ testDir: './e2e/specs', retries: 0 })")
   assert.deepEqual(playwrightTestDirs(d, pw), ['e2e/specs/'])
@@ -333,7 +333,7 @@ test('playwright: files under the configured testDir are tests', () => {
   commit(d, 'pw', { 'playwright.config.ts': "export default { testDir: './e2e/specs' }\n" })
   g(d, 'checkout', '-qb', 'DEMO-9-x')
   commit(d, 'spec', { 'e2e/specs/orders.ts': 'o\n', 'e2e/helpers.ts': 'h\n' })
-  const r = detect(d, cfg({ adapter: 'playwright' }))
+  const r = detect(d, cfg({ adapter: 'playwright', frontend: 'playwright' }))
   assert.equal(r.files.find(f => f.path === 'e2e/specs/orders.ts').kind, 'test')
   assert.equal(r.files.find(f => f.path === 'e2e/helpers.ts').kind, 'code')
 })
@@ -398,7 +398,7 @@ test('review I4: a project in a subfolder sees only its own files, relative to i
   g(d, 'checkout', '-qb', 'DEMO-22-x')
   commit(d, 'both', { 'web/tests/a.ts': 'a\n', 'api/y.ts': 'changed\n' })
   put(d, 'api/z.ts', 'z\n')
-  const r = detect(join(d, 'web'), cfg({ adapter: 'playwright' }))
+  const r = detect(join(d, 'web'), cfg({ adapter: 'playwright', frontend: 'playwright' }))
   assert.deepEqual(r.files.map(f => [f.path, f.kind]), [['tests/a.ts', 'test']])
   assert.deepEqual(r.counts, { code: 0, test: 1, other: 0, uncommitted: 0 })
 })

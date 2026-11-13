@@ -45,7 +45,7 @@ export function readTestDir(root, files = CONFIG_FILES) {
 
 /** → { ok: true, folder, source: 'config' | 'testDir' | 'default', configFile? } | { ok: false, error } */
 export function e2eFolder(root, config) {
-  if (config?.adapter !== 'playwright' && config?.adapter !== 'fullstack') return { ok: false, error: `the e2e folder is for Playwright projects: this project uses ${config?.adapter}` }
+  if (!config?.frontend) return { ok: false, error: `the e2e folder is for Playwright projects: this project uses ${config?.backend}` }
   let out
   if (config.playwright?.folder) out = { ok: true, folder: config.playwright.folder, source: 'config' }
   else if (runnerOf(config, 'playwright') === 'cypress') out = { ok: true, folder: CYPRESS_FOLDER, source: 'cypress' }

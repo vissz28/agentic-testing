@@ -11,15 +11,15 @@ import { toForwardSlashes } from '../core/text.mjs'
 export const SIDES = Object.freeze(['frontend', 'backend', 'fullstack'])
 /** A ticket marked with one of these (title prefix in brackets, or label) is on that side. */
 export const DEFAULT_SIDES = Object.freeze({ frontend: ['FE'], backend: ['BE'], fullstack: ['FS'] })
-const SIDE_OF = { playwright: 'frontend', fullstack: 'fullstack', ...Object.fromEntries(BACKEND_ADAPTERS.map(a => [a, 'backend'])) }
+const SIDE_OF = { playwright: 'frontend', ...Object.fromEntries(BACKEND_ADAPTERS.map(a => [a, 'backend'])) }
 
-export const isFullstack = config => config?.adapter === 'fullstack'
+export const isFullstack = config => Boolean(config?.frontend && config?.backend)
 
-/** The adapters a project runs: one, or its backend and Playwright on a fullstack project. */
-export const adaptersOf = config => (isFullstack(config) ? [backendOf(config), 'playwright'] : [config.adapter])
+/** The adapters a project runs: its backend, then its frontend. */
+export const adaptersOf = config => [config?.backend, config?.frontend].filter(Boolean)
 
 /** frontend, backend or fullstack: what the project is. */
-export const stackOf = config => SIDE_OF[config?.adapter] ?? null
+export const stackOf = config => (isFullstack(config) ? 'fullstack' : SIDE_OF[config?.frontend ?? config?.backend] ?? null)
 
 /** The side an adapter writes for: Playwright is the frontend, every backend runner the backend. */
 export const sideOfAdapter = adapter => SIDE_OF[adapter]
@@ -46,10 +46,11 @@ export function approachOf(config, label) {
 }
 
 /** The JavaScript unit runner a frontend feature can use for its unit tests: Vitest, else null. */
-export const unitRunnerOf = config => (config?.adapter === 'vitest' || (config?.adapter === 'fullstack' && backendOf(config) === 'vitest') || config?.runners?.unit !== undefined ? 'vitest' : null)
+export const unitRunnerOf = config => (config?.backend === 'vitest' || config?.runners?.unit !== undefined ? 'vitest' : null)
 
-/** The project config as a single-adapter project sees it, so every one-adapter module works unchanged. */
-export const asAdapter = (config, adapter) => (config.adapter === adapter ? config : { ...config, adapter })
+/** The project config as a single-adapter project sees it: that adapter, and only its side. */
+export const asAdapter = (config, adapter) => (config.adapter === adapter ? config
+  : { ...config, adapter, frontend: adapter === 'playwright' ? adapter : undefined, backend: adapter === 'playwright' ? undefined : adapter })
 
 /** The side a ticket's title prefix or labels mark, or null when nothing does. Only for fullstack projects. */
 export function ticketSide(config, ticket) {

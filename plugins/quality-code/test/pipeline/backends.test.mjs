@@ -39,7 +39,7 @@ test('the registry builds a pipeline entry per backend; the stubs say they are n
 test('pytest: no type step and Stryker not applicable; the card leaves both out', async () => {
   const spec = 'tests/test_orders.py'
   const d = repo(spec, 'def test_total():\n    assert total([40, 40, 40]) == 108\n')
-  const out = await runPipeline({ specs: [spec], target: 'app/orders.py' }, { config: { adapter: 'pytest', jira: { projects: ['ABC'] } }, dialect: dialectFor('pytest'), root: d, runTests: green(spec) })
+  const out = await runPipeline({ specs: [spec], target: 'app/orders.py' }, { config: { adapter: 'pytest', backend: 'pytest', jira: { projects: ['ABC'] } }, dialect: dialectFor('pytest'), root: d, runTests: green(spec) })
   assert.deepEqual(step(out, 'types'), result('types', 'pass', 'not applicable: no type-check for Python', [], { applicable: false }))
   assert.deepEqual(step(out, 'stryker'), result('stryker', 'pass', 'not applicable: Stryker is for JavaScript and TypeScript', [], { applicable: false, target: 'app/orders.py' }))
   assert.equal(step(out, 'tests').status, 'pass')
@@ -64,7 +64,7 @@ test('compiled stacks: the types step says they compile in the test run', async 
 test('dotnet: a spec that does not build (or no dotnet at all) leaves the tests not run, never a pass', async () => {
   const spec = 'tests/OrderTests.cs'
   const d = repo(spec, 'x\n')
-  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'dotnet', jira: { projects: ['ABC'] } }, dialect: dialectFor('dotnet'), root: d })
+  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'dotnet', backend: 'dotnet', jira: { projects: ['ABC'] } }, dialect: dialectFor('dotnet'), root: d })
   assert.equal(step(out, 'tests').status, 'not_run')
   assert.equal(out.verdict, 'not_verified')
 })
@@ -73,7 +73,7 @@ test('go: a spec that does not build (or no go at all) leaves the tests not run,
   const spec = 'orders/total_test.go'
   const d = repo(spec, 'x\n')
   put(d, 'go.mod', 'module example.com/demo\n')
-  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'go', jira: { projects: ['ABC'] } }, dialect: dialectFor('go'), root: d })
+  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'go', backend: 'go', jira: { projects: ['ABC'] } }, dialect: dialectFor('go'), root: d })
   assert.equal(step(out, 'tests').status, 'not_run')
   assert.equal(out.verdict, 'not_verified')
 })
@@ -87,7 +87,7 @@ test('fullstack on pytest: the backend side runs the pytest runner, the card nam
   const runner = a => async ({ files }) => { seen.push([a, files[0]]); return { ran: true, broken: [], tests: [{ title: 'x', file: files[0], status: 'passed' }] } }
   const ok = async () => result('types', 'pass', 'compiles', [], { applicable: true })
   const out = await runPipeline({ specs: [be, fe], target: 'app/orders.py' }, {
-    config: { adapter: 'fullstack', backend: 'pytest', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } },
+    config: { frontend: 'playwright', backend: 'pytest', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } },
     root: d, runners: { pytest: runner('pytest'), playwright: runner('playwright') }, typeChecks: { playwright: ok },
   })
   assert.deepEqual(out.runners, ['pytest', 'playwright'])
@@ -95,7 +95,7 @@ test('fullstack on pytest: the backend side runs the pytest runner, the card nam
   assert.match(step(out, 'types').summary, /^pytest: not applicable: no type-check for Python; Playwright: compiles$/)
   assert.match(step(out, 'stryker').summary, /^pytest: not applicable: Stryker is for JavaScript and TypeScript$/)
   assert.match(formatCard(out, { specs: [be, fe] }), /· pytest \+ Playwright/)
-  assert.equal(mergeSides([{ adapter: 'dotnet', steps: [result('tests', 'pass', '1 passed')] }])[0].summary, '.NET: 1 passed')
+  assert.equal(mergeSides([{ adapter: 'dotnet', backend: 'dotnet', steps: [result('tests', 'pass', '1 passed')] }])[0].summary, '.NET: 1 passed')
 })
 
 test('a runner module\'s typeCheck export is the types step of a backend without tsc', async () => {
@@ -104,7 +104,7 @@ test('a runner module\'s typeCheck export is the types step of a backend without
   // The hook point: pytest's runner module may export typeCheck(root, config, specs); ctx.typeCheck stands in here.
   const calls = []
   const typeCheck = async specs => { calls.push(specs); return result('types', 'fail', 'mypy: 1 error', [{ file: spec, kind: 'type error', detail: 'x' }]) }
-  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'pytest', pytest: { typeCheck: 'mypy {files}' }, jira: { projects: ['ABC'] } }, dialect: dialectFor('pytest'), root: d, runTests: green(spec), typeCheck })
+  const out = await runPipeline({ specs: [spec] }, { config: { adapter: 'pytest', backend: 'pytest', pytest: { typeCheck: 'mypy {files}' }, jira: { projects: ['ABC'] } }, dialect: dialectFor('pytest'), root: d, runTests: green(spec), typeCheck })
   assert.deepEqual(calls, [[spec]])
   assert.equal(step(out, 'tests').status, 'not_run')
   assert.equal(out.verdict, 'checks_failed')

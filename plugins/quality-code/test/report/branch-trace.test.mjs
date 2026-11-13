@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { formatQuality, qualityKpi, scanSpecs } from '../../lib/report/quality-program.mjs'
 
-const CONFIG = { version: 1, adapter: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'] }, git: { base: 'main' }, features: [], languages: ['en'] }
+const CONFIG = { version: 1, adapter: 'vitest', backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['ABC'] }, git: { base: 'main' }, features: [], languages: ['en'] }
 const g = (d, ...a) => execFileSync('git', ['-c', 'user.email=a@b', '-c', 'user.name=n', ...a], { cwd: d, stdio: 'ignore' })
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const spec = title => `describe('${title}', () => {\n  it('works', () => { expect(1).toBe(1) })\n})\n`

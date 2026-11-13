@@ -159,7 +159,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const specs = [...new Set(a.specs.map(s => normalizeSpec(root, s)))]
   const tests = (outcome.steps || []).find(x => x.check === 'tests')?.data ?? {}
   log('pipeline', {
-    key: a.key ?? null, verdict: outcome.verdict, decidedBy: outcome.decidedBy, adapter: config.adapter,
+    key: a.key ?? null, verdict: outcome.verdict, decidedBy: outcome.decidedBy, adapter: isFullstack(config) ? 'fullstack' : config.adapter,
     steps: outcome.steps || [],
     counts: { specs: specs.length, passed: tests.passed, failed: tests.failed, skipped: tests.skipped },
     incompleteTicket,

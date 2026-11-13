@@ -37,7 +37,7 @@ test('personal only: it is used, with the absolute tickets default', () => {
   assert.equal(r.ok, true)
   assert.equal(r.source, 'personal')
   assert.equal(r.path, join(claude, 'quality-code.json'))
-  assert.equal(r.config.adapter, 'fullstack')
+  assert.deepEqual([r.config.frontend, r.config.backend], ['playwright', 'vitest'])
   assert.ok(isAbsolute(r.config.ticketsDir))
   assert.equal(r.config.ticketsDir, join(claude, 'quality-code', 'tickets'))
 })

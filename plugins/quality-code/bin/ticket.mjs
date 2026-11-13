@@ -48,7 +48,7 @@ const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', 
 function missingRunners(root, config) {
   const pkg = tryReadJson(join(root, 'package.json'), null)
   const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
-  const wants = { vitest: backendOf(config) === 'vitest', playwright: config.adapter === 'playwright' || isFullstack(config) }
+  const wants = { vitest: backendOf(config) === 'vitest', playwright: Boolean(config.frontend) }
   return ADDABLE
     .filter(([adapter, , packages]) => wants[adapter] && runnerOf(config, adapter) === adapter && !toolScript(root, packages, adapter))
     .map(([, label, packages]) => (packages.some(p => p in deps)

@@ -19,9 +19,9 @@ test('projectSpecs skips git-ignored folders and a workspace on another unit run
   put('web/src/y.test.tsx', "test('y', () => { expect(1).toBe(1) })")
   put('build-copy/services/a/src/x.test.ts', "test('x', () => { expect(1).toBe(1) })")
   put('.build-context/z.test.ts', "test('z', () => { expect(1).toBe(1) })")
-  const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] }, runners: { unit: 'jest' } }
+  const cfg = { adapter: 'vitest', backend: 'vitest', jira: { projects: ['ABC'] }, runners: { unit: 'jest' } }
   assert.deepEqual(projectSpecs(d, cfg).map(s => s.path), ['services/a/src/x.test.ts'])
-  const vi = { adapter: 'vitest', jira: { projects: ['ABC'] } }
+  const vi = { adapter: 'vitest', backend: 'vitest', jira: { projects: ['ABC'] } }
   assert.deepEqual(projectSpecs(d, vi).map(s => s.path).sort(), ['web/src/y.test.tsx'])
 })
 
@@ -29,7 +29,7 @@ test('suite honesty leaves out the titles of playwright.ungradedTitles, as the c
   const d = mkdtempSync(join(tmpdir(), 'qc-qp-'))
   mkdirSync(join(d, 'e2e'))
   writeFileSync(join(d, 'e2e/a.spec.ts'), "test('ABC-1 shows', async () => { await expect(p).toBeVisible() })\ntest('ABC-1 — design-conformance capture', async () => { await shot() })\n")
-  const cfg = { adapter: 'playwright', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
+  const cfg = { adapter: 'playwright', frontend: 'playwright', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
   assert.deepEqual([scanSpecs(d, cfg).tests, scanSpecs(d, cfg).honest], [2, 1])
   const off = { ...cfg, playwright: { folder: 'e2e/', ungradedTitles: 'capture' } }
   assert.deepEqual([scanSpecs(d, off).tests, scanSpecs(d, off).honest], [1, 1])

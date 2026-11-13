@@ -28,8 +28,8 @@ test('stacksFor: each side matches its stacks and "all"; the backend follows the
   assert.deepEqual(stacksFor('backend'), ['all', 'node', 'typescript', 'javascript', 'rest'])
   assert.deepEqual(stacksFor('frontend'), ['all', 'web', 'typescript', 'javascript'])
   assert.deepEqual(stacksFor('fullstack'), ['all', 'node', 'typescript', 'javascript', 'rest', 'web'])
-  assert.deepEqual(stacksFor('backend', { adapter: 'pytest' }), ['all', 'python', 'rest'])
-  assert.deepEqual(stacksFor('fullstack', { adapter: 'fullstack', backend: 'junit' }), ['all', 'java', 'rest', 'web', 'typescript', 'javascript'])
+  assert.deepEqual(stacksFor('backend', { adapter: 'pytest', backend: 'pytest' }), ['all', 'python', 'rest'])
+  assert.deepEqual(stacksFor('fullstack', { frontend: 'playwright', backend: 'junit' }), ['all', 'java', 'rest', 'web', 'typescript', 'javascript'])
 })
 
 test('testingRules: active quality rules about testing for the side only, most severe first; never CI or infrastructure', () => {
@@ -47,15 +47,15 @@ test('hubOf: CC_HUB_URL wins over the config; a trailing slash is dropped; nothi
 })
 
 test('readRules: the hub\'s release and rules; no hub, "off" or a failing hub read none and say why, never throw', async () => {
-  const config = { adapter: 'vitest', centralContext: { hub: 'http://hub' } }
+  const config = { adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'http://hub' } }
   const r = await readRules({ side: 'backend', config, env: {}, fetchImpl: fetchOk, builtinRoot: NO_BUILTIN })
   assert.equal(r.source, 'hub')
   assert.equal(r.release, 'local-abc')
   assert.deepEqual(ids(r.rules), ['isolated-tests', 'coverage', 'node-only'])
   assert.equal(formatRules(r), '✅ Central Context: 3 backend testing rules (release local-abc)')
   const none = async (c, f) => formatRules(await readRules({ side: 'backend', config: c, env: {}, fetchImpl: f, builtinRoot: NO_BUILTIN }))
-  assert.equal(await none({ adapter: 'vitest' }, async () => { throw new Error('fetch failed') }), `⚠️ Central Context could not be reached at ${DEFAULT_HUB} (fetch failed). No rules applied.`)
-  assert.equal(await none({ adapter: 'vitest', centralContext: { hub: 'off' } }), '⚠️ Central Context is turned off in the config. No rules applied.')
+  assert.equal(await none({ adapter: 'vitest', backend: 'vitest' }, async () => { throw new Error('fetch failed') }), `⚠️ Central Context could not be reached at ${DEFAULT_HUB} (fetch failed). No rules applied.`)
+  assert.equal(await none({ adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'off' } }), '⚠️ Central Context is turned off in the config. No rules applied.')
   assert.equal(await none(config, async () => { throw new Error('fetch failed') }), '⚠️ Central Context could not be reached at http://hub (fetch failed). No rules applied.')
   assert.equal(await none(config, async () => ({ ok: false, status: 503 })), '⚠️ Central Context could not be reached at http://hub (HTTP 503). No rules applied.')
   const empty = await readRules({ side: 'frontend', config, env: {}, builtinRoot: NO_BUILTIN, fetchImpl: async () => ({ ok: true, json: async () => ({ release: { release_id: 'r' }, documents: [] }) }) })
@@ -133,7 +133,7 @@ test('readRules with local rules: both sources, one line each; a hub that fails 
   const root = mkdtempSync(join(tmpdir(), 'qc-local-read-'))
   mkdirSync(join(root, 'rules'))
   writeFileSync(join(root, 'rules/a.md'), RULE('team.mocks'))
-  const config = { adapter: 'vitest', centralContext: { hub: 'http://hub', local: 'rules/' } }
+  const config = { adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'http://hub', local: 'rules/' } }
   const both = await readRules({ side: 'backend', config, root, env: {}, fetchImpl: fetchOk, builtinRoot: NO_BUILTIN })
   assert.deepEqual(both.local.rules.map(r => r.id), ['team.mocks'])
   assert.equal(formatRules(both), '✅ Central Context: 3 backend testing rules (release local-abc)\n✅ Local rules: 1 backend testing rule (rules/)')
@@ -141,11 +141,11 @@ test('readRules with local rules: both sources, one line each; a hub that fails 
   assert.equal(formatRules(down), '⚠️ Central Context could not be reached at http://hub (fetch failed).\n✅ Local rules: 1 backend testing rule (rules/)')
   const lost = await readRules({ side: 'backend', config: { ...config, centralContext: { hub: 'off', local: 'gone/' } }, root, env: {}, builtinRoot: NO_BUILTIN })
   assert.equal(formatRules(lost), '⚠️ Central Context is turned off in the config. No rules applied.\n⚠️ Local rules not read: folder not found: gone/.')
-  assert.equal((await readRules({ side: 'backend', config: { adapter: 'vitest' }, root, env: {}, builtinRoot: NO_BUILTIN })).local, null, 'no local folder configured')
+  assert.equal((await readRules({ side: 'backend', config: { adapter: 'vitest', backend: 'vitest' }, root, env: {}, builtinRoot: NO_BUILTIN })).local, null, 'no local folder configured')
 })
 
 test('built-in rules: the plugin ships its drafts; the project\'s rule, then Central Context\'s, replaces a built-in one with the same id', async () => {
-  const shipped = (await readRules({ side: 'backend', config: { adapter: 'vitest', centralContext: { hub: 'off' } }, env: {} })).builtin
+  const shipped = (await readRules({ side: 'backend', config: { adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'off' } }, env: {} })).builtin
   assert.equal(shipped.error, null)
   assert.deepEqual(shipped.rules.map(r => r.id).sort(), ['quality.generated-test-fail-evidence', 'quality.ready-requirement-before-test-generation', 'quality.requirement-story-test-traceability', 'quality.test-asserts-observable-outcome', 'quality.test-weakening-justified'])
   assert.ok(shipped.rules.every(r => r.status === 'draft' && r.summary))
@@ -155,12 +155,12 @@ test('built-in rules: the plugin ships its drafts; the project\'s rule, then Cen
   const root = mkdtempSync(join(tmpdir(), 'qc-project-'))
   mkdirSync(join(root, 'rules'))
   writeFileSync(join(root, 'rules/mine.md'), RULE('quality.mine'))
-  const config = { adapter: 'vitest', centralContext: { hub: 'http://hub', local: 'rules/' } }
+  const config = { adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'http://hub', local: 'rules/' } }
   const r = await readRules({ side: 'backend', config, root, env: {}, fetchImpl: fetchOk, builtinRoot })
   assert.ok(r.rules.some(x => x.id === 'quality.isolated-tests'), 'the hub has it')
   assert.deepEqual(r.builtin.rules.map(x => x.id), ['quality.shared'], 'published on the hub or the project\'s own: not built in')
   assert.deepEqual(r.local.rules.map(x => x.id), ['quality.mine'])
   assert.equal(formatRules(r).split('\n')[1], "✅ Built-in rules: 1 backend testing rule, a draft")
-  const down = await readRules({ side: 'backend', config: { adapter: 'vitest', centralContext: { hub: 'off' } }, env: {}, builtinRoot })
+  const down = await readRules({ side: 'backend', config: { adapter: 'vitest', backend: 'vitest', centralContext: { hub: 'off' } }, env: {}, builtinRoot })
   assert.equal(formatRules(down), '⚠️ Central Context is turned off in the config.\n✅ Built-in rules: 3 backend testing rules, all drafts')
 })

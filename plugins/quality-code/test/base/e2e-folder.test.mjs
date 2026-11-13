@@ -8,7 +8,7 @@ import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../../
 
 const base = { version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, features: [] }
 // The config as the scripts get it, loaded: e2eFolder reads the side it runs.
-const pw = { ...base, adapter: 'playwright' }
+const pw = { ...base, adapter: 'playwright', frontend: 'playwright' }
 const { frontend: _, ...noSide } = base
 const dir = (files = {}) => {
   const d = mkdtempSync(join(tmpdir(), 'qc-e2e-'))
@@ -66,7 +66,7 @@ test('e2eFolder: the testDir of the Playwright config, else e2e/', () => {
   assert.deepEqual(e2eFolder(dir(), pw), { ok: true, folder: 'e2e/', source: 'default' })
 })
 test('e2eFolder: only for Playwright projects', () => {
-  assert.deepEqual(e2eFolder(dir(), { ...pw, adapter: 'vitest' }), { ok: false, error: 'the e2e folder is for Playwright projects: this project uses vitest' })
+  assert.deepEqual(e2eFolder(dir(), { ...pw, adapter: 'vitest', frontend: undefined, backend: 'vitest' }), { ok: false, error: 'the e2e folder is for Playwright projects: this project uses vitest' })
 })
 test('e2eFolder: a folder inside a forbidden boundary is refused, naming the rule; allow opens it', () => {
   const d = dir({ 'playwright.config.ts': "export default {\n  testDir: 'src/e2e',\n}" })
@@ -119,6 +119,6 @@ test('a config in a subfolder: its testDir is relative to it; one named in playw
   assert.equal(readTestDir(d), null, 'Playwright itself looks only at the root')
   const configs = [{ match: 'e2e/**', config: 'e2e/playwright.config.ts' }]
   assert.deepEqual(e2eFolder(d, { ...pw, playwright: { configs } }), { ok: true, folder: 'e2e/tests/', source: 'testDir', configFile: 'e2e/playwright.config.ts' })
-  assert.equal(e2eFolder(d, { ...pw, adapter: 'fullstack', playwright: { configs } }).folder, 'e2e/tests/', 'fullstack projects have an e2e folder too')
-  assert.equal(e2eFolder(d, { ...pw, adapter: 'vitest' }).ok, false)
+  assert.equal(e2eFolder(d, { ...pw, frontend: 'playwright', backend: 'vitest', playwright: { configs } }).folder, 'e2e/tests/', 'fullstack projects have an e2e folder too')
+  assert.equal(e2eFolder(d, { ...pw, adapter: 'vitest', frontend: undefined, backend: 'vitest' }).ok, false)
 })
