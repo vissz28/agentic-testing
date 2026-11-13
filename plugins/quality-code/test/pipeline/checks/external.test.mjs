@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { assertionText, externalChecks } from '../../../lib/pipeline/checks/external.mjs'
 import { run } from '../../../lib/pipeline/checks/expected.mjs'
 import { dialectFor } from '../../../lib/base/dialects/index.mjs'
-import { validateConfig } from '../../../lib/base/config.mjs'
+import { validateConfig } from '../../../lib/config/config.mjs'
 
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const PGTAP = `-- seeds checked here

@@ -5,9 +5,9 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { main, runEvals } from '../../bin/evals.mjs'
-import { XRAY_HEADERS } from '../../lib/base/config.mjs'
+import { XRAY_HEADERS } from '../../lib/config/config.mjs'
 import { buildRows, headerRow, toLine } from '../../bin/xray.mjs'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 
 const cfg = { version: 2, frontend: 'playwright', backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
 function project(files) {

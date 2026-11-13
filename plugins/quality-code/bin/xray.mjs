@@ -14,7 +14,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
+import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/config/config.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { isLine, toForwardSlashes, plural } from '../lib/core/text.mjs'

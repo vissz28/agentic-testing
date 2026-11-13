@@ -8,7 +8,7 @@ import { EXIT, result } from '../../lib/pipeline/result.mjs'
 import { keySource, isProjectKey, projectKeys } from '../../lib/config/keys.mjs'
 import { specDiff, changedPaths } from '../../lib/core/git.mjs'
 import { dialectFor } from '../../lib/base/dialects/index.mjs'
-import { ungradedTitlesOf } from '../../lib/base/config.mjs'
+import { ungradedTitlesOf } from '../../lib/config/config.mjs'
 
 import { ENV } from '../git-env.mjs'
 

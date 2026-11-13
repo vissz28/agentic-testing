@@ -9,7 +9,7 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readF
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { claudeDir, configHome, normaliseTicketsDir } from '../base/config.mjs'
+import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson, readJsonOr } from '../core/files.mjs'
 

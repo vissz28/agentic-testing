@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
-import { DEFAULTS, normaliseTicketsDir } from '../base/config.mjs'
+import { DEFAULTS, normaliseTicketsDir } from '../config/config.mjs'
 import { isTicketKey, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 

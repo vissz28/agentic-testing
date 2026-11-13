@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { XRAY_HEADERS, xrayOf } from '../../lib/base/config.mjs'
+import { XRAY_HEADERS, xrayOf } from '../../lib/config/config.mjs'
 import { append, buildRows, caseError, casesIn, headerRow, main, parseCsv, readCases, toLine } from '../../bin/xray.mjs'
 
 const IT = { ...XRAY_HEADERS, action: 'Azione', expected: 'Risultato atteso', priority: 'Piorità', component: 'Componenti', ticket: 'Ticket collegati', epic: 'Epica', data: 'Dati' }
@@ -174,7 +174,7 @@ test('created: the cases already created in Xray are kept per ticket, so none is
 })
 
 test('a personal config has Xray on without a block: the cases go to xray-cases.csv in its tickets folder', async () => {
-  const { xrayOf } = await import('../../lib/base/config.mjs')
+  const { xrayOf } = await import('../../lib/config/config.mjs')
   const x = xrayOf({ ticketsDir: '/home/me/.claude/quality-code/tickets' }, 'personal')
   assert.equal(x.csv, '/home/me/.claude/quality-code/tickets/xray-cases.csv')
   assert.equal(x.folder, '/home/me/.claude/quality-code/tickets/')

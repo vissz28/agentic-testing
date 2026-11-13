@@ -9,7 +9,7 @@
 // Exit 0 ok, 2 bad input or config.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'

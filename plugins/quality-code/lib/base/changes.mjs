@@ -2,7 +2,7 @@
 // belongs to and which specs it touched, grouped by module. CI runs only those; nothing changed in a
 // side means nothing to run there. Read from the file list git gave (branch.mjs detect), never from contents.
 import { BACKENDS, backendOf, isBackend } from './backends.mjs'
-import { layersOf } from './config.mjs'
+import { layersOf } from '../config/config.mjs'
 import { e2eFolder } from './e2e-folder.mjs'
 import { adaptersOf, asAdapter } from './stack.mjs'
 

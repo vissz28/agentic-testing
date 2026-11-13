@@ -3,7 +3,7 @@
 // mutation kill rate. Each is a number or "no data", never a made-up 100%.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { layersOf, ungradedTitlesOf } from '../base/config.mjs'
+import { layersOf, ungradedTitlesOf } from '../config/config.mjs'
 import { e2eFolder } from '../base/e2e-folder.mjs'
 import { dialectFor } from '../base/dialects/index.mjs'
 import { runnerOf } from '../base/runners.mjs'

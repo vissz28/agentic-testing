@@ -6,7 +6,7 @@
 // node bin/clean.mjs delete --groups … --dry-run        (lists what would go; deletes nothing)
 // It never skips the person's yes: --yes, --ci and the like are refused, and a delete needs --confirmed, which the
 // command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
-import { projectRoot } from '../lib/base/config.mjs'
+import { projectRoot } from '../lib/config/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { plural } from '../lib/core/text.mjs'

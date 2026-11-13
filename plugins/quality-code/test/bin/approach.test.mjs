@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { loadConfig } from '../../lib/base/config.mjs'
+import { loadConfig } from '../../lib/config/config.mjs'
 import { approachOf, unitRunnerOf } from '../../lib/base/stack.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname

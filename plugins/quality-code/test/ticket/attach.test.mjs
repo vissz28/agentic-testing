@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { attachmentsSignal } from '../../lib/ticket/rubrics/shared.mjs'
 import { evalTickets, formatCard } from '../../lib/ticket/batch.mjs'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const config = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }

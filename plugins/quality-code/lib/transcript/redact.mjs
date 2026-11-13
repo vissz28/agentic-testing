@@ -1,7 +1,7 @@
 // A transcript is personal data: before anything is shown, saved or sent, the config's redact patterns, customer ids,
 // e-mails and ids go. Names stay unless the person asks for them to be masked (task owners come from them).
 import { redact } from '../ticket/sanitize.mjs'
-import { DEFAULTS } from '../base/config.mjs'
+import { DEFAULTS } from '../config/config.mjs'
 
 /** The config with the default customer-id pattern always present, so a config without `redact` still masks them. */
 const withDefaults = config => ({ ...config, redact: { ...DEFAULTS.redact, ...(config?.redact ?? {}) } })

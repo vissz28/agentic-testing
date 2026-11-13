@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf, redTagsOf, doneStatusesOf } from '../../lib/base/config.mjs'
+import { validateConfig, loadConfig, projectRoot, configPath, layersOf, strykerThreshold, adapterOptions, timeoutSecondsOf, seedOf, redTagsOf, doneStatusesOf } from '../../lib/config/config.mjs'
 
 const good = {
   version: 2,
@@ -560,7 +560,7 @@ test('xray: Playwright or fullstack only, a .csv, a folder outside the boundarie
 })
 
 test('vitest.stryker.timeoutSeconds: 60 to 7200, default 1800', async () => {
-  const { strykerTimeoutSeconds } = await import('../../lib/base/config.mjs')
+  const { strykerTimeoutSeconds } = await import('../../lib/config/config.mjs')
   assert.equal(strykerTimeoutSeconds({}), 1800)
   assert.equal(strykerTimeoutSeconds({ vitest: { stryker: { timeoutSeconds: 600 } } }), 600)
   assert.equal(validateConfig({ ...vgood, vitest: { stryker: { timeoutSeconds: 600 } } }).ok, true)

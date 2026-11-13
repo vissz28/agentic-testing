@@ -2,7 +2,7 @@
 // Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/config/config.mjs'
 import * as boundary from '../lib/pipeline/boundary.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'

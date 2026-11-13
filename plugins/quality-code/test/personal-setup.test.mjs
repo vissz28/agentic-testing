@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { loadConfig, personalConfigPath, personalTicketsDir } from '../lib/base/config.mjs'
+import { loadConfig, personalConfigPath, personalTicketsDir } from '../lib/config/config.mjs'
 import { writePersonal, detect } from '../bin/setup.mjs'
 import { sides } from './config-fields.mjs'
 

@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, posix, relative } from 'node:path'
 import { result } from './result.mjs'
-import { adapterOptions, timeoutSecondsOf } from '../base/config.mjs'
+import { adapterOptions, timeoutSecondsOf } from '../config/config.mjs'
 import { matches } from './boundary.mjs'
 import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'

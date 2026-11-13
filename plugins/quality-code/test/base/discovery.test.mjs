@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { allowCovers } from '../../lib/pipeline/boundary.mjs'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { detectConventions, testNameOf } from '../../lib/base/conventions.mjs'
 import { projectSpecs } from '../../lib/report/quality-program.mjs'
 

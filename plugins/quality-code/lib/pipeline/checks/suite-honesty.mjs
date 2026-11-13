@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { result } from '../result.mjs'
 import { keyPattern } from '../../config/keys.mjs'
-import { ungradedTitlesOf } from '../../base/config.mjs'
+import { ungradedTitlesOf } from '../../config/config.mjs'
 
 // An x- or f- prefix (xdescribe, xit, fit: Jest, Jasmine, Mocha) skips or focuses like .skip and .only.
 // Only on a JavaScript test word: Go's func TestX or a Python def is no focus mark.

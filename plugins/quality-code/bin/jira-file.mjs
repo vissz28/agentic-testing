@@ -9,7 +9,7 @@
 // Exit 0 read, 2 usage or a file that is not read (the reason on stderr).
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { isTicketKey } from '../lib/core/text.mjs'

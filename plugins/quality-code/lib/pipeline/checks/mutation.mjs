@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from
 import { basename, dirname, join, posix, resolve } from 'node:path'
 import { result } from '../result.mjs'
 import { anchorRange, testMarks } from './suite-honesty.mjs'
-import { ungradedTitlesOf } from '../../base/config.mjs'
+import { ungradedTitlesOf } from '../../config/config.mjs'
 import { inKeyBlock } from '../../config/keys.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 

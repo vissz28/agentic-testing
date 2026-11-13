@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { buildBrief } from '../../lib/ticket/score.mjs'
 import { messagesFor } from '../../lib/ticket/messages.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'

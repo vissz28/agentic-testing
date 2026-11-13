@@ -8,7 +8,7 @@ import { extractExpectedChunks, extractNaturalAC } from '../../ticket/criteria.m
 import { buildVocabulary } from '../../ticket/languages/index.mjs'
 import { anchorRange } from './suite-honesty.mjs'
 import { result } from '../result.mjs'
-import { configHome } from '../../base/config.mjs'
+import { configHome } from '../../config/config.mjs'
 import { externalChecks } from './external.mjs'
 import { readJson } from '../../core/files.mjs'
 

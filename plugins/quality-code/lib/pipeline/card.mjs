@@ -1,4 +1,4 @@
-import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
+import { DEFAULT_DONE_STATUSES } from '../config/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
 import { rulesLine } from '../base/rules.mjs'
 import { tag } from '../core/script-io.mjs'

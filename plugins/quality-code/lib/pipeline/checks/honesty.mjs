@@ -4,7 +4,7 @@
 import { keySource } from '../../config/keys.mjs'
 import { specDiff } from '../../core/git.mjs'
 import { result } from '../result.mjs'
-import { redTagsOf } from '../../base/config.mjs'
+import { redTagsOf } from '../../config/config.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
 // Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition

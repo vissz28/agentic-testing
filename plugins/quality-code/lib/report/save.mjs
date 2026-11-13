@@ -2,7 +2,7 @@
 // (guides/save-place.md). The name is built from a fixed kind and a checked date only, so nothing typed can move it.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { normaliseTicketsDir } from '../base/config.mjs'
+import { normaliseTicketsDir } from '../config/config.mjs'
 import { placeDirs, placeOf } from '../config/places.mjs'
 import { tag } from '../core/script-io.mjs'
 

@@ -2,7 +2,7 @@
 // the anchor on the branch, the side default, the config blocks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { ticketSide } from '../../lib/base/stack.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
 import { envGatedSkip, scanDiff } from '../../lib/pipeline/checks/honesty.mjs'
@@ -107,7 +107,7 @@ test('a ticket with no mark takes the configured side; marked tickets keep their
 import { colocatedProposal, write as writeSetup } from '../../bin/setup.mjs'
 import { readFileSync } from 'node:fs'
 import { main as ticketMain } from '../../bin/ticket.mjs'
-import { rootsOf } from '../../lib/base/config.mjs'
+import { rootsOf } from '../../lib/config/config.mjs'
 import { introSignal } from '../../lib/ticket/rubrics/shared.mjs'
 import vitestRubric from '../../lib/ticket/rubrics/vitest.mjs'
 import { scoreTicket } from '../../lib/ticket/score.mjs'

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { loadConfig } from '../../lib/base/config.mjs'
+import { loadConfig } from '../../lib/config/config.mjs'
 import { checkStory, STORY_LIMITS, storyShape, draftTicket, storyPath, draftPath } from '../../lib/ticket/story.mjs'
 
 const words = n => Array.from({ length: n }, (_, i) => `w${i}`).join(' ')

@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { configHome, findRoot, loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { configHome, findRoot, loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { detect, write } from '../bin/setup.mjs'
 import { ENV } from './git-env.mjs'
 

@@ -9,7 +9,7 @@
 // Exit 0 every fixture holds, 1 one drifted, 2 usage or config error, 3 no fixture.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
+import { loadConfig, projectRoot, xrayOf } from '../lib/config/config.mjs'
 import { dialectFor } from '../lib/base/dialects/index.mjs'
 import { runnerOf } from '../lib/base/runners.mjs'
 import { keyPattern } from '../lib/config/keys.mjs'

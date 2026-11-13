@@ -3,7 +3,7 @@
 // contents. --detect prints one BRANCH_JSON: line.
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/base/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'

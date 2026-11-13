@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { isProjectKey } from '../lib/config/keys.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
 import { SIDES, stackOf } from '../lib/base/stack.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'

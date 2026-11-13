@@ -5,7 +5,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { loadConfig, projectRoot, seedOf } from '../lib/base/config.mjs'
+import { loadConfig, projectRoot, seedOf } from '../lib/config/config.mjs'
 import { isLocal, parseTarget, sqlProblems } from '../lib/base/seed.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { fillPlaceholders, shellQuote } from '../lib/core/shell.mjs'

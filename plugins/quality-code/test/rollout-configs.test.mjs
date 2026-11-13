@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { validateConfig, layersOf } from '../lib/base/config.mjs'
+import { validateConfig, layersOf } from '../lib/config/config.mjs'
 import { configFor } from '../lib/pipeline/runners/playwright.mjs'
 import { rulesFor, violation } from '../lib/pipeline/boundary.mjs'
 

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { audit, readAudit } from '../../lib/state/audit.mjs'
-import { loadConfig } from '../../lib/base/config.mjs'
+import { loadConfig } from '../../lib/config/config.mjs'
 import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/config/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
@@ -130,7 +130,7 @@ test('a monorepo: the pick and the criteria field are one per repo, not one per 
 })
 
 // The setup config sits with the tickets and audit files, in the place picked at setup's last step.
-import { configFileOf, configPath } from '../../lib/base/config.mjs'
+import { configFileOf, configPath } from '../../lib/config/config.mjs'
 import { placeConfigPath } from '../../lib/config/places.mjs'
 import { write } from '../../bin/setup.mjs'
 
