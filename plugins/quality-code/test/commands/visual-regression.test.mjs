@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { rulesFor, violation } from '../../lib/base/boundary.mjs'
+import { rulesFor, violation } from '../../lib/pipeline/boundary.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const spec = read('commands/spec.md')

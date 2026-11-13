@@ -2,13 +2,13 @@
 // then one verdict. The adapter picks the runner (a backend's of backends.mjs, or Playwright), the
 // type-check and whether Stryker runs.
 // Nothing here grades by opinion: every step is a script's result.
-import * as boundary from '../base/boundary.mjs'
-import { runActive } from '../base/boundary.mjs'
+import * as boundary from './boundary.mjs'
+import { runActive } from './boundary.mjs'
 import * as expected from './checks/expected.mjs'
 import * as flaky from './checks/flaky.mjs'
 import * as honesty from './checks/honesty.mjs'
 import * as mutation from './checks/mutation.mjs'
-import { result } from '../base/result.mjs'
+import { result } from './result.mjs'
 import { keyPattern, ownTests } from '../config/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
 import { anchorRange } from './checks/suite-honesty.mjs'

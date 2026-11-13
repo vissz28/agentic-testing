@@ -16,7 +16,7 @@ import { countAssertions, scoreSpec } from '../../lib/pipeline/checks/suite-hone
 import { scanDiff } from '../../lib/pipeline/checks/honesty.mjs'
 import { planMutants } from '../../lib/pipeline/checks/mutation.mjs'
 import { HOW, genericRunner, parseCypress, parseMocha, runGeneric } from '../../lib/pipeline/runners/generic.mjs'
-import { result } from '../../lib/base/result.mjs'
+import { result } from '../../lib/pipeline/result.mjs'
 import { calls, fakeBin } from '../fake-bin.mjs'
 import { ENV } from '../git-env.mjs'
 import { sides } from '../config-fields.mjs'

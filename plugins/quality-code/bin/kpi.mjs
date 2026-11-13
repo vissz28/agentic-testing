@@ -4,7 +4,7 @@
 // Reads local files only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no audit data yet.
 import { basename, join } from 'node:path'
 import { AUDIT_DIR, KINDS, readAudit, readJsonl } from '../lib/state/audit.mjs'
-import { BOUNDARY_LOG } from '../lib/base/boundary.mjs'
+import { BOUNDARY_LOG } from '../lib/pipeline/boundary.mjs'
 import { loadConfig, projectRoot } from '../lib/base/config.mjs'
 import { formatQuality, qualityKpi, readCoverage, scanSpecs } from '../lib/report/quality-program.mjs'
 import { parsePeriod } from '../lib/report/consumption.mjs'

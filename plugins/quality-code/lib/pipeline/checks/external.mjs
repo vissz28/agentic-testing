@@ -4,7 +4,7 @@
 // that would restate a mock, and it says on the verdict which file carries it.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { matches } from '../../base/boundary.mjs'
+import { matches } from '../boundary.mjs'
 import { toForwardSlashes } from '../../core/text.mjs'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next'])

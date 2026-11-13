@@ -8,8 +8,8 @@ import { ADAPTERS, decide, runPipeline, testsStep } from '../../lib/pipeline/pip
 import { playwrightRunner } from '../../lib/pipeline/runners/playwright.mjs'
 import { vitestRunner } from '../../lib/pipeline/runners/vitest.mjs'
 import { dialectFor } from '../../lib/base/dialects/index.mjs'
-import { result } from '../../lib/base/result.mjs'
-import { RUN_MARKER } from '../../lib/base/boundary.mjs'
+import { result } from '../../lib/pipeline/result.mjs'
+import { RUN_MARKER } from '../../lib/pipeline/boundary.mjs'
 import { ENV } from '../git-env.mjs'
 
 const config = { adapter: 'vitest', jira: { projects: ['ABC'] } }

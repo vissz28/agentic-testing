@@ -2,7 +2,7 @@
 // A hollow test (runs, asserts nothing) fails the check; so does a run where no test asserts.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { result } from '../../base/result.mjs'
+import { result } from '../result.mjs'
 import { keyPattern } from '../../config/keys.mjs'
 import { ungradedTitlesOf } from '../../base/config.mjs'
 

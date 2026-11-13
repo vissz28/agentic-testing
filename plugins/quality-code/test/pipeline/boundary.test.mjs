@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation, DEPENDENCY_FILES } from '../../lib/base/boundary.mjs'
-import { startRun } from '../../lib/base/run.mjs'
+import { ALWAYS, DEFAULT_WHY, RUN_MARKER, STALE_MS, defaultForbidden, hookDecision, matches, readRunMarker, rulesFor, run, runActive, violation, DEPENDENCY_FILES } from '../../lib/pipeline/boundary.mjs'
+import { startRun } from '../../lib/pipeline/run.mjs'
 import { ENV } from '../git-env.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }

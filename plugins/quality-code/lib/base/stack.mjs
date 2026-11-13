@@ -4,7 +4,7 @@
 // whose folder or config it is in.
 import { configFor } from '../pipeline/runners/playwright.mjs'
 import { e2eFolder } from './e2e-folder.mjs'
-import { matches } from './boundary.mjs'
+import { matches } from '../pipeline/boundary.mjs'
 import { BACKEND_ADAPTERS, backendOf } from './backends.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
 

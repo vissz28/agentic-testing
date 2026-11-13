@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ENV } from '../git-env.mjs'
-import { RUN_MARKER, runActive } from '../../lib/base/boundary.mjs'
-import { gitHead, runStatus, startRun, statusLine, stopRun } from '../../lib/base/run.mjs'
+import { RUN_MARKER, runActive } from '../../lib/pipeline/boundary.mjs'
+import { gitHead, runStatus, startRun, statusLine, stopRun } from '../../lib/pipeline/run.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/checks.mjs')
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }

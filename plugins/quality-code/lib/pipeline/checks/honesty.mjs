@@ -3,7 +3,7 @@
 // whether moved lines are forgiven (see the plan's Ruling 1).
 import { keySource } from '../../config/keys.mjs'
 import { specDiff } from '../../core/git.mjs'
-import { result } from '../../base/result.mjs'
+import { result } from '../result.mjs'
 import { redTagsOf } from '../../base/config.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 

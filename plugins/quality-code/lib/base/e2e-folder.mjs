@@ -3,7 +3,7 @@
 // text, never run. A Cypress project's specs are in cypress/e2e/ unless playwright.folder says otherwise.
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { ALWAYS, allowCovers, matches, rulesFor } from './boundary.mjs'
+import { ALWAYS, allowCovers, matches, rulesFor } from '../pipeline/boundary.mjs'
 import { runnerOf } from './runners.mjs'
 import { hasLineBreak, toForwardSlashes } from '../core/text.mjs'
 

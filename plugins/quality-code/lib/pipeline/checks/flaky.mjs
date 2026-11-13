@@ -1,7 +1,7 @@
 // Flaky: re-run the same tests N times with retries off and classify each test from its tally.
 // Judged from the runner's per-test results, never from an exit code. Not a proof: a local
 // re-run does not reproduce CI load or cross-file interference.
-import { result } from '../../base/result.mjs'
+import { result } from '../result.mjs'
 import { ownTests } from '../../config/keys.mjs'
 
 export function classify(passes, fails) {
