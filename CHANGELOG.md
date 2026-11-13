@@ -9,9 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-11-13
+
 ### Changed
 
 - **Breaking:** the project config names its sides, not an adapter. `"frontend": "playwright"` for screens tested end to end, `"backend": "<runner>"` (`vitest`, `pytest`, `junit`, `go` or `dotnet`) for the tests of the code, or both for a fullstack project. `adapter`, the `fullstack` value and the hidden default (a fullstack project with no `backend` ran Vitest) are gone, and `version` is now `2`. A version 1 file is refused with one line saying so; `/quality-code:setup` reads it and writes the new one. Cypress and Jest stay where they were, in `runners`.
+- Internal: the code reads `frontend` and `backend` too: no `fullstack` adapter inside, and each side's view holds only its side. 35 golden tests, one set per stack, recorded before the change.
 - Internal: `readJson` and `tryReadJson` in `lib/core/files.mjs` replace 33 hand-written JSON reads; `tryReadJson` marks the reads that may treat a broken file as missing, and `readJsonOr` no longer takes a `whenBroken` option.
 
 **What to do:** re-run `/quality-code:setup`: it converts the old file, then delete `.claude/quality-code.json` when it says so.
