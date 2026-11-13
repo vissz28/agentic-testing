@@ -11,7 +11,7 @@
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
-import { isTicketKey } from '../lib/core/text.mjs'
+import { isLine, isTicketKey } from '../lib/core/text.mjs'
 
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/
 const STATUS = /^[A-Za-z0-9 _-]{1,40}$/
@@ -117,7 +117,7 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
     async createTests(project, tests) {
       if (!PROJECT.test(String(project))) throw new Error(`not a Jira project key: ${JSON.stringify(project)}`)
       if (!Array.isArray(tests) || tests.length < 1 || tests.length > MAX_TESTS) throw new Error(`give 1 to ${MAX_TESTS} tests`)
-      const line = v => typeof v === 'string' && v.trim() !== '' && v.length <= 255 && !/[\r\n]/.test(v)
+      const line = v => isLine(v) && v.length <= 255
       const text = v => typeof v === 'string' && v.length <= 2000
       tests.forEach((t, i) => {
         if (!line(t?.summary)) throw new Error(`test ${i + 1}: summary must be one line of up to 255 characters`)

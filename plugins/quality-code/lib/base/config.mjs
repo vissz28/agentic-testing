@@ -8,7 +8,7 @@ import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from './backends.mjs
 import { RUNNERS } from './runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from './conventions.mjs'
-import { toForwardSlashes } from '../core/text.mjs'
+import { hasLineBreak, isLine, toForwardSlashes } from '../core/text.mjs'
 import { readJsonOr, tryReadJson } from '../core/files.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
@@ -41,7 +41,7 @@ export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => 
 export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
 // Jira statuses that say the work is finished: a red run then warns that the bug is still there.
 export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
-const pathOk = p => typeof p === 'string' && p.trim() !== '' && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..') && !/[\r\n]/.test(p)
+const pathOk = p => isLine(p) && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..')
 
 export const DEFAULTS = Object.freeze({
   languages: ['en'],
@@ -195,7 +195,6 @@ function layerErrors(ls, name, rules, e) {
 }
 
 /** One line of shell text, not empty. */
-const lineOk = v => typeof v === 'string' && v.trim() !== '' && !/[\r\n]/.test(v)
 
 /** The block of a backend other than Vitest: layers, timeoutSeconds, command (and pytest's typeCheck). */
 function otherBackendErrors(b, name, e) {
@@ -207,10 +206,10 @@ function otherBackendErrors(b, name, e) {
   // tests beside the code): the boundary lets test files through by their name, see boundary.mjs.
   layerErrors(b.layers, name, { forbidden: [], allow: [] }, e)
   if (b.command !== undefined) {
-    if (!lineOk(b.command)) e.push(`${name}.command: must be one line of text, the project's test command, like "${name === 'pytest' ? 'poetry run pytest {files} --junitxml={report}' : 'make test'}"`)
+    if (!isLine(b.command)) e.push(`${name}.command: must be one line of text, the project's test command, like "${name === 'pytest' ? 'poetry run pytest {files} --junitxml={report}' : 'make test'}"`)
     else for (const m of b.command.matchAll(/\{([^}]*)\}/g)) if (!COMMAND_SLOTS.has(m[1])) e.push(`${name}.command: unknown placeholder {${m[1]}} (only {files}, {report} and {test})`)
   }
-  if (b.typeCheck !== undefined && !lineOk(b.typeCheck)) e.push(`${name}.typeCheck: must be one line of text, the type-check command, like "mypy {files}"`)
+  if (b.typeCheck !== undefined && !isLine(b.typeCheck)) e.push(`${name}.typeCheck: must be one line of text, the type-check command, like "mypy {files}"`)
 }
 
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
@@ -294,12 +293,11 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!isObj(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
     else {
       for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
-      const text = v => typeof v === 'string' && v.trim() !== '' && !/[\r\n]/.test(v)
-      if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(text))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
+      if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(isLine))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
       if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
       if (x.aliases !== undefined) {
         if (!isObj(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
-        else for (const [k, v] of Object.entries(x.aliases)) if (!text(k) || !(text(v) || (Array.isArray(v) && v.length > 0 && v.every(text)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
+        else for (const [k, v] of Object.entries(x.aliases)) if (!isLine(k) || !(isLine(v) || (Array.isArray(v) && v.length > 0 && v.every(isLine)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
       }
     }
   }
@@ -310,7 +308,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.testStyle !== undefined && !FLOWS.includes(c.testStyle)) e.push(`testStyle ${JSON.stringify(c.testStyle)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
     if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
-    else if (/[\r\n]/.test(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
+    else if (hasLineBreak(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
     else {
       const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !normaliseTicketsDir(c.ticketsDir).split('/').includes('..')
       if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
@@ -354,7 +352,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
         else f.forEach((r, i) => {
           if (!isObj(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
           if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
-          if (r.why !== undefined && (typeof r.why !== 'string' || !r.why.trim() || /[\r\n]/.test(r.why))) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
+          if (r.why !== undefined && !isLine(r.why)) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
           for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
         })
       }
@@ -428,7 +426,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
         else {
           const seen = new Set()
           ps.forEach((p, i) => {
-            if (typeof p !== 'string' || !p.trim() || p.startsWith('-') || /[\r\n]/.test(p)) e.push(`playwright.projects[${i}] ${JSON.stringify(p)} must be a project name of your Playwright config: one line, not empty, not starting with "-"`)
+            if (!isLine(p) || p.startsWith('-')) e.push(`playwright.projects[${i}] ${JSON.stringify(p)} must be a project name of your Playwright config: one line, not empty, not starting with "-"`)
             else if (seen.has(p)) e.push(`playwright.projects[${i}] "${p}" appears twice`)
             else seen.add(p)
           })
@@ -446,9 +444,9 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
       if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
       if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
-      if (s.target !== undefined && !lineOk(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
-      if (s.apply !== undefined && !(lineOk(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
-      if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && lineOk(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
+      if (s.target !== undefined && !isLine(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
+      if (s.apply !== undefined && !(isLine(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
+      if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
     }
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
@@ -463,7 +461,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     else {
       const q = c.qa
       // Names go into JQL between double quotes: one line, no quote, no backslash.
-      const nameOk = v => lineOk(v) && !/["\\]/.test(v) && v.length <= 80
+      const nameOk = v => isLine(v) && !/["\\]/.test(v) && v.length <= 80
       for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
       if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
       if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')

@@ -29,7 +29,7 @@ import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
-import { plural } from '../lib/core/text.mjs'
+import { plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -92,7 +92,7 @@ export function stackOf(root, config) {
     maven: existsSync(join(root, 'pom.xml')),
     go: /^go (\d+\.\d+)/m.exec(readText(join(root, 'go.mod')))?.[1] ?? '1.23',
     prefix: git(root, ['rev-parse', '--show-prefix']),
-    defaultBranch: git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main',
+    defaultBranch: withoutOrigin(git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])) || 'main',
   }
 }
 
@@ -244,7 +244,7 @@ async function gate(root, config, a, env, stdout) {
   const det = detect(root, config, { base: a.base ?? baseFromEnv(env) })
   const cannot = !det.isRepo ? 'this is not a git checkout' : !det.base || !det.mergeBase ? `the target branch was not found (${FETCH_HINT})` : det.shallow ? `the checkout is shallow (${FETCH_HINT})` : null
   if (cannot) { printLine(`quality-code ci: could not run: ${cannot}, so the changed specs cannot be read.`); return 3 }
-  if (det.onBase) { printLine(`quality-code ci: this is ${det.base.replace(/^origin\//, '')} itself, nothing to compare.`); return 0 }
+  if (det.onBase) { printLine(`quality-code ci: this is ${withoutOrigin(det.base)} itself, nothing to compare.`); return 0 }
   const changed = det.files.filter(f => f.committed && f.kind === 'test')
   const head = `quality-code ci · changes since ${det.base}`
   if (!changed.length) { printLine(`${head}: no spec changed, nothing to check.`); return 0 }
@@ -308,7 +308,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!det.isRepo) scope = { mode: 'all', why: 'this is not a git checkout, so what changed cannot be read' }
     else if (!det.base || !det.mergeBase) scope = { mode: 'all', why: `the target branch was not found (${FETCH_HINT})` }
     else if (det.shallow) scope = { mode: 'all', why: `the checkout is shallow, so what changed cannot be read (${FETCH_HINT})` }
-    else if (det.onBase) scope = { mode: 'all', why: `this is ${det.base.replace(/^origin\//, '')} itself` }
+    else if (det.onBase) scope = { mode: 'all', why: `this is ${withoutOrigin(det.base)} itself` }
     else {
       plan = planChanges(det.files, config, known)
       scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${plural(det.counts.test, 'test file')}, ${plural(det.counts.code, 'code file')}` }

@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
 import { claudeDir } from './config.mjs'
-import { isTicketKey } from '../core/text.mjs'
+import { hasLineBreak, isTicketKey } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
@@ -60,7 +60,7 @@ export function setProgress(root, command, { key = null, step, label = '', data 
   const bad = check(command, key)
   if (bad) return { ok: false, reason: bad }
   if (!Number.isInteger(step) || step < 0 || step > 99) return { ok: false, reason: 'the step is a whole number from 0 to 99' }
-  if (typeof label !== 'string' || label.length > 80 || /[\r\n]/.test(label)) return { ok: false, reason: 'the label is one line of 80 characters at most' }
+  if (typeof label !== 'string' || label.length > 80 || hasLineBreak(label)) return { ok: false, reason: 'the label is one line of 80 characters at most' }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'the data is a JSON object' }
   if (command === 'session') {
     const extra = Object.keys(data).filter(k => k !== 'language')

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ALWAYS, allowCovers, matches, rulesFor } from './boundary.mjs'
 import { runnerOf } from './runners.mjs'
-import { toForwardSlashes } from '../core/text.mjs'
+import { hasLineBreak, toForwardSlashes } from '../core/text.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']
@@ -19,7 +19,7 @@ const stripComments = src => src
 /** A folder as the rest of the plugin writes it: "/" separators, no leading "./", one trailing "/". */
 function normFolder(raw) {
   const s = String(raw).trim().replace(/\\+/g, '/').replace(/\/{2,}/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
-  if (!s || s === '.' || s.startsWith('/') || /^[A-Za-z]:/.test(s) || s.split('/').includes('..') || /[\r\n]/.test(s)) return null
+  if (!s || s === '.' || s.startsWith('/') || /^[A-Za-z]:/.test(s) || s.split('/').includes('..') || hasLineBreak(s)) return null
   return `${s}/`
 }
 

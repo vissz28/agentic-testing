@@ -26,7 +26,7 @@ import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
-import { plural } from '../lib/core/text.mjs'
+import { plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
@@ -158,7 +158,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') { printError('A routine needs a git repo: it watches what others push.'); return 2 }
 
   const branch = a.branch ?? config.git?.base ?? git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']) ?? 'main'
-  const bare = branch.replace(/^origin\//, '')
+  const bare = withoutOrigin(branch)
   const fetched = git(root, ['fetch', '--quiet', 'origin', bare]) !== null
   const ref = [`origin/${bare}`, bare].find(r => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null)
   if (!ref) { printError(`Branch ${branch} was not found (fetch it, or give --branch).`); return 2 }

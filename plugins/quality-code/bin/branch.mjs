@@ -10,7 +10,7 @@ import { BACKENDS, backendOf, isBackend } from '../lib/base/backends.mjs'
 import { PLAIN } from '../lib/base/git.mjs'
 import { e2eFolder } from '../lib/base/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { escapeRegExp, isTicketKey } from '../lib/core/text.mjs'
+import { escapeRegExp, isTicketKey, withoutOrigin } from '../lib/core/text.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
@@ -170,7 +170,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
 
   const files = new Map()
   if (out.base && out.head) {
-    out.onBase = rawBranch === out.base.replace(/^origin\//, '')
+    out.onBase = rawBranch === withoutOrigin(out.base)
     out.mergeBase = git(root, ['merge-base', out.base, 'HEAD'])
     if (out.mergeBase) {
       const [behind, ahead] = (git(root, ['rev-list', '--left-right', '--count', `${out.base}...HEAD`]) ?? '0 0').split(/\s+/).map(Number)
@@ -180,7 +180,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
       // against the configured base would hold that branch's commits as noise.
       if (!baseFlag && !out.onBase && ['config', 'origin-head', 'fallback'].includes(out.baseSource) && ahead > 0) {
         const heads = (git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/', 'refs/heads/']) ?? '').split('\n')
-        const names = [...new Set(heads.filter(r => r && !r.endsWith('/HEAD')).map(r => r.replace(/^origin\//, '')))]
+        const names = [...new Set(heads.filter(r => r && !r.endsWith('/HEAD')).map(r => withoutOrigin(r)))]
         const own = rawBranch
         const candidates = names.filter(n => n !== own && /^(main|master|develop.*|release.*)$/.test(n)).slice(0, 20)
         let best = null

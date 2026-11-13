@@ -58,3 +58,24 @@ export const firstLine = text => noColour(text).split('\n').map(l => l.trim()).f
  * @returns {string}
  */
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * True when the text has a line break (\n or \r) in it.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export const hasLineBreak = text => /[\r\n]/.test(text)
+
+/**
+ * True for one line of text: a string, not empty or only spaces, with no line break.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export const isLine = value => typeof value === 'string' && value.trim() !== '' && !hasLineBreak(value)
+
+/**
+ * The branch without the remote in front: "origin/develop" -> "develop"; a local name stays as it is.
+ * @param {string} ref
+ * @returns {string}
+ */
+export const withoutOrigin = ref => ref.replace(/^origin\//, '')
