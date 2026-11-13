@@ -12,7 +12,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { goName, scan } from '../../base/dialects/go.mjs'
 import { findUp, kill, track } from './tool.mjs'
-import { escapeRegExp, firstLine, localToForwardSlashes } from '../../core/text.mjs'
+import { collapseSpaces, escapeRegExp, firstLine, localToForwardSlashes } from '../../core/text.mjs'
 import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
 
 const LABEL = 'Go'
@@ -96,7 +96,7 @@ export function failureLine(lines) {
       const err = rest.find(x => /^Error:/.test(x))?.replace(/^Error:\s*/, '')
       const exp = rest.find(x => /^expected\s*:/.test(x))
       const act = rest.find(x => /^actual\s*:/.test(x))
-      return [`${m[1]}:`, err, exp, act].filter(Boolean).join(' ').replace(/\s+/g, ' ')
+      return collapseSpaces([`${m[1]}:`, err, exp, act].filter(Boolean).join(' '))
     }
     if (/^panic: /.test(l)) return l.replace(/ \[recovered\]$/, '')
   }

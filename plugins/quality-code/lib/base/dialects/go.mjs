@@ -9,6 +9,8 @@
 //
 // A regex cannot tell a skip (a call in the body) nor an assertion (an if around t.Errorf), so this
 // dialect brings its own marks, assertion count and assertion ranges (suite.marks, mutation.ranges).
+import { collapseSpaces } from '../../core/text.mjs'
+
 export const name = 'go'
 
 /**
@@ -367,7 +369,7 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
     if (!block || !eligible(block, passed)) continue
     const original = src.slice(ex.start, ex.end)
     for (const flip of flipMutations(original)) {
-      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').trim().slice(0, 60)}` })
+      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).trim().slice(0, 60)}` })
     }
   }
   if (thorough) return all

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -98,5 +98,20 @@ test('no script or library file checks for a line break or strips origin/ by han
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
   const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && /\/\[\\r\\n\]\/\.test\(|\.replace\(\/\^origin\\\//.test(readFileSync(join(root, f), 'utf8')))
+  assert.deepEqual(own, [])
+})
+
+test('collapseSpaces: each run of spaces, tabs and line breaks is one space; the ends are kept', () => {
+  assert.equal(collapseSpaces('expect(a)\n    .toBe(\t1)'), 'expect(a) .toBe( 1)')
+  assert.equal(collapseSpaces('  a  b  '), ' a b ')
+  assert.equal(collapseSpaces('a\r\n\r\nb'), 'a b')
+  assert.equal(collapseSpaces('one'), 'one')
+  assert.equal(collapseSpaces(''), '')
+})
+
+test('no script or library file collapses spaces by hand', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && readFileSync(join(root, f), 'utf8').includes(".replace(/\\s+/g, ' ')"))
   assert.deepEqual(own, [])
 })

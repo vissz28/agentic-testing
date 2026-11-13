@@ -2,6 +2,8 @@
 // A test is a method under a test attribute; a group is a test class. The ticket's block is the class
 // right under a "// <KEY> <summary>" comment line (attributes and other comment lines may sit between):
 // C# has no class title, so the comment is the title the checks and the runner read.
+import { collapseSpaces } from '../../core/text.mjs'
+
 export const name = 'dotnet'
 
 // The words in front of "class": access, sealed, partial, … as a C# file writes them.
@@ -222,7 +224,7 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
     if (!block || !eligible(block, passed)) continue
     const original = src.slice(ex.start, ex.end)
     for (const flip of flipMutations(original)) {
-      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
+      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
   if (thorough) return all

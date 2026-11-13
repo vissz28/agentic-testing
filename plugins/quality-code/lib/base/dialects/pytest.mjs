@@ -3,6 +3,8 @@
 // of its docstring when it has one, else its name: class TestTotals: """ABC-123 Line totals""" is the
 // ABC-123 block (a class name cannot hold the "-" of a key). Assertions are plain assert statements and
 // with pytest.raises(...) blocks.
+import { collapseSpaces } from '../../core/text.mjs'
+
 export const name = 'pytest'
 
 // A decorator line and the lines a long decorator wraps onto (none starts a decorator, def or class).
@@ -248,7 +250,7 @@ function plan({ src, passedTitles, range, thorough, blocks }) {
     if (!block || !eligible(block, passed)) continue
     const original = src.slice(a.start, a.end)
     for (const flip of flipMutations(original)) {
-      all.push({ title: block.title, start: a.start, end: a.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
+      all.push({ title: block.title, start: a.start, end: a.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
   if (thorough) return all

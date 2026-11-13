@@ -1,5 +1,6 @@
 // Playwright syntax, as the frontend checks read it.
 import { flipMutations as valueFlips, mutation as vitest } from './vitest.mjs'
+import { collapseSpaces } from '../../core/text.mjs'
 
 export const name = 'playwright'
 
@@ -56,7 +57,7 @@ function plan({ src, passedTitles, range, blocks, expects, ungraded = null }) {
     if (!block || !eligible(block, passed, ungraded)) continue
     const original = src.slice(ex.start, ex.end)
     for (const flip of flipMutations(original)) {
-      mutants.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
+      mutants.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
   return mutants

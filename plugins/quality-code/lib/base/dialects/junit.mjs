@@ -2,6 +2,8 @@
 // A test is a method annotated @Test, @ParameterizedTest, @RepeatedTest, @TestFactory or
 // @TestTemplate; its title is the method name, as the runner reports it. A top-level class is a
 // group, titled by its @DisplayName: the ticket's block is @DisplayName("<KEY> …") on the class.
+import { collapseSpaces } from '../../core/text.mjs'
+
 export const name = 'junit'
 
 // A Java or Kotlin string literal, an annotation's argument list, one annotation (@Tag("x"),
@@ -364,7 +366,7 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
     const lineStart = src.lastIndexOf('\n', ex.start - 1) + 1
     const standalone = /^\s*$/.test(src.slice(lineStart, ex.start))
     for (const flip of flipMutations(original, { standalone, opposite: oppositeIn(src) })) {
-      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
+      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
   if (thorough) return all

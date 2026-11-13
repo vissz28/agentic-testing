@@ -1,4 +1,6 @@
 // Vitest syntax, as the backend checks read it.
+import { collapseSpaces } from '../../core/text.mjs'
+
 export const name = 'vitest'
 
 /** Top-level group: column 0. m[1] = modifier chain (.skip, .concurrent.only), m[3] = title. */
@@ -73,7 +75,7 @@ export const planOf = (flips, rank) => ({ src, passedTitles, range, thorough, bl
     if (!block || !eligible(block, passed)) continue
     const original = src.slice(ex.start, ex.end)
     for (const flip of flips(original)) {
-      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${original.replace(/\s+/g, ' ').slice(0, 60)}` })
+      all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
   if (thorough) return all

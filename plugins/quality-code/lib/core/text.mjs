@@ -79,3 +79,10 @@ export const isLine = value => typeof value === 'string' && value.trim() !== '' 
  * @returns {string}
  */
 export const withoutOrigin = ref => ref.replace(/^origin\//, '')
+
+/**
+ * The text with each run of spaces, tabs and line breaks made one space: "a\n   b" -> "a b".
+ * @param {unknown} text
+ * @returns {string}
+ */
+export const collapseSpaces = text => String(text).replace(/\s+/g, ' ')
