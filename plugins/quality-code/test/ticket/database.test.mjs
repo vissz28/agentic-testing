@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { touchesData } from '../../lib/base/database.mjs'
+import { touchesData } from '../../lib/ticket/database.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 
@@ -41,6 +41,6 @@ test('the guide holds the cases and the runner guides point to it', () => {
 
 test('spec.md plans a Database section when data is touched, conventions first', () => {
   const s = read('commands/spec.md')
-  assert.ok(s.includes('Database: N cases') && s.includes('lib/base/database.mjs') && s.includes('guides/database-tests.md'))
+  assert.ok(s.includes('Database: N cases') && s.includes('lib/ticket/database.mjs') && s.includes('guides/database-tests.md'))
   assert.ok(s.includes('Testcontainers') && s.includes('own database test habits come first'))
 })

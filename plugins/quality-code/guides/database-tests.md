@@ -1,7 +1,7 @@
 # Database tests
 
 Shared rules for the **Database** section of a backend plan. They apply when the ticket or the target
-touches tables, queries or migrations (`lib/base/database.mjs` decides). The runner's own writing
+touches tables, queries or migrations (`lib/ticket/database.mjs` decides). The runner's own writing
 guide (Vitest, pytest, JUnit, Go, .NET) says how a test looks; this guide says what the database
 tests check.
 
