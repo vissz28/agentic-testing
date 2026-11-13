@@ -2,8 +2,8 @@ import { buildVocabulary } from './languages/index.mjs'
 import { labelOverride, templateFor } from './messages.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
-import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../base/stack.mjs'
-import { backendOf, isBackend, runnerLabel } from '../base/backends.mjs'
+import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../stacks/stack.mjs'
+import { backendOf, isBackend, runnerLabel } from '../stacks/backends.mjs'
 
 /** Pass bar. A constant: never read from config or flags. */
 export const THRESHOLD = 70

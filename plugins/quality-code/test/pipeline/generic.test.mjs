@@ -7,11 +7,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { runPipeline } from '../../lib/pipeline/pipeline.mjs'
 import { formatCard } from '../../lib/pipeline/card.mjs'
-import { flipMutations } from '../../lib/base/dialects/generic.mjs'
-import { dialectFor } from '../../lib/base/dialects/index.mjs'
-import { runnerLabel, runnerOf } from '../../lib/base/runners.mjs'
+import { flipMutations } from '../../lib/stacks/dialects/generic.mjs'
+import { dialectFor } from '../../lib/stacks/dialects/index.mjs'
+import { runnerLabel, runnerOf } from '../../lib/stacks/runners.mjs'
 import { validateConfig } from '../../lib/config/config.mjs'
-import { e2eFolder } from '../../lib/base/e2e-folder.mjs'
+import { e2eFolder } from '../../lib/stacks/e2e-folder.mjs'
 import { countAssertions, scoreSpec } from '../../lib/pipeline/checks/suite-honesty.mjs'
 import { scanDiff } from '../../lib/pipeline/checks/honesty.mjs'
 import { planMutants } from '../../lib/pipeline/checks/mutation.mjs'
@@ -45,7 +45,7 @@ test('runners: the config names another runner per kind; Vitest and Playwright s
 
 // AGT-128 beside the generic tier: runners.unit is a JavaScript runner, so only for a Vitest backend.
 test('runners with the non-JavaScript backends: runners.unit is refused beside them, runners.e2e still works', async () => {
-  const { isSpecialized } = await import('../../lib/base/runners.mjs')
+  const { isSpecialized } = await import('../../lib/stacks/runners.mjs')
   for (const [cfg, backend] of [[{ backend: 'pytest' }, 'pytest'], [{ frontend: 'playwright', backend: 'go' }, 'Go']]) {
     const errs = validateConfig({ ...base, ...cfg, runners: { unit: 'jest' } }).errors.join('\n')
     assert.match(errs, new RegExp(`runners\\.unit: "jest" runs JavaScript tests, and this project's backend is ${backend}`), JSON.stringify(cfg))

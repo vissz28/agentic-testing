@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, u
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { commandOf, timeoutSecondsOf } from '../../config/config.mjs'
-import { structure } from '../../base/dialects/junit.mjs'
+import { structure } from '../../stacks/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'

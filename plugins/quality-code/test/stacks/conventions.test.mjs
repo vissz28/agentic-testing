@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { detectConventions, flowOf, runFlow, testNameOf } from '../../lib/base/conventions.mjs'
+import { detectConventions, flowOf, runFlow, testNameOf } from '../../lib/stacks/conventions.mjs'
 import { validateConfig } from '../../lib/config/config.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname

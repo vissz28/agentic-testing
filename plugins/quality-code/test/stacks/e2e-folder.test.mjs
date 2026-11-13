@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../../lib/base/e2e-folder.mjs'
+import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../../lib/stacks/e2e-folder.mjs'
 
 const base = { version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'] }, features: [] }
 // The config as the scripts get it, loaded: e2eFolder reads the side it runs.

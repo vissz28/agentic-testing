@@ -6,7 +6,7 @@ import { scanDiff } from '../../../lib/pipeline/checks/honesty.mjs'
 import { grade, anchorRange } from '../../../lib/pipeline/checks/suite-honesty.mjs'
 import { surface, tokensFrom, asserted } from '../../../lib/pipeline/checks/expected.mjs'
 import { planMutants } from '../../../lib/pipeline/checks/mutation.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { titlePattern } from '../../../lib/pipeline/runners/playwright.mjs'
 
 const P = dialectFor('playwright')

@@ -10,7 +10,7 @@ import { adapterOptions, timeoutSecondsOf } from '../config/config.mjs'
 import { matches } from './boundary.mjs'
 import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
-import { runnerOf } from '../base/runners.mjs'
+import { runnerOf } from '../stacks/runners.mjs'
 import { toForwardSlashes, plural } from '../core/text.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'

@@ -13,7 +13,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { backendOf } from './backends.mjs'
+import { backendOf } from '../stacks/backends.mjs'
 import { plural } from '../core/text.mjs'
 
 export const HUB_TIMEOUT_MS = 3000

@@ -1,10 +1,10 @@
 // What a branch changed, as the testing phases need it: which side (backend, frontend) each changed file
 // belongs to and which specs it touched, grouped by module. CI runs only those; nothing changed in a
 // side means nothing to run there. Read from the file list git gave (branch.mjs detect), never from contents.
-import { BACKENDS, backendOf, isBackend } from '../base/backends.mjs'
+import { BACKENDS, backendOf, isBackend } from '../stacks/backends.mjs'
 import { layersOf } from '../config/config.mjs'
-import { e2eFolder } from '../base/e2e-folder.mjs'
-import { adaptersOf, asAdapter } from '../base/stack.mjs'
+import { e2eFolder } from '../stacks/e2e-folder.mjs'
+import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 
 // Files whose change can break either side without touching a spec: dependencies, compiler and runner config.
 export const SHARED_CONFIG = /(?:^|\/)(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|tsconfig[^/]*\.json|vitest\.config\.[^/]+|vite\.config\.[^/]+|playwright\.config\.[^/]+|pom\.xml|build\.gradle(?:\.kts)?|go\.(?:mod|sum)|requirements[^/]*\.txt|pyproject\.toml|[^/]+\.(?:csproj|fsproj|sln)|\.claude\/quality-code\.json)$/

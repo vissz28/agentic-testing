@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { validateConfig } from '../../lib/config/config.mjs'
 import { buildBrief, formatReport } from '../../lib/ticket/score.mjs'
 import { applyAnswer, fillMenu } from '../../lib/ticket/fill.mjs'
-import { adapterOfSpec, adaptersOf, specsByAdapter, stackOf, ticketSide } from '../../lib/base/stack.mjs'
+import { adapterOfSpec, adaptersOf, specsByAdapter, stackOf, ticketSide } from '../../lib/stacks/stack.mjs'
 import { main } from '../../bin/ticket.mjs'
 import { sides } from '../config-fields.mjs'
 

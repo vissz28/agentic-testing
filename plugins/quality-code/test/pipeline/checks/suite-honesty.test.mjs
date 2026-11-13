@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { anchorRange, countAssertions, grade, scoreSpec, skippedGroupRanges } from '../../../lib/pipeline/checks/suite-honesty.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 
 const V = dialectFor('vitest')
 const P = dialectFor('playwright')

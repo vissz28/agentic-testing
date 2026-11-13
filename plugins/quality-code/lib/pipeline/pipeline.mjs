@@ -24,12 +24,12 @@ import * as junitRunners from './runners/junit.mjs'
 import * as goRunners from './runners/go.mjs'
 import * as dotnetRunners from './runners/dotnet.mjs'
 import { genericRunner } from './runners/generic.mjs'
-import { BACKENDS } from '../base/backends.mjs'
+import { BACKENDS } from '../stacks/backends.mjs'
 import { strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../config/config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
-import { dialectFor } from '../base/dialects/index.mjs'
-import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../base/stack.mjs'
-import { RUNNERS, isSpecialized, runnerOf } from '../base/runners.mjs'
+import { dialectFor } from '../stacks/dialects/index.mjs'
+import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../stacks/stack.mjs'
+import { RUNNERS, isSpecialized, runnerOf } from '../stacks/runners.mjs'
 
 // Each backend's runner module: <adapter>Runner(root, config), and an optional typeCheck(root, config, specs)
 // for a backend whose type-check is no tsc (pytest's typeCheck command).

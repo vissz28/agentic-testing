@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { allowCovers } from '../../lib/pipeline/boundary.mjs'
 import { validateConfig } from '../../lib/config/config.mjs'
-import { detectConventions, testNameOf } from '../../lib/base/conventions.mjs'
+import { detectConventions, testNameOf } from '../../lib/stacks/conventions.mjs'
 import { projectSpecs } from '../../lib/report/quality-program.mjs'
 
 const base = { version: 2, frontend: 'playwright', backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['PFO'] }, playwright: { folder: 'e2e-tests/' } }

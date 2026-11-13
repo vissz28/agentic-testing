@@ -5,7 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, stat
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { changedPaths } from '../core/git.mjs'
 import { result } from './result.mjs'
-import { backendOf, BACKENDS } from '../base/backends.mjs'
+import { backendOf, BACKENDS } from '../stacks/backends.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
 import { readJson } from '../core/files.mjs'

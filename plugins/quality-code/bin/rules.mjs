@@ -7,7 +7,7 @@ import { resolve } from 'node:path'
 import { isProjectKey } from '../lib/config/keys.mjs'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
-import { SIDES, stackOf } from '../lib/base/stack.mjs'
+import { SIDES, stackOf } from '../lib/stacks/stack.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'

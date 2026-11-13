@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildError, dotnetRunner, filterFor, methodTitle, parseTrx, projectOf } from '../../../lib/pipeline/runners/dotnet.mjs'
 import { runPipeline } from '../../../lib/pipeline/pipeline.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
 import { ENV } from '../../git-env.mjs'
 

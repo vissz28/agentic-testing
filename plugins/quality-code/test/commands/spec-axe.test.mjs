@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { scanDiff } from '../../lib/pipeline/checks/honesty.mjs'
 import { grade } from '../../lib/pipeline/checks/suite-honesty.mjs'
 import { planMutants } from '../../lib/pipeline/checks/mutation.mjs'
-import { dialectFor } from '../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../lib/stacks/dialects/index.mjs'
 
 const doc = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
 const guide = readFileSync(new URL('../../guides/playwright-writing.md', import.meta.url), 'utf8')

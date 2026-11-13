@@ -2,8 +2,8 @@
 // FluentAssertions, as the shared checks read them.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
-import { classesOf, countAssertions, flipMutations } from '../../../lib/base/dialects/dotnet.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
+import { classesOf, countAssertions, flipMutations } from '../../../lib/stacks/dialects/dotnet.mjs'
 import { anchorRange, grade, groups, scoreSpec } from '../../../lib/pipeline/checks/suite-honesty.mjs'
 import { findExpectRanges, planMutants, unmutated } from '../../../lib/pipeline/checks/mutation.mjs'
 import { scanDiff } from '../../../lib/pipeline/checks/honesty.mjs'

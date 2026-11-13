@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { findTestHome, unitOfTest } from '../../lib/base/test-home.mjs'
+import { findTestHome, unitOfTest } from '../../lib/stacks/test-home.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
 const tests = n => Array.from({ length: n }, (_, i) => `  it('case ${i}', () => {})`).join('\n')

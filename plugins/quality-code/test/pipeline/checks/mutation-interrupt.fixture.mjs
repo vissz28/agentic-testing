@@ -1,5 +1,5 @@
 import { run } from '../../../lib/pipeline/checks/mutation.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 
 const root = process.argv[2]
 let calls = 0

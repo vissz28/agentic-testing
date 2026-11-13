@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { run, scanDiff } from '../../../lib/pipeline/checks/honesty.mjs'
 import { ENV } from '../../git-env.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 
 const KEYS = '(?:FIC|AGT)-\\d+'
 const be = s => scanDiff(`+++ b/x.spec.ts\n${s}`, dialectFor('vitest'), KEYS)

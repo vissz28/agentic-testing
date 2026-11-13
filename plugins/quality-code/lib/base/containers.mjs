@@ -4,7 +4,7 @@
 // that start the databases. JUnit is left out: it has no command that adds a dependency.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
-import { BACKENDS } from './backends.mjs'
+import { BACKENDS } from '../stacks/backends.mjs'
 import { escapeRegExp, toForwardSlashes } from '../core/text.mjs'
 
 export const CONTAINER_BACKENDS = Object.freeze(['vitest', 'pytest', 'go', 'dotnet'])

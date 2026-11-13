@@ -1,5 +1,5 @@
 import { DEFAULT_DONE_STATUSES } from '../config/config.mjs'
-import { runnerLabel } from '../base/runners.mjs'
+import { runnerLabel } from '../stacks/runners.mjs'
 import { rulesLine } from '../base/rules.mjs'
 import { tag } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
