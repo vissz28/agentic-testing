@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { EXIT, result } from '../../lib/base/result.mjs'
 import { keySource, isProjectKey, projectKeys } from '../../lib/config/keys.mjs'
-import { specDiff, changedPaths } from '../../lib/base/git.mjs'
+import { specDiff, changedPaths } from '../../lib/core/git.mjs'
 import { dialectFor } from '../../lib/base/dialects/index.mjs'
 import { ungradedTitlesOf } from '../../lib/base/config.mjs'
 

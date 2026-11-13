@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { claudeDir, configHome, normaliseTicketsDir } from '../base/config.mjs'
-import { ignoreFolder } from '../base/ignore.mjs'
+import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson, readJsonOr } from '../core/files.mjs'
 
 export { ignoreFolder }

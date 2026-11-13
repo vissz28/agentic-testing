@@ -3,10 +3,10 @@
 import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { changedPaths } from './git.mjs'
+import { changedPaths } from '../core/git.mjs'
 import { result } from './result.mjs'
 import { backendOf, BACKENDS } from './backends.mjs'
-import { ignoreFolder } from './ignore.mjs'
+import { ignoreFolder } from '../core/ignore.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
 import { readJson } from '../core/files.mjs'
 

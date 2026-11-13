@@ -19,7 +19,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from './config.mjs'
 import { CONFIG_FILE } from '../config/places.mjs'
-import { PLAIN } from './git.mjs'
+import { PLAIN } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from './stack.mjs'
 import { DEFAULT_E2E_FOLDER } from './e2e-folder.mjs'

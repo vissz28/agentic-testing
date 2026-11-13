@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { packWords } from './languages/index.mjs'
 import { alt } from './text.mjs'
 import { configHome } from '../base/config.mjs'
-import { ignoreFolder } from '../base/ignore.mjs'
+import { ignoreFolder } from '../core/ignore.mjs'
 import { FIELDS_FILE, placeFolder, placeOf } from '../config/places.mjs'
 import { readJson } from '../core/files.mjs'
 

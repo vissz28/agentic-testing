@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
-import { ignoreFolder } from './ignore.mjs'
+import { ignoreFolder } from '../core/ignore.mjs'
 
 /** HEAD of the repository at root, or null when it is not a git repo or has no commit. */
 export function gitHead(root) {
