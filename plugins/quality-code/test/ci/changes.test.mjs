@@ -1,7 +1,7 @@
 // What a branch changed, as CI needs it: the side of each file and the specs it touched.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SHARED_CONFIG, moduleOf, planChanges, sideOfCode } from '../../lib/base/changes.mjs'
+import { SHARED_CONFIG, moduleOf, planChanges, sideOfCode } from '../../lib/ci/changes.mjs'
 
 const jira = { site: 'https://x.atlassian.net', projects: ['ABC'] }
 // Loaded configs: the two sides and the side the code runs.
