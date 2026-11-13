@@ -12,6 +12,7 @@ import { classTitles, locate } from '../../base/dialects/pytest.mjs'
 import { result } from '../../base/result.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, toForwardSlashes } from '../../core/text.mjs'
+import { fillPlaceholders } from '../../core/shell.mjs'
 
 const LABEL = 'pytest'
 const CAP = 1 << 20
@@ -204,7 +205,7 @@ export function fillTemplate(template, { targets, report, testName }) {
       if (w === '{test}' && out.length && out.at(-1).startsWith('-')) out.pop()
       continue
     }
-    out.push(w.replace(/\{files\}/g, targets.join(' ')).replace(/\{report\}/g, report).replace(/\{test\}/g, testName ?? ''))
+    out.push(fillPlaceholders(w, { files: targets.join(' '), report, test: testName ?? '' }))
   }
   return out
 }

@@ -15,6 +15,7 @@ import { BACKENDS, isBackend } from '../base/backends.mjs'
 import { changedPaths } from '../base/git.mjs'
 import { execFileSync } from 'node:child_process'
 import { readJson, tryReadJson } from '../core/files.mjs'
+import { withoutOrigin } from '../core/text.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -172,7 +173,7 @@ export function branchTrace(root, config, specs, tracedPaths) {
   if (!c.ok) return null
   const changed = new Set(c.paths)
   const mine = specs.filter(s => changed.has(s.path))
-  return mine.length ? { base: ref.replace(/^origin\//, ''), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
+  return mine.length ? { base: withoutOrigin(ref), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
 }
 
 /** Line coverage from an Istanbul summary, else an lcov report (most runners' default), else the JaCoCo and Cobertura reports, when the project has one. */

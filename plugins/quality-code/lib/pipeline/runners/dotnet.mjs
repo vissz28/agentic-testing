@@ -9,6 +9,7 @@ import { classesOf } from '../../base/dialects/dotnet.mjs'
 import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
+import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
 
 
 const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
@@ -103,9 +104,6 @@ export function filterFor(classes, testName) {
   return classes.map(c => `FullyQualifiedName~${c.fqn}.${testName === undefined ? '' : testName}`).join('|')
 }
 
-// No | in the safe class: filterFor joins classes with it, and the line runs through sh -c.
-const quote = s => (/^[\w./:=~-]+$/.test(s) ? s : `"${String(s).replace(/(["\\$`])/g, '\\$1')}"`)
-
 /** Every .trx file under a folder (the report, and one per target framework when there are several). */
 function trxFiles(dir) {
   const out = []
@@ -129,9 +127,9 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
     let args
     if (command) {
       // The project's own command: {files} is the test project, {report} the TRX path, {test} the filter.
-      let line = command.replaceAll('{files}', quote(project)).replaceAll('{report}', quote(report)).replaceAll('{test}', quote(filter))
-      if (!command.includes('{report}')) line += ` ${logger.map(quote).join(' ')}`
-      if (!command.includes('{test}')) line += ` --filter ${quote(filter)}`
+      let line = fillPlaceholders(command, { files: shellQuote(project), report: shellQuote(report), test: shellQuote(filter) })
+      if (!command.includes('{report}')) line += ` ${logger.map(w => shellQuote(w)).join(' ')}`
+      if (!command.includes('{test}')) line += ` --filter ${shellQuote(filter)}`
       file = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
       args = process.platform === 'win32' ? ['/d', '/s', '/c', line] : ['-c', line]
     } else {

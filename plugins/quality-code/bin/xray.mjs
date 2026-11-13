@@ -17,7 +17,7 @@ import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
-import { toForwardSlashes, plural } from '../lib/core/text.mjs'
+import { isLine, toForwardSlashes, plural } from '../lib/core/text.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // The test name is the cell's last line (buildRows puts it there), so a description line of its own
@@ -66,7 +66,7 @@ export function parseCsv(text) {
 export function caseError(tc, i = 0) {
   const at = `case ${i + 1}`
   if (!tc || typeof tc !== 'object' || Array.isArray(tc)) return `${at}: must be an object`
-  if (typeof tc.key !== 'string' || !tc.key.trim() || /[\r\n]/.test(tc.key)) return `${at}: key must be the test's name, one line`
+  if (!isLine(tc.key)) return `${at}: key must be the test's name, one line`
   if (typeof tc.summary !== 'string' || !tc.summary.trim()) return `${at} (${tc.key}): summary must be a non-empty text`
   if (typeof tc.ticket !== 'string' || !TICKET.test(tc.ticket)) return `${at} (${tc.key}): ticket must be a Jira key like ABC-123`
   if (!Array.isArray(tc.steps) || !tc.steps.length) return `${at} (${tc.key}): steps must list at least one { action, expected }`
@@ -229,7 +229,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)
   if (argv[0] === 'created') {
     const [, key, verb, name, testKey, ...more] = argv
-    const bad = !TICKET.test(key ?? '') || more.length || (verb !== undefined && (verb !== 'add' || !name || !name.trim() || /[\r\n]/.test(name) || !TICKET.test(testKey ?? '')))
+    const bad = !TICKET.test(key ?? '') || more.length || (verb !== undefined && (verb !== 'add' || !isLine(name) || !TICKET.test(testKey ?? '')))
     if (bad) { printError('usage: xray.mjs created <KEY> [add "<case name>" <TEST KEY>]'); return 2 }
     const root = projectRoot(env, cwd)
     const c = loadConfig(root, env)

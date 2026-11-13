@@ -9,6 +9,7 @@ import { commandOf, timeoutSecondsOf } from '../../base/config.mjs'
 import { structure } from '../../base/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
+import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
 
 const WIN = process.platform === 'win32'
 const OUTPUT_MAX = 1 << 20
@@ -184,7 +185,6 @@ function upTo(root, dir, names) {
 }
 
 // A word for cmd.exe: in double quotes, a quote doubled.
-const cmdQuote = s => `"${String(s).replace(/"/g, '""')}"`
 
 /**
  * How to run one module: { cmd, args, cwd, reports, shell } for Maven or Gradle. A module below the build's top
@@ -193,7 +193,7 @@ const cmdQuote = s => `"${String(s).replace(/"/g, '""')}"`
 export function buildCommand(root, mod, selectors, win = WIN) {
   const b = toolCommand(root, mod, selectors, win)
   // Node starts a .cmd or .bat only through cmd.exe (EINVAL without a shell): one line, each word quoted.
-  return win && /\.(?:cmd|bat)$/i.test(b.cmd) ? { ...b, cmd: [b.cmd, ...b.args].map(cmdQuote).join(' '), args: [], shell: true } : b
+  return win && /\.(?:cmd|bat)$/i.test(b.cmd) ? { ...b, cmd: [b.cmd, ...b.args].map(s => shellQuote(s, true)).join(' '), args: [], shell: true } : b
 }
 
 function toolCommand(root, mod, selectors, win) {
@@ -231,11 +231,11 @@ function toolCommand(root, mod, selectors, win) {
 
 /** The project's junit.command with its placeholders filled; each value quoted for the shell. */
 export function fillCommand(template, { files, report, tool, selectors }) {
-  const q = s => (WIN ? cmdQuote(s) : `'${String(s).replace(/'/g, `'\\''`)}'`)
+  const q = s => shellQuote(s, WIN)
   const test = tool === 'gradle'
     ? selectors.map(s => `--tests ${q(s.method ? `${s.cls}.${s.method}` : s.cls)}`).join(' ')
     : `-Dtest=${q(selectors.map(s => (s.method ? `${s.cls}#${s.method}` : s.cls)).join(','))}`
-  return template.replace(/\{files\}/g, files.map(q).join(' ')).replace(/\{report\}/g, q(report)).replace(/\{test\}/g, test)
+  return fillPlaceholders(template, { files: files.map(q).join(' '), report: q(report), test })
 }
 
 /** The first compiler error of the build output, the one naming the spec when there is one. */

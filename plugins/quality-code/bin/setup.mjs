@@ -22,7 +22,7 @@ import { detectConventions } from '../lib/base/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
-import { toForwardSlashes } from '../lib/core/text.mjs'
+import { isLine, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
 import { readJson } from '../lib/core/files.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
@@ -330,7 +330,7 @@ function scaffoldProblems(root, config, s) {
   const e = []
   if (!config.frontend) e.push('scaffold: only for "frontend": "playwright"')
   else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
-  if (typeof s.command !== 'string' || !s.command.trim() || /[\r\n]/.test(s.command)) e.push('scaffold.command: must be the one-line command that starts the app, like "npm run dev"')
+  if (!isLine(s.command)) e.push('scaffold.command: must be the one-line command that starts the app, like "npm run dev"')
   if (typeof s.url !== 'string' || !/^https?:\/\/[^\s'"`\\]+$/.test(s.url)) e.push('scaffold.url: must be the address the app opens at, like "http://localhost:5173"')
   if (typeof s.signIn !== 'boolean') e.push('scaffold.signIn: must be true or false')
   const there = CONFIG_FILES.find(f => existsSync(join(root, f)))
@@ -439,7 +439,7 @@ function jiraCandidates(root) {
 function baseCandidate(root) {
   if (gitOut(root, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop^{commit}'])) return { proposed: 'develop', source: 'develop' }
   const head = gitOut(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
-  return head ? { proposed: head.replace(/^origin\//, ''), source: 'origin-head' } : null
+  return head ? { proposed: withoutOrigin(head), source: 'origin-head' } : null
 }
 
 /** The host whose issue-template folder new templates go to: the remote's, else the folder the repo already has. */
