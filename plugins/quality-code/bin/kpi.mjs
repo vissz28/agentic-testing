@@ -13,6 +13,7 @@ import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
@@ -109,7 +110,6 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
   }
 }
 
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const row = (name, text) => `${name.padEnd(12)}${text}`
 
 export function formatKpiCard(r) {

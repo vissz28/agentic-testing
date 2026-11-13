@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
 import { DEFAULTS, normaliseTicketsDir } from '../base/config.mjs'
-import { isTicketKey } from '../core/text.mjs'
+import { isTicketKey, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
@@ -71,7 +71,7 @@ export function formatCard({ rows, summary }) {
   return [
     ...lines,
     '',
-    `Project: ${s.scored} ticket${s.scored === 1 ? '' : 's'} scored`,
+    `Project: ${plural(s.scored, 'ticket')} scored`,
     `Passing: ${s.passing} of ${s.scored} (${s.passingPercent}%)`,
     `Average score: ${s.average}%`,
     s.mostMissing.length

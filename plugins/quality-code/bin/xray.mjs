@@ -17,7 +17,7 @@ import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/base/config.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
-import { toForwardSlashes } from '../lib/core/text.mjs'
+import { toForwardSlashes, plural } from '../lib/core/text.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // The test name is the cell's last line (buildRows puts it there), so a description line of its own
@@ -242,7 +242,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       mkdirSync(resolve(root, x.folder, key), { recursive: true })
       writeFileSync(resolve(root, x.folder, key, 'xray-created.json'), `${JSON.stringify(created, null, 2)}\n`)
     }
-    printLine(`${Object.keys(created).length} case${Object.keys(created).length === 1 ? '' : 's'} of ${key} created in Xray\n${tag('XRAY_CREATED', { key, created })}`)
+    printLine(`${plural(Object.keys(created).length, 'case')} of ${key} created in Xray\n${tag('XRAY_CREATED', { key, created })}`)
     return 0
   }
   const [cmd, arg, ...extra] = argv

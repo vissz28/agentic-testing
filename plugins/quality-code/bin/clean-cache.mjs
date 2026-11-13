@@ -7,9 +7,9 @@
 import { projectRoot } from '../lib/base/config.mjs'
 import { deleteCache, human, listCache, strip } from '../lib/base/cache-clean.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const USAGE = 'usage: clean-cache.mjs list [--all] | delete [--all]'
-const n = (c, w) => `${c} ${w}${c === 1 ? '' : 's'}`
 
 export async function main(argv = process.argv.slice(2), { env = process.env, cwd = process.cwd(), stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)
@@ -21,14 +21,14 @@ export async function main(argv = process.argv.slice(2), { env = process.env, cw
   if (sub === 'list') {
     const r = listCache(root, { all, env })
     stdout(r.files
-      ? `Cache to delete (${scope}): ${n(r.files, 'file')}, ${human(r.bytes)}${all ? ` in ${n(r.projects.length, 'project folder')}` : ''}.\nFolder: ${r.dir}\n`
+      ? `Cache to delete (${scope}): ${plural(r.files, 'file')}, ${human(r.bytes)}${all ? ` in ${plural(r.projects.length, 'project folder')}` : ''}.\nFolder: ${r.dir}\n`
       : `Nothing to delete for ${scope}: the cache is empty.\n`)
-    if (all) for (const p of r.projects) printLine(`- ${p.name}: ${n(p.files, 'file')}, ${human(p.bytes)}`)
+    if (all) for (const p of r.projects) printLine(`- ${p.name}: ${plural(p.files, 'file')}, ${human(p.bytes)}`)
     printLine(tag('CACHE', strip(r)))
     return 0
   }
   const r = deleteCache(root, { all, env })
-  stdout(r.deleted ? `Deleted ${n(r.deleted, 'cache file')} (${human(r.bytes)}) for ${scope}.\n` : `Nothing deleted for ${scope}: the cache was empty.\n`)
+  stdout(r.deleted ? `Deleted ${plural(r.deleted, 'cache file')} (${human(r.bytes)}) for ${scope}.\n` : `Nothing deleted for ${scope}: the cache was empty.\n`)
   printLine(tag('CACHE', r))
   return 0
 }

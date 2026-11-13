@@ -29,6 +29,7 @@ import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -243,7 +244,7 @@ async function gate(root, config, a, env, stdout) {
   const changed = det.files.filter(f => f.committed && f.kind === 'test')
   const head = `quality-code ci · changes since ${det.base}`
   if (!changed.length) { printLine(`${head}: no spec changed, nothing to check.`); return 0 }
-  printLine(`${head}: ${changed.length} spec${changed.length === 1 ? '' : 's'}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n`)
+  printLine(`${head}: ${plural(changed.length, 'spec')}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n`)
 
   // Honesty reads the diff, so a deleted spec and a renamed spec's old path count; assertions read the specs there now.
   const known = new Set(projectSpecs(root, config).map(s => s.path))
@@ -306,7 +307,7 @@ async function tests(root, config, a, env, stdout, stderr) {
     else if (det.onBase) scope = { mode: 'all', why: `this is ${det.base.replace(/^origin\//, '')} itself` }
     else {
       plan = planChanges(det.files, config, known)
-      scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${det.counts.test} test file${det.counts.test === 1 ? '' : 's'}, ${det.counts.code} code file${det.counts.code === 1 ? '' : 's'}` }
+      scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${plural(det.counts.test, 'test file')}, ${plural(det.counts.code, 'code file')}` }
     }
   }
   printLine(`quality-code ci tests${provider ? ` · ${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}` : ''}\n${scope.mode === 'all' ? `Running the whole suite, without mutation: ${scope.why}.` : `Running only what changed (${scope.why}).`}`)

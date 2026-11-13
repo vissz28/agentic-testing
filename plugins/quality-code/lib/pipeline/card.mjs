@@ -2,6 +2,7 @@ import { DEFAULT_DONE_STATUSES } from '../base/config.mjs'
 import { runnerLabel } from '../base/runners.mjs'
 import { rulesLine } from '../base/rules.mjs'
 import { tag } from '../core/script-io.mjs'
+import { plural } from '../core/text.mjs'
 const LABEL = { boundary: 'only tests', honesty: 'removals', 'suite-honesty': 'assertions' }
 const ICON = { pass: '✅', fail: '❌', not_run: '⚠️' }
 const VERDICT = { green: '✅ all good', checks_failed: '❌ problem in the tests', not_verified: '⚠️ could not run', tests_red: '🔴 tests fail' }
@@ -141,7 +142,7 @@ export function riskLine({ score, bar }, color = false) {
 export function formatCard(outcome, { specs = [], key = null, color = false, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, log = null, rules = null } = {}) {
   const n = specs.length
   const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
-  const lines = [`quality-code check · ${n} spec file${n === 1 ? '' : 's'}${sides}${key ? ` · ticket ${key}` : ''}`]
+  const lines = [`quality-code check · ${plural(n, 'spec file')}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   lines.push(...verdictText(outcome).map(t => `  ${capital(t)}`))

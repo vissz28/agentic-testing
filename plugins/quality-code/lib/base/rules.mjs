@@ -14,6 +14,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { backendOf } from './backends.mjs'
+import { plural } from '../core/text.mjs'
 
 export const HUB_TIMEOUT_MS = 3000
 export const DOMAIN = 'quality'
@@ -134,10 +135,10 @@ export async function readRules({ side, config = null, root = null, env = proces
   }
 }
 
-const count = (n, kind = 'testing') => `${n || 'no'} ${kind} rule${n === 1 ? '' : 's'}`
+const count = (n, kind = 'testing') => (n ? plural(n, `${kind} rule`) : `no ${kind} rules`)
 const draftNote = rules => {
   const d = rules.filter(x => x.status === 'draft').length
-  return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : `${d} draft${d === 1 ? '' : 's'}`}`
+  return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : plural(d, 'draft')}`
 }
 
 /** What a run read, saved next to the ticket (rules.mjs --key) so the result card can say it: Central Context, or the fallback. */
@@ -150,7 +151,7 @@ export const rulesRecord = (r, date = new Date()) => ({
 /** The card's Rules line: Central Context answered, or the tests were written with the fallback rules. */
 export function rulesLine(rec) {
   const others = [rec.localRules && `${rec.localRules} local`, rec.builtinRules && `${rec.builtinRules} built-in`].filter(Boolean).join(' and ')
-  if (rec.source === 'hub') return `✅ Written with ${rec.hubRules || 'no'} rule${rec.hubRules === 1 ? '' : 's'} from Central Context${rec.release ? ` (release ${rec.release})` : ''}${others ? ` and ${others} rules` : ''}`
+  if (rec.source === 'hub') return `✅ Written with ${rec.hubRules ? plural(rec.hubRules, 'rule') : 'no rules'} from Central Context${rec.release ? ` (release ${rec.release})` : ''}${others ? ` and ${others} rules` : ''}`
   return `⚠️ Central Context ${rec.error}. ${others ? `Written with ${others} rules instead` : 'No rules applied'}`
 }
 

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -66,4 +66,13 @@ test('the helpers are written once: no script or library file has its own copy',
     return /^(?:const|function) firstLine\b/m.test(src) || COPIES.some(c => src.includes(c))
   })
   assert.deepEqual(own, [])
+})
+
+test('plural: the count and its noun, "s" for any count but 1, or the given plural', () => {
+  assert.equal(plural(1, 'file'), '1 file')
+  assert.equal(plural(0, 'file'), '0 files')
+  assert.equal(plural(2, 'spec file'), '2 spec files')
+  assert.equal(plural(1, 'entry', 'entries'), '1 entry')
+  assert.equal(plural(3, 'entry', 'entries'), '3 entries')
+  assert.equal(plural('1', 'file'), '1 files', 'only the number 1 is singular, as every copy it replaces compared with === 1')
 })

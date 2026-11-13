@@ -26,6 +26,7 @@ import { REGRESSION_TAG } from '../lib/pipeline/regression.mjs'
 import { ORDER, junit } from './ci.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
@@ -119,13 +120,13 @@ function status(a, cfg, dir, stdout) {
   runs = runs.slice(-Number(a.last ?? 20))
   const s = stabilityOf(runs)
   if (a.json) { printLine(JSON.stringify({ task: a.task ?? (a.regression ? REGRESSION_TAG : null), ...s, flaky: s.flaky.map(([test, times]) => ({ test, times })) })); return 0 }
-  const lines = [`quality-code routine status · ${a.task ? `task ${a.task}` : 'whole suite'} · ${s.runs ? `last ${s.runs} run${s.runs === 1 ? '' : 's'}, ${runs[0].at.slice(0, 10)} to ${runs.at(-1).at.slice(0, 10)}` : 'no runs kept yet'}`]
+  const lines = [`quality-code routine status · ${a.task ? `task ${a.task}` : 'whole suite'} · ${s.runs ? `last ${plural(s.runs, 'run')}, ${runs[0].at.slice(0, 10)} to ${runs.at(-1).at.slice(0, 10)}` : 'no runs kept yet'}`]
   if (!dir) lines.push('Files and logs are kept only in the chat, so there is no history. Change it with /quality-code:config, item 7.')
   if (s.runs) {
     lines.push(`  passed ${s.passed} · not green ${s.failed} · pass rate ${s.rate}%`, `  green in a row now: ${s.streak} · green to red changes: ${s.flips}`)
     if (s.flaky.length) {
       lines.push(`  flaky tests seen (${s.flaky.length}):`)
-      for (const [t, n] of s.flaky.slice(0, 10)) lines.push(`    ${t}: in ${n} run${n === 1 ? '' : 's'}`)
+      for (const [t, n] of s.flaky.slice(0, 10)) lines.push(`    ${t}: in ${plural(n, 'run')}`)
       if (s.flaky.length > 10) lines.push(`    … and ${s.flaky.length - 10} more`)
     } else if (runs.some(r => r.stability)) lines.push('  no flaky test seen')
     else lines.push('  flaky tests were not looked for: run the routine with --flaky 5')
@@ -187,7 +188,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     const authors = new Set(newCommits.map(c => c.author))
     const changed = (git(root, ['diff', '--name-only', `${newCommits.at(-1).sha}^`, tested]) ?? '').split('\n').filter(Boolean)
     const shared = changed.filter(f => SHARED_CONFIG.test(f))
-    lines.push(`New: ${newCommits.length} commit${newCommits.length === 1 ? '' : 's'} by ${authors.size} author${authors.size === 1 ? '' : 's'}, ${changed.length} file${changed.length === 1 ? '' : 's'}.`)
+    lines.push(`New: ${plural(newCommits.length, 'commit')} by ${plural(authors.size, 'author')}, ${plural(changed.length, 'file')}.`)
     if (shared.length) lines.push(`Integral change: ${shared.slice(0, 5).join(', ')}${shared.length > 5 ? ` and ${shared.length - 5} more` : ''}.`)
   } else lines.push(a.force ? 'Forced run.' : 'First check of this branch: running.')
 
@@ -200,7 +201,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       printLine(lines.join('\n'))
       return 3
     }
-    lines.push(`Running ${specs.length} spec${specs.length === 1 ? '' : 's'} of ${a.task}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
+    lines.push(`Running ${plural(specs.length, 'spec')} of ${a.task}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   } else if (a.regression) {
     specs = projectSpecs(root, config).map(s => s.path).filter(p => TAGGED.test(readFileSync(join(root, p), 'utf8')))
     if (!specs.length) {
@@ -208,7 +209,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       printLine(lines.join('\n'))
       return 3
     }
-    lines.push(`Running the ${REGRESSION_TAG} suite: ${specs.length} spec${specs.length === 1 ? '' : 's'}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
+    lines.push(`Running the ${REGRESSION_TAG} suite: ${plural(specs.length, 'spec')}${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   } else lines.push(`Running every test of the project${a.flaky ? `, each test ${a.flaky} times` : ''}.`)
   const result = await run({ root, config, specs, key: a.task, stability: a.flaky, env })
   const green = result.exit === 0

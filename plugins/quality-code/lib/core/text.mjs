@@ -49,3 +49,12 @@ export const isTicketKey = value => typeof value === 'string' && TICKET_KEY.test
  * @returns {string}
  */
 export const firstLine = text => noColour(text).split('\n').map(l => l.trim()).find(Boolean) ?? ''
+
+/**
+ * A count and its noun: "1 file", "3 files". The plural is the noun and an "s" unless given.
+ * @param {number} n
+ * @param {string} one the noun for one, like "file" or "spec file"
+ * @param {string} [many] the noun for any other count, when it is not one + "s"
+ * @returns {string}
+ */
+export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`

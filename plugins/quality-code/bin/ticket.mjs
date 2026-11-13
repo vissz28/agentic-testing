@@ -27,7 +27,7 @@ import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey } from '../lib/core/text.mjs'
+import { isTicketKey, plural } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
@@ -120,7 +120,7 @@ function run(argv, env, cwd) {
     if (sub === 'set' && a._.length === 2 && options.includes(place)) {
       const r = pickPlace(root, opts, place, env)
       const line = { repo: `in the project, in ${r.dirs.ticketsDir}/ (git-ignored)`, local: `on this machine, in ${r.dirs.ticketsDir}/`, chat: `in this session, in ${r.dirs.ticketsDir}/ (a temp folder: the machine may clear it)` }[place]
-      printLine(`ok: files and logs go ${line}.${r.moved ? ` Moved ${r.moved} file${r.moved === 1 ? '' : 's'} from the old place.` : ''}${r.kept ? ` ${r.kept} already there kept as they were.` : ''}`)
+      printLine(`ok: files and logs go ${line}.${r.moved ? ` Moved ${plural(r.moved, 'file')} from the old place.` : ''}${r.kept ? ` ${r.kept} already there kept as they were.` : ''}`)
       printLine(tag('SAVE', { ...show(place), asked: true, source: cfg.source, moved: r.moved, kept: r.kept }))
       return 0
     }
@@ -195,7 +195,7 @@ function run(argv, env, cwd) {
       ? "test style: both: every test is written twice, like the project's existing tests and the Quality Code way (the ticket key in the file name)"
       : flow === 'project'
       ? (conv.specs > 0
-        ? `test style: like the existing tests: ${conv.specs} test file${conv.specs === 1 ? '' : 's'} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
+        ? `test style: like the existing tests: ${plural(conv.specs, 'test file')} found, named ${conv.pattern}${conv.beside ? ', next to the code' : ''}`
         : "test style: like the existing tests, but the project has none yet: Quality Code's naming is used until it has")
       : 'test style: the Quality Code way: the ticket key in the file name, the configured test folders')
     printLine(tag('FLOW', { flow, source: flag ? 'run' : config.testStyle ? 'config' : 'detected', configured: config.testStyle ?? null, ...conv }))
@@ -444,7 +444,7 @@ function run(argv, env, cwd) {
       const next = { ...ticket, attachments: n }
       try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { printError(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
       const b = buildBrief(config, next)
-      printLine(`The ticket has ${n} attachment${n === 1 ? '' : 's'}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
+      printLine(`The ticket has ${plural(n, 'attachment')}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       printLine(tag('FILL', { attachments: n, score: b.score, gate: b.gate }))
       return 0
     }

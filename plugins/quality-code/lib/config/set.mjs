@@ -9,6 +9,7 @@ import { FLOWS } from '../base/conventions.mjs'
 import { RUNNERS } from '../base/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
+import { plural } from '../core/text.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -242,7 +243,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
 
   if (spec.file) {
     if (!placesFor(t.source).includes(next)) return fail(`place: a personal config keeps its files on this machine ("local") or in the chat ("chat"), not in a repo.`)
-    return finish(r => `files and logs are now kept ${next}${r.extra.moved ? `; moved ${r.extra.moved} file${r.extra.moved === 1 ? '' : 's'} from the old place` : ''} (${placeDirs(root, placeOpts, next, env).ticketsDir}/).`, () => ({ extra: { moved: pickPlace(root, placeOpts, next, env).moved } }))
+    return finish(r => `files and logs are now kept ${next}${r.extra.moved ? `; moved ${plural(r.extra.moved, 'file')} from the old place` : ''} (${placeDirs(root, placeOpts, next, env).ticketsDir}/).`, () => ({ extra: { moved: pickPlace(root, placeOpts, next, env).moved } }))
   }
 
   const candidate = setPath(t.config, key, next)

@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson } from '../lib/core/files.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
 const USAGE = 'usage: update.mjs [--json]'
@@ -147,7 +148,7 @@ export function formatCard({ id, installed, running = installed, latest, status,
       for (const i of s.lines.items) lines.push(`    - ${i.length > 160 ? `${i.slice(0, 157)}...` : i}`)
       if (s.lines.more) lines.push(`    ... and ${s.lines.more} more`)
     }
-    if (hiddenVersions) lines.push('', `  ... and ${hiddenVersions} older version${hiddenVersions === 1 ? '' : 's'}: see the CHANGELOG.`)
+    if (hiddenVersions) lines.push('', `  ... and ${plural(hiddenVersions, 'older version')}: see the CHANGELOG.`)
     lines.push('', 'To update by hand, type these two commands in Claude Code, one after the other:',
       `  /plugin update ${id}`, '  /reload-plugins')
   }
