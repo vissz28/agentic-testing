@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds plugins/quality-code/assets/commands.pdf, the guide shipped with the plugin: the commands, grouped, with what is new.
+"""Builds plugins/quality-code/resources/commands.pdf, the guide shipped with the plugin: the commands, grouped, with what is new.
 
     python3 scripts/build-commands-pdf.py
 """
@@ -18,7 +18,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = json.loads((ROOT / 'plugins/quality-code/.claude-plugin/plugin.json').read_text())['version']
 SHORT = '.'.join(VERSION.split('.')[:2])
-OUT = ROOT / 'plugins' / 'quality-code' / 'assets' / 'commands.pdf'  # shipped with the plugin: update points to it
+OUT = ROOT / 'plugins' / 'quality-code' / 'resources' / 'commands.pdf'  # shipped with the plugin: update points to it
 TODAY = date.today().strftime('%-d %b %Y')
 
 TS_BLUE, TS_DARK, TS_PALE = colors.HexColor('#0090D1'), colors.HexColor('#005075'), colors.HexColor('#E5F4FB')
@@ -90,7 +90,7 @@ new = [
     ('Windows paths (0.61.2).', 'On Windows, a Vitest spec whose tests ran is no longer reported as never ran, and a node --test spec that does not load is reported as never ran, not as a failed test.'),
     ('How to use it, by role (0.61.1).', 'Setup ends with a fixed block: one line each for developers (spec, run-pipeline), QA (ticket --eval, xray, qa) and PO (ticket &lt;PROJECT> --eval, transcript-goal). A Jira-only setup leaves out the developers line.'),
     ('One ticket command (0.61).', 'ticket-eval and tickets-eval are now flags of ticket: /quality-code:ticket &lt;KEY> --eval scores one ticket, /quality-code:ticket &lt;PROJECT> --eval the latest 50 of a project. The --json, --refuse-comment, --limit and --all flags are gone.'),
-    ('The guide, from update (0.60.2).', '/quality-code:update ends its card with the path of this guide, shipped with the plugin (assets/commands.pdf): every command, and what is new in the installed version.'),
+    ('The guide, from update (0.60.2).', '/quality-code:update ends its card with the path of this guide, shipped with the plugin (resources/commands.pdf): every command, and what is new in the installed version.'),
     ('Fixes from the 5 Nov feedback (0.60.1).', 'A title "FE -", "FE-" or "FE:" is read as frontend (also BE, FS), so the side is not asked. An epic is refused ("pass one of its stories or tasks"). Placeholder criteria (lorem ipsum, TBD, N/A) no longer pass the score. A run says once when screenshots are not read because the Jira files key is not set. Every Jira write ends with "Co-authored via Quality Code".'),
     ('A sign-in page on the shared server (0.60).', 'The shared MCP server shows a Quality Code page at its address: Sign in with Microsoft, then the /mcp address and the commands to connect Claude Code, Copilot CLI or Cursor. Needs a Web redirect URI and QUALITY_CODE_ENTRA_CLIENT_SECRET; /mcp itself is unchanged. Nothing changes in the commands.'),
     ('Config lives on your machine (0.59).', 'Setup no longer writes into your repo. config.json is kept next to the tickets and run logs, in the place the last setup question picks. A repo with .claude/quality-code.json still works; CI jobs still read the repo file.'),

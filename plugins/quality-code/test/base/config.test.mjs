@@ -156,7 +156,7 @@ test('confluenceSpaces: one clear error naming the index', () => {
   assert.deepEqual(r.errors, ['confluenceSpaces[1] "A B" must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"'])
 })
 test('the schema documents confluenceSpaces with the validator\'s pattern', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const p = schema.properties.confluenceSpaces
   assert.equal(p.type, 'array')
   assert.equal(p.items.pattern, '^[A-Za-z0-9_~-]+$')
@@ -186,7 +186,7 @@ test('given languages and features still win over the defaults', () => {
   assert.equal(r.config.jira.acceptanceCriteriaField, null)
 })
 test('the schema requires only version, jira site and projects, and frontend or backend', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.deepEqual(schema.required, ['version', 'jira'])
   assert.deepEqual(schema.anyOf, [{ required: ['frontend'] }, { required: ['backend'] }])
   assert.deepEqual(schema.properties.jira.required, ['site', 'projects'])
@@ -215,7 +215,7 @@ bad({ boundaries: [] }, 'boundaries')
 bad({ boundaries: { forbidden: [] } }, 'boundaries.forbidden')
 bad({ boundaries: { allow: 'src/' } }, 'boundaries.allow')
 test('the schema documents boundaries', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const b = schema.properties.boundaries
   assert.equal(b.type, 'object')
   assert.equal(b.additionalProperties, false)
@@ -260,7 +260,7 @@ test('vitest.timeoutSeconds: whole numbers from 10 to 3600', () => {
   for (const t of [10, 3600]) assert.equal(validateConfig({ ...vgood, vitest: { timeoutSeconds: t } }).ok, true, String(t))
 })
 test('the schema documents the vitest block', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const v = schema.properties.vitest
   assert.equal(v.type, 'object')
   assert.equal(v.additionalProperties, false)
@@ -272,7 +272,7 @@ test('the schema documents the vitest block', () => {
   assert.deepEqual(v.properties.stryker.properties.threshold, { type: 'integer', minimum: 0, maximum: 100, default: 60, description: v.properties.stryker.properties.threshold.description })
 })
 test('the schema gives the vitest paths the validator\'s pattern', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const v = schema.properties.vitest.properties
   const re = new RegExp(v.tsconfig.pattern)
   assert.equal(v.configs.items.properties.match.pattern, v.tsconfig.pattern)
@@ -404,7 +404,7 @@ test('playwright.ungradedTitles, playwright.redTags and jira.doneStatuses: check
   assert.deepEqual(doneStatusesOf(jira(['Released']).config), ['Released'])
 })
 test('the schema documents the playwright block with the validator\'s path pattern', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const p = schema.properties.playwright
   assert.equal(p.type, 'object')
   assert.equal(p.additionalProperties, false)
@@ -485,7 +485,7 @@ test('seed block: each wrong part is named', () => {
   for (const t of ['', '  ', 5]) assert.ok(validateConfig({ ...vgood, seed: { target: t } }).errors[0].startsWith('seed.target: '), JSON.stringify(t))
 })
 test('the schema documents the seed block with the validator\'s rules', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   const s = schema.properties.seed
   assert.equal(s.type, 'object')
   assert.equal(s.additionalProperties, false)
@@ -531,7 +531,7 @@ test('seed.guide is a .md file; qaPlans is a folder ending in /', () => {
 })
 
 test('the schema knows every top-level field the validator takes, fullstack included', () => {
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.equal(schema.properties.frontend.const, 'playwright')
   assert.equal(schema.properties.adapter, undefined)
   assert.deepEqual(schema.properties.backend.enum, ['vitest', 'pytest', 'junit', 'go', 'dotnet'])
@@ -592,7 +592,7 @@ test('centralContext: an object with hub, a base URL or "off"; nothing else; opt
   assert.match(ok({ hub: 'ftp://x' }).errors[0], /^centralContext\.hub: /)
   assert.match(ok({ hub: 'http://localhost:8080', rules: {} }).errors[0], /^centralContext\.rules: unknown field/)
   assert.match(ok('http://localhost:8080').errors[0], /^centralContext: must be an object with "hub"/)
-  const schema = JSON.parse(readFileSync(new URL('../../schema/quality-code.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(readFileSync(new URL('../../resources/quality-code.schema.json', import.meta.url), 'utf8'))
   assert.equal(schema.properties.centralContext.additionalProperties, false)
   assert.deepEqual(Object.keys(schema.properties.centralContext.properties), ['hub', 'local'])
   const re = new RegExp(schema.properties.centralContext.properties.hub.pattern)

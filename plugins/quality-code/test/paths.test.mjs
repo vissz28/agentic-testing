@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 const PLUGIN = fileURLToPath(new URL('../', import.meta.url))
 const REPO = join(PLUGIN, '../..')
-const TOP = 'bin|lib|guides|commands|templates|assets|schema|rules|hooks|output-styles'
+const TOP = 'bin|lib|guides|commands|resources|rules|hooks|output-styles'
 const FILE = '[A-Za-z0-9_./-]+'
 
 const filesIn = (dir, ext) => (existsSync(dir) ? readdirSync(dir).filter(f => ext.some(e => f.endsWith(e))).map(f => join(dir, f)) : [])
@@ -44,7 +44,7 @@ const REPO_RULES = [{ re: /(plugins\/quality-code\/[A-Za-z0-9_./*-]*)/g, base: R
 function allReferences() {
   const plugin = [
     ...filesIn(join(PLUGIN, 'commands'), ['.md']), ...filesIn(join(PLUGIN, 'guides'), ['.md']),
-    ...filesIn(join(PLUGIN, 'output-styles'), ['.md']), ...filesIn(join(PLUGIN, 'templates'), ['.md']),
+    ...filesIn(join(PLUGIN, 'output-styles'), ['.md']), ...filesIn(join(PLUGIN, 'resources'), ['.md']),
     join(PLUGIN, 'hooks/hooks.json'), join(PLUGIN, '.mcp.json'), join(PLUGIN, 'README.md'),
   ]
   const repo = [

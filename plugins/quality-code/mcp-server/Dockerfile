@@ -14,8 +14,7 @@ COPY bin ./bin
 COPY lib ./lib
 COPY commands ./commands
 COPY guides ./guides
-COPY schema ./schema
-COPY templates ./templates
+COPY resources ./resources
 COPY mcp-server ./mcp-server
 RUN pip install --no-cache-dir ./mcp-server
 

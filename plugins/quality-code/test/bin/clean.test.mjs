@@ -63,7 +63,7 @@ test('setup files are listed only while they are still what setup wrote', () => 
 })
 test('a template is setup-added only when it is exactly the plugin\'s own', () => {
   const { root, env } = project({ extra: { ticketTemplates: { bug: '.github/ISSUE_TEMPLATE/bug.md', story: '.github/ISSUE_TEMPLATE/story.md' } } })
-  put(root, '.github/ISSUE_TEMPLATE/bug.md', read('templates/bug.md'))
+  put(root, '.github/ISSUE_TEMPLATE/bug.md', read('resources/bug-template.md'))
   put(root, '.github/ISSUE_TEMPLATE/story.md', 'the team wrote this one\n')
   assert.ok(rels(buildList(root, env), 'setup').includes('.github/ISSUE_TEMPLATE/bug.md'))
   assert.ok(!rels(buildList(root, env), 'setup').includes('.github/ISSUE_TEMPLATE/story.md'))

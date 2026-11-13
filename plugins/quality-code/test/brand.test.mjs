@@ -28,9 +28,9 @@ test('the plugin description opens with the tagline', () => {
   assert.match(market.metadata.description, /from Jira ticket to tests you can trust/)
 })
 test('the icon is the logo PNG inside the plugin, with its SVG source next to it', () => {
-  assert.equal(plugin.icon, './assets/logo.png')
-  for (const f of ['../assets/logo.png', '../assets/logo.svg']) assert.ok(existsSync(new URL(f, import.meta.url)), f)
-  const png = readFileSync(new URL('../assets/logo.png', import.meta.url))
+  assert.equal(plugin.icon, './resources/logo.png')
+  for (const f of ['../resources/logo.png', '../resources/logo.svg']) assert.ok(existsSync(new URL(f, import.meta.url)), f)
+  const png = readFileSync(new URL('../resources/logo.png', import.meta.url))
   assert.equal(png.subarray(1, 4).toString(), 'PNG')
   assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [512, 512])
 })
