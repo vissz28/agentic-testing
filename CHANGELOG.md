@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-11-13
+
+### Changed
+
+- Internal: fewer, clearer folders. `resources/` holds what was in `assets/`, `schema/` and `templates/`. In `lib/`, `state` keeps what the plugin remembers on this machine (audit log, progress, context, cache), `config` the config, places and keys, `stacks` the backends, runners, conventions and dialects, `ci` the CI source and changed files, and `pipeline` gains the boundary, run marker and result. `core` gains git and ignore, and `ticket` gains the database file. `base` keeps clean, containers, routes, rules, seed and workspaces.
+- Internal: lookup tables replace nested ternaries in 11 files, and `collapseSpaces` in `lib/core/text.mjs` replaces 9 copies.
+
+**What to do:** nothing. Update the plugin as usual; output is unchanged.
+
 ## [0.78.0] - 2026-11-13
 
 ### Changed
