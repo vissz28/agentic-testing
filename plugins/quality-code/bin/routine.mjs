@@ -1,17 +1,6 @@
 #!/usr/bin/env node
-// A routine: a check that runs on a schedule and says whether the tests still pass after other people pushed,
-// and whether they are stable (the same code passing and failing). The schedule itself is made by
-// /quality-code:routine with Claude's scheduler; this script is what each scheduled run executes.
-//   node bin/routine.mjs run [--task KEY | --regression] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
-//                            [--flaky N] [--force] [--json] [--junit FILE]
-//   node bin/routine.mjs status [--task KEY] [--last N] [--json]
-// run:    fetches the watched branch, sees what others pushed (new commits, shared files such as package.json or a
-//         lockfile), then runs the task's tests (the specs that name the ticket KEY) or the whole suite. With
-//         --flaky N every test runs N times and the ones that pass and fail on the same code are named (flaky).
-//         It says so when the result went from green to not green, with the commits in between. No new commit
-//         (with --since-last or --since): nothing to check, exit 0. Every run is kept in a local history.
-// status: the stability of the last runs from that history: pass rate, flaky tests seen, green to red changes.
-// Exit 0 green or nothing new, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run (never a pass).
+// What each scheduled /quality-code:routine run executes: fetch, run task or suite tests, report regressions and flakiness.
+// Exit 0 green or nothing new, 1 check failed or test red, 2 usage/config error, 3 could not run (never a pass).
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

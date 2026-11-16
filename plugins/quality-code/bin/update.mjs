@@ -1,8 +1,5 @@
-// Entry point for /quality-code:update: is a newer version of the plugin out, and what changed?
-// node bin/update.mjs [--json]
-// Reads the running version from this plugin and the one installed on disk (an update waits for /reload-plugins), the latest from the plugin's GitHub repository (raw files,
-// else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
-// 2 usage error, 3 the latest version could not be read.
+// Compares running/installed plugin versions with the latest on GitHub. Read-only, installs nothing.
+// Exit 0 ok, 2 usage error, 3 latest version unreadable.
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'

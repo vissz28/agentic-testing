@@ -26,8 +26,7 @@ function readFields(path) {
 }
 const storedAt = (dir, env) => ({ ...readFields(join(dir, FIELDS_REL)), ...readFields(placedPath(dir, env)) })
 
-// A Jira project's criteria field is one fact for the repo, not for each project folder of a monorepo: it is kept
-// where the config is, and a file saved in the project folder before that still counts.
+// One fact per repo, not per monorepo package: stored by the config; older per-folder files still count.
 const stored = (root, env) => ({ ...storedAt(configHome(root, env), env), ...storedAt(root, env) })
 
 /** source: "config", "stored" or "unknown"; field is an id or null. */

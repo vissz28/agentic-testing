@@ -1,6 +1,4 @@
-// The Stryker runner: mutates one source file with the project's own Stryker (Vitest test runner)
-// and reads its JSON mutation report. Stryker's sandbox has to live inside the project (outside it Vitest
-// finds no tests), so the runner names one per run and always removes it.
+// Stryker runner (Vitest). The sandbox must be inside the project or Vitest finds no tests, so it's always removed.
 import { spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'

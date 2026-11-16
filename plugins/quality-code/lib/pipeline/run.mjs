@@ -1,5 +1,4 @@
-// The run marker: `run start` opens a test-writing run (the boundary hook then acts), `run stop`
-// closes it, `run status` shows it. A marker older than STALE_MS is ignored and replaced.
+// Marker for an active test-writing run; the boundary hook acts only while one exists.
 import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'

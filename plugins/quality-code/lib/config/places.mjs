@@ -61,11 +61,7 @@ function baseOf(root, source, place, env) {
   return source === 'personal' ? join(claudeDir(env), 'quality-code') : join(claudeDir(env), 'quality-code', 'projects', `${slug(root)}-${short(root)}`)
 }
 
-/**
- * The folders a place uses: `ticketsDir` (relative to the root in the repo, else absolute) and `auditDir`
- * (absolute, in every place: the session's audit log lives in its temp folder). The config's own ticketsDir applies in the repo,
- * and for a personal setup that names one.
- */
+/** ticketsDir (relative in the repo, else absolute) and auditDir (always absolute). Config's ticketsDir wins in the repo. */
 export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place, env = process.env) {
   place ??= placeOf(root, source, env)
   const base = baseOf(root, source, place, env)

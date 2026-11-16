@@ -1,5 +1,4 @@
-// Every text a ticket author reads, as neutral built-in defaults. A project overrides any field of
-// any key through `config.messages`; a story can override again through `config.messages.story`.
+// Text shown to ticket authors. Overridable per key via config.messages, and for stories via config.messages.story.
 import { isObject } from '../core/is.mjs'
 
 

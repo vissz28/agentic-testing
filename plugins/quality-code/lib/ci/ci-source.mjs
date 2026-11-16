@@ -1,6 +1,4 @@
-// Where the CI file fetches the plugin from. Default: the public repo at the tag of this version.
-// A team that mirrors the plugin sets `ci.pluginSource` in the project config ({ "url": "https://...", "ref": "<tag or branch>" })
-// or QUALITY_CODE_PLUGIN_URL / QUALITY_CODE_PLUGIN_REF in the environment of the run (the environment wins).
+// Where CI clones the plugin from. Mirrors override via ci.pluginSource or QUALITY_CODE_PLUGIN_URL/_REF.
 import { isObject } from '../core/is.mjs'
 
 export const DEFAULT_PLUGIN_URL = 'https://github.com/vissz28/agentic-testing.git'

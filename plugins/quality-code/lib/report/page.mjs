@@ -1,5 +1,4 @@
-// The shell of the one-file HTML report: shared CSS (light and dark through custom properties), escaping and
-// the page frame. Inline CSS and SVG only: no script, no font, no image, no link to anywhere.
+// Single-file HTML report shell. Inline CSS and SVG only: no scripts, fonts, images or external links.
 import { escapeHtml as esc } from '../core/text.mjs'
 export { esc }
 

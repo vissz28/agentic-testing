@@ -20,13 +20,7 @@ export const printError = lineWriter(text => process.stderr.write(text))
 
 const PLUGIN = new URL('../../', import.meta.url).href
 
-/**
- * What a crashed check prints: "check <name> crashed: <first line>", then the plugin file and line the
- * error came from (from the original error a step kept as cause), so a report of it can be found.
- * @param {string} name the check or step
- * @param {unknown} e what was thrown
- * @returns {string}
- */
+/** "check <name> crashed: <msg>" plus the plugin file:line it came from, so a report can be traced. */
 export function crashMessage(name, e) {
   const head = `check ${name} crashed: ${String(e?.message ?? e).split('\n')[0]}`
   const stack = String(e?.cause?.stack ?? e?.stack ?? '')

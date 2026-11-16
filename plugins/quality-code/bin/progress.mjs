@@ -1,13 +1,7 @@
 #!/usr/bin/env node
-// Entry point for the "where did I stop" cache the commands use between steps and sessions.
-// node bin/progress.mjs get <command> [--key KEY]
-// node bin/progress.mjs set <command> --step N --label "text" [--key KEY] [--data '{"site":"…"}']
-// node bin/progress.mjs clear <command> [--key KEY]
-// node bin/progress.mjs list
-// node bin/progress.mjs context get <fact> [--head | --current TOKEN]
-// node bin/progress.mjs context set <fact> --data JSON --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
-// node bin/progress.mjs context file <path> [--role target|spec|config] | changed <path> | clear [<fact>] | list
-// Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
+// Local resume cache for commands (steps and cached facts). Never sent anywhere, never in the repo.
+// context set --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
+// Exit 0 ok, 2 usage or refused input.
 import { projectRoot } from '../lib/config/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/state/context.mjs'
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/state/progress.mjs'
