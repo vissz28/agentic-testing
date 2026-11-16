@@ -12,8 +12,8 @@ import { basename, extname, join, resolve } from 'node:path'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey } from '../lib/core/text.mjs'
 import { cleanRelPath } from '../lib/core/paths.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
 export const MEDIA_HOST = 'api.media.atlassian.com'

@@ -141,6 +141,7 @@ test('placement: <ticketsDir>/reports/<kind>-<date>.html, only for a known kind 
   assert.ok(existsSync(p))
   assert.equal(reportPath(dir, '../x', '2026-10-14'), null)
   assert.equal(reportPath(dir, 'kpi', '../../etc'), null)
+  assert.equal(reportPath(dir, 'kpi', '2026-02-31'), null)
   assert.throws(() => saveReport(dir, 'kpi', 'today', ''))
   const out = mkdtempSync(join(tmpdir(), 'qc-out-'))
   assert.equal(reportsRoot(root, { ok: true, config: { ticketsDir: out } }), join(out, 'reports'))

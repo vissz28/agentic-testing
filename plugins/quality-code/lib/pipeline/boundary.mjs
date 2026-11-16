@@ -9,6 +9,7 @@ import { backendOf, BACKENDS } from '../stacks/backends.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson } from '../core/files.mjs'
 import { stripDotSlash, leavesFolder } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 // Never written by a test run: build output and packages at any depth (monorepos), git, and the
 // plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
@@ -118,7 +119,7 @@ export function readRunMarker(root, now = Date.now()) {
   let marker = null
   try {
     const m = readJson(p)
-    if (m && typeof m === 'object' && !Array.isArray(m)) marker = m
+    if (isObject(m)) marker = m
   } catch {}
   const t = typeof marker?.startedAt === 'string' ? Date.parse(marker.startedAt) : NaN
   const startedMs = Number.isFinite(t) ? t : st.mtimeMs

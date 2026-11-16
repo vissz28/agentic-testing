@@ -27,9 +27,10 @@ import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey, plural } from '../lib/core/text.mjs'
+import { plural } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
 import { noTrailingSlash, cleanRelPath } from '../lib/core/paths.mjs'
+import { isTicketKey, isObject } from '../lib/core/is.mjs'
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
@@ -250,7 +251,7 @@ const COMMANDS = {
     let list
     const listPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
     try { list = JSON.parse(listPath ? readFileSync(listPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-    if (!Array.isArray(list) || list.some(t => !t || typeof t !== 'object' || Array.isArray(t))) { printError('--in must be a JSON array of tickets'); return 2 }
+    if (!Array.isArray(list) || list.some(t => !isObject(t))) { printError('--in must be a JSON array of tickets'); return 2 }
     const r = evalTickets(config, list)
     if (a.flags.has('--save')) {
       try { saveTickets(root, config, r.clean) } catch (e) { printError(`tickets-eval: cannot save (${e.code ?? e.message})`); return 2 }
@@ -310,7 +311,7 @@ function run(argv, env, cwd) {
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-  if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { printError('--in must be a JSON object'); return 2 }
+  if (!isObject(ticket)) { printError('--in must be a JSON object'); return 2 }
   // Lists the connector or the model may hand over as one value: a single label, a single scenario.
   for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
   const project = String(ticket.key ?? '').replace(/-\d+$/, '')

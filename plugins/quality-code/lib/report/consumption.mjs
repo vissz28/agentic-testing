@@ -2,19 +2,17 @@
 import { costOf, priceFor } from './prices.mjs'
 import { tag } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
+import { isDate } from '../core/is.mjs'
 
 const DAY = 86400000
 export const BY = ['command', 'ticket', 'day', 'model']
 const day = ms => new Date(ms).toISOString().slice(0, 10)
-const DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** { since, until, label } in ms, until exclusive. Throws a plain message. */
 export function parsePeriod({ since = '30d', until = null } = {}, now = Date.now()) {
   const date = (s, flag) => {
-    const t = DATE.test(s) ? Date.parse(`${s}T00:00:00Z`) : NaN
-    // Date.parse rolls 2026-02-31 over to March: only a date that reads back the same is one.
-    if (Number.isNaN(t) || day(t) !== s) throw new Error(`${flag} must be a date like 2026-10-01${flag === '--since' ? ', or 7d or 30d' : ''}, not "${s}"`)
-    return t
+    if (!isDate(s)) throw new Error(`${flag} must be a date like 2026-10-01${flag === '--since' ? ', or 7d or 30d' : ''}, not "${s}"`)
+    return Date.parse(`${s}T00:00:00Z`)
   }
   const end = until === null ? now : date(until, '--until') + DAY
   const rel = String(since).match(/^([1-9]\d{0,3})d$/)

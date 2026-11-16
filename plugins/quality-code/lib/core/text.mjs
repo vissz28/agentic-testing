@@ -33,16 +33,6 @@ export const toForwardSlashes = path => String(path).replace(/\\/g, '/')
  */
 export const localToForwardSlashes = path => path.split(sep).join('/')
 
-const TICKET_KEY = /^[A-Z][A-Z0-9_]*-\d+$/
-
-/**
- * True for a Jira key such as ABC-123: a project key, a dash, a number, and nothing else.
- * Only a string is one, so a value that passes is safe to use as a folder name.
- * @param {unknown} value
- * @returns {boolean}
- */
-export const isTicketKey = value => typeof value === 'string' && TICKET_KEY.test(value)
-
 /**
  * The first line of a tool's output that says something, trimmed, without colour codes; '' when there is none.
  * @param {unknown} text
@@ -58,20 +48,6 @@ export const firstLine = text => noColour(text).split('\n').map(l => l.trim()).f
  * @returns {string}
  */
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
-
-/**
- * True when the text has a line break (\n or \r) in it.
- * @param {string} text
- * @returns {boolean}
- */
-export const hasLineBreak = text => /[\r\n]/.test(text)
-
-/**
- * True for one line of text: a string, not empty or only spaces, with no line break.
- * @param {unknown} value
- * @returns {boolean}
- */
-export const isLine = value => typeof value === 'string' && value.trim() !== '' && !hasLineBreak(value)
 
 /**
  * The branch without the remote in front: "origin/develop" -> "develop"; a local name stays as it is.

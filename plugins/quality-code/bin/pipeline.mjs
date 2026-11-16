@@ -22,6 +22,7 @@ import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { leavesFolder } from '../lib/core/paths.mjs'
+import { isObject, isWholeNumber } from '../lib/core/is.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -54,7 +55,7 @@ function parse(argv) {
   if (a.smoke && a.suite !== undefined && a.suite !== 'frontend') throw new Error('--smoke runs the frontend (Playwright) suite')
   if (a.function !== undefined && a.target === undefined) throw new Error('--function names code in the --target file: give --target too')
   if (a.function !== undefined && !/^[A-Za-z_$][\w$]*(?:,[A-Za-z_$][\w$]*)*$/.test(a.function)) throw new Error(`--function must be one or more function names, comma-separated, like upsertTotal,applyDiscount, not "${a.function}"`)
-  if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
+  if (a.flaky !== undefined && !isWholeNumber(a.flaky, { min: 1 })) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
     throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
   }
@@ -109,7 +110,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     ticket = resolve(root, t)
     let obj
     try { obj = JSON.parse(readFileSync(ticket, 'utf8')) } catch (e) { return err(`--ticket ${t}: ${isFile(ticket) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
+    if (!isObject(obj)) return err(`--ticket ${t}: not a ticket object`)
     jiraStatus = typeof obj.status === 'string' ? obj.status : null
     issueType = typeof obj.issuetype === 'string' ? obj.issuetype : null
   }

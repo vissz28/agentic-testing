@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
+- A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
+
+### Changed
+
+- Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
+- Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
+
 ## [0.80.1] - 2026-11-16
 
 ### Fixed

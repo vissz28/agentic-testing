@@ -22,9 +22,10 @@ import { detectConventions } from '../lib/stacks/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
-import { isLine, lines, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
+import { lines, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
 import { readJson } from '../lib/core/files.mjs'
 import { noTrailingSlash, cleanRelPath, leavesFolder } from '../lib/core/paths.mjs'
+import { isLine, isObject } from '../lib/core/is.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
 const TEMPLATE_CANDIDATES = {
@@ -327,7 +328,7 @@ test('the app opens', async ({ page }) => {
 `
 
 function scaffoldProblems(root, config, s) {
-  if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
+  if (!isObject(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
   const e = []
   if (!config.frontend) e.push('scaffold: only for "frontend": "playwright"')
   else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)

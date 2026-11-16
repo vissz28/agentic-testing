@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces, lines, escapeHtml, pct } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces, lines, escapeHtml, pct } from '../../lib/core/text.mjs'
+import { hasLineBreak, isLine, isTicketKey } from '../../lib/core/is.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -60,7 +61,7 @@ test('the helpers are written once: no script or library file has its own copy',
   // The shapes each helper replaced. The Node test reporter keeps its own slash line: it is loaded into the
   // project's test process, so it imports nothing of the plugin.
   const COPIES = [ESCAPE_CLASS, '/^[A-Z][A-Z0-9_]*-\\d+$/', ".replace(/\\\\/g, '/')", ".split('\\\\').join('/')", ".split(sep).join('/')"]
-  const ALLOWED = new Set([join('lib', 'core', 'text.mjs'), join('lib', 'pipeline', 'runners', 'node-test-reporter.mjs')])
+  const ALLOWED = new Set([join('lib', 'core', 'text.mjs'), join('lib', 'core', 'is.mjs'), join('lib', 'pipeline', 'runners', 'node-test-reporter.mjs')])
   const own = [...walk('bin'), ...walk('lib')].filter(f => !ALLOWED.has(f)).filter(f => {
     const src = readFileSync(join(root, f), 'utf8')
     return /^(?:const|function) firstLine\b/m.test(src) || COPIES.some(c => src.includes(c))
@@ -97,7 +98,7 @@ test('withoutOrigin: origin/ goes from the front only; any other name stays', ()
 test('no script or library file checks for a line break or strips origin/ by hand', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
-  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && /\/\[\\r\\n\]\/\.test\(|\.replace\(\/\^origin\\\//.test(readFileSync(join(root, f), 'utf8')))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => !f.startsWith(join('lib', 'core')) && /\/\[\\r\\n\]\/\.test\(|\.replace\(\/\^origin\\\//.test(readFileSync(join(root, f), 'utf8')))
   assert.deepEqual(own, [])
 })
 
@@ -143,6 +144,6 @@ test('pct: a whole percent of the total, rounded half up exactly; no total is nu
 test('no script or library file splits lines, escapes HTML or computes a percent by hand', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
-  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && /split\(\/\\r\?\\n\/\)|'&amp;'|const pct = /.test(readFileSync(join(root, f), 'utf8')))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => !f.startsWith(join('lib', 'core')) && /split\(\/\\r\?\\n\/\)|'&amp;'|const pct = /.test(readFileSync(join(root, f), 'utf8')))
   assert.deepEqual(own, [])
 })

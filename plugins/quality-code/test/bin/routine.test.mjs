@@ -30,7 +30,7 @@ async function go(argv, d, run, extra = {}) {
 
 test('options are checked', async () => {
   const d = repo()
-  for (const argv of [[], ['go'], ['init'], ['run', '--since'], ['run', '--since', 'x', '--since-last'], ['run', '--until', 'tomorrow'], ['run', '--flaky', '0'], ['run', '--cron', '0 7 * * *'], ['status', '--since-last'], ['status', '--flaky', '5']]) {
+  for (const argv of [[], ['go'], ['init'], ['run', '--since'], ['run', '--since', 'x', '--since-last'], ['run', '--until', 'tomorrow'], ['run', '--until', '2026-02-31'], ['run', '--flaky', '0'], ['run', '--cron', '0 7 * * *'], ['status', '--since-last'], ['status', '--flaky', '5']]) {
     assert.equal((await go(argv, d, async () => green)).code, 2, argv.join(' '))
   }
   assert.equal((await go(['run', '--id', 'quality-code-routine-suite', '--force'], d, async () => green)).code, 0, '--id is the scheduled task that calls this: accepted')

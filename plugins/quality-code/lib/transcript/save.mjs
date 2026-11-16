@@ -2,16 +2,7 @@
 // only, so nothing the transcript or the person typed can move it out of the folder.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-
-const DATE = /^(\d{4})-(\d{2})-(\d{2})$/
-
-/** True for a real calendar date written YYYY-MM-DD. */
-export function isDate(s) {
-  const m = DATE.exec(String(s ?? ''))
-  if (!m) return false
-  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
-  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3]
-}
+import { isDate } from '../core/is.mjs'
 
 /** The path of the goal file for a date, or null when the date is not a real YYYY-MM-DD or the path would leave the folder. */
 export function goalPath(ticketsRoot, date) {

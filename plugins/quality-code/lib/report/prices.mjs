@@ -1,6 +1,7 @@
 // API list prices per million tokens, used only to estimate what the plugin's runs would cost.
 // Subscription plans are not billed this way. Unknown models get no price: never a guess.
 import { readFileSync } from 'node:fs'
+import { isObject } from '../core/is.mjs'
 
 export const AS_OF = '2026-10-06'
 export const SOURCE = 'claude-api skill: Current Models table (input, output, cache reads) and shared/prompt-caching.md (cache writes 1.25x input for 5m, 2x for 1h)'
@@ -48,7 +49,7 @@ export function loadPrices(file) {
     throw new Error(`--prices ${file}: ${e.code === 'ENOENT' ? 'file not found' : `not valid JSON (${String(e.message).split('\n')[0]})`}`)
   }
   const models = obj?.models
-  if (!models || typeof models !== 'object' || Array.isArray(models) || !Object.keys(models).length) throw new Error(`--prices ${file}: needs "models": { "<model id>": { ${FIELDS.join(', ')} } }`)
+  if (!isObject(models) || !Object.keys(models).length) throw new Error(`--prices ${file}: needs "models": { "<model id>": { ${FIELDS.join(', ')} } }`)
   const out = {}
   for (const [id, p] of Object.entries(models)) {
     for (const f of FIELDS) {

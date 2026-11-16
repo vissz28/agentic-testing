@@ -3,10 +3,11 @@
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
 import { THRESHOLD } from '../ticket/score.mjs'
-import { isTicketKey, pct, plural } from '../core/text.mjs'
+import { pct, plural } from '../core/text.mjs'
 import { columns, gauge, hbar, legend, line } from './charts.mjs'
 import { card, empty, esc, grid, page, tiles } from './page.mjs'
 import { fmtCost, fmtTokens } from './consumption.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 const CUSTOMER_ID = /\bU\d{5,}\b/g
 const DAY = 86400000

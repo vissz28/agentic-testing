@@ -1,7 +1,7 @@
 // Is a ticket's story too long, unstructured or too thin? The script decides; the command only shows the offer.
 import { join } from 'node:path'
 import { normalise, stripComments } from './text.mjs'
-import { isTicketKey } from '../core/text.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 // Every threshold of the check, in one place.
 export const STORY_LIMITS = {

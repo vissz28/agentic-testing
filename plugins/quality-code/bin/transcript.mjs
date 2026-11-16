@@ -14,9 +14,10 @@ import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
-import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
+import { goalPath, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { cleanRelPath } from '../lib/core/paths.mjs'
+import { isDate } from '../lib/core/is.mjs'
 
 /** Characters of transcript printed for the model to read; more is cut and said so. */
 export const MAX_CHARS = 60000

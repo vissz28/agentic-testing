@@ -3,9 +3,10 @@ import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
 import { DEFAULTS } from '../config/config.mjs'
-import { isTicketKey, pct, plural } from '../core/text.mjs'
+import { pct, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 import { cleanRelPath } from '../core/paths.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 

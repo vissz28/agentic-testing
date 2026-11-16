@@ -11,6 +11,7 @@ import { write, writePersonal } from '../../bin/setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
 import { noTrailingSlash } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -62,15 +63,14 @@ const SECRET_VALUE = [
 ]
 const looksSecret = v => SECRET_VALUE.some(re => re.test(v)) || v.split(/[\s,]+/).some(w => w.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(w) && /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w))
 
-const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 /** A copy of a config without secrets: a token-like key, or a value that looks like a token or a key. */
 export function withoutSecrets(v) {
   if (Array.isArray(v)) return v.map(withoutSecrets).filter(x => x !== undefined)
-  if (isObj(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
+  if (isObject(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
   return typeof v === 'string' && looksSecret(v) ? undefined : v
 }
 const show = v => (v === undefined ? 'not set' : typeof v === 'string' ? v : JSON.stringify(v))
-const getPath = (o, key) => key.split('.').reduce((v, k) => (isObj(v) ? v[k] : undefined), o)
+const getPath = (o, key) => key.split('.').reduce((v, k) => (isObject(v) ? v[k] : undefined), o)
 
 /** A copy of o with the dotted key set to value, or removed when value is undefined (an emptied block goes too). */
 function setPath(o, key, value) {
@@ -78,7 +78,7 @@ function setPath(o, key, value) {
   const out = { ...o }
   const chain = [out]
   let cur = out
-  for (const k of parts.slice(0, -1)) { cur[k] = isObj(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; chain.push(cur) }
+  for (const k of parts.slice(0, -1)) { cur[k] = isObject(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; chain.push(cur) }
   if (value !== undefined) { cur[parts.at(-1)] = value; return out }
   delete cur[parts.at(-1)]
   for (let i = parts.length - 1; i > 0; i--) if (Object.keys(chain[i]).length === 0) delete chain[i - 1][parts[i - 1]]

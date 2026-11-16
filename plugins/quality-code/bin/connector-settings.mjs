@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path'
 import { projectRoot } from '../lib/config/config.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
 import { noTrailingSlash } from '../lib/core/paths.mjs'
+import { isObject } from '../lib/core/is.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -62,7 +63,7 @@ function readSettings(file) {
   if (!existsSync(file)) return { data: {} }
   let data
   try { data = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { return { reason: `could not read ${file}: ${e.message}` } }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return { reason: `could not read ${file}: not a settings object` }
+  if (!isObject(data)) return { reason: `could not read ${file}: not a settings object` }
   return { data }
 }
 

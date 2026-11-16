@@ -27,11 +27,11 @@ import { ORDER, junit } from './ci.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { plural, withoutOrigin } from '../lib/core/text.mjs'
+import { isDate, isWholeNumber } from '../lib/core/is.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
 const VALUE = ['--task', '--branch', '--since', '--until', '--flaky', '--junit', '--last', '--id']
-const DATE = /^\d{4}-\d{2}-\d{2}$/
 // A spec of the regression suite carries the tag as a whole word.
 const TAGGED = new RegExp(`${REGRESSION_TAG}\\b`)
 const MIN_RUNS = 3
@@ -53,8 +53,8 @@ function parse(argv) {
     else throw new Error(`unknown option ${x}`)
   }
   // --id names the scheduled task that calls this; the script only accepts it.
-  for (const k of ['flaky', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
-  if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
+  for (const k of ['flaky', 'last']) if (a[k] !== undefined && !isWholeNumber(a[k], { min: 1 })) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
+  if (a.until !== undefined && !isDate(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
   if (a.regression && (a.task || cmd === 'status')) throw new Error(`--regression runs the ${REGRESSION_TAG} suite: give it without --task, and only to run`)
   if (a.since !== undefined && a.sinceLast) throw new Error('give --since or --since-last, not both')
   if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.flaky || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')

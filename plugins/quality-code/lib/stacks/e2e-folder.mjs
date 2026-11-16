@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ALWAYS, allowCovers, matches, rulesFor } from '../pipeline/boundary.mjs'
 import { runnerOf } from './runners.mjs'
-import { hasLineBreak } from '../core/text.mjs'
 import { stripDotSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
+import { hasLineBreak } from '../core/is.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']

@@ -10,7 +10,8 @@ import { BACKENDS, backendOf, isBackend } from '../lib/stacks/backends.mjs'
 import { gitOut as git } from '../lib/core/git.mjs'
 import { e2eFolder } from '../lib/stacks/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { escapeRegExp, isTicketKey, withoutOrigin } from '../lib/core/text.mjs'
+import { escapeRegExp, withoutOrigin } from '../lib/core/text.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/

@@ -6,8 +6,8 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path'
 import { claudeDir } from '../config/config.mjs'
 import { short, slug } from '../config/places.mjs'
-import { hasLineBreak, isTicketKey } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
+import { isTicketKey, hasLineBreak, isObject } from '../core/is.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
 // `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
@@ -61,7 +61,7 @@ export function setProgress(root, command, { key = null, step, label = '', data 
   if (bad) return { ok: false, reason: bad }
   if (!Number.isInteger(step) || step < 0 || step > 99) return { ok: false, reason: 'the step is a whole number from 0 to 99' }
   if (typeof label !== 'string' || label.length > 80 || hasLineBreak(label)) return { ok: false, reason: 'the label is one line of 80 characters at most' }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'the data is a JSON object' }
+  if (!isObject(data)) return { ok: false, reason: 'the data is a JSON object' }
   if (command === 'session') {
     const extra = Object.keys(data).filter(k => k !== 'language')
     if (extra.length) return { ok: false, reason: `session holds only language, not ${extra.join(', ')}` }

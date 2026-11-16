@@ -13,6 +13,7 @@ import { claudeDir, configHome } from './config.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson, readJsonOr } from '../core/files.mjs'
 import { cleanRelPath } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 export { ignoreFolder }
 
@@ -32,7 +33,7 @@ export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g
 function readPrefs(env) {
   try {
     const p = readJson(prefsPath(env))
-    return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    return isObject(p) ? p : {}
   } catch { return {} }
 }
 
@@ -112,7 +113,7 @@ export function rememberPlace(root, source, place, env = process.env) {
   mkdirSync(dirname(p), { recursive: true })
   // A broken file stops here, naming it: rewriting it would drop every other project's choice.
   const prefs = readJsonOr(p, {})
-  writeFileSync(p, `${JSON.stringify({ ...(prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {}), [prefKey(root, source, env)]: place }, null, 2)}\n`)
+  writeFileSync(p, `${JSON.stringify({ ...(isObject(prefs) ? prefs : {}), [prefKey(root, source, env)]: place }, null, 2)}\n`)
 }
 
 // Removes a folder that holds nothing but its own .gitignore (what ignoreFolder leaves).

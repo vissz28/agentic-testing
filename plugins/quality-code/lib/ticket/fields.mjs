@@ -8,6 +8,7 @@ import { configHome } from '../config/config.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { FIELDS_FILE, placeFolder, placeOf } from '../config/places.mjs'
 import { readJson } from '../core/files.mjs'
+import { isObject } from '../core/is.mjs'
 
 export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
@@ -20,7 +21,7 @@ const placedPath = (home, env = process.env) => join(placeFolder(home, env), FIE
 function readFields(path) {
   try {
     const d = readJson(path)
-    return d && typeof d.projects === 'object' && d.projects !== null && !Array.isArray(d.projects) ? d.projects : {}
+    return isObject(d?.projects) ? d.projects : {}
   } catch {
     return {}
   }

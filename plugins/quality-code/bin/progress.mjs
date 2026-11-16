@@ -13,6 +13,7 @@ import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } 
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/state/progress.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { gitOut } from '../lib/core/git.mjs'
+import { isWholeNumber } from '../lib/core/is.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'
 
@@ -59,7 +60,7 @@ async function handle(argv = process.argv.slice(2), { env = process.env, cwd = p
     return 0
   }
   if (sub === 'set') {
-    if (a.step === null || !/^\d+$/.test(a.step)) return fail('set needs --step N (a whole number)')
+    if (a.step === null || !isWholeNumber(a.step)) return fail('set needs --step N (a whole number)')
     let data = {}
     if (a.data !== null) { try { data = JSON.parse(a.data) } catch { return fail('--data is not valid JSON') } }
     const r = setProgress(root, command, { key: a.key, step: Number(a.step), label: a.label, data }, env)

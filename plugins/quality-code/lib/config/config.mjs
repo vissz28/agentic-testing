@@ -8,9 +8,9 @@ import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from '../stacks/back
 import { RUNNERS } from '../stacks/runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from '../stacks/conventions.mjs'
-import { hasLineBreak, isLine } from '../core/text.mjs'
 import { readJsonOr, tryReadJson } from '../core/files.mjs'
 import { stripDotSlash, noTrailingSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
+import { hasLineBreak, isLine, isObject } from '../core/is.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -141,7 +141,6 @@ export function projectRoot(env = process.env, cwd = process.cwd()) {
 /** The config file of the project at root: the existing one (its place first, then the legacy repo file); with none, where setup writes it. */
 export const configPath = (root, env = process.env) => configFileOf(root, env) ?? placeConfigPath(root, env)
 
-const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 /** The fields the vitest and playwright blocks share: configs, tsconfig, timeoutSeconds. */
 function runnerFields(b, name, e) {
@@ -213,7 +212,7 @@ function otherBackendErrors(b, name, e) {
 
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
-  const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
+  const c = isObject(input) ? input : {}
   for (const k of Object.keys(c)) {
     if (k === 'adapter') e.push('adapter: replaced by "frontend" and "backend" (like "frontend": "playwright", "backend": "vitest"): re-run /quality-code:setup')
     else if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
@@ -225,9 +224,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.backend !== undefined && !isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
   const backend = c.backend
   const uses = a => c.frontend === a || c.backend === a
-  const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
-  const j = isObj(c.jira) ? c.jira : {}
-  if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
+  const j = isObject(c.jira) ? c.jira : {}
+  if (!isObject(c.jira)) e.push('jira: must be an object with site and projects')
   else {
     if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
     if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
@@ -279,7 +277,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.gate !== undefined) {
     const g = c.gate
-    if (!isObj(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
+    if (!isObject(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
     else {
       for (const k of Object.keys(g)) if (!['omit', 'contextFromIntro'].includes(k)) e.push(`gate.${k}: unknown field (only "omit" and "contextFromIntro")`)
       const OMIT = ['attachments', 'links', 'context', 'environment']
@@ -289,13 +287,13 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.expected !== undefined) {
     const x = c.expected
-    if (!isObj(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
+    if (!isObject(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
     else {
       for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
       if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(isLine))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
       if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
       if (x.aliases !== undefined) {
-        if (!isObj(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
+        if (!isObject(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
         else for (const [k, v] of Object.entries(x.aliases)) if (!isLine(k) || !(isLine(v) || (Array.isArray(v) && v.length > 0 && v.every(isLine)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
       }
     }
@@ -315,7 +313,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   // The branch a feature branch starts from, when origin/HEAD is not it (gitflow: develop).
   if (c.git !== undefined) {
-    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
+    if (!isObject(c.git)) e.push('git: must be an object with an optional "base"')
     else {
       for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
       const b = c.git.base
@@ -323,14 +321,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.ticketTemplates !== undefined) {
-    if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
+    if (!isObject(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
     else for (const [k, v] of Object.entries(c.ticketTemplates)) {
       if (k !== 'bug' && k !== 'story') e.push(`ticketTemplates.${k}: unknown field (only "bug" and "story")`)
       else if (v !== null && typeof v !== 'string') e.push(`ticketTemplates.${k}: must be text or null`)
     }
   }
   if (c.redact !== undefined) {
-    if (!isObj(c.redact)) e.push('redact: must be an object of name to regular expression')
+    if (!isObject(c.redact)) e.push('redact: must be an object of name to regular expression')
     else for (const [name, src] of Object.entries(c.redact)) {
       if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
       let re
@@ -338,18 +336,18 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (re.test('')) e.push(`redact.${name}: must not match empty text (it would insert the mask between every character)`)
     }
   }
-  if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
+  if (c.messages !== undefined && !isObject(c.messages)) e.push('messages: must be an object')
   else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
     e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
   if (c.boundaries !== undefined) {
-    if (!isObj(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
+    if (!isObject(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
     else {
       for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
       const f = c.boundaries.forbidden
       if (f !== undefined) {
         if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
         else f.forEach((r, i) => {
-          if (!isObj(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
+          if (!isObject(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
           if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
           if (r.why !== undefined && !isLine(r.why)) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
           for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
@@ -363,7 +361,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.runners !== undefined) {
-    if (!isObj(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
+    if (!isObject(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
     else for (const [kind, name] of Object.entries(c.runners)) {
       const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
       if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
@@ -375,14 +373,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.vitest !== undefined) {
     if (!uses('vitest')) e.push('vitest: only allowed with "backend": "vitest"')
-    else if (!isObj(c.vitest)) e.push('vitest: must be an object')
+    else if (!isObject(c.vitest)) e.push('vitest: must be an object')
     else {
       for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
       runnerFields(c.vitest, 'vitest', e)
       layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
       const st = c.vitest.stryker
       if (st !== undefined) {
-        if (!isObj(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
+        if (!isObject(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
         else {
           for (const k of Object.keys(st)) if (k !== 'threshold' && k !== 'timeoutSeconds') e.push(`vitest.stryker.${k}: unknown field (only "threshold" and "timeoutSeconds")`)
           if (st.threshold !== undefined && !(Number.isInteger(st.threshold) && st.threshold >= 0 && st.threshold <= 100)) e.push('vitest.stryker.threshold: must be a whole number from 0 to 100')
@@ -394,12 +392,12 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   for (const name of OTHER_BACKENDS) {
     if (c[name] === undefined) continue
     if (!uses(name)) e.push(`${name}: only allowed with "backend": "${name}"`)
-    else if (!isObj(c[name])) e.push(`${name}: must be an object`)
+    else if (!isObject(c[name])) e.push(`${name}: must be an object`)
     else otherBackendErrors(c[name], name, e)
   }
   if (c.playwright !== undefined) {
     if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
-    else if (!isObj(c.playwright)) e.push('playwright: must be an object')
+    else if (!isObject(c.playwright)) e.push('playwright: must be an object')
     else {
       for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
       runnerFields(c.playwright, 'playwright', e)
@@ -411,7 +409,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
       const rt = c.playwright.redTags
       if (rt !== undefined && rt !== null) {
-        if (!isObj(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
+        if (!isObject(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
         else for (const k of Object.keys(rt)) {
           if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
           else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
@@ -436,7 +434,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   e.push(...ciErrors(c.ci))
   if (c.seed !== undefined) {
     const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
-    if (!isObj(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
+    if (!isObject(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
     else {
       const s = c.seed
       // The test-data printer's fields (before 0.31.0): ignored, so an old config keeps working.
@@ -445,7 +443,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
       if (s.target !== undefined && !isLine(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
       if (s.apply !== undefined && !(isLine(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
-      if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
+      if (s.tenant !== undefined && !(isObject(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
     }
   }
   // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
@@ -456,7 +454,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.qa !== undefined) {
     const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
-    if (!isObj(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
+    if (!isObject(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
     else {
       const q = c.qa
       // Names go into JQL between double quotes: one line, no quote, no backslash.
@@ -466,7 +464,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')
       if (q.app !== undefined && !(typeof q.app === 'string' && /^https?:\/\/[^\s]+$/.test(q.app))) e.push('qa.app: must be the address of the app to test, starting with http:// or https://')
       if (q.statuses !== undefined) {
-        if (!isObj(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
+        if (!isObject(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
         else for (const [k, v] of Object.entries(q.statuses)) {
           if (!['ko', 'ready', 'done'].includes(k)) e.push(`qa.statuses.${k}: unknown field (only "ko", "ready" and "done")`)
           else if (!nameOk(v)) e.push(`qa.statuses.${k}: must be a Jira status name (one line, no double quote), like "TEST KO"`)
@@ -478,14 +476,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.xray !== undefined) {
     if (!uses('playwright')) e.push('xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)')
-    else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
+    else if (!isObject(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
     else {
       const x = c.xray
       for (const k of Object.keys(x)) if (!['csv', 'folder', 'headers'].includes(k)) e.push(`xray.${k}: unknown field (only "csv", "folder" and "headers")`)
       if (!(pathOk(x.csv) && /\.csv$/i.test(x.csv))) e.push(`xray.csv ${JSON.stringify(x.csv)} must be a relative path to a .csv file inside the project`)
       if (x.folder !== undefined) folderErrors(x.folder, 'xray.folder', folderRules(c), e)
       if (x.headers !== undefined) {
-        if (!isObj(x.headers)) e.push('xray.headers: must be an object of column to header text')
+        if (!isObject(x.headers)) e.push('xray.headers: must be an object of column to header text')
         else {
           for (const [k, v] of Object.entries(x.headers)) {
             if (!Object.hasOwn(XRAY_HEADERS, k)) e.push(`xray.headers.${k}: unknown column (only ${Object.keys(XRAY_HEADERS).join(', ')})`)
@@ -499,7 +497,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
   if (c.testRules !== undefined) {
-    if (!isObj(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
+    if (!isObject(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
     else for (const [side, v] of Object.entries(c.testRules)) {
       if (side !== 'backend' && side !== 'frontend') e.push(`testRules.${side}: unknown field (only "backend" and "frontend")`)
       else if (v !== 'own' && v !== 'plugin') e.push(`testRules.${side}: must be "own" (the team's rules and specs win) or "plugin" (the plugin's rules win), found ${JSON.stringify(v)}`)
@@ -507,7 +505,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.centralContext !== undefined) {
     const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
-    if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
+    if (!isObject(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
     else {
       for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
       const h = c.centralContext.hub
@@ -519,7 +517,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.sides !== undefined) {
     if (!(c.frontend && c.backend)) e.push('sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)')
-    else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
+    else if (!isObject(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
     else for (const [k, v] of Object.entries(c.sides)) {
       if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
       else if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend", "fullstack" and "default")`)
@@ -560,7 +558,7 @@ export const layersOf = config => {
 /** The block of the configured adapter (a backend or playwright), or {} when there is none. */
 export const adapterOptions = config => {
   const b = isBackend(config?.adapter) || config?.adapter === 'playwright' ? config[config.adapter] : null
-  return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
+  return isObject(b) ? b : {}
 }
 
 /** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, the backend's default (300 for Vitest). */
@@ -571,7 +569,7 @@ export const commandOf = config => adapterOptions(config).command ?? null
 
 /** The seed block with its defaults: every field null. */
 export const seedOf = config => {
-  const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
+  const s = isObject(config?.seed) ? config.seed : {}
   return { schema: s.schema ?? null, target: s.target ?? null, apply: s.apply ?? null, tenant: s.tenant ?? null, guide: s.guide ?? null }
 }
 
@@ -594,7 +592,7 @@ export const xrayOf = (config, source = 'repo') => {
   const x = config?.xray
   // Xray is part of Jira: a personal setup (no repo) has it on without a block, with the cases kept in its tickets folder.
   if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${cleanRelPath(config.ticketsDir)}/xray-cases.csv`, folder: `${cleanRelPath(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
-  if (!x || typeof x !== 'object' || Array.isArray(x)) return null
+  if (!isObject(x)) return null
   return { csv: x.csv, folder: x.folder ?? `${cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
 

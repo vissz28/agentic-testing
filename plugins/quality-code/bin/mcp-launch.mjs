@@ -13,6 +13,7 @@ import { constants } from 'node:os'
 import { createInterface } from 'node:readline'
 import { isMain, printError } from '../lib/core/script-io.mjs'
 import { tryReadJson } from '../lib/core/files.mjs'
+import { isObject } from '../lib/core/is.mjs'
 
 /** Each token connector and the environment variable that holds its token. */
 export const CONNECTORS = {
@@ -40,7 +41,7 @@ const version = tryReadJson(new URL('../.claude-plugin/plugin.json', import.meta
 
 /** The reply to one JSON-RPC message, or null for a notification (no id). */
 export function reply(msg, name) {
-  if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.method !== 'string')
+  if (!isObject(msg) || typeof msg.method !== 'string')
     return { jsonrpc: '2.0', id: msg?.id ?? null, error: { code: -32600, message: 'Invalid Request' } }
   if (msg.id === undefined || msg.id === null) return null
   const ok = result => ({ jsonrpc: '2.0', id: msg.id, result })
