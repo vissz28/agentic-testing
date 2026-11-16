@@ -19,7 +19,7 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
-import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
+import { crashMessage, isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { leavesFolder } from '../lib/core/paths.mjs'
 import { isObject, isWholeNumber } from '../lib/core/is.mjs'
@@ -151,7 +151,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, ctx)
   } catch (e) {
     restore()
-    printError(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}`)
+    printError(crashMessage(e?.step ?? 'pipeline', e))
     return 2
   }
   restore()

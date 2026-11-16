@@ -17,7 +17,7 @@ import * as runMarker from '../lib/pipeline/run.mjs'
 import { EXIT } from '../lib/pipeline/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/stacks/backends.mjs'
-import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
+import { crashMessage, isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -152,8 +152,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   try {
     r = await checkProject(name, args, config, root)
   } catch (e) {
-    const msg = String(e?.message ?? e).split('\n')[0]
-    printError(`check ${name} crashed: ${msg}`)
+    printError(crashMessage(name, e))
     return 2
   }
   if (a.flags.has('--json')) printLine(JSON.stringify(r))

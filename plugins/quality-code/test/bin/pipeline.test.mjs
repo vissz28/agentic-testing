@@ -196,7 +196,7 @@ test('a crash: exit 2, "check <step> crashed: <message>"', async () => {
     })
   } finally { process.stderr.write = w }
   assert.equal(code, 2)
-  assert.deepEqual(errs, ['check types crashed: kaput\n'])
+  assert.match(errs.join(''), /^check types crashed: kaput\n  at test\/bin\/pipeline\.test\.mjs:\d+:\d+\n$/)
 })
 
 test('--ticket and --target: checked before anything runs, passed to the pipeline', async () => {

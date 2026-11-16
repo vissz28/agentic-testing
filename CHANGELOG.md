@@ -12,6 +12,7 @@ Update with `/plugin update quality-code@teamsystem`.
 ### Fixed
 
 - Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
+- A crashed check now says where it crashed: `check types crashed: <message>` is followed by `at lib/…/file.mjs:<line>:<column>`, taken from the original error. Before, only the message was printed, which was not enough to find the bug.
 - A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
 
 ### Changed
