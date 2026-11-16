@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.9] - 2026-11-16
+
+### Changed
+
+- The plugin tab of the shared server's home page now opens the **Claude app** (Desktop) first: **Open in the Claude app** is a `claude://code/new` link that opens a new session with the plugin install request filled in. Desktop never sends it for you and reads it as plain text. The terminal link stays below it as **Open in Claude Code (terminal)**.
+
+**What to do:** nothing. Redeploy the server to get it. The app link needs a recent Claude Desktop.
+
 ## [0.80.8] - 2026-11-16
 
 ### Added

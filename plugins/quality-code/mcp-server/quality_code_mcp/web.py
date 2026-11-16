@@ -191,6 +191,11 @@ def install_link() -> str:
     return "claude-cli://open?q=" + urllib.parse.quote(INSTALL_PROMPT, safe="")
 
 
+def desktop_link() -> str:
+    """claude://code/new opens the new-session page of Claude Desktop with the prompt filled in; Desktop never sends it, and treats it as plain text."""
+    return "claude://code/new?q=" + urllib.parse.quote(INSTALL_PROMPT, safe="")
+
+
 def home_page(w: WebSettings, user: dict) -> str:
     who = user.get("name") or user.get("email") or "you"
     initials = escape("".join(p[0] for p in who.split()[:2]).upper())
@@ -216,8 +221,9 @@ def home_page(w: WebSettings, user: dict) -> str:
             f'<div class="pane on" id="w"><p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b> (on a Team or Enterprise plan an Owner adds it under <b>Organization settings, Connectors</b>). Choose the <b>Web</b> type and paste the address below.</p>{field(w.mcp_url)}'
             '<p class="sub">Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>. You sign in with Microsoft, accept the rules, and Claude is connected.</p></div>'
             f'<div class="pane" id="p"><p class="sub">The plugin gives you the commands (<b>/quality-code:spec</b>, <b>check</b>, <b>qa</b> and more) in Claude Code. Run these two, then <b>/reload-plugins</b>:</p>{field(pm)}{field(pi)}'
-            f'<p class="sub">Or let Claude Code do it: this opens a terminal with the request filled in. Read it, press <b>Enter</b>, and approve the two commands.</p><a class="btn" href="{escape(install_link(), quote=True)}">Open in Claude Code</a>'
-            '<p class="sub">It works on a computer where Claude Code has already run once (send it any message first). Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
+            f'<p class="sub">Or let Claude do it. In the <b>Claude app</b> (Desktop) this opens a new session with the request filled in: read it, press <b>Enter</b>, and approve the two commands.</p><a class="btn" href="{escape(desktop_link(), quote=True)}">Open in the Claude app</a>'
+            f'<p class="sub">In a terminal instead:</p><a class="btn quiet" href="{escape(install_link(), quote=True)}">Open in Claude Code (terminal)</a>'
+            '<p class="sub">The terminal link works on a computer where Claude Code has already run once (send it any message first). Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
             f'<div class="pane" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
             f'<div class="pane" id="b">{field(cp)}<p class="sub">Start <b>copilot</b>, type this command, and fill in the three values. Sign in with Microsoft when asked.</p></div>'
             f'<div class="pane" id="c"><div class="field"><pre>{escape(js)}</pre><button class="copy" data-copy="{escape(js, quote=True)}">Copy</button></div>'
