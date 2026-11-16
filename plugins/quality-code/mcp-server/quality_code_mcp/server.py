@@ -19,7 +19,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import web
+from . import agents, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
@@ -166,7 +166,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             return quality_code_run_script(script, args)
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
-        server.custom_route("/health", methods=["GET"])(_health)
+        server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
         if entra:
             web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
@@ -188,10 +188,26 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     return server
 
 
-async def _health(request):
-    from starlette.responses import JSONResponse
+def _version(root: Path) -> str:
+    """The release that runs: the installed package (the image), else the plugin manifest (a checkout)."""
+    from importlib.metadata import PackageNotFoundError, version
 
-    return JSONResponse({"status": "ok"})
+    try:
+        return version("quality-code-mcp")
+    except PackageNotFoundError:
+        return agents._version(root)
+
+
+def _health(root: Path, connector: bool):
+    """Open /health: the release and whether Claude's connector sign-in is on (the token secret reached the server). Nothing secret."""
+    body = {"status": "ok", "version": _version(root), "connector": connector}
+
+    async def health(request):
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(body)
+
+    return health
 
 
 def render_guide(root: Path, key: str) -> str:

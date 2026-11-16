@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from pathlib import Path
 
@@ -62,5 +63,6 @@ def test_health_is_open_and_mcp_is_not(tmp_path):
     with TestClient(app, base_url="https://qc-mcp.example.com") as c:
         h = c.get("/health")
         m = c.post("/mcp", json={})
-    assert h.status_code == 200 and h.json() == {"status": "ok"}
+    body = h.json()
+    assert h.status_code == 200 and body["status"] == "ok" and re.fullmatch(r"\d+\.\d+\.\d+", body["version"]) and body["connector"] is False
     assert m.status_code == 401

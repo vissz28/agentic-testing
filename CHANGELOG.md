@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.3] - 2026-11-16
+
+### Added
+
+- The shared server's `/health` now says which release runs and whether Claude's connector sign-in is on: `{"status": "ok", "version": "0.80.3", "connector": true}`. After a redeploy, one `curl` on `/health` shows whether the new image is live, and `connector: false` means `QUALITY_CODE_TOKEN_SECRET` did not reach the server. Nothing secret is shown.
+
+**What to do:** nothing. Redeploy the server, then open `/health` to check it.
+
 ## [0.80.2] - 2026-11-16
 
 ### Changed

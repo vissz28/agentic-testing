@@ -201,3 +201,8 @@ def test_the_metadata_names_this_server_as_the_authorization_server(c):
     assert "S256" in meta["code_challenge_methods_supported"]
     prm = c.get("/.well-known/oauth-protected-resource").json()
     assert prm["authorization_servers"] == [H + "/"] or prm["authorization_servers"] == [H]
+
+
+def test_health_says_the_connector_is_on(c):
+    h = c.get("/health").json()
+    assert h["status"] == "ok" and h["connector"] is True and h["version"]
