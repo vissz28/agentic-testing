@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.6] - 2026-11-16
+
+### Added
+
+- A new tool on the shared server, `quality_code_whoami`: it says who is signed in on the connection (name, Microsoft email, and the Jira email and GitLab username the person confirmed on the rules page, with the rules version). It reads them from the sign-in token; nothing is stored, and with no token it says `signed_in: false`. A later release lets `/quality-code:setup` use it to fill in the Jira email and GitLab username.
+
+**What to do:** nothing. Redeploy the server to get it, then ask Claude "who am I in Quality Code?".
+
 ## [0.80.5] - 2026-11-16
 
 ### Changed

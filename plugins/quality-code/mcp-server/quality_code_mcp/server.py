@@ -168,6 +168,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
         if entra:
+            server.add_tool(quality_code_whoami, name="quality_code_whoami", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+        if entra:
             web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
         server.add_tool(quality_code_run_script, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
@@ -186,6 +188,21 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     for g in sorted(guides):
         server.add_resource(_guide_resource(root, g))
     return server
+
+
+def quality_code_whoami() -> str:
+    """Who is signed in on this connection: name, Microsoft email, and the Jira email and GitLab username the person confirmed when they accepted the rules. Read-only; nothing is stored."""
+    from mcp.server.auth.middleware.auth_context import get_access_token
+
+    t = get_access_token()
+    if not t:
+        return json.dumps({"signed_in": False})
+    c = t.claims or {}
+    who = {
+        "signed_in": bool(t), "name": c.get("name"), "email": c.get("upn"), "jira_email": c.get("jira_email") or c.get("upn"), "gitlab_username": c.get("gitlab_username"),
+        "rules_version": c.get("rules"), "via": "claude connector" if c.get("rules") else "microsoft token",
+    }
+    return json.dumps({k: v for k, v in who.items() if v not in (None, "")}, indent=2)
 
 
 def _version(root: Path) -> str:

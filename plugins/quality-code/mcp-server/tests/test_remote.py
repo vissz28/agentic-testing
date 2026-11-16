@@ -66,3 +66,22 @@ def test_health_is_open_and_mcp_is_not(tmp_path):
     body = h.json()
     assert h.status_code == 200 and body["status"] == "ok" and re.fullmatch(r"\d+\.\d+\.\d+", body["version"]) and body["connector"] is False
     assert m.status_code == 401
+
+
+def test_whoami_says_who_is_signed_in_from_the_token_claims():
+    import json
+
+    from mcp.server.auth.middleware.auth_context import auth_context_var
+    from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+    from mcp.server.auth.provider import AccessToken
+
+    from quality_code_mcp.server import quality_code_whoami
+
+    assert json.loads(quality_code_whoami()) == {"signed_in": False}
+    t = AccessToken(token="x", client_id="c", scopes=[], claims={"name": "Ada Lovelace", "upn": "ada@teamsystem.com", "jira_email": "ada.l@teamsystem.com", "gitlab_username": "ada.l", "rules": "abc123"})
+    reset = auth_context_var.set(AuthenticatedUser(t))
+    try:
+        got = json.loads(quality_code_whoami())
+    finally:
+        auth_context_var.reset(reset)
+    assert got == {"signed_in": True, "name": "Ada Lovelace", "email": "ada@teamsystem.com", "jira_email": "ada.l@teamsystem.com", "gitlab_username": "ada.l", "rules_version": "abc123", "via": "claude connector"}
