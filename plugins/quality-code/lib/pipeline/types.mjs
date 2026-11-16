@@ -5,13 +5,13 @@ import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, posix, relative } from 'node:path'
-import { result } from '../base/result.mjs'
-import { adapterOptions, timeoutSecondsOf } from '../base/config.mjs'
-import { matches } from '../base/boundary.mjs'
+import { result } from './result.mjs'
+import { adapterOptions, timeoutSecondsOf } from '../config/config.mjs'
+import { matches } from './boundary.mjs'
 import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
-import { runnerOf } from '../base/runners.mjs'
-import { toForwardSlashes } from '../core/text.mjs'
+import { runnerOf } from '../stacks/runners.mjs'
+import { toForwardSlashes, plural } from '../core/text.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
@@ -106,7 +106,7 @@ export async function typeCheck(root, config, specs, opts = {}) {
   const status = results.map(r => r.status).reduce((a, b) => (WORST[b] > WORST[a] ? b : a))
   const worst = results.find(r => r.status === status)
   const note = without ? `; ${without} spec(s) have no tsconfig.json above them and were not type-checked` : ''
-  const summary = status === 'pass' ? `compiles (${groups.size} tsconfig${groups.size === 1 ? '' : 's'}, one per workspace)${note}` : `${worst.summary}${note}`
+  const summary = status === 'pass' ? `compiles (${plural(groups.size, 'tsconfig')}, one per workspace)${note}` : `${worst.summary}${note}`
   return result('types', status, summary, results.flatMap(r => r.findings ?? []), { applicable: results.some(r => r.data?.applicable !== false), tsconfigs: [...groups.keys()] })
 }
 

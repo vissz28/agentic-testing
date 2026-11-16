@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pickTransition, pickXray, runsJql, stopCheck, main } from '../../bin/qa.mjs'
-import { qaOf, validateConfig } from '../../lib/base/config.mjs'
+import { qaOf, validateConfig } from '../../lib/config/config.mjs'
 
 const BASE = { version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['AB'] } }
 function project(qa) {

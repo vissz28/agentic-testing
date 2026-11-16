@@ -17,12 +17,12 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
-import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from './config.mjs'
-import { CONFIG_FILE } from './places.mjs'
-import { PLAIN } from './git.mjs'
-import { dirOf, short, slug } from './progress.mjs'
-import { adaptersOf, asAdapter } from './stack.mjs'
-import { DEFAULT_E2E_FOLDER } from './e2e-folder.mjs'
+import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
+import { CONFIG_FILE } from '../config/places.mjs'
+import { PLAIN } from '../core/git.mjs'
+import { dirOf, short, slug } from '../state/progress.mjs'
+import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
+import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
 import { projectSpecs } from '../report/quality-program.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
@@ -30,7 +30,7 @@ import { readJson } from '../core/files.mjs'
 
 export const GROUPS = ['setup', 'output', 'cache', 'personal', 'specs']
 export const LABELS = { setup: 'Setup files', output: 'Saved output', cache: 'Cache', personal: 'Personal config', specs: 'Tests written by spec' }
-const TEMPLATES = new URL('../../templates/', import.meta.url)
+const TEMPLATES = new URL('../../resources/', import.meta.url)
 const KEY_DIR = /^[A-Za-z][A-Za-z0-9_]*-\d+$/
 const KEY_TAG = /@[A-Z][A-Z0-9_]*-\d+\b/
 const TICKET_FILES = ['ticket.json', 'raw.json', 'run.md', 'case.csv', 'case.xlsx']
@@ -150,7 +150,7 @@ function templateFiles(root, config) {
     const rel = config?.ticketTemplates?.[kind]
     if (typeof rel !== 'string' || !rel) continue
     const text = read(join(root, rel))
-    const own = read(new URL(`${kind}.md`, TEMPLATES))
+    const own = read(new URL(`${kind}-template.md`, TEMPLATES))
     if (text !== null && own !== null && text.trim() === own.trim()) out.push(rel)
   }
   return out

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { runPipeline } from '../../lib/pipeline/pipeline.mjs'
 import { formatCard } from '../../lib/pipeline/card.mjs'
-import { result } from '../../lib/base/result.mjs'
+import { result } from '../../lib/pipeline/result.mjs'
 import { ENV } from '../git-env.mjs'
 
 const config = { frontend: 'playwright', backend: 'vitest', jira: { projects: ['ABC'] }, playwright: { folder: 'e2e/' } }

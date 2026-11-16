@@ -9,6 +9,33 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-11-16
+
+### Added
+
+- **Claude connector sign-in** (the shared MCP server): people can now add the server as a connector in Claude. The server is the authorization server: Claude registers itself (dynamic client registration), the person signs in with Microsoft Entra ID, a page shows the TeamSystem rules and asks them to confirm a Jira email and an optional GitLab username (not secrets), and only then Claude gets a token. Nothing about the person is stored: client registrations, codes and tokens are signed with `QUALITY_CODE_TOKEN_SECRET`, and the confirmed details ride in the token (`jira_email`, `gitlab_username`, the rules version accepted). Claude can only be sent back to `claude.ai` and `claude.com` (`/api/mcp/auth_callback`) or a loopback address. Entra's own tokens still work on `/mcp`. Off until `QUALITY_CODE_TOKEN_SECRET` is set.
+- New routes: `/register`, `/authorize`, `/token`, `/connect/start`, `/connect/consent`, `/connect/accept` and the OAuth metadata under `/.well-known/`.
+
+**What to do:** nothing for the plugin. To turn the connector sign-in on, set `QUALITY_CODE_TOKEN_SECRET` (32 or more random characters, as a Container Apps secret) and replace `static/rules.md` (or point `QUALITY_CODE_RULES_FILE` at the file) with the real TeamSystem rules before anyone is asked to accept them. Rotating the secret signs everyone out.
+
+## [0.79.0] - 2026-11-13
+
+### Changed
+
+- Internal: fewer, clearer folders. `resources/` holds what was in `assets/`, `schema/` and `templates/`. In `lib/`, `state` keeps what the plugin remembers on this machine (audit log, progress, context, cache), `config` the config, places and keys, `stacks` the backends, runners, conventions and dialects, `ci` the CI source and changed files, and `pipeline` gains the boundary, run marker and result. `core` gains git and ignore, and `ticket` gains the database file. `base` keeps clean, containers, routes, rules, seed and workspaces.
+- Internal: lookup tables replace nested ternaries in 11 files, and `collapseSpaces` in `lib/core/text.mjs` replaces 9 copies.
+
+**What to do:** nothing. Update the plugin as usual; output is unchanged.
+
+## [0.78.0] - 2026-11-13
+
+### Changed
+
+- Internal: shared helpers in `lib/core` replace copies rebuilt in each file: `plural()` (31 copies), `shellQuote` and `fillPlaceholders` in `lib/core/shell.mjs`, and `isLine`, `hasLineBreak` and `withoutOrigin` in `lib/core/text.mjs`.
+- Internal: `ci.mjs` keeps the backend install lines in one table, and `ticket.mjs` its commands that need no ticket, instead of long if/else runs.
+
+**What to do:** nothing. Output is unchanged.
+
 ## [0.77.0] - 2026-11-13
 
 ### Changed

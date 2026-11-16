@@ -57,7 +57,7 @@ test('cli: ticket.mjs docx prints the text of a file the user names; a missing f
   assert.equal(run('docx').status, 2)
 })
 test('an analysis added as ticket-eval says is redacted and scored like the description (AGT-117)', async () => {
-  const { validateConfig } = await import('../../lib/base/config.mjs')
+  const { validateConfig } = await import('../../lib/config/config.mjs')
   const { sanitizeTicket } = await import('../../lib/ticket/sanitize.mjs')
   const { buildBrief } = await import('../../lib/ticket/score.mjs')
   const c = validateConfig({ version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['ABC'], acceptanceCriteriaField: null } }).config

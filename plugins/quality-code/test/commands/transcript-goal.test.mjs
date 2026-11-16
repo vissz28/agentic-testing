@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { COMMANDS, getProgress, setProgress } from '../../lib/base/progress.mjs'
+import { COMMANDS, getProgress, setProgress } from '../../lib/state/progress.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const doc = read('commands/transcript-goal.md')

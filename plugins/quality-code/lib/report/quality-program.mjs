@@ -3,18 +3,19 @@
 // mutation kill rate. Each is a number or "no data", never a made-up 100%.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { layersOf, ungradedTitlesOf } from '../base/config.mjs'
-import { e2eFolder } from '../base/e2e-folder.mjs'
-import { dialectFor } from '../base/dialects/index.mjs'
-import { runnerOf } from '../base/runners.mjs'
-import { keySource } from '../base/keys.mjs'
+import { layersOf, ungradedTitlesOf } from '../config/config.mjs'
+import { e2eFolder } from '../stacks/e2e-folder.mjs'
+import { dialectFor } from '../stacks/dialects/index.mjs'
+import { runnerOf } from '../stacks/runners.mjs'
+import { keySource } from '../config/keys.mjs'
 import { grade } from '../pipeline/checks/suite-honesty.mjs'
-import { adaptersOf, asAdapter } from '../base/stack.mjs'
-import { detectConventions } from '../base/conventions.mjs'
-import { BACKENDS, isBackend } from '../base/backends.mjs'
-import { changedPaths } from '../base/git.mjs'
+import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
+import { detectConventions } from '../stacks/conventions.mjs'
+import { BACKENDS, isBackend } from '../stacks/backends.mjs'
+import { changedPaths } from '../core/git.mjs'
 import { execFileSync } from 'node:child_process'
 import { readJson, tryReadJson } from '../core/files.mjs'
+import { withoutOrigin } from '../core/text.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -172,7 +173,7 @@ export function branchTrace(root, config, specs, tracedPaths) {
   if (!c.ok) return null
   const changed = new Set(c.paths)
   const mine = specs.filter(s => changed.has(s.path))
-  return mine.length ? { base: ref.replace(/^origin\//, ''), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
+  return mine.length ? { base: withoutOrigin(ref), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
 }
 
 /** Line coverage from an Istanbul summary, else an lcov report (most runners' default), else the JaCoCo and Cobertura reports, when the project has one. */

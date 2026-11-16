@@ -4,9 +4,9 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
-import { matches } from '../../base/boundary.mjs'
+import { matches } from '../boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
-import { timeoutSecondsOf } from '../../base/config.mjs'
+import { timeoutSecondsOf } from '../../config/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
@@ -34,7 +34,7 @@ export function parseReport(json, root) {
     const ars = tr.assertionResults ?? []
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })
     for (const a of ars) {
-      const status = a.status === 'passed' ? 'passed' : a.status === 'failed' ? 'failed' : 'skipped'
+      const status = ['passed', 'failed'].includes(a.status) ? a.status : 'skipped'
       tests.push({ title: a.title, path: a.ancestorTitles ?? [], file, status, message: status === 'failed' ? firstLine(a.failureMessages?.[0]) : '' })
     }
   }

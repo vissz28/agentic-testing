@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { asserted, normNum, run, surface, tokensFrom } from '../../../lib/pipeline/checks/expected.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { buildVocabulary } from '../../../lib/ticket/languages/index.mjs'
 
 const V = dialectFor('vitest')

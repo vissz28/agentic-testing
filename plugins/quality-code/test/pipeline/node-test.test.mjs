@@ -6,12 +6,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import reporter from '../../lib/pipeline/runners/node-test-reporter.mjs'
 import { nodeFlags, runGeneric } from '../../lib/pipeline/runners/generic.mjs'
-import { flipMutations } from '../../lib/base/dialects/generic.mjs'
-import { dialectFor } from '../../lib/base/dialects/index.mjs'
+import { flipMutations } from '../../lib/stacks/dialects/generic.mjs'
+import { dialectFor } from '../../lib/stacks/dialects/index.mjs'
 import { scoreSpec } from '../../lib/pipeline/checks/suite-honesty.mjs'
 import { scanDiff } from '../../lib/pipeline/checks/honesty.mjs'
 import { planMutants } from '../../lib/pipeline/checks/mutation.mjs'
-import { runnerLabel } from '../../lib/base/runners.mjs'
+import { runnerLabel } from '../../lib/stacks/runners.mjs'
 
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const dialect = dialectFor('node')

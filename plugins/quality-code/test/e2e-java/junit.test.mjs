@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { ENV } from '../git-env.mjs'
 import { runPipeline } from '../../lib/pipeline/pipeline.mjs'
-import { dialectFor } from '../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../lib/stacks/dialects/index.mjs'
 
 const skip = process.env.QC_E2E === '1' ? false : 'end to end: set QC_E2E=1 (needs Java 17+ and Maven)'
 const LONG = 10 * 60 * 1000

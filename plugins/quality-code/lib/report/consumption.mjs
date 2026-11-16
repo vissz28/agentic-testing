@@ -1,6 +1,7 @@
 // Totals, groups and the plain-text card for /quality-code:report --cost. Dates are UTC.
 import { costOf, priceFor } from './prices.mjs'
 import { tag } from '../core/script-io.mjs'
+import { plural } from '../core/text.mjs'
 
 const DAY = 86400000
 export const BY = ['command', 'ticket', 'day', 'model']
@@ -62,7 +63,8 @@ export function buildReport({ runs, events }, { period, by = 'command', prices, 
   const total = bucket('total')
   const other = bucket('other')
   const groups = new Map()
-  const groupOf = (e, r) => by === 'command' ? r.command : by === 'ticket' ? r.key ?? 'no ticket' : by === 'day' ? day(r.start) : e.model
+  const GROUP = { command: (e, r) => r.command, ticket: (e, r) => r.key ?? 'no ticket', day: (e, r) => day(r.start), model: e => e.model }
+  const groupOf = GROUP[by] ?? GROUP.model
   for (const r of runsIn) {
     total.runs.add(r)
     if (by !== 'model') {
@@ -119,7 +121,7 @@ export function formatCard(r) {
   if (!t.runs) lines.push(`No quality-code runs from ${r.period.since} to ${r.period.until}.`)
   else {
     lines.push(
-      `Runs      ${t.runs} run${t.runs === 1 ? '' : 's'} in ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${t.requests} API request${t.requests === 1 ? '' : 's'}`,
+      `Runs      ${plural(t.runs, 'run')} in ${plural(t.sessions, 'session')} · ${plural(t.requests, 'API request')}`,
       `Tokens    in ${fmtTokens(t.tokens.input)} · out ${fmtTokens(t.tokens.output)} · cache write ${fmtTokens(t.tokens.cacheWrite)} · cache read ${fmtTokens(t.tokens.cacheRead)}`,
       `Cost      ${fmtCost(t.cost, t.costPartial)} estimated${t.costPerRun === null ? '' : ` · ${fmtCost(t.costPerRun, t.costPartial)} per run`}`,
       '',
@@ -127,7 +129,7 @@ export function formatCard(r) {
     )
   }
   const o = r.other
-  lines.push('', `Other (not quality-code): ${o.requests} request${o.requests === 1 ? '' : 's'} · in ${fmtTokens(o.tokens.input)} · out ${fmtTokens(o.tokens.output)} · cache ${fmtTokens(cache(o.tokens))} · ${fmtCost(o.cost, o.costPartial)}`)
+  lines.push('', `Other (not quality-code): ${plural(o.requests, 'request')} · in ${fmtTokens(o.tokens.input)} · out ${fmtTokens(o.tokens.output)} · cache ${fmtTokens(cache(o.tokens))} · ${fmtCost(o.cost, o.costPartial)}`)
   if (r.unknownModels.length) lines.push(`Unknown price for ${r.unknownModels.join(', ')}: tokens counted, no cost.`)
   lines.push(`Estimate at API list prices as of ${r.prices.asOf ?? 'unknown date'} (${r.prices.override ? `with ${r.prices.override}` : 'claude-api skill'}); subscription plans are not billed this way.`)
   lines.push(tag('CONSUMPTION', r))

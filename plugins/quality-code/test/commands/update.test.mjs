@@ -41,6 +41,6 @@ test('the model never compares or invents a version, and never edits the plugin 
 test('the card is followed by one line that points to the commands guide PDF shipped in assets, and the file is there', async () => {
   const { readFileSync, existsSync } = await import('node:fs')
   const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
-  assert.ok(doc.includes('Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/assets/commands.pdf'))
-  assert.ok(existsSync(new URL('../../assets/commands.pdf', import.meta.url)))
+  assert.ok(doc.includes('Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/resources/commands.pdf'))
+  assert.ok(existsSync(new URL('../../resources/commands.pdf', import.meta.url)))
 })

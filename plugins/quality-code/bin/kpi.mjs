@@ -3,9 +3,9 @@
 // node bin/kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json]
 // Reads local files only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no audit data yet.
 import { basename, join } from 'node:path'
-import { AUDIT_DIR, KINDS, readAudit, readJsonl } from '../lib/base/audit.mjs'
-import { BOUNDARY_LOG } from '../lib/base/boundary.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { AUDIT_DIR, KINDS, readAudit, readJsonl } from '../lib/state/audit.mjs'
+import { BOUNDARY_LOG } from '../lib/pipeline/boundary.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { formatQuality, qualityKpi, readCoverage, scanSpecs } from '../lib/report/quality-program.mjs'
 import { parsePeriod } from '../lib/report/consumption.mjs'
 import { kpiReport, kpiSeries } from '../lib/report/build.mjs'
@@ -13,6 +13,7 @@ import { reportLines, reportsRoot, saveReport } from '../lib/report/save.mjs'
 import playwright from '../lib/ticket/rubrics/playwright.mjs'
 import vitest from '../lib/ticket/rubrics/vitest.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const USAGE = 'usage: kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json | --report]'
 const RUBRICS = { vitest, playwright }
@@ -109,7 +110,6 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
   }
 }
 
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const row = (name, text) => `${name.padEnd(12)}${text}`
 
 export function formatKpiCard(r) {

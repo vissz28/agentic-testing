@@ -122,7 +122,6 @@ h1 em{font-style:normal;background:linear-gradient(90deg,var(--g1),var(--blue) 5
 .node:nth-child(1){animation-delay:.1s}.node:nth-child(3){animation-delay:.5s}.node:nth-child(5){animation-delay:.9s}
 .link{width:34px;height:2px;margin:0 4px;background:repeating-linear-gradient(90deg,var(--blue) 0 6px,transparent 6px 10px);background-size:20px 2px;animation:dash 1s linear infinite}
 @keyframes dash{to{background-position:20px 0}}@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
-.facts{display:flex;gap:26px;flex-wrap:wrap;margin-top:34px;color:var(--muted);font-size:13px}.facts b{display:block;color:var(--ink);font-size:20px;letter-spacing:-.02em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:clamp(22px,3.2vw,36px);box-shadow:0 30px 70px -30px rgba(0,80,117,.35),0 2px 0 rgba(255,255,255,.6) inset;display:flex;flex-direction:column;gap:22px;animation:rise .7s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}}
 .card h2{margin:0;font-size:26px;letter-spacing:-.02em}.sub{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.5}
@@ -165,7 +164,7 @@ def _story() -> str:
             '<h1>Tests you can trust, <em>straight from the ticket.</em></h1>'
             '<p class="lead">Quality Code reads your Jira ticket, tells you what it is missing, and helps QA and product turn it into test cases. All from the AI assistant you already use.</p>'
             '<div class="flow"><div class="node"><i>1</i>Ticket</div><span class="link"></span><div class="node"><i>2</i>Checks</div><span class="link"></span><div class="node"><i>✓</i>Tests</div></div>'
-            '<div class="facts"><span><b>70</b>point readiness gate</span><span><b>0</b>writes without your yes</span><span><b>3</b>environments</span></div></section>')
+            '</section>')
 
 
 def login_page(*, configured: bool, error: str | None = None) -> str:
@@ -207,10 +206,26 @@ def home_page(w: WebSettings, user: dict) -> str:
     return _page("Quality Code · Connect", _story() + card, script)
 
 
+def entra_redirect(w: WebSettings, entra: EntraSettings, extra_flow: dict | None = None):
+    """The redirect to Microsoft with a fresh state, nonce and PKCE; `extra_flow` rides in the signed flow cookie (the connector sign-in puts its request there)."""
+    from starlette.responses import RedirectResponse
+
+    state, nonce, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(24), secrets.token_urlsafe(48)
+    q = urllib.parse.urlencode({
+        "client_id": entra.client_id, "response_type": "code", "redirect_uri": w.redirect_uri, "response_mode": "query",
+        "scope": "openid profile email", "state": state, "nonce": nonce, "code_challenge": _b64(hashlib.sha256(verifier.encode()).digest()),
+        "code_challenge_method": "S256", "prompt": "select_account",
+    })
+    resp = RedirectResponse(f"{entra.authority}/{entra.tenant_id}/oauth2/v2.0/authorize?{q}", status_code=303)
+    resp.set_cookie(FLOW_COOKIE, _sign(w, {"kind": "flow", "state": state, "nonce": nonce, "verifier": verifier, **(extra_flow or {})}, FLOW_TTL),
+                    max_age=FLOW_TTL, httponly=True, secure=w.secure, samesite="lax", path="/")
+    return resp
+
+
 # ---------------------------------------------------------------- routes
 
 def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: Callable[[str, str], str] | None = None,
-             signing_key: Callable[[str], Any] | None = None) -> None:
+             signing_key: Callable[[str], Any] | None = None, provider=None) -> None:
     """Add /, /login, /auth/callback, /logout and /static/teamsystem.png to the server. All are open (no bearer token): the page is for people."""
     from starlette.responses import HTMLResponse, RedirectResponse, Response
     import asyncio
@@ -219,6 +234,10 @@ def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: C
         client = jwt.PyJWKClient(entra.jwks_uri, cache_keys=True)
         signing_key = lambda t: client.get_signing_key_from_jwt(t).key  # noqa: E731
     exchange = exchange or (lambda code, verifier: redeem_code(w, code, verifier)) if w else None
+    hooks = None
+    if w and provider:  # the connector sign-in for Claude: /connect/start, /connect/consent, /connect/accept
+        from .connector import register_routes
+        hooks = register_routes(server, provider, w, entra)
 
     def html(page: str, status: int = 200) -> HTMLResponse:
         return HTMLResponse(page, status_code=status, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin"})
@@ -237,15 +256,7 @@ def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: C
     async def login(request):
         if not w:
             return RedirectResponse("/", status_code=303)
-        state, nonce, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(24), secrets.token_urlsafe(48)
-        q = urllib.parse.urlencode({
-            "client_id": entra.client_id, "response_type": "code", "redirect_uri": w.redirect_uri, "response_mode": "query",
-            "scope": "openid profile email", "state": state, "nonce": nonce, "code_challenge": _b64(hashlib.sha256(verifier.encode()).digest()),
-            "code_challenge_method": "S256", "prompt": "select_account",
-        })
-        resp = RedirectResponse(f"{entra.authority}/{entra.tenant_id}/oauth2/v2.0/authorize?{q}", status_code=303)
-        cookie(resp, FLOW_COOKIE, _sign(w, {"kind": "flow", "state": state, "nonce": nonce, "verifier": verifier}, FLOW_TTL), FLOW_TTL)
-        return resp
+        return entra_redirect(w, entra)
 
     @server.custom_route("/auth/callback", methods=["GET"])
     async def callback(request):
@@ -267,6 +278,9 @@ def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: C
             claims = await asyncio.to_thread(check_id_token, w, id_token, flow["nonce"], signing_key)
         except Exception:  # noqa: BLE001 - any failure is a failed sign-in; the reason is not shown to the browser
             return back("Sign-in failed. Please try again.")
+        if flow.get("tx") and hooks:  # a person adding the connector in Claude: the rules and details page comes next, not the home page
+            done = hooks["after_identity"](flow, claims)
+            return done or back("The connection request expired. Add the connector in Claude again.")
         resp = RedirectResponse("/", status_code=303)
         resp.delete_cookie(FLOW_COOKIE, path="/")
         cookie(resp, SESSION_COOKIE, _sign(w, {"kind": "session", "name": claims.get("name"), "email": claims.get("preferred_username") or claims.get("email"),

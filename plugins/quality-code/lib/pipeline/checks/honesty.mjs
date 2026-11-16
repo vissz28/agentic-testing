@@ -1,10 +1,10 @@
 // Honesty: did the change to a spec remove an assertion or a test, or skip one without a ticket?
 // Static analysis of a git diff. The dialect decides what counts as a test declaration and
 // whether moved lines are forgiven (see the plan's Ruling 1).
-import { keySource } from '../../base/keys.mjs'
-import { specDiff } from '../../base/git.mjs'
-import { result } from '../../base/result.mjs'
-import { redTagsOf } from '../../base/config.mjs'
+import { keySource } from '../../config/keys.mjs'
+import { specDiff } from '../../core/git.mjs'
+import { result } from '../result.mjs'
+import { redTagsOf } from '../../config/config.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
 // Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition

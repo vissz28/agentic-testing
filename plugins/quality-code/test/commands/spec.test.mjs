@@ -444,7 +444,7 @@ test('step 4: tests already on the branch can be checked instead of writing new 
   assert.match(s, /kind `test`, status other than `D`/)
 })
 test('every backend runner: the spec reads its own writing guide, its layers and its default folder', async () => {
-  const { BACKENDS } = await import('../../lib/base/backends.mjs')
+  const { BACKENDS } = await import('../../lib/stacks/backends.mjs')
   assert.match(doc, /the backend runner \(Vitest, pytest, JUnit, Go or \.NET\)/)
   const s = step(4)
   for (const [a, b] of Object.entries(BACKENDS)) {

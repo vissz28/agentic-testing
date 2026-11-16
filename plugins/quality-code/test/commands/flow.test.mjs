@@ -31,7 +31,7 @@ test('setup: a project with tests is offered its own style or ours, on the Confi
 })
 
 test('both: FLOWS and config accept it, ticket.mjs and spec say each test is written twice', async () => {
-  const { FLOWS, runFlow } = await import('../../lib/base/conventions.mjs')
+  const { FLOWS, runFlow } = await import('../../lib/stacks/conventions.mjs')
   assert.deepEqual(FLOWS, ['project', 'quality-code', 'both'])
   assert.equal(runFlow({ testStyle: 'both' }, { specs: 0 }), 'both')
   assert.equal(runFlow({}, { specs: 3 }, 'both'), 'both')

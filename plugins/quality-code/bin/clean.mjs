@@ -6,9 +6,10 @@
 // node bin/clean.mjs delete --groups … --dry-run        (lists what would go; deletes nothing)
 // It never skips the person's yes: --yes, --ci and the like are refused, and a delete needs --confirmed, which the
 // command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
-import { projectRoot } from '../lib/base/config.mjs'
+import { projectRoot } from '../lib/config/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { plural } from '../lib/core/text.mjs'
 
 const USAGE = 'usage: clean.mjs list [--dry-run] | delete --groups setup,output,cache,personal,specs [--specs all|PATH,PATH] (--confirmed | --dry-run)'
 const NO_SKIP = /^(--yes|-y|--ci|--force|-f|--no-confirm|--assume-yes|--non-interactive)$/
@@ -30,7 +31,6 @@ function parse(argv) {
   return a
 }
 
-const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`
 const what = i => (i.kind === 'lines' ? `${plural(i.lines.length, 'line')} of ${i.rel}` : `${i.rel}${i.kind === 'dir' ? '/' : ''}${i.kind === 'dir' ? ` (${plural(i.files, 'file')})` : ''}`)
 
 export function card(list, { dryRun = false } = {}) {

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { applyMutant, findExpectRanges, originalOf, planMutants, run, sweepStale, tempSpecPath, unmutated } from '../../../lib/pipeline/checks/mutation.mjs'
-import { dialectFor } from '../../../lib/base/dialects/index.mjs'
+import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { fakeRunner } from './fake-runner.mjs'
 
 const V = dialectFor('vitest')

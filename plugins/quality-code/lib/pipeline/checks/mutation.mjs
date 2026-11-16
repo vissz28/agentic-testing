@@ -5,10 +5,10 @@
 // function), so each mutant goes over the spec itself and its original bytes always come back.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix, resolve } from 'node:path'
-import { result } from '../../base/result.mjs'
+import { result } from '../result.mjs'
 import { anchorRange, testMarks } from './suite-honesty.mjs'
-import { ungradedTitlesOf } from '../../base/config.mjs'
-import { inKeyBlock } from '../../base/keys.mjs'
+import { ungradedTitlesOf } from '../../config/config.mjs'
+import { inKeyBlock } from '../../config/keys.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/

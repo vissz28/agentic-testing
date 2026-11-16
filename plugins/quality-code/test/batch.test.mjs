@@ -8,7 +8,7 @@ import { evalTickets, formatCard } from '../lib/ticket/batch.mjs'
 import { buildBrief } from '../lib/ticket/score.mjs'
 import { sanitizeTicket } from '../lib/ticket/sanitize.mjs'
 import { sides } from './config-fields.mjs'
-import { validateConfig } from '../lib/base/config.mjs'
+import { validateConfig } from '../lib/config/config.mjs'
 
 const CLI = new URL('../bin/ticket.mjs', import.meta.url).pathname
 const cfg = (adapter = 'vitest', extra = {}) => ({

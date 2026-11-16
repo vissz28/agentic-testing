@@ -1,11 +1,11 @@
 // The shape of what the model extracted from a sprint planning transcript. The script checks the shape; the model
 // never invents what the transcript did not say: that becomes an open question, not a task or a decision.
-import { isTicketKey } from '../core/text.mjs'
+import { collapseSpaces, isTicketKey } from '../core/text.mjs'
 
 export const LIMITS = { goal: 300, line: 500, title: 200, items: 100 }
 
 const isStr = v => typeof v === 'string'
-const oneLine = s => s.replace(/\s+/g, ' ').trim()
+const oneLine = s => collapseSpaces(s).trim()
 
 function strings(list, name, errors, max = LIMITS.line) {
   if (list === undefined) return []

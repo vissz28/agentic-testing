@@ -3,12 +3,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { buildBrief } from '../../lib/ticket/score.mjs'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { hasHeading } from '../../lib/ticket/criteria.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
 import { sides } from '../config-fields.mjs'
 
-const read = n => readFileSync(new URL(`../../templates/${n}.md`, import.meta.url), 'utf8')
+const read = n => readFileSync(new URL(`../../resources/${n}-template.md`, import.meta.url), 'utf8')
 const fill = t => t.replace(/\{\{([^}]+)\}\}/g, (_, k) => ({
   'acceptance criteria': 'Scenario: filter\nGiven a list of 8 orders\nWhen I filter by customer Rossi\nThen the grid shows exactly 5 rows',
   'environment': 'staging',

@@ -1,5 +1,7 @@
 // A meeting transcript as speaker turns. Reads WebVTT (Teams export), plain text and Markdown; a Word file is
 // turned into text first (lib/ticket/docx.mjs). Pure: no file, no network.
+import { collapseSpaces } from '../core/text.mjs'
+
 const TIME = /^(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?\s*-->\s*(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?/
 const CLOCK = /^\[?(?:\d{1,2}:)?\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d{1,3})?\]?$/
 const TAG = /<[^>]*>/g
@@ -7,7 +9,7 @@ const ENTITY = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 export const MAX_TURNS = 5000
 
 const unescape = s => s.replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (_, e) => ENTITY[e])
-const clean = s => unescape(s.replace(TAG, '')).replace(/\s+/g, ' ').trim()
+const clean = s => collapseSpaces(unescape(s.replace(TAG, ''))).trim()
 
 function push(turns, speaker, time, text) {
   const t = clean(text)

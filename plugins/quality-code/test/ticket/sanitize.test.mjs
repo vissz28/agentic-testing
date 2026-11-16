@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { adfToText, redact, findMergeRequest, sanitizeTicket } from '../../lib/ticket/sanitize.mjs'
 
 const cfg = r => validateConfig({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [], ...(r ? { redact: r } : {}) }).config

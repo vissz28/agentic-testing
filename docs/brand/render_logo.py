@@ -1,4 +1,4 @@
-"""Renders plugins/quality-code/assets/logo.png from the same geometry as logo.svg.
+"""Renders plugins/quality-code/resources/logo.png from the same geometry as logo.svg.
 
 There is no SVG rasteriser in the toolchain, so the shapes are drawn with Pillow at 4x and scaled
 down for smooth edges. Keep the numbers in step with logo.svg.
@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'plugins/quality-code/assets/logo.png'
+OUT = ROOT / 'plugins/quality-code/resources/logo.png'
 SIZE, SS = 512, 4
 DARK, BLUE, LIGHT, WHITE = (0x00, 0x50, 0x75), (0x00, 0x90, 0xD1), (0x00, 0xC3, 0xEA), (255, 255, 255)
 

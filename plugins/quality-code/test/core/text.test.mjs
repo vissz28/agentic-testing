@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -65,5 +65,53 @@ test('the helpers are written once: no script or library file has its own copy',
     const src = readFileSync(join(root, f), 'utf8')
     return /^(?:const|function) firstLine\b/m.test(src) || COPIES.some(c => src.includes(c))
   })
+  assert.deepEqual(own, [])
+})
+
+test('plural: the count and its noun, "s" for any count but 1, or the given plural', () => {
+  assert.equal(plural(1, 'file'), '1 file')
+  assert.equal(plural(0, 'file'), '0 files')
+  assert.equal(plural(2, 'spec file'), '2 spec files')
+  assert.equal(plural(1, 'entry', 'entries'), '1 entry')
+  assert.equal(plural(3, 'entry', 'entries'), '3 entries')
+  assert.equal(plural('1', 'file'), '1 files', 'only the number 1 is singular, as every copy it replaces compared with === 1')
+})
+
+test('isLine: a string on one line, not empty or only spaces; hasLineBreak: a \\n or \\r in it', () => {
+  for (const ok of ['make test', ' x ', 'a\tb', 'é']) assert.equal(isLine(ok), true, ok)
+  for (const bad of ['', '   ', 'a\nb', 'a\rb', 'a\r\n', undefined, null, 3, ['a'], {}]) assert.equal(isLine(bad), false, String(bad))
+  assert.equal(hasLineBreak('a\nb'), true)
+  assert.equal(hasLineBreak('x\r'), true)
+  assert.equal(hasLineBreak(''), false)
+  assert.equal(hasLineBreak('   '), false)
+})
+
+test('withoutOrigin: origin/ goes from the front only; any other name stays', () => {
+  assert.equal(withoutOrigin('origin/develop'), 'develop')
+  assert.equal(withoutOrigin('origin/feature/origin/x'), 'feature/origin/x')
+  assert.equal(withoutOrigin('main'), 'main')
+  assert.equal(withoutOrigin('upstream/main'), 'upstream/main')
+  assert.equal(withoutOrigin(''), '')
+})
+
+test('no script or library file checks for a line break or strips origin/ by hand', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && /\/\[\\r\\n\]\/\.test\(|\.replace\(\/\^origin\\\//.test(readFileSync(join(root, f), 'utf8')))
+  assert.deepEqual(own, [])
+})
+
+test('collapseSpaces: each run of spaces, tabs and line breaks is one space; the ends are kept', () => {
+  assert.equal(collapseSpaces('expect(a)\n    .toBe(\t1)'), 'expect(a) .toBe( 1)')
+  assert.equal(collapseSpaces('  a  b  '), ' a b ')
+  assert.equal(collapseSpaces('a\r\n\r\nb'), 'a b')
+  assert.equal(collapseSpaces('one'), 'one')
+  assert.equal(collapseSpaces(''), '')
+})
+
+test('no script or library file collapses spaces by hand', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && readFileSync(join(root, f), 'utf8').includes(".replace(/\\s+/g, ' ')"))
   assert.deepEqual(own, [])
 })

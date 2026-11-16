@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 import { buildBrief, decideGate, formatReport, THRESHOLD } from '../../lib/ticket/score.mjs'
 import { formatRefuseComment } from '../../lib/ticket/jira.mjs'
 import { fillMenu } from '../../lib/ticket/fill.mjs'

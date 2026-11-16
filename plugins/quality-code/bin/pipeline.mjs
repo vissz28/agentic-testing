@@ -5,16 +5,16 @@
 // --suite takes every spec of one side (frontend: the e2e folder, backend: the backend's layers) or of both.
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { dialectFor } from '../lib/base/dialects/index.mjs'
-import { runnerOf } from '../lib/base/runners.mjs'
-import { isProjectKey, projectKeys } from '../lib/base/keys.mjs'
-import { audit, auditOff } from '../lib/base/audit.mjs'
-import { doneStatusesOf, loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { dialectFor } from '../lib/stacks/dialects/index.mjs'
+import { runnerOf } from '../lib/stacks/runners.mjs'
+import { isProjectKey, projectKeys } from '../lib/config/keys.mjs'
+import { audit, auditOff } from '../lib/state/audit.mjs'
+import { doneStatusesOf, loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { THRESHOLD } from '../lib/ticket/score.mjs'
 import { formatCard, formatRunLog } from '../lib/pipeline/card.mjs'
 import { normalizeSpec, runPipeline as realRunPipeline } from '../lib/pipeline/pipeline.mjs'
-import { adaptersForSide, adaptersOf, isFullstack } from '../lib/base/stack.mjs'
-import { backendOf, BACKENDS, runnerLabel } from '../lib/base/backends.mjs'
+import { adaptersForSide, adaptersOf, isFullstack } from '../lib/stacks/stack.mjs'
+import { backendOf, BACKENDS, runnerLabel } from '../lib/stacks/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
@@ -38,7 +38,7 @@ function parse(argv) {
     if (VALUE.has(x)) {
       const v = argv[++i]
       if (v === undefined || v.startsWith('-') || !v.trim()) throw new Error(`${x} needs a value, not "${v ?? ''}"`)
-      a[x === '--incomplete-ticket' ? 'incomplete' : x === '--regression-before' ? 'regressionBefore' : x.slice(2)] = v
+      a[{ '--incomplete-ticket': 'incomplete', '--regression-before': 'regressionBefore' }[x] ?? x.slice(2)] = v
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
     else if (x === '--no-mutation') a.mutation = false

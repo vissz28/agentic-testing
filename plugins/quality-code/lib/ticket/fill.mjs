@@ -5,8 +5,8 @@ import { buildVocabulary } from './languages/index.mjs'
 import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
 import { buildBrief, omittedFor, rubricFor, scoreTicket } from './score.mjs'
-import { asAdapter, isFullstack } from '../base/stack.mjs'
-import { backendOf } from '../base/backends.mjs'
+import { asAdapter, isFullstack } from '../stacks/stack.mjs'
+import { backendOf } from '../stacks/backends.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
@@ -104,7 +104,7 @@ export function projectPick(menu, nums) {
     if (!picked.includes(item)) picked.push(item)
   }
   if (!picked.length) return { error: 'Type at least one number from the list.' }
-  const rubric = menu.rubric === 'vitest' ? vitest : menu.rubric === 'playwright' ? playwright : rubricOfSignals(menu.signals)
+  const rubric = { vitest, playwright }[menu.rubric] ?? rubricOfSignals(menu.signals)
   const score = scoreTicket(rubric, credit(menu.signals, picked.map(i => i.key)), new Set(menu.omitted ?? [])).score
   return {
     picked: picked.map(({ n, key, title, question, example }) => ({ n, key, title, question, example })),

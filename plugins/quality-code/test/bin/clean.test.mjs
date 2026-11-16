@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { main } from '../../bin/clean.mjs'
 import { buildList, runClean, unsafeReason } from '../../lib/base/clean.mjs'
 import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE } from '../../bin/setup.mjs'
-import { dirOf, short, slug } from '../../lib/base/progress.mjs'
+import { dirOf, short, slug } from '../../lib/state/progress.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
@@ -63,7 +63,7 @@ test('setup files are listed only while they are still what setup wrote', () => 
 })
 test('a template is setup-added only when it is exactly the plugin\'s own', () => {
   const { root, env } = project({ extra: { ticketTemplates: { bug: '.github/ISSUE_TEMPLATE/bug.md', story: '.github/ISSUE_TEMPLATE/story.md' } } })
-  put(root, '.github/ISSUE_TEMPLATE/bug.md', read('templates/bug.md'))
+  put(root, '.github/ISSUE_TEMPLATE/bug.md', read('resources/bug-template.md'))
   put(root, '.github/ISSUE_TEMPLATE/story.md', 'the team wrote this one\n')
   assert.ok(rels(buildList(root, env), 'setup').includes('.github/ISSUE_TEMPLATE/bug.md'))
   assert.ok(!rels(buildList(root, env), 'setup').includes('.github/ISSUE_TEMPLATE/story.md'))

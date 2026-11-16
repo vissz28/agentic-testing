@@ -1,5 +1,12 @@
 name: test
-on: [push, pull_request]
+# The tests run on dev, test and main, and a pull request into any of them runs them before the merge. The image build and smoke test
+# (harbor.yml) run on test and main only, and only main publishes.
+on:
+  push:
+    branches: [dev, test, main]
+  pull_request:
+    branches: [dev, test, main]
+  workflow_dispatch:
 jobs:
   core:
     runs-on: ubuntu-latest

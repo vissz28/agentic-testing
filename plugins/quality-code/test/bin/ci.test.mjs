@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { baseFromEnv, junit, main, providerOf, stackOf, template } from '../../bin/ci.mjs'
-import { validateConfig } from '../../lib/base/config.mjs'
+import { validateConfig } from '../../lib/config/config.mjs'
 
 const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
 const SPEC = "import { it, expect } from 'vitest'\nit('adds', () => {\n  expect(1 + 1).toBe(2)\n})\nit('subtracts', () => {\n  expect(2 - 1).toBe(1)\n})\nit('divides', () => {\n  expect(6 / 3).toBe(2)\n})\n"

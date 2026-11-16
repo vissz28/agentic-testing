@@ -4,7 +4,7 @@
 // one keeps qa or po from setup's first card. The steps of each role are below; each command's usage comes
 // from the Examples section of its own command file, so it never drifts. Read-only. Exit 0 ok, 2 usage error.
 import { readdirSync, readFileSync } from 'node:fs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)

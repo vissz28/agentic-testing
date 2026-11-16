@@ -49,3 +49,40 @@ export const isTicketKey = value => typeof value === 'string' && TICKET_KEY.test
  * @returns {string}
  */
 export const firstLine = text => noColour(text).split('\n').map(l => l.trim()).find(Boolean) ?? ''
+
+/**
+ * A count and its noun: "1 file", "3 files". The plural is the noun and an "s" unless given.
+ * @param {number} n
+ * @param {string} one the noun for one, like "file" or "spec file"
+ * @param {string} [many] the noun for any other count, when it is not one + "s"
+ * @returns {string}
+ */
+export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * True when the text has a line break (\n or \r) in it.
+ * @param {string} text
+ * @returns {boolean}
+ */
+export const hasLineBreak = text => /[\r\n]/.test(text)
+
+/**
+ * True for one line of text: a string, not empty or only spaces, with no line break.
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export const isLine = value => typeof value === 'string' && value.trim() !== '' && !hasLineBreak(value)
+
+/**
+ * The branch without the remote in front: "origin/develop" -> "develop"; a local name stays as it is.
+ * @param {string} ref
+ * @returns {string}
+ */
+export const withoutOrigin = ref => ref.replace(/^origin\//, '')
+
+/**
+ * The text with each run of spaces, tabs and line breaks made one space: "a\n   b" -> "a b".
+ * @param {unknown} text
+ * @returns {string}
+ */
+export const collapseSpaces = text => String(text).replace(/\s+/g, ' ')

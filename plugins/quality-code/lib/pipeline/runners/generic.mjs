@@ -10,8 +10,8 @@ import { isAbsolute, join, normalize, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configFor as unitConfigFor, parseReport as parseJest, titlePattern } from './vitest.mjs'
 import { configFor as e2eConfigFor } from './playwright.mjs'
-import { timeoutSecondsOf } from '../../base/config.mjs'
-import { RUNNERS } from '../../base/runners.mjs'
+import { timeoutSecondsOf } from '../../config/config.mjs'
+import { RUNNERS } from '../../stacks/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
@@ -93,7 +93,7 @@ export function parseCypress(json) {
     if (run.error) broken.push({ file, message: firstLine(run.error) })
     for (const t of run.tests ?? []) {
       const title = Array.isArray(t.title) ? t.title : [String(t.title ?? '')]
-      const status = t.state === 'passed' ? 'passed' : t.state === 'failed' ? 'failed' : 'skipped'
+      const status = ['passed', 'failed'].includes(t.state) ? t.state : 'skipped'
       tests.push({ title: title.at(-1), path: title.slice(0, -1), file, status, message: status === 'failed' ? firstLine(t.displayError) : '' })
     }
   }

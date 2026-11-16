@@ -12,7 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { projectRoot } from '../lib/base/config.mjs'
+import { projectRoot } from '../lib/config/config.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])

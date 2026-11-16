@@ -1,6 +1,6 @@
 # Quality Code brand
 
-<img src="../../plugins/quality-code/assets/logo.svg" width="96" alt="Quality Code logo">
+<img src="../../plugins/quality-code/resources/logo.svg" width="96" alt="Quality Code logo">
 
 ## Name
 
@@ -22,8 +22,8 @@ light-blue check on a rounded square that runs from deep blue to blue.
 
 | File | Use |
 |---|---|
-| [`plugins/quality-code/assets/logo.svg`](../../plugins/quality-code/assets/logo.svg) | the mark, any size |
-| [`plugins/quality-code/assets/logo.png`](../../plugins/quality-code/assets/logo.png) | the mark, 512 × 512, the plugin's `icon` |
+| [`plugins/quality-code/resources/logo.svg`](../../plugins/quality-code/resources/logo.svg) | the mark, any size |
+| [`plugins/quality-code/resources/logo.png`](../../plugins/quality-code/resources/logo.png) | the mark, 512 × 512, the plugin's `icon` |
 | [`docs/brand/wordmark.svg`](wordmark.svg) | the mark with the name and tagline, for the README and slides |
 
 The PNG is rendered from the same geometry by [`render_logo.py`](render_logo.py) (`python3

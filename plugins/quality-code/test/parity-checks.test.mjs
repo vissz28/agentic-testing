@@ -6,12 +6,12 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { scanDiff } from '../lib/pipeline/checks/honesty.mjs'
 import { grade } from '../lib/pipeline/checks/suite-honesty.mjs'
-import { violation, rulesFor } from '../lib/base/boundary.mjs'
+import { violation, rulesFor } from '../lib/pipeline/boundary.mjs'
 import { classify, overall } from '../lib/pipeline/checks/flaky.mjs'
 import { planMutants } from '../lib/pipeline/checks/mutation.mjs'
-import { keySource } from '../lib/base/keys.mjs'
-import { dialectFor } from '../lib/base/dialects/index.mjs'
-import { ungradedTitlesOf } from '../lib/base/config.mjs'
+import { keySource } from '../lib/config/keys.mjs'
+import { dialectFor } from '../lib/stacks/dialects/index.mjs'
+import { ungradedTitlesOf } from '../lib/config/config.mjs'
 
 const DIR = new URL('./parity/', import.meta.url).pathname
 const read = p => readFileSync(join(DIR, p), 'utf8')

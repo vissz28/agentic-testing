@@ -4,10 +4,10 @@
 // RULES_JSON: line. With --key, also saves what was read to <ticketsDir>/<KEY>/rules.json for the result card. Exit 0 whether or not the hub answers (the rules inform, they never stop a run), 2 usage error.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { isProjectKey } from '../lib/base/keys.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
+import { isProjectKey } from '../lib/config/keys.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { formatRules, readRules, rulesRecord } from '../lib/base/rules.mjs'
-import { SIDES, stackOf } from '../lib/base/stack.mjs'
+import { SIDES, stackOf } from '../lib/stacks/stack.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 
 const USAGE = 'usage: rules.mjs [--side frontend|backend|fullstack] [--key KEY]'

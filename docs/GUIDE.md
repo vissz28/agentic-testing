@@ -826,7 +826,7 @@ question picks (the repo's `.quality-code/`, a folder under your Claude folder, 
 temp folder). A repo that still has `.claude/quality-code.json` keeps working: it is read when no
 `config.json` exists. Change it by running `/quality-code:setup` again or with `/quality-code:config set`
 rather than by hand. To share it with your team or CI, copy it into the repo as `.claude/quality-code.json`. Every `ticket-eval` run checks it first and names
-any field that is wrong. A JSON schema ships with the plugin (`schema/quality-code.schema.json`).
+any field that is wrong. A JSON schema ships with the plugin (`resources/quality-code.schema.json`).
 
 What `/quality-code:setup` writes:
 
@@ -1070,8 +1070,7 @@ agentic-testing/
 │     │  ├─ pipeline/                  one pipeline for Vitest and Playwright: its card, checks and runners
 │     │  └─ report/                    consumption (usage and estimated cost) and the Quality Program KPIs
 │     ├─ guides/                       connectors.md, vitest-writing.md, playwright-writing.md, seed-data.md
-│     ├─ schema/                       quality-code.schema.json
-│     ├─ templates/                    standard Story and Bug templates
+│     ├─ resources/                    the config schema, the standard Story and Bug templates, the commands guide PDF, the logo
 │     └─ test/                         unit tests (mirrors bin/ and lib/) and the parity suite
 ├─ examples/sample-service/          the end-to-end proof: a small pricing service, two tickets, their specs
 ├─ scripts/capture-parity.mjs          records the reference outputs the parity suite compares with

@@ -14,11 +14,11 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { adaptersForSide, adaptersOf } from '../lib/base/stack.mjs'
-import { loadConfig, projectRoot } from '../lib/base/config.mjs'
-import { backendOf, runnerLabel } from '../lib/base/backends.mjs'
-import { EXIT, result } from '../lib/base/result.mjs'
-import { moduleOf, planChanges } from '../lib/base/changes.mjs'
+import { adaptersForSide, adaptersOf } from '../lib/stacks/stack.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
+import { backendOf, runnerLabel } from '../lib/stacks/backends.mjs'
+import { EXIT, result } from '../lib/pipeline/result.mjs'
+import { moduleOf, planChanges } from '../lib/ci/changes.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { formatCard, label } from '../lib/pipeline/card.mjs'
 import { detect } from './branch.mjs'
@@ -26,9 +26,10 @@ import { checkProject, formatResult } from './checks.mjs'
 import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from './setup.mjs'
 import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
-import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/base/ci-source.mjs'
+import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/ci/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
+import { plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
@@ -91,7 +92,7 @@ export function stackOf(root, config) {
     maven: existsSync(join(root, 'pom.xml')),
     go: /^go (\d+\.\d+)/m.exec(readText(join(root, 'go.mod')))?.[1] ?? '1.23',
     prefix: git(root, ['rev-parse', '--show-prefix']),
-    defaultBranch: git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']).replace(/^origin\//, '') || 'main',
+    defaultBranch: withoutOrigin(git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])) || 'main',
   }
 }
 
@@ -102,10 +103,14 @@ function installLines(s) {
   // Prisma's client is generated, not installed: without it the types step reports errors that are not there.
   if (s.prisma) lines.push(`${EXEC[s.pm]} prisma generate`)
   if (s.playwright) lines.push(`${EXEC[s.pm ?? 'npm']} playwright install --with-deps`)
-  if (s.backend === 'pytest') lines.push(...(s.pip.length ? s.pip.map(f => `pip install -r ${f}`) : s.pyproject ? ['pip install -e .'] : []))
-  if (s.backend === 'go') lines.push('go mod download')
-  if (s.backend === 'dotnet') lines.push('dotnet restore')
-  return lines
+  return [...lines, ...(BACKEND_INSTALL[s.backend]?.(s) ?? [])]
+}
+
+// What a backend that is not JavaScript installs (JUnit's build fetches its own).
+const BACKEND_INSTALL = {
+  pytest: s => (s.pip.length ? s.pip.map(f => `pip install -r ${f}`) : s.pyproject ? ['pip install -e .'] : []),
+  go: () => ['go mod download'],
+  dotnet: () => ['dotnet restore'],
 }
 
 // A backend that is not JavaScript brings its own toolchain; node runs the plugin beside it.
@@ -239,11 +244,11 @@ async function gate(root, config, a, env, stdout) {
   const det = detect(root, config, { base: a.base ?? baseFromEnv(env) })
   const cannot = !det.isRepo ? 'this is not a git checkout' : !det.base || !det.mergeBase ? `the target branch was not found (${FETCH_HINT})` : det.shallow ? `the checkout is shallow (${FETCH_HINT})` : null
   if (cannot) { printLine(`quality-code ci: could not run: ${cannot}, so the changed specs cannot be read.`); return 3 }
-  if (det.onBase) { printLine(`quality-code ci: this is ${det.base.replace(/^origin\//, '')} itself, nothing to compare.`); return 0 }
+  if (det.onBase) { printLine(`quality-code ci: this is ${withoutOrigin(det.base)} itself, nothing to compare.`); return 0 }
   const changed = det.files.filter(f => f.committed && f.kind === 'test')
   const head = `quality-code ci · changes since ${det.base}`
   if (!changed.length) { printLine(`${head}: no spec changed, nothing to check.`); return 0 }
-  printLine(`${head}: ${changed.length} spec${changed.length === 1 ? '' : 's'}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n`)
+  printLine(`${head}: ${plural(changed.length, 'spec')}\n${changed.map(f => `  ${f.status} ${f.from ? `${f.from} → ` : ''}${f.path}`).join('\n')}\n`)
 
   // Honesty reads the diff, so a deleted spec and a renamed spec's old path count; assertions read the specs there now.
   const known = new Set(projectSpecs(root, config).map(s => s.path))
@@ -303,10 +308,10 @@ async function tests(root, config, a, env, stdout, stderr) {
     if (!det.isRepo) scope = { mode: 'all', why: 'this is not a git checkout, so what changed cannot be read' }
     else if (!det.base || !det.mergeBase) scope = { mode: 'all', why: `the target branch was not found (${FETCH_HINT})` }
     else if (det.shallow) scope = { mode: 'all', why: `the checkout is shallow, so what changed cannot be read (${FETCH_HINT})` }
-    else if (det.onBase) scope = { mode: 'all', why: `this is ${det.base.replace(/^origin\//, '')} itself` }
+    else if (det.onBase) scope = { mode: 'all', why: `this is ${withoutOrigin(det.base)} itself` }
     else {
       plan = planChanges(det.files, config, known)
-      scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${det.counts.test} test file${det.counts.test === 1 ? '' : 's'}, ${det.counts.code} code file${det.counts.code === 1 ? '' : 's'}` }
+      scope = { mode: 'changes', base: det.base, why: `changes since ${det.base}: ${plural(det.counts.test, 'test file')}, ${plural(det.counts.code, 'code file')}` }
     }
   }
   printLine(`quality-code ci tests${provider ? ` · ${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}` : ''}\n${scope.mode === 'all' ? `Running the whole suite, without mutation: ${scope.why}.` : `Running only what changed (${scope.why}).`}`)

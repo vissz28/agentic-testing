@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { main } from '../../bin/progress.mjs'
-import { MAX_AGE_MS, clearProgress, getProgress, listProgress, setProgress } from '../../lib/base/progress.mjs'
+import { MAX_AGE_MS, clearProgress, getProgress, listProgress, setProgress } from '../../lib/state/progress.mjs'
 
 const env = () => ({ CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-prog-')) })
 const root = mkdtempSync(join(tmpdir(), 'qc-root-'))

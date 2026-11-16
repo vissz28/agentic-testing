@@ -3,7 +3,7 @@
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
 import { THRESHOLD } from '../ticket/score.mjs'
-import { isTicketKey } from '../core/text.mjs'
+import { isTicketKey, plural } from '../core/text.mjs'
 import { columns, gauge, hbar, legend, line } from './charts.mjs'
 import { card, empty, esc, grid, page, tiles } from './page.mjs'
 import { fmtCost, fmtTokens } from './consumption.mjs'
@@ -22,7 +22,6 @@ export const safeKey = (config, key) => (isTicketKey(key) ? safe(config, key) : 
 
 const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
 const dayOf = ms => new Date(ms).toISOString().slice(0, 10)
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const word = (n, one, many = `${one}s`) => (n === 1 ? one : many)
 
 /** What the kpi charts need beyond the report: verdicts per day, the pass rate per ticket, mutation per run. */
