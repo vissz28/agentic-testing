@@ -21,6 +21,7 @@ const STATUS = { Passed: 'passed', PassedButRunAborted: 'passed', Completed: 'pa
 /** Data-driven MSTest results count their inner results; NotExecuted, Inconclusive etc. are skipped. */
 export function parseTrx(xml) {
   const doc = parseXml(xml)
+  if (doc.unclosed) throw new Error(`unclosed <${doc.unclosed}>`)
   const defs = new Map()
   for (const ut of descendants(doc, 'UnitTest')) {
     const tm = child(ut, 'TestMethod')

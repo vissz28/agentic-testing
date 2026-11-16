@@ -34,6 +34,8 @@ Update with `/plugin update quality-code@teamsystem`.
 - Setup no longer asks for your Atlassian email when the connector gives only an account id, and no longer turns on the report reply style: turn it on in `/quality-code:config`.
 - A file path written with backslashes (Windows) is checked and stored with forward slashes, so `..\x` cannot leave the project.
 - The note added to a Jira description after the fill-in ends with the co-author line, as comments do.
+- pytest and .NET: a report cut off while written is `could not run` (`pytest wrote a report that is cut off`), as JUnit already was; before, part of the results could pass for all of them.
+- `report`: coverage totals are read without building the per-package detail, so a JaCoCo or Cobertura report of tens of MB takes milliseconds and no extra memory.
 - .NET: a TRX report with a character reference that is no character (`&#99999999;`) no longer crashes the test step; it is kept as text.
 - JUnit: a stray end tag in a report no longer closes the whole document, so the tests after it keep their suite name.
 - JUnit: a report cut off while written is always read as broken; before, some cut-off points gave half the results.

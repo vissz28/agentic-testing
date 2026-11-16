@@ -266,3 +266,9 @@ test('parseTrx: a character reference that is no character stays as text, not a 
   const trx = '<TestRun><Results><UnitTestResult testId="1" testName="Sums" outcome="Failed"><Output><ErrorInfo><Message>got &#99999999;</Message></ErrorInfo></Output></UnitTestResult></Results></TestRun>'
   assert.deepEqual(parseTrx(trx), [{ className: '', title: 'Sums', status: 'failed', message: 'got &#99999999;' }])
 })
+
+test('a TRX report cut off while written throws, so the run says it could not read it', () => {
+  const xml = fixture('xunit.trx')
+  assert.throws(() => parseTrx(xml.slice(0, Math.floor(xml.length / 2))), /unclosed </)
+  assert.ok(parseTrx(xml).length > 0)
+})

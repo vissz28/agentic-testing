@@ -254,3 +254,11 @@ test('real pytest: statuses, a collection error, one test by node id in a temp c
   assert.deepEqual(cases.tests.map(t => [t.title, t.status]), [['test_cases', 'passed'], ['test_cases', 'failed']])
   assert.deepEqual(listing(d), [...before, tmp].sort(), 'no cache, bytecode or report in the project')
 })
+
+test('a report cut off while written is a run that could not be read, never part of the results as all of them', async () => {
+  const cut = CASES.slice(0, CASES.indexOf('<testcase classname="tests.test_order.TestTotal" name="test_sum"'))
+  assert.throws(() => parseReport(cut, ['tests/test_order.py']), /unclosed <testsuite>/)
+  const d = project({ 'tests/test_order.py': SPEC, '.fake-report.xml': cut, '.fake-exit': '1' })
+  put(d, '.venv/bin/python', FAKE, 0o755)
+  assert.deepEqual(await pytestRunner(d, { adapter: 'pytest' })({ files: ['tests/test_order.py'] }), { ran: false, tests: [], broken: [], error: 'pytest wrote a report that is cut off' })
+})

@@ -49,7 +49,10 @@ function messageOf(el) {
 export function parseReport(xml, files, titlesOf = () => new Map()) {
   const tests = []
   const broken = []
-  for (const tc of descendants(parseXml(xml), 'testcase')) {
+  const doc = parseXml(xml)
+  // A report cut off while written would give part of the results as if they were all.
+  if (doc.unclosed) throw new Error(`unclosed <${doc.unclosed}>`)
+  for (const tc of descendants(doc, 'testcase')) {
     const name = tc.attrs.name ?? ''
     const classname = tc.attrs.classname ?? ''
     const fail = tc.children.find(c => c.name === 'failure')
@@ -205,7 +208,8 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
         if (!titles.has(f)) { try { titles.set(f, classTitles(readFileSync(join(root, f), 'utf8'))) } catch { titles.set(f, new Map()) } }
         return titles.get(f)
       }
-      const parsed = parseReport(xml, files.map(slash), titlesOf)
+      let parsed
+      try { parsed = parseReport(xml, files.map(slash), titlesOf) } catch { return { ran: false, tests: [], broken: [], error: `${LABEL} wrote a report that is cut off` } }
       // Exit 2 (interrupted) or 4 (usage error) with no tests: every file is broken.
       if (!parsed.tests.length && !parsed.broken.length && (r.code === 2 || r.code === 4)) {
         return { ran: true, tests: [], broken: files.map(f => ({ file: slash(f), message: errorLine(r.output) })) }
