@@ -1,5 +1,11 @@
 name: test
-on: [push, pull_request]
+# dev is ours alone: no pipeline runs there. test and main run it, and a pull request into either runs it before the merge.
+on:
+  push:
+    branches: [test, main]
+  pull_request:
+    branches: [test, main]
+  workflow_dispatch:
 jobs:
   core:
     runs-on: ubuntu-latest
