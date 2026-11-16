@@ -9,7 +9,7 @@ import { BACKEND_ADAPTERS, backendOf } from './backends.mjs'
 import { toForwardSlashes } from '../core/text.mjs'
 
 export const SIDES = Object.freeze(['frontend', 'backend', 'fullstack'])
-/** A ticket marked with one of these (title prefix in brackets, or label) is on that side. */
+/** Title prefix ([FE]) or label marks that put a ticket on a side. */
 export const DEFAULT_SIDES = Object.freeze({ frontend: ['FE'], backend: ['BE'], fullstack: ['FS'] })
 const SIDE_OF = { playwright: 'frontend', ...Object.fromEntries(BACKEND_ADAPTERS.map(a => [a, 'backend'])) }
 
@@ -52,16 +52,17 @@ export const unitRunnerOf = config => (config?.backend === 'vitest' || config?.r
 export const asAdapter = (config, adapter) => (config.adapter === adapter ? config
   : { ...config, adapter, frontend: adapter === 'playwright' ? adapter : undefined, backend: adapter === 'playwright' ? undefined : adapter })
 
-/** The side a ticket's title prefix or labels mark, or null when nothing does. Only for fullstack projects. */
+/** On a fullstack project: the side a ticket's title prefix or labels mark, or null. */
 export function ticketSide(config, ticket) {
   if (!isFullstack(config)) return stackOf(config)
-  // Each side not set in the config keeps its default marks (FE, BE, FS).
   const sides = { ...DEFAULT_SIDES, ...(config.sides ?? {}) }
-  // The mark opens the title as `[FE]`, `FE -`, `FE-` or `FE:` (a dash straight before a digit is a Jira key such as FE-12, not a mark).
-  const m = /^\s*(?:\[([^\]]+)\]|([A-Za-z]{1,10})\s*[-–—:](?!\d))/.exec(String(ticket?.summary ?? ''))
-  const prefix = (m?.[1] ?? m?.[2])?.trim().toLowerCase()
+  // `[FE]`, `[FE][BE]`, `FE -`, `FE-` or `FE:`. A dash before a digit is a Jira key (FE-12), not a mark.
+  const title = String(ticket?.summary ?? '')
+  const brackets = /^\s*((?:\[[^\]]+\]\s*)+)/.exec(title)?.[1]
+  const word = brackets ? null : /^\s*([A-Za-z]{1,10})\s*[-–—:](?!\d)/.exec(title)?.[1]
+  const prefixes = new Set((brackets ? [...brackets.matchAll(/\[([^\]]+)\]/g)].map(x => x[1]) : word ? [word] : []).map(p => p.trim().toLowerCase()))
   const labels = new Set((ticket?.labels ?? []).map(l => String(l).toLowerCase()))
-  const marked = SIDES.filter(s => (sides[s] ?? []).some(m => m.toLowerCase() === prefix || labels.has(m.toLowerCase())))
+  const marked = SIDES.filter(s => (sides[s] ?? []).some(m => prefixes.has(m.toLowerCase()) || labels.has(m.toLowerCase())))
   if (marked.includes('fullstack') || (marked.includes('frontend') && marked.includes('backend'))) return 'fullstack'
   return marked[0] ?? (['frontend', 'backend', 'fullstack'].includes(config.sides?.default) ? config.sides.default : null)
 }
