@@ -1,15 +1,13 @@
-// Inline SVG charts for the HTML report. Pure functions: numbers in, markup out. Colours come from the page's
-// CSS custom properties through the tone classes (t-pass, t-warn, t-fail, t-idle, t-accent), so both themes work.
+// Inline SVG charts. Colours come from the t-* tone classes so light and dark themes both work.
 import { empty, esc } from './page.mjs'
 
 const W = 360
 const num = v => (Number.isFinite(v) ? Math.round(v * 100) / 100 : 0)
 const cut = (s, n) => (String(s).length > n ? `${String(s).slice(0, n - 1)}…` : String(s))
 
-/** A tone's colour dot and name, for under a chart. */
 export const legend = items => `<ul class="legend">${items.map(([tone, name]) => `<li><i class="t-${tone}"></i>${esc(name)}</li>`).join('')}</ul>`
 
-/** Horizontal bars, one row per item { label, value, text?, tone? }. `marker` draws a dashed line at that value. */
+/** items: { label, value, text?, tone? }. `marker` draws a dashed line at that value. */
 export function hbar(items, { max = null, marker = null, name = 'Bar chart', emptyText = 'No data in this period.' } = {}) {
   if (!items.length) return empty(emptyText)
   const top = (max ?? Math.max(...items.map(i => i.value), 0)) || 1
@@ -26,10 +24,7 @@ export function hbar(items, { max = null, marker = null, name = 'Bar chart', emp
   return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(label)}"><title>${esc(name)}</title>${rows}${mark}</svg>`
 }
 
-/**
- * Stacked columns, one per item { label, parts: [{ tone, value, name? }] }. Labels show for about six columns,
- * so a long period stays readable on a phone.
- */
+/** items: { label, parts: [{ tone, value, name? }] }. Only ~6 labels shown so long periods fit on a phone. */
 export function columns(items, { name = 'Column chart', emptyText = 'No data in this period.', unit = '' } = {}) {
   const sums = items.map(i => i.parts.reduce((n, p) => n + p.value, 0))
   if (!items.length || !sums.some(s => s > 0)) return empty(emptyText)
@@ -55,7 +50,7 @@ export function columns(items, { name = 'Column chart', emptyText = 'No data in 
   return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(label)}"><title>${esc(name)}</title>${axis}${bars}</svg>`
 }
 
-/** A line over points { label, value } (values 0 to `max`, default 100). */
+/** points: { label, value } from 0 to `max`. */
 export function line(points, { max = 100, name = 'Line chart', emptyText = 'No data in this period.', unit = '%' } = {}) {
   if (!points.length) return empty(emptyText)
   const left = 30, base = 140, h = 162, plot = base - 10
@@ -70,7 +65,7 @@ export function line(points, { max = 100, name = 'Line chart', emptyText = 'No d
   return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(label)}"><title>${esc(name)}</title>${axis}<path class="line" d="${path}"/>${dots}</svg>`
 }
 
-/** A half-circle gauge for a 0 to 100 number; null shows "no data". `target` is shown as text and sets the tone. */
+/** 0-100 half gauge; null shows "no data". `target` sets the tone. */
 export function gauge(value, { label, target = null, unit = '%' } = {}) {
   const has = typeof value === 'number' && Number.isFinite(value)
   const v = has ? Math.max(0, Math.min(100, value)) : 0

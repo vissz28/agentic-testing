@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// node bin/seed.mjs target | load <file.sql>...   (the local mock-data loader of /quality-code:seed)
-// target: runs seed.target and prints the database it reaches. load: the same check, then each file is checked and loaded with
-// seed.apply, in order. Exit 0 done, 1 refused or a failed load, 2 a config or usage error.
+// Loads mock SQL into a local DB for /quality-code:seed; refuses any target that isn't local.
+// Exit 0 done, 1 refused or load failed, 2 config or usage error.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -35,7 +34,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   if (t.status !== 0) { printLine(`refused: seed.target failed (${t.error ? t.error.message : `exit ${t.status}`})${firstLine(t.stderr) ? `: ${firstLine(t.stderr)}` : ''}`); return 1 }
   const lines = String(t.stdout).split('\n').map(l => l.trim()).filter(Boolean)
   const target = parseTarget(lines.at(-1))
-  // Never echo the line itself: it may be a URL with a password.
+  // Don't echo the line: it may be a URL with a password.
   if (!target) { printLine('refused: seed.target must print the database as host[:port]/database or as a URL; it printed something else.'); return 1 }
   if (!isLocal(target.host)) { printLine(`refused: ${target.shown} is not a local database. Only localhost, 127.x.x.x, ::1 or a container name (one word, like postgres) are written.`); return 1 }
   printLine(`target: ${target.shown}`)

@@ -1,13 +1,12 @@
-// Is a ticket's story too long, unstructured or too thin? The script decides; the command only shows the offer.
+// Flags a story that is too long, too thin or unstructured.
 import { join } from 'node:path'
 import { normalise, stripComments } from './text.mjs'
 import { isTicketKey } from '../core/text.mjs'
 
-// Every threshold of the check, in one place.
 export const STORY_LIMITS = {
-  maxWords: 400,         // above this the description is too long to read at a glance
-  maxProseParagraphs: 6, // this many plain paragraphs with no heading at all is a wall of text
-  minWords: 30,          // below this there is too little to write tests from
+  maxWords: 400,
+  maxProseParagraphs: 6, // with no heading at all
+  minWords: 30,
 }
 
 const HEADING = /^\s{0,3}(#{1,6}\s|\*\*[^*]+\*\*\s*:?\s*$|[A-Z][A-Za-z ]{2,30}:\s*$)/
@@ -23,7 +22,6 @@ const SHAPE = [
 
 const wordCount = t => (t.match(/\S+/g) ?? []).length
 
-/** What the story looks like, and why (if at all) it should be rewritten. Pure: reads ticket.text only. */
 export function checkStory(ticket, limits = STORY_LIMITS) {
   const acField = String(ticket?.text?.acField ?? '')
   const text = normalise(stripComments(`${ticket?.text?.description ?? ''}\n${acField}`)).trim()
@@ -53,16 +51,15 @@ export const formatStoryCheck = c => (c.flagged
   ? `Story check: this story could be clearer (${c.reasons.map(r => WHY[r]).join('; ')}). ${c.words} words.`
   : `Story check: ok (${c.words} words).`)
 
-/** Which of the project's story sections (Goal / What / Acceptance criteria / Done when) a draft has. */
 export function storyShape(draft) {
   const t = normalise(draft)
   const have = SHAPE.filter(([, re]) => re.test(t)).map(([n]) => n)
   return { have, missing: SHAPE.map(([n]) => n).filter(n => !have.includes(n)) }
 }
 
-/** The ticket as it would be scored with the draft as its story: only the draft's own text counts. */
+/** The ticket scored on the draft alone. */
 export const draftTicket = (ticket, draft) => ({ ...ticket, text: { ...ticket.text, description: draft, acField: '' }, scenarios: [] })
 
-/** <ticketsDir>/<KEY>/story.md and the draft beside it, or null for a key that could leave its folder. */
+// null for an invalid key, so it can't escape the tickets folder.
 export const storyPath = (ticketsRoot, key) => (isTicketKey(key) ? join(ticketsRoot, key, 'story.md') : null)
 export const draftPath = (ticketsRoot, key) => (isTicketKey(key) ? join(ticketsRoot, key, 'story-draft.md') : null)

@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-// Frozen evals: the committed specs of a few tickets, checked against what they must keep saying, so
-// a regenerated test or an edited guide that softens one shows up. node bin/evals.mjs [folder] [--json]
-// A fixture is <folder>/<KEY>/expected.json, plus input.json with the frozen ticket (optional):
-//   expected.json  { minSpecs?, spec?, specMustMatch?: [re], specMustNotMatch?: [re], mustContain?: [text],
-//                    tests?: [{ key, mustContain?: [text] }], requirement?: KEY }   (the old backend and frontend shapes)
-//                  with requirement and an xray block, each test's Xray case must link that ticket
-//   input.json     { ticket: {…} | "<json>", candidates?: [value] }: the value check must pass on the specs
-// Exit 0 every fixture holds, 1 one drifted, 2 usage or config error, 3 no fixture.
+// Frozen evals: catches a regenerated spec or edited guide that softens what a ticket's specs must say.
+// Fixture: <folder>/<KEY>/expected.json (+ optional input.json). Exit 0 ok, 1 drift, 2 usage/config, 3 none.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, xrayOf } from '../lib/config/config.mjs'
@@ -23,7 +17,6 @@ import { readJson } from '../lib/core/files.mjs'
 export const EVALS_DIR = '.claude/quality-code/evals'
 const list = v => (Array.isArray(v) ? v : [])
 
-/** The problems of one fixture; none means it holds. */
 export function checkFixture(root, config, dir, key) {
   const want = readJson(join(dir, 'expected.json'))
   const k = want.key ?? key
@@ -45,7 +38,7 @@ export function checkFixture(root, config, dir, key) {
   if (want.requirement && x) {
     const cases = readCases(root, x)
     for (const t of list(want.tests).filter(t => t.key)) {
-      // Two tickets may each have a test of that name: the requirement's own case wins.
+      // Same test key in two tickets: prefer the requirement's own case.
       const hit = cases.find(c => c.key === t.key && c.ticket === want.requirement) ?? cases.find(c => c.key === t.key)
       if (!hit) problems.push(`${x.csv} has no Xray case for ${t.key}`)
       else if (hit.ticket !== want.requirement) problems.push(`${t.key}: its Xray case links ${hit.ticket || 'no ticket'}, not ${want.requirement}`)

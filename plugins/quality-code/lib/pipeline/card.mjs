@@ -29,14 +29,11 @@ function stepLine(step) {
 const BUG = /\b(?:bug|defect|difetto|incident)\b/i
 const isDone = (status, done) => {
   const s = String(status ?? '').trim().toLowerCase()
-  // A status that says the change was merged ("Merged in MB") is finished too, whatever the project calls it.
+  // Any status mentioning a merge ("Merged in MB") counts as done.
   return Boolean(s) && (done.some(d => d.trim().toLowerCase() === s) || /\bmerg/.test(s))
 }
 
-/**
- * Why a red test may be fine, or not, by what the ticket is: red is expected only for a Bug whose fix is not merged yet.
- * Without a ticket (a suite run) nothing is said about bugs.
- */
+/** Red is expected only for a Bug whose fix isn't merged yet. */
 export function redAdvice({ issueType = null, status = null, done = DEFAULT_DONE_STATUSES } = {}) {
   if (!issueType) return 'Either the code does not do what the ticket says, or the test is wrong.'
   if (!BUG.test(issueType)) return `The ticket is a ${issueType}, not a bug: the code does not do what it says, or the test is wrong.`
@@ -44,7 +41,7 @@ export function redAdvice({ issueType = null, status = null, done = DEFAULT_DONE
   return "For a bug whose fix isn't merged yet, red is the expected result."
 }
 
-/** One fix per failing check, the deciding one first: a whole-suite run can fail several checks at once. */
+/** One fix per failing check, the deciding one first. */
 function whatToDo(outcome, ctx = {}) {
   if (outcome.verdict === 'green') return []
   const steps = outcome.steps
@@ -83,10 +80,8 @@ function fixFor(step, ctx) {
   }
 }
 
-/** One fix on one line; several as a list, each named by its check. */
 const todoLines = (todo, bullet) => todo.length === 1 ? [todo[0].text] : todo.map(t => `${bullet}${label(t.check)}: ${t.text}`)
 
-/** Problems in the tests and red tests are two messages: fix the tests, and look at the code. */
 function todoSections(todo) {
   const red = todo.filter(t => t.check === 'tests')
   const fix = todo.filter(t => t.check !== 'tests')
@@ -94,7 +89,6 @@ function todoSections(todo) {
 }
 
 const ALSO_RED = 'Some tests also fail: the code may not do what the ticket says, or the test is wrong.'
-/** What the verdict means, in words; a checks-failed run with red tests says both. */
 function verdictText(outcome) {
   const red = outcome.steps.some(x => x.check === 'tests' && x.status === 'fail')
   if (outcome.verdict !== 'checks_failed') return [VERDICT_TEXT[outcome.verdict]].filter(Boolean)
@@ -102,12 +96,12 @@ function verdictText(outcome) {
 }
 const capital = t => `${t[0].toUpperCase()}${t.slice(1)}`
 
-// A probe the ticket did not ask for: the writing guides name it "Extra: …" (old backend specs: "edge …").
+// Probes the ticket didn't ask for are titled "Extra: …" ("edge …" in older backend specs).
 const EXTRA = /^\s*(?:extra\b|edge\b)/i
 const MARK = { passed: '✓', failed: '✗', skipped: '–' }
 const clip = (s, n = 120) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
-/** What a red test recorded about where it stopped: the step, the locator, the page. */
+/** Where a red test stopped: step, locator, page. */
 export function contextLines(c, pad = '') {
   if (!c) return []
   return [
@@ -119,7 +113,7 @@ export function contextLines(c, pad = '') {
   ]
 }
 
-/** One line per test, the ticket's first and the extra probes after; a red one says why. */
+/** Ticket tests first, extra probes after. */
 function testLines(list) {
   if (!Array.isArray(list) || !list.length) return []
   const row = (t, pad) => [`${pad}${MARK[t.status] ?? '–'} ${t.title}${t.status === 'failed' && t.message ? `: ${clip(t.message)}` : ''}`, ...(t.status === 'failed' ? contextLines(t.context, `${pad}    `) : [])].join('\n')
@@ -129,11 +123,11 @@ function testLines(list) {
   return [...(own.length ? ['  From the ticket', ...own.map(t => row(t, '    '))] : []), '  Extra (not in the ticket)', ...extra.map(t => row(t, '    '))]
 }
 
-// A ticket Jira calls finished (jira.doneStatuses) while its tests are red: the bug is still on this branch.
+// Jira says done (jira.doneStatuses) but the tests are red: the bug is still on this branch.
 export const finishedButRed = (outcome, status, done = DEFAULT_DONE_STATUSES) =>
   outcome.verdict === 'tests_red' && done.some(d => d.trim().toLowerCase() === String(status ?? '').trim().toLowerCase())
 
-/** The mark a run forced past the readiness gate carries ("continue anyway"). Red in a terminal. */
+/** Banner for a run forced past the readiness gate ("continue anyway"). */
 export function riskLine({ score, bar }, color = false) {
   const text = `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (${score} points, needs ${bar})`
   return color ? `\x1b[31m${text}\x1b[0m` : text
@@ -172,7 +166,7 @@ const VERDICT_TEXT = {
   not_verified: 'something could not run, so nothing was proved. This is never a pass.',
 }
 
-/** The developer log: everything the card says, with every finding and number, for a person to read later. */
+/** Markdown log: the card plus every finding and number. */
 export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = null, issueType = null, doneStatuses = DEFAULT_DONE_STATUSES, date = new Date(), rules = null } = {}) {
   const md = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']

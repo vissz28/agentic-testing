@@ -1,14 +1,12 @@
-// Cleans the plugin's own local cache: the progress, context and saved-language files under
-// <Claude folder>/quality-code/progress/<slug-hash>/. Nothing else is ever listed or deleted: not the
-// config, tickets, specs or audit log. Every path is checked to sit inside the cache folder (real path, no
-// symlink escape, no `..`) before it is touched; a symlink is skipped, never followed or removed.
+// Deletes the plugin's local cache (<Claude folder>/quality-code/progress/) and nothing else.
+// Every path must resolve inside the cache folder; symlinks are skipped, never followed or removed.
 import { existsSync, lstatSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
 import { isAbsolute, join, relative } from 'node:path'
 import { dirOf, short, slug } from './progress.mjs'
 
 const inside = (base, p) => { const r = relative(base, p); return r !== '' && !r.startsWith('..') && !isAbsolute(r) }
 
-// The real cache folder, or null when it does not exist or is itself a link (a link could lead anywhere).
+// null when missing or a symlink (a link could point anywhere).
 function realBase(env) {
   const base = dirOf(env)
   try {
@@ -39,7 +37,7 @@ function walk(base, dir, files, skipped) {
   }
 }
 
-/** What would be deleted: this project's cache, or every project's with `all`. Touches nothing. */
+/** Dry run: this project's cache, or every project's with `all`. */
 export function listCache(root, { all = false, env = process.env } = {}) {
   const base = realBase(env)
   const empty = { ok: true, all, dir: dirOf(env), projects: [], files: 0, bytes: 0, skipped: 0, _paths: [], _dirs: [] }
@@ -69,7 +67,7 @@ function pruneEmpty(base, dir) {
   if (inside(base, dir) && readdirSync(dir).length === 0) rmdirSync(dir)
 }
 
-/** Delete exactly what `listCache` shows, then the project folders it leaves empty. */
+/** Deletes exactly what listCache shows, then prunes empty folders. */
 export function deleteCache(root, { all = false, env = process.env } = {}) {
   const l = listCache(root, { all, env })
   const base = realBase(env)

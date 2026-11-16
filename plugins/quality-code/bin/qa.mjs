@@ -1,18 +1,6 @@
 #!/usr/bin/env node
-// What /quality-code:qa leaves to a script: the JQL of the tester's runs, the progress of a run (kept between sessions),
-// where the screenshot of a failing step goes, which status name a verdict maps to, and which stories are ready to retest.
-// The agent follows the test steps in the browser and talks to Jira and Xray; every decision that is a rule is made here.
-//   node bin/qa.mjs config
-//   node bin/qa.mjs jql runs | jql watch
-//   node bin/qa.mjs app get | app set <url>
-//   node bin/qa.mjs state show <RUN> [--tests K1,K2,...]
-//   node bin/qa.mjs state record <RUN> <TEST> ok|ko|blocked|skipped [--note TEXT] [--step N] [--evidence PATH] [--defect KEY] [--run-id ID] [--xray set] [--story KEY]
-//   node bin/qa.mjs state close <RUN> ko|ok|open | state reset <RUN>
-//   node bin/qa.mjs evidence <RUN> <TEST> [--step N]
-//   node bin/qa.mjs pick ok|ko|blocked --from "A,B,C"            (an Xray status name for a verdict)
-//   node bin/qa.mjs pick run-ko|run-done --from "A,B,C"          (a Jira transition for a run or story)
-//   node bin/qa.mjs watch fresh --found K1,K2
-// Exit 0 done, 2 usage or config error. Progress lives in <audit folder>/qa/ (ignored by git); in the chat place, in a temp folder.
+// Deterministic helpers for /quality-code:qa: run JQL, run progress, evidence paths, status picks, retest watch.
+// Exit 0 done, 2 usage or config error. State lives in <audit folder>/qa/, or a temp dir when the place is chat.
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -26,13 +14,12 @@ const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
 const TEST_ID = /^[A-Za-z0-9_.-]{1,64}$/
 const USAGE = 'usage: qa.mjs config | jql runs|watch | app get|set <url> | state show|record|close|reset <RUN> … | evidence <RUN> <TEST> [--step N] | pick ok|ko|blocked|run-ko|run-done --from "A,B" | watch fresh --found K1,K2'
 
-/** The JQL of the tester's open test executions. */
 export function runsJql(qa) {
   const types = qa.executionTypes.map(t => `"${t}"`).join(', ')
   return `assignee = currentUser() AND issuetype in (${types}) AND statusCategory != Done${qa.sprint === 'open' ? ' AND sprint in openSprints()' : ''} ORDER BY Rank ASC, updated DESC`
 }
 
-/** The tests answered one after the other: how many blocked tests end the list, and whether the run should stop. */
+/** Counts trailing blocked verdicts; suggests stopping once that hits blockedStop. */
 export function stopCheck(tests, blockedStop) {
   const order = Object.values(tests).sort((a, b) => b.n - a.n)
   let blockedInARow = 0
@@ -40,7 +27,7 @@ export function stopCheck(tests, blockedStop) {
   return { blockedInARow, stopSuggested: blockedStop > 0 && blockedInARow >= blockedStop }
 }
 
-/** One Xray status name for a verdict, from the names the Xray has: exactly one match is a pick, else ask. */
+/** Picks only on exactly one matching Xray status, otherwise asks. */
 export function pickXray(verdict, names) {
   const re = { ok: /^pass/i, ko: /^fail/i, blocked: /^block/i }[verdict]
   let hits = names.filter(n => re.test(n))
@@ -48,7 +35,7 @@ export function pickXray(verdict, names) {
   return hits.length === 1 ? { pick: hits[0], ask: false, candidates: hits, source: 'name' } : { pick: null, ask: true, candidates: hits.length ? hits : names, source: null }
 }
 
-/** One Jira transition for a run or story: the configured name when the issue offers it, else the one name that reads as KO. */
+/** Configured transition if the issue offers it, else a single KO-looking name, else ask. */
 export function pickTransition(kind, names, statuses) {
   const own = kind === 'run-ko' ? statuses.ko : statuses.done
   const exact = own && names.find(n => n.toLowerCase() === own.toLowerCase())
@@ -68,7 +55,7 @@ function write(dir, name, value) {
   writeFileSync(join(dir, name), `${JSON.stringify(value, null, 2)}\n`)
 }
 
-/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+// Any thrown error (e.g. a broken saved file) exits 2 with its message, not a stack trace.
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
   try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`qa.mjs: ${e?.message ?? e}\n`); return 2 }
 }
@@ -196,7 +183,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
       if (!['ko', 'ok', 'open'].includes(outcome) || rest.length > 2) return err('usage: qa.mjs state close <RUN> ko|ok|open')
       s.closed = outcome
       write(dir, `${run}.json`, s)
-      // A story that fails again is watched again: forget that its last "ready to retest" was told.
+      // Failed again: drop it from seen so the next "ready to retest" is reported.
       const w = tryReadJson(join(dir, 'watch.json'), null)
       if (outcome === 'ko' && s.story && w?.seen?.includes(s.story)) write(dir, 'watch.json', { seen: w.seen.filter(k => k !== s.story) })
       out('saved')

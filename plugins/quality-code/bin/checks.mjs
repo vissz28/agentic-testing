@@ -1,5 +1,4 @@
-// Entry point for every check: node bin/checks.mjs <check> [args] [--json]
-// Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
+// Runs one check: checks.mjs <check> [args] [--json]. Exit 0 pass, 1 fail, 2 usage/config, 3 not run.
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/config/config.mjs'
@@ -54,7 +53,7 @@ function parse(argv) {
 async function hook(sessionRoot, stdin) {
   let payload = {}
   try { payload = JSON.parse(stdin || '{}') } catch { return 0 }
-  // The project the file is in (a package of a monorepo with its own config), else the session's.
+  // A monorepo package with its own config wins over the session root.
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
   const c = loadConfig(root)
@@ -68,7 +67,6 @@ async function hook(sessionRoot, stdin) {
   return 0
 }
 
-/** run start --key KEY | run stop | run status [--json] */
 function runCmd(root, rest, err) {
   const [sub, ...more] = rest
   let a
@@ -105,7 +103,6 @@ const readStdin = () => new Promise(done => {
   process.stdin.on('error', () => done(''))
 })
 
-/** A fullstack project: each side's specs in their own dialect, one result. */
 async function fullstackCheck(name, check, args, config, root) {
   const side = adapter => ({ config: asAdapter(config, adapter), dialect: dialectFor(runnerOf(config, adapter)), root })
   if (check.specs === 'none') return check.run(args, side(backendOf(config)))
@@ -115,11 +112,10 @@ async function fullstackCheck(name, check, args, config, root) {
   return parts.length === 1 ? parts[0].steps[0] : mergeSides(parts)[0]
 }
 
-/** One check over a project's specs: each side of a fullstack project in its own dialect. */
+/** Fullstack projects run each side in its own dialect. */
 export const checkProject = (name, args, config, root) =>
   isFullstack(config) ? fullstackCheck(name, CHECKS[name], args, config, root) : CHECKS[name].run(args, { config, dialect: dialectFor(runnerOf(config)), root })
 
-/** A result as lines: the verdict, then one line per finding. */
 export function formatResult(r) {
   const lines = [`${ICON[r.status]} ${r.check}: ${r.summary}`]
   for (const f of r.findings) lines.push(`   ${[f.file, f.test && `'${f.test}'`].filter(Boolean).join(' › ')}${f.kind ? ` [${f.kind}]` : ''}${f.detail ? `: ${f.detail}` : ''}`)

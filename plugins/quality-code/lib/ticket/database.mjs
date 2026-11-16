@@ -1,6 +1,4 @@
-// Does a backend ticket or its target touch tables, queries or migrations? Then /quality-code:spec
-// proposes database tests (guides/database-tests.md). A word list, no AI: a plain word match, and the
-// person can drop the Database section from the plan card.
+// Word match on ticket text and target path; if it hits, /quality-code:spec proposes database tests.
 import { toForwardSlashes } from '../core/text.mjs'
 
 const TEXT = [
@@ -22,10 +20,6 @@ const PATH = [
   /\.(?:repository|entity)\.(?:ts|js)$/,
 ]
 
-/**
- * @param {{text?: string, target?: string}} input the ticket text and the target path
- * @returns {{touches: boolean, reasons: string[]}} which words or path matched
- */
 export function touchesData({ text = '', target = '' } = {}) {
   const reasons = []
   for (const re of TEXT) {

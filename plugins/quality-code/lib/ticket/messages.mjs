@@ -1,22 +1,19 @@
-// Every text a ticket author reads, as neutral built-in defaults. A project overrides any field of
-// any key through `config.messages`; a story can override again through `config.messages.story`.
+// Text shown to ticket authors. Overridable per key via config.messages, and for stories via config.messages.story.
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
-// Issue types written to the Bug template when the config names none: Jira schemes call a bug a
-// Defect, an Incident, a Problem or an Anomalia as well.
+// Fallback when jira.bugTypes is unset; Jira schemes use many names for a bug.
 const BUG_TYPES = /bug|defect|incident|problem|anomal|difett/i
 
-// Issue types that group work and are never tested themselves (an epic holds stories). Jira schemes add Initiative, Theme and the like.
+// Grouping types: never tested themselves.
 const CONTAINER_TYPES = /^(?:epic|initiative|theme|epica|iniziativa)$/i
 
-/** An epic or another grouping type: it has no acceptance criteria of its own, so it is refused, not scored. */
+/** Epics and the like have no AC of their own, so they're refused, not scored. */
 export const isContainerType = issuetype => CONTAINER_TYPES.test(String(issuetype ?? '').trim())
 
-/** The refusal line for a container ticket. */
 export const containerRefusal = (key, issuetype) => `${key ?? 'This ticket'} is ${/^[aeiou]/i.test(String(issuetype).trim()) ? 'an' : 'a'} ${String(issuetype).trim().toLowerCase()}: pass one of its stories or tasks, not the ${String(issuetype).trim().toLowerCase()}.`
 
-/** Which template this issue type should have been written to: jira.bugTypes when set (any case). */
+/** 'bug' or 'story'. jira.bugTypes wins when set (case-insensitive). */
 export function templateFor(issuetype, config = null) {
   const name = String(issuetype ?? '').trim()
   const types = config?.jira?.bugTypes
@@ -164,7 +161,7 @@ function defaults(config) {
   }
 }
 
-/** Story wording for the blocks that are Bug language. */
+// Story wording for the Bug-specific blocks.
 const STORY = {
   steps: {
     title: 'User story',
@@ -192,10 +189,7 @@ const STORY = {
   },
 }
 
-/**
- * Per key: {title, missing, add, question, example, label}. Built-in defaults, then
- * config.messages[key] field by field, then (stories only) config.messages.story[key].
- */
+/** Merge order: defaults, config.messages[key], then config.messages.story[key] for stories. */
 export function messagesFor(config, kind = 'bug') {
   const story = kind === 'story'
   const base = defaults(config)
@@ -213,7 +207,6 @@ export function messagesFor(config, kind = 'bug') {
   return out
 }
 
-/** The configured label for a rubric key, or undefined so the rubric's own label stays. */
 export function labelOverride(config, issuetype, key) {
   const cfg = isObj(config.messages) ? config.messages : {}
   const story = templateFor(issuetype, config) === 'story'
@@ -222,7 +215,6 @@ export function labelOverride(config, issuetype, key) {
   return typeof fromStory === 'string' ? fromStory : typeof fromKey === 'string' ? fromKey : undefined
 }
 
-/** The body used when no block is shown: config.messages.refuseFallback, else the neutral default. */
 export function refuseFallback(config) {
   const custom = isObj(config.messages) ? config.messages.refuseFallback : undefined
   return typeof custom === 'string' ? custom : 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.'

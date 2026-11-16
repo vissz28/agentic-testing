@@ -1,5 +1,4 @@
-// Type-check step: the project's own tsc, --noEmit, with the tsconfig of the vitest or playwright block
-// plus the specs, so a spec its include leaves out is still checked. Only an error in a spec fails.
+// Type-check step: the project's tsc --noEmit on its tsconfig plus the specs; only spec errors fail.
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -19,10 +18,9 @@ const TS = /\.(ts|tsx|mts|cts)$/
 const CAP = 1 << 20
 
 /**
- * The tsconfig tsc runs on: the project's own (its options, include and exclude are inherited) with the
- * specs added. Written next to it, so its relative paths resolve the same. The specs are relative too: an
- * absolute path under a symlinked root makes tsc load a spec twice, the second under a ../ path. composite
- * is off: it would refuse a spec its include does not list.
+ * Extends the project's tsconfig and lives next to it so relative paths resolve the same.
+ * Spec paths stay relative: absolute ones under a symlinked root make tsc load a spec twice.
+ * composite is off, or tsc rejects specs outside its include.
  * ponytail: a base with no include and no files (tsc's default: every file) then only gets the specs and what they import.
  */
 export function scopedTsconfig(tsconfig, specs) {
@@ -33,14 +31,10 @@ const readTsconfig = (root, p) => {
   // ponytail: comments and trailing commas only; a "," before "]" inside a string value would be dropped.
   try { return JSON.parse(stripCodeComments(readFileSync(join(root, p), 'utf8')).replace(/,(\s*[}\]])/g, '$1')) } catch { return null }
 }
-// A tsconfig include entry: a glob, or a file or a folder (everything under it).
+// An include entry is a glob, a file, or a folder (everything under it).
 const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${entry.replace(/\/+$/, '')}/`, path))
 
-/**
- * The tsconfig to extend. A solution-style one (no files of its own, only references, as in the Vite
- * templates) checks nothing and has no compiler options: the referenced one whose include covers the
- * most specs is the one the project's own build checks them with.
- */
+/** A solution-style tsconfig (only references, as in Vite templates) checks nothing: pick the reference covering most specs. */
 export function ownTsconfig(root, tsconfig, specs) {
   const base = readTsconfig(root, tsconfig)
   if (!base?.references?.length || !(base.files?.length === 0 || base.include?.length === 0)) return tsconfig
@@ -96,7 +90,7 @@ export function readTsc(out, code, specs, truncated = false, isNew = null) {
   return result('types', 'pass', `compiles; ${errors.length} error(s) in other files, not in the specs`, [], { applicable: true, otherErrors: errors.length })
 }
 
-/** The nearest tsconfig.json above a spec, up to the project root (a workspace's own); null when none. */
+/** Nearest tsconfig.json above the spec, up to root. */
 export function nearestTsconfig(root, spec) {
   let dir = posix.dirname(toForwardSlashes(spec))
   for (;;) {
@@ -109,11 +103,9 @@ export function nearestTsconfig(root, spec) {
 
 const WORST = { fail: 2, not_run: 1, pass: 0 }
 
-/**
- * The type-check. With a tsconfig named in the config (vitest.tsconfig, playwright.tsconfig) or one at the root, every spec goes to it.
- * With neither, each spec goes to the nearest tsconfig.json above it, so a monorepo with no tsconfig at its root is checked workspace by workspace.
- */
+/** Configured or root tsconfig if any; otherwise each spec uses its nearest one (monorepo without a root tsconfig). */
 export async function typeCheck(root, config, specs, opts = {}) {
+  // opts.range: lines committed on the branch count as this change too.
   const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
   if (adapterOptions(config).tsconfig || cypress || existsSync(join(root, 'tsconfig.json'))) return typeCheckOne(root, config, specs, opts)
   const tsSpecs = specs.filter(s => TS.test(s))
@@ -145,7 +137,7 @@ function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config
   const tsconfig = ownTsconfig(root, configured, tsSpecs)
   return new Promise(done => {
     const tmp = mkdtempSync(join(tmpdir(), 'qc-tsc-'))
-    // mut-tmp-*: the name setup already git-ignores, so a killed run leaves nothing to commit.
+    // mut-tmp-* is already git-ignored by setup, so a killed run leaves nothing to commit.
     const scoped = join(dirname(tsconfig), `mut-tmp-qc-tsconfig-${randomBytes(4).toString('hex')}.json`)
     let out = ''
     let truncated = false

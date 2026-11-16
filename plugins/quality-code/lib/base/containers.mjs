@@ -1,7 +1,4 @@
-// Real databases for the integration tests: what setup adds to a backend that uses Postgres, MySQL,
-// MongoDB or Redis and has no Testcontainers yet. One entry per database, one block per backend
-// (Vitest, pytest, Go, .NET): how its driver is found, how Testcontainers is installed, and the files
-// that start the databases. JUnit is left out: it has no command that adds a dependency.
+// Testcontainers scaffolding for backends that use Postgres/MySQL/MongoDB/Redis. No JUnit: it has no add-dependency command.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { BACKENDS } from '../stacks/backends.mjs'
@@ -9,8 +6,7 @@ import { escapeRegExp, toForwardSlashes } from '../core/text.mjs'
 
 export const CONTAINER_BACKENDS = Object.freeze(['vitest', 'pytest', 'go', 'dotnet'])
 
-// The drivers each backend's code uses for a database: npm packages, Python distributions, Go module
-// paths, NuGet packages (a prefix: Npgsql covers Npgsql.EntityFrameworkCore.PostgreSQL).
+// NuGet drivers match by prefix: Npgsql covers Npgsql.EntityFrameworkCore.PostgreSQL.
 const DATABASES = [
   {
     name: 'postgres', label: 'Postgres', image: 'postgres:17-alpine', prisma: 'postgresql',
@@ -53,7 +49,7 @@ function pythonDeps(root) {
 }
 const hasPython = (text, name) => new RegExp(`(?<![\\w.-])${escapeRegExp(name)}(?![\\w.-])`).test(text)
 
-// The .NET project files, at most three folders down: bin, obj and dot folders skipped.
+// Skips bin, obj and dot folders.
 function dotnetProjects(root, depth = 3, rel = '') {
   let entries = []
   try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return [] }
@@ -63,7 +59,6 @@ function dotnetProjects(root, depth = 3, rel = '') {
 }
 const hasNuget = (text, name) => new RegExp(`Include="${escapeRegExp(name)}(?=[".])`, 'i').test(text)
 
-/** What the backend's code depends on, read once: the text the drivers are looked for in, and per backend the extras it needs. */
 function backendDeps(root, backend, deps) {
   if (backend === 'vitest') return { has: n => n in deps, containers: Object.keys(deps).some(d => d === 'testcontainers' || d.startsWith('@testcontainers/')) }
   if (backend === 'pytest') {
@@ -83,12 +78,11 @@ function backendDeps(root, backend, deps) {
 function prismaSchema(root) {
   const schema = read(root, 'prisma/schema.prisma')
   const provider = /datasource\s+\w+\s*\{[^}]*\bprovider\s*=\s*"(\w+)"/.exec(schema)?.[1] ?? null
-  // Prisma 7 reads the address in prisma.config.ts, earlier ones in the schema: env("DATABASE_URL").
+  // Prisma 7 keeps the URL in prisma.config.ts, older versions in the schema.
   const env = /\benv\(\s*["'](\w+)["']\s*\)/.exec(`${schema}\n${['ts', 'mts', 'js', 'mjs'].map(e => read(root, `prisma.config.${e}`)).join('\n')}`)?.[1] ?? 'DATABASE_URL'
   return { provider, env, migrations: existsSync(join(root, 'prisma/migrations')) }
 }
 
-/** The databases the backend uses, in DATABASES order, each with its backend's block (and, on Vitest, the Prisma schema's address variable). */
 export function databasesOf(root, backend, deps = {}, found = backendDeps(root, backend, deps)) {
   const prisma = backend === 'vitest' && ('prisma' in deps || '@prisma/client' in deps) ? prismaSchema(root) : null
   return DATABASES.filter(d => d[backend].drivers.some(found.has) || (prisma && d.prisma === prisma.provider))
@@ -97,7 +91,7 @@ export function databasesOf(root, backend, deps = {}, found = backendDeps(root, 
 
 const DEFAULT_FOLDERS = { vitest: 'test/integration/', pytest: 'tests/integration/' }
 
-/** The integration folder: the team's own integration layer, else the default (.NET: inside its test project; Go: none, its tests sit beside the code). */
+// Go has none: its tests sit beside the code.
 function integrationFolder(backend, config, found) {
   if (backend === 'go') return null
   const own = config?.[backend]?.layers?.find(l => l.name === 'integration')?.folder
@@ -108,10 +102,8 @@ function integrationFolder(backend, config, found) {
 const GO_HELPER = 'internal/testdb/testdb.go'
 
 /**
- * What setup adds to a backend that uses a database and has no Testcontainers yet: the install
- * command, the databases, the integration folder and the files (with a note or a problem to show).
- * Null when it uses none, or has Testcontainers already: then its own helpers are the ones to use.
- * cmd holds the JavaScript package manager's commands (add, exec) and whether the code is TypeScript.
+ * null when the backend uses no database or already has Testcontainers (its own helpers win).
+ * cmd: the JS package manager's add/exec commands and whether the code is TypeScript.
  */
 export function containersScaffold(root, backend, { deps = {}, config = null, cmd = {} } = {}) {
   if (!CONTAINER_BACKENDS.includes(backend)) return null
@@ -126,7 +118,6 @@ export function containersScaffold(root, backend, { deps = {}, config = null, cm
   return { ...base, folder, ...plan(root, backend, dbs, folder, found, cmd) }
 }
 
-// The install command and the files, per backend.
 function plan(root, backend, dbs, folder, found, cmd) {
   if (backend === 'vitest') {
     const ext = cmd.ts ? 'ts' : 'js'
@@ -143,11 +134,7 @@ function plan(root, backend, dbs, folder, found, cmd) {
   return { install: dbs.map(d => `dotnet add ${found.test.path} package ${d.pkg}`).join(' && '), files: [`${folder}TestDatabases.cs`] }
 }
 
-/**
- * The config and the files for the integration tests on real databases. The config gets the
- * integration layer (Go: none), and on Vitest its folder runs under its own config, built on base
- * (the project's Vitest config, or null). The errors when the backend cannot get them.
- */
+/** On Vitest the integration folder gets its own config built on `base` (the project's, or null). */
 export function containersWrite(root, backend, config, { deps = {}, base = null, cmd = {} } = {}) {
   if (!CONTAINER_BACKENDS.includes(backend)) return { errors: [`containersScaffold: only for a Vitest, pytest, Go or .NET backend (this one is ${BACKENDS[backend]?.label ?? backend})`] }
   const found = backendDeps(root, backend, deps)
@@ -159,7 +146,6 @@ export function containersWrite(root, backend, config, { deps = {}, base = null,
   return { folder, config: withIntegrationLayer(config, backend, folder, cmd.ts), files: filesOf(backend, dbs, { folder, base, found, ...cmd }) }
 }
 
-/** The config with the integration layer in its backend's block; on Vitest its folder runs under the integration config, the rest as before. */
 export function withIntegrationLayer(config, backend, folder, ts = false) {
   if (!folder) return config
   const block = config[backend] ?? {}
@@ -171,7 +157,6 @@ export function withIntegrationLayer(config, backend, folder, ts = false) {
   return { ...config, vitest: { ...block, layers, configs } }
 }
 
-/** [path, text] per file setup writes for the backend. */
 export function filesOf(backend, dbs, opts) {
   return { vitest: vitestFiles, pytest: pytestFiles, go: goFiles, dotnet: dotnetFiles }[backend](dbs, opts)
 }

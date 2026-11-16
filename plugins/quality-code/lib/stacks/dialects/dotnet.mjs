@@ -1,76 +1,59 @@
-// .NET syntax (C#: xUnit, NUnit, MSTest, FluentAssertions), as the backend checks read it.
-// A test is a method under a test attribute; a group is a test class. The ticket's block is the class
-// right under a "// <KEY> <summary>" comment line (attributes and other comment lines may sit between):
-// C# has no class title, so the comment is the title the checks and the runner read.
+// .NET dialect (xUnit, NUnit, MSTest, FluentAssertions). C# classes have no title, so a
+// "// <KEY> <summary>" comment right above the test class is the title the checks and runner read.
 import { collapseSpaces } from '../../core/text.mjs'
 
 export const name = 'dotnet'
 
-// The words in front of "class": access, sealed, partial, … as a C# file writes them.
+// Modifiers before "class": public, sealed, partial, …
 const MODS = String.raw`(?:(?:public|internal|private|protected|sealed|static|abstract|partial|file|unsafe|new)\s+)*`
 const CLASS = String.raw`${MODS}(?:class|record(?:\s+class)?)\s+`
-// One line between a key comment and its class: an attribute, a comment, or nothing.
+// Allowed between a key comment and its class: an attribute, a comment, or a blank line.
 const BETWEEN = String.raw`[ \t]*(?:\[[^\n]*\]|\/\/[^\n]*)?[ \t]*\r?\n`
-// A ticket key at the start of the comment: ABC-123.
 const KEY_START = String.raw`(?=[A-Z][A-Z0-9_]*-\d+\b)`
 
-/**
- * Top-level group: a test class. m[1] = modifier chain (none in C#), m[3] = title: the key comment
- * above the class (from the key to the end of its line), else the class name. m[4] = the class name
- * when a key comment titles it.
- */
+/** Test class. m[3] = key comment above it, else the class name; m[4] = class name when keyed. */
 export const groupRe = new RegExp(String.raw`(?<![^\n])[ \t]*()()(?:\/\/\/?[ \t]*(?:<summary>[ \t]*)?${KEY_START}|${CLASS})([^\n]*?)(?:(?<=\/\/[^\n]*)[ \t]*(?:<\/summary>)?[ \t]*\r?\n(?:${BETWEEN})*?[ \t]*${CLASS}(\w+)|(?<!\/\/[^\n]*)(?=\W))`, 'gm')
 
-// The test attributes of xUnit, NUnit and MSTest (with or without the Attribute suffix).
+// xUnit, NUnit and MSTest test attributes, with or without the Attribute suffix.
 const TEST_ATTR = String.raw`(?<![\w."])(?:Fact|Theory|SkippableFact|SkippableTheory|Test|TestCase|TestCaseSource|TestMethod|DataTestMethod)(?:Attribute)?\b(?!\s*=)`
 // One attribute line, with the indent of the next line.
 const ATTR_LINE = String.raw`\[[^\n]*\][ \t]*(?:\/\/[^\n]*)?\r?\n[ \t]*`
-// A method declaration after its attributes: modifiers, a return type, the name.
+// Modifiers, return type, name.
 const METHOD = String.raw`(?:(?:public|private|protected|internal|static|async|override|virtual|new|unsafe)\s+)*[\w.]+(?:<[^\n]*?>)?\??\s+(\w+)\s*(?:<[^\n>]*>)?\s*\(`
 
-/**
- * A test mark: the attribute block of a test method, from its first attribute line. m[1] = Skip or
- * Ignore when the test does not run (modOf makes it "skip"), m[3] = the method name: the title the
- * runner reports, a theory's cases included.
- */
+/** A test method's attribute block. m[1] = Skip/Ignore (modOf maps it to "skip"), m[3] = method name. */
 const testRe = new RegExp(String.raw`(?<![^\n])[ \t]*(?<!\][ \t]*(?:\/\/[^\n]*)?\r?\n[ \t]*)(?=\[)(?=(?:(?:${ATTR_LINE})*?[^\n]*?((?<![\w.])Skip(?=\s*=)|(?<=[[,]\s*)Ignore\b))?)(?=(?:${ATTR_LINE})*?\[[^\n]*?${TEST_ATTR})(?:${ATTR_LINE})+()${METHOD}`, 'g')
 
-/** The mark's modifier as the checks know it: a Skip = "…" or an [Ignore] is a skip. */
+/** Skip = "…" or [Ignore] is a skip. */
 export const modOf = raw => (raw === 'Skip' || raw === 'Ignore' ? 'skip' : raw || null)
 
 export const honesty = {
-  // A removed test attribute, test method or test class.
   removedDecl: new RegExp(String.raw`\[[^\n]*${TEST_ATTR}|(?<![\w.])(?:Test)?Fixture\b|\[TestClass\b|^\s*${CLASS}\w+`),
-  // A removed assertion: an Assert call or a FluentAssertions Should().
   assertRe: /(?<![\w.])(?:Classic|String|Collection)?Assert\.\w+|\.Should\s*\(/,
-  // A newly added skip: Skip = "…", [Ignore], [Ignore("…")].
+  // Skip = "…", [Ignore], [Ignore("…")].
   skipRe: /(?<![\w.])Skip\s*=|\[\s*(?:[^\]\n]*,\s*)?Ignore\b/,
   forgiveMoves: false,
   anchorTags: false,
 }
 
-// The value check: a field the ticket names must be read in an assertion (unit tests read fields). The
-// call names whose arguments hold the expected value, as expected.mjs reads them (".Name(").
+// Fields the ticket names must be read in an assertion. Calls whose args hold the expected value (".Name(").
 export const expected = {
   fieldNames: true,
   matchers: ['Equal', 'AreEqual', 'StrictEqual', 'Equivalent', 'That', 'EqualTo', 'EquivalentTo', 'Contains', 'StartsWith', 'EndsWith', 'Matches',
     'InRange', 'Throws', 'ThrowsAsync', 'ThrowsAny', 'True', 'False', 'IsTrue', 'IsFalse', 'Single',
     'Be', 'BeEquivalentTo', 'Contain', 'ContainSingle', 'ContainKey', 'HaveCount', 'StartWith', 'EndWith', 'Match', 'BeApproximately',
     'BeGreaterThan', 'BeLessThan', 'BeGreaterThanOrEqualTo', 'BeLessThanOrEqualTo', 'WithMessage', 'HaveValue', 'Verify'],
-  // A number's type suffix is no part of its value: 13.50m, 2.5d, 10L read as 13.50, 2.5, 10.
+  // Drop type suffixes: 13.50m, 2.5d, 10L -> 13.50, 2.5, 10.
   literals: text => text.replace(/(\d)(?:[mMdDfF]|[uU]?[lL]|[lL]?[uU])\b/g, '$1'),
 }
 
-/**
- * The code with every comment and string blanked out, the same length as the source: an Assert in a
- * string or a comment is not read, and an index in it is an index in the source.
- */
+/** Comments and strings blanked, same length as the source so offsets still match. */
 export function codeOnly(src) {
   let out = ''
   for (let i = 0; i < src.length; i++) {
     const c = src[i]
     if (c === '@' && src[i + 1] === '"') {
-      // A verbatim string: "" is a quote, a backslash is a backslash.
+      // Verbatim string: "" is a quote, backslash is literal.
       out += '@"'
       for (i += 2; i < src.length; i++) {
         if (src[i] === '"' && src[i + 1] === '"') { i++; out += '  '; continue }
@@ -81,7 +64,7 @@ export function codeOnly(src) {
     } else if (c === '"' || c === "'") {
       out += c
       for (i++; i < src.length && src[i] !== c && src[i] !== '\n'; i++) { if (src[i] === '\\') { i++; out += ' ' } out += ' ' }
-      // An unclosed text ends at its line.
+      // Unclosed string ends at end of line.
       if (i < src.length) out += src[i] === '\n' ? '\n' : c
     } else if (c === '/' && src[i + 1] === '/') {
       for (; i < src.length && src[i] !== '\n'; i++) out += ' '
@@ -96,33 +79,33 @@ export function codeOnly(src) {
   return out
 }
 
-// An assertion call: Assert.X( (xUnit, NUnit, MSTest), StringAssert / CollectionAssert / ClassicAssert,
-// FluentAssertions' .Should(, Moq's .Verify(. Assert.Multiple only groups others; Fail and Pass assert nothing.
+// Assert.X(, String/Collection/ClassicAssert, FluentAssertions .Should(, Moq .Verify(.
+// Assert.Multiple only groups others; Fail and Pass assert nothing.
 const ASSERT_CALL = /(?<![\w.])(?:Classic|String|Collection)?Assert\.(?!Multiple\b|Fail\b|Pass\b|Inconclusive\b|Ignore\b|Skip\b)\w+(?:<[^\n()]*?>)?\s*\(|\.Should\s*\(|\.Verify\w*\s*\(/g
 
-/** Assertions in a test body: each Assert call, Should() chain or Verify call; comments and strings are not read. */
+/** Counts Assert calls, Should() chains and Verify calls, ignoring comments and strings. */
 export const countAssertions = body => (codeOnly(body).match(ASSERT_CALL) || []).length
 
 export const suite = {
   testRe,
   modOf,
   countAssertions,
-  // C# has no "not written yet" mark: an unfinished test is a skip with a ticket key in its reason.
+  // C# has no todo mark: an unfinished test is a skip with a ticket key in its reason.
   notYet: 'todo',
   skippedGroups: false,
 }
 
-// Strongest first: inverting an assertion is the definitive "does it bind anything" mutant.
+// Strongest first: inverting an assertion best shows whether it checks anything.
 const INVERT = new Set(['invert-assert', 'invert-should', 'drop-not', 'add-not', 'true→false', 'false→true'])
 const mutantRank = k => (INVERT.has(k) ? 0 : k === 'num→n+1' ? 1 : 2)
 
-// Assert method pairs (xUnit, NUnit classic, MSTest): each name and its opposite.
+// Assert method and its opposite (xUnit, NUnit classic, MSTest).
 const ASSERT_PAIRS = [['Equal', 'NotEqual'], ['StrictEqual', 'NotStrictEqual'], ['AreEqual', 'AreNotEqual'], ['Same', 'NotSame'], ['AreSame', 'AreNotSame'],
   ['Null', 'NotNull'], ['IsNull', 'IsNotNull'], ['Empty', 'NotEmpty'], ['IsEmpty', 'IsNotEmpty'], ['Contains', 'DoesNotContain'],
   ['Matches', 'DoesNotMatch'], ['InRange', 'NotInRange'], ['Equivalent', 'NotEquivalent'], ['AreEquivalent', 'AreNotEquivalent'], ['IsInstanceOfType', 'IsNotInstanceOfType'], ['IsType', 'IsNotType']]
 const ASSERT_FLIP = new Map(ASSERT_PAIRS.flatMap(([a, b]) => [[a, b], [b, a]]))
 const TRUE_FALSE = { True: 'False', False: 'True', IsTrue: 'IsFalse', IsFalse: 'IsTrue' }
-// FluentAssertions: the assertions that have a Not twin (Be → NotBe, BeNull → NotBeNull, …).
+// FluentAssertions with a Not twin (Be → NotBe, BeNull → NotBeNull, …).
 const SHOULD_NOT = new Set(['Be', 'BeEquivalentTo', 'Contain', 'ContainKey', 'ContainValue', 'BeNull', 'BeEmpty', 'BeNullOrEmpty', 'BeNullOrWhiteSpace',
   'Equal', 'BeSameAs', 'HaveCount', 'StartWith', 'EndWith', 'Match', 'MatchRegex', 'BeOfType', 'BeAssignableTo', 'HaveValue', 'Throw', 'ThrowAsync', 'BeInRange', 'BeOneOf', 'HaveElementAt', 'ContainSingle'])
 
@@ -155,14 +138,14 @@ function args(src, open) {
   return out
 }
 
-/** [start, end) of the text that holds the expected value: what the test pins, not its input. */
+/** [start, end) of the expected value, not the input. */
 function expectedSpan(src) {
   const should = /\.Should\s*\(\s*\)/.exec(src)
   if (should) return [should.index + should[0].length, src.length]
   const m = /^(?:\w+\.)*?(Classic|String|Collection)?Assert\.(\w+)(?:<[^()]*?>)?\s*\(/.exec(src)
   if (!m) return [0, src.length]
   const list = args(src, m[0].length - 1)
-  // StringAssert and CollectionAssert put the expected value first or last, by framework: any argument.
+  // String/CollectionAssert put expected first or last depending on framework: take any argument.
   if (m[1] === 'String' || m[1] === 'Collection') return [list[0][0], list.at(-1)[1]]
   // NUnit: Assert.That(actual, constraint): the constraint holds the value.
   if (m[2] === 'That') return list[1] ?? [0, 0]
@@ -200,10 +183,10 @@ export function flipMutations(src) {
     } else if (TRUE_FALSE[verb]) add(verb.endsWith('True') ? 'true→false' : 'false→true', swap(TRUE_FALSE[verb]))
     else if (ASSERT_FLIP.has(verb)) add('invert-assert', swap(ASSERT_FLIP.get(verb)))
   }
-  // The expected value itself: a number one up, a text that cannot match.
+  // Then the value: number + 1, or a string that can't match.
   const [s, e] = expectedSpan(src)
   const span = src.slice(s, e)
-  // A number inside a text ("A-1") is part of the text: the corrupt-string flip covers it.
+  // Numbers inside strings ("A-1") are left to corrupt-string.
   const n = NUM.exec(codeOnly(span))
   if (n) add('num→n+1', `${src.slice(0, s)}${span.slice(0, n.index)}${Number(n[1]) + 1}${n[2]}${span.slice(n.index + n[0].length)}${src.slice(e)}`)
   const q = /(?<![@$\w])"((?:[^"\\\n★]|\\.)+)"/.exec(span)
@@ -211,7 +194,7 @@ export function flipMutations(src) {
   return out
 }
 
-/** A block mutation judges: it ran green and is not skipped. A theory's cases share its method's title. */
+/** Green and not skipped. A theory's cases share the method's title. */
 const eligible = (block, passed) => block.mod !== 'skip' && passed.has(block.title)
 
 /** One mutant per assertion (the strongest); baseline-green tests only, inside the range. */
@@ -236,10 +219,9 @@ function plan({ src, passedTitles, range, blocks, expects }) {
 }
 
 export const mutation = {
-  // A compiled language: a mutated copy next to the spec would be a duplicate class, so the spec itself
-  // is mutated and always restored (see checks/mutation.mjs).
+  // Compiled: a copy would be a duplicate class, so the spec is mutated in place and restored (checks/mutation.mjs).
   inPlace: true,
-  // Assert.X( and its generic form; a FluentAssertions chain from its .Should(. Not in a string or a line comment.
+  // Assert.X( incl. generic form, or a FluentAssertions chain from .Should(; not in strings or line comments.
   expectRe: /(?<=(?:^|\n)(?:[^"\n/]|\/(?!\/)|"(?:[^"\\\n]|\\.)*")*)(?:(?<![\w.])(?:Classic|String|Collection)?Assert\.(?!Multiple\b|Fail\b|Pass\b|Inconclusive\b|Ignore\b|Skip\b)\w+(?:<[^\n()]*?>)?\s*\(|\.Should\s*\()/,
   testRe,
   modOf,
@@ -249,10 +231,7 @@ export const mutation = {
   plan,
 }
 
-/**
- * The test classes of a C# file, in order: { name, namespace, fqn, title }. The title is the group's:
- * the key comment above the class, else its name. The runner names each result's group with it.
- */
+/** { name, namespace, fqn, title } per test class; the runner uses title as each result's group. */
 export function classesOf(src) {
   const namespaces = [...src.matchAll(/(?<![^\n])[ \t]*namespace\s+([\w.]+)/g)].map(m => ({ idx: m.index, name: m[1] }))
   const out = []

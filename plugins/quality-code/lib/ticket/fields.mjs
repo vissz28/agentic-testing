@@ -1,5 +1,4 @@
-// The acceptance-criteria field of each Jira project, found when a ticket is first checked and
-// remembered on this machine. A field named in the team config always wins.
+// Per-project Jira AC field, cached locally. The team config always wins.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { packWords } from './languages/index.mjs'
@@ -13,8 +12,7 @@ export const FIELDS_REL = '.claude/quality-code/jira-fields.json'
 const KEY = /^[A-Z][A-Z0-9_]+$/
 const FIELD = /^customfield_\d+$/
 
-// The file lives beside the project config, in the place this person keeps their files (the session's temp folder
-// until they pick), never in the repo's .claude/ before they pick it. A file an older version left in .claude/ still counts.
+// Lives with the user's chosen place (session temp until they pick), never in .claude/ before that. Old .claude/ files still count.
 const placedPath = (home, env = process.env) => join(placeFolder(home, env), FIELDS_FILE)
 
 function readFields(path) {
@@ -27,11 +25,10 @@ function readFields(path) {
 }
 const storedAt = (dir, env) => ({ ...readFields(join(dir, FIELDS_REL)), ...readFields(placedPath(dir, env)) })
 
-// A Jira project's criteria field is one fact for the repo, not for each project folder of a monorepo: it is kept
-// where the config is, and a file saved in the project folder before that still counts.
+// One fact per repo, not per monorepo package: stored by the config; older per-folder files still count.
 const stored = (root, env) => ({ ...storedAt(configHome(root), env), ...storedAt(root, env) })
 
-/** { field, source }: source "config" or "stored" (field is an id or null), else "unknown". */
+/** source: "config", "stored" or "unknown"; field is an id or null. */
 export function resolveField(root, config, project, env = process.env) {
   if (config.jira && 'acceptanceCriteriaField' in config.jira) return { field: config.jira.acceptanceCriteriaField, source: 'config' }
   const p = stored(root, env)
@@ -39,7 +36,7 @@ export function resolveField(root, config, project, env = process.env) {
   return { field: undefined, source: 'unknown' }
 }
 
-/** value: customfield_<digits>, or "none" when the project has no criteria field. */
+/** value: customfield_<digits>, or "none" for no AC field. */
 export function storeField(root, project, value, env = process.env) {
   if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters, digits and "_", like "ABC"` }
   if (value !== 'none' && !FIELD.test(String(value))) return { ok: false, error: `the field must be customfield_<digits> or none (got "${value}")` }
@@ -53,10 +50,8 @@ export function storeField(root, project, value, env = process.env) {
 }
 
 /**
- * The criteria fields in a saved Jira field-metadata result (getJiraIssueTypeMetaWithFields): every
- * { key|fieldId|id: customfield_N, name } whose name starts with the configured languages' criteria
- * heading ("Acceptance criteria", "Criteri di accettazione", "AC"). The file may carry text around
- * the JSON; it is read from its first { or [. Returns { ok, matches: [{ key, name }] } or { ok: false, error }.
+ * AC fields in saved getJiraIssueTypeMetaWithFields output: custom fields named like the AC heading.
+ * The file may wrap the JSON in other text, so parsing retries from the first { or [.
  */
 export function findFields(config, text) {
   const s = String(text)

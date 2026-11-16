@@ -1,15 +1,10 @@
-// Entry point for /quality-code:help: is this project set up, and what can this person do now?
-// node bin/help.mjs [<command>] [--dev | --qa | --po] [--all]
-// Reads the config (the repo's, else the personal one) for the role: a repo setup is a developer, a personal
-// one keeps qa or po from setup's first card. The steps of each role are below; each command's usage comes
-// from the Examples section of its own command file, so it never drifts. Read-only. Exit 0 ok, 2 usage error.
+// /help: setup status and next steps per role. Examples come from each command file so they never drift.
 import { readdirSync, readFileSync } from 'node:fs'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)
 const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all]'
-// Per command in a role's steps (the ones with the step's flag, when it names one); the rest are on `help <command>`.
 const MAX_EXAMPLES = 3
 
 const ROLES = {
@@ -43,11 +38,10 @@ const ROLES = {
 }
 const EVERYONE = ['config', 'update', 'clean']
 
-/** { description, hint, examples } of a command file, or null when there is no such command. */
 export function commandInfo(name) {
   let t
   try { t = readFileSync(new URL(`${name}.md`, COMMANDS), 'utf8') } catch { return null }
-  // A value is plain or YAML single-quoted ('' is one quote): Copilot reads the frontmatter as strict YAML, so some values are quoted.
+  // Some values are YAML single-quoted ('' is one quote) because Copilot parses frontmatter as strict YAML.
   const field = k => { const v = new RegExp(`^${k}: (.*)$`, 'm').exec(t.split('\n---\n')[0])?.[1] ?? ''; return /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v }
   const section = /\n## Examples\n([\s\S]*?)(?=\n## |$)/.exec(t)?.[1] ?? ''
   return { description: field('description'), hint: field('argument-hint'), examples: section.split('\n').filter(l => l.startsWith('- ')) }
@@ -56,7 +50,6 @@ const commandNames = () => readdirSync(COMMANDS).filter(f => f.endsWith('.md')).
 const firstSentence = s => /^.*?\.(?=\s|$)/.exec(s)?.[0] ?? s
 const cmd = n => `\`/quality-code:${n}\``
 
-/** The role's steps, each with its command's first examples. */
 export function rolePath(role) {
   const r = ROLES[role]
   const lines = [`### What you can do now (${r.name})`, '']
@@ -86,7 +79,6 @@ export function main(argv = process.argv.slice(2), { env = process.env, cwd = pr
   const roleFlags = flags.filter(f => ['--dev', '--qa', '--po'].includes(f))
   const bad = flags.find(f => !roleFlags.includes(f) && f !== '--all')
   if (bad || names.length > 1 || roleFlags.length > 1) { printError(`${bad ? `unknown option ${bad}. ` : ''}${USAGE}`); return 2 }
-  // Reference answers need no setup.
   if (flags.includes('--all')) { printLine(allCommands()); return 0 }
   if (names.length) {
     const one = oneCommand(names[0].replace(/^\/?(quality-code:)?/, ''))
@@ -100,13 +92,13 @@ export function main(argv = process.argv.slice(2), { env = process.env, cwd = pr
     printLine(cfg.missing
       ? 'Quality Code is not set up here yet. Run `/quality-code:setup` first: in your repo as a developer, or from any folder as QA or PO (Jira only, no repo).'
       : `Quality Code's config has a problem:\n${cfg.errors.map(e => `- ${e}`).join('\n')}\nFix it with \`/quality-code:setup\`.`)
-    // A role asked for is still shown, as a preview of what setup leads to.
+    // Still show the asked role as a preview.
     if (asked) printLine(`\n${rolePath(asked)}`)
     return 0
   }
   const c = cfg.config
   printLine(`Set up: Jira ${c.jira.site.replace(/^https:\/\//, '')}, project(s) ${c.jira.projects.join(', ')} (${cfg.source === 'repo' ? 'this repo' : 'personal, no repo'}).\n`)
-  // A personal config written before setup kept the role shows both of its roles.
+  // Personal config from before setup stored the role: show both.
   const roles = asked ? [asked] : cfg.source === 'repo' ? ['dev'] : c.role ? [c.role] : ['qa', 'po']
   printLine(roles.map(rolePath).join('\n\n'))
   printLine(`\nAnother role: \`--dev\`, \`--qa\` or \`--po\`. Every command: \`--all\`.`)

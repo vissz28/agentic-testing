@@ -1,7 +1,6 @@
-// The checks of /quality-code:seed's loader: which database seed.target reaches, and what a SQL file may do there.
-// Mock data goes to a local database only: a shared, remote or production one is never written.
+// /quality-code:seed safety checks. Mock data only ever goes to a local database, never a shared or remote one.
 
-/** The database a seed.target line names (host[:port]/database, or a URL), credentials dropped; null when it names none. */
+/** host[:port]/db or a URL; credentials are dropped. */
 export function parseTarget(line) {
   const s = String(line ?? '').trim()
   if (!s || /\s/.test(s)) return null
@@ -14,24 +13,23 @@ export function parseTarget(line) {
 }
 
 /**
- * This computer's database: localhost, 127.x.x.x, ::1, or a container name (one word, like postgres, as Docker
- * Compose names its services). A name with a dot, or any other address, may be a shared machine.
+ * Loopback, or a one-word Compose service name. Anything with a dot may be a shared machine.
  * ponytail: a one-word name is trusted as a container, so a LAN host with a one-word name would pass; add an allow-list if one shows up.
  */
 export const isLocal = host => host === '::1' || /^127(\.\d{1,3}){3}$/.test(host) || /^[a-z][a-z0-9_-]*$/i.test(host)
 
 /**
- * Why a mock-data SQL file may not be loaded: schema changes, or (with a tenant) a reset or update that reaches other tenants. [] when it is fine.
+ * Rejects schema changes and, with a tenant, DELETE/UPDATE that can reach other tenants.
  * ponytail: a regex scan per statement, not a SQL parser; it catches the generated files' shapes, not a determined author.
  */
 export function sqlProblems(sql, tenant = null) {
-  // Strings first (a "--" or ";" in one is text), kept only as whether they are the tenant id; then comments become a space.
+  // Blank out strings first ("--" or ";" inside one is text), keeping only whether it's the tenant id; then drop comments.
   const id = tenant ? `'${String(tenant.id).replace(/'/g, "''")}'` : null
   const text = String(sql).replace(/'(?:[^']|'')*'/g, s => (s === id ? "'T'" : "''")).replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' ')
   const out = []
   if (/\b(?:DROP\s+(?:TABLE|SCHEMA|DATABASE|VIEW|INDEX|TYPE)|TRUNCATE|ALTER\s+(?:TABLE|SCHEMA|DATABASE|TYPE))\b/i.test(text)) out.push('it drops, truncates or alters something: mock data only deletes and inserts rows')
   if (tenant) {
-    // The tenant equality must be in the WHERE, with no OR there to widen it.
+    // Tenant equality must be in the WHERE, with no OR to widen it.
     const scoped = new RegExp(`\\b${tenant.column}"?\\s*=\\s*'T'`)
     for (const st of text.split(';').map(x => x.trim())) {
       const where = /\bWHERE\b([\s\S]*)$/i.exec(st)?.[1]

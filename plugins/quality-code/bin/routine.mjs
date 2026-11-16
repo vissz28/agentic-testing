@@ -1,17 +1,6 @@
 #!/usr/bin/env node
-// A routine: a check that runs on a schedule and says whether the tests still pass after other people pushed,
-// and whether they are stable (the same code passing and failing). The schedule itself is made by
-// /quality-code:routine with Claude's scheduler; this script is what each scheduled run executes.
-//   node bin/routine.mjs run [--task KEY | --regression] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
-//                            [--flaky N] [--force] [--json] [--junit FILE]
-//   node bin/routine.mjs status [--task KEY] [--last N] [--json]
-// run:    fetches the watched branch, sees what others pushed (new commits, shared files such as package.json or a
-//         lockfile), then runs the task's tests (the specs that name the ticket KEY) or the whole suite. With
-//         --flaky N every test runs N times and the ones that pass and fail on the same code are named (flaky).
-//         It says so when the result went from green to not green, with the commits in between. No new commit
-//         (with --since-last or --since): nothing to check, exit 0. Every run is kept in a local history.
-// status: the stability of the last runs from that history: pass rate, flaky tests seen, green to red changes.
-// Exit 0 green or nothing new, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run (never a pass).
+// What each scheduled /quality-code:routine run executes: fetch, run task or suite tests, report regressions and flakiness.
+// Exit 0 green or nothing new, 1 check failed or test red, 2 usage/config error, 3 could not run (never a pass).
 import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -32,7 +21,6 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
 const VALUE = ['--task', '--branch', '--since', '--until', '--flaky', '--junit', '--last', '--id']
 const DATE = /^\d{4}-\d{2}-\d{2}$/
-// A spec of the regression suite carries the tag as a whole word.
 const TAGGED = new RegExp(`${REGRESSION_TAG}\\b`)
 const MIN_RUNS = 3
 
@@ -56,7 +44,7 @@ function parse(argv) {
     else if (x === '--regression') a.regression = true
     else throw new Error(`unknown option ${x}`)
   }
-  // --id names the scheduled task that calls this; the script only accepts it.
+  // --id is accepted and ignored; it only labels the scheduled task.
   for (const k of ['flaky', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
   if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
   if (a.regression && (a.task || cmd === 'status')) throw new Error(`--regression runs the ${REGRESSION_TAG} suite: give it without --task, and only to run`)
@@ -69,7 +57,7 @@ const dirOf = cfg => (cfg.auditDir ? join(cfg.auditDir, 'routine') : null)
 function keep(dir, name, text, append) {
   try {
     mkdirSync(dir, { recursive: true })
-    // The folder ignores itself, like the audit log, so it stays out of git.
+    // Self-ignoring folder keeps the history out of git.
     try { writeFileSync(join(dir, '.gitignore'), '*\n', { flag: 'wx' }) } catch {}
     ;(append ? appendFileSync : writeFileSync)(join(dir, name), text)
   } catch {}
@@ -78,7 +66,7 @@ const readHistory = dir => {
   try { return readFileSync(join(dir, 'history.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)) } catch { return [] }
 }
 
-/** The stability of a list of runs { at, exit, flaky:[names] }, newest last. */
+/** runs: [{ at, exit, flaky }], newest last. */
 export function stabilityOf(runs) {
   const passed = runs.filter(r => r.exit === 0).length
   const flakyCount = new Map()
@@ -92,7 +80,7 @@ export function stabilityOf(runs) {
   return { runs: runs.length, passed, failed: runs.length - passed, rate, streak, flips, flaky, verdict }
 }
 
-/** Runs the task's tests, or the whole suite (each side the project has, and the frozen evals) → { exit, phases, flaky }. */
+/** Task specs, or every side plus the frozen evals. */
 function realRun({ root, config, specs, key, stability, env }) {
   const phase = (name, args) => {
     const r = spawnSync(process.execPath, [join(HERE, 'pipeline.mjs'), ...args, '--json', ...(stability ? ['--flaky', stability] : [])], { cwd: root, env: { ...env, CI: '1' }, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
@@ -136,7 +124,7 @@ function status(a, cfg, dir, stdout) {
   return 0
 }
 
-/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+// Any thrown error (e.g. a broken saved file) exits 2 with its message, not a stack trace.
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
   try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`routine.mjs: ${e?.message ?? e}\n`); return 2 }
 }
@@ -163,14 +151,14 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   const ref = [`origin/${bare}`, bare].find(r => git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]) !== null)
   if (!ref) { printError(`Branch ${branch} was not found (fetch it, or give --branch).`); return 2 }
   const tip = git(root, ['rev-parse', ref])
-  // Nothing checks the fetched tip out: the tests run on the working tree, so the sha kept and blamed is HEAD's.
+  // Tests run on the working tree, not the fetched tip, so HEAD is the sha recorded and blamed.
   // ponytail: no worktree for the tip (it has no node_modules); the card says when the two differ.
   const tested = git(root, ['rev-parse', 'HEAD']) ?? tip
   const drift = tested !== tip
   const stateName = `last${a.task ? `-${a.task}` : a.regression ? '-regression' : ''}.json`
   const prev = dir && existsSync(join(dir, stateName)) ? readJsonOr(join(dir, stateName), {}) : {}
 
-  // What is new: since the last check (--since-last, needs the kept result), or since a date (--since); else everything counts.
+  // New commits since the last kept result (--since-last) or a date (--since); without either, everything counts.
   const log = args => (git(root, ['log', '--format=%h%x09%an%x09%s', ...args]) ?? '').split('\n').filter(Boolean).map(l => { const [h, an, ...s] = l.split('\t'); return { sha: h, author: an, subject: s.join('\t') } })
   const known = a.sinceLast && prev.sha && prev.branch === ref
   let newCommits = []

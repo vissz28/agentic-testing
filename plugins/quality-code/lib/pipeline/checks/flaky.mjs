@@ -1,6 +1,5 @@
-// Flaky: re-run the same tests N times with retries off and classify each test from its tally.
-// Judged from the runner's per-test results, never from an exit code. Not a proof: a local
-// re-run does not reproduce CI load or cross-file interference.
+// Flaky: re-run N times with retries off and classify each test by its pass/fail tally.
+// Not proof: a local re-run doesn't reproduce CI load or cross-file interference.
 import { result } from '../result.mjs'
 import { ownTests } from '../../config/keys.mjs'
 
@@ -16,7 +15,7 @@ export function overall(verdicts) {
   return 'green'
 }
 
-/** seed: the pipeline's own tests run, counted like a re-run: a test that passed there and fails every re-run is flaky. */
+/** seed: the pipeline's tests run, counted as one more run. */
 export async function run({ specs, testName, runs = 5, timeoutMs = 300_000, key = null, seed = null }, ctx) {
   const n = Number(runs)
   if (!Number.isInteger(n) || n < 1) throw new Error('runs must be a whole number of at least 1')
@@ -32,11 +31,10 @@ export async function run({ specs, testName, runs = 5, timeoutMs = 300_000, key 
     if (!ranTests.length) continue
     if (i >= 0) executed++
     for (const t of ranTests) {
-      // The describe titles keep same-named tests in different groups apart.
+      // Include describe titles so same-named tests in different groups stay apart.
       const name = `${t.file} > ${[...(t.path ?? []), t.title].join(' > ')}`
       const row = perTest.get(name) ?? { pass: 0, fail: 0 }
       row[t.status === 'passed' ? 'pass' : 'fail']++
-      // The first failure says why, as the old flaky check printed it.
       if (t.status === 'failed' && !row.message && t.message) row.message = t.message
       perTest.set(name, row)
     }

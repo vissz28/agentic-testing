@@ -1,7 +1,5 @@
-// Where a command stopped: the answers and the step reached, kept between turns and sessions so a person can go on
-// after a break instead of starting over. One small file per project folder, command and ticket, on this machine
-// under the Claude folder, never in the repo and never sent anywhere. It holds answers (a site, a project key, a
-// pick), never a token, a key, a password or ticket text.
+// Where a command stopped, so it can resume. One file per project, command and ticket under the Claude folder.
+// Holds answers only: never tokens, keys, passwords or ticket text.
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { basename, join, resolve } from 'node:path'
@@ -10,11 +8,11 @@ import { hasLineBreak, isTicketKey } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
-// `session` keeps the person's language (one entry per project folder); it never expires, the others do after 7 days.
+// `session` holds the user's language and never expires; the rest expire after 7 days.
 const LANGUAGE = /^[a-z]{2}$/
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 export const MAX_DATA_BYTES = 16 * 1024
-// Anything that looks like a secret is refused: the cache holds answers, not credentials.
+// Refuse anything that looks like a credential.
 const SECRET = /(ghp_|gho_|github_pat_|glpat-|xox[abp]-|sk-[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9._-]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY)/
 const SECRET_FIELD = /^(token|password|passwd|secret|api[_-]?key|authorization)$/i
 
@@ -44,7 +42,7 @@ export function secretIn(value, path = '') {
   return null
 }
 
-/** Where `command` (and `key`) stopped in this project, or { found: false } when nothing is saved or it is older than 7 days. */
+/** { found: false } when nothing is saved or it expired. */
 export function getProgress(root, command, key = null, env = process.env, now = Date.now()) {
   const bad = check(command, key)
   if (bad) return { ok: false, reason: bad }
@@ -55,7 +53,7 @@ export function getProgress(root, command, key = null, env = process.env, now = 
   return { ok: true, found: true, command, key, step: saved.step, label: saved.label ?? '', data: saved.data ?? {}, updated: saved.updated, ageMinutes: Math.max(0, Math.round((now - at) / 60000)) }
 }
 
-/** Save the step reached and merge `data` (an object of answers) into what is saved. */
+/** Merges `data` into the saved answers. */
 export function setProgress(root, command, { key = null, step, label = '', data = {} }, env = process.env, now = Date.now()) {
   const bad = check(command, key)
   if (bad) return { ok: false, reason: bad }
@@ -79,7 +77,6 @@ export function setProgress(root, command, { key = null, step, label = '', data 
   return { ok: true, command, key, step, label, data: merged }
 }
 
-/** Forget where `command` stopped; true when there was something to forget. */
 export function clearProgress(root, command, key = null, env = process.env) {
   const bad = check(command, key)
   if (bad) return { ok: false, reason: bad }
@@ -89,7 +86,7 @@ export function clearProgress(root, command, key = null, env = process.env) {
   return { ok: true, cleared: had }
 }
 
-/** Every saved stop of this project, newest first (for `progress.mjs list`). */
+/** Newest first, for `progress.mjs list`. */
 export function listProgress(root, env = process.env, now = Date.now()) {
   const dir = join(dirOf(env), `${slug(root)}-${short(root)}`)
   if (!existsSync(dir)) return []

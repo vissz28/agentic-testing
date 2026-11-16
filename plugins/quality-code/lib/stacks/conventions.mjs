@@ -1,14 +1,11 @@
-// How a project already names and places its tests, read from the spec files it has. With "testStyle":
-// "project" a writing run follows this (its naming, its folders); with "quality-code" it uses the
-// plugin's own (the ticket key in the file name, the configured layers). Files are only listed, never run.
+// How a project already names and places its tests, read from its spec files (listed, never run).
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const FLOWS = ['project', 'quality-code', 'both']
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'target', 'bin', 'obj', '.venv', 'venv', '__pycache__', '.quality-code', '.claude'])
-// The marks a test file name carries, by language: foo.spec.ts, foo.test.js, foo.cy.ts, foo_test.go,
-// test_foo.py, foo_test.py, FooTest.java, FooIT.kt, FooSpec.groovy, FooTests.cs.
+// foo.spec.ts, foo.cy.ts, foo_test.go, test_foo.py, foo_test.py, FooTest.java, FooIT.kt, FooTests.cs, …
 const NAMES = [
   { re: /^(.+?)(?:\.(unit|int|integration|component|e2e|api))?\.(spec|test|cy)\.([cm]?[jt]sx?)$/, mark: m => ({ pattern: `${m[2] ? `.${m[2]}` : ''}.${m[3]}.${m[4]}`, style: 'suffix' }) },
   { re: /^(.+)_test\.go$/, mark: () => ({ pattern: '_test.go', style: 'suffix' }) },
@@ -33,7 +30,7 @@ const ASSERTIONS = [
 const top = (map, n = 5) => [...map].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n).map(([k]) => k)
 const bump = (map, k) => map.set(k, (map.get(k) ?? 0) + 1)
 
-/** How the Java/Kotlin/Groovy spec files are written, read-only from at most 40 of them. */
+/** JVM test style, sampled from at most 40 files. */
 function jvmStyle(root, files) {
   const sample = files.slice(0, 40)
   const suffix = new Map(), base = new Map(), notes = new Map(), annos = new Map(), asserts = new Map()
@@ -67,17 +64,8 @@ function jvmStyle(root, files) {
   }
 }
 
-/**
- * What the project's own tests look like. → { specs, pattern, style, folders, beside, keyed }
- *   specs    how many test files were found (0: the project has no tests yet)
- *   pattern  the most common name pattern (".spec.ts", "_test.go", "test_*.py"), or null
- *   folders  the folders that hold them, most files first, at most 5 (first two path segments)
- *   beside   true when most of them sit next to the code (no test folder in their path)
- *   keyed    true when their names already carry a ticket key (ABC-123), so Quality Code's naming is theirs too
- *   testStyle  only with Java/Kotlin/Groovy specs: { classMark (Test, Tests, IT, Spec), packages ("mirrors the code" or
- *            "test package"), baseClass, extensions (@ExtendWith, @SpringBootTest...), annotations, assertions
- *            (assertj, hamcrest, junit5, junit4, mockito...) }
- */
+// pattern: most common name mark. folders: top 5 by file count (first two path segments).
+// beside: most sit next to the code. keyed: most names carry a ticket key. testStyle: JVM only.
 export function detectConventions(root, budget = { n: 20000 }) {
   const byPattern = new Map()
   const byFolder = new Map()
@@ -113,8 +101,8 @@ export function detectConventions(root, budget = { n: 20000 }) {
   }
 }
 
-/** The flow in force: the config's testStyle, else the project's when it has tests (every adapter, JUnit too), else Quality Code's. */
+/** config.testStyle, else 'project' when it has tests, else 'quality-code'. */
 export const flowOf = (config, conventions) => (FLOWS.includes(config?.testStyle) ? config.testStyle : conventions.specs > 0 ? 'project' : 'quality-code')
 
-/** The flow for one run: --style wins over the config. */
+/** --style wins over the config. */
 export const runFlow = (config, conventions, flag) => (FLOWS.includes(flag) ? flag : flowOf(config, conventions))

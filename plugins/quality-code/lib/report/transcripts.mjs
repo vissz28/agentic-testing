@@ -1,6 +1,5 @@
-// Reads Claude Code's local transcripts for one project and splits their API usage into
-// quality-code command runs and everything else. Read-only and offline. Only counts, models,
-// command names, ticket keys and times leave this module: never prompt or answer text.
+// Splits a project's local Claude Code transcript usage into quality-code runs and the rest. Read-only, offline.
+// Only counts, models, command names, ticket keys and times leave this module, never prompt or reply text.
 import { existsSync, readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
@@ -8,18 +7,16 @@ import { tryReadJson } from '../core/files.mjs'
 
 const PLUGIN = 'quality-code'
 const SYSTEM_TEXT = /^\s*(<(task-notification|system-reminder|local-command-stdout|local-command-stderr|local-command-caveat|user-prompt-submit-hook|bash-stdout|bash-stderr)\b|\[Request interrupted by user)/
-// A reply to a numbered card keeps the run going: a number or several, a ticket key, or one of the
-// reply words the commands accept (yes, y, sì, si, ok, va bene, stop, basta), no, none.
+// Replies that keep a run going: numbers, a ticket key, or yes/no-style words.
 const CARD_ANSWER = /^\s*(\d{1,2}([\s,]+\d{1,2})*|[A-Z][A-Z0-9_]+-\d+|yes|y|no|n|none|ok|sì|si|va bene|stop|basta)\s*[.!]?\s*$/i
 const GENERIC_KEY = '[A-Z][A-Z0-9_]+-\\d+'
-// A card the run is waiting on: a numbered list with at least options 1 and 2. A short one-line reply to it,
-// in any words (how a headless session answers), keeps the run going.
+// After a numbered card, any short one-line reply keeps the run going (that's how headless sessions answer).
 const isCard = text => /^\s*1[.)]\s+\S/m.test(text) && /^\s*2[.)]\s+\S/m.test(text)
 const isShortReply = text => { const t = text.trim(); return t.length <= 200 && !t.includes('\n') }
 
 export const configDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 
-/** Claude Code's folder name for a project: every character that is not a letter or digit becomes "-". */
+// Matches Claude Code's project folder naming.
 export const slugFor = path => String(path).replace(/[^a-zA-Z0-9]/g, '-')
 
 const isDir = p => { try { return statSync(p).isDirectory() } catch { return false } }
@@ -33,7 +30,6 @@ function head(file, bytes = 65536) {
   } finally { closeSync(fd) }
 }
 
-/** The cwd a transcript was recorded in, from its first lines. */
 function cwdOf(file) {
   for (const raw of head(file).split('\n')) {
     try {
@@ -44,17 +40,13 @@ function cwdOf(file) {
   return null
 }
 
-/**
- * Does this session belong to the project? It ran in root or below it (a session started in
- * packages/web). Two paths can share a slug (/a/b-c and /a/b/c), so the folder name alone is not
- * enough; a session with no cwd line counts only in the project's own folder.
- */
+// Slugs collide (/a/b-c vs /a/b/c), so check cwd is root or below. No cwd line: count only in the project's own folder.
 function ranIn(file, root, own) {
   const c = cwdOf(file)
   return c === null ? own : c === root || c.startsWith(root.endsWith(sep) ? root : root + sep)
 }
 
-/** Transcript folders of the project, each with the sessions that belong to it: by slug first; if that fails, every folder. */
+/** Tries the slug folders first, then scans every folder by cwd. */
 export function findProjectDirs(root, dir = configDir()) {
   const base = join(dir, 'projects')
   const slug = slugFor(root)
@@ -81,7 +73,6 @@ function readLines(file) {
   return out
 }
 
-/** Sessions of one transcript folder (only `files` when given), each with its subagents. */
 export function loadSessions(dir, files = jsonlIn(dir)) {
   return files.map(f => {
     const id = f.slice(0, -'.jsonl'.length)
@@ -98,7 +89,6 @@ const textOf = content => typeof content === 'string'
   ? content
   : Array.isArray(content) ? content.filter(b => b?.type === 'text').map(b => String(b.text ?? '')).join('\n') : ''
 
-/** What a user line is: a slash command, a real prompt, or something that does not end a run. */
 export function classifyUser(line) {
   if (line.isSidechain) return { kind: 'other' }
   const content = line.message?.content
@@ -106,7 +96,7 @@ export function classifyUser(line) {
   const text = textOf(content)
   const name = text.match(/<command-name>\s*\/?([^<\s]+)\s*<\/command-name>/)
   if (name) return { kind: 'command', name: name[1], args: text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1] ?? '' }
-  // The auto-compaction summary ("This session is being continued...") is not a prompt.
+  // Includes the auto-compaction summary.
   if (line.isMeta || line.isCompactSummary || line.isVisibleInTranscriptOnly) return { kind: 'meta' }
   if (line.origin?.kind && line.origin.kind !== 'human') return { kind: 'meta' }
   if (SYSTEM_TEXT.test(text) || /^\s*<command-message>/.test(text)) return { kind: 'meta' }
@@ -131,10 +121,7 @@ const timeOf = (line, fallback) => {
   return Number.isNaN(t) ? fallback : t
 }
 
-/**
- * Splits usage into runs and the rest. keySource is a regex source for one ticket key
- * (the project's keys when it is set up). Returns { runs, events } where each event has a run or null.
- */
+/** keySource: regex source for a ticket key. Each event's run is null when outside a quality-code run. */
 export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
   const keyRe = new RegExp(`(?<![A-Za-z0-9])(${keySource})(?![0-9])`)
   const seen = new Set()
@@ -146,7 +133,7 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
     const segments = []
     let current = null
     let t = 0
-    // What the run's last reply said: whether it ended on a card.
+    // Last reply text, to tell whether it ended on a card.
     let said = ''
     const record = (line, run, at, sessionId) => {
       const usage = line.message?.usage
@@ -184,7 +171,7 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
           segments.push({ t, run: null })
         }
       } else if (line.type === 'assistant') {
-        // A command the model starts with the Skill tool opens a run like a typed one.
+        // A Skill tool call opens a run like a typed command.
         const skill = Array.isArray(line.message?.content) && line.message.content.find(b => b?.type === 'tool_use' && b.name === 'Skill' && String(b.input?.skill ?? '').startsWith(`${PLUGIN}:`))
         if (skill) open(skill.input.skill, String(skill.input.args ?? ''), line)
         record(line, current, t, line.sessionId || s.id)
@@ -194,7 +181,7 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
       }
     }
 
-    // Subagents belong to the run that spawned them: by the tool call, else by when they started.
+    // Subagents go to the run that spawned them: by tool call id, else by start time.
     const activeAt = at => {
       let run = null
       for (const g of segments) { if (g.t <= at) run = g.run; else break }

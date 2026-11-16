@@ -1,6 +1,4 @@
-// The Playwright runner: runs specs with the project's own Playwright and reads its JSON report.
-// Implements the runner contract of the shared checks. Never writes into the project: the report
-// and Playwright's artifacts go to a temp folder that is always deleted.
+// Playwright runner via the JSON reporter. Report and artifacts go to a temp dir that is always deleted.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,10 +13,10 @@ import { tryReadJson } from '../../core/files.mjs'
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 
-/** Playwright reads a file argument as a regular expression over the path: anchor it to whole segments. */
+/** Playwright treats file args as regexes over the path: anchor to whole segments. */
 export const filePattern = file => `(?:^|/)${escapeRegExp(toForwardSlashes(file))}$`
 
-/** -g sees the full title (project, file, describe titles, title) with the tags appended. */
+/** -g matches the full title (project, file, describes, title) with tags appended. */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}(?: @\\S+)*$`
 
 export function configFor(file, config) {
@@ -34,11 +32,7 @@ function statusOf(t) {
 
 const clipText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
-/**
- * What a red Playwright test can tell: the step it was on (the failing line), the locator it waited for, and the page it was on
- * (URL and some text) when Playwright kept a snapshot (error-context.md). Only what is recorded: nothing is guessed. A timeout with
- * none of it gets a hint on how to record it.
- */
+/** Failing line, awaited locator, and page URL/text from error-context.md when recorded; never guessed. */
 export function contextOf(result, { read = () => null, rel = p => p } = {}) {
   const err = result?.error ?? result?.errors?.[0] ?? {}
   const msg = noColour(err.message)
@@ -62,7 +56,7 @@ export function contextOf(result, { read = () => null, rel = p => p } = {}) {
   return Object.keys(out).length ? out : null
 }
 
-/** { tests, broken, error? }: one result per file and title path, merged across projects. */
+/** One result per file and title path, merged across projects. */
 export function parseReport(json, root, { read } = {}) {
   let base = root
   try { base = realpathSync(root) } catch {}
@@ -76,8 +70,7 @@ export function parseReport(json, root, { read } = {}) {
     return toForwardSlashes(rel(isAbsolute(p) ? p : resolve(rootDir, p)))
   }
   const merged = new Map()
-  // Runs that failed before reaching their own code (a stack, no location in any file: the storage state, the browser launch),
-  // and runs that did reach it or passed.
+  // notStarted: failed before reaching test code (stack but no location: storage state, browser launch).
   let notStarted = null, started = false
   const walk = (suite, path) => {
     for (const spec of suite.specs ?? []) {
@@ -130,10 +123,10 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
     for (const p of projects) args.push('--project', p)
     if (testName !== undefined) args.push('-g', titlePattern(testName))
     if (process.env.QC_SMOKE_GREP) args.push('--grep', process.env.QC_SMOKE_GREP)
-    // CI is left as it is: Playwright configs often read it to stop reusing a running dev server.
+    // Don't touch CI: Playwright configs often use it to decide whether to reuse a dev server.
     const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out }
     delete env.FORCE_COLOR
-    // Browsers installed with PLAYWRIGHT_BROWSERS_PATH=0 live in node_modules, where only that setting finds them.
+    // Browsers installed with PLAYWRIGHT_BROWSERS_PATH=0 live in node_modules; only that setting finds them.
     if (env.PLAYWRIGHT_BROWSERS_PATH === undefined && findUp(root, LOCAL_BROWSERS)) env.PLAYWRIGHT_BROWSERS_PATH = '0'
     let stderr = ''
     let timedOut = false
@@ -168,10 +161,10 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
         if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Playwright wrote a report that is not valid JSON' : 'Playwright wrote no report') })
         const r = parseReport(json, root, { read: p => { try { return readFileSync(p, 'utf8') } catch { return null } } })
         if (r.error) return finish({ ran: false, error: r.error })
-        // Every test stopped before its first line (no sign-in file, no browser): that says nothing about the tests.
+        // Nothing reached test code (no auth file, no browser): not a verdict on the tests.
         if (r.notStarted) return finish({ ran: false, error: `every test stopped before its first line: ${r.notStarted}` })
         const failed = r.tests.filter(t => t.status === 'failed')
-        // Every test failed on a refused connection: the app is down, which says nothing about the tests.
+        // All failed on connection refused: the app is down, not the tests.
         if (failed.length && !r.tests.some(t => t.status === 'passed') && failed.every(t => REFUSED.test(t.message))) {
           return finish({ ran: false, error: `the app is not reachable: ${failed[0].message.replace(/^\[[^\]]*\] /, '')}` })
         }

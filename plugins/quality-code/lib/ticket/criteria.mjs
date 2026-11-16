@@ -31,10 +31,7 @@ export function hasVaguePhrase(v, text) {
   return !!text && v.vague.test(text)
 }
 
-/**
- * A markdown heading (`## X`, Jira's `h2. X`), a bold line (`**X**`), or a label line (`X:`)
- * matching `wordsSrc` as whole words: "## Contextual menu" is no Context heading.
- */
+/** `## X`, `h2. X`, `**X**` or `X:` with X matching wordsSrc as whole words ("## Contextual" isn't Context). */
 export function hasHeading(v, text, wordsSrc) {
   text = normalise(text)
   if (!text) return false
@@ -47,20 +44,19 @@ export function hasHeading(v, text, wordsSrc) {
 
 const PLACEHOLDER_WORDS = /^(?:tbd|tba|tbc|todo|to do|n\/?a|none|nothing|wip|x{3,8}|\?+|coming soon|same as above|to be (?:defined|decided|done|filled|added|determined|written|confirmed))$/i
 
-/** Filler that stands where the criteria should be: lorem ipsum, TBD, TODO, N/A, "to be defined", xxx, a short run of one repeated character. */
+/** Filler in place of criteria: lorem ipsum, TBD, N/A, xxx, a short run of one character. */
 export function isPlaceholder(item) {
   const t = String(item ?? '').trim()
   const bare = t.replace(/^[\W_]+|[\W_]+$/g, '')
-  if (!bare) return /^[-–—?.…_*\s]+$/.test(t) // a run of dashes or dots is filler; a code fence (""" or ```) is not
+  if (!bare) return /^[-–—?.…_*\s]+$/.test(t) // dashes/dots are filler, a code fence isn't
   if (/\blorem ipsum\b|\bdolor sit amet\b|\bconsectetur adipiscing\b|\bnostrud exercitation\b|\bsed do eiusmod\b|\bullamco laboris\b/i.test(t)) return true
   if (PLACEHOLDER_WORDS.test(bare)) return true
   return bare.length <= 12 && /^(.)\1{2,}$/.test(bare.replace(/\s+/g, ''))
 }
 
 /**
- * The criteria under an Acceptance criteria heading, in either format: each prose sentence or
- * bullet, and each Gherkin Then (with its And lines), up to the next section. `headingless` reads
- * the whole text as the AC (the Jira AC field is the criteria by definition).
+ * Prose sentences, bullets and Gherkin Then/And lines under the AC heading.
+ * `headingless` reads the whole text as AC (the Jira AC field).
  */
 export function extractNaturalAC(v, text, { headingless = false } = {}) {
   text = normalise(text)
@@ -77,27 +73,22 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
       if ((then ?? cont)[1].trim()) items.push((then ?? cont)[1].trim())
       continue
     }
-    // A Given / When / And line outside real Gherkin that states a result ("When a user enters
-    // X, the field shows Y") is a plain sentence: it is read as prose below. A bare step stays setup.
+    // Outside real Gherkin, "When X, Y" is a sentence with a result: read it as prose.
     const plainStepWord = !gherkinRuns.has(run) && statesResult(v, content)
     if ((cont || v.setupStep.test(content)) && !plainStepWord) {
       step = 'setup'
       continue
     }
-    // After a result sentence, a bare And is still a step: it must state its own result.
+    // A bare And after a result sentence is still a step and needs its own result.
     step = plainStepWord ? 'setup' : null
     if (isPlaceholder(content)) continue
     for (const sentence of content.split(/(?<=[.!?])\s+/)) if (sentence.trim()) items.push(sentence.trim())
   }
-  // Filler and open questions are no criteria: they must not pass the length or count checks.
+  // Keep filler and questions out of the length and count checks.
   return items.filter(i => !isPlaceholder(i) && !QUESTION.test(i))
 }
 
-/**
- * A Given / When / And line that reads as a sentence with a result: after the step word, a comma
- * and a space followed by more text ("When X, Y", "Quando X, Y"). A comma inside a number
- * ("2,5", "1,000") is not a result.
- */
+// "When X, Y": a comma plus space after the step word. A comma inside a number ("2,5") doesn't count.
 function statesResult(v, content) {
   const rest = v.gherkinStep.test(content) ? content.replace(v.gherkinStep, '') : content.match(v.continuation)?.[1]
   return rest != null && /,\s+\S/.test(rest)
@@ -107,11 +98,8 @@ const TABLE_ROW = /^\s*\|/
 const DOC_FENCE = /^\s*(?:\"\"\"|```)/
 
 /**
- * The non-blank lines inside the criteria section, bullets and bold stripped. Each carries a run
- * number: a run is a block of consecutive step-like lines (step words, continuations, Scenario
- * and the other headers), broken by a prose line, by a header line, and by the section's edges.
- * Data-table rows and doc strings (the fences and the lines between them) belong to the run of
- * the step they follow; they break nothing and are not part of the run's Gherkin check.
+ * Non-blank AC lines, each tagged with a run: consecutive step-like lines, broken by prose, headers and section edges.
+ * Table rows and doc strings attach to the preceding step's run and are left out of its Gherkin check.
  */
 function sectionRows(v, visible, headingless) {
   const rows = []
@@ -129,7 +117,7 @@ function sectionRows(v, visible, headingless) {
     }
     if (!inSection || !line.trim()) continue
     if (!headingless && v.sectionEnd.test(line)) {
-      if (!endsSection(v, line, acLevel)) { run++; continue } // a sub-heading groups criteria; it is none
+      if (!endsSection(v, line, acLevel)) { run++; continue } // sub-heading inside the AC
       inSection = false
       inDoc = false
       run++
@@ -150,17 +138,13 @@ function sectionRows(v, visible, headingless) {
   return rows
 }
 
-// The level of a markdown heading (## X: 2, Jira's h3. X: 3); 0 for any other line.
+// `## X` -> 2, `h3. X` -> 3, anything else -> 0.
 const headingLevel = line => {
   const m = line.match(/^\s*(?:(#{1,6})|h([1-6])\.)\s/)
   return m ? m[1]?.length ?? Number(m[2]) : 0
 }
 
-/**
- * Does a sectionEnd line close a criteria section under a heading of level `acLevel` (0: no
- * markdown heading)? Under ## Acceptance criteria, a deeper heading (### Export) or a bold line
- * that names no section (**Export**) is a sub-heading inside it.
- */
+// Under `## AC`, a deeper heading or a bold line naming no known section is a sub-heading, not the end.
 function endsSection(v, line, acLevel) {
   if (!acLevel) return true
   const level = headingLevel(line)
@@ -168,7 +152,7 @@ function endsSection(v, line, acLevel) {
   return !/^\s*\*\*/.test(line) || v.namedSection.test(line.replace(/\*+/g, '').trim())
 }
 
-/** The runs that are real Gherkin: a Scenario-style header, or the hasGherkin rule on the run. */
+// A run is real Gherkin if it starts with a Scenario-style header or passes hasGherkin.
 function realGherkinRuns(v, rows) {
   const runs = new Map()
   for (const r of rows) if (!r.attached) runs.set(r.run, [...(runs.get(r.run) ?? []), r])
@@ -179,21 +163,16 @@ function realGherkinRuns(v, rows) {
   return real
 }
 
-/**
- * Drop the vague criteria so a concrete answer can replace them: every vague line inside an
- * Acceptance criteria section, and vague Then / And lines anywhere. Vague prose outside the AC
- * section is left alone.
- */
+/** Drops vague lines inside the AC and vague Then/And lines anywhere, so a concrete answer can replace them. */
 export function stripVagueCriteria(v, text, { headingless = false } = {}) {
   if (text == null || text === '') return ''
   let inSection = headingless
   let acLevel = 0
   const kept = []
-  // An AC heading whose every line was vague goes too, so the answer's own section is not a second one.
+  // Drop an AC heading left empty too, or the answer would add a second AC section.
   let head = null
   const dropEmpty = () => { if (head?.dropped && !head.content) kept.splice(head.at); head = null }
-  // The result is written back into the ticket, so each kept line keeps its own line end: read a
-  // line without its CR, keep it with it.
+  // Written back to the ticket: match without the CR, keep the raw line with it.
   for (const raw of String(text).split('\n')) {
     const line = raw.replace(/\r$/, '')
     if (v.acHeading.test(line)) { dropEmpty(); inSection = true; acLevel = headingLevel(line); head = { at: kept.length } }
@@ -209,18 +188,14 @@ export function stripVagueCriteria(v, text, { headingless = false } = {}) {
 }
 
 const NUMBERED = /^\s*\d+[.)]\s+/
-// A shown text in quotes: straight or curly double quotes, or guillemets. Single quotes are
-// apostrophes too often ("doesn't … it's").
+// Double quotes or guillemets only: single quotes are too often apostrophes.
 const QUOTED = /["“«][^"“”«»\n]+["”»]/
-// What follows an action and states its result: "Click Save: the toast reads Saved".
+// "Click Save: the toast reads Saved"
 const RESULT_AFTER_ACTION = /(?::|→|->|=>|\s[–—]\s)\s*(.+)$/
 
 /**
- * The list blocks of a text, outside an Acceptance criteria section and outside a named section
- * (Steps to reproduce, Expected, Environment, Notes...): each a run of list items, blank lines
- * allowed between them, ended by any other line. A paragraph of plain lines is a list too, one
- * item per line, ended by a blank line: a list whose markers were lost reads the same. A heading
- * the vocabulary does not name ("## Description", "**Checks**") leaves the list readable.
+ * List blocks outside the AC and named sections (Steps to reproduce, Notes...).
+ * A paragraph of plain lines counts as a list too, since Jira often loses the markers.
  */
 function freeLists(v, text) {
   const blocks = []
@@ -252,10 +227,8 @@ function freeLists(v, text) {
 }
 
 /**
- * Does this list item name a result a test can see: a state, a shown text, a count, a value? An
- * item that starts with an action ("Open the list") is a step; it only names a result after a
- * ":" or an arrow ("Click Save: the toast reads Saved"). A plain line (`listed` false) is prose
- * until it names one in words or quotes: a number alone (a date, an id, an image's size) is not.
+ * True when the item names something a test can see. An action counts only after ":" or an arrow;
+ * an unlisted line needs words or quotes, since a bare number (date, id) isn't a result.
  */
 export function namesObservable(v, item, { listed = true } = {}) {
   if (QUESTION.test(item)) return false
@@ -263,11 +236,7 @@ export function namesObservable(v, item, { listed = true } = {}) {
   return !!result && (v.observable.test(result) || (listed && /\d/.test(result)) || QUOTED.test(result))
 }
 
-/**
- * The criteria read from a list that has no Acceptance criteria heading: two or more
- * items, every one a check (it names an observable, or it is vague, which then makes the
- * criteria untestable), at least one naming an observable. A list of actions is not criteria.
- */
+// Headingless criteria: 2+ items, each observable or vague (vague fails later), at least one observable.
 export function extractListCriteria(v, text) {
   const items = []
   for (const b of freeLists(v, text)) {
@@ -278,10 +247,7 @@ export function extractListCriteria(v, text) {
   return items
 }
 
-/**
- * Numbered action steps without a heading: a numbered list of two or more items that
- * starts with an action ("1. Open the list 2. Click Filter") and has at least two of them.
- */
+// A numbered list starting with an action and holding at least two ("1. Open the list 2. Click Filter").
 export function hasActionSteps(v, text) {
   return freeLists(v, text).some(b => {
     const numbered = b.items.filter((_, i) => b.numbered[i])
@@ -289,20 +255,15 @@ export function hasActionSteps(v, text) {
   })
 }
 
-/** Length of the plain-language criteria text, as the scorer reads it (bullets stripped). */
 export function naturalLength(items) {
   return (items || []).join(' ').length
 }
 
-/** Natural-language AC counts only when there is enough of it to test against. */
 export function hasNaturalAC(items) {
   return naturalLength(items) >= MIN_NATURAL_AC
 }
 
-/**
- * Does this scenario carry an expected result concrete enough to assert on? Accepts a raw
- * Gherkin string, {gherkin}, {then} or {expected}.
- */
+/** Takes a Gherkin string, {gherkin}, {then} or {expected}. */
 export function hasConcreteThen(v, scenario) {
   const src =
     typeof scenario === 'string'
@@ -310,17 +271,15 @@ export function hasConcreteThen(v, scenario) {
       : (scenario?.then ?? scenario?.expected ?? scenario?.gherkin ?? '')
   const text = normalise(src)
   const thenLine = (text.match(v.thenLineCapture) || [])[1]
-  // A `then` / `expected` field IS the expected result already. A whole scenario has to state
-  // its Then out loud.
+  // A then/expected field is already the result; a whole scenario needs an explicit Then.
   const isExpectedField =
     typeof scenario === 'object' && scenario !== null && (scenario.then != null || scenario.expected != null)
   if (thenLine == null && !isExpectedField) return false
   const then = String(thenLine ?? text).trim()
-  // 12 chars rejects stubs like "Then ok" without needing to parse the sentence.
+  // 12 chars rejects stubs like "Then ok".
   return then.length >= 12 && !hasVaguePhrase(v, then)
 }
 
-/** How many of the scenarios carry an assertable expected result. */
 export function countDerivable(v, scenarios = []) {
   return (scenarios || []).filter(s => hasConcreteThen(v, s)).length
 }
@@ -344,7 +303,7 @@ export function extractExpectedChunks(v, text) {
 
   chunks.push(...extractNaturalAC(v, text))
 
-  // A Then under the AC heading is read twice (as a Then and as natural AC): count it once.
+  // A Then under the AC heading is read twice; dedupe.
   return [...new Set(chunks.filter(Boolean))]
 }
 

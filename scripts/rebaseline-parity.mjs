@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-// Re-baseline the score parity fixtures after a deliberate change of the rubric (weights, new
-// signals). Runs every fixture's ops through the CURRENT core and rewrites
-// plugins/quality-code/test/parity/expected/<fixture>.json, keeping the file's format: the
-// backend output is written in the old names (warehouse_label), the frontend JIRA_UPDATE_JSON
-// without titlePrefix, because parity.test.mjs applies the documented transforms on read.
-// Nothing is edited by hand; it prints how many fixtures changed verdict (pass <-> refuse).
-//
-//   node scripts/rebaseline-parity.mjs
+// Rewrites test/parity/expected/ from the current core after a deliberate rubric change.
+// Output keeps the old format (warehouse_label, no titlePrefix): parity.test.mjs transforms it on read.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -20,7 +14,7 @@ const CLI = join(PLUGIN, 'core/cli.mjs')
 const read = p => JSON.parse(readFileSync(p, 'utf8'))
 const CONFIGS = { fe: read(join(DIR, 'configs/warehouse-frontend.json')), be: read(join(DIR, 'configs/warehouse-backend.json')) }
 
-/** The inverse of the parity test's renameFeatureKey: feature_label back to warehouse_label. */
+// Inverse of parity.test.mjs renameFeatureKey.
 function oldNames(value) {
   if (Array.isArray(value)) return value.map(oldNames)
   if (value && typeof value === 'object') {
@@ -88,8 +82,7 @@ for (const name of readdirSync(join(DIR, 'fixtures')).filter(f => f.endsWith('.j
   const fx = read(join(DIR, 'fixtures', name))
   const old = read(join(DIR, 'expected', name))
   let ticket = fx.ticket
-  // Spec §10 #2: the old scorer counted the bare `warehouse` label as the feature label. Its
-  // "before" is the same ticket with a real feature label, so the test can still compare the two.
+  // Spec §10 #2: the old scorer took the bare `warehouse` label as the feature label; give it a real one.
   if (fx.difference === 2) ticket = { ...ticket, labels: [CONFIGS[fx.repo].features[0].label] }
   const results = runFixture(fx.repo, ticket, fx.ops)
   const next = { ...old, results }

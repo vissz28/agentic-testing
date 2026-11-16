@@ -1,5 +1,4 @@
-// The shell of the one-file HTML report: shared CSS (light and dark through custom properties), escaping and
-// the page frame. Inline CSS and SVG only: no script, no font, no image, no link to anywhere.
+// Single-file HTML report shell. Inline CSS and SVG only: no scripts, fonts, images or external links.
 export const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 export const CSS = `
@@ -46,7 +45,7 @@ svg .arc.t-accent{stroke:var(--accent)}
 svg .arc{fill:none}
 `.trim()
 
-/** A complete page. `body` is already-built HTML; the title and subtitle are escaped here. */
+/** `body` is trusted HTML; title and subtitle are escaped here. */
 export function page({ title, subtitle = '', body, foot = '' }) {
   return `<!doctype html>
 <html lang="en">

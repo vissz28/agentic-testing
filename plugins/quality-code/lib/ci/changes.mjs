@@ -1,20 +1,18 @@
-// What a branch changed, as the testing phases need it: which side (backend, frontend) each changed file
-// belongs to and which specs it touched, grouped by module. CI runs only those; nothing changed in a
-// side means nothing to run there. Read from the file list git gave (branch.mjs detect), never from contents.
+// Maps a branch's changed paths to sides and specs, so CI runs only what changed. Never reads contents.
 import { BACKENDS, backendOf, isBackend } from '../stacks/backends.mjs'
 import { layersOf } from '../config/config.mjs'
 import { e2eFolder } from '../stacks/e2e-folder.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 
-// Files whose change can break either side without touching a spec: dependencies, compiler and runner config.
+// Dependency, compiler and runner config: a change can break either side without touching a spec.
 export const SHARED_CONFIG = /(?:^|\/)(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|tsconfig[^/]*\.json|vitest\.config\.[^/]+|vite\.config\.[^/]+|playwright\.config\.[^/]+|pom\.xml|build\.gradle(?:\.kts)?|go\.(?:mod|sum)|requirements[^/]*\.txt|pyproject\.toml|[^/]+\.(?:csproj|fsproj|sln)|\.claude\/quality-code\.json)$/
-// A spec's name, as branch.mjs kindOf reads it.
+// Must match branch.mjs kindOf.
 const SPEC_NAME = /\.(spec|test|cy)\.[^/]+$/
 const FRONT_EXT = /\.(?:vue|svelte|astro|html|css|scss|less|tsx|jsx)$/
 const FRONT_DIR = /(?:^|\/)(?:frontend|front|client|web|ui|app|pages|components|public|e2e)(?:\/|$)/i
 const BACK_DIR = /(?:^|\/)(?:backend|back|server|api|services?|domain|db|migrations?)(?:\/|$)/i
 
-/** 'frontend', 'backend' or 'both' (when the path does not say) for a changed source file. */
+/** 'frontend', 'backend', or 'both' when the path doesn't say. */
 export function sideOfCode(path, config) {
   const has = adaptersOf(config)
   const front = has.includes('playwright')
@@ -28,7 +26,7 @@ export function sideOfCode(path, config) {
   return f && !b ? 'frontend' : b && !f ? 'backend' : 'both'
 }
 
-/** The module a spec belongs to: a backend layer ("unit", "integration") or the first folder under the e2e folder. */
+/** Backend layer name, or the first folder under the e2e folder. */
 export function moduleOf(config, root, spec, adapter) {
   if (adapter === 'playwright') {
     const folder = e2eFolder(root, asAdapter(config, 'playwright')).folder ?? 'e2e/'
@@ -40,12 +38,8 @@ export function moduleOf(config, root, spec, adapter) {
   return hit?.name ?? 'tests'
 }
 
-/**
- * The plan for a list of changed files { path, status, kind }.
- *   specs   per side, the changed specs (not deleted) that the project's test folders hold, grouped by module
- *   source  per side, true when source files of that side changed (a test folder's helper too)
- * `known` is the project's specs: [{ path, adapter }].
- */
+// files: [{ path, status, kind }]; known: the project's specs [{ path, adapter }].
+// Per side: changed (not deleted) specs by module, and whether source or shared config changed.
 export function planChanges(files, config, known) {
   const bySpec = new Map(known.map(s => [s.path, s.adapter]))
   const sides = {
@@ -55,7 +49,7 @@ export function planChanges(files, config, known) {
   const modules = new Map()
   for (const f of files) {
     if (f.kind === 'test') {
-      // A page object, fixture or helper in a test folder (no spec name): its side runs, as for its code.
+      // Page object, fixture or helper: counts as source of its side.
       if (!bySpec.has(f.path) && !SPEC_NAME.test(f.path) && !BACKENDS[backendOf(config)]?.testFile.test(f.path)) {
         const s = sideOfCode(f.path, config)
         for (const side of s === 'both' ? ['backend', 'frontend'] : [s]) sides[side].source = true

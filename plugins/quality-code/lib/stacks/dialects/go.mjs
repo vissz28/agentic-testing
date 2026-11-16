@@ -1,29 +1,16 @@
-// Go syntax, as the backend checks read it. A test is a func TestXxx(t *testing.T); a scenario is a
-// t.Run("<name>", …) with a string-literal name, directly in it. A test function with no such t.Run
-// (one plain test, or a table-driven one whose t.Run takes tc.name) is one scenario itself, titled
-// with its function name. The runner (runners/go.mjs) reports results on the same rule, with the
-// same titles. The ticket's block is a test function whose doc comment holds the key:
-//
-//   // ABC-12 Reorder below the threshold
-//   func TestReorder(t *testing.T) { t.Run("stock of 4 reorders", …) }
-//
-// A regex cannot tell a skip (a call in the body) nor an assertion (an if around t.Errorf), so this
-// dialect brings its own marks, assertion count and assertion ranges (suite.marks, mutation.ranges).
+// Go dialect. Scenarios are direct t.Run("<literal>", …) calls, else the TestXxx func itself; the key goes
+// in its doc comment. A regex can't see skips or if + t.Errorf asserts, hence suite.marks and mutation.ranges.
 import { collapseSpaces } from '../../core/text.mjs'
 
 export const name = 'go'
 
-/**
- * Top-level group: a test function at column 0 with the doc comment right above it. m[1] = modifier
- * chain (none in Go), m[3] = the doc comment and the func line, where the key is read.
- */
+/** Test func at column 0. m[3] = doc comment + func line, where the key is read. */
 export const groupRe = /^()()((?:\/\/[^\n]*\n)*func\s+Test(?![a-z])\w*)\s*\(/gm
 
-// A literal subtest: m[3] = its name. The marks come from marks() below; this is what the quality
-// program reads for traceability.
+// Literal subtest, m[3] = name. Marks come from marks(); this is read for traceability.
 const RUN = /\b\w+\.Run\(\s*()()["`]([^"`\n]*)["`]/g
 
-/** The code with its comments and the inside of its string and rune literals blanked, same length. */
+/** Comments and string/rune contents blanked, same length. */
 export function mask(src) {
   const out = src.split('')
   const blank = (a, b) => { for (let k = a; k < b; k++) if (out[k] !== '\n') out[k] = ' ' }
@@ -90,7 +77,7 @@ const FUNC = /^func\s+(Test(?![a-z])\w*)\s*\(\s*(\w+)\s+\*testing\.T\s*\)\s*\{/g
 const TVARS = /\b(\w+)\s+\*testing\.T\b/g
 const tvarsOf = m => new Set(['t', ...[...m.matchAll(TVARS)].map(x => x[1])])
 
-/** The doc comment right above the line at `start`: its text lines, blank ones left out. */
+/** Non-blank lines of the doc comment right above `start`. */
 function docAbove(src, start) {
   const doc = []
   let at = start
@@ -110,7 +97,7 @@ function bodyAfter(m, from, limit) {
   return open < 0 || open > limit ? null : [open, closing(m, open)]
 }
 
-/** 'skip' or 'todo' when the body skips unconditionally (a t.Skip at its own top level), else null. */
+/** 'skip' or 'todo' for a t.Skip at the body's top level, else null. */
 function skipMod(src, m, open, close, tvars) {
   const re = /\b(\w+)\.Skip(?:f|Now)?\s*\(/g
   re.lastIndex = open
@@ -127,11 +114,8 @@ function skipMod(src, m, open, close, tvars) {
   return null
 }
 
-/**
- * The test functions of a Go test file: { name, start, docStart, doc, group, end, subtests }, each
- * subtest a direct literal t.Run: { title, idx, end, mod }. group is the title its results carry
- * (the doc comment, else the function name).
- */
+// [{ name, start, docStart, doc, group, end, subtests: [{ title, idx, end, mod }] }].
+// group is the title results carry: the doc comment, else the function name.
 export function scan(src) {
   const m = mask(src)
   const tvars = tvarsOf(m)
@@ -166,12 +150,12 @@ export function marks(src) {
     : [{ mod: f.mod, title: f.name, idx: f.start, end: f.end }]))
 }
 
-// A testify call (assert.X / require.X; assert.New is no assertion).
+// testify assert.X / require.X (assert.New isn't an assertion).
 const TESTIFY = /(?<![\w.])(?:assert|require)\.(?!New\b)([A-Z]\w*)\s*\(/g
-// A failure report on a *testing.T: t.Error, t.Errorf, t.Fatal, t.Fatalf, t.Fail, t.FailNow.
+// t.Error, t.Errorf, t.Fatal, t.Fatalf, t.Fail, t.FailNow.
 const REPORT = /(?<![\w.])(\w+)\.(?:Errorf?|Fatalf?|Fail|FailNow)\s*\(/g
 
-/** Assertions in a test body: testify calls and failure reports (t.Errorf, t.Fatal, …). */
+/** Counts testify calls and failure reports. */
 export function countAssertions(body) {
   const m = mask(body)
   const tvars = tvarsOf(m)
@@ -191,10 +175,8 @@ function ifBlock(m, idx) {
   return null
 }
 
-/**
- * { start, end } of each assertion: a testify call (its whole call), and an if whose block reports a
- * failure at its own top level (its "if <cond> " up to the "{": only the condition is mutated).
- */
+// A whole testify call, or for an if whose block reports a failure, just "if <cond> " up to the "{"
+// so only the condition is mutated.
 export function ranges(src) {
   const m = mask(src)
   const tvars = tvarsOf(m)
@@ -203,7 +185,7 @@ export function ranges(src) {
   for (const x of m.matchAll(/(?<![\w.])if\s/g)) {
     const b = ifBlock(m, x.index)
     if (!b) continue
-    // Only the block's own statements: a report inside a nested block is that block's assertion.
+    // Own statements only: a nested report belongs to the nested block.
     let inner = ''
     let depth = 0
     for (let i = b[0] + 1; i < b[1]; i++) {
@@ -248,7 +230,7 @@ function corruptString(text, m, from = 0) {
 
 const plusOne = (text, n) => `${text.slice(0, n.index)}${Number(n.text) + 1}${text.slice(n.index + n.text.length)}`
 
-/** The flips of an if condition ("if <init>; <cond> "): the comparison inverted first. */
+/** Flips of "if <init>; <cond> ", inverting the comparison first. */
 function ifFlips(text, add) {
   const m = mask(text)
   // The condition starts after a top-level ";" (if got := f(); got != want).
@@ -286,7 +268,7 @@ function ifFlips(text, add) {
   if (s) add('corrupt-string', `${pre}${s}${tail}`)
 }
 
-/** The flips of one assertion (a testify call, or an if condition), strongest kinds first. */
+/** Testify call or if condition, strongest first. */
 export function flipMutations(src) {
   const out = []
   const add = (kind, text) => { if (text !== src && !out.some(o => o.text === text)) out.push({ kind, text }) }
@@ -318,13 +300,13 @@ export const honesty = {
   removedDecl: /^\s*func\s+Test(?![a-z])\w*\s*\(|\b\w+\.Run\s*\(/,
   // testify calls and failure reports on the usual *testing.T names (err.Error() is no report).
   assertionRe: /(?<![\w.])(?:assert|require)\.(?!New\b)[A-Z]\w*\s*\(|(?<![\w.])(?:t|tb|tt|st)\.(?:Errorf?|Fatalf?|Fail|FailNow)\s*\(/,
-  // t.Skip("todo …") is "not written yet", as it.todo is: no skip.
+  // t.Skip("todo …") is a todo, like it.todo, not a skip.
   skips: [/(?<![\w.])\w+\.Skip(?:f|Now)?\s*\((?!\s*["`](?:todo|TODO|Todo)\b)/],
   forgiveMoves: false,
   anchorTags: false,
 }
 
-/** The rows of each table ([]struct{ … }{ rows }) in the code: a table-driven test's expected values. */
+/** Rows of each []struct{ … }{ rows } table: a table-driven test's expected values. */
 export function tables(src) {
   const m = mask(src)
   const out = []
@@ -336,9 +318,8 @@ export function tables(src) {
   return out
 }
 
-// The value check: a field the ticket names must be read in an assertion (unit tests read fields).
-// The values are read in the whole assertion (a testify call's arguments, an if's condition) and in
-// the rows of a table, which a table-driven test asserts case by case.
+// Fields the ticket names must be read in an assertion: testify args, an if condition, or a table row
+// (table-driven tests assert row by row).
 export const expected = {
   fieldNames: true,
   readsActual: true,
@@ -353,10 +334,10 @@ export const suite = {
   skippedGroups: true,
 }
 
-// Strongest first: inverting an assertion is the definitive "does it bind anything" mutant.
+// Strongest first: inverting an assertion best shows whether it checks anything.
 const mutantRank = k => (k === 'invert-assert' || k === 'flip-compare' || k === 'drop-not' || k === 'negate-if' ? 0 : k === 'num→n+1' ? 1 : 2)
 
-/** A block mutation judges: it ran green, it is not skipped or a todo. */
+/** Green and not skipped or todo. */
 const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && passed.has(block.title)
 
 /** One mutant per assertion (the strongest); baseline-green tests only, inside the range. */
@@ -381,8 +362,7 @@ function plan({ src, passedTitles, range, blocks, expects }) {
 }
 
 export const mutation = {
-  // A compiled language: a mutated copy next to the spec would not compile (a duplicate function),
-  // so the spec itself is mutated and always restored (see checks/mutation.mjs).
+  // Compiled: a copy would be a duplicate function, so the spec is mutated in place and restored (checks/mutation.mjs).
   inPlace: true,
   expectRe: /(?<![\w.])(?:assert|require)\.(?!New\b)[A-Z]\w*\s*\(/,
   testRe: RUN,

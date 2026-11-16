@@ -1,4 +1,4 @@
-// Find, load and validate the team config. The only module that knows where it lives.
+// Finds, loads and validates the team config. The only module that knows where it lives.
 import { ciErrors } from '../ci/ci-source.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -14,15 +14,14 @@ import { readJsonOr, tryReadJson } from '../core/files.mjs'
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-/** How a team tests a frontend feature: Playwright (e2e), unit tests of its components and code, or both. */
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
-/** A JavaScript unit runner is there: a Vitest backend, or a Jest, Mocha or node --test runner named in `runners.unit`. */
+/** Vitest backend, or Jest/Mocha/node --test in `runners.unit`. */
 const hasUnitRunner = c => c.backend === 'vitest' || c.runners?.unit !== undefined
 const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'frontend', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'testRules', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
-// The backends other than Vitest: each has a block of its own options, named after it.
+// Each non-Vitest backend has its own options block, named after it.
 const OTHER_BACKENDS = BACKEND_ADAPTERS.filter(a => a !== 'vitest')
-// The placeholders a backend's own test command may hold.
+// Placeholders allowed in a backend's test command.
 const COMMAND_SLOTS = new Set(['files', 'report', 'test'])
 const quoted = list => list.map(a => `"${a}"`)
 const orList = list => `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`
@@ -31,15 +30,15 @@ const PATH_RULE = 'must be a relative path inside the project (no "..", not abso
 const LAYER_NAME = /^[a-z][a-z0-9-]{0,30}$/
 export const DEFAULT_LAYERS = Object.freeze([Object.freeze({ name: 'unit', folder: 'test/' })])
 export const DEFAULT_STRYKER_THRESHOLD = 60
-// Stryker reruns the tests once per code change: minutes on a database-backed suite, so not the tests' limit.
+// Stryker reruns the suite per mutant: minutes on a DB-backed suite, so it gets its own limit.
 export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
-// The Xray CSV's columns in order, with their default header; "data" is no column: it is the word
-// before a step's data in the action cell. A team's importer mapping may want other headers.
+// Xray CSV columns in order with default headers. "data" isn't a column: it's the word before a step's
+// data in the action cell.
 export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
 export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
-// The tags write puts on red Playwright tests: a ticket scenario's and an extra probe's.
+// Tags on red Playwright tests: ticket scenarios and extra probes.
 export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
-// Jira statuses that say the work is finished: a red run then warns that the bug is still there.
+// Finished statuses: a red run then warns the bug is still there.
 export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
 const pathOk = p => isLine(p) && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..')
 
@@ -53,10 +52,10 @@ export const DEFAULTS = Object.freeze({
   ticketTemplates: { bug: null, story: null },
 })
 
-/** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
+/** "/" separators, no leading "./", no trailing "/". */
 export const normaliseTicketsDir = dir => toForwardSlashes(dir).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
-/** The config file of the project at dir: the one in its place (next to the tickets and audit files), else the legacy .claude/quality-code.json; null when there is none. */
+/** The config in its place, else the legacy .claude/quality-code.json, else null. */
 export function configFileOf(dir, env = process.env) {
   const placed = placeConfigPath(dir, env)
   if (existsSync(placed)) return placed
@@ -65,7 +64,6 @@ export function configFileOf(dir, env = process.env) {
 }
 const hasConfig = dir => configFileOf(dir) !== null
 
-/** The nearest folder at or above dir that holds the config, or null. */
 function findHome(dir) {
   for (let d = resolve(dir); ; d = dirname(d)) {
     if (hasConfig(d)) return d
@@ -76,10 +74,7 @@ function findHome(dir) {
 const folderKey = f => toForwardSlashes(f).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'quality-code', 'roots.json')
 
-/**
- * The project one config serves out of several ("roots"): QUALITY_CODE_ROOT for one run, else the folder this
- * person picked with `ticket.mjs root set` (kept on this computer, per repo). Only a folder the config lists counts.
- */
+/** Active root of a multi-root config: QUALITY_CODE_ROOT, else `root set`'s pick. Must be listed in the config. */
 function chosenRoot(home, c, env = process.env) {
   if (!Array.isArray(c?.roots)) return null
   const allowed = new Set([...c.roots, c.root].filter(pathOk).map(folderKey))
@@ -88,27 +83,27 @@ function chosenRoot(home, c, env = process.env) {
   return pick && allowed.has(folderKey(pick)) ? pick : null
 }
 
-/** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
+/** The folder the config's root field names (e.g. web/), else home. A bad root is validateConfig's problem. */
 function withRoot(home) {
   const c = tryReadJson(configFileOf(home), undefined)
   const r = chosenRoot(home, c) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
 }
 
-/** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
+/** What `root get` shows: { default, roots, active }. */
 export function rootsOf(home, env = process.env) {
   const c = tryReadJson(configFileOf(home), undefined)
   const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
   return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
 
-/** Picks the active root for the config in home (kept on this computer). Returns { ok, error? }. */
+/** Saved on this machine. → { ok, error? } */
 export function setActiveRoot(home, folder, env = process.env) {
   const { roots } = rootsOf(home, env)
   if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
   if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
   const file = activeRootsFile(env)
-  // A broken file stops here, naming it: rewriting it would drop the root picked in every other repo.
+  // Stop on a broken file: rewriting it would drop every other repo's pick.
   const all = readJsonOr(file, {})
   all[resolve(home)] = folderKey(folder)
   mkdirSync(dirname(file), { recursive: true })
@@ -116,35 +111,31 @@ export function setActiveRoot(home, folder, env = process.env) {
   return { ok: true }
 }
 
-/** The project dir is in: that of the nearest config at or above it, or null. */
 export function findRoot(dir) {
   const home = findHome(dir)
   return home && withRoot(home)
 }
 
-/** The folder whose config governs the project at root: root itself, else the one above whose root field names it. */
+/** root itself, else the folder above whose root field names it. */
 export function configHome(root) {
   if (hasConfig(root)) return root
   const up = findHome(dirname(resolve(root)))
   return up && withRoot(up) === resolve(root) ? up : root
 }
 
-/**
- * The project: CLAUDE_PROJECT_DIR when it holds the config, else the nearest folder up from cwd that
- * does (a script run from src/, a package of a monorepo); with no config anywhere, CLAUDE_PROJECT_DIR
- * or cwd, where setup writes it. A config whose root field names a subfolder makes that the project.
- */
+// CLAUDE_PROJECT_DIR if it holds the config, else the nearest config up from cwd (scripts in src/, monorepos),
+// else CLAUDE_PROJECT_DIR or cwd. A root field naming a subfolder makes that the project.
 export function projectRoot(env = process.env, cwd = process.cwd()) {
   const dir = env.CLAUDE_PROJECT_DIR
   if (dir && hasConfig(dir)) return withRoot(dir)
   return findRoot(cwd) ?? (dir || cwd)
 }
-/** The config file of the project at root: the existing one (its place first, then the legacy repo file); with none, where setup writes it. */
+/** The existing config, else where setup would write it. */
 export const configPath = (root, env = process.env) => configFileOf(root, env) ?? placeConfigPath(root, env)
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
-/** The fields the vitest and playwright blocks share: configs, tsconfig, timeoutSeconds. */
+/** Fields shared by the vitest and playwright blocks. */
 function runnerFields(b, name, e) {
   const cf = b.configs
   if (cf !== undefined) {
@@ -158,7 +149,7 @@ function runnerFields(b, name, e) {
   limitErrors(b, name, e)
 }
 
-/** The limits every runner block has: timeoutSeconds, and maxMutants (the most mutants run per spec). */
+/** timeoutSeconds and maxMutants (per-spec cap), on every runner block. */
 function limitErrors(b, name, e) {
   const t = b.timeoutSeconds
   if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
@@ -166,15 +157,14 @@ function limitErrors(b, name, e) {
   if (m !== undefined && !(Number.isInteger(m) && m >= 1)) e.push(`${name}.maxMutants: must be a whole number from 1, the most mutants run per spec`)
 }
 
-/** The rules a test folder is checked against: the configured boundaries, else the default ones. */
 function folderRules(c) {
-  // The default boundary when none is configured; the CI files never hold a folder of tests.
+  // Default boundary: test folders never go inside the CI files.
   const forbidden = Array.isArray(c.boundaries?.forbidden) ? c.boundaries.forbidden.filter(r => isObject(r) && pathOk(r.path)) : [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }]
   const allow = Array.isArray(c.boundaries?.allow) ? c.boundaries.allow.filter(pathOk) : []
   return { forbidden, allow }
 }
 
-/** A folder a writing run writes in: relative, ending in "/", not inside a forbidden rule unless allowed. */
+/** Relative, ends in "/", not inside a forbidden rule unless allowed. */
 function folderErrors(folder, name, rules, e) {
   if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
   if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
@@ -185,7 +175,7 @@ function folderErrors(folder, name, rules, e) {
 
 const guideOk = g => pathOk(g) && /\.md$/i.test(g)
 
-/** The layers of a backend block: 1 to 5 { name, folder, guide }, names unique, folders writable. */
+/** 1 to 5 { name, folder, guide }, unique names, writable folders. */
 function layerErrors(ls, name, rules, e) {
   if (ls === undefined) return
   if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) return e.push(`${name}.layers: must be a list of 1 to 5 { "name", "folder", "guide" }`)
@@ -201,15 +191,13 @@ function layerErrors(ls, name, rules, e) {
   })
 }
 
-/** One line of shell text, not empty. */
 
-/** The block of a backend other than Vitest: layers, timeoutSeconds, command (and pytest's typeCheck). */
+/** Non-Vitest backend block: layers, timeoutSeconds, command (and pytest's typeCheck). */
 function otherBackendErrors(b, name, e) {
   const fields = ['layers', 'timeoutSeconds', 'maxMutants', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
   for (const k of Object.keys(b)) if (!fields.includes(k)) e.push(`${name}.${k}: unknown field (only ${orList(quoted(fields))})`)
   limitErrors(b, name, e)
-  // The test file names are the backend's own, so a layer may sit in a code folder (src/test/java/, Go's
-  // tests beside the code): the boundary lets test files through by their name, see boundary.mjs.
+  // Layers may sit in code folders (src/test/java/, Go): the boundary lets test files through by name.
   layerErrors(b.layers, name, { forbidden: [], allow: [] }, e)
   if (b.command !== undefined) {
     if (!isLine(b.command)) e.push(`${name}.command: must be one line of text, the project's test command, like "${name === 'pytest' ? 'poetry run pytest {files} --junitxml={report}' : 'make test'}"`)
@@ -276,7 +264,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
   if (c.confluence !== undefined && typeof c.confluence !== 'boolean') e.push('confluence: must be true or false (false: the team has no Confluence, so no QA plan is looked for or scored)')
-  // Absent means the QA-plan search looks in every Confluence space.
+  // Absent: search every Confluence space.
   if (c.confluenceSpaces !== undefined) {
     if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')
     else if (!c.confluenceSpaces.length) e.push('confluenceSpaces: must name at least one space; leave it out to search all spaces')
@@ -320,7 +308,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
     }
   }
-  // The branch a feature branch starts from, when origin/HEAD is not it (gitflow: develop).
+  // When origin/HEAD isn't the base (gitflow: develop).
   if (c.git !== undefined) {
     if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
     else {
@@ -375,7 +363,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
       if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
       else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
-      // Jest and Mocha run JavaScript: a pytest, JUnit, Go or .NET backend has its own runner already.
+      // Jest/Mocha are JS: non-JS backends already have their own runner.
       else if (kind === 'unit' && isBackend(backend) && backend !== 'vitest') e.push(`runners.unit: ${JSON.stringify(name)} runs JavaScript tests, and this project's backend is ${BACKENDS[backend].label}, which runs its own tests: leave runners.unit out (it is only for a Vitest backend)`)
       else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with ${kind === 'unit' ? '"backend": "vitest"' : '"frontend": "playwright"'}`)
     }
@@ -446,7 +434,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!isObj(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
     else {
       const s = c.seed
-      // The test-data printer's fields (before 0.31.0): ignored, so an old config keeps working.
+      // Pre-0.31.0 test-data printer fields: ignored so old configs still load.
       for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
       if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
       if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
@@ -455,7 +443,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
     }
   }
-  // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
+  // Markdown QA plans, one per feature label: extra rules for writing, never scored.
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
   if (c.externalChecks !== undefined) {
     if (!Array.isArray(c.externalChecks) || !c.externalChecks.length) e.push('externalChecks: must be a non-empty list of files or globs (tests run outside the unit tests, like a pgTAP file), relative to the folder that holds the config')
@@ -466,7 +454,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!isObj(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
     else {
       const q = c.qa
-      // Names go into JQL between double quotes: one line, no quote, no backslash.
+      // Interpolated into JQL in double quotes: one line, no quote, no backslash.
       const nameOk = v => isLine(v) && !/["\\]/.test(v) && v.length <= 80
       for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
       if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
@@ -504,7 +492,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
     }
   }
-  // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
+  // Central Context hub for testing rules (lib/base/rules.mjs). "off" reads none.
   if (c.testRules !== undefined) {
     if (!isObj(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
     else for (const [side, v] of Object.entries(c.testRules)) {
@@ -519,7 +507,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
       const h = c.centralContext.hub
       if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
-      // The team's own rules, read next to the hub's on every run.
+      // Team rules, read alongside the hub's.
       const l = c.centralContext.local
       if (l !== undefined && !(pathOk(l) && l.endsWith('/'))) e.push(`centralContext.local ${JSON.stringify(l)} must be a folder inside the project, ending with "/" (one rule per .md file, in the Central Context rule format)`)
     }
@@ -538,16 +526,15 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     ok: true,
     config: {
       ...c,
-      // The side the code runs, never written back to the file: the one side, or fullstack for both.
-      // A one-side project is its own one-side view: the adapter the pipeline runs. A fullstack one has none.
+      // Derived, never written back: single-side projects get their adapter; fullstack gets none.
       ...(c.frontend && c.backend ? {} : { adapter: c.frontend ?? c.backend }),
-      // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
+      // No trailing "/": commands append /wiki/… and /browse/….
       jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
       languages: c.languages ?? DEFAULTS.languages,
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
       ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
-      // Merged: a custom pattern adds to the default customerId one, it does not turn it off.
+      // Merged: custom patterns add to the default customerId one, not replace it.
       redact: { ...DEFAULTS.redact, ...(c.redact ?? {}) },
       messages: c.messages ?? DEFAULTS.messages,
       ticketTemplates: { ...DEFAULTS.ticketTemplates, ...(c.ticketTemplates ?? {}) },
@@ -555,37 +542,33 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
 }
 
-/**
- * The test folders a writing run may use: the backend block's layers, else the backend's default (one
- * "unit" layer: test/ for Vitest). A frontend project reads Vitest's, as it always did.
- */
+/** The backend block's layers, else the backend's default. Frontend projects read Vitest's. */
 export const layersOf = config => {
   const backend = backendOf(config) ?? 'vitest'
   return config?.[backend]?.layers ?? (backend === 'vitest' ? DEFAULT_LAYERS : BACKENDS[backend].defaultLayers)
 }
 
-/** The block of the configured adapter (a backend or playwright), or {} when there is none. */
+/** {} when there is none. */
 export const adapterOptions = config => {
   const b = isBackend(config?.adapter) || config?.adapter === 'playwright' ? config[config.adapter] : null
   return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
 }
 
-/** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, the backend's default (300 for Vitest). */
+/** Per runner process: the block's timeoutSeconds, else 600 for Playwright, else the backend's default. */
 export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : BACKENDS[config?.adapter]?.timeoutSeconds ?? 300)
 
-/** The most mutants run per spec (the block's maxMutants), or null for no cap. */
+/** null means no cap. */
 export const maxMutantsOf = config => adapterOptions(config).maxMutants ?? null
 
-/** The project's own test command of a backend block (a template with {files}, {report}, {test}), or null. */
+/** Template with {files}, {report}, {test}, or null. */
 export const commandOf = config => adapterOptions(config).command ?? null
 
-/** The seed block with its defaults: every field null. */
 export const seedOf = config => {
   const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
   return { schema: s.schema ?? null, target: s.target ?? null, apply: s.apply ?? null, tenant: s.tenant ?? null, guide: s.guide ?? null }
 }
 
-/** The qa block with its defaults: Xray's execution types, the open sprint, no fixed app or status names, stop after 2 blocked tests in a row. */
+/** Defaults stop after 2 blocked tests in a row. */
 export const qaOf = config => {
   const q = isObject(config?.qa) ? config.qa : {}
   const s = isObject(q.statuses) ? q.statuses : {}
@@ -599,41 +582,39 @@ export const qaOf = config => {
   }
 }
 
-/** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
+/** null when off. */
 export const xrayOf = (config, source = 'repo') => {
   const x = config?.xray
-  // Xray is part of Jira: a personal setup (no repo) has it on without a block, with the cases kept in its tickets folder.
+  // Personal setups (no repo) get Xray on by default, cases in the tickets folder.
   if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${normaliseTicketsDir(config.ticketsDir)}/xray-cases.csv`, folder: `${normaliseTicketsDir(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null
   return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
 
-/** The Playwright titles that are never graded nor mutated (playwright.ungradedTitles), as a regex; null for Vitest or when unset. */
+/** playwright.ungradedTitles as a regex: never graded or mutated. null when unset. */
 export const ungradedTitlesOf = (config, dialect) => {
   const u = config?.playwright?.ungradedTitles
   return dialect?.name === 'playwright' && typeof u === 'string' && u ? new RegExp(u, 'i') : null
 }
 
-/** The red-test tags as a list (scenario's, extra's); [] when playwright.redTags is null. */
+/** [] when playwright.redTags is null. */
 export const redTagsOf = config => {
   const rt = config?.playwright?.redTags
   return rt === null ? [] : Object.values({ ...DEFAULT_RED_TAGS, ...(rt ?? {}) })
 }
 
-/** The Jira statuses that mean finished. */
 export const doneStatusesOf = config => config?.jira?.doneStatuses ?? DEFAULT_DONE_STATUSES
 
-/** The share of Stryker mutants the tests must catch, as a whole percentage. */
+/** Whole percentage of Stryker mutants that must be killed. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD
 
-/** Seconds one Stryker run may take. */
 export const strykerTimeoutSeconds = config => config?.vitest?.stryker?.timeoutSeconds ?? DEFAULT_STRYKER_TIMEOUT_SECONDS
 
-/** The user's Claude folder: CLAUDE_CONFIG_DIR, else ~/.claude. */
+/** CLAUDE_CONFIG_DIR, else ~/.claude. */
 export const claudeDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
-/** The personal config (no repo): <Claude folder>/quality-code.json. */
+/** Personal config (no repo). */
 export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'quality-code.json')
-/** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
+/** Absolute, so it doesn't depend on cwd. */
 export const personalTicketsDir = (env = process.env) => normaliseTicketsDir(join(claudeDir(env), 'quality-code', 'tickets'))
 
 function readValidated(p, label, source, env, root) {
@@ -645,17 +626,13 @@ function readValidated(p, label, source, env, root) {
   if (source === 'personal' && isObject(obj) && obj.ticketsDir === undefined) obj = { ...obj, ticketsDir: personalTicketsDir(env) }
   const r = { ...validateConfig(obj, { allowAbsoluteTicketsDir: source === 'personal' }), source, path: p }
   if (!r.ok) return r
-  // The tickets folder is where this person keeps the project's files: the repo, this machine or the chat.
+  // ticketsDir follows the person's place pick: repo, local or chat.
   const dirs = placeDirs(root, { source, ticketsDir: own, personalDefault: personalTicketsDir(env) }, placeOf(root, source, env), env)
   return { ...r, config: { ...r.config, ticketsDir: dirs.ticketsDir }, place: dirs.place, auditDir: dirs.auditDir }
 }
 
-/**
- * The config in force: the repo's .claude/quality-code.json first, else the personal one. The result is
- * validateConfig's, plus where it came from: source "repo" | "personal" and its path, and where this
- * person keeps the project's files: place "repo" | "local" | "chat" (this session), and auditDir.
- * config.ticketsDir is that place's tickets folder.
- */
+// Repo config first, else the personal one. validateConfig's result plus source, path, place and auditDir;
+// config.ticketsDir is the place's tickets folder.
 export function loadConfig(root, env = process.env) {
   const rp = configFileOf(configHome(root), env)
   if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)

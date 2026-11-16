@@ -1,16 +1,13 @@
-// Where the CI file fetches the plugin from. Default: the public repo at the tag of this version.
-// A team that mirrors the plugin sets `ci.pluginSource` in the project config ({ "url": "https://...", "ref": "<tag or branch>" })
-// or QUALITY_CODE_PLUGIN_URL / QUALITY_CODE_PLUGIN_REF in the environment of the run (the environment wins).
+// Where CI clones the plugin from. Mirrors override via ci.pluginSource or QUALITY_CODE_PLUGIN_URL/_REF.
 export const DEFAULT_PLUGIN_URL = 'https://github.com/vissz28/agentic-testing.git'
 
-// https only, no credentials in the address, and only characters that are safe inside a one-line shell command.
+// https, no credentials, and only characters safe inside a shell command.
 const URL_OK = /^https:\/\/[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:\d{1,5})?(\/[A-Za-z0-9._~%+-]+)+$/
 const REF_OK = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/
 
 export const urlOk = u => typeof u === 'string' && URL_OK.test(u) && !u.includes('..')
 export const refOk = r => typeof r === 'string' && REF_OK.test(r) && !r.includes('..') && !r.endsWith('/') && !r.endsWith('.lock')
 
-/** Problems with a `ci` config block, as messages (empty when it is fine). */
 export function ciErrors(ci) {
   if (ci === undefined) return []
   if (!ci || typeof ci !== 'object' || Array.isArray(ci)) return ['ci: must be an object with an optional "pluginSource"']
@@ -25,7 +22,7 @@ export function ciErrors(ci) {
   return e
 }
 
-/** { url, ref, custom } or { error }: the environment wins over the config, the config over the default (this version's tag). */
+/** Env wins over config, config over the default (this version's tag). */
 export function pluginSource(config, env, version) {
   const c = config?.ci?.pluginSource ?? {}
   const url = env.QUALITY_CODE_PLUGIN_URL || c.url || DEFAULT_PLUGIN_URL

@@ -1,13 +1,7 @@
 #!/usr/bin/env node
-// Entry point for the "where did I stop" cache the commands use between steps and sessions.
-// node bin/progress.mjs get <command> [--key KEY]
-// node bin/progress.mjs set <command> --step N --label "text" [--key KEY] [--data '{"site":"…"}']
-// node bin/progress.mjs clear <command> [--key KEY]
-// node bin/progress.mjs list
-// node bin/progress.mjs context get <fact> [--head | --current TOKEN]
-// node bin/progress.mjs context set <fact> --data JSON --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
-// node bin/progress.mjs context file <path> [--role target|spec|config] | changed <path> | clear [<fact>] | list
-// Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
+// Local resume cache for commands (steps and cached facts). Never sent anywhere, never in the repo.
+// context set --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
+// Exit 0 ok, 2 usage or refused input.
 import { execFileSync } from 'node:child_process'
 import { projectRoot } from '../lib/config/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/state/context.mjs'
@@ -31,7 +25,7 @@ function parse(argv) {
   return a
 }
 
-// A file it cannot trust (a broken config or saved step) stops it with the file's name, as qa.mjs does.
+// A broken config or saved step exits 2 with the file name, not a stack trace.
 export async function main(argv = process.argv.slice(2), io = {}) {
   try { return await handle(argv, io) } catch (e) { lineWriter(io.stderr ?? (s => process.stderr.write(s)))(`progress.mjs: ${e?.message ?? e}`); return 2 }
 }
@@ -76,7 +70,7 @@ async function handle(argv = process.argv.slice(2), { env = process.env, cwd = p
   return fail(USAGE)
 }
 
-// The git commit this project is at: the token a `head` fact is compared with.
+// Token a `head` fact is compared against.
 const gitHead = root => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null } }
 
 function parseSource(text) {

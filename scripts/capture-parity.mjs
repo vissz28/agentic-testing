@@ -1,9 +1,6 @@
 #!/usr/bin/env node
-// Run every parity fixture through today's warehouse scorers and record what they print.
-// Needs the two warehouse repos next to this one (or WAREHOUSE_FE / WAREHOUSE_BE); CI does not:
-// the captured files under plugins/quality-code/test/parity/expected/ are committed.
-//
-//   node scripts/capture-parity.mjs
+// Records the old warehouse scorers' output for every parity fixture (`--checks` for the five checks).
+// Needs ../warehouse-frontend and ../warehouse-backend (or WAREHOUSE_FE/BE); CI uses the committed output.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -26,16 +23,14 @@ const SOURCES = {
   },
 }
 
-// --checks: the five checks. Old scripts run their CLI on import, so each is cut at its entry
-// point (CUT) and the pure functions are imported from the cut copy; suite-honesty's verdict
-// comes from running the whole old CLI, as the pipeline does.
+// Old scripts run their CLI on import, so each is cut at CUT before importing; suite-honesty runs whole.
 const CHECK_FILES = {
   fe: { harness: ['honesty-check.mjs', 'suite-honesty.mjs', 'flaky-check.mjs', 'mutate-generated.mjs'], guard: '.claude/boundary-guard.mjs', dirs: ['e2e/tests'], spec: p => /^e2e\/tests\/.*FIC-\d+\.spec\.ts$/.test(p) },
   be: { harness: ['honesty-check.mjs', 'suite-honesty.mjs', 'flaky-check.mjs', 'mutate-generated.mjs'], guard: '.claude/boundary-guard.mjs', dirs: ['test/unit', 'test/integration', 'test/range'], spec: p => /^test\/(unit|integration|range)\/.*\.spec\.ts$/.test(p) },
 }
 const CUT = /^(?:const (?:args|rawArgs) = process\.argv|if \(process\.argv|main\(\);?\s*$)/m
 const DIFFS_PER_REPO = 15
-// Synthetic negatives: still run through the OLD scripts, so the failure paths are compared too.
+// Synthetic negatives, so the failure paths are compared too.
 const SYNTHETIC = {
   fe: {
     'hollow.spec.ts': "import { test, expect } from '@playwright/test'\ntest('ok', async () => { await expect(x).toBeVisible() })\ntest('hollow', async () => { await page.goto('/') })\n",
@@ -82,7 +77,7 @@ async function captureChecks() {
       for (const f of files.harness) old[f] = await loadOld(tmp, name, repo, ref, `.claude/harness/${f}`)
       old.guard = await loadOld(tmp, name, repo, ref, files.guard)
 
-      // specs: suite-honesty (whole old CLI) and mutation plans
+      // specs: suite-honesty and mutation plans
       const specs = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '--name-only', ref], { encoding: 'utf8' }).split('\n').filter(files.spec)
       const captureSpec = (fixture, src, synthetic) => {
         mkdirSync(dirname(join(out, fixture)), { recursive: true })
@@ -103,7 +98,6 @@ async function captureChecks() {
       for (const p of specs) captureSpec(`${name}/specs/${p.replace(/\//g, '__')}.txt`, mask(show(repo, ref, p)), false)
       for (const [file, src] of Object.entries(SYNTHETIC[name])) captureSpec(`${name}/synthetic/${file}.txt`, mask(src), true)
 
-      // synthetic boundary paths through the old guard
       for (const p of SYNTHETIC_PATHS) {
         if (name === 'fe') {
           const v = old.guard.mod.violation(p)
@@ -113,7 +107,7 @@ async function captureChecks() {
         }
       }
 
-      // diffs: honesty on spec-touching commits; boundary on every path those commits change
+      // honesty on spec-touching commits, boundary on every path they change
       const commits = execFileSync('git', ['-C', repo, 'log', '--format=%H', '-n', String(DIFFS_PER_REPO), ref, '--', ...files.dirs], { encoding: 'utf8' }).split('\n').filter(Boolean)
       for (const c of commits) {
         if (spawnSync('git', ['-C', repo, 'rev-parse', '--verify', '--quiet', `${c}^`]).status !== 0) continue
@@ -133,7 +127,7 @@ async function captureChecks() {
         }
       }
 
-      // flaky: the pure classification over every tally of up to 5 runs
+      // flaky: every pass/fail tally of up to 5 runs
       if (name === 'be') {
         for (let p = 0; p <= 5; p++) for (let f = 0; p + f <= 5; f++) expected.flaky.classify.push([p, f, old['flaky-check.mjs'].mod.classify(p, f)])
         for (const vs of [['green'], ['real'], ['flaky'], ['green', 'real'], ['green', 'flaky'], ['real', 'flaky'], ['green', 'real', 'flaky'], []]) expected.flaky.overall.push([vs, old['flaky-check.mjs'].mod.overall(vs)])
@@ -146,11 +140,9 @@ async function captureChecks() {
   }
 }
 
-// Today's backend names the feature-label key warehouse_label (spec §10 #5): fixtures use the new
-// name, so translate it back when calling the old script.
+// The old backend calls feature_label warehouse_label (spec §10 #5).
 const oldKey = (repo, key) => (repo === 'be' && key === 'feature_label' ? 'warehouse_label' : key)
 
-/** The old flag form of one op. */
 export function oldArgs(repo, op) {
   const [cmd, ...rest] = op
   switch (cmd) {
@@ -164,10 +156,7 @@ export function oldArgs(repo, op) {
   }
 }
 
-/**
- * Today's backend sanitizer on every raw input of test/parity/sanitize-inputs.mjs. The inputs are
- * built at runtime and outputs are masked, so no customer id or e-mail is written (Ruling R11).
- */
+// Inputs are built at runtime and outputs masked, so no customer id or e-mail is written (Ruling R11).
 async function captureSanitize(tmp, commit, expectedDir) {
   const { sanitizeInputs, mask } = await import(pathToFileURL(join(PARITY, 'sanitize-inputs.mjs')).href)
   const results = sanitizeInputs().map(({ name, raw }) => {
@@ -198,8 +187,7 @@ function extract(tmp) {
 }
 
 async function main() {
-  // Real path: the old sanitizer runs main() only when argv[1] equals its own resolved path, and
-  // the macOS temp dir is a symlink.
+  // realpath: the old sanitizer only runs main() when argv[1] is its resolved path; macOS tmp is a symlink.
   const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'parity-capture-')))
   try {
     const commits = extract(tmp)

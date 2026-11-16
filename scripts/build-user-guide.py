@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Builds docs/quality-code-user-guide.pdf: how to use quality-code, step by step.
-
-    python3 scripts/build-user-guide.py
-
-Colours: TeamSystem's palette (Vapor design system). Change them here if the brand team says otherwise.
-"""
+"""Builds docs/quality-code-user-guide.pdf. Colours are TeamSystem's Vapor palette."""
 from pathlib import Path
 import json
 

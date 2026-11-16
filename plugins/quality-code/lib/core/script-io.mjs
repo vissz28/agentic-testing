@@ -1,38 +1,19 @@
-// What a script in bin/ needs between itself and whoever started it: how it starts, what it reads, how it reports. Imports only Node's own modules.
+// Entry-point and output helpers for the scripts in bin/.
 import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-/**
- * True when this module is the script Node was started with, also when it was reached through a
- * symlinked folder. Without resolving the link a started script takes itself for an imported one,
- * does nothing and exits 0, which a caller reads as success.
- * @param {string} metaUrl the caller's import.meta.url
- * @param {string | undefined} [started] the path Node was started with
- * @returns {boolean}
- */
+/** True when run directly, symlinks resolved (unresolved, a script would skip main() and exit 0). */
 export function isMain(metaUrl, started = process.argv[1]) {
   if (!started) return false
   try { return realpathSync(started) === realpathSync(fileURLToPath(metaUrl)) } catch { return false }
 }
 
-/**
- * The line a prompt reads a script's result from: NAME_JSON: and the data as one line of JSON.
- * @param {string} name the tag's name, like "TICKET_EVAL"
- * @param {unknown} data
- * @returns {string}
- */
+/** NAME_JSON:{...}, the line prompts parse a script's result from. */
 export const tag = (name, data) => `${name}_JSON:${JSON.stringify(data)}`
 
-/**
- * Wraps a write function so each call prints one line: the text, then "\n". A script whose tests pass
- * their own stdout or stderr builds its printLine and printError from those with it.
- * @param {(text: string) => unknown} write
- * @returns {(text: unknown) => unknown} what write returns
- */
+/** Wraps a write function to print one line per call; tests pass their own stdout/stderr. */
 export const lineWriter = write => text => write(`${text}\n`)
 
-/** Prints one line on stdout. */
 export const printLine = lineWriter(text => process.stdout.write(text))
 
-/** Prints one line on stderr. */
 export const printError = lineWriter(text => process.stderr.write(text))

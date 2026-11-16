@@ -1,5 +1,4 @@
-"""The online server for real: the HTTP server in its own process, a mock Entra tenant serving the signing keys,
-and a real MCP client that signs in with a bearer token."""
+"""End to end: the HTTP server in its own process, a mock Entra tenant and a real MCP client with a bearer token."""
 import asyncio
 import base64
 import json

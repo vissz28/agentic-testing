@@ -1,7 +1,5 @@
-// `ticket.mjs config set <key> <value>` and `config get <key>`: change or read one setting of the project
-// config, the personal config or the file location, by a dotted key. Every change is checked by
-// validateConfig and written by the same writers setup uses; nothing is written on an error, and a
-// secret (a token-like key or value) is refused before anything else.
+// `config set <key> <value>` / `config get <key>`. Changes go through validateConfig and setup's writers;
+// nothing is written on error, and secrets are refused first.
 import { existsSync, readFileSync } from 'node:fs'
 import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from './config.mjs'
 import { pickPlace, placeDirs, placeOf, placesFor } from './places.mjs'
@@ -13,7 +11,7 @@ import { plural } from '../core/text.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
-/** The settings `config set` can change: dotted key -> type. Nothing else is settable here. */
+/** Dotted key -> type. Nothing else is settable here. */
 export const KEYS = Object.freeze({
   'jira.site': { type: T.url },
   'jira.projects': { type: T.list },
@@ -65,7 +63,7 @@ const SECRET_VALUE = [
 const looksSecret = v => SECRET_VALUE.some(re => re.test(v)) || v.split(/[\s,]+/).some(w => w.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(w) && /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w))
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
-/** A copy of a config without secrets: a token-like key, or a value that looks like a token or a key. */
+/** Drops token-like keys and values that look like a token or key. */
 export function withoutSecrets(v) {
   if (Array.isArray(v)) return v.map(withoutSecrets).filter(x => x !== undefined)
   if (isObj(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
@@ -74,7 +72,7 @@ export function withoutSecrets(v) {
 const show = v => (v === undefined ? 'not set' : typeof v === 'string' ? v : JSON.stringify(v))
 const getPath = (o, key) => key.split('.').reduce((v, k) => (isObj(v) ? v[k] : undefined), o)
 
-/** A copy of o with the dotted key set to value, or removed when value is undefined (an emptied block goes too). */
+/** Copy with the key set; undefined removes it (and any block left empty). */
 function setPath(o, key, value) {
   const parts = key.split('.')
   const out = { ...o }
@@ -87,7 +85,7 @@ function setPath(o, key, value) {
   return out
 }
 
-/** The typed value of a text: { value }, { clear: true } or { error }. */
+/** → { value }, { clear: true } or { error }. */
 export function parseValue(spec, key, raw) {
   const text = String(raw).trim()
   if (CLEAR.test(text) && spec.optional) return { clear: true }
@@ -113,7 +111,7 @@ export function parseValue(spec, key, raw) {
 }
 
 const IN_PLUGIN = 'Set it in /plugin: type /plugin, choose quality-code, Configure options, then /reload-plugins.'
-/** The plugin field a token or plugin-setting key stands for: { field, secret, where }. */
+/** → { field, secret, where } for a token or plugin-setting key. */
 export function pluginField(key) {
   const k = key.toLowerCase().replace(/[._-]/g, '')
   if (/^(github|gh)(token|pat|key)?/.test(k) && /token|pat|key|secret|password/.test(k)) return { field: null, secret: true, where: 'GitHub has no plugin field: it uses the gh sign-in. In a terminal run gh auth login.' }
@@ -126,7 +124,7 @@ export function pluginField(key) {
   if (k.startsWith('jiraemail')) return { field: 'jira_email', secret: false, where: 'the email of your Atlassian account' }
   return { field: null, secret: SECRET_KEY.test(key), where: null }
 }
-/** The exact steps to set a plugin field, one line each. Never holds a value. */
+/** Never includes the value. */
 export function pluginSteps(key) {
   const f = pluginField(key)
   if (!f.field) return [f.where ?? IN_PLUGIN]
@@ -135,7 +133,7 @@ export function pluginSteps(key) {
   lines.push('3. Type /reload-plugins', f.secret ? '/quality-code:config shows only "set" or "not set" for it, never the value.' : '/quality-code:config shows the value.')
   return lines
 }
-/** Why this key or value is refused before anything else, or null. Never repeats the value. */
+/** null when allowed. Never echoes the value. */
 export function refusal(key, value) {
   const f = pluginField(key)
   if (SECRET_KEY.test(key) || f.secret) return `${key}: this is a protected plugin setting (a token, key or password). It is never set here and never typed in the chat; it goes to your keychain.\n${pluginSteps(key).join('\n')}`
@@ -144,7 +142,7 @@ export function refusal(key, value) {
   return null
 }
 
-/** Which config the change goes to: { source, path, config } or { error }. */
+/** → { source, path, config } or { error }. */
 function target(root, env, scope) {
   const loaded = loadConfig(root, env)
   const source = scope ?? loaded.source
@@ -170,7 +168,7 @@ function parseArgs(argv) {
   return a
 }
 
-/** The settable keys, one row each: key, what it takes, example. Read from KEYS, so it never drifts. */
+/** Built from KEYS so it never drifts. */
 export function keyRows() {
   return Object.entries(KEYS).map(([key, spec]) => ({
     key,
@@ -178,7 +176,7 @@ export function keyRows() {
     optional: Boolean(spec.optional), project: Boolean(spec.project), example: EXAMPLES[key] ?? '',
   }))
 }
-/** `config keys`: prints a row per key and a CONFIG_KEYS_JSON line. Needs no config. */
+/** One row per key plus a CONFIG_KEYS_JSON line. Needs no config. */
 export function configKeys(io = { out: printLine }) {
   const rows = keyRows()
   for (const r of rows) io.out(`${r.key} | ${r.takes} | ${r.example}${r.optional ? ' | none removes it' : ''}${r.project ? ' | project only' : ''}`)
@@ -188,7 +186,7 @@ export function configKeys(io = { out: printLine }) {
 
 const USAGE = 'usage: ticket.mjs config set <key> <value> [--yes] [--personal|--project] | config get [<key>] [--personal|--project] (no key: the whole config, secrets left out)'
 
-/** Runs `config set|get` (argv starts at set|get). Returns the exit code: 0 ok or a preview, 2 an error with nothing written. */
+/** argv starts at set|get. Exit 0 on success or preview, 2 on error (nothing written). */
 export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = { out: printLine, err: printError }) {
   const { out, err } = io
   const fail = m => { err(m); return 2 }
@@ -209,7 +207,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   }
   const bad = refusal(key, value)
   if (bad) return fail(bad)
-  // A group of keys ("runners", "jira"): read it whole.
+  // A group like "runners" or "jira": read it whole.
   const group = sub === 'get' && !KEYS[key] && Object.keys(KEYS).some(k => k.startsWith(`${key}.`)) ? key : null
   const spec = group ? { type: T.text, group: true } : KEYS[key]
   if (!spec) return fail(`${key}: unknown key. Settable keys: ${Object.keys(KEYS).join(', ')}. Other settings: /quality-code:setup advanced.`)

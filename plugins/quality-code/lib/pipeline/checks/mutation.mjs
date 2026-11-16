@@ -1,8 +1,5 @@
-// Assertion mutation: does each generated assertion bind the value it checks? Strict mutants of the
-// expect statements in baseline-green tests, each run alone from a temp sibling of the spec.
-// Any survivor fails (the bar is 100%). The original spec is never written, except in place: a
-// compiled language's dialect (mutation.inPlace) cannot run a sibling copy (a duplicate class or
-// function), so each mutant goes over the spec itself and its original bytes always come back.
+// Assertion mutation: mutate each expect in green tests and run it from a temp copy; any survivor fails.
+// Compiled dialects (mutation.inPlace) can't run a sibling copy (duplicate class), so they mutate the spec and restore its bytes.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix, resolve } from 'node:path'
 import { result } from '../result.mjs'
@@ -13,17 +10,16 @@ import { escapeRegExp } from '../../core/text.mjs'
 
 const TEMP = /^mut-tmp-(\d+)-[a-z0-9]+-[a-z0-9]+-.+$/
 
-// The original basename is kept, so any suffix-based Vitest include (*.test.ts, *.spec.ts) still matches.
+// Keep the basename so suffix-based includes (*.test.ts, *.spec.ts) still match.
 export function tempSpecPath(specPath) {
   return resolve(dirname(specPath), `mut-tmp-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${basename(specPath)}`)
 }
 
-/** The original spec path of a mutant temp file (other paths come back unchanged). */
 export const originalOf = file => file.replace(/(^|\/)mut-tmp-\d+-[a-z0-9]+-[a-z0-9]+-/, '$1')
 
-/** { start, end } of each expect(...).matcher...; statement, nested parens and chains included. */
+/** Full expect(...).matcher(...); statements, nested parens and chains included. */
 export function findExpectRanges(src, dialect) {
-  // A dialect whose assertions are no call chain (Go's if got != want { t.Errorf(…) }) finds its own.
+  // Non-chain assertions (Go's if got != want { t.Errorf(…) }) need the dialect's own finder.
   if (dialect.mutation.ranges) return dialect.mutation.ranges(src)
   const ranges = []
   const re = new RegExp(dialect.mutation.expectRe.source, 'g')
@@ -61,35 +57,34 @@ export function findTestBlocks(src, dialect) {
   return marks.map((mk, i) => ({ ...mk, start: mk.idx, end: mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length) }))
 }
 
-/** Mutants for the baseline-green tests; null when --key names a block that is not there. */
+/** null when --key names a block that isn't there. */
 export function planMutants(src, passedTitles, { key = null, ungraded = null, whole = false } = {}, dialect) {
   const range = key ? anchorRange(src, key, dialect, { whole }) : null
   if (key && !range) return null
   return dialect.mutation.plan({ src, passedTitles, range, ungraded, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
 }
 
-/** The baseline-green tests in range that got no mutant: nothing shows their assertions can fail. */
+/** Green tests with no mutant: nothing shows their assertions can fail. */
 export function unmutated(src, passedTitles, mutants, { key = null, ungraded = null, whole = false } = {}, dialect) {
   const range = key ? anchorRange(src, key, dialect, { whole }) : null
   const passed = new Set(passedTitles)
   const hit = new Set(mutants.map(m => m.title))
   const blocks = findTestBlocks(src, dialect)
   const left = blocks.filter(b => (!range || (b.start >= range[0] && b.start < range[1])) && dialect.mutation.eligible(b, passed, ungraded) && !hit.has(b.title))
-  // A passing test whose title no source block has, as the dialect matches titles (an escaped quote, a
-  // template title, a table's case), got no mutant either. Where it sits is unknown: it counts in any range.
-  // An each/for table's cases are its own, formatted at run time ("adds %i" ran as "adds 1"): never mutated by design.
+  // Passing titles no source block matches (escaped quote, template title) got no mutant either; counted in any range.
+  // each/for table cases ("adds %i" ran as "adds 1") are never mutated, by design.
   const stray = passedTitles.filter(t => !ungraded?.test(t) && !blocks.some(b => b.mod === 'each' ? tableTitle(b.title).test(t) : dialect.mutation.eligible({ ...b, mod: null }, new Set([t]))))
   return [...new Set([...left.map(b => b.title), ...stray])]
 }
 
-// A table title as a pattern: printf-style %s/%i/%#..., $name and ${...} stand for any text.
+// printf-style %s/%i/%#, $name and ${...} match any text.
 const tableTitle = title => new RegExp(`^${String(title ?? '').split(/%[sdifjoOp#%]|\$\{[^}]*\}|\$[\w.]+/).map(escapeRegExp).join('[\\s\\S]*')}$`)
 
 export function applyMutant(src, m) {
   return `${src.slice(0, m.start)}${m.replacement}${src.slice(m.end)}`
 }
 
-/** Remove temp mutants left by processes that are gone. */
+/** Remove temp mutants left by dead processes. */
 export function sweepStale(dir) {
   let names = []
   try { names = readdirSync(dir) } catch { return 0 }
@@ -122,15 +117,15 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
   const bareFindings = bare.map(t => ({ file: spec, test: t, kind: 'not mutated', detail: 'passes, but has no assertion mutation can check' }))
   const rank = ctx.dialect.mutation.rank
   mutants = [...mutants].sort((a, b) => rank(a.kind) - rank(b.kind))
-  // The config's maxMutants: the strongest are kept, and the pass says how many were left out.
+  // maxMutants keeps the strongest; the summary reports how many were dropped.
   const capped = max != null && mutants.length > max ? mutants.length - max : 0
   if (capped) mutants = mutants.slice(0, max)
 
   const inPlace = ctx.dialect.mutation.inPlace === true
   const tmp = inPlace ? specPath : tempSpecPath(specPath)
-  // Forward slashes, as the spec itself: path.join would give backslashes on Windows.
+  // posix.join: path.join would give backslashes on Windows.
   const relTmp = inPlace ? spec : posix.join(posix.dirname(spec), basename(tmp))
-  // In place, cleaning up is putting the original bytes back: after each mutant, in finally, on a signal.
+  // In place: restore the original bytes after each mutant, in finally, and on a signal.
   const cleanup = inPlace ? () => { try { writeFileSync(specPath, bytes) } catch {} } : () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
   const onSignal = () => { cleanup(); process.exit(130) }
   process.once('SIGINT', onSignal)
@@ -143,8 +138,7 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
       }
       let r
       try { r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs }) } finally { if (inPlace) cleanup() }
-      // A namesake in another ticket's block never kills this one's mutant. A result with no describe path
-      // is taken as it is: it cannot be in another block.
+      // A same-named test in another ticket's block can't kill this mutant; no describe path means no other block.
       const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || whole || !t.path?.length || inKeyBlock(t, key))) : []
       if (!executed.length) outcomes.push({ ...m, error: true })
       else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
@@ -166,7 +160,7 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
   }
   if (!graded.length && errors) return result('mutation', 'not_run', `${errors} mutant(s) ran no test`, [], data)
   if (score === null) return result('mutation', 'pass', 'no eligible assertions to mutate', [], data)
-  // A passing test with no mutant is unchecked, not checked: it never makes the step pass.
+  // A passing test with no mutant is unchecked, so the step can't pass.
   if (bare.length) return result('mutation', 'not_run', `${bare.length} passing test(s) with no assertion mutation can check`, bareFindings, data)
   if (errors) return result('mutation', 'not_run', `${killed} of ${graded.length + errors} mutants killed; ${errors} ran no test`, [], data)
   return result('mutation', 'pass', `${killed}/${graded.length} mutants killed${capped ? `; ${capped} more left out by maxMutants` : ''}`, [], data)

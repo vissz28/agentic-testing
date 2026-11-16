@@ -1,15 +1,6 @@
 #!/usr/bin/env node
-// Xray test cases for QA, the way the old in-repo harness wrote them: one CSV with every case (the
-// traceability record), and per ticket a case.csv plus, when the project has exceljs, a styled
-// case.xlsx. Xray imports either (Test Repository, Import, Excel or CSV). One row per step: a case's
-// first row carries TC ID and the metadata, its next rows leave them blank. TC ID is numbered per
-// ticket; the Playwright test a case belongs to is the "Automated: <test name>" line of its Description.
-//   node bin/xray.mjs add <json|@file>   one case or a list of cases, then the ticket's files
-//   node bin/xray.mjs sync [KEY]         rebuild the per-ticket files from the CSV
-//   node bin/xray.mjs created KEY [add "<case name>" TEST-KEY]   the cases already created in Xray through the API, so none is created twice
-// A case: { key, summary, ticket, steps: [{ action, data?, expected? }], description?, feature?,
-//           label?, priority?, epic?, testType? }   key is the Playwright test's name.
-// Exit 0 done, 2 usage, config or input error.
+// Xray test cases: a master CSV plus per-ticket case.csv/case.xlsx. One row per step, metadata on the first.
+// A case links to its Playwright test via the "Automated: <test name>" line. Exit 0 done, 2 usage/config/input error.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -20,11 +11,9 @@ import { readJsonOr } from '../lib/core/files.mjs'
 import { isLine, toForwardSlashes, plural } from '../lib/core/text.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
-// The test name is the cell's last line (buildRows puts it there), so a description line of its own
-// that starts with "Automated:" is not read as the key.
+// Anchored to the cell's last line (buildRows puts it there) so a description line starting "Automated:" isn't taken.
 const AUTOMATED = /(?:^|\n)Automated:[ \t]*([^\n]*?\S)\s*$/
-// A cell Excel would run as a formula when it opens the CSV. Ticket text is anyone's text. A cell
-// starting with "-" is a bullet or a number unless an operator follows (-2+3+cmd|' /C calc'!A0).
+// CSV formula injection: ticket text is untrusted. A leading "-" is safe unless an operator follows (-2+3+cmd|' /C calc'!A0).
 const FORMULA = /^[=+@\t\r]|^-[\s\S]*[=+*/^&|!(@]/
 const safe = v => (typeof v === 'string' && FORMULA.test(v) ? `'${v}` : v)
 const esc = v => {
@@ -35,7 +24,7 @@ export const toLine = cells => cells.map(esc).join(',')
 const TCID = XRAY_COLUMNS.indexOf('tcid')
 export const headerRow = headers => XRAY_COLUMNS.map(c => headers[c])
 
-/** RFC 4180 CSV to rows of text cells: quoted cells may hold commas, quotes and line breaks. */
+// RFC 4180: quoted cells may hold commas, quotes and line breaks.
 export function parseCsv(text) {
   const s = String(text).replace(/^﻿/, '')
   const rows = []
@@ -62,7 +51,6 @@ export function parseCsv(text) {
   return rows
 }
 
-/** What is wrong with one case, or null. */
 export function caseError(tc, i = 0) {
   const at = `case ${i + 1}`
   if (!tc || typeof tc !== 'object' || Array.isArray(tc)) return `${at}: must be an object`
@@ -78,7 +66,6 @@ export function caseError(tc, i = 0) {
   return null
 }
 
-/** The CSV rows of one case: one per step, the metadata on the first row only, Step on every row. */
 export function buildRows(tc, tcid, headers) {
   const action = s => (s.data ? `${s.action}\n${headers.data}: ${s.data}` : s.action)
   const description = [tc.description, `Automated: ${tc.key}`].filter(Boolean).join('\n\n')
@@ -89,7 +76,7 @@ export function buildRows(tc, tcid, headers) {
   })
 }
 
-/** The CSV's rows; throws when its header is not the config's columns (rows would land in the wrong ones). */
+// Throws on a header mismatch, else rows would land in the wrong columns.
 export function readCsv(path, headers) {
   const rows = parseCsv(readFileSync(path, 'utf8'))
   const want = headerRow(headers)
@@ -97,7 +84,7 @@ export function readCsv(path, headers) {
   return rows.slice(1).filter(r => r.some(c => String(c).trim()))
 }
 
-/** Rows grouped by ticket: a step row belongs to the ticket of the case above it. */
+// Step rows have a blank ticket and belong to the case above.
 function byTicket(rows) {
   const at = XRAY_COLUMNS.indexOf('ticket')
   const map = new Map()
@@ -111,7 +98,6 @@ function byTicket(rows) {
   return map
 }
 
-/** Each case in the rows: its test name (from "Automated:"), its ticket and its TC ID. */
 export function casesIn(rows) {
   const [d, t, id] = ['description', 'ticket', 'tcid'].map(c => XRAY_COLUMNS.indexOf(c))
   const out = []
@@ -122,13 +108,12 @@ export function casesIn(rows) {
   return out
 }
 
-/** The cases of the project's Xray CSV, or [] when it does not exist yet. */
 export function readCases(root, x) {
   const p = join(root, x.csv)
   return existsSync(p) ? casesIn(readCsv(p, x.headers)) : []
 }
 
-/** Appends the cases not yet in the CSV (same ticket and test name); returns a line per case. */
+// Skips cases already present (same ticket and test name).
 export function append(root, x, cases) {
   const p = join(root, x.csv)
   if (!existsSync(p) || !readFileSync(p, 'utf8').trim()) {
@@ -140,7 +125,7 @@ export function append(root, x, cases) {
   return cases.map(tc => {
     const known = casesIn(rows)
     if (known.some(c => c.ticket === tc.ticket && c.key === tc.key)) return `already there: ${tc.key} (delete its rows to write it again)`
-    // Every numbered row of the ticket counts, a hand-written case without "Automated:" too.
+    // Count hand-written cases (no "Automated:") too.
     const tcid = Math.max(0, ...(byTicket(rows).get(tc.ticket) ?? []).map(r => Number.parseInt(String(r[TCID]), 10)).filter(Number.isInteger)) + 1
     const add = buildRows(tc, tcid, x.headers)
     appendFileSync(p, `${add.map(toLine).join('\n')}\n`)
@@ -149,7 +134,7 @@ export function append(root, x, cases) {
   })
 }
 
-/** exceljs from the project's own node_modules, or null: the plugin brings no packages. */
+// The plugin ships no packages: use the project's exceljs if it has one.
 async function excel(root) {
   try {
     const m = await import(pathToFileURL(createRequire(join(root, 'package.json')).resolve('exceljs')).href)
@@ -159,7 +144,6 @@ async function excel(root) {
   }
 }
 
-/** The per-ticket workbook: frozen bold header, filter, wrapped cells, borders, a band per case. */
 async function writeXlsx(ExcelJS, rows, headers, path) {
   const GRID = { style: 'thin', color: { argb: 'FFBFBFBF' } }
   const box = { top: GRID, left: GRID, bottom: GRID, right: GRID }
@@ -194,7 +178,6 @@ async function writeXlsx(ExcelJS, rows, headers, path) {
   await wb.xlsx.writeFile(path)
 }
 
-/** Rewrites <folder><KEY>/case.csv (and case.xlsx with exceljs) for one ticket, or every ticket. */
 export async function sync(root, x, only = null) {
   const p = join(root, x.csv)
   if (!existsSync(p)) return [`No Xray test cases yet: ${x.csv} does not exist.`]
@@ -216,12 +199,12 @@ export async function sync(root, x, only = null) {
   return lines
 }
 
-/** The cases of a ticket already created in Xray: { "<case name>": "<test key>" }, kept next to the ticket's case files. */
+// { "<case name>": "<test key>" }, so no case is created in Xray twice.
 export function createdOf(root, x, key) {
   return readJsonOr(resolve(root, x.folder, key, 'xray-created.json'), {})
 }
 
-/** Any error a step throws (a broken saved file, named in the message) ends the command with exit 2, never a stack trace. */
+// Any thrown error (e.g. a broken saved file) exits 2 with its message, not a stack trace.
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), io = {}) {
   try { return await handle(argv, env, cwd, io) } catch (e) { (io.stderr ?? (s => process.stderr.write(s)))(`xray.mjs: ${e?.message ?? e}\n`); return 2 }
 }
@@ -262,7 +245,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
     const errors = given.map(caseError).filter(Boolean)
     if (!given.length) errors.push('no case given')
     if (errors.length) { printError(`${errors.join('\n')}\nNothing was written.`); return 2 }
-    // The CSV reads a key back trimmed, so it is stored trimmed: else the same case is added twice.
+    // CSV reads keys back trimmed; store them trimmed or the same case is added twice.
     const cases = given.map(tc => ({ ...tc, key: tc.key.trim() }))
     const lines = append(root, x, cases)
     for (const t of new Set(cases.map(tc => tc.ticket))) lines.push(...(await sync(root, x, t)))

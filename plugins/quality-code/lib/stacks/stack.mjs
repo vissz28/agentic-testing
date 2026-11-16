@@ -1,7 +1,4 @@
-// Which side of the stack a project, a ticket or a spec is on. A project is frontend (Playwright),
-// backend (Vitest, pytest, JUnit, Go or .NET: see backends.mjs) or fullstack (both in one repo). On a
-// fullstack project a ticket is frontend, backend or fullstack, and each spec belongs to the adapter
-// whose folder or config it is in.
+// Which side a project, ticket or spec is on: frontend (Playwright), backend (backends.mjs) or fullstack.
 import { configFor } from '../pipeline/runners/playwright.mjs'
 import { e2eFolder } from './e2e-folder.mjs'
 import { matches } from '../pipeline/boundary.mjs'
@@ -15,40 +12,32 @@ const SIDE_OF = { playwright: 'frontend', ...Object.fromEntries(BACKEND_ADAPTERS
 
 export const isFullstack = config => Boolean(config?.frontend && config?.backend)
 
-/** The adapters a project runs: its backend, then its frontend. */
+/** Backend first, then frontend. */
 export const adaptersOf = config => [config?.backend, config?.frontend].filter(Boolean)
 
-/** frontend, backend or fullstack: what the project is. */
 export const stackOf = config => (isFullstack(config) ? 'fullstack' : SIDE_OF[config?.frontend ?? config?.backend] ?? null)
 
-/** The side an adapter writes for: Playwright is the frontend, every backend runner the backend. */
 export const sideOfAdapter = adapter => SIDE_OF[adapter]
 
-/**
- * The adapters a ticket's side needs: the project's backend (Vitest when the config names none) and
- * Playwright. No side (unmarked ticket): both.
- */
+/** An unmarked ticket gets both; the backend defaults to Vitest. */
 export function adaptersForSide(side, config = null) {
   const backend = backendOf(config) ?? 'vitest'
   const of = { frontend: ['playwright'], backend: [backend], fullstack: [backend, 'playwright'] }
   return of[side] ?? of.fullstack
 }
 
-/**
- * How a frontend feature is tested: the feature's own `approach` ("e2e", "unit" or "both"), else both
- * when the project has a JavaScript unit runner (unit and Playwright tests together), else e2e. "unit" and
- * "both" need a unit runner; where there is none the feature falls back to e2e.
- */
+// The feature's `approach`, else 'both' when there's a JS unit runner, else 'e2e'.
+// 'unit' and 'both' fall back to 'e2e' without a unit runner.
 export function approachOf(config, label) {
   const f = (config?.features ?? []).find(x => String(x.label).toLowerCase() === String(label ?? '').toLowerCase())
   const approach = f?.approach ?? (unitRunnerOf(config) ? 'both' : 'e2e')
   return approach !== 'e2e' && !unitRunnerOf(config) ? 'e2e' : approach
 }
 
-/** The JavaScript unit runner a frontend feature can use for its unit tests: Vitest, else null. */
+/** Vitest when a frontend feature can have unit tests, else null. */
 export const unitRunnerOf = config => (config?.backend === 'vitest' || config?.runners?.unit !== undefined ? 'vitest' : null)
 
-/** The project config as a single-adapter project sees it: that adapter, and only its side. */
+/** The config narrowed to one adapter and its side. */
 export const asAdapter = (config, adapter) => (config.adapter === adapter ? config
   : { ...config, adapter, frontend: adapter === 'playwright' ? adapter : undefined, backend: adapter === 'playwright' ? undefined : adapter })
 
@@ -67,7 +56,7 @@ export function ticketSide(config, ticket) {
   return marked[0] ?? (['frontend', 'backend', 'fullstack'].includes(config.sides?.default) ? config.sides.default : null)
 }
 
-/** The adapter a spec runs under. On a fullstack project: Playwright for the e2e folder or a Playwright config match, else the backend. */
+/** Fullstack: Playwright for the e2e folder or a Playwright config match, else the backend. */
 export function adapterOfSpec(config, root, spec) {
   if (!isFullstack(config)) return config.adapter
   const backend = backendOf(config)
@@ -78,7 +67,7 @@ export function adapterOfSpec(config, root, spec) {
   return e2e.ok && p.startsWith(e2e.folder) ? 'playwright' : backend
 }
 
-/** Specs grouped by adapter, in the adapters' order; an adapter with no spec is left out. */
+/** In adapter order; adapters with no spec are dropped. */
 export function specsByAdapter(config, root, specs) {
   const groups = new Map(adaptersOf(config).map(a => [a, []]))
   for (const s of specs) groups.get(adapterOfSpec(config, root, s)).push(s)

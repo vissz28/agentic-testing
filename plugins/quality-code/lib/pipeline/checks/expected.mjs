@@ -1,7 +1,4 @@
-// Expected values: the concrete numbers and quoted texts of the ticket's Then / Expected lines must
-// be asserted in the ticket's block. Values the ticket does not state are never required. A negated
-// matcher (.not.toBe) or a commented-out expect asserts nothing; a field the ticket names (unit_cost)
-// must be read in a Vitest assertion; a bug test that asserts the reported wrong result says so.
+// Expected values: numbers and quoted text from the ticket's Then/Expected lines must be asserted in its block.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { extractExpectedChunks, extractNaturalAC } from '../../ticket/criteria.mjs'
@@ -15,20 +12,16 @@ import { escapeRegExp } from '../../core/text.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
-// A number that is not part of a word, a key (ABC-12) or a version (1.2.3).
+// Not part of a word, a key (ABC-12) or a version (1.2.3).
 const NUMBER = /(?<![\w.,\-−])[+\-−]?\d+(?:[.,]\d+)*(?![\w]|[.,]\d)/g
-// Every matcher whose argument is a value the test pins (the old backend check also read toBeCloseTo and the comparisons).
+// Matchers whose argument is a pinned value.
 const MATCHERS = ['expect', 'toBe', 'toEqual', 'toStrictEqual', 'toContain', 'toContainEqual', 'toMatchObject', 'toHaveProperty', 'toThrow',
   'toBeCloseTo', 'toBeGreaterThan', 'toBeGreaterThanOrEqual', 'toBeLessThan', 'toBeLessThanOrEqual', 'toHaveLength', 'toMatch', 'toHaveBeenCalledWith']
-// A dialect may add its own matchers (Playwright's web-first ones: toHaveText, toHaveValue, …), and
-// assertion functions called bare (JUnit's assertEquals(108, total)), read like expect(…).
+// Dialects add matchers (Playwright toHaveText, …) and bare assertion calls (JUnit assertEquals).
 const bareCalls = dialect => (dialect?.expected?.calls?.length ? `|(?<![\\w$])(?:${dialect.expected.calls.join('|')})` : '')
 const callRe = dialect => new RegExp(`(?:\\bexpect|\\.(?:${[...MATCHERS.slice(1), ...(dialect?.expected?.matchers ?? [])].join('|')})${bareCalls(dialect)})\\s*\\(`, 'g')
 
-/**
- * Every value a written number may mean, as canonical decimal text: "1.234,5", "1,234.5" and
- * "1234.50" all give "1234.5"; "1,000" gives "1000" and "1"; a leading "−" is a minus.
- */
+/** Every reading of a number: "1.234,5", "1,234.5", "1234.50" -> "1234.5"; "1,000" -> "1000" and "1". */
 export function normNum(raw) {
   let s = String(raw).trim().replace(/−/g, '-').replace(/^\+/, '')
   const neg = s.startsWith('-')
@@ -46,10 +39,10 @@ export function normNum(raw) {
   const groups = s.split(/[.,]/)
   const thousandsShape = groups.slice(1).every(g => g.length === 3) && groups[0].length <= 3
   if (new Set(seps).size === 2) {
-    // Both separators: the last one is the decimal point.
+    // Both separators: the last is the decimal point.
     out.add(canon(s.slice(0, lastSep).replace(/[.,]/g, ''), s.slice(lastSep + 1)))
   } else if (seps.length > 1) {
-    // The same separator twice or more: thousands only.
+    // Same separator repeated: thousands only.
     if (thousandsShape) out.add(canon(groups.join('')))
   } else {
     out.add(canon(groups[0], groups[1]))
@@ -64,17 +57,12 @@ const quotedIn = text => [...text.matchAll(QUOTED)].map(m => m.slice(1).find(x =
 
 const numbersIn = text => [...stripQuoted(text).matchAll(NUMBER)].map(m => m[0])
 
-/** The text a check reads: the description and the criteria field, as the ticket file holds them. */
 export function ticketText(ticket) {
   if (typeof ticket === 'string') return ticket
   return [ticket?.summary, ticket?.text?.description, ticket?.text?.acField].filter(Boolean).join('\n\n')
 }
 
-/**
- * The values the ticket expects: { token, kind, values?, from } per distinct value, from the Then
- * lines, Expected sections and acceptance criteria. Each token is grounded: it is in the ticket text.
- */
-/** The ticket's Then lines, Expected sections and acceptance criteria. */
+/** Then lines, Expected sections and acceptance criteria. */
 export function expectedChunks(ticket, v = buildVocabulary(['en', 'it'])) {
   const description = typeof ticket === 'string' ? ticket : ticket?.text?.description ?? ''
   const acField = typeof ticket === 'string' ? '' : ticket?.text?.acField ?? ''
@@ -84,13 +72,14 @@ export function expectedChunks(ticket, v = buildVocabulary(['en', 'it'])) {
   ])]
 }
 
-/** The outcome of a criterion: after its last Then when one line holds Given, When and Then (the WHEN label is an input, not an expectation). */
+/** On a one-line Given/When/Then, only the text after the last Then is the outcome (When is input). */
 export function outcomeOf(chunk, v) {
   const hits = [...chunk.matchAll(v.thenWord)]
   const last = hits.at(-1)
   return last && /\b(?:given|when|dato|data|quando)\b/i.test(chunk.slice(0, last.index)) ? chunk.slice(last.index + last[0].length) : chunk
 }
 
+/** Distinct expected values, each one present verbatim in the ticket text. */
 export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
   const full = ticketText(ticket)
   const chunks = expectedChunks(ticket, v)
@@ -104,7 +93,7 @@ export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
       seen.add(id)
       tokens.push({ token: s, kind: 'string', from })
     }
-    // "shows 150 instead of 80": 150 is the wrong result, never an expected value.
+    // "shows 150 instead of 80": 150 is the wrong result, not an expected value.
     const wrong = new Set([...from.matchAll(v.beforeInsteadOf)].flatMap(m => normNum(m[1])))
     for (const n of numbersIn(from)) {
       const values = normNum(n)
@@ -118,7 +107,7 @@ export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
   return tokens
 }
 
-/** Index just past the ")" closing the "(" at `open`, skipping strings and comments. */
+/** Index past the matching ")", skipping strings and comments. */
 function closeParen(src, open) {
   let depth = 0
   for (let i = open; i < src.length; i++) {
@@ -136,7 +125,7 @@ function closeParen(src, open) {
   return src.length
 }
 
-/** The code without its line and block comments; strings are kept as they are. */
+/** Strings are kept as is. */
 export function stripCodeComments(src) {
   let out = ''
   for (let i = 0; i < src.length; i++) {
@@ -156,7 +145,7 @@ export function stripCodeComments(src) {
   return out
 }
 
-/** Index just past the bracket closing the one at `open` ( ( [ { ), skipping strings and comments. */
+/** Like closeParen, for any of ( [ {. */
 function closeBracket(src, open) {
   const pairs = { '(': ')', '[': ']', '{': '}' }
   const stack = []
@@ -178,21 +167,19 @@ function closeBracket(src, open) {
 const hasAssertion = (text, dialect) => new RegExp(callRe(dialect).source).test(text)
 
 /**
- * The values a test feeds to its assertions without typing them inside the matcher: a list or table the loop runs
- * over (it.each([...]), for (const c of [...]), [...].forEach), and a variable an assertion reads (const expected = {...}).
- * A table counts only when the loop body holds an assertion; a variable only when an assertion reads it.
+ * Values that reach assertions indirectly: it.each/for-of/forEach tables whose body asserts,
+ * and variables an assertion reads (const expected = {...}).
  */
 function feeders(block, parts, dialect) {
   const out = []
   const expression = (text, from) => {
-    // The value expression that starts at `from`: a bracketed literal, or up to the end of the statement.
+    // A bracketed literal, or up to the end of the statement.
     let i = from
     while (/\s/.test(text[i] ?? '')) i++
     if ('[{('.includes(text[i])) return text.slice(i, closeBracket(text, i))
     const end = text.slice(i).search(/[;\n]/)
     return text.slice(i, end < 0 ? text.length : i + end)
   }
-  // 1. Tables and loops whose body asserts.
   for (const m of block.matchAll(/\b(?:it|test|describe)(?:\.\w+)*\.each\s*\(/g)) {
     const open = m.index + m[0].length - 1
     const table = block.slice(open + 1, closeBracket(block, open) - 1)
@@ -212,7 +199,7 @@ function feeders(block, parts, dialect) {
     const open = m.index + m[0].length - 1
     if (hasAssertion(block.slice(open, closeBracket(block, open)), dialect)) out.push(m[1])
   }
-  // 2. Variables the assertions read, and the ones those are built from (three levels).
+  // Variables the assertions read, and what they're built from (three levels deep).
   const seen = new Set()
   let pending = [...parts, ...out].join('\n')
   for (let depth = 0; depth < 3 && pending; depth++) {
@@ -230,18 +217,17 @@ function feeders(block, parts, dialect) {
 }
 
 /**
- * The argument text of every assertion call inside the key block; null when there is no block. A
- * commented-out call is not read, nor the argument of a negated matcher: .not.toBe(80) does not
- * assert 80. actual: false reads expect(...) itself only when its matcher takes no argument
- * (expect(getByText('80')).toBeVisible()): in expect(total([80])).toBeGreaterThan(0), 80 is an input.
+ * Assertion arguments in the key block (null if no block); comments and .not matchers are skipped.
+ * actual: false reads expect(x) only for no-arg matchers: expect(getByText('80')).toBeVisible() pins 80,
+ * expect(total([80])).toBeGreaterThan(0) doesn't.
  */
 export function surface(specSrc, key, dialect, { actual = true, whole = false } = {}) {
   const range = anchorRange(specSrc, key, dialect, { whole })
   if (!range) return null
-  // A dialect whose assertions are no matcher calls (pytest's assert statement) reads its block itself.
+  // pytest's assert statement isn't a matcher call: the dialect reads the block.
   if (dialect?.expected?.surface) return dialect.expected.surface(specSrc.slice(range[0], range[1]), { actual })
   const block = stripCodeComments(specSrc.slice(range[0], range[1]))
-  // A dialect whose assertions are no matcher call (Go's if got != want) gives their text itself.
+  // Same for Go's if got != want.
   if (dialect?.expected?.parts) return dialect.expected.parts(block).join('\n')
   const parts = []
   for (const m of block.matchAll(callRe(dialect))) {
@@ -251,12 +237,12 @@ export function surface(specSrc, key, dialect, { actual = true, whole = false } 
     if (!actual && !m[0].startsWith('.') && !/^(?:\s*\.\s*(?:not|resolves|rejects))*\s*\.\s*\w+\s*\(\s*\)/.test(block.slice(close))) continue
     parts.push(block.slice(open + 1, close - 1))
   }
-  // A dialect may read its literals as the ticket writes them (C#'s 13.50m is 13.50).
+  // Normalize dialect literals (C#'s 13.50m is 13.50).
   const text = [...parts, ...feeders(block, parts, dialect)].join('\n')
   return dialect?.expected?.literals ? dialect.expected.literals(text) : text
 }
 
-/** The numbers a bug reports as its wrong result: under its Actual heading, and "N instead of". */
+/** The wrong result a bug reports: under its Actual heading, or "N instead of". */
 export function actualValues(ticket, v = buildVocabulary(['en', 'it'])) {
   const text = [ticket?.text?.description, ticket?.text?.acField].filter(Boolean).join('\n')
   const chunks = []
@@ -274,7 +260,7 @@ export function actualValues(ticket, v = buildVocabulary(['en', 'it'])) {
 const looksLikeField = w => w.length >= 4 && w.length <= 40 && !/^\d/.test(w) && /_|[a-z][A-Z]/.test(w)
 const fold = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')
 
-/** The field names a Then line names (unit_cost, unitCost), leaving out the negated ones ("not unit_price"). */
+/** Field names in Then lines (unit_cost, unitCost), minus negated ones ("not unit_price"). */
 export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
   const out = new Map()
   for (const chunk of chunks) {
@@ -286,9 +272,9 @@ export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
   return [...out.values()]
 }
 
-/** The values the model says the tests pin, kept only when the ticket's expected text holds them. */
+/** Keep model-suggested values only if the ticket text contains them; they can only make the check stricter. */
 export function groundCandidates(candidates, chunks, have = [], ticketFull = '') {
-  // The ticket's own words: its expected lines, and (for a value from the Notes) the rest of the text. A candidate only makes the check stricter.
+  // Expected lines plus the full text, for values from the Notes.
   const text = [...chunks, ticketFull].filter(Boolean).join('\n')
   const nums = new Set(numbersIn(text).flatMap(normNum))
   const known = new Set(have.map(t => (t.kind === 'number' ? `n:${t.values.join('|')}` : fold(t.token))))
@@ -327,15 +313,15 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
   if (!key) return result('expected', 'not_run', 'no ticket key to find the block')
   let t
   try {
-    // The ticket file's path, or the ticket itself (a frozen eval's).
+    // A path, or the ticket object itself (frozen evals).
     t = ticket && typeof ticket === 'object' ? ticket : readJson(resolve(ctx.root, ticket ?? ''))
     if (!t || typeof t !== 'object') throw new Error('not a ticket object')
   } catch (e) {
     return result('expected', 'not_run', `cannot read the ticket file: ${String(e.message).split('\n')[0]}`)
   }
-  // A fullstack run reads each spec in its own dialect (ctx.dialectOf).
+  // Fullstack: each spec in its own dialect.
   const dialectOf = p => ctx.dialectOf?.(p) ?? ctx.dialect
-  // Values count where the test pins them (Vitest: the matcher's argument); a field is read anywhere in the assertion.
+  // Values count only where pinned (the matcher's argument); fields count anywhere in the assertion.
   const surfaces = specs.map(p => {
     const src = readFileSync(resolve(ctx.root, p), 'utf8')
     const d = dialectOf(p)
@@ -347,9 +333,8 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
   const all = surfaces.filter(s => s.text !== null).map(s => s.text).join('\n')
   const v = buildVocabulary(ctx.config?.languages ?? ['en', 'it'])
   const chunks = expectedChunks(t, v)
-  // Field names bind a unit test to the right column; an e2e test asserts what the screen shows instead.
-  // The project's own say (config "expected"): names owned by another package (ignore), the UI's words for a criterion's
-  // words (aliases), and whether field names are looked for at all (fields: false, for a frontend workspace).
+  // Field names apply to unit tests; e2e asserts what the screen shows.
+  // config.expected: ignore (names owned elsewhere), aliases (UI wording), fields: false (frontend workspace).
   const own = ctx.config?.expected ?? {}
   const skip = new Set((own.ignore ?? []).map(x => fold(x)))
   const fieldSpecs = own.fields === false ? [] : surfaces.filter(s => s.text !== null && s.dialect?.expected?.fieldNames)
@@ -360,11 +345,10 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
   const extra = ignored.length ? { ignored } : {}
   if (!tokens.length) return result('expected', 'pass', 'no concrete expected values in the ticket', [], { tokens: 0, asserted: 0, ...extra })
   const fieldText = fieldSpecs.map(s => s.fieldText).join('\n')
-  // An alias counts: the criterion says "Rectify demographic data", the screen says "Reinvio per variazione".
+  // e.g. criterion "Rectify demographic data", screen "Reinvio per variazione".
   const aliasesOf = x => [].concat(Object.entries(own.aliases ?? {}).find(([k]) => fold(k) === fold(x.token))?.[1] ?? [])
   const isAsserted = x => asserted(x, x.kind === 'field' ? fieldText : all) || aliasesOf(x).some(a => asserted({ kind: x.kind === 'number' ? 'string' : x.kind, token: a }, x.kind === 'field' ? fieldText : all))
-  // A value only a test outside the unit tests can check (a seeded row): config externalChecks names those files. They are
-  // read, not run, and the verdict says which file carries the value.
+  // Values only an external check can verify (seeded rows): read config.externalChecks, never run them.
   const external = tokens.some(x => x.kind !== 'field' && !isAsserted(x)) ? externalChecks(configHome(ctx.root), ctx.config?.externalChecks) : []
   const carriedBy = x => (x.kind === 'field' ? [] : external.filter(f => asserted(x, f.text)).map(f => f.file))
   const outside = tokens.filter(x => !isAsserted(x) && carriedBy(x).length)
@@ -375,7 +359,7 @@ export function run({ specs, key = null, ticket = null, candidates = [], whole =
     const note = outside.length ? ` (${outside.length} checked in ${files.join(', ')}, outside the unit tests: read, not run by Quality Code)` : ''
     return result('expected', 'pass', `all ${tokens.length} expected value(s) from the ticket are asserted${note}`, [], data)
   }
-  // A bug test that pins the reported wrong result instead of the expected one.
+  // Bug test pinning the reported wrong result instead of the expected one.
   const expectedNums = new Set(tokens.filter(x => x.kind === 'number').flatMap(x => x.values))
   const wrong = actualValues(t, v).filter(a => !a.values.some(x => expectedNums.has(x)) && asserted({ kind: 'number', values: a.values }, all))
   if (wrong.length && missing.some(x => x.kind === 'number')) {

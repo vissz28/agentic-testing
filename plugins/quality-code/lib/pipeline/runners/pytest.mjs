@@ -1,8 +1,4 @@
-// The pytest runner: runs specs with the project's own Python and pytest and reads its JUnit XML report.
-// Implements the runner contract of the shared checks: pytestRunner(root, config) returns
-// ({ files, testName, timeoutMs }) => { ran, tests: [{ title, path, file, status, message }], broken, error }.
-// Never writes into the project: the report and coverage data go to a temp folder, the pytest cache and
-// the bytecode cache are off.
+// pytest runner via JUnit XML. Writes nothing into the project: temp report/coverage, no pytest or bytecode cache.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -23,7 +19,7 @@ const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms 
 
 const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
 
-/** Entities of XML text: the five named ones and numeric ones (&#10; &#x41;); an unknown one is kept. */
+/** Unknown entities are left as is. */
 export function decodeEntities(s) {
   return String(s).replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (m, e) => {
     if (e[0] === '#') {
@@ -34,11 +30,7 @@ export function decodeEntities(s) {
   })
 }
 
-/**
- * A small XML reader, enough for a JUnit report: elements { name, attrs, children, text }, with the
- * declaration, comments, DOCTYPE and processing instructions skipped, CDATA read as text. Returns the
- * root element, or null when there is none. It reads a report; it does not validate one.
- */
+/** Minimal non-validating XML reader, enough for JUnit reports. */
 export function parseXml(xml) {
   const top = { name: '#document', attrs: {}, children: [], text: '' }
   const stack = [top]
@@ -60,13 +52,13 @@ export function parseXml(xml) {
     if (s[lt + 1] === '/') {
       const e = s.indexOf('>', lt)
       const name = s.slice(lt + 2, e < 0 ? s.length : e).trim()
-      // Close up to the matching element; a stray end tag closes nothing.
+      // A stray end tag closes nothing.
       const at = stack.map(x => x.name).lastIndexOf(name)
       if (at > 0) stack.length = at
       i = e < 0 ? s.length : e + 1
       continue
     }
-    // A start tag: its attributes may hold ">" inside quotes.
+    // Attributes may contain ">" inside quotes.
     let j = lt + 1
     let quote = null
     for (; j < s.length; j++) {
@@ -93,9 +85,8 @@ function* elements(el, name) {
 }
 
 /**
- * The spec file and the classes of a JUnit classname (tests.test_orders.TestTotal): the given file
- * whose module path lines up with the classname's leading parts, from either end (pytest names it from
- * its rootdir, which may sit above or below the project root). Returns { file, classes }, or null.
+ * Match a classname (tests.test_orders.TestTotal) to a spec file by module path, aligned from either end:
+ * pytest's rootdir may sit above or below the project root.
  */
 export function resolveClassname(classname, files) {
   const cp = String(classname).split('.').filter(Boolean)
@@ -113,7 +104,7 @@ export function resolveClassname(classname, files) {
   return best && { file: best.file, classes: best.classes }
 }
 
-/** The message of a failure or an error: its message attribute's first line, else the first "E   " line, else its text's. */
+/** message attribute, else the first "E   " line, else the text. */
 function messageOf(el) {
   const fromText = /^E\s+(.+)$/m.exec(el.text ?? '')?.[1]?.trim()
   const attr = firstLine(el.attrs.message)
@@ -121,11 +112,7 @@ function messageOf(el) {
   return attr || fromText || firstLine(el.text)
 }
 
-/**
- * Tests and broken files of a JUnit report. files: the specs as they were given (a test's file is one
- * of them); titlesOf(file): the top-level class titles of a spec, by class name, so a test's path holds
- * its group's title as the checks read it. A collection error makes its file broken.
- */
+/** titlesOf(file) maps class names to group titles so test paths match what the checks read. */
 export function parseReport(xml, files, titlesOf = () => new Map()) {
   const root = typeof xml === 'string' ? parseXml(xml) : xml
   const tests = []
@@ -136,14 +123,14 @@ export function parseReport(xml, files, titlesOf = () => new Map()) {
     const fail = tc.children.find(c => c.name === 'failure')
     const error = tc.children.find(c => c.name === 'error')
     const skipped = tc.children.find(c => c.name === 'skipped')
-    // A collection error: pytest's "collection failure", reported under the module's name with no class.
+    // Collection errors come under the module name with no class.
     if (error && (error.attrs.message === 'collection failure' || !classname)) {
       const where = tc.attrs.file ? { file: slash(tc.attrs.file) } : resolveClassname(classname || name, files)
       broken.push({ file: where?.file ?? slash(classname || name), message: messageOf(error) })
       continue
     }
     const where = resolveClassname(classname, files)
-    // A file attribute (xunit1) names the file outright.
+    // xunit1 has a file attribute.
     const file = tc.attrs.file ? files.find(f => normalize(f) === normalize(slash(tc.attrs.file))) ?? slash(tc.attrs.file) : where?.file
     if (!file) continue
     const titles = titlesOf(file)
@@ -156,10 +143,10 @@ export function parseReport(xml, files, titlesOf = () => new Map()) {
 
 // ---- Running ----
 
-/** A test's name without its parametrize id: test_total[a-1] is a case of test_total. */
+/** test_total[a-1] -> test_total */
 export const baseName = title => String(title).replace(/\[.*\]$/, '')
 
-/** The node ids of the test `name` in the files (file::Class::name), from their source; [] when none is found. */
+/** file::Class::name ids for `name`, read from source. */
 export function nodeIds(root, files, name) {
   const ids = []
   for (const f of files) {
@@ -170,7 +157,7 @@ export function nodeIds(root, files, name) {
   return ids
 }
 
-/** Words of a one-line command: quotes group, a backslash escapes outside single quotes; no shell. */
+/** Shell-like word split without a shell: quotes group, backslash escapes outside single quotes. */
 export function splitCommand(line) {
   const out = []
   let cur = null
@@ -191,11 +178,7 @@ export function splitCommand(line) {
   return out
 }
 
-/**
- * The words of a command template: {files} as a word of its own gives one word per target, inside a
- * word they join with spaces; {report} is the report path; {test} the test name. Without a test, a
- * {test} word goes, with the option before it (-k {test}).
- */
+/** A standalone {files} expands to one word per target. Without a test, `-k {test}` is dropped. */
 export function fillTemplate(template, { targets, report, testName }) {
   const words = splitCommand(template)
   const out = []
@@ -219,13 +202,12 @@ const venvBin = (root, name) => {
   return null
 }
 
-/** The Pythons to try, in order: the project's virtualenv, then python, then python3. */
+/** venv first, then python, then python3. */
 export function pythons(root) {
   const v = venvBin(root, 'python')
   return [...(v ? [v] : []), 'python', 'python3']
 }
 
-/** One run of a command: { code, output, spawnError, timedOut }. */
 function exec(root, cmd, args, { env, timeoutMs, temp }) {
   return new Promise(done => {
     let output = ''
@@ -249,7 +231,7 @@ function exec(root, cmd, args, { env, timeoutMs, temp }) {
   })
 }
 
-/** The line of pytest's output that says what went wrong: an ERROR line, else an "E   " line, else the last line. */
+/** ERROR line, else an "E   " line, else the last line. */
 function errorLine(output) {
   const lines = String(output).split('\n').map(l => l.trim()).filter(Boolean)
   return lines.find(l => /^(?:ERROR|E)\b/.test(l))?.replace(/^E\s+/, '') ?? lines.at(-1) ?? 'no output'
@@ -257,15 +239,11 @@ function errorLine(output) {
 
 const MISSING_PYTEST = /No module named pytest/
 
-/**
- * Runs pytest on the files (or on the one test testName) and reads its report. config: the project
- * config (pytest.command). Returns { ran, tests, broken, error }.
- */
 export async function runPytest(root, files, { config = null, testName, timeoutMs }) {
   const dir = mkdtempSync(join(tmpdir(), 'qc-pytest-'))
   const report = join(dir, 'report.xml')
   try {
-    // One test: its node ids (exact, a class and a parametrized test's every case); the files when it is not found.
+    // Run one test by node id (all parametrized cases); fall back to the files if not found.
     const ids = testName === undefined ? [] : nodeIds(root, files, testName)
     const targets = ids.length ? ids : files.map(slash)
     const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1', COVERAGE_FILE: join(dir, '.coverage'), NO_COLOR: '1', PY_COLORS: '0' }
@@ -284,7 +262,7 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
     for (const [cmd, args] of runs) {
       const r = await exec(root, cmd, args, { env, timeoutMs, temp: [dir] })
       if (r.timedOut) return { ran: false, tests: [], broken: [], error: took(timeoutMs) }
-      // A missing python, or one without pytest: the next one may have it.
+      // No python, or no pytest in it: try the next one.
       if (r.spawnError?.code === 'ENOENT' || (!existsSync(report) && MISSING_PYTEST.test(r.output))) { last = r; continue }
       if (r.spawnError) return { ran: false, tests: [], broken: [], error: `could not start ${LABEL}: ${r.spawnError.message}` }
       let xml = null
@@ -296,13 +274,13 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
         return titles.get(f)
       }
       const parsed = parseReport(xml, files.map(slash), titlesOf)
-      // Interrupted (2) or a usage error (4) before any test: every file is broken, for the reason pytest gave.
+      // Exit 2 (interrupted) or 4 (usage error) with no tests: every file is broken.
       if (!parsed.tests.length && !parsed.broken.length && (r.code === 2 || r.code === 4)) {
         return { ran: true, tests: [], broken: files.map(f => ({ file: slash(f), message: errorLine(r.output) })) }
       }
       const want = new Set(files.map(f => normalize(slash(f))))
       let tests = parsed.tests.filter(t => want.has(normalize(t.file)))
-      // A test run by name reports under that name, its parametrized cases too: the checks match on it.
+      // Report parametrized cases under the requested name; the checks match on it.
       if (testName !== undefined) tests = tests.filter(t => t.title === testName || baseName(t.title) === testName).map(t => ({ ...t, title: testName }))
       return { ran: true, tests, broken: parsed.broken.filter(b => want.has(normalize(b.file))) }
     }
@@ -320,13 +298,10 @@ export function pytestRunner(root, config) {
 
 // ---- The types step ----
 
-/** mypy-style lines: path:line: error: text, or path:line:col: error: text. */
+/** mypy-style: path:line[:col]: error: text */
 const TYPE_ERROR = /^(.+?):(\d+)(?::\d+)?: error: (.*)$/
 
-/**
- * The types step: the command of pytest.typeCheck (mypy {files}) on the specs; only an error in a spec
- * fails it. With no command configured, Python has no type step: a pass that says so.
- */
+/** Runs pytest.typeCheck (e.g. mypy {files}); only errors in the specs fail. */
 export async function typeCheck(root, config, specs) {
   const template = adapterOptions(config).typeCheck
   if (typeof template !== 'string' || !template.trim()) return result('types', 'pass', 'not applicable: no type-check for Python', [], { applicable: false })

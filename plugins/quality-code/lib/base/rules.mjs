@@ -1,15 +1,4 @@
-// The Central Context testing rules for a ticket's side. The knowledge lives in the company's Central Context
-// hub (its knowledge repository, served by cc-hub): /quality-code:spec reads the active rules of the quality
-// domain that are about testing and apply to the side's stack, and follows them while it writes the tests.
-// The rules inform how tests are written; they never add an expected value, change a score or skip a check.
-//
-// The hub: `centralContext.hub` in .claude/quality-code.json (the base URL; "off" reads nothing), or the
-// CC_HUB_URL environment variable, which wins; TeamSystem's hosted hub when neither names one. One read of GET /v1/manifest, which carries every rule's
-// summary, tags and applies_to.
-//
-// The team's own rules: `centralContext.local`, a folder of rule files in the knowledge repository's format,
-// read next to the hub's on every run. Both lists are candidates: spec applies only the rules that fit the
-// tests it writes for the ticket, and says how many it applied from each.
+// Central Context testing rules for a ticket's side. They shape how tests are written; never expected values, scores or checks.
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,30 +8,23 @@ import { plural } from '../core/text.mjs'
 export const HUB_TIMEOUT_MS = 3000
 export const DOMAIN = 'quality'
 
-/** A quality rule is a testing rule when one of its tags is one of these (CI and infrastructure rules are not). */
+// Tags that make a quality rule a testing rule (CI/infra rules don't count).
 export const TESTING_TAGS = Object.freeze(new Set(['test', 'tests', 'testing', 'testability', 'unit-test', 'unit-tests', 'integration-test', 'integration-tests', 'e2e', 'e2e-test', 'e2e-tests', 'test-case', 'test-cases', 'test-strategy']))
 
-// The knowledge repository's applies_to values each side's code is written in; "all" applies everywhere.
+// applies_to values per side; "all" matches everywhere.
 const FRONTEND = ['web', 'typescript', 'javascript']
 const BACKEND = { vitest: ['node', 'typescript', 'javascript', 'rest'], pytest: ['python', 'rest'], junit: ['java', 'rest'], dotnet: ['dotnet', 'rest'], go: ['rest'] }
 
-/** The applies_to values a ticket's side matches, "all" first. */
 export function stacksFor(side, config = null) {
   const backend = BACKEND[backendOf(config) ?? 'vitest'] ?? []
   const of = { frontend: FRONTEND, backend, fullstack: [...backend, ...FRONTEND] }
   return [...new Set(['all', ...(of[side] ?? of.fullstack)])]
 }
 
-// The hub every user reads when the project names none: TeamSystem's hosted Central Context.
-// To move to a new URL, change it here AND in these places, which hold the same address:
-//   - .claude-plugin/plugin.json: userConfig.central_context_url.default (the connector's hub; JSON, so no comment there)
-//   - test/plugin-config.test.mjs: the assert on that default
-//   - docs/GUIDE.md: the centralContext.hub row of the config table
-//   - guides/connectors.md, guides/display.md, output-styles/report.md: example lines showing the host
-// grep -rn "centralcontext-dev.teamsystem.cloud" finds them all.
+// Duplicated in plugin.json, tests, docs and guides: grep -rn "centralcontext-dev.teamsystem.cloud" before changing it.
 export const DEFAULT_HUB = 'https://centralcontext-dev.teamsystem.cloud'
 
-/** The hub base URL for this project: the environment first, then the config, then TeamSystem's hosted hub. */
+/** CC_HUB_URL, then centralContext.hub, then DEFAULT_HUB. */
 export function hubOf(config, env = process.env) {
   const v = env.CC_HUB_URL ?? config?.centralContext?.hub
   return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : DEFAULT_HUB
@@ -54,7 +36,7 @@ const rank = s => (SEVERITY.includes(s) ? SEVERITY.indexOf(s) : SEVERITY.length)
 const pick = d => ({ id: d.id, title: d.title ?? d.id, summary: d.summary ?? '', severity: d.severity ?? null, applies_to: d.applies_to ?? [] })
 const bySeverity = (a, b) => rank(a.severity) - rank(b.severity) || a.id.localeCompare(b.id)
 
-/** The active testing rules of the quality domain whose applies_to meets the stacks, most severe first. */
+/** Most severe first. */
 export function testingRules(documents, stacks) {
   const want = new Set(stacks)
   return (documents ?? [])
@@ -65,13 +47,12 @@ export function testingRules(documents, stacks) {
     .sort(bySeverity)
 }
 
-// A YAML escape JSON does not know ("C:\Users") keeps the text between the quotes as it is.
+// A YAML escape JSON rejects ("C:\Users") falls back to the raw text.
 const unquote = v => (/^".*"$/.test(v) ? (() => { try { return JSON.parse(v) } catch { return v.slice(1, -1) } })() : /^'.*'$/.test(v) ? v.slice(1, -1).replace(/''/g, "'") : v)
 const scalar = v => (v === '' || v === 'null' ? null : v.startsWith('[') && v.endsWith(']') ? (v.slice(1, -1).match(/"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^,]+/g) ?? []).map(x => unquote(x.trim())).filter(Boolean) : unquote(v))
 
 /**
- * The frontmatter of a rule file, in the knowledge repository's shape: one `key: value` per line, a value a plain
- * or quoted string, `null` or a `[a, b]` list. null without frontmatter.
+ * Frontmatter as the knowledge repo writes it: `key: value` lines with strings, null or [a, b] lists.
  * ponytail: one-line values only, as the repository writes them; a multi-line YAML value is not read.
  */
 export function parseRule(text) {
@@ -85,33 +66,26 @@ export function parseRule(text) {
   return out
 }
 
-/**
- * The team's own rules from a folder of rule files: every one that is active (the default) and whose applies_to
- * (default all) meets the stacks. Every rule in the folder is the team's testing rule, whatever its domain or tags.
- */
+/** Every rule in the team's folder counts as a testing rule, whatever its domain or tags. */
 const LOCAL_STATUSES = new Set(['active', 'draft'])
 
 export function localRules(root, dir, stacks) {
   let files
   try { files = readdirSync(join(root, dir)).filter(f => f.endsWith('.md') && !/^(README|CHANGELOG)\.md$/i.test(f)).sort() } catch { return { dir, rules: [], error: `folder not found: ${dir}` } }
   const want = new Set(stacks)
-  // One file that cannot be read or parsed is skipped, not fatal: readRules never throws.
+  // Skip unreadable files: readRules never throws.
   const docs = files.map(f => { try { return parseRule(readFileSync(join(root, dir, f), 'utf8')) } catch { return null } }).filter(d => d?.id && d.summary)
-  // The team's own drafts count: the folder is the team's choice. Deprecated and retired rules do not.
+  // Team drafts count; deprecated and retired rules don't.
   const rules = docs.filter(d => LOCAL_STATUSES.has(d.status ?? 'active') && (d.applies_to ?? ['all']).some(a => want.has(a)))
     .map(d => ({ ...pick(d), status: d.status ?? 'active' })).sort(bySeverity)
   return { dir, rules, error: null }
 }
 
-// The rules the plugin ships (rules/ next to lib/): drafts that hold until Central Context publishes them.
+// Shipped drafts, used until Central Context publishes them.
 export const BUILTIN_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 export const BUILTIN_DIR = 'rules/'
 
-/**
- * The rules for a side, from three sources: the project's own (`centralContext.local`), Central Context's and the
- * plugin's built-in ones. One id is one rule: the project's wins, then Central Context's (a published rule replaces
- * the plugin's draft of it), then the built-in one. Never throws: a source that fails has no rules and says why.
- */
+/** Same id wins in order: local, Central Context, built-in. Never throws; a failed source reports why. */
 export async function readRules({ side, config = null, root = null, env = process.env, fetchImpl = globalThis.fetch, timeoutMs = HUB_TIMEOUT_MS, builtinRoot = BUILTIN_ROOT } = {}) {
   const hub = hubOf(config, env)
   const stacks = stacksFor(side, config)
@@ -141,21 +115,20 @@ const draftNote = rules => {
   return !d ? '' : `, ${d === rules.length ? (d === 1 ? 'a draft' : 'all drafts') : plural(d, 'draft')}`
 }
 
-/** What a run read, saved next to the ticket (rules.mjs --key) so the result card can say it: Central Context, or the fallback. */
+// Saved beside the ticket (--key) for the result card.
 export const rulesRecord = (r, date = new Date()) => ({
   source: r.source, hub: r.hub, release: r.release, error: r.error, side: r.side,
   hubRules: r.rules.length, builtinRules: r.builtin?.rules.length ?? 0, localRules: r.local && !r.local.error ? r.local.rules.length : 0,
   ids: [...(r.local?.rules ?? []), ...r.rules, ...(r.builtin?.rules ?? [])].map(x => x.id), date: date.toISOString(),
 })
 
-/** The card's Rules line: Central Context answered, or the tests were written with the fallback rules. */
 export function rulesLine(rec) {
   const others = [rec.localRules && `${rec.localRules} local`, rec.builtinRules && `${rec.builtinRules} built-in`].filter(Boolean).join(' and ')
   if (rec.source === 'hub') return `✅ Written with ${rec.hubRules ? plural(rec.hubRules, 'rule') : 'no rules'} from Central Context${rec.release ? ` (release ${rec.release})` : ''}${others ? ` and ${others} rules` : ''}`
   return `⚠️ Central Context ${rec.error}. ${others ? `Written with ${others} rules instead` : 'No rules applied'}`
 }
 
-/** One line per source spec shows as a completed step: what was read, what for, and from where. The rules themselves travel in RULES_JSON. */
+// One line per source; the rules themselves go in RULES_JSON.
 export function formatRules(r) {
   const others = (r.local?.rules.length ?? 0) + (r.builtin?.rules.length ?? 0)
   const lines = [r.source !== 'hub'

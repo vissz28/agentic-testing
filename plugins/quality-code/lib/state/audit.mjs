@@ -1,6 +1,5 @@
-// The local audit log: one JSON line per event in .claude/quality-code/audit/<kind>.jsonl, git-ignored.
-// Keys, numbers and fixed words only: never ticket text, never a path, never a finding.
-// A failed append returns false and never throws, so it never changes a result or an exit code.
+// Local audit log in .claude/quality-code/audit/<kind>.jsonl. Keys, numbers and fixed words only.
+// Never throws: a failed write must not change a result or exit code.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { isTicketKey } from '../core/text.mjs'
@@ -10,7 +9,7 @@ export const KINDS = ['gate', 'pipeline', 'jira', 'override', 'fill']
 
 // Verdicts, gates, step names, rubric and adapter ids, criterion keys.
 const WORD = /^[a-z][a-z0-9_-]{0,39}$/
-// A Jira issue type name, in any language ("Bug", "Story", "Sotto-task").
+// Jira issue type in any language ("Bug", "Sotto-task").
 const LABEL = /^\p{L}[\p{L}\p{N} -]{0,39}$/u
 
 const key = v => (isTicketKey(v) ? v : null)
@@ -22,7 +21,7 @@ const words = a => (Array.isArray(a) ? a.map(word).filter(Boolean) : [])
 const score = v => (num(v) !== null && v <= 100 ? v : null)
 const scored = o => (o && typeof o === 'object' ? { score: score(o.score), bar: score(o.bar) } : null)
 
-// The numbers a step keeps in the log, so the quality numbers can be rebuilt later. Never a name or a path.
+// Kept so the KPIs can be rebuilt later. Never names or paths.
 const STEP_NUMBERS = ['passed', 'failed', 'skipped', 'otherTickets', 'killed', 'survived', 'errors', 'total', 'score', 'threshold',
   'tokens', 'asserted', 'percent', 'tests', 'withAssertion', 'hollow', 'todo', 'removedAssertions', 'removedTests', 'newSkips', 'untaggedAnchors', 'noCoverage']
 const stepNumbers = data => Object.fromEntries(STEP_NUMBERS
@@ -45,23 +44,20 @@ const SHAPE = {
   }),
   jira: e => ({ key: key(e.key), action: oneOf(['comment', 'update', 'risk', 'defect', 'retest', 'status'])(e.action) }),
   override: e => ({ key: key(e.key), score: score(e.score), bar: score(e.bar) }),
-  // An accepted fill-in answer; `drafted` when the author confirmed the model's draft.
+  // `drafted`: the author confirmed the model's draft.
   fill: e => ({ key: key(e.key), item: word(e.item), drafted: e.drafted === true }),
 }
 
 /** On unless QC_NO_AUDIT=1 or the caller's --no-audit. */
 export const auditOff = (env = process.env, flag = false) => flag === true || env.QC_NO_AUDIT === '1'
 
-/**
- * Append one event. True when written; false when off, unknown or the write failed. `dir` is the log's
- * folder when the person keeps it outside the repo (loadConfig's auditDir); null keeps no log (the chat).
- */
+// False when off, unknown kind or the write failed. `dir`: loadConfig's auditDir; null keeps no log.
 export function audit(root, kind, entry, { env = process.env, off = false, now = new Date(), dir: logDir } = {}) {
   if (auditOff(env, off) || logDir === null || !Object.hasOwn(SHAPE, kind)) return false
   try {
     const dir = logDir ?? join(root, AUDIT_DIR)
     mkdirSync(dir, { recursive: true })
-    // The folder ignores itself, so the log stays out of git even before setup adds its line.
+    // Self-ignoring folder: stays out of git even before setup adds the ignore line.
     try { writeFileSync(join(dir, '.gitignore'), '*\n', { flag: 'wx' }) } catch {}
     appendFileSync(join(dir, `${kind}.jsonl`), `${JSON.stringify({ ...SHAPE[kind](entry ?? {}), date: now.toISOString() })}\n`)
     return true
@@ -70,7 +66,7 @@ export function audit(root, kind, entry, { env = process.env, off = false, now =
   }
 }
 
-/** Every readable object line of a JSONL file, in order; a missing file is empty. */
+/** Skips unparsable lines; a missing file reads as empty. */
 export function readJsonl(path) {
   let text = ''
   try { text = readFileSync(path, 'utf8') } catch { return [] }
@@ -83,5 +79,5 @@ export function readJsonl(path) {
   })
 }
 
-/** The events of one kind, from the repo's log or from `dir` (loadConfig's auditDir; null: none kept). */
+/** `dir` as in audit(): null means no log is kept. */
 export const readAudit = (root, kind, dir) => (Object.hasOwn(SHAPE, kind) && dir !== null ? readJsonl(join(dir ?? join(root, AUDIT_DIR), `${kind}.jsonl`)) : [])

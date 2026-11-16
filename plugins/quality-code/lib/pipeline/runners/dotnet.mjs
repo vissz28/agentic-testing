@@ -1,6 +1,4 @@
-// The .NET runner: runs the specs' test classes with `dotnet test` on their test project and reads its
-// TRX report (xUnit, NUnit and MSTest all write one). Implements the runner contract of the shared
-// checks. The build output stays in the project's bin/ and obj/; the report goes to a temp folder.
+// .NET runner: `dotnet test` per test project, read from TRX (xUnit, NUnit, MSTest). Report goes to a temp dir.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,7 +14,7 @@ const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
 const decode = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e) =>
   e[0] === '#' ? String.fromCodePoint(e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : Number(e.slice(1))) : ENTITIES[e] ?? m)
 
-/** A small XML tree: { name, attrs, children, text }. Enough for a TRX file; no namespaces, no DTD. */
+/** Minimal XML parser, enough for TRX: no namespaces, no DTD. */
 export function parseXml(xml) {
   const root = { name: '#root', attrs: {}, children: [], text: '' }
   const stack = [root]
@@ -44,18 +42,15 @@ const all = (node, name, out = []) => {
 }
 const child = (node, name) => node?.children.find(c => c.name === name)
 
-/** A method's name as the dialect reads it: no parameters (a theory's case), no class in front. */
+/** Drop theory parameters and the class prefix. */
 export const methodTitle = name => String(name ?? '').split('(')[0].trim().split('.').at(-1)
 
-/** A class's full name as the specs declare it: no assembly, no generic arity; a nested class keeps its own name. */
+/** Drop assembly and generic arity; Outer+Inner becomes Outer.Inner. */
 const className = name => String(name ?? '').split(',')[0].split('(')[0].replace(/`\d+/g, '').replace(/\+/g, '.').trim()
 
 const STATUS = { Passed: 'passed', PassedButRunAborted: 'passed', Completed: 'passed', Failed: 'failed', Error: 'failed', Timeout: 'failed', Aborted: 'failed' }
 
-/**
- * The results of a TRX file: [{ className, title, status, message }]. A data-driven MSTest result
- * counts its inner results; NotExecuted, Inconclusive and the like are skipped.
- */
+/** Data-driven MSTest results count their inner results; NotExecuted, Inconclusive etc. are skipped. */
 export function parseTrx(xml) {
   const doc = parseXml(xml)
   const defs = new Map()
@@ -80,14 +75,14 @@ export function parseTrx(xml) {
   return out
 }
 
-/** The first compiler error of a failed build: "File.cs(12,5): error CS1002: ; expected", without the project. */
+/** First compiler error, e.g. "File.cs(12,5): error CS1002: ; expected", minus the [project] suffix. */
 export function buildError(text) {
   const m = /^.*?\berror (?:CS|FS|BC)\d+:.*$/m.exec(String(text ?? ''))
   if (!m) return null
   return m[0].replace(/\s*\[[^\]]*\.(?:cs|fs|vb)proj(?:::[^\]]*)?\]\s*$/, '').replace(/^\s*\d+>/, '').trim()
 }
 
-/** The nearest *.csproj or *.fsproj above a spec, up to the project root; null when there is none. */
+/** Nearest *.csproj/*.fsproj above the spec, up to root. */
 export function projectOf(root, file) {
   const top = resolve(root)
   for (let d = dirname(resolve(root, file)); ; d = dirname(d)) {
@@ -99,12 +94,11 @@ export function projectOf(root, file) {
   }
 }
 
-/** A --filter value: one FullyQualifiedName~ clause per class (per class and method for one test). */
 export function filterFor(classes, testName) {
   return classes.map(c => `FullyQualifiedName~${c.fqn}.${testName === undefined ? '' : testName}`).join('|')
 }
 
-/** Every .trx file under a folder (the report, and one per target framework when there are several). */
+/** Multi-targeted projects write one .trx per framework. */
 function trxFiles(dir) {
   const out = []
   for (const n of readdirSync(dir)) {
@@ -117,7 +111,6 @@ function trxFiles(dir) {
   return out
 }
 
-/** One `dotnet test` on one project: { ran, results, buildError, error }. */
 export function runDotnet(root, project, { filter, command = null, timeoutMs }) {
   return new Promise(done => {
     const dir = mkdtempSync(join(tmpdir(), 'qc-dotnet-'))
@@ -126,7 +119,7 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
     let file
     let args
     if (command) {
-      // The project's own command: {files} is the test project, {report} the TRX path, {test} the filter.
+      // dotnet.command: {files} test project, {report} TRX path, {test} filter.
       let line = fillPlaceholders(command, { files: shellQuote(project), report: shellQuote(report), test: shellQuote(filter) })
       if (!command.includes('{report}')) line += ` ${logger.map(w => shellQuote(w)).join(' ')}`
       if (!command.includes('{test}')) line += ` --filter ${shellQuote(filter)}`
@@ -171,7 +164,7 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
         const reports = existsSync(dir) ? trxFiles(dir) : []
         const results = reports.flatMap(f => parseTrx(readFileSync(f, 'utf8')))
         if (reports.length) return finish({ ran: true, results })
-        // No report: a build that failed (the specs do not compile), or a run that never started.
+        // No report: the build failed or the run never started.
         const err = buildError(output)
         if (err) return finish({ ran: true, results: [], buildError: err })
         finish({ ran: false, error: code === 0 ? 'dotnet test wrote no report' : firstLine(output.split('\n').filter(l => /error|fail/i.test(l)).join('\n')) || `dotnet test exited with code ${code} and wrote no report` })
@@ -187,7 +180,6 @@ export function dotnetRunner(root, config) {
   const command = commandOf(config)
   return async ({ files, testName, timeoutMs }) => {
     const out = { ran: true, tests: [], broken: [] }
-    // Each spec's test classes and test project.
     const byProject = new Map()
     for (const f of files) {
       let src
@@ -209,7 +201,7 @@ export function dotnetRunner(root, config) {
       const byName = new Map()
       for (const c of classes) byName.set(c.name, byName.has(c.name) ? null : c)
       for (const t of r.results) {
-        // The class by its full name, else by its own name when only one spec declares it.
+        // Match by full name, else by short name if it's unique.
         const c = byFqn.get(t.className) ?? byName.get(t.className.split('.').at(-1))
         if (!c) continue
         if (testName !== undefined && t.title !== testName) continue

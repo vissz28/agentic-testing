@@ -1,30 +1,24 @@
-// JUnit syntax (Java and Kotlin, JUnit 5 with JUnit 4 tolerated), as the backend checks read it.
-// A test is a method annotated @Test, @ParameterizedTest, @RepeatedTest, @TestFactory or
-// @TestTemplate; its title is the method name, as the runner reports it. A top-level class is a
-// group, titled by its @DisplayName: the ticket's block is @DisplayName("<KEY> …") on the class.
+// JUnit dialect (Java/Kotlin, JUnit 5, JUnit 4 tolerated). A test's title is its method name, as the
+// runner reports it. A top-level class is a group; the ticket's block is @DisplayName("<KEY> …") on it.
 import { collapseSpaces } from '../../core/text.mjs'
 
 export const name = 'junit'
 
-// A Java or Kotlin string literal, an annotation's argument list, one annotation (@Tag("x"),
-// @field:Mock, @org.junit.jupiter.api.Test).
+// String literal, annotation args, one annotation (@Tag("x"), @field:Mock, @org.junit.jupiter.api.Test).
 const STR = String.raw`"(?:[^"\\\n]|\\.)*"`
 const ARGS = String.raw`\((?:${STR}|[^()"]|\((?:${STR}|[^()"])*\))*\)`
 const ANNO = String.raw`@(?:\w+:)?[\w.]+(?:\s*${ARGS})?`
 const ANNOS = String.raw`(?:${ANNO}\s*)*`
 const TEST_ANNO = String.raw`@(?:org\.junit\.(?:jupiter\.api\.|jupiter\.params\.)?)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate)\b(?:\s*${ARGS})?`
 const MODS = String.raw`(?:(?:public|protected|private|internal|static|final|override|open|suspend|abstract|synchronized)\s+)*`
-// A Java return type (void, String, Stream<DynamicTest>) or Kotlin's fun.
+// Java return type (void, Stream<DynamicTest>) or Kotlin's fun.
 const RET = String.raw`(?:<[^>\n]*>\s*)?[\w.$]+(?:\s*<[^\n{;]*?>)?(?:\s*\[\s*\])*\s+`
-// A not-yet marker: @Disabled("TODO …"). Any other @Disabled or @Ignore is a skip.
+// @Disabled("TODO …") is a todo; any other @Disabled or @Ignore is a skip.
 const TODO_REASON = String.raw`\s*\(\s*(?:value\s*=\s*)?"\s*[Tt][Oo][Dd][Oo]`
 const DISABLED = String.raw`@(?:[\w.]+\.)?`
 
-/**
- * A test mark (no m flag: testMarks drops it, so a line start is "no character but a newline before").
- * Named groups: skip (group 1) and todo (group 2) from the method's annotations; m[3] = the method name
- * (a Kotlin `name with spaces` without its backticks). No group 4: there is no each/for form.
- */
+// No m flag (testMarks drops it), so a line start is matched as "after a newline". Named groups skip
+// and todo; m[3] = method name (Kotlin backticks stripped). No group 4: no each/for form.
 const TEST = new RegExp(String.raw`(?<![^\n])[ \t]*` +
   String.raw`(?:(?=${ANNOS}?${DISABLED}(?<skip>Disabled|Ignore)\b(?!${TODO_REASON}))|)` +
   String.raw`(?:(?=${ANNOS}?${DISABLED}Disabled${TODO_REASON.replace('[Tt][Oo][Dd][Oo]', '(?<todo>[Tt][Oo][Dd][Oo])')})|)` +
@@ -32,43 +26,36 @@ const TEST = new RegExp(String.raw`(?<![^\n])[ \t]*` +
 
 const CLASS_MODS = String.raw`(?:(?:public|protected|private|internal|abstract|final|open|sealed|data|static|strictfp)\s+)*`
 
-/**
- * Top-level group: a class at column 0. m[1] is empty (no modifier chain: a skip is the named group
- * skip, @Disabled or @Ignore on the class), m[3] = its @DisplayName, the class name is the group cls.
- */
+/** Class at column 0. m[1] empty (skip is the named group), m[3] = @DisplayName, group cls = class name. */
 export const groupRe = new RegExp(String.raw`^()` +
   String.raw`(?:(?=${ANNOS}?${DISABLED}(?<skip>Disabled|Ignore)\b)|)` +
   String.raw`(?:(?=${ANNOS}?${DISABLED}DisplayName\s*\(\s*(?:value\s*=\s*)?"((?:[^"\\\n]|\\.)*)")|)` +
   String.raw`${ANNOS}${CLASS_MODS}(?:class|object)\s+(?<cls>\w+)`, 'gm')
 
-// Assertion calls: JUnit 5 and 4 (assertEquals, assertThrows, fail), kotlin.test (assertEquals,
-// assertFailsWith<…> { }), Mockito's verify, AssertJ / Hamcrest / Truth assertThat, kotest should*,
-// Java's assert keyword.
+// JUnit 4/5, kotlin.test, Mockito verify, AssertJ/Hamcrest/Truth assertThat, kotest should*, Java assert.
 const ASSERT_CALL = /(?<![\w$])(?:assert(?!That)[A-Z]\w*|fail|verify\w*)\s*(?:<[^>\n]*>\s*)?[({]/g
 const ASSERT_THAT = /(?<![\w$])assertThat\w*\s*\(/g
 const KOTEST = /(?<![\w$])should(?:Not)?[A-Z]\w*\b/g
 const ASSERT_KEYWORD = /(?<![\w$.])assert\b(?=\s*[(\w!])/g
 
 export const honesty = {
-  // A removed test annotation, @Nested, or a test class declaration.
   removedDecl: /@(?:[\w.]+\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory|TestTemplate|Nested)\b|(?<![\w.:])(?:class|object)\s+\w*(?:Test|Tests|IT)\b/,
-  // A removed line holding an assertion (the shared check reads expect( otherwise).
+  // Otherwise the shared check looks for expect(.
   assertRe: /(?<![\w$])(?:assert[A-Z]\w*|assertThat\w*|fail|verify\w*)\s*(?:<[^>\n]*>\s*)?[({]|(?<![\w$])should(?:Not)?[A-Z]\w*\b|(?<![\w$.])assert\b(?=\s*[(\w!])/,
-  // An added line that stops a test from running: @Disabled (not a TODO), @Ignore, a condition, an assumption.
+  // @Disabled (not TODO), @Ignore, a condition, an assumption.
   skipRe: new RegExp(String.raw`@(?:[\w.]+\.)?(?:(?:Disabled|Ignore)\b(?!${TODO_REASON})|DisabledIf\w*|DisabledOn\w*|DisabledFor\w*|EnabledIf\w*|EnabledOn\w*|EnabledFor\w*)|(?<![\w$.])assum(?:e(?:True|False|That)|ingThat)\s*\(`),
   forgiveMoves: false,
   anchorTags: false,
 }
 
-// The value check: a field the ticket names must be read in an assertion (unit tests read fields).
-// JUnit asserts take the expected value as an argument (assertEquals(108, total)), so the whole call
-// is read; AssertJ and kotest matchers are read after their dot (.isEqualTo(108), .shouldBe(108)).
+// Fields the ticket names must be read in an assertion. JUnit asserts are read whole (assertEquals(108, total)),
+// AssertJ and kotest matchers after their dot (.isEqualTo(108), .shouldBe(108)).
 export const expected = {
   fieldNames: true,
   readsActual: true,
   calls: ['assertEquals', 'assertNotEquals', 'assertArrayEquals', 'assertIterableEquals', 'assertLinesMatch', 'assertSame', 'assertTrue', 'assertFalse', 'assertThrows',
     'assertNotSame', 'assertInstanceOf', 'assertIterableEquals', 'assertAll',
-    // Hamcrest matchers that carry the expected value (the BigDecimal one is comparesEqualTo; the numeric ones are greaterThan and friends).
+    // Hamcrest matchers carrying the expected value (comparesEqualTo for BigDecimal, greaterThan etc.).
     'equalTo', 'is', 'not', 'closeTo', 'comparesEqualTo', 'greaterThan', 'greaterThanOrEqualTo', 'lessThan', 'lessThanOrEqualTo', 'equalToIgnoringCase',
     'equalToCompressingWhiteSpace', 'equalToObject', 'hasSize', 'hasLength', 'hasToString', 'containsString', 'containsStringIgnoringCase', 'matchesPattern',
     'matchesRegex', 'hasItem', 'hasItems', 'hasEntry', 'hasKey', 'hasValue', 'hasProperty', 'samePropertyValuesAs', 'isIn', 'oneOf', 'contains',
@@ -81,14 +68,14 @@ export const expected = {
     'shouldBe', 'shouldContain', 'shouldHaveSize', 'shouldStartWith', 'shouldEndWith', 'shouldContainExactly'],
 }
 
-/** The code with every comment and string literal blanked (same length, newlines kept): parens and keywords in a string are not read. */
+/** Comments and strings blanked (same length, newlines kept) so their parens and keywords aren't read. */
 export function mask(src) {
   let out = ''
   for (let i = 0; i < src.length; i++) {
     const c = src[i]
     if (c === '"' && src.startsWith('"""', i)) {
       const e = src.indexOf('"""', i + 3)
-      // A text block is blanked whole, its quotes too: no mutant writes into one.
+      // Text blocks are blanked whole, quotes too, so no mutant writes into one.
       const end = e < 0 ? src.length : e + 3
       out += src.slice(i, end).replace(/[^\n]/g, ' ')
       i = end - 1
@@ -135,12 +122,8 @@ function topCommas(code, open) {
   return out
 }
 
-/**
- * Assertions in a test body: a JUnit or kotlin.test assert call, fail(…), Mockito verify, a kotest
- * should*, Java's assert, and assertThat when it asserts something: an AssertJ chain
- * (assertThat(x).isEqualTo(…)) or a Hamcrest matcher argument (assertThat(x, is(…))). A bare
- * assertThat(x) asserts nothing. assumeTrue is no assertion: it only skips.
- */
+// assertThat counts only with an AssertJ chain or a Hamcrest matcher: a bare assertThat(x) asserts
+// nothing. assumeTrue only skips.
 export function countAssertions(body) {
   const code = mask(body)
   let n = (code.match(ASSERT_CALL) || []).length + (code.match(KOTEST) || []).length + (code.match(ASSERT_KEYWORD) || []).length
@@ -167,11 +150,8 @@ const displayNameIn = text => {
   return raw === undefined ? null : unescape(raw)
 }
 
-/**
- * The classes and tests of a spec: { pkg, classes: [{ name, binary, parent, displayName, start, end }],
- * tests: [{ title, displayName, idx, cls }] }. binary is the class's name below the package as the
- * JVM knows it (Outer$Inner); cls is the binary name of the class declaring the test.
- */
+// { pkg, classes: [{ name, binary, parent, displayName, start, end }], tests: [{ title, displayName, idx, cls }] }.
+// binary is the JVM name below the package (Outer$Inner); cls is the declaring class's binary name.
 export function structure(src) {
   const code = mask(src)
   const pkg = /^\s*package\s+([\w.]+)/m.exec(code)?.[1] ?? ''
@@ -206,7 +186,7 @@ export function structure(src) {
   }
   const tests = []
   for (const m of src.matchAll(new RegExp(TEST.source, 'g'))) {
-    // A mark inside a comment or a string is no test.
+    // Skip marks inside comments or strings.
     if (!code.slice(m.index, m.index + m[0].length).includes('@')) continue
     const c = innermost(m.index)
     tests.push({ title: m[3], displayName: displayNameIn(m[0]), idx: m.index, cls: c ? c.binary : null })
@@ -214,7 +194,7 @@ export function structure(src) {
   return { pkg, classes: classes.map(({ parentRef, bodyStart, ...c }) => c), tests }
 }
 
-// Strongest first: inverting an assertion is the definitive "does it bind anything" mutant.
+// Strongest first: inverting an assertion best shows whether it checks anything.
 const mutantRank = k => (k === 'invert-assert' || k === 'invert-matcher' || k === 'swap-exception' ? 0 : k === 'num→n+1' ? 1 : 2)
 
 // JUnit and kotlin.test asserts with an opposite; AssertJ matchers with an opposite.
@@ -257,11 +237,8 @@ function corruptString(part) {
   return part
 }
 
-/**
- * The mutants of one assertion statement, strongest first by rank. opposite(fn, name): how the spec
- * calls the opposite assert (see oppositeIn). standalone: the statement's value is
- * not kept (no "x = assertThrows(…)"), so assertThrows may expect an exception nothing throws.
- */
+// Strongest first. opposite(fn, name): see oppositeIn. standalone: the result isn't assigned
+// (no "x = assertThrows(…)"), so assertThrows may expect an exception nothing throws.
 export function flipMutations(src, { standalone = true, opposite = (fn, name) => name } = {}) {
   const out = []
   const add = (kind, text) => { if (text !== src && !out.some(o => o.text === text)) out.push({ kind, text }) }
@@ -284,7 +261,7 @@ export function flipMutations(src, { standalone = true, opposite = (fn, name) =>
   const open = call.index + call[0].length - 1
   const close = closeAt(code, open)
   const commas = topCommas(code, open)
-  // A qualified call (Assertions.assertEquals) takes the opposite's bare name; a bare one, how the spec can call it.
+  // Qualified (Assertions.assertEquals): swap the method name. Bare: whatever form the spec can call.
   if (JUNIT_OPPOSITE[fn]) add('invert-assert', `${src.slice(0, nameAt)}${call[1] ? JUNIT_OPPOSITE[fn] : opposite(fn, JUNIT_OPPOSITE[fn])}${src.slice(nameAt + fn.length)}`)
   if (fn === 'assertThrows' && standalone) {
     const cls = /^\s*[\w.$]+\.class\s*(?=,)/.exec(src.slice(open + 1))
@@ -318,7 +295,7 @@ export function flipMutations(src, { standalone = true, opposite = (fn, name) =>
   return out
 }
 
-/** kotest assertions, infix (total shouldBe 108) or dotted (total.shouldBe(108)): the statement is the rest of the line. */
+/** kotest: total shouldBe 108 or total.shouldBe(108); the statement runs to end of line. */
 function kotestRanges(src) {
   const code = mask(src)
   const out = []
@@ -330,11 +307,7 @@ function kotestRanges(src) {
   return out
 }
 
-/**
- * How a spec can call the opposite of a statically imported assert: by its bare name when the spec
- * imports it (or the class's *), else by its full name (org.junit.jupiter.api.Assertions.assertNotEquals),
- * so a mutant compiles whatever the spec imports.
- */
+/** Bare name when the spec imports it (or the class's *), else fully qualified, so the mutant compiles. */
 export function oppositeIn(src) {
   const code = mask(src)
   const esc = s => s.replace(/[.$]/g, '\\$&')
@@ -346,13 +319,13 @@ export function oppositeIn(src) {
   }
 }
 
-/** A block mutation judges: it ran green, it is not disabled or a todo. */
+/** Green and not disabled or todo. */
 const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && passed.has(block.title)
 
 /** One mutant per assertion (the strongest); baseline-green tests only, inside the range. */
 function plan({ src, passedTitles, range, blocks, expects }) {
   const passed = new Set(passedTitles)
-  // An assertion in a comment or a string is no assertion: the masked code has blanked it.
+  // Masked code: assertions in comments and strings are already blanked.
   const code = mask(src)
   const ranges = expects.filter(e => code[e.start] === src[e.start])
   for (const k of kotestRanges(src)) if (!ranges.some(e => k.start < e.end && e.start < k.end)) ranges.push(k)
@@ -378,8 +351,7 @@ function plan({ src, passedTitles, range, blocks, expects }) {
 }
 
 export const mutation = {
-  // A compiled language: a mutated copy next to the spec would not compile (a duplicate class or
-  // function), so the spec itself is mutated and always restored (see checks/mutation.mjs).
+  // Compiled: a copy would be a duplicate class, so the spec is mutated in place and restored (checks/mutation.mjs).
   inPlace: true,
   expectRe: /(?<![\w$])(?:(?:org\.junit\.jupiter\.api\.)?(?:Assertions|Assert)\.)?(?:assert(?:Equals|NotEquals|True|False|Null|NotNull|Same|NotSame|ArrayEquals|IterableEquals|LinesMatch|Throws)|assertThat)\s*\(/,
   testRe: TEST,

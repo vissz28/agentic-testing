@@ -1,4 +1,4 @@
-// Totals, groups and the plain-text card for /quality-code:report --cost. Dates are UTC.
+// /quality-code:report --cost totals and card. Dates are UTC.
 import { costOf, priceFor } from './prices.mjs'
 import { tag } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
@@ -8,17 +8,17 @@ export const BY = ['command', 'ticket', 'day', 'model']
 const day = ms => new Date(ms).toISOString().slice(0, 10)
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
-/** { since, until, label } in ms, until exclusive. Throws a plain message. */
+/** until is exclusive. */
 export function parsePeriod({ since = '30d', until = null } = {}, now = Date.now()) {
   const date = (s, flag) => {
     const t = DATE.test(s) ? Date.parse(`${s}T00:00:00Z`) : NaN
-    // Date.parse rolls 2026-02-31 over to March: only a date that reads back the same is one.
+    // Date.parse rolls 2026-02-31 into March, so require a round-trip.
     if (Number.isNaN(t) || day(t) !== s) throw new Error(`${flag} must be a date like 2026-10-01${flag === '--since' ? ', or 7d or 30d' : ''}, not "${s}"`)
     return t
   }
   const end = until === null ? now : date(until, '--until') + DAY
   const rel = String(since).match(/^([1-9]\d{0,3})d$/)
-  // 7d and 30d count back from the period's last day: today, or --until.
+  // Nd counts back from the last day (today or --until).
   const start = rel ? Math.floor((end - 1) / DAY) * DAY - (Number(rel[1]) - 1) * DAY : date(since, '--since')
   if (start >= end) throw new Error(`--since ${since} is after --until ${until ?? 'today'}`)
   const label = rel && until === null ? `last ${rel[1]} days` : `${day(start)} to ${day(end - 1)}`
@@ -54,7 +54,6 @@ function out(b) {
   }
 }
 
-/** The report object behind the card and CONSUMPTION_JSON. */
 export function buildReport({ runs, events }, { period, by = 'command', prices, project, priceInfo }) {
   const inPeriod = t => t >= period.since && t < period.until
   const runsIn = runs.filter(r => inPeriod(r.start))

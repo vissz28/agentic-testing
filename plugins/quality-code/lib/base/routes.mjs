@@ -1,5 +1,4 @@
-// Is this path a screen of the app? Read from the router the code declares (React Router, Vue Router, Angular, a routes
-// array) and from the folders of a file-based router (Next, Nuxt, SvelteKit, Remix). Files are only read, never run.
+// Checks a path against declared routes and file-based routers (Next, Nuxt, SvelteKit, Remix). Reads files, never runs them.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
@@ -15,7 +14,7 @@ const MAX_BYTES = 400_000
 const segs = p => String(p).split(/[?#]/)[0].split('/').filter(Boolean)
 const isParam = s => /^(?::|\[|\*|\{)/.test(s) || s === '*'
 
-/** True when the requested segments fit a declared pattern ("/orders/:id" fits "/orders/12"). */
+/** "/orders/:id" fits "/orders/12". */
 export function fits(pattern, route) {
   const p = segs(pattern), r = segs(route)
   for (let i = 0; i < p.length; i++) {
@@ -37,7 +36,6 @@ function* walk(root, rel, budget) {
   }
 }
 
-/** The routes the code declares: { declared: [pattern], pieces: [relative piece], fileBased: [pattern] }. */
 export function declaredRoutes(root) {
   const declared = new Set(), pieces = new Set(), fileBased = new Set()
   const budget = { n: MAX_FILES }
@@ -47,7 +45,7 @@ export function declaredRoutes(root) {
     for (const m of src.matchAll(PATH_DECL)) {
       const v = m[2].trim()
       if (!v || /\s/.test(v) || /^(?:https?:)?\/\//.test(v) || /[\\^]/.test(v) && !v.startsWith('/')) continue
-      // A nested route is written relative to its parent: keep both the whole and the piece.
+      // Relative paths are nested-route pieces.
       ;(v.startsWith('/') ? declared : pieces).add(v)
     }
   }
@@ -76,10 +74,7 @@ const lev = (a, b) => {
   return d[a.length][b.length]
 }
 
-/**
- * { status, matches, suggestions }: found (a declared path or file route fits), likely (every segment is a declared piece of
- * a nested route), not_found (the router is known and does not have it), unknown (no router declarations were found).
- */
+/** status: found, likely (every segment is a nested-route piece), not_found, or unknown (no router found). */
 export function checkRoute(root, route, found = declaredRoutes(root)) {
   const r = `/${segs(route).join('/')}`
   const all = [...found.declared, ...found.fileBased]

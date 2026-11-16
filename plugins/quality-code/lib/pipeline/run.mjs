@@ -1,22 +1,18 @@
-// The run marker: `run start` opens a test-writing run (the boundary hook then acts), `run stop`
-// closes it, `run status` shows it. A marker older than STALE_MS is ignored and replaced.
+// Marker for an active test-writing run; the boundary hook acts only while one exists.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 
-/** HEAD of the repository at root, or null when it is not a git repo or has no commit. */
+/** null outside a git repo or before the first commit. */
 export function gitHead(root) {
   const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
   const sha = r.status === 0 ? String(r.stdout).trim() : ''
   return /^[0-9a-f]{7,64}$/.test(sha) ? sha : null
 }
 
-/**
- * Write the marker for key. Refuses while a fresh marker exists; a stale one is replaced.
- * → { ok: true, marker, replacedStale } | { ok: false, error }
- */
+/** Refuses while a fresh marker exists; a stale one (older than STALE_MS) is replaced. */
 export function startRun(root, key, now = Date.now()) {
   const p = join(root, RUN_MARKER)
   const cur = readRunMarker(root, now)
@@ -25,7 +21,7 @@ export function startRun(root, key, now = Date.now()) {
     return { ok: false, error: `a run for ${who} is active: finish it or run 'run stop'` }
   }
   if (cur) rmSync(p, { force: true })
-  // dirty: what was already changed before the run, so the boundary check does not count it.
+  // dirty: files changed before the run, so the boundary check ignores them.
   const marker = { key, startedAt: new Date(now).toISOString(), base: gitHead(root), dirty: snapshot(root) }
   ignoreFolder(dirname(p))
   try {
@@ -37,11 +33,10 @@ export function startRun(root, key, now = Date.now()) {
   return { ok: true, marker, replacedStale: Boolean(cur) }
 }
 
-/** Remove the marker; idempotent. → { removed } */
 export function stopRun(root) {
   const had = readRunMarker(root) !== null
   rmSync(join(root, RUN_MARKER), { force: true })
-  // The marker's folder held only the marker and its own .gitignore: leave no stray folder behind.
+  // Don't leave an empty marker folder behind (it only held the marker and its .gitignore).
   const dir = join(root, dirname(RUN_MARKER))
   try {
     if (readdirSync(dir).every(f => f === '.gitignore')) { rmSync(join(dir, '.gitignore'), { force: true }); rmdirSync(dir) }
@@ -50,7 +45,6 @@ export function stopRun(root) {
   return { removed: had }
 }
 
-/** → { active: false, stale: false, marker: null } | { active, stale, marker, startedAt } */
 export function runStatus(root, now = Date.now()) {
   const cur = readRunMarker(root, now)
   if (!cur) return { active: false, stale: false, marker: null }

@@ -1,8 +1,5 @@
-// A reporter for Node's own test runner (node --test --test-reporter=<this file>): writes one JSON
-// object, { tests, broken }, with each test's describe path, so the generic runner reads node --test
-// like any other runner. Suites are not tests. A file that does not load is reported by Node as a
-// failed top-level "test" named after the file: it is a broken file, with the error it wrote.
-// Windows paths come with backslashes: compare them as forward-slash paths.
+// node --test reporter emitting { tests, broken } JSON for the generic runner.
+// Node reports a file that fails to load as a failed top-level test named after the file: treat it as broken.
 const fwd = p => String(p).split('\\').join('/')
 
 export default async function * reporter(source) {
@@ -22,13 +19,13 @@ export default async function * reporter(source) {
       const error = data.details?.error
       const message = String(error?.cause?.message ?? error?.message ?? '')
       if (type === 'test:fail' && data.nesting === 0 && (data.name === file || fwd(file).endsWith(`/${fwd(data.name)}`))) {
-        // Node names a file's stderr by the path it was given, and its failure by the absolute one.
+        // stderr is keyed by the given path, the failure by the absolute one.
         const written = [...stderr].find(([f]) => f === file || fwd(file).endsWith(`/${fwd(f)}`))?.[1] ?? ''
         const why = /\b\w*Error\b[^\n]*/.exec(written)?.[0]
         broken.push({ file, message: why ?? message })
         continue
       }
-      // A failing todo test fails nothing: node exits 0 for it.
+      // A failing todo doesn't fail the run (node exits 0).
       const status = data.skip || data.todo ? 'skipped' : type === 'test:fail' ? 'failed' : 'passed'
       tests.push({ file, title: data.name, path: (open.get(file) ?? []).slice(0, data.nesting), status, message: status === 'failed' ? message : '' })
     }
