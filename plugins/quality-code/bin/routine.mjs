@@ -12,13 +12,13 @@
 //         (with --since-last or --since): nothing to check, exit 0. Every run is kept in a local history.
 // status: the stability of the last runs from that history: pass rate, flaky tests seen, green to red changes.
 // Exit 0 green or nothing new, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run (never a pass).
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { isProjectKey, keyPattern, projectKeys } from '../lib/config/keys.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut as git } from '../lib/core/git.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adaptersForSide, adaptersOf } from '../lib/stacks/stack.mjs'
 import { SHARED_CONFIG } from '../lib/ci/changes.mjs'
@@ -35,10 +35,6 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 // A spec of the regression suite carries the tag as a whole word.
 const TAGGED = new RegExp(`${REGRESSION_TAG}\\b`)
 const MIN_RUNS = 3
-
-const git = (root, args) => {
-  try { return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null }
-}
 
 function parse(argv) {
   const [cmd, ...rest] = argv

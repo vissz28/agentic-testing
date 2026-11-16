@@ -13,13 +13,12 @@
 // Safety: every path must sit inside the project (the folder of the config) with no `..`, no link on the way and no
 // link that leads out; .git is never touched. The only paths outside it are the cache and the personal config
 // (checked against their known locations) and the project's folder of the "this machine" place.
-import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { lines, localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
 import { CONFIG_FILE } from '../config/places.mjs'
-import { PLAIN } from '../core/git.mjs'
+import { git } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
@@ -95,10 +94,8 @@ const count = abs => {
 
 /** The files git tracks under `top`, as a Set of slash paths; null when there is no repo or no git. */
 function trackedSet(top) {
-  try {
-    const out = execFileSync('git', [...PLAIN, 'ls-files', '-z'], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
-    return new Set(out.split('\0').filter(Boolean))
-  } catch { return null }
+  const r = git(top, ['ls-files', '-z'])
+  return r.ok ? new Set(r.out.split('\0').filter(Boolean)) : null
 }
 const trackedUnder = (set, rel) => (set ? [...set].filter(f => f === rel || f.startsWith(`${rel}/`)).sort() : [])
 

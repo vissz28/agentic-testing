@@ -29,6 +29,7 @@ import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/ci/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
+import { gitOut } from '../lib/core/git.mjs'
 import { escapeHtml as esc, plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -42,7 +43,7 @@ export const ORDER = { green: 0, skipped: 0, tests_red: 1, checks_failed: 1, not
 export const baseFromEnv = env => env.GITHUB_BASE_REF || env.CI_MERGE_REQUEST_DIFF_BASE_SHA || null
 export const providerOf = env => (env.GITHUB_ACTIONS ? 'github' : env.GITLAB_CI ? 'gitlab' : null)
 
-const git = (root, args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' }).stdout?.trim() ?? ''
+const git = (root, args) => gitOut(root, args)?.trim() ?? ''
 const readText = p => { try { return readFileSync(p, 'utf8') } catch { return '' } }
 
 function parse(argv) {

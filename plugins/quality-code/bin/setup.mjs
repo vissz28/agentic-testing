@@ -10,7 +10,7 @@ import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { ignoreFolder } from '../lib/core/ignore.mjs'
 import { placeConfigPath, placeOf } from '../lib/config/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/stacks/e2e-folder.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut } from '../lib/core/git.mjs'
 import { CI_FILES } from '../lib/pipeline/boundary.mjs'
 import { asAdapter } from '../lib/stacks/stack.mjs'
 import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs'
@@ -341,14 +341,6 @@ function scaffoldProblems(root, config, s) {
 
 function hasLine(path, line) {
   return existsSync(path) && lines(readFileSync(path, 'utf8')).some(l => l.trim() === line)
-}
-
-function gitOut(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
-  } catch {
-    return null
-  }
 }
 
 /** The folders git ignores (relative to root, no trailing slash): detect never reads them. Empty outside a repo. */

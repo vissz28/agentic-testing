@@ -12,8 +12,7 @@ import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { detectConventions } from '../stacks/conventions.mjs'
 import { BACKENDS, isBackend } from '../stacks/backends.mjs'
-import { changedPaths } from '../core/git.mjs'
-import { execFileSync } from 'node:child_process'
+import { changedPaths, git } from '../core/git.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
 import { pct, withoutOrigin } from '../core/text.mjs'
 import { stripDotSlash, noTrailingSlash } from '../core/paths.mjs'
@@ -90,14 +89,8 @@ export function projectSpecs(root, config) {
 export function withoutIgnored(root, paths) {
   const all = new Set(paths)
   if (!paths.length) return all
-  try {
-    const out = execFileSync('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, input: `${paths.join('\0')}\0`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
-    for (const p of out.split('\0')) all.delete(p)
-  } catch (e) {
-    // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path.
-    if (e.status === 1 || !e.stdout) return all
-    for (const p of String(e.stdout).split('\0')) all.delete(p)
-  }
+  // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path git did not name.
+  for (const p of git(root, ['check-ignore', '--no-index', '-z', '--stdin'], { input: `${paths.join('\0')}\0`, okCodes: [1] }).out.split('\0')) all.delete(p)
   return all
 }
 
@@ -155,10 +148,7 @@ export function scanSpecs(root, config) {
 function baseRef(root, config) {
   const name = config.git?.base
   if (!name) return null
-  for (const ref of [`origin/${name}`, name]) {
-    try { execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: root, stdio: 'ignore' }); return ref } catch {}
-  }
-  return null
+  return [`origin/${name}`, name].find(ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) ?? null
 }
 
 /**

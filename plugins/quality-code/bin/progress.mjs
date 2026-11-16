@@ -8,11 +8,11 @@
 // node bin/progress.mjs context set <fact> --data JSON --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
 // node bin/progress.mjs context file <path> [--role target|spec|config] | changed <path> | clear [<fact>] | list
 // Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
-import { execFileSync } from 'node:child_process'
 import { projectRoot } from '../lib/config/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/state/context.mjs'
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/state/progress.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { gitOut } from '../lib/core/git.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'
 
@@ -77,7 +77,7 @@ async function handle(argv = process.argv.slice(2), { env = process.env, cwd = p
 }
 
 // The git commit this project is at: the token a `head` fact is compared with.
-const gitHead = root => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null } }
+const gitHead = root => gitOut(root, ['rev-parse', 'HEAD'])
 
 function parseSource(text) {
   const [kind, ...rest] = String(text ?? '').split(':')

@@ -7,7 +7,7 @@ import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/stacks/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/stacks/backends.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut as git } from '../lib/core/git.mjs'
 import { e2eFolder } from '../lib/stacks/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { escapeRegExp, isTicketKey, withoutOrigin } from '../lib/core/text.mjs'
@@ -99,14 +99,6 @@ export function parseNameStatusZ(out) {
 
 // After origin/HEAD and init.defaultBranch; gitflow teams set git.base to their develop.
 const FALLBACK_BASES = ['main', 'master', 'develop']
-
-function git(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 1e8, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
-  } catch {
-    return null
-  }
-}
 
 /** The branch's one open GitHub pull request ({ baseRefName, title, body }) from the gh CLI; null without gh, sign-in or exactly one. */
 function pullRequest(root, branch) {
