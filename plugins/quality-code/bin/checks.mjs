@@ -69,14 +69,14 @@ async function hook(sessionRoot, stdin) {
 }
 
 /** run start --key KEY | run stop | run status [--json] */
-function runCmd(root, rest, err) {
+function runCmd(root, rest, err, env = process.env) {
   const [sub, ...more] = rest
   let a
   try { a = parse(more) } catch (e) { return err(e.message) }
   if (a.specs.length) return err(`unexpected argument ${a.specs[0]}. ${USAGE}`)
   if (sub === 'start') {
     if (!a.key) return err(`run start needs --key KEY. ${USAGE}`)
-    const cfg = loadConfig(root)
+    const cfg = loadConfig(root, env)
     if (!cfg.ok) return err(cfg.errors.join('\n'))
     if (!isProjectKey(cfg.config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(cfg.config).join(', ')}`)
     const r = runMarker.startRun(root, a.key)
@@ -133,11 +133,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (name === 'boundary' && rest.includes('--hook')) {
     try { return await hook(root, stdin ?? await readStdin()) } catch { return 0 }
   }
-  if (name === 'run') return runCmd(root, rest, err)
+  if (name === 'run') return runCmd(root, rest, err, env)
   if (!name || (!CHECKS[name] && !NEEDS_RUNNER.has(name))) return err(USAGE)
   let a
   try { a = parse(rest) } catch (e) { return err(e.message) }
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
   if (NEEDS_RUNNER.has(name)) return err(`${name} needs the test runner: it runs in the pipeline, node bin/pipeline.mjs <spec…>${name === 'flaky' ? ' --flaky N' : ''}`)

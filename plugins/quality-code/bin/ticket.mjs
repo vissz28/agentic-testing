@@ -102,7 +102,7 @@ const COMMANDS = {
   },
   root({ a, root, config, env }) {
     // One config serving several projects of a monorepo ("roots"): which one this person works on.
-    const home = configHome(root)
+    const home = configHome(root, env)
     const [sub, folder] = a._
     if (sub === 'get' && a._.length === 1) {
       const r = rootsOf(home, env)

@@ -69,7 +69,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (a.smoke && !a.specs.length) a.suite = 'frontend'
   if (!a.specs.length && a.suite === undefined) return err(`needs at least one spec path, or --suite. ${USAGE}`)
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
   if (a.suite !== undefined) {

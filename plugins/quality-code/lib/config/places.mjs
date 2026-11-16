@@ -24,7 +24,7 @@ export const FIELDS_FILE = 'jira-fields.json'
 const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
 // the config), not one per project folder: changing the project root of setup does not ask again.
-const prefKey = (root, source) => (source === 'personal' ? 'personal' : resolve(configHome(root)))
+const prefKey = (root, source, env) => (source === 'personal' ? 'personal' : resolve(configHome(root, env)))
 const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
 const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
 
@@ -39,7 +39,7 @@ function readPrefs(env) {
 export function savedPlace(root, source, env = process.env) {
   const prefs = readPrefs(env)
   // A pick saved for the project folder before picks were per repo still counts.
-  const v = prefs[prefKey(root, source)] ?? (source === 'personal' ? undefined : prefs[resolve(root)])
+  const v = prefs[prefKey(root, source, env)] ?? (source === 'personal' ? undefined : prefs[resolve(root)])
   return PLACES.includes(v) ? v : null
 }
 
@@ -72,7 +72,8 @@ function baseOf(root, source, place, env) {
  * (absolute, in every place: the session's audit log lives in its temp folder). The config's own ticketsDir applies in the repo,
  * and for a personal setup that names one.
  */
-export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place = placeOf(root, source), env = process.env) {
+export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place, env = process.env) {
+  place ??= placeOf(root, source, env)
   const base = baseOf(root, source, place, env)
   const own = ticketsDir === undefined ? null : normaliseTicketsDir(ticketsDir)
   if (place === 'repo') return { place, ticketsDir: own ?? '.quality-code/tickets', auditDir: join(resolve(root), AUDIT_REL) }
@@ -110,7 +111,7 @@ export function rememberPlace(root, source, place, env = process.env) {
   mkdirSync(dirname(p), { recursive: true })
   // A broken file stops here, naming it: rewriting it would drop every other project's choice.
   const prefs = readJsonOr(p, {})
-  writeFileSync(p, `${JSON.stringify({ ...(prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {}), [prefKey(root, source)]: place }, null, 2)}\n`)
+  writeFileSync(p, `${JSON.stringify({ ...(prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {}), [prefKey(root, source, env)]: place }, null, 2)}\n`)
 }
 
 // Removes a folder that holds nothing but its own .gitignore (what ignoreFolder leaves).
@@ -154,7 +155,7 @@ export function pickPlace(root, opts, place, env = process.env) {
   const counts = { moved: 0, kept: 0 }
   if (from !== place && opts.source !== 'personal') {
     // The setup config moves with the other files (a config still in the repo's .claude/ stays where it is).
-    const home = configHome(root)
+    const home = configHome(root, env)
     // The Jira field file sits beside the config and moves with it.
     const oldFields = join(placeFolder(home, env, from), FIELDS_FILE)
     const newFields = join(placeFolder(home, env, place), FIELDS_FILE)
@@ -185,8 +186,8 @@ export function pickPlace(root, opts, place, env = process.env) {
     if (old.auditDir && next.auditDir && old.auditDir !== next.auditDir) moveTree(old.auditDir, next.auditDir, counts)
     // The old place keeps no stray folder: the repo's .quality-code/ and .claude/quality-code/ go when nothing is left in them.
     if (opts.source !== 'personal') {
-      const oldFolder = placeFolder(configHome(root), env, from)
-      if (oldFolder !== placeFolder(configHome(root), env, place)) dropIfEmpty(oldFolder)
+      const oldFolder = placeFolder(configHome(root, env), env, from)
+      if (oldFolder !== placeFolder(configHome(root, env), env, place)) dropIfEmpty(oldFolder)
     }
     if (from === 'repo') { dropIfEmpty(abs(dirname(AUDIT_REL))); try { rmdirSync(abs('.claude')) } catch {} }
   }

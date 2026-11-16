@@ -53,7 +53,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     } catch (e) { return err(e.message) }
   }
   // A project with "root" set (an app in a monorepo) is often worked on from the repo top: look under both.
-  const homes = [...new Set([root, configHome(root)])]
+  const homes = [...new Set([root, configHome(root, env)])]
   const found = homes.map(h => findProjectDirs(h, configDir(env)))
   const dirs = [...new Set(found.flatMap(f => f.dirs))]
   const files = Object.assign({}, ...found.map(f => f.sessions ?? {}))

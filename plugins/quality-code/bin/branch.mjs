@@ -298,7 +298,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     const key = argv[1]
     if (!isTicketKey(key) || argv.length > 2) { printError(USAGE); return 2 }
     const root = projectRoot(env, cwd)
-    const c = loadConfig(root)
+    const c = loadConfig(root, env)
     if (!c.ok) { printError(c.errors.join('\n')); return 2 }
     printLine(tag('MERGED', merged(root, c.config, key)))
     return 0
@@ -315,7 +315,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     } else { printError(USAGE); return 2 }
   }
   const root = projectRoot(env, cwd)
-  const c = loadConfig(root)
+  const c = loadConfig(root, env)
   if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   printLine(tag('BRANCH', detect(root, c.config, opts)))
   return 0

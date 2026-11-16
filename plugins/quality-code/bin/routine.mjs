@@ -148,7 +148,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   const root = projectRoot(env, cwd)
   const today = now.toISOString().slice(0, 10)
   if (a.cmd === 'run' && a.until && today > a.until) { printLine(`routine ended on ${a.until}: nothing to do. Delete its schedule.`); return 0 }
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
   if (cfg.source === 'personal') { printError('A routine needs a repo with its own project config (run /quality-code:setup in the project).'); return 2 }
   const config = cfg.config

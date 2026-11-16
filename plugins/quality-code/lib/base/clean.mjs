@@ -222,7 +222,7 @@ const dedupe = items => items.filter(i => !items.some(o => nested(o, i)))
 export function buildList(rootIn, env = process.env) {
   const loaded = loadConfig(rootIn, env)
   const config = loaded.ok ? loaded.config : null
-  const top = configHome(resolve(rootIn))
+  const top = configHome(resolve(rootIn), env)
   const root = resolve(rootIn)
   const tracked = trackedSet(top)
   const kept = []

@@ -29,7 +29,7 @@ const storedAt = (dir, env) => ({ ...readFields(join(dir, FIELDS_REL)), ...readF
 
 // A Jira project's criteria field is one fact for the repo, not for each project folder of a monorepo: it is kept
 // where the config is, and a file saved in the project folder before that still counts.
-const stored = (root, env) => ({ ...storedAt(configHome(root), env), ...storedAt(root, env) })
+const stored = (root, env) => ({ ...storedAt(configHome(root, env), env), ...storedAt(root, env) })
 
 /** { field, source }: source "config" or "stored" (field is an id or null), else "unknown". */
 export function resolveField(root, config, project, env = process.env) {
@@ -43,7 +43,7 @@ export function resolveField(root, config, project, env = process.env) {
 export function storeField(root, project, value, env = process.env) {
   if (!KEY.test(String(project))) return { ok: false, error: `project "${project}" must be upper-case letters, digits and "_", like "ABC"` }
   if (value !== 'none' && !FIELD.test(String(value))) return { ok: false, error: `the field must be customfield_<digits> or none (got "${value}")` }
-  const home = configHome(root)
+  const home = configHome(root, env)
   const projects = { ...storedAt(home, env), [project]: value === 'none' ? null : value }
   const p = placedPath(home, env)
   if (placeOf(home, 'repo', env) === 'repo') ignoreFolder(dirname(p))

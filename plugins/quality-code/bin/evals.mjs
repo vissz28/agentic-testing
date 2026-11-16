@@ -76,7 +76,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const rest = argv.filter(a => a !== '--json')
   if (rest.length > 1 || rest.some(a => a.startsWith('-'))) { printError('usage: evals.mjs [folder] [--json]'); return 2 }
   const root = projectRoot(env, cwd)
-  const c = loadConfig(root)
+  const c = loadConfig(root, env)
   if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   const results = runEvals(root, c.config, rest[0] ?? EVALS_DIR)
   if (!results.length) { printLine(`No eval fixture in ${rest[0] ?? EVALS_DIR}/ (one <KEY>/expected.json per ticket).`); return 3 }

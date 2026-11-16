@@ -532,7 +532,7 @@ export function colocatedProposal(root) {
 export function detect(top, env = process.env, sub = null) {
   let existing = null
   let existingError
-  const cp = configPath(top)
+  const cp = configPath(top, env)
   if (existsSync(cp)) {
     try { existing = fromVersion1(readJson(cp)) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }

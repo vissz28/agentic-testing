@@ -383,7 +383,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   let a
   try { a = parse(argv) } catch (e) { printError(`${e.message}\n${USAGE}`); return 2 }
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
   if (cfg.source === 'personal') { printError('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).'); return 2 }
   if (a.init) return init(root, cfg.config, a, env, stdout, stderr)

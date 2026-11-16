@@ -63,12 +63,12 @@ export function configFileOf(dir, env = process.env) {
   const legacy = join(dir, CONFIG_REL)
   return existsSync(legacy) ? legacy : null
 }
-const hasConfig = dir => configFileOf(dir) !== null
+const hasConfig = (dir, env) => configFileOf(dir, env) !== null
 
 /** The nearest folder at or above dir that holds the config, or null. */
-function findHome(dir) {
+function findHome(dir, env) {
   for (let d = resolve(dir); ; d = dirname(d)) {
-    if (hasConfig(d)) return d
+    if (hasConfig(d, env)) return d
     if (dirname(d) === d) return null
   }
 }
@@ -89,15 +89,15 @@ function chosenRoot(home, c, env = process.env) {
 }
 
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
-function withRoot(home) {
-  const c = tryReadJson(configFileOf(home), undefined)
-  const r = chosenRoot(home, c) ?? c?.root
+function withRoot(home, env) {
+  const c = tryReadJson(configFileOf(home, env), undefined)
+  const r = chosenRoot(home, c, env) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
 }
 
 /** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
 export function rootsOf(home, env = process.env) {
-  const c = tryReadJson(configFileOf(home), undefined)
+  const c = tryReadJson(configFileOf(home, env), undefined)
   const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
   return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
@@ -117,16 +117,16 @@ export function setActiveRoot(home, folder, env = process.env) {
 }
 
 /** The project dir is in: that of the nearest config at or above it, or null. */
-export function findRoot(dir) {
-  const home = findHome(dir)
-  return home && withRoot(home)
+export function findRoot(dir, env = process.env) {
+  const home = findHome(dir, env)
+  return home && withRoot(home, env)
 }
 
 /** The folder whose config governs the project at root: root itself, else the one above whose root field names it. */
-export function configHome(root) {
-  if (hasConfig(root)) return root
-  const up = findHome(dirname(resolve(root)))
-  return up && withRoot(up) === resolve(root) ? up : root
+export function configHome(root, env = process.env) {
+  if (hasConfig(root, env)) return root
+  const up = findHome(dirname(resolve(root)), env)
+  return up && withRoot(up, env) === resolve(root) ? up : root
 }
 
 /**
@@ -136,8 +136,8 @@ export function configHome(root) {
  */
 export function projectRoot(env = process.env, cwd = process.cwd()) {
   const dir = env.CLAUDE_PROJECT_DIR
-  if (dir && hasConfig(dir)) return withRoot(dir)
-  return findRoot(cwd) ?? (dir || cwd)
+  if (dir && hasConfig(dir, env)) return withRoot(dir, env)
+  return findRoot(cwd, env) ?? (dir || cwd)
 }
 /** The config file of the project at root: the existing one (its place first, then the legacy repo file); with none, where setup writes it. */
 export const configPath = (root, env = process.env) => configFileOf(root, env) ?? placeConfigPath(root, env)
@@ -648,7 +648,7 @@ function readValidated(p, label, source, env, root) {
  * config.ticketsDir is that place's tickets folder.
  */
 export function loadConfig(root, env = process.env) {
-  const rp = configFileOf(configHome(root), env)
+  const rp = configFileOf(configHome(root, env), env)
   if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)
   const pp = personalConfigPath(env)
   if (existsSync(pp)) return readValidated(pp, pp, 'personal', env, root)
