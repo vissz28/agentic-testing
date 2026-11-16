@@ -1,22 +1,18 @@
 import { normalise, stripComments } from './text.mjs'
 
-// Every function takes the vocabulary `v` first, so the language is never global.
-// v.gherkinStepAll / v.thenAndLines / v.expectedQuestion / v.expectedSection / v.insteadOf carry
-// the `g` flag: use them only with match / matchAll (never test / exec), so lastIndex never leaks.
+// Every function takes the vocabulary `v` first so the language is never global.
+// The g-flagged patterns (gherkinStepAll, thenAndLines, expected*, insteadOf) are for match/matchAll only: test/exec leak lastIndex.
 
-/** Plain-language criteria need this many characters in total to count. Gherkin is exempt. */
+/** Min total length for plain-language criteria. Gherkin is exempt. */
 export const MIN_NATURAL_AC = 150
 
-/** An open question asks for a result and names none: it is never a criterion. */
+// An open question names no result, so it's never a criterion.
 const QUESTION = /\?\s*$/
 
-/**
- * Each line as the step patterns read it: no list marker, no bold. Jira's markdown writes a bold
- * keyword as **Given** and a bulleted step as - Given, as the criteria section rows already do.
- */
-export const stepText = (v, text) => text.split('\n').map(l => l.replace(v.listItem, '').replace(/\*+/g, '')).join('\n')
+/** Strips list markers and bold (Jira writes **Given**, - Given) and drops filler steps. */
+export const stepText = (v, text) => text.split('\n').map(l => l.replace(v.listItem, '').replace(/\*+/g, '')).filter(l => !isPlaceholder(l)).join('\n')
 
-/** Literal Gherkin: line-anchored step words with a Then present and at least two steps. */
+/** At least two line-anchored steps, one of them a Then. */
 export function hasGherkin(v, text) {
   text = stepText(v, stripComments(normalise(text)))
   if (!text) return false

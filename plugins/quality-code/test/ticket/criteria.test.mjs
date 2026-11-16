@@ -220,6 +220,11 @@ test('placeholder text is not a criterion: lorem ipsum, TBD, TODO, N/A, to be de
   assert.equal(C.isPlaceholder('The total shows 0 after a reload.'), false)
   assert.deepEqual(C.extractNaturalAC(v, '## Acceptance criteria\nTBD\nThe total shows 0 after a reload.'), ['The total shows 0 after a reload.'])
   assert.deepEqual(C.extractNaturalAC(v, 'Lorem ipsum dolor sit amet', { headingless: true }), [])
+  // Gherkin made of filler is no Gherkin: its steps are dropped, so no Then is left.
+  const lorem = 'Given lorem ipsum dolor sit amet\nWhen consectetur adipiscing elit\nThen sed do eiusmod tempor 5 rows'
+  assert.equal(C.hasGherkin(v, lorem), false)
+  assert.equal(C.hasThen(v, lorem), false)
+  assert.equal(C.hasGherkin(v, 'Given a cart with 2 items\nWhen I remove one\nThen the cart shows 1 item'), true)
 })
 test('a deeper heading or a bold sub-heading groups criteria inside the section', () => {
   const a = 'The exported file has one row per order, with the order number and the total.'
