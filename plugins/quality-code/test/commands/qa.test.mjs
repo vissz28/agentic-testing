@@ -160,3 +160,9 @@ test('Jira writes end with the co-author line, as the connectors guide says', ()
   assert.match(readFileSync(new URL('../../guides/connectors.md', import.meta.url), 'utf8'), /\*\*Co-author line\.\*\*/)
   assert.ok(readFileSync(new URL('../../commands/transcript-goal.md', import.meta.url), 'utf8').includes('Co-authored via Quality Code'))
 })
+
+test('cost: qa runs on Sonnet and reads the page as text, a screenshot only when the text cannot answer', () => {
+  assert.match(doc, /^model: sonnet$/m)
+  assert.match(step(4), /Read the page as text/)
+  assert.match(step(4), /take a screenshot only when the text cannot answer/)
+})
