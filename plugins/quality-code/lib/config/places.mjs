@@ -183,8 +183,10 @@ export function pickPlace(root, opts, place, env = process.env) {
   if (from !== place) {
     const abs = d => resolve(root, d)
     if (abs(old.ticketsDir) !== abs(next.ticketsDir)) moveTree(abs(old.ticketsDir), abs(next.ticketsDir), counts)
+    // A subfolder root's tickets sit outside the ignored .quality-code/: ignore them so raw tickets never reach git.
+    if (place === 'repo' && opts.source !== 'personal') ignoreFolder(abs(next.ticketsDir))
     if (old.auditDir && next.auditDir && old.auditDir !== next.auditDir) moveTree(old.auditDir, next.auditDir, counts)
-    // The old place keeps no stray folder: the repo's .quality-code/ and .claude/quality-code/ go when nothing is left in them.
+    // Drop the old place's folders once empty.
     if (opts.source !== 'personal') {
       const oldFolder = placeFolder(home, env, from)
       if (oldFolder !== placeFolder(home, env, place)) dropIfEmpty(oldFolder)

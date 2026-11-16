@@ -223,4 +223,6 @@ test('save set moves the config when the project root is a subfolder of the repo
   assert.equal(saveJson(r.stdout).moved, 1, r.stdout)
   assert.equal(existsSync(join(top, '.quality-code/config.json')), true)
   assert.equal(run(top, claude, 'config', 'check').status, 0, 'the config is found in its new place')
+  // The tickets folder sits under the root, outside the ignored .quality-code/: it ignores itself.
+  assert.equal(readFileSync(join(top, 'app/.quality-code/tickets/.gitignore'), 'utf8'), '*\n')
 })
