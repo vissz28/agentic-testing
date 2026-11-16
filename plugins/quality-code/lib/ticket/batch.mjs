@@ -3,11 +3,10 @@ import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
 import { DEFAULTS, normaliseTicketsDir } from '../config/config.mjs'
-import { isTicketKey, plural } from '../core/text.mjs'
+import { isTicketKey, pct, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
-const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
 /**
  * Sanitize and score every raw ticket the way `ticket.mjs score` does (a fullstack config scores
@@ -39,7 +38,7 @@ export function evalTickets(config, tickets) {
   const summary = {
     scored: rows.length,
     passing,
-    passingPercent: pct(passing, rows.length),
+    passingPercent: pct(passing, rows.length) ?? 0,
     average: rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 0,
     mostMissing: mostMissing(rows, 3),
     // Refused with files on the ticket: the batch reads no file, so their criteria may be in one.
@@ -47,7 +46,7 @@ export function evalTickets(config, tickets) {
     // Only when the tickets name more than one component: one group is the project line again.
     byTeam: groups.size < 2 ? [] : [...groups].map(([team, rs]) => {
       const p = rs.filter(r => r.gate === 'pass').length
-      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length), mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
+      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length) ?? 0, mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
     }).sort((a, b) => a.passingPercent - b.passingPercent || a.team.localeCompare(b.team)),
   }
   return { rows, summary, clean }

@@ -3,7 +3,7 @@
 // ticket key is shown only when it has the shape of one. Never ticket text, never a path.
 import { redact } from '../ticket/sanitize.mjs'
 import { THRESHOLD } from '../ticket/score.mjs'
-import { isTicketKey, plural } from '../core/text.mjs'
+import { isTicketKey, pct, plural } from '../core/text.mjs'
 import { columns, gauge, hbar, legend, line } from './charts.mjs'
 import { card, empty, esc, grid, page, tiles } from './page.mjs'
 import { fmtCost, fmtTokens } from './consumption.mjs'
@@ -20,7 +20,6 @@ export const safe = (config, text) => redact(config, String(text ?? '')).replace
 /** A ticket key as shown: the key when it is one, else a neutral word. */
 export const safeKey = (config, key) => (isTicketKey(key) ? safe(config, key) : 'no ticket')
 
-const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
 const dayOf = ms => new Date(ms).toISOString().slice(0, 10)
 const word = (n, one, many = `${one}s`) => (n === 1 ? one : many)
 
@@ -47,7 +46,7 @@ export function kpiSeries(events, period) {
   return {
     days,
     truncated: first > Math.floor(period.since / DAY) * DAY,
-    tickets: [...tickets.values()].map(t => ({ ...t, percent: pct(t.green, t.runs) })),
+    tickets: [...tickets.values()].map(t => ({ ...t, percent: pct(t.green, t.runs) ?? 0 })),
     mutation: runs.map(r => ({ day: dayOf(at(r)), value: kill((r.steps ?? []).find(s => s.check === 'mutation')) })).filter(m => m.value !== null),
   }
 }

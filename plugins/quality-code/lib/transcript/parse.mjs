@@ -1,6 +1,6 @@
 // A meeting transcript as speaker turns. Reads WebVTT (Teams export), plain text and Markdown; a Word file is
 // turned into text first (lib/ticket/docx.mjs). Pure: no file, no network.
-import { collapseSpaces } from '../core/text.mjs'
+import { collapseSpaces, lines } from '../core/text.mjs'
 
 const TIME = /^(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?\s*-->\s*(?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?/
 const CLOCK = /^\[?(?:\d{1,2}:)?\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d{1,3})?\]?$/
@@ -53,7 +53,7 @@ const INLINE = /^(?:\[((?:\d{1,2}:)?\d{1,2}:\d{2}(?::\d{2})?)\]\s*)?([A-Za-z√Ä-√
 function parsePlain(text) {
   const turns = []
   let cur = null
-  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+  for (const raw of lines(text)) {
     const line = raw.trim()
     if (!line) { cur = null; continue }
     if (line.startsWith('#') && !cur) continue

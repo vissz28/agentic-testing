@@ -3,9 +3,9 @@
 // under the Claude folder, never in the repo and never sent anywhere. It holds answers (a site, a project key, a
 // pick), never a token, a key, a password or ticket text.
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
-import { basename, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { claudeDir } from '../config/config.mjs'
+import { short, slug } from '../config/places.mjs'
 import { hasLineBreak, isTicketKey } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
 
@@ -19,8 +19,8 @@ const SECRET = /(ghp_|gho_|github_pat_|glpat-|xox[abp]-|sk-[A-Za-z0-9]{16,}|AKIA
 const SECRET_FIELD = /^(token|password|passwd|secret|api[_-]?key|authorization)$/i
 
 export const dirOf = env => join(claudeDir(env), 'quality-code', 'progress')
-export const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
-export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
+// The project folder's name, the same as its place on this machine (places.mjs).
+export { short, slug }
 export const fileOf = (root, command, key, env = process.env) =>
   join(dirOf(env), `${slug(root)}-${short(root)}`, `${command}${key ? `.${key}` : ''}.json`)
 

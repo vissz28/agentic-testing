@@ -16,7 +16,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { localToForwardSlashes } from '../core/text.mjs'
+import { lines, localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
 import { CONFIG_FILE } from '../config/places.mjs'
 import { PLAIN } from '../core/git.mjs'
@@ -162,7 +162,7 @@ function gitignoreItem(root, top, ownsPlaywright) {
   if (text === null) return null
   const ticketsLine = `${rawTicketsDir(top)}/*/raw.json`
   const wanted = new Set([ticketsLine, FIELDS_REL, ...RUNTIME_GITIGNORE, ...(ownsPlaywright ? PLAYWRIGHT_LINES : []), ...(ownsPlaywright?.signIn ? SIGN_IN_LINES : [])])
-  const present = [...new Set(text.split(/\r?\n/).map(l => l.trim()).filter(l => wanted.has(l)))]
+  const present = [...new Set(lines(text).map(l => l.trim()).filter(l => wanted.has(l)))]
   return present.length ? { abs, rel: localToForwardSlashes(relative(top, abs)), kind: 'lines', lines: present, files: 1 } : null
 }
 
@@ -313,7 +313,7 @@ function removeLines(it, top) {
   if (text === null) return 'could not read'
   const drop = new Set(it.lines)
   const eol = text.includes('\r\n') ? '\r\n' : '\n'
-  const keep = text.split(/\r?\n/).filter(l => !drop.has(l.trim()))
+  const keep = lines(text).filter(l => !drop.has(l.trim()))
   const body = keep.join(eol)
   if (!body.trim()) {
     // Nothing of the person's own is left: the file was setup's, unless git has it.

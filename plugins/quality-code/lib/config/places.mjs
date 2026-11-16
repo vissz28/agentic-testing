@@ -25,8 +25,8 @@ const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
 // the config), not one per project folder: changing the project root of setup does not ask again.
 const prefKey = (root, source, env) => (source === 'personal' ? 'personal' : resolve(configHome(root, env)))
-const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
-const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
+export const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
+export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
 
 function readPrefs(env) {
   try {

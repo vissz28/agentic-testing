@@ -22,7 +22,7 @@ import { detectConventions } from '../lib/stacks/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
-import { isLine, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
+import { isLine, lines, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
 import { readJson } from '../lib/core/files.mjs'
 
 // Found in this order; a new one is written where the repo's host keeps issue templates.
@@ -339,7 +339,7 @@ function scaffoldProblems(root, config, s) {
 }
 
 function hasLine(path, line) {
-  return existsSync(path) && readFileSync(path, 'utf8').split(/\r?\n/).some(l => l.trim() === line)
+  return existsSync(path) && lines(readFileSync(path, 'utf8')).some(l => l.trim() === line)
 }
 
 function gitOut(root, args) {

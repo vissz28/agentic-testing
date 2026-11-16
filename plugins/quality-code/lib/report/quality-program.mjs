@@ -15,7 +15,7 @@ import { BACKENDS, isBackend } from '../stacks/backends.mjs'
 import { changedPaths } from '../core/git.mjs'
 import { execFileSync } from 'node:child_process'
 import { readJson, tryReadJson } from '../core/files.mjs'
-import { withoutOrigin } from '../core/text.mjs'
+import { pct, withoutOrigin } from '../core/text.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -26,7 +26,6 @@ const UNIT = /\.unit\.(spec|test)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
 // The build output and environments of the other stacks: a walk of a whole repo (Go's "./") skips them.
 const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
-const pct = (a, b) => (b ? Math.round((100 * a) / b) : null)
 
 function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 20000 }) {
   const out = []

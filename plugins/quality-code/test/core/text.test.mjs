@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, hasLineBreak, isLine, isTicketKey, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces, lines, escapeHtml, pct } from '../../lib/core/text.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
   assert.equal(noColour('\x1b[31mError:\x1b[0m boom \x1b[2m(x.ts:3)\x1b[22m'), 'Error: boom (x.ts:3)')
@@ -113,5 +113,36 @@ test('no script or library file collapses spaces by hand', () => {
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
   const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && readFileSync(join(root, f), 'utf8').includes(".replace(/\\s+/g, ' ')"))
+  assert.deepEqual(own, [])
+})
+
+test('lines: split on \\n, \\r\\n or a lone \\r; an empty text is one empty line', () => {
+  assert.deepEqual(lines('a\nb\r\nc\rd'), ['a', 'b', 'c', 'd'])
+  assert.deepEqual(lines('a\n\nb\n'), ['a', '', 'b', ''])
+  assert.deepEqual(lines(''), [''])
+  assert.deepEqual(lines(null), [''])
+})
+
+test('escapeHtml: & < > " and \' are escaped, & first so nothing is escaped twice', () => {
+  assert.equal(escapeHtml(`<a href="x">Tom & Jerry's</a>`), '&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/a&gt;')
+  assert.equal(escapeHtml('&lt;'), '&amp;lt;')
+  assert.equal(escapeHtml(undefined), '')
+  assert.equal(escapeHtml(3), '3')
+})
+
+test('pct: a whole percent of the total, rounded half up exactly; no total is null, not 0', () => {
+  assert.equal(pct(1, 3), 33)
+  assert.equal(pct(2, 3), 67)
+  assert.equal(pct(29, 200), 15, '29/200 is 14.5: (n / total) * 100 gives 14.499… and rounds down')
+  assert.equal(pct(0, 5), 0)
+  assert.equal(pct(5, 5), 100)
+  assert.equal(pct(0, 0), null)
+  assert.equal(pct(3, undefined), null)
+})
+
+test('no script or library file splits lines, escapes HTML or computes a percent by hand', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url))
+  const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
+  const own = [...walk('bin'), ...walk('lib')].filter(f => f !== join('lib', 'core', 'text.mjs') && /split\(\/\\r\?\\n\/\)|'&amp;'|const pct = /.test(readFileSync(join(root, f), 'utf8')))
   assert.deepEqual(own, [])
 })
