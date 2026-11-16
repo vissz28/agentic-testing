@@ -75,11 +75,3 @@ Steps:
 
 - All callers see the same project folder, so ticket copies the commands save are shared.
 - At most 4 scripts run at once; more get `busy`. There is no other rate limit.
-
-## Automatic deploy from `main`
-
-A push to `main` runs `.github/workflows/harbor.yml`: it builds the image, smoke tests it, pushes `deploy-server:latest` to Harbor, and then a second job (`deploy`) points the Azure Container App at that image by digest and checks `/health` (200) and `/mcp` without a token (401) on the live address. The deploy job runs only when these are set (otherwise it warns and leaves the app as it is):
-
-- **Secrets** (Settings, Secrets and variables, Actions): `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` of an app registration that has a federated credential for this repository's `main` branch (OIDC: no password is stored) and the role Contributor on the Container App's resource group.
-- **Variables:** `AZURE_RESOURCE_GROUP`, `AZURE_CONTAINER_APP` and `QUALITY_CODE_PUBLIC_URL` (for example `https://qualitycode.teamsystem.cloud`).
-- **Once, by hand:** the Container App must be able to pull from Harbor (`az containerapp registry set --server harbor.ts-paas.com --username <robot> --password <from a secret store>`), and its secrets and environment variables (`QUALITY_CODE_TOKEN_SECRET`, `QUALITY_CODE_ENTRA_CLIENT_SECRET` and the rest above) must be set on the app. A new image never changes them.
