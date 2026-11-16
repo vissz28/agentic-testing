@@ -4,7 +4,8 @@ import { inflateRawSync } from 'node:zlib'
 
 /** Unzipped document.xml larger than this is refused: a real analysis is far smaller (a zip bomb is not). */
 const MAX_XML = 20 * 1024 * 1024
-export const DOCX_MAX_CHARS = 20000
+// A functional analysis shared by several tickets runs past 20,000; the use cases of a later requirement were cut.
+export const DOCX_MAX_CHARS = 60000
 /** The largest file read, a .docx or an image. */
 export const MAX_BYTES = 5 * 1024 * 1024
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }

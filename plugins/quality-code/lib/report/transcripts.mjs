@@ -12,6 +12,10 @@ const SYSTEM_TEXT = /^\s*(<(task-notification|system-reminder|local-command-stdo
 // reply words the commands accept (yes, y, sì, si, ok, va bene, stop, basta), no, none.
 const CARD_ANSWER = /^\s*(\d{1,2}([\s,]+\d{1,2})*|[A-Z][A-Z0-9_]+-\d+|yes|y|no|n|none|ok|sì|si|va bene|stop|basta)\s*[.!]?\s*$/i
 const GENERIC_KEY = '[A-Z][A-Z0-9_]+-\\d+'
+// A card the run is waiting on: a numbered list with at least options 1 and 2. A short one-line reply to it,
+// in any words (how a headless session answers), keeps the run going.
+const isCard = text => /^\s*1[.)]\s+\S/m.test(text) && /^\s*2[.)]\s+\S/m.test(text)
+const isShortReply = text => { const t = text.trim(); return t.length <= 200 && !t.includes('\n') }
 
 export const configDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 
@@ -142,6 +146,8 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
     const segments = []
     let current = null
     let t = 0
+    // What the run's last reply said: whether it ended on a card.
+    let said = ''
     const record = (line, run, at, sessionId) => {
       const usage = line.message?.usage
       const model = line.message?.model
@@ -171,7 +177,8 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
       t = timeOf(line, t)
       if (line.type === 'user') {
         const c = classifyUser(line)
-        if (c.kind === 'command') open(c.name, c.args, line)
+        if (c.kind === 'command') { open(c.name, c.args, line); said = '' }
+        else if (c.kind === 'prompt' && current && isCard(said) && isShortReply(textOf(line.message?.content))) said = ''
         else if (c.kind === 'prompt') {
           current = null
           segments.push({ t, run: null })
@@ -182,6 +189,8 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
         if (skill) open(skill.input.skill, String(skill.input.args ?? ''), line)
         record(line, current, t, line.sessionId || s.id)
         toolUses(line, current)
+        const text = textOf(line.message?.content)
+        if (text) said = text
       }
     }
 

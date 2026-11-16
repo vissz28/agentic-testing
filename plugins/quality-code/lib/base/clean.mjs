@@ -18,7 +18,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync,
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
 import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
-import { CONFIG_FILE } from '../config/places.mjs'
+import { CONFIG_FILE, prefsPath, savedPlace } from '../config/places.mjs'
 import { PLAIN } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
@@ -26,7 +26,7 @@ import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
 import { projectSpecs } from '../report/quality-program.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
-import { readJson } from '../core/files.mjs'
+import { readJson, tryReadJson } from '../core/files.mjs'
 
 export const GROUPS = ['setup', 'output', 'cache', 'personal', 'specs']
 export const LABELS = { setup: 'Setup files', output: 'Saved output', cache: 'Cache', personal: 'Personal config', specs: 'Tests written by spec' }
@@ -264,6 +264,12 @@ export function buildList(rootIn, env = process.env) {
   const personal = []
   const pp = personalConfigPath(env)
   if (lstat(pp)) personal.push({ abs: pp, rel: pp, kind: 'file', files: 1, outside: 'personal' })
+
+  // Settings outside the plugin's files: named, never edited here (each has its own way back).
+  if (tryReadJson(join(top, '.claude', 'settings.json'), null)?.outputStyle === 'quality-code:report') kept.push({ rel: '.claude/settings.json (outputStyle)', why: 'the report reply style: turn it off in /quality-code:config, item 15' })
+  if (savedPlace(root, 'repo', env)) kept.push({ rel: `${prefsPath(env)} (this project's pick)`, why: 'where you keep this project\'s files; the file holds the pick of every project' })
+  const plugins = tryReadJson(join(claudeDir(env), 'settings.json'), null)?.pluginConfigs ?? {}
+  if (Object.entries(plugins).some(([k, v]) => k.startsWith('quality-code@') && v?.options?.jira_email)) kept.push({ rel: `${join(claudeDir(env), 'settings.json')} (jira_email)`, why: 'your Jira email, used by every project: change it in /quality-code:config' })
 
   const groups = [
     { id: 'setup', items: own(setup) },

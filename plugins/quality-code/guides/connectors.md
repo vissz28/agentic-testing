@@ -21,7 +21,7 @@ Shared by `/quality-code:setup` (step 0, as the one-at-a-time sequence below), a
    ```
 
    For each one picked, run its check (the table below). ✅: say its line (`✅ GitLab <username> on <host>`, `✅ GitHub <login> on <host>`) and go on. Not ✅: run its fix (**GitLab fix**, **GitHub fix**); its `Continue without it` goes on to the next step. `4` goes on with none: merge-request and pull-request links stay off until one is connected (`/quality-code:config`).
-2. **Jira, required.** Run the Jira check. With no `jira_email` in the plugin settings, first ask `Your Atlassian email? (the one you sign in to Jira with)`, end the turn, and save it as the **Jira fix** does, so every ticket and comment is assigned to the right account. ✅ and the account matches: say `✅ Jira <email> on <site host>` and go on. Not ✅, or another account: the Jira card below (no way to continue), then the **Jira fix**. Setup never goes past this step without Jira.
+2. **Jira, required.** Run the Jira check. ✅, `atlassianUserInfo` returned an email, and there is no `jira_email` in the plugin settings: ask `Your Atlassian email? (the one you sign in to Jira with)`, end the turn, and save it as the **Jira fix** does, so every ticket and comment is assigned to the right account. ✅ with no email returned (the plugin's `atlassian-rovo` gives only an account id): there is nothing to compare, so never ask for the email; say `✅ Jira <name> on <site host>` and go on. ✅ and the account matches: say `✅ Jira <email> on <site host>` and go on. Not ✅, or another account: the Jira card below (no way to continue), then the **Jira fix**. Setup never goes past this step without Jira.
 3. **Figma, optional.** Already ✅: say `✅ Figma <account>` and go on. Otherwise show this card and end the turn:
 
    ```
@@ -47,7 +47,7 @@ A connector whose tools are missing, that asks to sign in, or whose call errors 
 
 **Who is signed in.** Each line shows the account, so nobody works under someone else's sign-in by mistake.
 
-- **Jira.** The site is the project's `jira.site` from the config (without a config: the first accessible site). Not among the accessible sites: ⚠️ `this account cannot see <site host>`. Compare `jira_email` with the email `atlassianUserInfo` returned, ignoring case. Same, or no `jira_email`: the line shows `<email> on <site host>`. Different: ⚠️ `signed in as <actual>, not <jira_email>`.
+- **Jira.** The site is the project's `jira.site` from the config (without a config: the first accessible site). Not among the accessible sites: ⚠️ `this account cannot see <site host>`. Compare `jira_email` with the email `atlassianUserInfo` returned, ignoring case. Same, or no `jira_email`: the line shows `<email> on <site host>`. No email returned (an account id only): no comparison and no warning; the line shows `<name> on <site host>`. Different: ⚠️ `signed in as <actual>, not <jira_email>`.
 - **GitLab.** Compare `gitlab_username` (a username, with or without `@`, or an email) with the username and the email the current-user call returned, ignoring case. Same, or no `gitlab_username`: the line shows `<username> on <host>`. Different: ⚠️ `signed in as <actual>, not <gitlab_username>`. A token that belongs to <actual>, not <gitlab_username> is never used silently.
 - **GitHub.** The line shows `<here.github.login> on <here.remote.host>`. Not ✅: ⚠️ `<here.github.reason>`.
 - **Figma.** Show the handle or email the current-user call returned. Nothing to compare.

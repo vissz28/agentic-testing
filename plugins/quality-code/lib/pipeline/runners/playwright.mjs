@@ -76,6 +76,9 @@ export function parseReport(json, root, { read } = {}) {
     return toForwardSlashes(rel(isAbsolute(p) ? p : resolve(rootDir, p)))
   }
   const merged = new Map()
+  // Runs that failed before reaching their own code (a stack, no location in any file: the storage state, the browser launch),
+  // and runs that did reach it or passed.
+  let notStarted = null, started = false
   const walk = (suite, path) => {
     for (const spec of suite.specs ?? []) {
       const file = fileOf(spec.file ?? suite.file)
@@ -85,6 +88,9 @@ export function parseReport(json, root, { read } = {}) {
         const last = (t.results ?? []).at(-1) ?? {}
         const status = statusOf(t)
         const message = status === 'failed' ? firstLine(last.error?.message ?? last.errors?.[0]?.message) || String(last.status ?? 'failed') : ''
+        const located = [last.error, ...(last.errors ?? [])].some(e => e?.location)
+        if (status === 'failed' && last.status === 'failed' && last.error?.stack && !located) notStarted ??= message
+        else if (status !== 'skipped') started = true
         row.runs.push({ project: t.projectName ?? '', status, message, context: status === 'failed' ? contextOf(last, { read, rel: p => fileOf(p) }) : null })
       }
       merged.set(id, row)
@@ -109,6 +115,7 @@ export function parseReport(json, root, { read } = {}) {
   }
   const out = { tests, broken }
   if (error !== undefined && !tests.length && !broken.length) out.error = error
+  if (notStarted !== null && !started) out.notStarted = notStarted
   return out
 }
 
@@ -161,6 +168,8 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
         if (!json) return finish({ ran: false, error: firstLine(stderr) || (existsSync(out) ? 'Playwright wrote a report that is not valid JSON' : 'Playwright wrote no report') })
         const r = parseReport(json, root, { read: p => { try { return readFileSync(p, 'utf8') } catch { return null } } })
         if (r.error) return finish({ ran: false, error: r.error })
+        // Every test stopped before its first line (no sign-in file, no browser): that says nothing about the tests.
+        if (r.notStarted) return finish({ ran: false, error: `every test stopped before its first line: ${r.notStarted}` })
         const failed = r.tests.filter(t => t.status === 'failed')
         // Every test failed on a refused connection: the app is down, which says nothing about the tests.
         if (failed.length && !r.tests.some(t => t.status === 'passed') && failed.every(t => REFUSED.test(t.message))) {

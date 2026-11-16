@@ -21,7 +21,7 @@ export const CONFIG_FILE = 'config.json'
 export const REPO_FOLDER = '.quality-code'
 export const FIELDS_FILE = 'jira-fields.json'
 
-const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
+export const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // A personal setup has no project: one pick for every folder. In a repo the pick is one per repo (the folder that holds
 // the config), not one per project folder: changing the project root of setup does not ask again.
 const prefKey = (root, source) => (source === 'personal' ? 'personal' : resolve(configHome(root)))
@@ -150,11 +150,12 @@ export function pickPlace(root, opts, place, env = process.env) {
   const from = placeOf(root, opts.source, env)
   const old = placeDirs(root, opts, from, env)
   const next = placeDirs(root, opts, place, env)
+  // Found before the pick is saved: after it, a root in a subfolder looks for its config in the new, empty place.
+  const home = configHome(root)
   rememberPlace(root, opts.source, place, env)
   const counts = { moved: 0, kept: 0 }
   if (from !== place && opts.source !== 'personal') {
     // The setup config moves with the other files (a config still in the repo's .claude/ stays where it is).
-    const home = configHome(root)
     // The Jira field file sits beside the config and moves with it.
     const oldFields = join(placeFolder(home, env, from), FIELDS_FILE)
     const newFields = join(placeFolder(home, env, place), FIELDS_FILE)
@@ -185,8 +186,8 @@ export function pickPlace(root, opts, place, env = process.env) {
     if (old.auditDir && next.auditDir && old.auditDir !== next.auditDir) moveTree(old.auditDir, next.auditDir, counts)
     // The old place keeps no stray folder: the repo's .quality-code/ and .claude/quality-code/ go when nothing is left in them.
     if (opts.source !== 'personal') {
-      const oldFolder = placeFolder(configHome(root), env, from)
-      if (oldFolder !== placeFolder(configHome(root), env, place)) dropIfEmpty(oldFolder)
+      const oldFolder = placeFolder(home, env, from)
+      if (oldFolder !== placeFolder(home, env, place)) dropIfEmpty(oldFolder)
     }
     if (from === 'repo') { dropIfEmpty(abs(dirname(AUDIT_REL))); try { rmdirSync(abs('.claude')) } catch {} }
   }

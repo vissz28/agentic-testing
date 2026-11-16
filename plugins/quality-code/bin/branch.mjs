@@ -140,7 +140,8 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
   // The integration branch: where finished work lands (git.base, else origin/HEAD, else a guess). A pull or merge
   // request can target another feature branch instead; the base then differs from it.
-  const local = name => (exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null)
+  // The remote copy first: a local base that fell behind would count colleagues' merged work as this branch's.
+  const local = name => (name.startsWith('origin/') ? (exists(name) ? name : null) : exists(`origin/${name}`) ? `origin/${name}` : exists(name) ? name : null)
   const configured = config.git?.base
   let integration = null
   if (configured && local(configured)) integration = { ref: local(configured), source: 'config' }
@@ -162,7 +163,8 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
   const prBase = typeof pr?.baseRefName === 'string' ? local(pr.baseRefName) : null
   const mrRef = mrBase ? local(mrBase) : null
   if (baseFlag) {
-    const ref = local(baseFlag)
+    // A base the person typed is taken as typed when it exists.
+    const ref = exists(baseFlag) ? baseFlag : local(baseFlag)
     if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
   } else if (mrRef) Object.assign(out, { base: mrRef, baseSource: 'merge-request' })
   else if (prBase) Object.assign(out, { base: prBase, baseSource: 'pull-request' })

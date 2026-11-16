@@ -176,6 +176,24 @@ test('runner: every test failing on a refused connection means the app is down, 
   assert.equal(r.ran, true)
   assert.deepEqual(r.tests.map(t => t.status), ['failed', 'passed'])
 })
+test('runner: every test stopping before its first line (no sign-in file) could not run; a failure in the test code is red', async () => {
+  const d = proj()
+  const state = 'Error: Error reading storage state from e2e/.auth/user.json:'
+  // What Playwright reports when a fixture fails: a stack and no location in any file.
+  const setup = { error: { message: state, stack: state }, errors: [{ message: state }] }
+  const failed = (extra = {}) => ({ ...pt('unexpected'), results: [{ status: 'failed', ...setup, ...extra }] })
+  fakeBin(d, 'playwright', { exit: 1, report: report(d, [fileSuite('a.spec.ts', [spec('one', 'a.spec.ts', [failed()]), spec('two', 'a.spec.ts', [failed()])])]) })
+  assert.deepEqual(await playwrightRunner(d, cfg())({ files: ['a.spec.ts'] }), { ran: false, tests: [], error: `every test stopped before its first line: ${state}` })
+  const e = proj()
+  const located = { error: { message: 'Error: expect(received).toBe(expected)', stack: 'Error: x', location: { file: join(e, 'a.spec.ts'), line: 3 } } }
+  fakeBin(e, 'playwright', { exit: 1, report: report(e, [fileSuite('a.spec.ts', [spec('one', 'a.spec.ts', [failed()]), spec('two', 'a.spec.ts', [failed({ ...located, errors: [{ message: 'x', location: located.error.location }] })])])]) })
+  const r = await playwrightRunner(e, cfg())({ files: ['a.spec.ts'] })
+  assert.equal(r.ran, true)
+  assert.deepEqual(r.tests.map(t => t.status), ['failed', 'failed'])
+  const t = proj()
+  fakeBin(t, 'playwright', { exit: 1, report: report(t, [fileSuite('a.spec.ts', [spec('one', 'a.spec.ts', [{ ...pt('unexpected'), results: [{ status: 'timedOut', error: { message: 'Test timeout of 30000ms exceeded.', stack: 'x' } }] }])])]) })
+  assert.equal((await playwrightRunner(t, cfg())({ files: ['a.spec.ts'] })).ran, true, 'a timeout is the test, not its setup')
+})
 test('runner: no report → first stderr line; missing binary; timeout from playwright.timeoutSeconds', async () => {
   const d = proj()
   fakeBin(d, 'playwright', { exit: 1, stderr: '\nError: playwright.config.ts: Unexpected token\n  at x' })

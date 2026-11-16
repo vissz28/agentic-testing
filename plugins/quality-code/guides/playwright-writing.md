@@ -55,6 +55,10 @@ test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
 - No CSS or XPath selectors (`page.locator('.btn-primary')`, `//div[2]`) unless the team guide says
   so: they break when the markup changes and say nothing about what the user sees.
 - No `nth()`, `first()` or `last()` unless the order is the behaviour under test.
+- **Build `has` and `hasNot` locators from `page`**, never from another chain:
+  `row.filter({ has: page.getByText('Code') })`, not `row.filter({ has: panel.getByText('Code') })`.
+  The inner locator is resolved inside each candidate, so one that starts from another element
+  matches nothing and the action waits for the test timeout.
 
 ## Assertions
 

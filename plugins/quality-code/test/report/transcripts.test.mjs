@@ -96,6 +96,22 @@ test('runs: from the command line to the next real prompt; card answers keep the
   assert.equal(runOf(usage, '2026-10-11T09:00:10.000Z'), null, 'another plugin command ends the run')
 })
 
+test('a free-text answer to a card keeps the run going (a headless session); after a reply with no card it ends the run', () => {
+  const usage = { input_tokens: 1, output_tokens: 1 }
+  const at = (sec, line) => ({ timestamp: `2026-10-10T10:00:${String(sec).padStart(2, '0')}Z`, ...line })
+  const said = (sec, id, text) => at(sec, { type: 'assistant', requestId: id, message: { model: 'claude-opus-5-5', usage, content: [{ type: 'text', text }] } })
+  const user = (sec, content) => at(sec, { type: 'user', message: { content } })
+  const lines = [
+    user(0, '<command-name>/quality-code:spec</command-name><command-args>ABC-9</command-args>'),
+    said(1, 'r1', 'Plan\n  1. Write the tests\n  2. Only check the tests already on this branch'),
+    user(2, 'Write the tests, keep the stub'),
+    said(3, 'r2', 'Done: 12 tests written.'),
+    user(4, 'thanks, now look at the login bug'),
+    said(5, 'r3', 'Looking.'),
+  ]
+  const r = attribute([{ id: 's', lines, subagents: [] }])
+  assert.deepEqual(r.events.map(e => e.run?.command ?? null), ['spec', 'spec', null])
+})
 test('a command the model starts with the Skill tool opens a run, its args give the key', () => {
   const usage = { input_tokens: 1, output_tokens: 1 }
   const at = (sec, line) => ({ timestamp: `2026-10-10T10:00:0${sec}Z`, ...line })

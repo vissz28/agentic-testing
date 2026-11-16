@@ -211,3 +211,16 @@ test('before a pick nothing lands in the repo: the Jira field goes to the sessio
   assert.equal(existsSync(join(root, '.quality-code')), false, 'moving out of the repo leaves it clean')
   assert.equal(existsSync(join(root, '.claude')), false)
 })
+
+test('save set moves the config when the project root is a subfolder of the repo', () => {
+  const top = tmp(), claude = tmp()
+  mkdirSync(join(top, 'app'), { recursive: true })
+  writeFileSync(join(top, 'app/package.json'), '{}')
+  const env = { ...process.env, QUALITY_CODE_PLACE: '', CLAUDE_PROJECT_DIR: top, CLAUDE_CONFIG_DIR: claude }
+  const w = spawnSync(process.execPath, [new URL('../../bin/setup.mjs', import.meta.url).pathname, '--write', JSON.stringify({ config: { ...CFG, root: 'app' } })], { cwd: top, env, encoding: 'utf8' })
+  assert.equal(w.stdout.split('\n')[0], 'ok', w.stderr)
+  const r = run(top, claude, 'save', 'set', 'repo')
+  assert.equal(saveJson(r.stdout).moved, 1, r.stdout)
+  assert.equal(existsSync(join(top, '.quality-code/config.json')), true)
+  assert.equal(run(top, claude, 'config', 'check').status, 0, 'the config is found in its new place')
+})
