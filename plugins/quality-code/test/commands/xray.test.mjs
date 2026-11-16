@@ -115,3 +115,9 @@ test('step 2: source code links check the GitLab connector, no repo needed, neve
   assert.match(s, /Continue without the code/)
   assert.match(s, /\/quality-code:setup/)
 })
+
+test('a route is checked against the router before it is used, as spec does', () => {
+  assert.match(doc, /\*\*Check the route against the app's router before using it\*\*/)
+  assert.match(doc, /bin\/routes\.mjs" check <route>`\. Exit 0 \(found, or fits a nested route\) or 3/)
+  assert.match(doc, /`Use <route> anyway` \/ `Another screen` \/ `Stop`/)
+})
