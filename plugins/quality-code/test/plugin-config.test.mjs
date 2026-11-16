@@ -9,12 +9,15 @@ const plugin = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', 
 const settings = plugin.userConfig
 
 test('the seven connectors: Jira, Figma, GitLab and Central Context by address, Figma and GitLab by token, Xray by API key', () => {
-  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'central-context', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'xray'])
+  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'central-context', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'quality-code', 'xray'])
   // The hub's MCP surface, for the model to search in chat; TeamSystem's hosted hub unless the person sets another.
   assert.deepEqual(mcp['central-context'], { type: 'http', url: '${user_config.central_context_url}/mcp' })
   // Same address as DEFAULT_HUB in lib/base/rules.mjs: a new hub URL changes both (that file lists every place).
   assert.equal(settings.central_context_url.default, 'https://centralcontext-dev.teamsystem.cloud')
   assert.ok(!settings.central_context_url.sensitive)
+  assert.deepEqual(mcp['quality-code'], { type: 'http', url: '${user_config.quality_code_url}/mcp' })
+  assert.equal(settings.quality_code_url.default, 'https://qualitycode.teamsystem.cloud')
+  assert.ok(!settings.quality_code_url.sensitive)
   assert.deepEqual(mcp['atlassian-rovo'], { type: 'http', url: 'https://mcp.atlassian.com/v2/mcp' })
   assert.deepEqual(mcp.figma, { type: 'http', url: 'https://mcp.figma.com/mcp' })
 })
@@ -65,7 +68,7 @@ test('no connector runs an unpinned package', () => {
   }
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
-  assert.deepEqual(Object.keys(settings).sort(), ['central_context_url', 'figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
+  assert.deepEqual(Object.keys(settings).sort(), ['central_context_url', 'figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email', 'quality_code_url', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
   for (const k of ['figma_api_key', 'gitlab_token', 'xray_client_id', 'xray_client_secret']) assert.equal(settings[k].sensitive, true, k)
   assert.notEqual(settings.xray_api_url.sensitive, true)
   assert.equal(settings.xray_api_url.default, 'https://xray.cloud.getxray.app')

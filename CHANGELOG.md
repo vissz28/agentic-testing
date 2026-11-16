@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.4] - 2026-11-16
+
+### Added
+
+- The plugin now brings the shared Quality Code server with it. Install the plugin and the server is there as the `quality-code` connector: the first time one of its tools is used, Claude Code opens the Microsoft sign-in and the TeamSystem rules page, and you accept; nothing is typed or pasted, and there is no connector to add by hand. The address is the new plugin setting `quality_code_url` (default `https://qualitycode.teamsystem.cloud`).
+
+**What to do:** update the plugin (`/quality-code:update`), then `/reload-plugins`. If you already added the server as a connector by hand, remove that one, so the tools are not listed twice.
+
 ## [0.80.3] - 2026-11-16
 
 ### Added
