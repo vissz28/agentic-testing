@@ -530,7 +530,7 @@ test('step 7 ends with the next command for the ticket side: check --backend (Te
   const s = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
   assert.match(s, /\*\*Next step\.\*\*/)
   assert.match(s, /`Next: \/quality-code:check --backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers \(Docker must be running\)\.`/)
-  assert.match(s, /`Next: \/quality-code:check --frontend runs every frontend spec against the running app\.`/)
+  assert.match(s, /`Next: \/quality-code:check --frontend runs every frontend spec against the running app \(add --no-mutation to skip the slow mutation step on live specs\)\.`/)
   assert.match(s, /fullstack: both lines, backend first/)
 })
 
