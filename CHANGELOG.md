@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.2] - 2026-11-16
+
+### Changed
+
+- Opening the shared server's `/mcp` address in a browser no longer shows a bare 401: signed in, it goes to the home page; not signed in, to the sign-in. Only a GET that asks for HTML is redirected. An MCP client still gets its 401 without a valid token (that 401 starts its own sign-in), and the web session is never accepted as a credential for `/mcp`.
+
+**What to do:** nothing. Redeploy the server to get it.
+
 ## [0.80.1] - 2026-11-16
 
 ### Added

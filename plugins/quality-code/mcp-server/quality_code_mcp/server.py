@@ -274,8 +274,12 @@ def main(argv: list[str] | None = None) -> None:
         connector = connector_mod.settings_from_env(entra, dict(os.environ))
     except (connector_mod.ConnectorConfigError, OSError) as e:
         raise SystemExit(f"quality-code-mcp: {e}")
-    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)), connector=connector)
-    asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
+    web_settings = web.settings_from_env(entra, dict(os.environ))
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web_settings, connector=connector)
+    import uvicorn
+
+    app = web.add_browser_redirect(server.streamable_http_app(host=a.host, transport_security=security), web_settings)
+    asyncio.run(uvicorn.Server(uvicorn.Config(app, host=a.host, port=a.port, log_level=server.settings.log_level.lower())).serve())
 
 
 if __name__ == "__main__":

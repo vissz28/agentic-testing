@@ -105,3 +105,29 @@ def test_the_icon_is_served_for_claude_and_the_browser_and_named_in_the_server_i
         assert "/plugin install quality-code@teamsystem" in c.get("/").text and "/plugin marketplace add vissz28/agentic-testing" in c.get("/").text
     s = build(plugin_root(), entra=S, remote=True, fixed_cwd=tmp_path, web_settings=W)
     assert [i.src for i in s.icons] == [H + "/static/quality-code.png"]
+
+
+def browser_client(tmp):
+    s = build(plugin_root(), entra=S, remote=True, fixed_cwd=tmp, web_settings=W)
+    app = web.add_browser_redirect(s.streamable_http_app(host="qc-mcp.example.com"), W)
+    return TestClient(app, base_url=H, follow_redirects=False)
+
+
+HTML = {"Accept": "text/html,application/xhtml+xml"}
+
+
+def test_a_browser_on_the_mcp_address_goes_to_the_sign_in_or_the_home_page(tmp_path):
+    with browser_client(tmp_path) as c:
+        assert (c.get("/mcp", headers=HTML).status_code, c.get("/mcp", headers=HTML).headers["location"]) == (303, "/login")
+        c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
+        r = c.get("/mcp", headers=HTML)
+        assert r.status_code == 303 and r.headers["location"] == "/"
+
+
+def test_mcp_clients_still_get_401_and_the_web_session_is_not_a_credential(tmp_path):
+    with browser_client(tmp_path) as c:
+        c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
+        assert c.post("/mcp", json={}, headers=HTML).status_code == 401  # only a GET is redirected
+        assert c.post("/mcp", json={}).status_code == 401  # the cookie does not open /mcp
+        assert c.get("/mcp", headers={"Accept": "text/event-stream"}).status_code == 401
+        assert c.get("/mcp").status_code == 401

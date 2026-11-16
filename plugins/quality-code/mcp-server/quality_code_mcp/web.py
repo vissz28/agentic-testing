@@ -229,6 +229,32 @@ def entra_redirect(w: WebSettings, entra: EntraSettings, extra_flow: dict | None
     return resp
 
 
+class BrowserRedirect:
+    """A person who opens the MCP address in a browser gets the web page instead of a bare 401: the home page when signed in, the sign-in when not.
+    Only a GET that asks for HTML is redirected. An MCP client (a POST, or a GET for the event stream) is untouched and still gets its 401
+    without a valid token: that 401 is what starts a client's own sign-in. The web session is never accepted as a credential for /mcp."""
+
+    def __init__(self, app, w: WebSettings, path: str = "/mcp"):
+        self.app, self.w, self.path = app, w, path
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "GET" and scope["path"].rstrip("/") == self.path:
+            from starlette.requests import Request
+            from starlette.responses import RedirectResponse
+
+            request = Request(scope)
+            if "text/html" in request.headers.get("accept", ""):
+                user = _read(self.w, request.cookies.get(SESSION_COOKIE))
+                return await RedirectResponse("/" if user and user.get("kind") == "session" else "/login", status_code=303)(scope, receive, send)
+        await self.app(scope, receive, send)
+
+
+def add_browser_redirect(app, w: WebSettings | None):
+    if w:
+        app.add_middleware(BrowserRedirect, w=w)
+    return app
+
+
 # ---------------------------------------------------------------- routes
 
 def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: Callable[[str, str], str] | None = None,
