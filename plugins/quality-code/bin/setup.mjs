@@ -419,10 +419,11 @@ function templateHost(root, remote) {
 /** Upgrades a v1 config (single adapter) to v2 sides; fullstack with no backend means Vitest. */
 export function fromVersion1(c) {
   if (!c || typeof c !== 'object' || !('adapter' in c)) return c
-  const { adapter, backend, ...rest } = c
+  // testFlow was renamed testStyle in 0.69; a file older than that still has it.
+  const { adapter, backend, testFlow, ...rest } = c
   const sides = adapter === 'fullstack' ? { frontend: 'playwright', backend: backend ?? 'vitest' }
     : adapter === 'playwright' ? { frontend: 'playwright' } : { backend: adapter }
-  return { ...rest, version: 2, ...sides }
+  return { ...(testFlow === undefined ? {} : { testStyle: testFlow }), ...rest, version: 2, ...sides }
 }
 
 /** Personal config path and its current contents (null if none). */

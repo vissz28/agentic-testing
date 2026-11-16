@@ -899,6 +899,8 @@ test('a version 1 config comes back from detect with its sides, so a rerun of se
   assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', backend: 'go', jira }), { version: 2, jira, frontend: 'playwright', backend: 'go' })
   assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', jira }), { version: 2, jira, frontend: 'playwright', backend: 'vitest' }, 'the old default')
   assert.deepEqual(fromVersion1({ version: 2, backend: 'vitest', jira }), { version: 2, backend: 'vitest', jira }, 'a version 2 file is left alone')
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'vitest', testFlow: 'both', jira }), { version: 2, testStyle: 'both', jira, backend: 'vitest' }, 'testFlow, from before 0.69, becomes testStyle')
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'vitest', testFlow: 'both', testStyle: 'project', jira }).testStyle, 'project', 'testStyle wins over an old testFlow')
   const d = repo({ devDependencies: { vitest: '1' } })
   mkdirSync(join(d, '.claude'), { recursive: true })
   writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'fullstack', jira }))
