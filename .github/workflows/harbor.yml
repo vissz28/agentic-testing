@@ -3,7 +3,13 @@
 # Runs on every push to test or main that changes the plugin, and by hand (Actions > "harbor" > Run workflow; a run by hand
 # publishes only from main). Harbor keeps only :latest: the new image replaces it when the build and the smoke test pass,
 # and the older images are deleted.
-# No Azure here: it only builds the image and pushes it.
+# After the push, a second job (main only) points the Azure Container App at the new image and checks it answers. It runs only when the
+# Azure settings below are set; without them the image is published and the app is left as it is, with a warning.
+#
+# Azure (Settings > Secrets and variables > Actions), sign-in by OIDC, no password stored:
+#   secrets AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID of an app registration with a federated credential for this repo's main branch
+#   and the role Contributor on the Container App's resource group; variables AZURE_RESOURCE_GROUP, AZURE_CONTAINER_APP and QUALITY_CODE_PUBLIC_URL.
+# The Container App must already be able to pull from Harbor (az containerapp registry set, once).
 #
 # Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
 # Without them the image is still built and smoke tested; the sign-in and the push are skipped, with a warning.
@@ -32,6 +38,8 @@ env:
 jobs:
   image:
     runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.push.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,10 +93,12 @@ jobs:
 
       # Only after the build and the smoke test passed: the new image replaces :latest.
       - name: Push to Harbor (replaces latest)
+        id: push
         if: env.PUBLISH == 'true' && env.HAS_HARBOR == 'true'
         run: |
           docker tag quality-code-mcp:ci "$IMAGE:latest"
           docker push "$IMAGE:latest"
+          echo "ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:latest")" >> "$GITHUB_OUTPUT"
 
       # Harbor keeps one image: every artifact that does not carry the tag latest (the previous latest, now untagged,
       # and any old version tag) is deleted. The robot account needs the "delete artifact" permission on the project;
@@ -122,3 +132,51 @@ jobs:
         if: env.PUBLISH == 'true'
         run: |
           echo "Harbor now holds $IMAGE:latest only (version ${{ steps.version.outputs.value }}, commit ${GITHUB_SHA::7})" >> "$GITHUB_STEP_SUMMARY"
+
+  # The image is in Harbor: point the Container App at it. The image is named by its digest, so the template changes and a new revision starts
+  # even though the tag stays latest.
+  deploy:
+    needs: image
+    if: github.ref == 'refs/heads/main' && needs.image.outputs.ref != ''
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      HAS_AZURE: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' && vars.AZURE_RESOURCE_GROUP != '' && vars.AZURE_CONTAINER_APP != '' }}
+    steps:
+      - name: Azure settings missing
+        if: env.HAS_AZURE != 'true'
+        run: |
+          echo "::warning::The image is in Harbor but the Container App was not updated. Set the Azure secrets and variables, see the top of harbor.yml."
+
+      - name: Sign in to Azure
+        if: env.HAS_AZURE == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update the Container App
+        if: env.HAS_AZURE == 'true'
+        run: |
+          az containerapp update --name "${{ vars.AZURE_CONTAINER_APP }}" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ needs.image.outputs.ref }}" --output none
+          echo "Container App ${{ vars.AZURE_CONTAINER_APP }} now runs ${{ needs.image.outputs.ref }}" >> "$GITHUB_STEP_SUMMARY"
+
+      # The checks of mcp-server/DEPLOY.md against the live address: /health is 200 and /mcp without a token is 401.
+      - name: Check the live server
+        if: env.HAS_AZURE == 'true' && vars.QUALITY_CODE_PUBLIC_URL != ''
+        run: |
+          URL="${{ vars.QUALITY_CODE_PUBLIC_URL }}"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+          echo "health: $code"
+          [ "$code" = "200" ]
+          mcp=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/mcp" -H 'content-type: application/json' -d '{}')
+          echo "mcp without token: $mcp"
+          [ "$mcp" = "401" ]
