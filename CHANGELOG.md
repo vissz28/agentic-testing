@@ -25,7 +25,7 @@ Update with `/plugin update quality-code@teamsystem`.
 - Every Playwright test stopping before its first line (no sign-in file, no browser) is `could not run`, not failing tests.
 - Readiness score: an open question (`…?`) is never a criterion; Given/When/Then made of filler (lorem ipsum) scores as nothing; a list whose bullets were lost still reads as a list; an `Acceptance` heading counts as the criteria heading. The card says `Scenarios: none drafted yet` when only the text's criteria were scored, instead of `0 read`.
 - The Word reader keeps list items as a list and reads up to 60,000 characters (was 20,000).
-- The expected-value check matches a text value as a whole word: the ticket's `EU` is no longer found in `NON-EUROPE`.
+- The expected-value check matches a text value as a whole word: the ticket's `EU` is no longer found in `NON-EUROPE`. A code written with leading zeros (`000`, `007`) must be asserted as written: the number `0` no longer counts for it.
 - The type check no longer fails new tests over an old type error on a line this change did not touch; it names it instead.
 - A title starting `[FE][BE]` is a fullstack ticket. Every ticket command (fill-in, story check, side), not only the score, refuses an epic.
 - `/quality-code:xray --route` checks the route against the app's router, as `spec` does.

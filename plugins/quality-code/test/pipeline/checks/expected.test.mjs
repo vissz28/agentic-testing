@@ -268,3 +268,13 @@ test('a string value is asserted as a whole word: the ticket\'s EU is not NON-EU
   assert.equal(asserted(eu, "expect(scope('y')).toBe('EU')"), true)
   assert.equal(asserted({ kind: 'string', token: 'Saved' }, "await expect(toast).toHaveText('Saved!')"), true)
 })
+
+test('a code with leading zeros is asserted as written: the ticket\'s 000 is not the number 0', () => {
+  const code = tokensFrom(ticket('## Acceptance criteria\nGiven a lookup\nThen code 000 is OK and 0 rows are left\n')).filter(t => t.kind === 'number')
+  assert.deepEqual(code.map(t => t.token), ['000', '0'], 'the code and the number stay two values')
+  const t = code[0]
+  assert.equal(asserted(t, "expect(lookup('000').severity).toBe('OK')"), true)
+  assert.equal(asserted(t, 'expect(lookup(0).severity).toBe(1)'), false)
+  assert.equal(asserted(t, "expect(lookup('0000')).toBe(1)"), false)
+  assert.equal(asserted({ kind: 'number', token: '120', values: normNum('120') }, 'expect(total).toBe(120.0)'), true, 'a plain number still matches its value')
+})

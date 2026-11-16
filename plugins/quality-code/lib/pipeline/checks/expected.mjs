@@ -80,6 +80,10 @@ export function outcomeOf(chunk, v) {
 }
 
 /** Distinct expected values, each one present verbatim in the ticket text. */
+// A code written with leading zeros ("000", "007") is that code, not the number: 0 does not assert it.
+const isCode = token => /^0\d/.test(String(token ?? ''))
+const numberId = (token, values) => (isCode(token) ? `c:${token}` : `n:${values.join('|')}`)
+
 export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
   const full = ticketText(ticket)
   const chunks = expectedChunks(ticket, v)
@@ -98,7 +102,7 @@ export function tokensFrom(ticket, v = buildVocabulary(['en', 'it'])) {
     for (const n of numbersIn(from)) {
       const values = normNum(n)
       if (values.some(x => wrong.has(x))) continue
-      const id = `n:${values.join('|')}`
+      const id = numberId(n, values)
       if (!values.length || seen.has(id) || !full.includes(n)) continue
       seen.add(id)
       tokens.push({ token: n.replace(/−/g, '-'), kind: 'number', values, from })
@@ -277,7 +281,7 @@ export function groundCandidates(candidates, chunks, have = [], ticketFull = '')
   // Expected lines plus the full text, for values from the Notes.
   const text = [...chunks, ticketFull].filter(Boolean).join('\n')
   const nums = new Set(numbersIn(text).flatMap(normNum))
-  const known = new Set(have.map(t => (t.kind === 'number' ? `n:${t.values.join('|')}` : fold(t.token))))
+  const known = new Set(have.map(t => (t.kind === 'number' ? numberId(t.token, t.values) : fold(t.token))))
   const kept = []
   const ignored = []
   for (const raw of candidates) {
@@ -287,7 +291,7 @@ export function groundCandidates(candidates, chunks, have = [], ticketFull = '')
     const grounded = isNum ? normNum(c).some(x => nums.has(x)) : c.length >= 2 && c.length <= 80 && text.includes(c)
     if (!grounded) { ignored.push(c); continue }
     const t = isNum ? { token: c, kind: 'number', values: normNum(c) } : { token: c, kind: looksLikeField(c) ? 'field' : 'string' }
-    const id = t.kind === 'number' ? `n:${t.values.join('|')}` : fold(c)
+    const id = t.kind === 'number' ? numberId(c, t.values) : fold(c)
     if (known.has(id)) continue
     known.add(id)
     kept.push({ ...t, from: [...chunks, ticketFull].find(ch => ch && (isNum ? numbersIn(ch).some(n => normNum(n).some(x => t.values.includes(x))) : ch.includes(c))) ?? c })
@@ -302,7 +306,7 @@ const hasWhole = (text, tok) => new RegExp(`${/^\w/.test(tok) ? '(?<!\\w)' : ''}
 
 export function asserted(token, surfaceText) {
   if (token.kind === 'field') return fold(surfaceText).includes(fold(token.token))
-  if (token.kind === 'string') return hasWhole(surfaceText, token.token) || hasWhole(unescape(surfaceText), token.token)
+  if (token.kind === 'string' || (token.kind === 'number' && isCode(token.token))) return hasWhole(surfaceText, token.token) || hasWhole(unescape(surfaceText), token.token)
   const want = new Set(token.values)
   return [...surfaceText.matchAll(NUMBER)].some(m => normNum(m[0]).some(x => want.has(x)))
 }
