@@ -14,6 +14,7 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
+from mcp.types import Icon
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
@@ -108,6 +109,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             "auth": AuthSettings(issuer_url=entra.issuer_url, resource_server_url=entra.public_url, required_scopes=None, validate_token_resource=False),
             "token_verifier": verifier or EntraTokenVerifier(entra),
         }
+    if entra:
+        extra["icons"] = [Icon(src=f"{entra.public_url.rstrip('/')}/static/quality-code.png", mime_type="image/png", sizes=["512x512"])]  # what Claude shows for the connector
     server = MCPServer(
         "quality-code",
         **extra,
@@ -271,8 +274,12 @@ def main(argv: list[str] | None = None) -> None:
         connector = connector_mod.settings_from_env(entra, dict(os.environ))
     except (connector_mod.ConnectorConfigError, OSError) as e:
         raise SystemExit(f"quality-code-mcp: {e}")
-    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)), connector=connector)
-    asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
+    web_settings = web.settings_from_env(entra, dict(os.environ))
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web_settings, connector=connector)
+    import uvicorn
+
+    app = web.add_browser_redirect(server.streamable_http_app(host=a.host, transport_security=security), web_settings)
+    asyncio.run(uvicorn.Server(uvicorn.Config(app, host=a.host, port=a.port, log_level=server.settings.log_level.lower())).serve())
 
 
 if __name__ == "__main__":
