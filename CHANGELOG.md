@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.7] - 2026-11-16
+
+### Added
+
+- The Claude Code plugin tab of the shared server's home page has an **Open in Claude Code** button: a `claude-cli://` deep link that opens a terminal with the request to install the plugin filled in (the marketplace add and the plugin install). Nothing runs until the person reads it, presses Enter and approves the two commands. It works on a computer where Claude Code has already run an interactive session once.
+
+**What to do:** nothing. Redeploy the server to get it.
+
 ## [0.80.6] - 2026-11-16
 
 ### Added

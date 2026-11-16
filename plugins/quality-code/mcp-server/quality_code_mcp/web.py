@@ -176,6 +176,16 @@ def login_page(*, configured: bool, error: str | None = None) -> str:
     return _page("Quality Code · Sign in", _story() + card)
 
 
+INSTALL_PROMPT = ("Install the Quality Code plugin for me. Run these two commands, one after the other: "
+                  "claude plugin marketplace add vissz28/agentic-testing   and   claude plugin install quality-code@teamsystem . "
+                  "Then tell me to type /reload-plugins.")
+
+
+def install_link() -> str:
+    """claude-cli://open fills the prompt box of a new Claude Code terminal; nothing runs until the person reads it and presses Enter."""
+    return "claude-cli://open?q=" + urllib.parse.quote(INSTALL_PROMPT, safe="")
+
+
 def home_page(w: WebSettings, user: dict) -> str:
     who = user.get("name") or user.get("email") or "you"
     initials = escape("".join(p[0] for p in who.split()[:2]).upper())
@@ -200,7 +210,8 @@ def home_page(w: WebSettings, user: dict) -> str:
             f'<div class="pane on" id="w"><p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b> (on a Team or Enterprise plan an Owner adds it under <b>Organization settings, Connectors</b>). Choose the <b>Web</b> type and paste the address below.</p>{field(w.mcp_url)}'
             '<p class="sub">Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>. You sign in with Microsoft, accept the rules, and Claude is connected.</p></div>'
             f'<div class="pane" id="p"><p class="sub">The plugin gives you the commands (<b>/quality-code:spec</b>, <b>check</b>, <b>qa</b> and more) in Claude Code. Run these two, then <b>/reload-plugins</b>:</p>{field(pm)}{field(pi)}'
-            '<p class="sub">Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
+            f'<p class="sub">Or let Claude Code do it: this opens a terminal with the request filled in. Read it, press <b>Enter</b>, and approve the two commands.</p><a class="btn" href="{escape(install_link(), quote=True)}">Open in Claude Code</a>'
+            '<p class="sub">It works on a computer where Claude Code has already run once (send it any message first). Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
             f'<div class="pane" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
             f'<div class="pane" id="b">{field(cp)}<p class="sub">Start <b>copilot</b>, type this command, and fill in the three values. Sign in with Microsoft when asked.</p></div>'
             f'<div class="pane" id="c"><div class="field"><pre>{escape(js)}</pre><button class="copy" data-copy="{escape(js, quote=True)}">Copy</button></div>'

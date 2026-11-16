@@ -134,3 +134,16 @@ def test_mcp_clients_still_get_401_and_the_web_session_is_not_a_credential(tmp_p
         assert c.post("/mcp", json={}).status_code == 401  # the cookie does not open /mcp
         assert c.get("/mcp", headers={"Accept": "text/event-stream"}).status_code == 401
         assert c.get("/mcp").status_code == 401
+
+
+def test_the_plugin_tab_has_a_deep_link_that_opens_claude_code_with_the_install_request(tmp_path):
+    import urllib.parse
+
+    link = web.install_link()
+    assert link.startswith("claude-cli://open?q=") and " " not in link and len(link) < 5000
+    prompt = urllib.parse.unquote(link.split("q=", 1)[1])
+    assert prompt == web.INSTALL_PROMPT and "claude plugin marketplace add vissz28/agentic-testing" in prompt and "claude plugin install quality-code@teamsystem" in prompt
+    with client(tmp=tmp_path) as c:
+        c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
+        h = c.get("/").text
+    assert "Open in Claude Code" in h and 'href="claude-cli://open?q=' in h
