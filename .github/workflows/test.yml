@@ -1,10 +1,11 @@
 name: test
-# dev is ours alone: no pipeline runs there. test and main run it, and a pull request into either runs it before the merge.
+# The tests run on dev, test and main, and a pull request into any of them runs them before the merge. The image build and smoke test
+# (harbor.yml) run on test and main only, and only main publishes.
 on:
   push:
-    branches: [test, main]
+    branches: [dev, test, main]
   pull_request:
-    branches: [test, main]
+    branches: [dev, test, main]
   workflow_dispatch:
 jobs:
   core:
