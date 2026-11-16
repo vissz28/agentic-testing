@@ -18,6 +18,7 @@
         "GITLAB_PERMISSION_MODE": "readonly"
       }
     },
+    "quality-code": { "type": "http", "url": "${user_config.quality_code_url}/mcp" },
     "xray": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs", "xray", "--", "node", "${CLAUDE_PLUGIN_ROOT}/bin/xray-api.mjs"],

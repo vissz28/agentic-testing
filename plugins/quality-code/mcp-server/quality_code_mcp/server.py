@@ -14,11 +14,12 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
+from mcp.types import Icon
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import web
+from . import agents, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
@@ -31,6 +32,8 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 # Anything that needs a checkout (spec, run commands, seed, xray, qa, setup, config, kpi) stays local.
 REMOTE_COMMANDS = {"ticket"}
 REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
+NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket and branch scripts, in one fixed folder). "
+                     "Use the instructions as a guide, but run the command itself in Claude Code with the Quality Code plugin, or with the local server (quality-code-mcp over stdio). Do not call quality_code_run_script for the other scripts here.")
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
@@ -86,7 +89,7 @@ def find_node() -> str | None:
 def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None, connector: connector_mod.ConnectorSettings | None = None) -> MCPServer:
     """`remote` is the shared profile: Jira-only tools, scripts locked to `fixed_cwd`, MAX_RUNNING cap, open /health."""
     root = root or plugin_root()
-    commands = [c for c in load_commands(root) if not remote or c.name in REMOTE_COMMANDS]
+    commands = load_commands(root)
     scripts = set(list_scripts(root)) & (REMOTE_SCRIPTS if remote else set(list_scripts(root)))
     guides = set(list_guides(root)) & (REMOTE_GUIDES if remote else set(list_guides(root)))
     if remote and not fixed_cwd:
@@ -107,6 +110,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             "auth": AuthSettings(issuer_url=entra.issuer_url, resource_server_url=entra.public_url, required_scopes=None, validate_token_resource=False),
             "token_verifier": verifier or EntraTokenVerifier(entra),
         }
+    if entra:
+        extra["icons"] = [Icon(src=f"{entra.public_url.rstrip('/')}/static/quality-code.png", mime_type="image/png", sizes=["512x512"])]  # what Claude shows for the connector
     server = MCPServer(
         "quality-code",
         **extra,
@@ -116,19 +121,25 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         ),
     )
 
+    def needs_repo(cmd: Command) -> bool:
+        """On the shared server only the Jira-only commands can run their scripts; the others need the person's repo."""
+        return remote and cmd.name not in REMOTE_COMMANDS
+
     def command_tool(cmd: Command):
         def run(arguments: str = "") -> str:
-            return render(cmd, root, arguments)
+            body = render(cmd, root, arguments)
+            return f"{NEEDS_REPO_NOTICE}\n\n{body}" if needs_repo(cmd) else body
 
         run.__name__ = cmd.tool_name
         return run
 
     for cmd in commands:
         hint = f" Arguments: {cmd.argument_hint}" if cmd.argument_hint else ""
+        lead = "Needs your repo: here it returns the instructions only, and its scripts run in Claude Code with the plugin or in the local server. " if needs_repo(cmd) else ""
         server.add_tool(
             command_tool(cmd),
             name=cmd.tool_name,
-            description=f"/quality-code:{cmd.name}: {cmd.description}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
+            description=f"{lead}/quality-code:{cmd.name}: {cmd.description}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
             annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
         )
 
@@ -162,7 +173,9 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             return quality_code_run_script(script, args)
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
-        server.custom_route("/health", methods=["GET"])(_health)
+        server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
+        if entra:
+            server.add_tool(quality_code_whoami, name="quality_code_whoami", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
         if entra:
             web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
@@ -184,10 +197,41 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     return server
 
 
-async def _health(request):
-    from starlette.responses import JSONResponse
+def quality_code_whoami() -> str:
+    """Who is signed in on this connection: name, Microsoft email, and the Jira email and GitLab username the person confirmed when they accepted the rules. Read-only; nothing is stored."""
+    from mcp.server.auth.middleware.auth_context import get_access_token
 
-    return JSONResponse({"status": "ok"})
+    t = get_access_token()
+    if not t:
+        return json.dumps({"signed_in": False})
+    c = t.claims or {}
+    who = {
+        "signed_in": bool(t), "name": c.get("name"), "email": c.get("upn"), "jira_email": c.get("jira_email") or c.get("upn"), "gitlab_username": c.get("gitlab_username"),
+        "rules_version": c.get("rules"), "via": "claude connector" if c.get("rules") else "microsoft token",
+    }
+    return json.dumps({k: v for k, v in who.items() if v not in (None, "")}, indent=2)
+
+
+def _version(root: Path) -> str:
+    """The release that runs: the installed package (the image), else the plugin manifest (a checkout)."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("quality-code-mcp")
+    except PackageNotFoundError:
+        return agents._version(root)
+
+
+def _health(root: Path, connector: bool):
+    """Open /health: the release and whether Claude's connector sign-in is on (the token secret reached the server). Nothing secret."""
+    body = {"status": "ok", "version": _version(root), "connector": connector}
+
+    async def health(request):
+        from starlette.responses import JSONResponse
+
+        return JSONResponse(body)
+
+    return health
 
 
 def render_guide(root: Path, key: str) -> str:
@@ -270,8 +314,12 @@ def main(argv: list[str] | None = None) -> None:
         connector = connector_mod.settings_from_env(entra, dict(os.environ))
     except (connector_mod.ConnectorConfigError, OSError) as e:
         raise SystemExit(f"quality-code-mcp: {e}")
-    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)), connector=connector)
-    asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
+    web_settings = web.settings_from_env(entra, dict(os.environ))
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web_settings, connector=connector)
+    import uvicorn
+
+    app = web.add_browser_redirect(server.streamable_http_app(host=a.host, transport_security=security), web_settings)
+    asyncio.run(uvicorn.Server(uvicorn.Config(app, host=a.host, port=a.port, log_level=server.settings.log_level.lower())).serve())
 
 
 if __name__ == "__main__":

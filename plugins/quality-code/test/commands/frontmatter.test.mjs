@@ -35,6 +35,8 @@ const OWN = {
   help: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/help.mjs":*)',
   // routine also schedules with Claude's scheduler and nothing else.
   routine: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate',
+  // setup also asks the plugin's own quality-code server who is signed in (quality_code_whoami), to offer the Jira email, and nothing else.
+  setup: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_quality-code__quality_code_whoami',
   // ci also checks the file it wrote against Central Context's CI rules, with the plugin's own connector.
   ci: 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document',
   // spec also searches and reads Central Context with the plugin's own connector, and nothing else.

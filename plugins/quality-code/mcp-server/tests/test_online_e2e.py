@@ -97,9 +97,11 @@ def session(url, bearer):
     return asyncio.run(go())
 
 
-def test_signed_in_client_gets_the_jira_only_tools_and_runs_a_script(server, tenant):
+def test_signed_in_client_gets_every_command_as_a_tool_and_runs_a_script(server, tenant):
+    from quality_code_mcp.catalog import load_commands, plugin_root
+
     tools, out = session(server, token(tenant))
-    assert tools == {"quality_code_ticket", "quality_code_run_script", "quality_code_guide"}
+    assert tools == {c.tool_name for c in load_commands(plugin_root())} | {"quality_code_run_script", "quality_code_guide", "quality_code_whoami"}
     assert "[exit code" in out
 
 

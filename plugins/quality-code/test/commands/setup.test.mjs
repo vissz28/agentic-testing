@@ -27,8 +27,8 @@ test('A2: the label search can be narrowed before counting', () => {
   assert.match(s, /unknown/i)
   assert.match(s, /Title prefixes[\s\S]*narrowed/)
 })
-test('Jira tools are named by operation, never by an mcp__ tool name', () => {
-  assert.doesNotMatch(doc, /mcp__/)
+test('Jira tools are named by operation, never by an mcp__ tool name (only the allowed-tools line has one)', () => {
+  assert.doesNotMatch(doc.slice(doc.indexOf('\n---\n', 4)), /mcp__/)
 })
 test('A2 (playwright): qaPlanSearch from the label, and the Confluence spaces offered', () => {
   const s = step('A2')

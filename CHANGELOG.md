@@ -9,35 +9,139 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- `/quality-code:ci --gate-only` writes the fast gate job alone, with no install and no test run: for a project whose install or suite cannot run in CI yet.
+- Mutation can be capped per spec: `playwright.maxMutants` and `vitest.maxMutants`, set with `/quality-code:config`; the card says how many were left out. `/quality-code:check --no-mutation` leaves the step out, and the `spec` next step says so for live end-to-end specs.
+- Linked Xray tests: when the Xray API is on, the steps of the tests linked to a ticket are read (a new read-only `get_tests` tool) and scored like the description. Off, the ticket gets a flag saying so.
+- Setup on a stack that is not supported yet offers the ticket checks only (a personal setup with the developer role) instead of stopping.
+- A ticket with only a description: the refuse card's option 1 drafts the acceptance criteria from it; you confirm each one, and the script still scores them.
+- `/quality-code:spec` reads a ready ticket's screenshots when it plans Playwright tests, for the labels and texts the tests check.
+
 ### Fixed
 
+- `save set repo` with the project in a subfolder (`root`) moved nothing, so `config check` then said the project was not set up. The config now moves, and the tickets folder under the subfolder ignores itself in git, so a raw ticket is never committed.
+- `branch.mjs --detect` compares with `origin/<base>`: a local base that fell behind no longer lists a colleague's merged work as this branch's.
+- Every Playwright test stopping before its first line (no sign-in file, no browser) is `could not run`, not failing tests.
+- Readiness score: an open question (`…?`) is never a criterion; Given/When/Then made of filler (lorem ipsum) scores as nothing; a list whose bullets were lost still reads as a list; an `Acceptance` heading counts as the criteria heading. The card says `Scenarios: none drafted yet` when only the text's criteria were scored, instead of `0 read`.
+- The Word reader keeps list items as a list and reads up to 60,000 characters (was 20,000).
+- The expected-value check matches a text value as a whole word: the ticket's `EU` is no longer found in `NON-EUROPE`.
+- The type check no longer fails new tests over an old type error on a line this change did not touch; it names it instead.
+- A title starting `[FE][BE]` is a fullstack ticket. Every ticket command (fill-in, story check, side), not only the score, refuses an epic.
+- `/quality-code:xray --route` checks the route against the app's router, as `spec` does.
+- `report --cost` counts the card answers of a command's session under that command.
+- `clean` lists what setup changed outside its own files: the reply style, your save choice and your Jira email.
+- Setup no longer asks for your Atlassian email when the connector gives only an account id, and no longer turns on the report reply style: turn it on in `/quality-code:config`.
+- A file path written with backslashes (Windows) is checked and stored with forward slashes, so `..\x` cannot leave the project.
+- The note added to a Jira description after the fill-in ends with the co-author line, as comments do.
 - .NET: a TRX report with a character reference that is no character (`&#99999999;`) no longer crashes the test step; it is kept as text.
 - JUnit: a stray end tag in a report no longer closes the whole document, so the tests after it keep their suite name.
 - JUnit: a report cut off while written is always read as broken; before, some cut-off points gave half the results.
 - Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
 - A crashed check now says where it crashed: `check types crashed: <message>` is followed by `at lib/…/file.mjs:<line>:<column>`, taken from the original error. Before, only the message was printed, which was not enough to find the bug.
 - A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
-
-### Changed
-
-- Internal: one XML reader, `lib/core/xml.mjs` (`parseXml`, `decodeEntities`, `child`, `descendants`), replaces the three written in the JUnit, pytest and .NET runners and the regex reading of JaCoCo and Cobertura coverage.
-- Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
-- Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
-
-## [0.80.1] - 2026-11-16
-
-### Fixed
-
 - Mutation testing in place (Go, Java, C#, Python): when the test file cannot be put back after a mutant, the check now says so, naming the file (`could not put <spec> back as it was … restore it from git`), instead of passing over it and leaving the file mutated without a word.
 - On Ctrl-C during mutation testing, the library puts the test file back and lets the signal end the process; it no longer picks the exit code itself. `pipeline.mjs` still exits with 130.
 - Every config lookup reads the environment it is given. Before, finding the project from a subfolder read the real environment, so a config kept on this machine (`local`) could be missed when the place or the Claude folder came from the caller.
 
 ### Changed
 
+- `/quality-code:qa` runs on Sonnet and compares each step with the page as text, taking a screenshot only for evidence: a run costs less.
+- Flags never change the score, which stays the scripts' alone. A ready ticket with flags says `Ready, with <n> open point(s)`, and `spec` lists them on its plan card; a scenario a flag leaves without a value is written as a pending test that names the question.
+- Writing guides: Playwright `has` locators are built from `page`; dates and numbers are asserted in the test account's format; the request a ticket is about is never stubbed. JUnit: `Optional` over `null` in test code.
+- Internal: one XML reader, `lib/core/xml.mjs` (`parseXml`, `decodeEntities`, `child`, `descendants`), replaces the three written in the JUnit, pytest and .NET runners and the regex reading of JaCoCo and Cobertura coverage.
+- Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
+- Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
 - Internal: `lines`, `escapeHtml` and `pct` in `lib/core/text.mjs` replace hand-written copies; `slug` and `short` live once, in `lib/config/places.mjs`. The CI report now also escapes `'`, and a percent is rounded exactly (29 of 200 is 15%, not 14%).
 - Internal: `lib/core/paths.mjs` holds the path chores written by hand in 25 files: `stripDotSlash`, `noTrailingSlash`, `cleanRelPath` (it replaces `normaliseTicketsDir` and a twin), `isAbsoluteAnywhere` and `leavesFolder`. A file or folder whose name only starts with two dots (`..cache`) is no longer taken for one outside the project.
 
-**What to do:** nothing.
+**What to do:** update the plugin. If you want results-only replies, turn on the report style in `/quality-code:config` (setup no longer does it). For slow live end-to-end specs, set `playwright.maxMutants` or use `--no-mutation`.
+
+## [0.80.10] - 2026-11-16
+
+### Changed
+
+- The plugin tab of the shared server's home page has two side-by-side buttons: **Open in Claude Code Desktop** (the Claude app) and **Open in Claude Code CLI** (the terminal). Each opens a new session with the plugin install request filled in; nothing is sent until you press Enter and approve the two commands.
+
+**What to do:** nothing. Redeploy the server to get it.
+
+## [0.80.9] - 2026-11-16
+
+### Changed
+
+- The plugin tab of the shared server's home page now opens the **Claude app** (Desktop) first: **Open in the Claude app** is a `claude://code/new` link that opens a new session with the plugin install request filled in. Desktop never sends it for you and reads it as plain text. The terminal link stays below it as **Open in Claude Code (terminal)**.
+
+**What to do:** nothing. Redeploy the server to get it. The app link needs a recent Claude Desktop.
+
+## [0.80.8] - 2026-11-16
+
+### Added
+
+- The shared server's home page has a **GitLab** tab: GitLab's own MCP server (default `https://biosphere.teamsystem.com/api/v4/mcp`, set by `QUALITY_CODE_GITLAB_MCP_URL`, `off` hides the tab) with a Copy button and the steps to add it in Claude as a second connector. GitLab signs in by itself, like Jira; this server never holds a GitLab token.
+- `/quality-code:setup` asks the quality-code server who is signed in (`quality_code_whoami`) and offers that Jira email on a card (`Use <jira_email> as your Atlassian email?`) instead of asking you to type it; the GitLab username it returns is used for the GitLab account check when the plugin setting is empty. Only what the tool or you gave is used.
+
+### Changed
+
+- The shared server now offers every command as a tool (`quality_code_spec`, `check`, `qa`, `xray`, `setup` and the rest), not just `ticket`. The ones that need your repo say so in their description and in the instructions they return: on the shared server they only return instructions, and their scripts run in Claude Code with the plugin or in the local server. The script tool is unchanged (`ticket` and `branch`, read-only).
+
+**What to do:** update the plugin (`/quality-code:update`, then `/reload-plugins`) for the setup change; redeploy the server for the rest.
+
+## [0.80.7] - 2026-11-16
+
+### Added
+
+- The Claude Code plugin tab of the shared server's home page has an **Open in Claude Code** button: a `claude-cli://` deep link that opens a terminal with the request to install the plugin filled in (the marketplace add and the plugin install). Nothing runs until the person reads it, presses Enter and approves the two commands. It works on a computer where Claude Code has already run an interactive session once.
+
+**What to do:** nothing. Redeploy the server to get it.
+
+## [0.80.6] - 2026-11-16
+
+### Added
+
+- A new tool on the shared server, `quality_code_whoami`: it says who is signed in on the connection (name, Microsoft email, and the Jira email and GitLab username the person confirmed on the rules page, with the rules version). It reads them from the sign-in token; nothing is stored, and with no token it says `signed_in: false`. A later release lets `/quality-code:setup` use it to fill in the Jira email and GitLab username.
+
+**What to do:** nothing. Redeploy the server to get it, then ask Claude "who am I in Quality Code?".
+
+## [0.80.5] - 2026-11-16
+
+### Changed
+
+- The shared server's browser tab shows the TeamSystem logo: `/favicon.ico` and `/favicon.png` serve it, so `/health` and the other pages with no HTML of their own show it too, and the pages link to it. The connector icon Claude shows is unchanged (the Quality Code icon at `/static/quality-code.png`).
+
+**What to do:** nothing. Redeploy the server to get it. A browser that cached the old icon may need a hard refresh.
+
+## [0.80.4] - 2026-11-16
+
+### Added
+
+- The plugin now brings the shared Quality Code server with it. Install the plugin and the server is there as the `quality-code` connector: the first time one of its tools is used, Claude Code opens the Microsoft sign-in and the TeamSystem rules page, and you accept; nothing is typed or pasted, and there is no connector to add by hand. The address is the new plugin setting `quality_code_url` (default `https://qualitycode.teamsystem.cloud`).
+
+**What to do:** update the plugin (`/quality-code:update`), then `/reload-plugins`. If you already added the server as a connector by hand, remove that one, so the tools are not listed twice.
+
+## [0.80.3] - 2026-11-16
+
+### Added
+
+- The shared server's `/health` now says which release runs and whether Claude's connector sign-in is on: `{"status": "ok", "version": "0.80.3", "connector": true}`. After a redeploy, one `curl` on `/health` shows whether the new image is live, and `connector: false` means `QUALITY_CODE_TOKEN_SECRET` did not reach the server. Nothing secret is shown.
+
+**What to do:** nothing. Redeploy the server, then open `/health` to check it.
+
+## [0.80.2] - 2026-11-16
+
+### Changed
+
+- Opening the shared server's `/mcp` address in a browser no longer shows a bare 401: signed in, it goes to the home page; not signed in, to the sign-in. Only a GET that asks for HTML is redirected. An MCP client still gets its 401 without a valid token (that 401 starts its own sign-in), and the web session is never accepted as a credential for `/mcp`.
+
+**What to do:** nothing. Redeploy the server to get it.
+
+## [0.80.1] - 2026-11-16
+
+### Added
+
+- The shared server's sign-in page explains how to add it in Claude: a **Claude (web & Desktop)** tab (Customize, Connectors, Add custom connector, type **Web**, **Sign in now**, **Register automatically**) and a **Claude Code plugin** tab with the two install commands.
+- The connector has an icon: the Quality Code logo is served at `/static/quality-code.png` (also `/favicon.ico`) and named in the server's `icons`, so Claude can show it next to the connector.
+
+**What to do:** nothing. Redeploy the server to see them.
 
 ## [0.80.0] - 2026-11-16
 

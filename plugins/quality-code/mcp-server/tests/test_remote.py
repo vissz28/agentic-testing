@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from pathlib import Path
 
@@ -20,10 +21,18 @@ def text(r):
     return r.content[0].text
 
 
-def test_remote_offers_only_the_jira_only_commands(tmp_path):
-    n = names(build(ROOT, remote=True, fixed_cwd=tmp_path))
-    assert n == {"quality_code_" + c.replace("-", "_") for c in REMOTE_COMMANDS} | {"quality_code_run_script", "quality_code_guide"}
-    assert "quality_code_spec" not in n and "quality_code_check" not in n
+def test_remote_offers_every_command_but_only_the_jira_only_ones_run_here(tmp_path):
+    from quality_code_mcp.catalog import load_commands
+
+    s = build(ROOT, remote=True, fixed_cwd=tmp_path)
+    n = names(s)
+    assert n == {c.tool_name for c in load_commands(ROOT)} | {"quality_code_run_script", "quality_code_guide"}
+    assert "quality_code_spec" in n and "quality_code_check" in n and "quality_code_ticket" in n
+    tools = {t.name: t for t in asyncio.run(s.list_tools())}
+    assert tools["quality_code_spec"].description.startswith("Needs your repo")
+    assert not tools["quality_code_ticket"].description.startswith("Needs your repo")
+    assert "NOTE: this command needs your repo" in text(asyncio.run(s.call_tool("quality_code_spec", {"arguments": "ABC-1"})))
+    assert "NOTE: this command needs your repo" not in text(asyncio.run(s.call_tool("quality_code_ticket", {"arguments": "ABC-1"})))
 
 
 def test_remote_script_tool_has_no_folder_and_a_short_allowlist(tmp_path):
@@ -62,5 +71,25 @@ def test_health_is_open_and_mcp_is_not(tmp_path):
     with TestClient(app, base_url="https://qc-mcp.example.com") as c:
         h = c.get("/health")
         m = c.post("/mcp", json={})
-    assert h.status_code == 200 and h.json() == {"status": "ok"}
+    body = h.json()
+    assert h.status_code == 200 and body["status"] == "ok" and re.fullmatch(r"\d+\.\d+\.\d+", body["version"]) and body["connector"] is False
     assert m.status_code == 401
+
+
+def test_whoami_says_who_is_signed_in_from_the_token_claims():
+    import json
+
+    from mcp.server.auth.middleware.auth_context import auth_context_var
+    from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+    from mcp.server.auth.provider import AccessToken
+
+    from quality_code_mcp.server import quality_code_whoami
+
+    assert json.loads(quality_code_whoami()) == {"signed_in": False}
+    t = AccessToken(token="x", client_id="c", scopes=[], claims={"name": "Ada Lovelace", "upn": "ada@teamsystem.com", "jira_email": "ada.l@teamsystem.com", "gitlab_username": "ada.l", "rules": "abc123"})
+    reset = auth_context_var.set(AuthenticatedUser(t))
+    try:
+        got = json.loads(quality_code_whoami())
+    finally:
+        auth_context_var.reset(reset)
+    assert got == {"signed_in": True, "name": "Ada Lovelace", "email": "ada@teamsystem.com", "jira_email": "ada.l@teamsystem.com", "gitlab_username": "ada.l", "rules_version": "abc123", "via": "claude connector"}
