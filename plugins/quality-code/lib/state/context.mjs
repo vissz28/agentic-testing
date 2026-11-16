@@ -11,7 +11,6 @@ import { isAbsoluteAnywhere } from '../core/paths.mjs'
 export const FACTS = ['flow', 'tests', 'style', 'stack', 'base', 'connectors', 'jira', 'features']
 export const SOURCE_KINDS = ['ttl', 'hash', 'head', 'ticket', 'none']
 export const MAX_BYTES = 64 * 1024
-export const CONNECTORS_TTL_MS = 24 * 60 * 60 * 1000
 
 const fileOf = (root, env) => join(dirOf(env), `${slug(root)}-${short(root)}`, 'context.json')
 

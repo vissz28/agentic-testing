@@ -1,6 +1,6 @@
 // Boundary: a test-writing run may write tests, never the code under test (hook + diff check).
 import { createHash } from 'node:crypto'
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { changedPaths } from '../core/git.mjs'
 import { result } from './result.mjs'

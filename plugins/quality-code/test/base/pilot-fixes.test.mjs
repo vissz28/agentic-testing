@@ -146,7 +146,7 @@ test('roots: one config, several projects; the active one is picked per person, 
   const home = tree({ '.claude/quality-code.json': JSON.stringify({ version: 2, root: 'app', roots: ['app', 'be'], backend: 'vitest', jira }), 'app/x': '1', 'be/x': '1' })
   const claude = mkdtempSync(join(tmpdir(), 'qc-claude-'))
   const env = { CLAUDE_PROJECT_DIR: home, CLAUDE_CONFIG_DIR: claude }
-  const run = (...argv) => { let out = '', err = ''; const logs = []; const o = process.stdout.write.bind(process.stdout); const e = process.stderr.write.bind(process.stderr); process.stdout.write = s => { out += s; return true }; process.stderr.write = s => { err += s; return true }; let code; try { code = ticketMain(argv, env, home) } finally { process.stdout.write = o; process.stderr.write = e } return { code, out, err } }
+  const run = (...argv) => { let out = '', err = ''; const o = process.stdout.write.bind(process.stdout); const e = process.stderr.write.bind(process.stderr); process.stdout.write = s => { out += s; return true }; process.stderr.write = s => { err += s; return true }; let code; try { code = ticketMain(argv, env, home) } finally { process.stdout.write = o; process.stderr.write = e } return { code, out, err } }
   assert.equal(rootsOf(home, env).active, 'app')
   const set = run('root', 'set', 'be')
   assert.equal(set.code, 0, set.err)

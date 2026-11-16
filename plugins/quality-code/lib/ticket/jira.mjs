@@ -40,8 +40,6 @@ export function templateLine(config, issuetype) {
   return `The full ${kind === 'bug' ? 'Bug' : 'Story'} template is at ${path}.`
 }
 
-export const browseUrl = (config, key) => `${config.jira.site}/browse/${key}`
-
 function authorGaps(config, brief) {
   const kind = templateFor(brief.issuetype, config)
   const items = brief.missing || []

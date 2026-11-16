@@ -6,7 +6,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { crashMessage, isMain, lineWriter, printError, printLine, tag } from '../../lib/core/script-io.mjs'
+import { crashMessage, isMain, lineWriter, tag } from '../../lib/core/script-io.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../', import.meta.url))
 const BIN = join(PLUGIN, 'bin')

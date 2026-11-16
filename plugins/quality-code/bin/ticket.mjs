@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { audit } from '../lib/state/audit.mjs'
-import { detectConventions, flowOf, runFlow } from '../lib/stacks/conventions.mjs'
+import { detectConventions, runFlow } from '../lib/stacks/conventions.mjs'
 import { findTestHome } from '../lib/stacks/test-home.mjs'
 import { configKeys, configSetGet } from '../lib/config/set.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/config/places.mjs'
@@ -98,7 +98,7 @@ const COMMANDS = {
     printError(`usage: ticket.mjs save get | save set ${options.join('|')}`)
     return 2
   },
-  root({ a, root, config, env }) {
+  root({ a, root, env }) {
     // One config serving several projects of a monorepo ("roots"): which one this person works on.
     const home = configHome(root, env)
     const [sub, folder] = a._
