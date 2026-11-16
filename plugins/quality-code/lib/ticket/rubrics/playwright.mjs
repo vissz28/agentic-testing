@@ -48,6 +48,8 @@ function briefExtras(config, ticket, feature) {
   }
 }
 
+export const SCENARIOS_NONE_DRAFTED = 'Scenarios: none drafted yet · the acceptance criteria in the text were read and scored'
+
 function formatReport(brief) {
   const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
   const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
@@ -60,7 +62,10 @@ function formatReport(brief) {
     `${key} — test-readiness ${score}/100 · ${band} (needs ${threshold})`,
     `Feature: ${feature || 'none'}${route ? ` → ${route}` : ''}`,
     omitted.has('qa_plan_found') ? null : `QA plan: ${qaPlan?.url ? `found — ${qaPlan.title || qaPlan.url} · ${(qaPlan.scenarios || []).length} scenarios` : 'not found'}`,
-    `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to test`,
+    // No scenario drafted, yet the criteria in the text were credited: "0 read" would contradict the score.
+    !scenarios.length && !derivable && brief.signals?.ac_present
+      ? SCENARIOS_NONE_DRAFTED
+      : `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to test`,
     `Figma: ${figma || 'none'}   ·   MR: ${mr || 'none'}`,
     shown.length
       ? `Missing (points each would add):\n${shown.map(m => `  - ${m.label} (+${gains[m.key] ?? m.weight})`).join('\n')}`
