@@ -10,7 +10,7 @@
 // everything outside a request (the default branch), with --all, or when the changes cannot be read. No model is involved.
 // Exit 0 every check passed (or nothing to check), 1 a check failed or a test is red, 2 usage or config error,
 // 3 something could not run (never a pass).
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -80,10 +80,12 @@ export function stackOf(root, config) {
   // A broken package.json throws, naming it: the CI file would otherwise have no install step.
   const pkg = readJsonOr(join(root, 'package.json'), null)
   const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
+  const pm = pkg ? packageManager(root, pkg).pm : null
   return {
     backend: adaptersOf(config).includes(backendOf(config)) ? backendOf(config) : null,
     playwright: adaptersOf(config).includes('playwright'),
-    pm: pkg ? packageManager(root, pkg).pm : null,
+    pm,
+    ownInstall: pm ? ownInstall(git(root, ['rev-parse', '--show-toplevel']) || root, pm) : null,
     lock: existsSync(join(root, 'package-lock.json')),
     prisma: Boolean(deps.prisma || deps['@prisma/client']),
     containers: git(root, ['ls-files']).split('\n').filter(f => DEP_FILE.test(f)).some(f => /testcontainers/i.test(readText(join(root, f)))),
@@ -96,10 +98,27 @@ export function stackOf(root, config) {
   }
 }
 
-/** The install lines, guessed from the lockfile and the runners. */
+// The package manager's own install, with flags and no package named (npm ci --legacy-peer-deps), and what it needs first.
+const PM_INSTALL = { npm: 'npm (?:ci|install|i)', pnpm: 'pnpm (?:install|i)', yarn: 'yarn(?: install)?', bun: 'bun install' }
+const PM_SETUP = { pnpm: 'corepack enable && ', yarn: 'corepack enable && ', bun: 'npm install -g bun && ' }
+
+/** The install the repo's own CI files already run, { line, file }, or null: it knows flags a guess cannot. */
+export function ownInstall(top, pm) {
+  let workflows = []
+  try { workflows = readdirSync(join(top, '.github/workflows')).filter(f => /\.ya?ml$/.test(f)).map(f => `.github/workflows/${f}`) } catch {}
+  const re = new RegExp(`(?:^[ \\t-]*(?:run:)?|&&)[ \\t]*(${PM_INSTALL[pm]}(?:[ \\t]+--?[\\w-]+(?:=\\S+)?)*)[ \\t]*(?:$|&&|;)`, 'm')
+  for (const file of ['.gitlab-ci.yml', ...workflows]) {
+    const text = readText(join(top, file))
+    const line = !text.startsWith(HEADER) && re.exec(text)?.[1]
+    if (line) return { line, file }
+  }
+  return null
+}
+
+/** The install lines: the repo CI's own package install, else guessed from the lockfile; then what the runners need. */
 function installLines(s) {
   const lines = []
-  if (s.pm) lines.push({ npm: s.lock ? 'npm ci' : 'npm install', pnpm: 'corepack enable && pnpm install --frozen-lockfile', yarn: 'corepack enable && yarn install', bun: 'npm install -g bun && bun install --frozen-lockfile' }[s.pm])
+  if (s.pm) lines.push((PM_SETUP[s.pm] ?? '') + (s.ownInstall?.line ?? { npm: s.lock ? 'npm ci' : 'npm install', pnpm: 'pnpm install --frozen-lockfile', yarn: 'yarn install', bun: 'bun install --frozen-lockfile' }[s.pm]))
   // Prisma's client is generated, not installed: without it the types step reports errors that are not there.
   if (s.prisma) lines.push(`${EXEC[s.pm]} prisma generate`)
   if (s.playwright) lines.push(`${EXEC[s.pm ?? 'npm']} playwright install --with-deps`)
@@ -138,7 +157,7 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
     '#   a ticket), assertions (every test asserts something) and the frozen evals. git and node only, seconds.',
     '# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed',
     `#   but no spec did runs its whole suite without mutation, as does a push to ${provider === 'github' ? s.defaultBranch : 'the default branch'}.`,
-    '# The install lines were guessed from the project: change them if it installs differently (a private registry,',
+    `# The install lines were guessed from the project${s.ownInstall ? ` (${s.ownInstall.line} from ${s.ownInstall.file})` : ''}: change them if it installs differently (a private registry,`,
     '#   a generated file); add the variables and secrets the tests need.',
     ...(s.playwright ? ['# Playwright starts the app through webServer in its config; without one, start the app before the tests.'] : []),
     source.url === DEFAULT_PLUGIN_URL

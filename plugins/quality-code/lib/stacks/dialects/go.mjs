@@ -359,8 +359,8 @@ const mutantRank = k => (k === 'invert-assert' || k === 'flip-compare' || k === 
 /** A block mutation judges: it ran green, it is not skipped or a todo. */
 const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && passed.has(block.title)
 
-/** One mutant per assertion (the strongest) unless thorough; baseline-green tests only, inside the range. */
-function plan({ src, passedTitles, range, thorough, blocks, expects }) {
+/** One mutant per assertion (the strongest); baseline-green tests only, inside the range. */
+function plan({ src, passedTitles, range, blocks, expects }) {
   const passed = new Set(passedTitles)
   const all = []
   for (const ex of expects) {
@@ -372,7 +372,6 @@ function plan({ src, passedTitles, range, thorough, blocks, expects }) {
       all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).trim().slice(0, 60)}` })
     }
   }
-  if (thorough) return all
   const best = new Map()
   for (const m of all) {
     const cur = best.get(m.start)

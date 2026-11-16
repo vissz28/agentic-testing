@@ -62,10 +62,10 @@ export function findTestBlocks(src, dialect) {
 }
 
 /** Mutants for the baseline-green tests; null when --key names a block that is not there. */
-export function planMutants(src, passedTitles, { key = null, thorough = false, ungraded = null, whole = false } = {}, dialect) {
+export function planMutants(src, passedTitles, { key = null, ungraded = null, whole = false } = {}, dialect) {
   const range = key ? anchorRange(src, key, dialect, { whole }) : null
   if (key && !range) return null
-  return dialect.mutation.plan({ src, passedTitles, range, thorough, ungraded, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
+  return dialect.mutation.plan({ src, passedTitles, range, ungraded, blocks: findTestBlocks(src, dialect), expects: findExpectRanges(src, dialect) })
 }
 
 /** The baseline-green tests in range that got no mutant: nothing shows their assertions can fail. */
@@ -103,7 +103,7 @@ export function sweepStale(dir) {
   return n
 }
 
-export async function run({ spec, key = null, baseline = null, max = null, thorough = false, timeoutMs = 300_000, whole = false }, ctx) {
+export async function run({ spec, key = null, baseline = null, max = null, timeoutMs = 300_000, whole = false }, ctx) {
   const specPath = resolve(ctx.root, spec)
   const bytes = readFileSync(specPath)
   const src = bytes.toString('utf8')
@@ -116,13 +116,15 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   }
   if (!passed.length) return result('mutation', 'not_run', 'baseline had no passing test')
   const ungraded = ungradedTitlesOf(ctx.config, ctx.dialect)
-  let mutants = planMutants(src, passed, { key, thorough, ungraded, whole }, ctx.dialect)
+  let mutants = planMutants(src, passed, { key, ungraded, whole }, ctx.dialect)
   if (mutants === null) return result('mutation', 'not_run', `no ${key} block in ${spec}`, [{ file: spec, kind: 'no anchor block', detail: `no top-level group titled "${key} …"` }])
   const bare = unmutated(src, passed, mutants, { key, ungraded, whole }, ctx.dialect)
   const bareFindings = bare.map(t => ({ file: spec, test: t, kind: 'not mutated', detail: 'passes, but has no assertion mutation can check' }))
   const rank = ctx.dialect.mutation.rank
   mutants = [...mutants].sort((a, b) => rank(a.kind) - rank(b.kind))
-  if (max != null && mutants.length > max) mutants = mutants.slice(0, Number(max))
+  // The config's maxMutants: the strongest are kept, and the pass says how many were left out.
+  const capped = max != null && mutants.length > max ? mutants.length - max : 0
+  if (capped) mutants = mutants.slice(0, max)
 
   const inPlace = ctx.dialect.mutation.inPlace === true
   const tmp = inPlace ? specPath : tempSpecPath(specPath)
@@ -157,7 +159,7 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   const survivedList = graded.filter(o => !o.killed)
   const errors = outcomes.length - graded.length
   const score = graded.length ? Math.round((100 * killed) / graded.length) : null
-  const data = { killed, survived: survivedList.length, errors, total: graded.length, score, survivors: survivedList.map(o => o.snippet), unmutated: bare.length }
+  const data = { killed, survived: survivedList.length, errors, total: graded.length, score, survivors: survivedList.map(o => o.snippet), unmutated: bare.length, ...(capped ? { capped } : {}) }
   if (survivedList.length) {
     return result('mutation', 'fail', `${survivedList.length} of ${graded.length} mutant(s) survived: an assertion that cannot fail`,
       [...survivedList.map(o => ({ file: spec, test: o.title, kind: 'survived', detail: o.snippet })), ...bareFindings], data)
@@ -167,5 +169,5 @@ export async function run({ spec, key = null, baseline = null, max = null, thoro
   // A passing test with no mutant is unchecked, not checked: it never makes the step pass.
   if (bare.length) return result('mutation', 'not_run', `${bare.length} passing test(s) with no assertion mutation can check`, bareFindings, data)
   if (errors) return result('mutation', 'not_run', `${killed} of ${graded.length + errors} mutants killed; ${errors} ran no test`, [], data)
-  return result('mutation', 'pass', `${killed}/${graded.length} mutants killed`, [], data)
+  return result('mutation', 'pass', `${killed}/${graded.length} mutants killed${capped ? `; ${capped} more left out by maxMutants` : ''}`, [], data)
 }

@@ -7,6 +7,9 @@ import { normalise, stripComments } from './text.mjs'
 /** Plain-language criteria need this many characters in total to count. Gherkin is exempt. */
 export const MIN_NATURAL_AC = 150
 
+/** An open question asks for a result and names none: it is never a criterion. */
+const QUESTION = /\?\s*$/
+
 /**
  * Each line as the step patterns read it: no list marker, no bold. Jira's markdown writes a bold
  * keyword as **Given** and a bulleted step as - Given, as the criteria section rows already do.
@@ -90,7 +93,8 @@ export function extractNaturalAC(v, text, { headingless = false } = {}) {
     if (isPlaceholder(content)) continue
     for (const sentence of content.split(/(?<=[.!?])\s+/)) if (sentence.trim()) items.push(sentence.trim())
   }
-  return items.filter(i => !isPlaceholder(i)) // filler is not a criterion: it must not pass the length or count checks
+  // Filler and open questions are no criteria: they must not pass the length or count checks.
+  return items.filter(i => !isPlaceholder(i) && !QUESTION.test(i))
 }
 
 /**
@@ -218,13 +222,15 @@ const RESULT_AFTER_ACTION = /(?::|→|->|=>|\s[–—]\s)\s*(.+)$/
 /**
  * The list blocks of a text, outside an Acceptance criteria section and outside a named section
  * (Steps to reproduce, Expected, Environment, Notes...): each a run of list items, blank lines
- * allowed between them, ended by any other line. A heading the vocabulary does not name
- * ("## Description", "**Checks**") leaves the list readable.
+ * allowed between them, ended by any other line. A paragraph of plain lines is a list too, one
+ * item per line, ended by a blank line: a list whose markers were lost reads the same. A heading
+ * the vocabulary does not name ("## Description", "**Checks**") leaves the list readable.
  */
 function freeLists(v, text) {
   const blocks = []
   let section = null // 'ac' | 'named' | null
   let block = null
+  let blank = false
   const close = () => { if (block) blocks.push(block); block = null }
   for (const line of stripComments(normalise(text)).split('\n')) {
     if (v.acHeading.test(line)) { close(); section = 'ac'; continue }
@@ -234,12 +240,14 @@ function freeLists(v, text) {
       section = v.namedSection.test(words) ? 'named' : null
       continue
     }
-    if (!line.trim()) continue
-    if (!v.listItem.test(line)) { close(); continue }
+    if (!line.trim()) { blank = true; continue }
+    const listed = v.listItem.test(line)
+    if (block && (block.listed !== listed || (!listed && blank))) close()
+    blank = false
     if (section) continue
     const content = line.replace(v.listItem, '').replace(/\*+/g, '').trim()
     if (!content) continue
-    block ??= { items: [], numbered: [] }
+    block ??= { listed, items: [], numbered: [] }
     block.items.push(content)
     block.numbered.push(NUMBERED.test(line))
   }
@@ -250,11 +258,13 @@ function freeLists(v, text) {
 /**
  * Does this list item name a result a test can see: a state, a shown text, a count, a value? An
  * item that starts with an action ("Open the list") is a step; it only names a result after a
- * ":" or an arrow ("Click Save: the toast reads Saved").
+ * ":" or an arrow ("Click Save: the toast reads Saved"). A plain line (`listed` false) is prose
+ * until it names one in words or quotes: a number alone (a date, an id, an image's size) is not.
  */
-export function namesObservable(v, item) {
+export function namesObservable(v, item, { listed = true } = {}) {
+  if (QUESTION.test(item)) return false
   const result = v.actionStep.test(item) ? item.match(RESULT_AFTER_ACTION)?.[1] : item
-  return !!result && (v.observable.test(result) || /\d/.test(result) || QUOTED.test(result))
+  return !!result && (v.observable.test(result) || (listed && /\d/.test(result)) || QUOTED.test(result))
 }
 
 /**
@@ -266,7 +276,7 @@ export function extractListCriteria(v, text) {
   const items = []
   for (const b of freeLists(v, text)) {
     if (b.items.length < 2) continue
-    const checks = b.items.filter(i => namesObservable(v, i))
+    const checks = b.items.filter(i => namesObservable(v, i, b))
     if (checks.length && b.items.every(i => checks.includes(i) || hasVaguePhrase(v, i))) items.push(...b.items)
   }
   return items

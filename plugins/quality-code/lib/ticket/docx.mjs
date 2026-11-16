@@ -1,5 +1,5 @@
 // The text of a Word (.docx) file: its word/document.xml, unzipped with node:zlib, tags dropped.
-// Only what a ticket's analysis needs: paragraphs, tabs and line breaks; no styles, no images.
+// Only what a ticket's analysis needs: paragraphs, list items, tabs and line breaks; no styles, no images.
 import { inflateRawSync } from 'node:zlib'
 
 /** Unzipped document.xml larger than this is refused: a real analysis is far smaller (a zip bomb is not). */
@@ -49,6 +49,9 @@ export function docxText(buf, { maxChars = DOCX_MAX_CHARS } = {}) {
   }
   if (!xml) throw new Error('not a .docx (no word/document.xml)')
   const text = xml.toString('utf8')
+    // A list paragraph (bulleted or numbered) keeps a marker, so the score reads it as a list.
+    // ponytail: every list item gets "- "; numbering.xml tells bullets from numbers, read it if steps need "1.".
+    .replace(/<w:numPr\b/g, '- $&')
     .replace(/<w:tab\/>/g, '\t')
     .replace(/<w:(?:br|cr)\b[^>]*\/>|<\/w:p>/g, '\n')
     .replace(/<[^>]*>/g, '')

@@ -156,7 +156,6 @@ test('flips: assertThrows expects an exception nothing throws, only when its val
 test('plan: one mutant per assertion of a green test; skipped, todo and commented-out ones get none', () => {
   const m = planMutants(JAVA, ['threeItems', 'roundsHalfUp', 'parsesSku', 'quantities', 'zero', 'discount'], {}, d)
   assert.deepEqual(m.map(x => [x.title, x.kind]), [['threeItems', 'invert-assert'], ['roundsHalfUp', 'invert-matcher'], ['parsesSku', 'invert-assert'], ['quantities', 'invert-assert'], ['zero', 'invert-assert']])
-  assert.ok(planMutants(JAVA, ['threeItems'], { thorough: true }, d).length > 1)
 })
 
 test('plan on Kotlin: infix and dotted kotest, kotlin.test; a test with no assertion is not mutated', () => {

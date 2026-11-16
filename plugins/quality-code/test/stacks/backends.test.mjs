@@ -84,8 +84,8 @@ test('config: a backend block only on its own project, with only its own fields'
   assert.deepEqual(valid({ frontend: 'playwright', backend: 'vitest', junit: {} }).errors, ['junit: only allowed with "backend": "junit"'])
   assert.deepEqual(valid({ backend: 'go', go: [] }).errors, ['go: must be an object'])
   assert.deepEqual(valid({ backend: 'junit', junit: { typeCheck: 'x', stryker: {} } }).errors, [
-    'junit.typeCheck: unknown field (only "layers", "timeoutSeconds" or "command")',
-    'junit.stryker: unknown field (only "layers", "timeoutSeconds" or "command")',
+    'junit.typeCheck: unknown field (only "layers", "timeoutSeconds", "maxMutants" or "command")',
+    'junit.stryker: unknown field (only "layers", "timeoutSeconds", "maxMutants" or "command")',
   ])
   assert.deepEqual(valid({ backend: 'dotnet', dotnet: { timeoutSeconds: 5, command: 'dotnet test\nrm -rf /' } }).errors, [
     'dotnet.timeoutSeconds: must be a whole number from 10 to 3600',

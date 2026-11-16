@@ -32,7 +32,6 @@ test('vitest: the backend self-test', () => {
   const applied = applyMutant(src, plan.find(p => p.kind === 'invert-matcher'))
   assert.ok(applied.includes('.not.toBe(80)') && applied.includes('expect(compute()).toBe(999)'))
   assert.ok(planMutants(src, ['green', 'legacy'], { key: 'FIC-9' }, V).every(p => p.title === 'green'))
-  assert.ok(planMutants(src, ['green'], { key: 'FIC-9', thorough: true }, V).length > plan.length)
   assert.ok(plan.every(p => V.mutation.rank(p.kind) === 0))
   assert.equal(planMutants(src, ['green'], { key: 'FIC-404' }, V), null)
 })
@@ -93,7 +92,7 @@ test('run: all killed passes; nothing eligible passes with score null', async ()
   assert.equal(r.status, 'pass')
   assert.equal(r.data.score, null)
 })
-test('run: baseline red tests are never mutated; --baseline skips the baseline run', async () => {
+test('run: baseline red tests are never mutated; a given baseline skips the baseline run', async () => {
   const d = spec()
   const { runTests, calls } = fakeRunner(d, verdict)
   const r = await run({ spec: 'test/a.spec.ts', baseline: ['adds'] }, { root: d, dialect: V, runTests })
@@ -127,10 +126,11 @@ test('run: some killed and some that ran no test is not_run, never pass', async 
   assert.equal(r.data.errors, 1)
   assert.deepEqual(r.findings, [])
 })
-test('run: --max keeps the strongest; a missing --key block is not_run', async () => {
+test('run: max (the config\'s maxMutants) keeps the strongest and counts the rest; a missing key block is not_run', async () => {
   const d = spec()
-  const r = await run({ spec: 'test/a.spec.ts', max: 1, thorough: true }, { root: d, dialect: V, runTests: fakeRunner(d, verdict).runTests })
+  const r = await run({ spec: 'test/a.spec.ts', max: 1 }, { root: d, dialect: V, runTests: fakeRunner(d, verdict).runTests })
   assert.equal(r.data.total, 1)
+  assert.equal(r.data.capped, 1)
   const m = await run({ spec: 'test/a.spec.ts', key: 'ABC-2' }, { root: d, dialect: V, runTests: fakeRunner(d, verdict).runTests })
   assert.equal(m.status, 'not_run')
 })

@@ -684,6 +684,15 @@ test('detect: a script that runs node --test names Node\'s own runner; a runner 
   assert.deepEqual(detect(repo({ scripts: { test: 'node --test' }, devDependencies: { jest: '30' } })).runners, { unit: 'jest' })
   assert.deepEqual(detect(repo({ scripts: { start: 'node server.js', lint: 'eslint --test-mode' } })).runners, {}, 'no node --test')
 })
+test('detect: test files that import node:test name Node\'s own runner with no script for it (TS DMS 6)', () => {
+  const d = repo({ devDependencies: { '@playwright/test': '1' } })
+  mkdirSync(join(d, 'test'))
+  writeFileSync(join(d, 'test/total.test.mjs'), "import { test } from 'node:test'\n")
+  const r = detect(d)
+  assert.deepEqual([...sidesOf(r), r.runners], ['playwright', 'vitest', { unit: 'node' }])
+  writeFileSync(join(d, 'test/total.test.mjs'), "import { test } from 'vitest'\n")
+  assert.deepEqual(detect(d).runners, {}, 'a test file of another runner')
+})
 
 test('detect: a repo with no test runner that is not a frontend alone gets Vitest; a frontend with its server gets both', () => {
   const nest = repo({ dependencies: { '@nestjs/core': '11' }, scripts: { start: 'nest start' } })

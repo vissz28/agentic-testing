@@ -155,10 +155,17 @@ const ENV_FILE = '.env.e2e'
 const PLAYWRIGHT_GITIGNORE = ['test-results/', 'playwright-report/']
 const SIGN_IN_GITIGNORE = [`${dirname(AUTH_STATE)}/`, ENV_FILE]
 // The unit runners setup recognises, the first one found winning; Vitest is the specialized one.
-// Node's own runner is no dependency: a script that runs node --test names it.
+// Node's own runner is no dependency: a script that runs node --test names it, or test files that import node:test.
 const UNIT_RUNNERS = ['vitest', 'jest', 'mocha']
 const NODE_TEST = /(?:^|&&|\|\||;|\|)\s*node\b[^&|;]*\s--test\b/
 const runsNodeTest = pkg => Object.values(pkg?.scripts ?? {}).some(s => NODE_TEST.test(String(s)))
+const NODE_TEST_IMPORT = /\b(?:from|require\()\s*['"]node:test['"]/
+/** A test file in test/ or tests/ imports node:test: the project runs node --test with no script for it. */
+const importsNodeTest = root => ['test', 'tests'].some(dir => {
+  let names = []
+  try { names = readdirSync(join(root, dir)) } catch { return false }
+  return names.some(n => { try { return SPEC_FILE.test(n) && NODE_TEST_IMPORT.test(readFileSync(join(root, dir, n), 'utf8')) } catch { return false } })
+})
 
 /** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
 export function packageManager(root, pkg) {
@@ -562,7 +569,7 @@ export function detect(top, env = process.env, sub = null) {
   const wsRunners = monorepo ? workspaceRunners(top, wsDirs) : []
   const wsRunner = majorityRunner(wsRunners)
   const wsAll = monorepo ? { ...workspaceDeps(top, wsDirs), ...deps } : deps
-  const unit = wsRunner ?? UNIT_RUNNERS.find(r => r in wsAll) ?? (runsNodeTest(pkg) ? 'node' : null)
+  const unit = wsRunner ?? UNIT_RUNNERS.find(r => r in wsAll) ?? (runsNodeTest(pkg) || importsNodeTest(root) ? 'node' : null)
   const e2e = '@playwright/test' in wsAll ? 'playwright' : 'cypress' in wsAll ? 'cypress' : null
   // Each workspace's own config (Jest started at the root without --config trips over the copies of packages in build folders):
   // the project's vitest.configs maps the folder to it. Only the workspaces on the runner the project uses.

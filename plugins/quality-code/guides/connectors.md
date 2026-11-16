@@ -87,6 +87,8 @@ Connectors
   ```
 
   `1` runs this check again. `2` runs the Jira fix below. `3` stops the command. Never go past this card without Jira.
+
+  Under the card, one line: `The atlassian-rovo sign-in page asks for read, write and delete rights: that is Atlassian's fixed list. Quality Code only reads, and writes to Jira only after you see a preview and say yes.`
 - **1. Continue:** go on. GitLab and Figma never block, and neither does GitHub.
 - **2. Fix one first:** list the connectors that are not ✅ as a numbered card, end the turn, and run the fix for the one picked. Each fix asks one question per turn and ends the turn after it.
 

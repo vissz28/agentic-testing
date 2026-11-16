@@ -25,7 +25,7 @@ import * as goRunners from './runners/go.mjs'
 import * as dotnetRunners from './runners/dotnet.mjs'
 import { genericRunner } from './runners/generic.mjs'
 import { BACKENDS } from '../stacks/backends.mjs'
-import { strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../config/config.mjs'
+import { maxMutantsOf, strykerThreshold, strykerTimeoutSeconds, timeoutSecondsOf } from '../config/config.mjs'
 import { typeCheck as realTypeCheck } from './types.mjs'
 import { dialectFor } from '../stacks/dialects/index.mjs'
 import { adapterOfSpec, asAdapter, isFullstack, specsByAdapter } from '../stacks/stack.mjs'
@@ -105,7 +105,7 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
     const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
     // A spec with failing tests and no passing one already shows its assertions can fail (spec §13).
     if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
-    let r = await mutation.run({ spec, key, baseline, timeoutMs, whole }, ctx)
+    let r = await mutation.run({ spec, key, baseline, max: maxMutantsOf(ctx.config), timeoutMs, whole }, ctx)
     // Nothing eligible in a spec that had passing tests: the pipeline cannot show its assertions bind.
     if (r.status === 'pass' && (r.data?.total ?? 0) === 0 && baseline.length) {
       r = result('mutation', 'not_run', `no assertion in ${spec} that mutation can check (snapshot, chai-style or custom matchers)`,
@@ -117,7 +117,8 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
   if (!per.length && redOnly) return result('mutation', 'pass', 'skipped: no passing test to mutate (see tests)', [], { killed: 0, survived: 0, errors: 0, total: 0, survivors: [] })
   if (!per.length) return result('mutation', 'not_run', key ? `no ${key} block in the specs` : 'nothing to mutate')
   const sum = k => per.reduce((n, r) => n + (r.data?.[k] ?? 0), 0)
-  const data = { killed: sum('killed'), survived: sum('survived'), errors: sum('errors'), total: sum('total'), survivors: per.flatMap(r => r.data?.survivors ?? []) }
+  const capped = sum('capped')
+  const data = { killed: sum('killed'), survived: sum('survived'), errors: sum('errors'), total: sum('total'), survivors: per.flatMap(r => r.data?.survivors ?? []), ...(capped ? { capped } : {}) }
   const findings = per.flatMap(r => r.findings)
   if (per.some(r => r.status === 'fail')) return result('mutation', 'fail', `${data.survived} of ${data.total} mutant(s) survived: an assertion that cannot fail`, findings, data)
   const notRun = per.filter(r => r.status === 'not_run')
@@ -127,7 +128,7 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
     const where = notRun.map(r => r.spec).join(', ')
     return result('mutation', 'not_run', data.total ? `${data.killed}/${data.total} mutants killed in the specs that ran; not checked in ${where}: ${why}` : why, findings, { ...data, unchecked: notRun.map(r => ({ spec: r.spec, why: r.summary })) })
   }
-  return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed`, findings, data)
+  return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed${capped ? `; ${capped} more left out by maxMutants` : ''}`, findings, data)
 }
 
 /** Stryker over the target file: a pass that says "not applicable" when it has nothing to run on. */

@@ -3,7 +3,8 @@ export default {
   then: ['then'],
   continuation: ['and', 'but'],
   setup: ['scenario(?: outline)?', 'feature', 'background', 'examples', 'given', 'when'],
-  acHeading: ['acceptance\\s+criteria', 'AC'],
+  // The bare word only as a whole heading ("## Acceptance", "Acceptance:"), never a field such as "Acceptance date".
+  acHeading: ['acceptance\\s+criteria', 'AC', 'acceptance(?=[^\\S\\n]*(?:[:*(]|$))'],
   sectionNames: ['summary', 'context', 'steps to reproduce', 'expected(?: result| behaviou?r)?', 'actual(?: result)?', 'environment', 'notes?', 'impact', 'user story', 'out of scope'],
   vague: ['works?\\s+correctly', 'working\\s+correctly', 'as\\s+expected', 'is\\s+fine'],
   stepsHeading: ['steps to reproduce'],

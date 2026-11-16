@@ -65,8 +65,8 @@ export function flipMutations(expectSrc) {
 /** A block mutation judges: it ran green, it is not skipped or a todo; an each/for test's titles are formatted at run time. */
 export const eligible = (block, passed) => block.mod !== 'todo' && block.mod !== 'skip' && block.mod !== 'each' && passed.has(block.title)
 
-/** A mutation plan from a dialect's flips: one mutant per expect (the strongest) unless thorough; baseline-green tests only, inside the range. */
-export const planOf = (flips, rank) => ({ src, passedTitles, range, thorough, blocks, expects }) => {
+/** A mutation plan from a dialect's flips: one mutant per expect (the strongest); baseline-green tests only, inside the range. */
+export const planOf = (flips, rank) => ({ src, passedTitles, range, blocks, expects }) => {
   const passed = new Set(passedTitles)
   const all = []
   for (const ex of expects) {
@@ -78,7 +78,6 @@ export const planOf = (flips, rank) => ({ src, passedTitles, range, thorough, bl
       all.push({ title: block.title, start: ex.start, end: ex.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
-  if (thorough) return all
   const best = new Map()
   for (const m of all) {
     const cur = best.get(m.start)

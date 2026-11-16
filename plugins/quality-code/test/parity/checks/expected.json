@@ -3969,7 +3969,6 @@
         "FIC-11947-edge-1-english-filter-empty-state-no-raw-key",
         "FIC-11947-edge-2-special-char-filter-still-shows-italian-empty-state"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "FIC-11947-1-italian-filter-empty-state-shows-translated-message",
@@ -4121,7 +4120,6 @@
         "FIC-12624-edge-2-view-drawer-closes-without-warning",
         "FIC-12624-edge-3-staying-on-the-form-keeps-the-drawer-open"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "FIC-12624-1-close-edit-drawer-by-clicking-outside-shows-no-warning",
@@ -4248,7 +4246,6 @@
         "FIC-13860-edge-2-special-characters-in-the-product-filter",
         "FIC-13860-edge-3-no-raw-label-code-shows-on-the-english-screen"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "FIC-13860-1-italian-profile-sees-the-italian-empty-message",
@@ -4406,7 +4403,6 @@
         "FIC-13374-edge-5-a-long-list-of-warehouses-still-loads",
         "FIC-13374 — design-conformance capture"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "FIC-13374-1-eligible-warehouse-card-shows-a-delete-icon",
@@ -4650,7 +4646,6 @@
         "ok",
         "hollow"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "ok",
@@ -4670,7 +4665,6 @@
         "FIC-1 — design-conformance capture",
         "honest"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "honest",
@@ -4689,125 +4683,6 @@
       "passed": [
         "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3787,
-          "end": 3842,
-          "kind": "invert-matcher",
-          "replacement": "expect(atD2?.stockOnHand.toNumber()).not.toBeCloseTo(0, 5);",
-          "snippet": "invert-matcher: expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3847,
-          "end": 3906,
-          "kind": "invert-matcher",
-          "replacement": "expect(atD3?.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4161,
-          "end": 4220,
-          "kind": "invert-matcher",
-          "replacement": "expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4225,
-          "end": 4289,
-          "kind": "drop-not",
-          "replacement": "expect(item?.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
-          "snippet": "drop-not: expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75,"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__kpi.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3787,
-          "end": 3842,
-          "kind": "invert-matcher",
-          "replacement": "expect(atD2?.stockOnHand.toNumber()).not.toBeCloseTo(0, 5);",
-          "snippet": "invert-matcher: expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3787,
-          "end": 3842,
-          "kind": "num→n+1",
-          "replacement": "expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(1, 5);",
-          "snippet": "num→n+1: expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3847,
-          "end": 3906,
-          "kind": "invert-matcher",
-          "replacement": "expect(atD3?.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3847,
-          "end": 3906,
-          "kind": "num→n+1",
-          "replacement": "expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4161,
-          "end": 4220,
-          "kind": "invert-matcher",
-          "replacement": "expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4161,
-          "end": 4220,
-          "kind": "num→n+1",
-          "replacement": "expect(item?.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4225,
-          "end": 4289,
-          "kind": "drop-not",
-          "replacement": "expect(item?.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
-          "snippet": "drop-not: expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75,"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4225,
-          "end": 4289,
-          "kind": "num→n+1",
-          "replacement": "expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(117.75, 2);",
-          "snippet": "num→n+1: expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75,"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__kpi.repository.spec.ts.txt",
-      "key": "FIC-13436",
-      "passed": [
-        "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
@@ -4850,7 +4725,6 @@
       "passed": [
         "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
@@ -4862,27 +4736,11 @@
         },
         {
           "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3787,
-          "end": 3842,
-          "kind": "num→n+1",
-          "replacement": "expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(1, 5);",
-          "snippet": "num→n+1: expect(atD2?.stockOnHand.toNumber()).toBeCloseTo(0, 5);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
           "start": 3847,
           "end": 3906,
           "kind": "invert-matcher",
           "replacement": "expect(atD3?.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
           "snippet": "invert-matcher: expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 3847,
-          "end": 3906,
-          "kind": "num→n+1",
-          "replacement": "expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(atD3?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
         },
         {
           "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
@@ -4894,27 +4752,11 @@
         },
         {
           "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4161,
-          "end": 4220,
-          "kind": "num→n+1",
-          "replacement": "expect(item?.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(item?.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
           "start": 4225,
           "end": 4289,
           "kind": "drop-not",
           "replacement": "expect(item?.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
           "snippet": "drop-not: expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75,"
-        },
-        {
-          "title": "rebuildFutureKpiRecords replays movements so the corrupted 116.75 history is corrected to 58.86",
-          "start": 4225,
-          "end": 4289,
-          "kind": "num→n+1",
-          "replacement": "expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(117.75, 2);",
-          "snippet": "num→n+1: expect(item?.stockOnHand.toNumber()).not.toBeCloseTo(116.75,"
         }
       ]
     },
@@ -4925,109 +4767,6 @@
       "passed": [
         "getAllDocuments returns { document, parentDocument }[] with total via real repo"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2019,
-          "end": 2045,
-          "kind": "invert-matcher",
-          "replacement": "expect(res.total).not.toBe(2);",
-          "snippet": "invert-matcher: expect(res.total).toBe(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2050,
-          "end": 2269,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual(\n      expect.arrayContaining([\n        { document: \"78\", parentDocument: ParentDocument.purchaseInvoice },\n        { document: \"98\", parentDocument: ParentDocument.purchaseOrder },\n      ]),\n    );",
-          "snippet": "invert-matcher: expect(rows).toEqual( expect.arrayContaining([ { document: \""
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2274,
-          "end": 2303,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toHaveLength(2);",
-          "snippet": "invert-matcher: expect(rows).toHaveLength(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2308,
-          "end": 2441,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.some(\n        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,\n      ),\n    ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( rows.some( (d) => d.parentDocument === ParentDocumen"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__movement.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "getAllDocuments returns { document, parentDocument }[] with total via real repo"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2019,
-          "end": 2045,
-          "kind": "invert-matcher",
-          "replacement": "expect(res.total).not.toBe(2);",
-          "snippet": "invert-matcher: expect(res.total).toBe(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2019,
-          "end": 2045,
-          "kind": "num→n+1",
-          "replacement": "expect(res.total).toBe(3);",
-          "snippet": "num→n+1: expect(res.total).toBe(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2050,
-          "end": 2269,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual(\n      expect.arrayContaining([\n        { document: \"78\", parentDocument: ParentDocument.purchaseInvoice },\n        { document: \"98\", parentDocument: ParentDocument.purchaseOrder },\n      ]),\n    );",
-          "snippet": "invert-matcher: expect(rows).toEqual( expect.arrayContaining([ { document: \""
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2274,
-          "end": 2303,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toHaveLength(2);",
-          "snippet": "invert-matcher: expect(rows).toHaveLength(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2274,
-          "end": 2303,
-          "kind": "num→n+1",
-          "replacement": "expect(rows).toHaveLength(3);",
-          "snippet": "num→n+1: expect(rows).toHaveLength(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2308,
-          "end": 2441,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.some(\n        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,\n      ),\n    ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( rows.some( (d) => d.parentDocument === ParentDocumen"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__movement.repository.spec.ts.txt",
-      "key": "FIC-13173",
-      "passed": [
-        "getAllDocuments returns { document, parentDocument }[] with total via real repo"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
@@ -5070,7 +4809,6 @@
       "passed": [
         "getAllDocuments returns { document, parentDocument }[] with total via real repo"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
@@ -5079,14 +4817,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(res.total).not.toBe(2);",
           "snippet": "invert-matcher: expect(res.total).toBe(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2019,
-          "end": 2045,
-          "kind": "num→n+1",
-          "replacement": "expect(res.total).toBe(3);",
-          "snippet": "num→n+1: expect(res.total).toBe(2);"
         },
         {
           "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
@@ -5103,14 +4833,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(rows).not.toHaveLength(2);",
           "snippet": "invert-matcher: expect(rows).toHaveLength(2);"
-        },
-        {
-          "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
-          "start": 2274,
-          "end": 2303,
-          "kind": "num→n+1",
-          "replacement": "expect(rows).toHaveLength(3);",
-          "snippet": "num→n+1: expect(rows).toHaveLength(2);"
         },
         {
           "title": "getAllDocuments returns { document, parentDocument }[] with total via real repo",
@@ -5131,7 +4853,6 @@
         "findAll excludes soft-deleted items even when a kpi exists",
         "tradeItemsByIds does not return a soft-deleted trade item"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "findAll with includeKpis returns the latest kpi on the item",
@@ -5226,186 +4947,12 @@
     {
       "repo": "be",
       "fixture": "be/specs/test__integration__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "findAll with includeKpis returns the latest kpi on the item",
-        "findAll excludes soft-deleted items even when a kpi exists",
-        "tradeItemsByIds does not return a soft-deleted trade item"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1293,
-          "end": 1322,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(1);",
-          "snippet": "invert-matcher: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1293,
-          "end": 1322,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(2);",
-          "snippet": "num→n+1: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1327,
-          "end": 1364,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1327,
-          "end": 1364,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(2);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1476,
-          "end": 1505,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpis).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(kpis).toHaveLength(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1476,
-          "end": 1505,
-          "kind": "num→n+1",
-          "replacement": "expect(kpis).toHaveLength(2);",
-          "snippet": "num→n+1: expect(kpis).toHaveLength(1);"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1510,
-          "end": 1563,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpis?.[0]?.stockOnHand.toString()).not.toBe(\"12\");",
-          "snippet": "invert-matcher: expect(kpis?.[0]?.stockOnHand.toString()).toBe(\"12\");"
-        },
-        {
-          "title": "findAll with includeKpis returns the latest kpi on the item",
-          "start": 1510,
-          "end": 1563,
-          "kind": "corrupt-string",
-          "replacement": "expect(kpis?.[0]?.stockOnHand.toString()).toBe(\"12★MUT\");",
-          "snippet": "corrupt-string: expect(kpis?.[0]?.stockOnHand.toString()).toBe(\"12\");"
-        },
-        {
-          "title": "findAll excludes soft-deleted items even when a kpi exists",
-          "start": 1948,
-          "end": 1977,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(0);",
-          "snippet": "invert-matcher: expect(result.count).toBe(0);"
-        },
-        {
-          "title": "findAll excludes soft-deleted items even when a kpi exists",
-          "start": 1948,
-          "end": 1977,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(1);",
-          "snippet": "num→n+1: expect(result.count).toBe(0);"
-        },
-        {
-          "title": "findAll excludes soft-deleted items even when a kpi exists",
-          "start": 1982,
-          "end": 2019,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(0);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(0);"
-        },
-        {
-          "title": "findAll excludes soft-deleted items even when a kpi exists",
-          "start": 1982,
-          "end": 2019,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(1);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(0);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3308,
-          "end": 3337,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(1);",
-          "snippet": "invert-matcher: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3308,
-          "end": 3337,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(2);",
-          "snippet": "num→n+1: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3342,
-          "end": 3379,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3342,
-          "end": 3379,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(2);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3384,
-          "end": 3425,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
-          "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3384,
-          "end": 3425,
-          "kind": "corrupt-string",
-          "replacement": "expect(result.items[0]?.id).toBe(\"ti-A★MUT\");",
-          "snippet": "corrupt-string: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3430,
-          "end": 3497,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3502,
-          "end": 3564,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id === \"ti-B\")).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id === \"ti-B\")).toBe(false"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__trade-item.repository.spec.ts.txt",
       "key": "FIC-13839",
       "passed": [
         "findAll with includeKpis returns the latest kpi on the item",
         "findAll excludes soft-deleted items even when a kpi exists",
         "tradeItemsByIds does not return a soft-deleted trade item"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "tradeItemsByIds does not return a soft-deleted trade item",
@@ -5430,83 +4977,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
           "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3430,
-          "end": 3497,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3502,
-          "end": 3564,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id === \"ti-B\")).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id === \"ti-B\")).toBe(false"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": "FIC-13839",
-      "passed": [
-        "findAll with includeKpis returns the latest kpi on the item",
-        "findAll excludes soft-deleted items even when a kpi exists",
-        "tradeItemsByIds does not return a soft-deleted trade item"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3308,
-          "end": 3337,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(1);",
-          "snippet": "invert-matcher: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3308,
-          "end": 3337,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(2);",
-          "snippet": "num→n+1: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3342,
-          "end": 3379,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3342,
-          "end": 3379,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(2);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3384,
-          "end": 3425,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
-          "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "tradeItemsByIds does not return a soft-deleted trade item",
-          "start": 3384,
-          "end": 3425,
-          "kind": "corrupt-string",
-          "replacement": "expect(result.items[0]?.id).toBe(\"ti-A★MUT\");",
-          "snippet": "corrupt-string: expect(result.items[0]?.id).toBe(\"ti-A\");"
         },
         {
           "title": "tradeItemsByIds does not return a soft-deleted trade item",
@@ -5535,7 +5005,6 @@
         "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
         "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
@@ -5616,147 +5085,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(\n      rows.find((r) => r.tradeItemId === OTTANTADUE)!.stockOnHand.toNumber(),\n    ).not.toBe(77);",
           "snippet": "invert-matcher: expect( rows.find((r) => r.tradeItemId === OTTANTADUE)!.stoc"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__kpi__kpi.service.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-        "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-        "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3939,
-          "end": 3966,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3971,
-          "end": 4029,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3971,
-          "end": 4029,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 4034,
-          "end": 4097,
-          "kind": "drop-not",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
-          "snippet": "drop-not: expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, "
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 4034,
-          "end": 4097,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(117.75, 2);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, "
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9916,
-          "end": 9952,
-          "kind": "invert-matcher",
-          "replacement": "expect(carnascialeReport).not.toBe(914);",
-          "snippet": "invert-matcher: expect(carnascialeReport).toBe(914);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9916,
-          "end": 9952,
-          "kind": "num→n+1",
-          "replacement": "expect(carnascialeReport).toBe(915);",
-          "snippet": "num→n+1: expect(carnascialeReport).toBe(914);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9957,
-          "end": 9991,
-          "kind": "invert-matcher",
-          "replacement": "expect(ottantadueReport).not.toBe(77);",
-          "snippet": "invert-matcher: expect(ottantadueReport).toBe(77);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9957,
-          "end": 9991,
-          "kind": "num→n+1",
-          "replacement": "expect(ottantadueReport).toBe(78);",
-          "snippet": "num→n+1: expect(ottantadueReport).toBe(77);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 10082,
-          "end": 10145,
-          "kind": "invert-matcher",
-          "replacement": "expect(carnascialeReport).not.toBe(await masterStock(CARNASCIALE));",
-          "snippet": "invert-matcher: expect(carnascialeReport).toBe(await masterStock(CARNASCIALE"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 10150,
-          "end": 10211,
-          "kind": "invert-matcher",
-          "replacement": "expect(ottantadueReport).not.toBe(await masterStock(OTTANTADUE));",
-          "snippet": "invert-matcher: expect(ottantadueReport).toBe(await masterStock(OTTANTADUE))"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11009,
-          "end": 11085,
-          "kind": "invert-matcher",
-          "replacement": "expect(row.stockOnHand.toNumber()).not.toBe(await masterStock(row.tradeItemId));",
-          "snippet": "invert-matcher: expect(row.stockOnHand.toNumber()).toBe(await masterStock(ro"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11156,
-          "end": 11259,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === CARNASCIALE)!.stockOnHand.toNumber(),\n    ).not.toBe(914);",
-          "snippet": "invert-matcher: expect( rows.find((r) => r.tradeItemId === CARNASCIALE)!.sto"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11156,
-          "end": 11259,
-          "kind": "num→n+1",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === CARNASCIALE)!.stockOnHand.toNumber(),\n    ).toBe(915);",
-          "snippet": "num→n+1: expect( rows.find((r) => r.tradeItemId === CARNASCIALE)!.sto"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11264,
-          "end": 11365,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === OTTANTADUE)!.stockOnHand.toNumber(),\n    ).not.toBe(77);",
-          "snippet": "invert-matcher: expect( rows.find((r) => r.tradeItemId === OTTANTADUE)!.stoc"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11264,
-          "end": 11365,
-          "kind": "num→n+1",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === OTTANTADUE)!.stockOnHand.toNumber(),\n    ).toBe(78);",
-          "snippet": "num→n+1: expect( rows.find((r) => r.tradeItemId === OTTANTADUE)!.stoc"
         }
       ]
     },
@@ -5769,7 +5097,6 @@
         "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
         "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
@@ -5794,59 +5121,6 @@
           "kind": "drop-not",
           "replacement": "expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
           "snippet": "drop-not: expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, "
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__kpi__kpi.service.spec.ts.txt",
-      "key": "FIC-13436",
-      "passed": [
-        "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-        "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-        "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3939,
-          "end": 3966,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3971,
-          "end": 4029,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(58.86, 2);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 3971,
-          "end": 4029,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(59.86, 2);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(58.86, 2);"
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 4034,
-          "end": 4097,
-          "kind": "drop-not",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBeCloseTo(116.75, 2);",
-          "snippet": "drop-not: expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, "
-        },
-        {
-          "title": "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-          "start": 4034,
-          "end": 4097,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(117.75, 2);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).not.toBeCloseTo(116.75, "
         }
       ]
     },
@@ -5859,7 +5133,6 @@
         "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
         "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
@@ -5921,223 +5194,11 @@
     },
     {
       "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__kpi__kpi.service.spec.ts.txt",
-      "key": "FIC-13986",
-      "passed": [
-        "an outgoing movement subtracts the uncorrected 116.75 down to 58.86 (never grows)",
-        "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-        "every item in the report matches its master-data stock (no report-vs-anagrafica drift)"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9916,
-          "end": 9952,
-          "kind": "invert-matcher",
-          "replacement": "expect(carnascialeReport).not.toBe(914);",
-          "snippet": "invert-matcher: expect(carnascialeReport).toBe(914);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9916,
-          "end": 9952,
-          "kind": "num→n+1",
-          "replacement": "expect(carnascialeReport).toBe(915);",
-          "snippet": "num→n+1: expect(carnascialeReport).toBe(914);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9957,
-          "end": 9991,
-          "kind": "invert-matcher",
-          "replacement": "expect(ottantadueReport).not.toBe(77);",
-          "snippet": "invert-matcher: expect(ottantadueReport).toBe(77);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 9957,
-          "end": 9991,
-          "kind": "num→n+1",
-          "replacement": "expect(ottantadueReport).toBe(78);",
-          "snippet": "num→n+1: expect(ottantadueReport).toBe(77);"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 10082,
-          "end": 10145,
-          "kind": "invert-matcher",
-          "replacement": "expect(carnascialeReport).not.toBe(await masterStock(CARNASCIALE));",
-          "snippet": "invert-matcher: expect(carnascialeReport).toBe(await masterStock(CARNASCIALE"
-        },
-        {
-          "title": "report giacenza equals the master-data stock: 914 for Carnasciale 2020, 77 for Ottantadue 2022",
-          "start": 10150,
-          "end": 10211,
-          "kind": "invert-matcher",
-          "replacement": "expect(ottantadueReport).not.toBe(await masterStock(OTTANTADUE));",
-          "snippet": "invert-matcher: expect(ottantadueReport).toBe(await masterStock(OTTANTADUE))"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11009,
-          "end": 11085,
-          "kind": "invert-matcher",
-          "replacement": "expect(row.stockOnHand.toNumber()).not.toBe(await masterStock(row.tradeItemId));",
-          "snippet": "invert-matcher: expect(row.stockOnHand.toNumber()).toBe(await masterStock(ro"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11156,
-          "end": 11259,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === CARNASCIALE)!.stockOnHand.toNumber(),\n    ).not.toBe(914);",
-          "snippet": "invert-matcher: expect( rows.find((r) => r.tradeItemId === CARNASCIALE)!.sto"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11156,
-          "end": 11259,
-          "kind": "num→n+1",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === CARNASCIALE)!.stockOnHand.toNumber(),\n    ).toBe(915);",
-          "snippet": "num→n+1: expect( rows.find((r) => r.tradeItemId === CARNASCIALE)!.sto"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11264,
-          "end": 11365,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === OTTANTADUE)!.stockOnHand.toNumber(),\n    ).not.toBe(77);",
-          "snippet": "invert-matcher: expect( rows.find((r) => r.tradeItemId === OTTANTADUE)!.stoc"
-        },
-        {
-          "title": "every item in the report matches its master-data stock (no report-vs-anagrafica drift)",
-          "start": 11264,
-          "end": 11365,
-          "kind": "num→n+1",
-          "replacement": "expect(\n      rows.find((r) => r.tradeItemId === OTTANTADUE)!.stockOnHand.toNumber(),\n    ).toBe(78);",
-          "snippet": "num→n+1: expect( rows.find((r) => r.tradeItemId === OTTANTADUE)!.stoc"
-        }
-      ]
-    },
-    {
-      "repo": "be",
       "fixture": "be/specs/test__integration__common__services__movement__movement.service.spec.ts.txt",
       "key": null,
       "passed": [
         "values an incoming movement at the master-data unit_cost (80), not unit_price (150)"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3552,
-          "end": 3583,
-          "kind": "invert-matcher",
-          "replacement": "expect(movement).not.toBeDefined();",
-          "snippet": "invert-matcher: expect(movement).toBeDefined();"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3733,
-          "end": 3759,
-          "kind": "invert-matcher",
-          "replacement": "expect(unitCost).not.toBe(80);",
-          "snippet": "invert-matcher: expect(unitCost).toBe(80);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3764,
-          "end": 3795,
-          "kind": "drop-not",
-          "replacement": "expect(unitCost).toBe(150);",
-          "snippet": "drop-not: expect(unitCost).not.toBe(150);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3865,
-          "end": 3916,
-          "kind": "invert-matcher",
-          "replacement": "expect(movement!.totalAmount.toNumber()).not.toBe(800);",
-          "snippet": "invert-matcher: expect(movement!.totalAmount.toNumber()).toBe(800);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__movement__movement.service.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "values an incoming movement at the master-data unit_cost (80), not unit_price (150)"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3552,
-          "end": 3583,
-          "kind": "invert-matcher",
-          "replacement": "expect(movement).not.toBeDefined();",
-          "snippet": "invert-matcher: expect(movement).toBeDefined();"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3733,
-          "end": 3759,
-          "kind": "invert-matcher",
-          "replacement": "expect(unitCost).not.toBe(80);",
-          "snippet": "invert-matcher: expect(unitCost).toBe(80);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3733,
-          "end": 3759,
-          "kind": "num→n+1",
-          "replacement": "expect(unitCost).toBe(81);",
-          "snippet": "num→n+1: expect(unitCost).toBe(80);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3764,
-          "end": 3795,
-          "kind": "drop-not",
-          "replacement": "expect(unitCost).toBe(150);",
-          "snippet": "drop-not: expect(unitCost).not.toBe(150);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3764,
-          "end": 3795,
-          "kind": "num→n+1",
-          "replacement": "expect(unitCost).not.toBe(151);",
-          "snippet": "num→n+1: expect(unitCost).not.toBe(150);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3865,
-          "end": 3916,
-          "kind": "invert-matcher",
-          "replacement": "expect(movement!.totalAmount.toNumber()).not.toBe(800);",
-          "snippet": "invert-matcher: expect(movement!.totalAmount.toNumber()).toBe(800);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3865,
-          "end": 3916,
-          "kind": "num→n+1",
-          "replacement": "expect(movement!.totalAmount.toNumber()).toBe(801);",
-          "snippet": "num→n+1: expect(movement!.totalAmount.toNumber()).toBe(800);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__movement__movement.service.spec.ts.txt",
-      "key": "FIC-13441",
-      "passed": [
-        "values an incoming movement at the master-data unit_cost (80), not unit_price (150)"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
@@ -6180,7 +5241,6 @@
       "passed": [
         "values an incoming movement at the master-data unit_cost (80), not unit_price (150)"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
@@ -6200,14 +5260,6 @@
         },
         {
           "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3733,
-          "end": 3759,
-          "kind": "num→n+1",
-          "replacement": "expect(unitCost).toBe(81);",
-          "snippet": "num→n+1: expect(unitCost).toBe(80);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
           "start": 3764,
           "end": 3795,
           "kind": "drop-not",
@@ -6216,27 +5268,11 @@
         },
         {
           "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3764,
-          "end": 3795,
-          "kind": "num→n+1",
-          "replacement": "expect(unitCost).not.toBe(151);",
-          "snippet": "num→n+1: expect(unitCost).not.toBe(150);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
           "start": 3865,
           "end": 3916,
           "kind": "invert-matcher",
           "replacement": "expect(movement!.totalAmount.toNumber()).not.toBe(800);",
           "snippet": "invert-matcher: expect(movement!.totalAmount.toNumber()).toBe(800);"
-        },
-        {
-          "title": "values an incoming movement at the master-data unit_cost (80), not unit_price (150)",
-          "start": 3865,
-          "end": 3916,
-          "kind": "num→n+1",
-          "replacement": "expect(movement!.totalAmount.toNumber()).toBe(801);",
-          "snippet": "num→n+1: expect(movement!.totalAmount.toNumber()).toBe(800);"
         }
       ]
     },
@@ -6248,7 +5284,6 @@
         "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
         "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
@@ -6313,114 +5348,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(kpi!.stockAvailability.toNumber()).not.toBe(-5);",
           "snippet": "invert-matcher: expect(kpi!.stockAvailability.toNumber()).toBe(-5);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__operational-invoice__operational-invoice.service.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-        "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 9104,
-          "end": 9136,
-          "kind": "drop-not",
-          "replacement": "expect(movement).toBeNull();",
-          "snippet": "drop-not: expect(movement).not.toBeNull();"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10235,
-          "end": 10262,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10267,
-          "end": 10312,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10267,
-          "end": 10312,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10413,
-          "end": 10465,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).not.toBe(-15);",
-          "snippet": "invert-matcher: expect(kpi!.stockAvailability.toNumber()).toBe(-15);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10413,
-          "end": 10465,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).toBe(-14);",
-          "snippet": "num→n+1: expect(kpi!.stockAvailability.toNumber()).toBe(-15);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 18180,
-          "end": 18212,
-          "kind": "drop-not",
-          "replacement": "expect(movement).toBeNull();",
-          "snippet": "drop-not: expect(movement).not.toBeNull();"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19318,
-          "end": 19345,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19350,
-          "end": 19395,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19350,
-          "end": 19395,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19400,
-          "end": 19451,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockAvailability.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19400,
-          "end": 19451,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockAvailability.toNumber()).toBe(-5);"
         }
       ]
     },
@@ -6432,7 +5359,6 @@
         "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
         "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
@@ -6471,72 +5397,11 @@
     {
       "repo": "be",
       "fixture": "be/specs/test__integration__common__services__operational-invoice__operational-invoice.service.spec.ts.txt",
-      "key": "FIC-13971",
-      "passed": [
-        "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-        "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 9104,
-          "end": 9136,
-          "kind": "drop-not",
-          "replacement": "expect(movement).toBeNull();",
-          "snippet": "drop-not: expect(movement).not.toBeNull();"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10235,
-          "end": 10262,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10267,
-          "end": 10312,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10267,
-          "end": 10312,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10413,
-          "end": 10465,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).not.toBe(-15);",
-          "snippet": "invert-matcher: expect(kpi!.stockAvailability.toNumber()).toBe(-15);"
-        },
-        {
-          "title": "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-          "start": 10413,
-          "end": 10465,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).toBe(-14);",
-          "snippet": "num→n+1: expect(kpi!.stockAvailability.toNumber()).toBe(-15);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__operational-invoice__operational-invoice.service.spec.ts.txt",
       "key": "FIC-13962",
       "passed": [
         "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
         "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
@@ -6574,134 +5439,11 @@
     },
     {
       "repo": "be",
-      "fixture": "be/specs/test__integration__common__services__operational-invoice__operational-invoice.service.spec.ts.txt",
-      "key": "FIC-13962",
-      "passed": [
-        "an invoice transformed from an order that already has a DDT must NOT decrement giacenza (stockOnHand) again: stays -5, not -10",
-        "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 18180,
-          "end": 18212,
-          "kind": "drop-not",
-          "replacement": "expect(movement).toBeNull();",
-          "snippet": "drop-not: expect(movement).not.toBeNull();"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19318,
-          "end": 19345,
-          "kind": "drop-not",
-          "replacement": "expect(kpi).toBeNull();",
-          "snippet": "drop-not: expect(kpi).not.toBeNull();"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19350,
-          "end": 19395,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19350,
-          "end": 19395,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockOnHand.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockOnHand.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19400,
-          "end": 19451,
-          "kind": "invert-matcher",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).not.toBe(-5);",
-          "snippet": "invert-matcher: expect(kpi!.stockAvailability.toNumber()).toBe(-5);"
-        },
-        {
-          "title": "an invoice that only references a DDT (no order) must NOT re-move giacenza/disponibilità the DDT already moved: both stay -5, not -10",
-          "start": 19400,
-          "end": 19451,
-          "kind": "num→n+1",
-          "replacement": "expect(kpi!.stockAvailability.toNumber()).toBe(-4);",
-          "snippet": "num→n+1: expect(kpi!.stockAvailability.toNumber()).toBe(-5);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
       "fixture": "be/specs/test__range__common__repositories__kpi.repository.spec.ts.txt",
       "key": null,
       "passed": [
         "getLastUnitCost returns the provided cost for any value, including 0"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 1344,
-          "end": 1419,
-          "kind": "invert-matcher",
-          "replacement": "expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).not.toBe(0);",
-          "snippet": "invert-matcher: expect(await new KpiRepository(prisma).getLastUnitCost(kpiKe"
-        },
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 2009,
-          "end": 2038,
-          "kind": "invert-matcher",
-          "replacement": "expect(result).not.toBe(carried);",
-          "snippet": "invert-matcher: expect(result).toBe(carried);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__kpi.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "getLastUnitCost returns the provided cost for any value, including 0"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 1344,
-          "end": 1419,
-          "kind": "invert-matcher",
-          "replacement": "expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).not.toBe(0);",
-          "snippet": "invert-matcher: expect(await new KpiRepository(prisma).getLastUnitCost(kpiKe"
-        },
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 1344,
-          "end": 1419,
-          "kind": "num→n+1",
-          "replacement": "expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).toBe(1);",
-          "snippet": "num→n+1: expect(await new KpiRepository(prisma).getLastUnitCost(kpiKe"
-        },
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 2009,
-          "end": 2038,
-          "kind": "invert-matcher",
-          "replacement": "expect(result).not.toBe(carried);",
-          "snippet": "invert-matcher: expect(result).toBe(carried);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__kpi.repository.spec.ts.txt",
-      "key": "FIC-14376",
-      "passed": [
-        "getLastUnitCost returns the provided cost for any value, including 0"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "getLastUnitCost returns the provided cost for any value, including 0",
@@ -6728,7 +5470,6 @@
       "passed": [
         "getLastUnitCost returns the provided cost for any value, including 0"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "getLastUnitCost returns the provided cost for any value, including 0",
@@ -6737,14 +5478,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).not.toBe(0);",
           "snippet": "invert-matcher: expect(await new KpiRepository(prisma).getLastUnitCost(kpiKe"
-        },
-        {
-          "title": "getLastUnitCost returns the provided cost for any value, including 0",
-          "start": 1344,
-          "end": 1419,
-          "kind": "num→n+1",
-          "replacement": "expect(await new KpiRepository(prisma).getLastUnitCost(kpiKey, 0)).toBe(1);",
-          "snippet": "num→n+1: expect(await new KpiRepository(prisma).getLastUnitCost(kpiKe"
         },
         {
           "title": "getLastUnitCost returns the provided cost for any value, including 0",
@@ -6763,34 +5496,6 @@
       "passed": [
         "findAllUniqueDocuments always pairs document number with parentDocument for filterable types"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
-          "start": 2557,
-          "end": 2607,
-          "kind": "invert-matcher",
-          "replacement": "expect(hit).not.toEqual({ document, parentDocument });",
-          "snippet": "invert-matcher: expect(hit).toEqual({ document, parentDocument });"
-        },
-        {
-          "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
-          "start": 2618,
-          "end": 2807,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n            docs.some(\n              (d) =>\n                d.parentDocument ===\n                ParentDocument.inventoryStockAdjustmentNote,\n            ),\n          ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( docs.some( (d) => d.parentDocument === ParentDocumen"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__movement.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "findAllUniqueDocuments always pairs document number with parentDocument for filterable types"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
@@ -6817,34 +5522,6 @@
       "passed": [
         "findAllUniqueDocuments always pairs document number with parentDocument for filterable types"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
-          "start": 2557,
-          "end": 2607,
-          "kind": "invert-matcher",
-          "replacement": "expect(hit).not.toEqual({ document, parentDocument });",
-          "snippet": "invert-matcher: expect(hit).toEqual({ document, parentDocument });"
-        },
-        {
-          "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
-          "start": 2618,
-          "end": 2807,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n            docs.some(\n              (d) =>\n                d.parentDocument ===\n                ParentDocument.inventoryStockAdjustmentNote,\n            ),\n          ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( docs.some( (d) => d.parentDocument === ParentDocumen"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__movement.repository.spec.ts.txt",
-      "key": "FIC-13173",
-      "passed": [
-        "findAllUniqueDocuments always pairs document number with parentDocument for filterable types"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findAllUniqueDocuments always pairs document number with parentDocument for filterable types",
@@ -6873,68 +5550,6 @@
         "findByCode returns the live row for any generated code",
         "findAllByIds never returns a soft-deleted item for any live/deleted mix"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findByCode never returns a row whose deletedAt is set",
-          "start": 1078,
-          "end": 1146,
-          "kind": "invert-matcher",
-          "replacement": "expect(await repo.findByCode({ code, workspaceId: WS })).not.toBeNull();",
-          "snippet": "invert-matcher: expect(await repo.findByCode({ code, workspaceId: WS })).toB"
-        },
-        {
-          "title": "findByCode returns the live row for any generated code",
-          "start": 1673,
-          "end": 1704,
-          "kind": "invert-matcher",
-          "replacement": "expect(found?.code).not.toBe(code);",
-          "snippet": "invert-matcher: expect(found?.code).toBe(code);"
-        },
-        {
-          "title": "findByCode returns the live row for any generated code",
-          "start": 1713,
-          "end": 1749,
-          "kind": "invert-matcher",
-          "replacement": "expect(found?.deletedAt).not.toBeNull();",
-          "snippet": "invert-matcher: expect(found?.deletedAt).toBeNull();"
-        },
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3246,
-          "end": 3313,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3324,
-          "end": 3395,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id.startsWith(\"gone-\"))).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id.startsWith(\"gone-\"))).t"
-        },
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3406,
-          "end": 3451,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(liveCount);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(liveCount);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "findByCode never returns a row whose deletedAt is set",
-        "findByCode returns the live row for any generated code",
-        "findAllByIds never returns a soft-deleted item for any live/deleted mix"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findByCode never returns a row whose deletedAt is set",
@@ -6995,44 +5610,6 @@
         "findByCode returns the live row for any generated code",
         "findAllByIds never returns a soft-deleted item for any live/deleted mix"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3246,
-          "end": 3313,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3324,
-          "end": 3395,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id.startsWith(\"gone-\"))).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id.startsWith(\"gone-\"))).t"
-        },
-        {
-          "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
-          "start": 3406,
-          "end": 3451,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(liveCount);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(liveCount);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": "FIC-13839",
-      "passed": [
-        "findByCode never returns a row whose deletedAt is set",
-        "findByCode returns the live row for any generated code",
-        "findAllByIds never returns a soft-deleted item for any live/deleted mix"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findAllByIds never returns a soft-deleted item for any live/deleted mix",
@@ -7068,159 +5645,6 @@
         "report stock equals the master-data value and the true net for any incoming/outgoing",
         "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 5879,
-          "end": 5907,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBe(master);",
-          "snippet": "invert-matcher: expect(report).toBe(master);"
-        },
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 5985,
-          "end": 6011,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBe(kept);",
-          "snippet": "invert-matcher: expect(report).toBe(kept);"
-        },
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 6077,
-          "end": 6122,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBeLessThanOrEqual(incoming);",
-          "snippet": "invert-matcher: expect(report).toBeLessThanOrEqual(incoming);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6590,
-          "end": 6635,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service)).not.toBe(914);",
-          "snippet": "invert-matcher: expect(await reportStock(service)).toBe(914);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6640,
-          "end": 6707,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service)).not.toBe(await masterStock(prisma));",
-          "snippet": "invert-matcher: expect(await reportStock(service)).toBe(await masterStock(pr"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7080,
-          "end": 7125,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service2)).not.toBe(77);",
-          "snippet": "invert-matcher: expect(await reportStock(service2)).toBe(77);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7130,
-          "end": 7199,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service2)).not.toBe(await masterStock(prisma2));",
-          "snippet": "invert-matcher: expect(await reportStock(service2)).toBe(await masterStock(p"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__services__kpi__kpi.service.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "report stock equals the master-data value and the true net for any incoming/outgoing",
-        "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 5879,
-          "end": 5907,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBe(master);",
-          "snippet": "invert-matcher: expect(report).toBe(master);"
-        },
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 5985,
-          "end": 6011,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBe(kept);",
-          "snippet": "invert-matcher: expect(report).toBe(kept);"
-        },
-        {
-          "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
-          "start": 6077,
-          "end": 6122,
-          "kind": "invert-matcher",
-          "replacement": "expect(report).not.toBeLessThanOrEqual(incoming);",
-          "snippet": "invert-matcher: expect(report).toBeLessThanOrEqual(incoming);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6590,
-          "end": 6635,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service)).not.toBe(914);",
-          "snippet": "invert-matcher: expect(await reportStock(service)).toBe(914);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6590,
-          "end": 6635,
-          "kind": "num→n+1",
-          "replacement": "expect(await reportStock(service)).toBe(915);",
-          "snippet": "num→n+1: expect(await reportStock(service)).toBe(914);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6640,
-          "end": 6707,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service)).not.toBe(await masterStock(prisma));",
-          "snippet": "invert-matcher: expect(await reportStock(service)).toBe(await masterStock(pr"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7080,
-          "end": 7125,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service2)).not.toBe(77);",
-          "snippet": "invert-matcher: expect(await reportStock(service2)).toBe(77);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7080,
-          "end": 7125,
-          "kind": "num→n+1",
-          "replacement": "expect(await reportStock(service2)).toBe(78);",
-          "snippet": "num→n+1: expect(await reportStock(service2)).toBe(77);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7130,
-          "end": 7199,
-          "kind": "invert-matcher",
-          "replacement": "expect(await reportStock(service2)).not.toBe(await masterStock(prisma2));",
-          "snippet": "invert-matcher: expect(await reportStock(service2)).toBe(await masterStock(p"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__range__common__services__kpi__kpi.service.spec.ts.txt",
-      "key": "FIC-13986",
-      "passed": [
-        "report stock equals the master-data value and the true net for any incoming/outgoing",
-        "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
@@ -7288,7 +5712,6 @@
         "report stock equals the master-data value and the true net for any incoming/outgoing",
         "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "report stock equals the master-data value and the true net for any incoming/outgoing",
@@ -7324,14 +5747,6 @@
         },
         {
           "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 6590,
-          "end": 6635,
-          "kind": "num→n+1",
-          "replacement": "expect(await reportStock(service)).toBe(915);",
-          "snippet": "num→n+1: expect(await reportStock(service)).toBe(914);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
           "start": 6640,
           "end": 6707,
           "kind": "invert-matcher",
@@ -7345,14 +5760,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(await reportStock(service2)).not.toBe(77);",
           "snippet": "invert-matcher: expect(await reportStock(service2)).toBe(77);"
-        },
-        {
-          "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
-          "start": 7080,
-          "end": 7125,
-          "kind": "num→n+1",
-          "replacement": "expect(await reportStock(service2)).toBe(78);",
-          "snippet": "num→n+1: expect(await reportStock(service2)).toBe(77);"
         },
         {
           "title": "pinned ticket case: report shows 914 for Carnasciale 2020 and 77 for Ottantadue 2022",
@@ -7372,127 +5779,6 @@
         "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
         "getLastUnitPrice carries a 0 price instead of keeping the previous last price"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1285,
-          "end": 1310,
-          "kind": "invert-matcher",
-          "replacement": "expect(lastCost).not.toBe(0);",
-          "snippet": "invert-matcher: expect(lastCost).toBe(0);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1315,
-          "end": 1345,
-          "kind": "drop-not",
-          "replacement": "expect(lastCost).toBe(50);",
-          "snippet": "drop-not: expect(lastCost).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1664,
-          "end": 1690,
-          "kind": "invert-matcher",
-          "replacement": "expect(lastPrice).not.toBe(0);",
-          "snippet": "invert-matcher: expect(lastPrice).toBe(0);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1695,
-          "end": 1726,
-          "kind": "drop-not",
-          "replacement": "expect(lastPrice).toBe(50);",
-          "snippet": "drop-not: expect(lastPrice).not.toBe(50);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__kpi.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-        "getLastUnitPrice carries a 0 price instead of keeping the previous last price"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1285,
-          "end": 1310,
-          "kind": "invert-matcher",
-          "replacement": "expect(lastCost).not.toBe(0);",
-          "snippet": "invert-matcher: expect(lastCost).toBe(0);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1285,
-          "end": 1310,
-          "kind": "num→n+1",
-          "replacement": "expect(lastCost).toBe(1);",
-          "snippet": "num→n+1: expect(lastCost).toBe(0);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1315,
-          "end": 1345,
-          "kind": "drop-not",
-          "replacement": "expect(lastCost).toBe(50);",
-          "snippet": "drop-not: expect(lastCost).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1315,
-          "end": 1345,
-          "kind": "num→n+1",
-          "replacement": "expect(lastCost).not.toBe(51);",
-          "snippet": "num→n+1: expect(lastCost).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1664,
-          "end": 1690,
-          "kind": "invert-matcher",
-          "replacement": "expect(lastPrice).not.toBe(0);",
-          "snippet": "invert-matcher: expect(lastPrice).toBe(0);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1664,
-          "end": 1690,
-          "kind": "num→n+1",
-          "replacement": "expect(lastPrice).toBe(1);",
-          "snippet": "num→n+1: expect(lastPrice).toBe(0);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1695,
-          "end": 1726,
-          "kind": "drop-not",
-          "replacement": "expect(lastPrice).toBe(50);",
-          "snippet": "drop-not: expect(lastPrice).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1695,
-          "end": 1726,
-          "kind": "num→n+1",
-          "replacement": "expect(lastPrice).not.toBe(51);",
-          "snippet": "num→n+1: expect(lastPrice).not.toBe(50);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__kpi.repository.spec.ts.txt",
-      "key": "FIC-14376",
-      "passed": [
-        "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-        "getLastUnitPrice carries a 0 price instead of keeping the previous last price"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
@@ -7536,7 +5822,6 @@
         "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
         "getLastUnitPrice carries a 0 price instead of keeping the previous last price"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
@@ -7548,27 +5833,11 @@
         },
         {
           "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1285,
-          "end": 1310,
-          "kind": "num→n+1",
-          "replacement": "expect(lastCost).toBe(1);",
-          "snippet": "num→n+1: expect(lastCost).toBe(0);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
           "start": 1315,
           "end": 1345,
           "kind": "drop-not",
           "replacement": "expect(lastCost).toBe(50);",
           "snippet": "drop-not: expect(lastCost).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitCost carries a 0 cost instead of keeping the previous last cost",
-          "start": 1315,
-          "end": 1345,
-          "kind": "num→n+1",
-          "replacement": "expect(lastCost).not.toBe(51);",
-          "snippet": "num→n+1: expect(lastCost).not.toBe(50);"
         },
         {
           "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
@@ -7580,27 +5849,11 @@
         },
         {
           "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1664,
-          "end": 1690,
-          "kind": "num→n+1",
-          "replacement": "expect(lastPrice).toBe(1);",
-          "snippet": "num→n+1: expect(lastPrice).toBe(0);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
           "start": 1695,
           "end": 1726,
           "kind": "drop-not",
           "replacement": "expect(lastPrice).toBe(50);",
           "snippet": "drop-not: expect(lastPrice).not.toBe(50);"
-        },
-        {
-          "title": "getLastUnitPrice carries a 0 price instead of keeping the previous last price",
-          "start": 1695,
-          "end": 1726,
-          "kind": "num→n+1",
-          "replacement": "expect(lastPrice).not.toBe(51);",
-          "snippet": "num→n+1: expect(lastPrice).not.toBe(50);"
         }
       ]
     },
@@ -7613,68 +5866,6 @@
         "edge: excludes inventoryStockAdjustmentNote from the documents filter",
         "edge: soft-deleted and null-document movements are omitted"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1428,
-          "end": 1641,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual(\n      expect.arrayContaining([\n        { document: \"78\", parentDocument: ParentDocument.salesInvoice },\n        { document: \"98\", parentDocument: ParentDocument.salesOrder },\n      ]),\n    );",
-          "snippet": "invert-matcher: expect(rows).toEqual( expect.arrayContaining([ { document: \""
-        },
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1646,
-          "end": 1720,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows.every((d) => typeof d === \"object\" && d !== null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(rows.every((d) => typeof d === \"object\" && d !== null"
-        },
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1725,
-          "end": 1794,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows.every((d) => typeof d.document === \"string\")).not.toBe(true);",
-          "snippet": "invert-matcher: expect(rows.every((d) => typeof d.document === \"string\")).to"
-        },
-        {
-          "title": "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-          "start": 2451,
-          "end": 2555,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual([\n      { document: \"65\", parentDocument: ParentDocument.salesCreditNote },\n    ]);",
-          "snippet": "invert-matcher: expect(rows).toEqual([ { document: \"65\", parentDocument: Par"
-        },
-        {
-          "title": "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-          "start": 2560,
-          "end": 2693,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.some(\n        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,\n      ),\n    ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( rows.some( (d) => d.parentDocument === ParentDocumen"
-        },
-        {
-          "title": "edge: soft-deleted and null-document movements are omitted",
-          "start": 3502,
-          "end": 3606,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual([\n      { document: \"53\", parentDocument: ParentDocument.salesCreditNote },\n    ]);",
-          "snippet": "invert-matcher: expect(rows).toEqual([ { document: \"53\", parentDocument: Par"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__movement.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-        "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-        "edge: soft-deleted and null-document movements are omitted"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
@@ -7735,68 +5926,6 @@
         "edge: excludes inventoryStockAdjustmentNote from the documents filter",
         "edge: soft-deleted and null-document movements are omitted"
       ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1428,
-          "end": 1641,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual(\n      expect.arrayContaining([\n        { document: \"78\", parentDocument: ParentDocument.salesInvoice },\n        { document: \"98\", parentDocument: ParentDocument.salesOrder },\n      ]),\n    );",
-          "snippet": "invert-matcher: expect(rows).toEqual( expect.arrayContaining([ { document: \""
-        },
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1646,
-          "end": 1720,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows.every((d) => typeof d === \"object\" && d !== null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(rows.every((d) => typeof d === \"object\" && d !== null"
-        },
-        {
-          "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-          "start": 1725,
-          "end": 1794,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows.every((d) => typeof d.document === \"string\")).not.toBe(true);",
-          "snippet": "invert-matcher: expect(rows.every((d) => typeof d.document === \"string\")).to"
-        },
-        {
-          "title": "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-          "start": 2451,
-          "end": 2555,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual([\n      { document: \"65\", parentDocument: ParentDocument.salesCreditNote },\n    ]);",
-          "snippet": "invert-matcher: expect(rows).toEqual([ { document: \"65\", parentDocument: Par"
-        },
-        {
-          "title": "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-          "start": 2560,
-          "end": 2693,
-          "kind": "invert-matcher",
-          "replacement": "expect(\n      rows.some(\n        (d) => d.parentDocument === ParentDocument.inventoryStockAdjustmentNote,\n      ),\n    ).not.toBe(false);",
-          "snippet": "invert-matcher: expect( rows.some( (d) => d.parentDocument === ParentDocumen"
-        },
-        {
-          "title": "edge: soft-deleted and null-document movements are omitted",
-          "start": 3502,
-          "end": 3606,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual([\n      { document: \"53\", parentDocument: ParentDocument.salesCreditNote },\n    ]);",
-          "snippet": "invert-matcher: expect(rows).toEqual([ { document: \"53\", parentDocument: Par"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__movement.repository.spec.ts.txt",
-      "key": "FIC-13173",
-      "passed": [
-        "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
-        "edge: excludes inventoryStockAdjustmentNote from the documents filter",
-        "edge: soft-deleted and null-document movements are omitted"
-      ],
-      "thorough": true,
       "mutants": [
         {
           "title": "findAllUniqueDocuments returns { document, parentDocument } for seeded invoice/order",
@@ -7857,7 +5986,6 @@
         "findByCode skips a soft-deleted row",
         "findAllByIds excludes a soft-deleted trade item from the products-stock list"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "findByCode returns the seeded row",
@@ -7944,146 +6072,12 @@
     {
       "repo": "be",
       "fixture": "be/specs/test__unit__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "findByCode returns the seeded row",
-        "findByCode skips a soft-deleted row",
-        "findAllByIds excludes a soft-deleted trade item from the products-stock list"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 976,
-          "end": 1005,
-          "kind": "drop-not",
-          "replacement": "expect(found).toBeNull();",
-          "snippet": "drop-not: expect(found).not.toBeNull();"
-        },
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 1010,
-          "end": 1045,
-          "kind": "invert-matcher",
-          "replacement": "expect(found?.code).not.toBe(\"CODE-1\");",
-          "snippet": "invert-matcher: expect(found?.code).toBe(\"CODE-1\");"
-        },
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 1010,
-          "end": 1045,
-          "kind": "corrupt-string",
-          "replacement": "expect(found?.code).toBe(\"CODE-1★MUT\");",
-          "snippet": "corrupt-string: expect(found?.code).toBe(\"CODE-1\");"
-        },
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 1050,
-          "end": 1097,
-          "kind": "invert-matcher",
-          "replacement": "expect(found?.unitCost?.toString()).not.toBe(\"80\");",
-          "snippet": "invert-matcher: expect(found?.unitCost?.toString()).toBe(\"80\");"
-        },
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 1050,
-          "end": 1097,
-          "kind": "corrupt-string",
-          "replacement": "expect(found?.unitCost?.toString()).toBe(\"80★MUT\");",
-          "snippet": "corrupt-string: expect(found?.unitCost?.toString()).toBe(\"80\");"
-        },
-        {
-          "title": "findByCode returns the seeded row",
-          "start": 1102,
-          "end": 1138,
-          "kind": "invert-matcher",
-          "replacement": "expect(found?.deletedAt).not.toBeNull();",
-          "snippet": "invert-matcher: expect(found?.deletedAt).toBeNull();"
-        },
-        {
-          "title": "findByCode skips a soft-deleted row",
-          "start": 1316,
-          "end": 1392,
-          "kind": "invert-matcher",
-          "replacement": "expect(await repo.findByCode({ code: \"GONE\", workspaceId: WS })).not.toBeNull();",
-          "snippet": "invert-matcher: expect(await repo.findByCode({ code: \"GONE\", workspaceId: WS"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2675,
-          "end": 2704,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(1);",
-          "snippet": "invert-matcher: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2675,
-          "end": 2704,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(2);",
-          "snippet": "num→n+1: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2709,
-          "end": 2746,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2709,
-          "end": 2746,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(2);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2751,
-          "end": 2792,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
-          "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2751,
-          "end": 2792,
-          "kind": "corrupt-string",
-          "replacement": "expect(result.items[0]?.id).toBe(\"ti-A★MUT\");",
-          "snippet": "corrupt-string: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2797,
-          "end": 2864,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2869,
-          "end": 2931,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id === \"ti-B\")).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id === \"ti-B\")).toBe(false"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__trade-item.repository.spec.ts.txt",
       "key": "FIC-13839",
       "passed": [
         "findByCode returns the seeded row",
         "findByCode skips a soft-deleted row",
         "findAllByIds excludes a soft-deleted trade item from the products-stock list"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
@@ -8108,83 +6102,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
           "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2797,
-          "end": 2864,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.every((i) => i.deletedAt === null)).not.toBe(true);",
-          "snippet": "invert-matcher: expect(result.items.every((i) => i.deletedAt === null)).toBe"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2869,
-          "end": 2931,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items.some((i) => i.id === \"ti-B\")).not.toBe(false);",
-          "snippet": "invert-matcher: expect(result.items.some((i) => i.id === \"ti-B\")).toBe(false"
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/specs/test__unit__common__repositories__trade-item.repository.spec.ts.txt",
-      "key": "FIC-13839",
-      "passed": [
-        "findByCode returns the seeded row",
-        "findByCode skips a soft-deleted row",
-        "findAllByIds excludes a soft-deleted trade item from the products-stock list"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2675,
-          "end": 2704,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.count).not.toBe(1);",
-          "snippet": "invert-matcher: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2675,
-          "end": 2704,
-          "kind": "num→n+1",
-          "replacement": "expect(result.count).toBe(2);",
-          "snippet": "num→n+1: expect(result.count).toBe(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2709,
-          "end": 2746,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items).not.toHaveLength(1);",
-          "snippet": "invert-matcher: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2709,
-          "end": 2746,
-          "kind": "num→n+1",
-          "replacement": "expect(result.items).toHaveLength(2);",
-          "snippet": "num→n+1: expect(result.items).toHaveLength(1);"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2751,
-          "end": 2792,
-          "kind": "invert-matcher",
-          "replacement": "expect(result.items[0]?.id).not.toBe(\"ti-A\");",
-          "snippet": "invert-matcher: expect(result.items[0]?.id).toBe(\"ti-A\");"
-        },
-        {
-          "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
-          "start": 2751,
-          "end": 2792,
-          "kind": "corrupt-string",
-          "replacement": "expect(result.items[0]?.id).toBe(\"ti-A★MUT\");",
-          "snippet": "corrupt-string: expect(result.items[0]?.id).toBe(\"ti-A\");"
         },
         {
           "title": "findAllByIds excludes a soft-deleted trade item from the products-stock list",
@@ -8212,7 +6129,6 @@
         "calls the builder count times, in order, with each(i) overrides",
         "count 0 seeds nothing"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "calls the builder count times, in order, with each(i) overrides",
@@ -8258,134 +6174,17 @@
     },
     {
       "repo": "be",
-      "fixture": "be/specs/test__unit__helpers__seed-many.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "calls the builder count times, in order, with each(i) overrides",
-        "count 0 seeds nothing"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "calls the builder count times, in order, with each(i) overrides",
-          "start": 765,
-          "end": 806,
-          "kind": "invert-matcher",
-          "replacement": "expect(builder).not.toHaveBeenCalledTimes(3);",
-          "snippet": "invert-matcher: expect(builder).toHaveBeenCalledTimes(3);"
-        },
-        {
-          "title": "calls the builder count times, in order, with each(i) overrides",
-          "start": 765,
-          "end": 806,
-          "kind": "num→n+1",
-          "replacement": "expect(builder).toHaveBeenCalledTimes(4);",
-          "snippet": "num→n+1: expect(builder).toHaveBeenCalledTimes(3);"
-        },
-        {
-          "title": "calls the builder count times, in order, with each(i) overrides",
-          "start": 811,
-          "end": 925,
-          "kind": "invert-matcher",
-          "replacement": "expect(seen).not.toEqual([\n      { eventId: \"evt-0\" },\n      { eventId: \"evt-1\" },\n      { eventId: \"evt-2\" },\n    ]);",
-          "snippet": "invert-matcher: expect(seen).toEqual([ { eventId: \"evt-0\" }, { eventId: \"evt"
-        },
-        {
-          "title": "calls the builder count times, in order, with each(i) overrides",
-          "start": 930,
-          "end": 959,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toHaveLength(3);",
-          "snippet": "invert-matcher: expect(rows).toHaveLength(3);"
-        },
-        {
-          "title": "calls the builder count times, in order, with each(i) overrides",
-          "start": 930,
-          "end": 959,
-          "kind": "num→n+1",
-          "replacement": "expect(rows).toHaveLength(4);",
-          "snippet": "num→n+1: expect(rows).toHaveLength(3);"
-        },
-        {
-          "title": "count 0 seeds nothing",
-          "start": 1138,
-          "end": 1177,
-          "kind": "drop-not",
-          "replacement": "expect(builder).toHaveBeenCalled();",
-          "snippet": "drop-not: expect(builder).not.toHaveBeenCalled();"
-        },
-        {
-          "title": "count 0 seeds nothing",
-          "start": 1182,
-          "end": 1207,
-          "kind": "invert-matcher",
-          "replacement": "expect(rows).not.toEqual([]);",
-          "snippet": "invert-matcher: expect(rows).toEqual([]);"
-        }
-      ]
-    },
-    {
-      "repo": "be",
       "fixture": "be/synthetic/hollow.spec.ts.txt",
       "key": null,
       "passed": [
         "ok",
         "hollow"
       ],
-      "thorough": false,
       "mutants": [
         {
           "title": "ok",
           "start": 17,
           "end": 35,
-          "kind": "invert-matcher",
-          "replacement": "expect(1).not.toBe(1) ",
-          "snippet": "invert-matcher: expect(1).toBe(1) "
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/synthetic/hollow.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "ok",
-        "hollow"
-      ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "ok",
-          "start": 17,
-          "end": 35,
-          "kind": "invert-matcher",
-          "replacement": "expect(1).not.toBe(1) ",
-          "snippet": "invert-matcher: expect(1).toBe(1) "
-        },
-        {
-          "title": "ok",
-          "start": 17,
-          "end": 35,
-          "kind": "num→n+1",
-          "replacement": "expect(1).toBe(2) ",
-          "snippet": "num→n+1: expect(1).toBe(1) "
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/synthetic/outside.spec.ts.txt",
-      "key": null,
-      "passed": [
-        "in",
-        "outside"
-      ],
-      "thorough": false,
-      "mutants": [
-        {
-          "title": "in",
-          "start": 52,
-          "end": 70,
           "kind": "invert-matcher",
           "replacement": "expect(1).not.toBe(1) ",
           "snippet": "invert-matcher: expect(1).toBe(1) "
@@ -8400,35 +6199,6 @@
         "in",
         "outside"
       ],
-      "thorough": true,
-      "mutants": [
-        {
-          "title": "in",
-          "start": 52,
-          "end": 70,
-          "kind": "invert-matcher",
-          "replacement": "expect(1).not.toBe(1) ",
-          "snippet": "invert-matcher: expect(1).toBe(1) "
-        },
-        {
-          "title": "in",
-          "start": 52,
-          "end": 70,
-          "kind": "num→n+1",
-          "replacement": "expect(1).toBe(2) ",
-          "snippet": "num→n+1: expect(1).toBe(1) "
-        }
-      ]
-    },
-    {
-      "repo": "be",
-      "fixture": "be/synthetic/outside.spec.ts.txt",
-      "key": "FIC-1",
-      "passed": [
-        "in",
-        "outside"
-      ],
-      "thorough": false,
       "mutants": [
         {
           "title": "in",
@@ -8448,7 +6218,6 @@
         "in",
         "outside"
       ],
-      "thorough": true,
       "mutants": [
         {
           "title": "in",
@@ -8457,14 +6226,6 @@
           "kind": "invert-matcher",
           "replacement": "expect(1).not.toBe(1) ",
           "snippet": "invert-matcher: expect(1).toBe(1) "
-        },
-        {
-          "title": "in",
-          "start": 52,
-          "end": 70,
-          "kind": "num→n+1",
-          "replacement": "expect(1).toBe(2) ",
-          "snippet": "num→n+1: expect(1).toBe(1) "
         }
       ]
     }

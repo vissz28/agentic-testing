@@ -155,8 +155,15 @@ function runnerFields(b, name, e) {
     })
   }
   if (b.tsconfig !== undefined && !pathOk(b.tsconfig)) e.push(`${name}.tsconfig ${JSON.stringify(b.tsconfig)} ${PATH_RULE}`)
+  limitErrors(b, name, e)
+}
+
+/** The limits every runner block has: timeoutSeconds, and maxMutants (the most mutants run per spec). */
+function limitErrors(b, name, e) {
   const t = b.timeoutSeconds
   if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+  const m = b.maxMutants
+  if (m !== undefined && !(Number.isInteger(m) && m >= 1)) e.push(`${name}.maxMutants: must be a whole number from 1, the most mutants run per spec`)
 }
 
 /** The rules a test folder is checked against: the configured boundaries, else the default ones. */
@@ -198,10 +205,9 @@ function layerErrors(ls, name, rules, e) {
 
 /** The block of a backend other than Vitest: layers, timeoutSeconds, command (and pytest's typeCheck). */
 function otherBackendErrors(b, name, e) {
-  const fields = ['layers', 'timeoutSeconds', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
+  const fields = ['layers', 'timeoutSeconds', 'maxMutants', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
   for (const k of Object.keys(b)) if (!fields.includes(k)) e.push(`${name}.${k}: unknown field (only ${orList(quoted(fields))})`)
-  const t = b.timeoutSeconds
-  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+  limitErrors(b, name, e)
   // The test file names are the backend's own, so a layer may sit in a code folder (src/test/java/, Go's
   // tests beside the code): the boundary lets test files through by their name, see boundary.mjs.
   layerErrors(b.layers, name, { forbidden: [], allow: [] }, e)
@@ -378,7 +384,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!uses('vitest')) e.push('vitest: only allowed with "backend": "vitest"')
     else if (!isObj(c.vitest)) e.push('vitest: must be an object')
     else {
-      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
+      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "maxMutants", "layers" and "stryker")`)
       runnerFields(c.vitest, 'vitest', e)
       layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
       const st = c.vitest.stryker
@@ -402,7 +408,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
     else if (!isObj(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles" and "redTags")`)
       runnerFields(c.playwright, 'playwright', e)
       const u = c.playwright.ungradedTitles
       if (u !== undefined) {
@@ -566,6 +572,9 @@ export const adapterOptions = config => {
 
 /** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, the backend's default (300 for Vitest). */
 export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : BACKENDS[config?.adapter]?.timeoutSeconds ?? 300)
+
+/** The most mutants run per spec (the block's maxMutants), or null for no cap. */
+export const maxMutantsOf = config => adapterOptions(config).maxMutants ?? null
 
 /** The project's own test command of a backend block (a template with {files}, {report}, {test}), or null. */
 export const commandOf = config => adapterOptions(config).command ?? null

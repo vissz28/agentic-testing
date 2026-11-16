@@ -3,7 +3,7 @@ export default {
   then: ['allora'],
   continuation: ['e', 'ma'],
   setup: ['esempi', 'dato', 'quando'],
-  acHeading: ['criteri\\s+(?:di\\s+|d[\'’]\\s*)accettazione'],
+  acHeading: ['criteri\\s+(?:di\\s+|d[\'’]\\s*)accettazione', 'accettazione(?=[^\\S\\n]*(?:[:*(]|$))'],
   sectionNames: ['contesto', 'sommario', 'passi per riprodurre', 'risultato atteso', 'risultato effettivo', 'comportamento attuale', 'ambiente', 'impatto', 'storia utente', 'fuori ambito'],
   vague: ['funzion\\w*\\s+(?:correttamente|bene)', 'come\\s+previsto', 'come\\s+atteso'],
   stepsHeading: ['passi per riprod\\w*'],

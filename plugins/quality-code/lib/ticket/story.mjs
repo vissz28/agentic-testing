@@ -13,7 +13,7 @@ export const STORY_LIMITS = {
 const HEADING = /^\s{0,3}(#{1,6}\s|\*\*[^*]+\*\*\s*:?\s*$|[A-Z][A-Za-z ]{2,30}:\s*$)/
 const LIST = /^\s*([-*+]|\d+[.)])\s+/
 const GOAL = /(^|\n)\s*(#{1,6}\s*|\*\*)?(goal|user story|obiettivo|storia utente)\b|\bas an?\s+[^,\n]{2,60},?\s+i\s+(want|need|would like)|\bcome\s+[^,\n]{2,60},?\s+(voglio|vorrei|devo)/i
-const CRITERIA = /(^|\n)\s*(#{1,6}\s*|\*\*)?(acceptance criteria|criteri di accettazione|done when|fatto quando)\b|(^|\n)\s*(given|dato|dati|scenario)\b/i
+const CRITERIA = /(^|\n)\s*(#{1,6}\s*|\*\*)?(acceptance criteria|criteri di accettazione|done when|fatto quando|(?:acceptance|accettazione)(?=[^\S\n]*(?:[:*(\n]|$)))|(^|\n)\s*(given|dato|dati|scenario)\b/i
 const SHAPE = [
   ['Goal', /(^|\n)#{1,6}\s*goal\b/i],
   ['What', /(^|\n)#{1,6}\s*what\b/i],
