@@ -12,6 +12,7 @@ import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
 import { runnerOf } from '../stacks/runners.mjs'
 import { toForwardSlashes, plural } from '../core/text.mjs'
+import { specDiff } from '../core/git.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
@@ -58,13 +59,35 @@ export function ownTsconfig(root, tsconfig, specs) {
   return best
 }
 
-/** tsc's output, graded for the specs alone: errors elsewhere in the project are not the specs' to fix. */
-export function readTsc(out, code, specs, truncated = false) {
+/** Lines this change added or edited (uncommitted, plus range if given); null when git fails. */
+export function changedLines(root, spec, range = null) {
+  const lines = new Set()
+  for (const r of range ? [range, null] : [null]) {
+    const d = specDiff(root, [spec], r)
+    if (!d.ok) return null
+    // Track the new-file line number through each hunk; '+' lines are ours.
+    let n = null
+    for (const l of d.diff.split('\n')) {
+      const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l)
+      if (h) n = Number(h[1])
+      else if (l.startsWith('diff ')) n = null // skip the next file's ---/+++ header
+      else if (n === null) continue
+      else if (l.startsWith('+')) lines.add(n++)
+      else if (l.startsWith(' ')) n++
+    }
+  }
+  return lines
+}
+
+/** Only spec errors count. With isNew, errors on untouched lines are pre-existing: reported, not failed. */
+export function readTsc(out, code, specs, truncated = false, isNew = null) {
   const lines = out.split('\n').map(l => l.trim()).filter(Boolean)
   const errors = lines.filter(l => /error TS\d+/.test(l))
   const inSpec = errors.filter(l => specs.some(s => l.startsWith(`${s}(`)))
-  if (inSpec.length) return result('types', 'fail', inSpec[0], inSpec.map(l => ({ file: l.slice(0, l.indexOf('(')), kind: 'compile error', detail: l })), { applicable: true })
-  // An error with no file, or in a tsconfig: tsc stopped before it checked anything, which is not a pass.
+  const fresh = isNew ? inSpec.filter(l => isNew(l.slice(0, l.indexOf('(')), Number(/\((\d+),/.exec(l)?.[1]))) : inSpec
+  if (fresh.length) return result('types', 'fail', fresh[0], fresh.map(l => ({ file: l.slice(0, l.indexOf('(')), kind: 'compile error', detail: l })), { applicable: true })
+  if (inSpec.length) return result('types', 'pass', `compiles where this change wrote; ${plural(inSpec.length, 'type error')} already in the specs before it, on lines it did not touch (first: ${inSpec[0]})`, [], { applicable: true, oldErrors: inSpec.length })
+  // No file, or a tsconfig error: tsc stopped before checking anything, so not a pass.
   const config = errors.find(l => /^error TS/.test(l) || /^[^(]*\.json\(\d+,\d+\): error TS/.test(l))
   if (config) return result('types', 'not_run', `tsc could not check the specs: ${config}`)
   if (truncated) return result('types', 'not_run', 'the tsc output was too long to read')
@@ -110,8 +133,8 @@ export async function typeCheck(root, config, specs, opts = {}) {
   return result('types', status, summary, results.flatMap(r => r.findings ?? []), { applicable: results.some(r => r.data?.applicable !== false), tsconfigs: [...groups.keys()] })
 }
 
-function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}, forced = null) {
-  // Cypress keeps the types its specs need (cy, its chainers) in cypress/tsconfig.json.
+function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000, range = null } = {}, forced = null) {
+  // Cypress keeps its spec types (cy, chainers) in cypress/tsconfig.json.
   const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
   const configured = forced ?? adapterOptions(config).tsconfig ?? (cypress ? CYPRESS_TSCONFIG : 'tsconfig.json')
   const tsSpecs = specs.filter(s => TS.test(s))
@@ -160,7 +183,14 @@ function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config
     child.on('close', code => {
       if (timedOut) return
       try {
-        finish(readTsc(out, code, tsSpecs, truncated))
+        // Ask git lazily, only for specs that have errors.
+        const seen = new Map()
+        const isNew = (file, line) => {
+          if (!seen.has(file)) seen.set(file, changedLines(root, file, range))
+          const set = seen.get(file)
+          return !set || set.has(line)
+        }
+        finish(readTsc(out, code, tsSpecs, truncated, isNew))
       } catch (e) {
         finish(result('types', 'not_run', `could not read the tsc output: ${e.message}`))
       }

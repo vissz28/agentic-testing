@@ -262,11 +262,11 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
   const runTests = ctx.runTests ?? (isSpecialized(runner) ? adapter.runner(ctx.root, ctx.config) : genericRunner(ctx.root, ctx.config, runner))
-  const typeCheck = ctx.typeCheck ?? (adapter.typeCheck === 'tsc' ? s => realTypeCheck(ctx.root, ctx.config, s) : noTsc(ctx.config.adapter, ctx))
+  const typeCheck = ctx.typeCheck ?? (adapter.typeCheck === 'tsc' ? s => realTypeCheck(ctx.root, ctx.config, s, { range }) : noTsc(ctx.config.adapter, ctx))
   const c = { ...ctx, runTests }
-  // ticketAnchor "branch": a spec changed on the branch with no block of the key counts as a whole (an existing suite that does not name the key).
+  // ticketAnchor "branch": a changed spec without a key block is checked as a whole.
   let whole = ctx.config.ticketAnchor === 'branch' && Boolean(range)
-  // A spec passed explicitly that names no ticket at all: run everything on the whole spec, and say the values were not compared.
+  // Explicit spec that names no ticket: check it whole and skip the expected-value compare.
   const noAnchor = !whole && lacksAnchor(specs, key, ctx)
   if (noAnchor) whole = true
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
