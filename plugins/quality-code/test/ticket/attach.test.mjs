@@ -98,6 +98,12 @@ test('score refuses an epic (or initiative): exit 2, never scored', () => {
     assert.equal(r.status, 2)
     assert.ok(r.stderr.includes(line), r.stderr)
     assert.ok(!r.stdout.includes('TICKET_EVAL_JSON'))
+    // Every other step refuses it too: no fill-in, story check or side for an epic.
+    for (const cmd of ['fill-menu', 'story-check', 'negative-check', 'side']) {
+      const o = run(cmd, '--in', `@${ticket}`)
+      assert.equal(o.status, 2, cmd)
+      assert.ok(o.stderr.includes(line), `${cmd}: ${o.stderr}`)
+    }
   }
 })
 

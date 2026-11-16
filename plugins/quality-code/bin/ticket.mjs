@@ -310,14 +310,16 @@ function run(argv, env, cwd) {
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
   if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { printError('--in must be a JSON object'); return 2 }
-  // Lists the connector or the model may hand over as one value: a single label, a single scenario.
+  // The connector or model sometimes sends these lists as a single value.
   for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
   const project = String(ticket.key ?? '').replace(/-\d+$/, '')
-  // A tracking project's keys belong to the project too (start proposes them).
+  // Includes tracking-project keys.
   const keys = projectKeys(config)
   const mismatch = Boolean(ticket.key) && !keys.includes(project)
-  // With --json, stdout is the JSON alone: the mismatch line goes to stderr.
+  // With --json, keep stdout pure JSON.
   if (mismatch) (a.flags.has('--json') ? printError : printLine)(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: keys })}`)
+  // An epic holds tickets and is none: no step works on it. sanitize still runs, so the raw copy is cleaned and goes.
+  if (cmd !== 'sanitize' && isContainerType(ticket.issuetype)) { printError(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { printError('sanitize needs --out <path>'); return 2 }
@@ -336,7 +338,6 @@ function run(argv, env, cwd) {
       return 0
     }
     case 'score': {
-      if (isContainerType(ticket.issuetype)) { printError(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
       if (mismatch && a.flags.has('--ci')) { printError(`${ticket.key} is not a ticket of this project's Jira projects (${keys.join(', ')})`); return 2 }
       const b = buildBrief(config, ticket)
       log('gate', {
