@@ -2,6 +2,7 @@
 import { join } from 'node:path'
 import { normalise, stripComments } from './text.mjs'
 import { isTicketKey } from '../core/is.mjs'
+import { collapseSpaces } from '../core/text.mjs'
 
 export const STORY_LIMITS = {
   maxWords: 400,
@@ -24,7 +25,10 @@ const wordCount = t => (t.match(/\S+/g) ?? []).length
 
 export function checkStory(ticket, limits = STORY_LIMITS) {
   const acField = String(ticket?.text?.acField ?? '')
-  const text = normalise(stripComments(`${ticket?.text?.description ?? ''}\n${acField}`)).trim()
+  const description = String(ticket?.text?.description ?? '')
+  // Criteria copied into both the description and the criteria field count once.
+  const copied = acField.trim() && collapseSpaces(description).includes(collapseSpaces(acField).trim())
+  const text = normalise(stripComments(copied ? description : `${description}\n${acField}`)).trim()
   const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean)
   const prose = blocks.filter(b => b.split('\n').every(l => !HEADING.test(l) && !LIST.test(l)))
   const headings = text.split('\n').filter(l => HEADING.test(l)).length
