@@ -11,12 +11,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Fixed
 
+- .NET: a TRX report with a character reference that is no character (`&#99999999;`) no longer crashes the test step; it is kept as text.
+- JUnit: a stray end tag in a report no longer closes the whole document, so the tests after it keep their suite name.
+- JUnit: a report cut off while written is always read as broken; before, some cut-off points gave half the results.
 - Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
 - A crashed check now says where it crashed: `check types crashed: <message>` is followed by `at lib/…/file.mjs:<line>:<column>`, taken from the original error. Before, only the message was printed, which was not enough to find the bug.
 - A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
 
 ### Changed
 
+- Internal: one XML reader, `lib/core/xml.mjs` (`parseXml`, `decodeEntities`, `child`, `descendants`), replaces the three written in the JUnit, pytest and .NET runners and the regex reading of JaCoCo and Cobertura coverage.
 - Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
 - Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
 

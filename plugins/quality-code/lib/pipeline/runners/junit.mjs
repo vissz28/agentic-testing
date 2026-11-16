@@ -8,79 +8,15 @@ import { structure } from '../../stacks/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
+import { parseXml } from '../../core/xml.mjs'
 
 const WIN = process.platform === 'win32'
 const OUTPUT_MAX = 1 << 20
 
-// JUnit XML from surefire (TEST-*.xml) and Gradle (test-results/*.xml). No DTD or namespaces.
-
-const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
-
-/** Unknown entities are left as is. */
-export function decodeEntities(s) {
-  return String(s).replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (all, e) => {
-    if (e[0] === '#') {
-      const n = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-      try { return String.fromCodePoint(n) } catch { return all }
-    }
-    return ENTITIES[e] ?? all
-  })
-}
-
-/** Minimal XML parser; throws on an unclosed tag. */
-export function parseXml(xml) {
-  const root = { name: '#document', attrs: {}, children: [], text: '' }
-  const stack = [root]
-  const top = () => stack.at(-1)
-  let i = 0
-  const s = String(xml).replace(/^\uFEFF/, '')
-  while (i < s.length) {
-    const lt = s.indexOf('<', i)
-    if (lt < 0) { top().text += decodeEntities(s.slice(i)); break }
-    if (lt > i) top().text += decodeEntities(s.slice(i, lt))
-    if (s.startsWith('<!--', lt)) { const e = s.indexOf('-->', lt + 4); i = e < 0 ? s.length : e + 3; continue }
-    if (s.startsWith('<![CDATA[', lt)) {
-      const e = s.indexOf(']]>', lt + 9)
-      top().text += s.slice(lt + 9, e < 0 ? s.length : e)
-      i = e < 0 ? s.length : e + 3
-      continue
-    }
-    if (s.startsWith('<?', lt)) { const e = s.indexOf('?>', lt + 2); i = e < 0 ? s.length : e + 2; continue }
-    if (s.startsWith('<!', lt)) { const e = s.indexOf('>', lt + 2); i = e < 0 ? s.length : e + 1; continue }
-    if (s[lt + 1] === '/') {
-      const e = s.indexOf('>', lt + 2)
-      const name = s.slice(lt + 2, e < 0 ? s.length : e).trim()
-      while (stack.length > 1 && top().name !== name) stack.pop()
-      if (stack.length > 1) stack.pop()
-      i = e < 0 ? s.length : e + 1
-      continue
-    }
-    // A start tag: the name, then attributes whose values may hold ">" inside quotes.
-    const nm = /^<([^\s/>]+)/.exec(s.slice(lt, lt + 256))
-    if (!nm) { top().text += '<'; i = lt + 1; continue }
-    const el = { name: nm[1], attrs: {}, children: [], text: '' }
-    let j = lt + nm[0].length
-    const attr = /\s*([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')|\s*(\/?>)/y
-    let selfClosing = false
-    for (;;) {
-      attr.lastIndex = j
-      const a = attr.exec(s)
-      if (!a) { j = s.indexOf('>', j); j = j < 0 ? s.length : j + 1; break }
-      j = attr.lastIndex
-      if (a[4]) { selfClosing = a[4] === '/>'; break }
-      el.attrs[a[1]] = decodeEntities(a[2] ?? a[3] ?? '')
-    }
-    top().children.push(el)
-    if (!selfClosing) stack.push(el)
-    i = j
-  }
-  if (stack.length > 1) throw new Error(`unclosed <${top().name}>`)
-  return root
-}
-
-/** A surefire rerun's flakyFailure doesn't turn a pass into a failure. */
+/** JUnit XML from surefire (TEST-*.xml) and Gradle (test-results/*.xml). A surefire rerun's flakyFailure doesn't turn a pass into a failure; a cut-off report throws. */
 export function parseJUnitXml(xml) {
   const doc = parseXml(xml)
+  if (doc.unclosed) throw new Error(`unclosed <${doc.unclosed}>`)
   const out = []
   const visit = (node, suiteName) => {
     for (const c of node.children) {

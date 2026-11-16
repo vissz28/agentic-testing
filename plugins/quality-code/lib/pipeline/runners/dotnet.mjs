@@ -8,39 +8,7 @@ import { commandOf, timeoutSecondsOf } from '../../config/config.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
-
-
-const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
-const decode = s => String(s).replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e) =>
-  e[0] === '#' ? String.fromCodePoint(e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : Number(e.slice(1))) : ENTITIES[e] ?? m)
-
-/** Minimal XML parser, enough for TRX: no namespaces, no DTD. */
-export function parseXml(xml) {
-  const root = { name: '#root', attrs: {}, children: [], text: '' }
-  const stack = [root]
-  const re = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<!DOCTYPE[^>]*>|<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/g
-  let m
-  while ((m = re.exec(xml))) {
-    const top = stack.at(-1)
-    if (m[1] !== undefined) top.text += m[1]
-    else if (m[6] !== undefined) top.text += decode(m[6])
-    else if (m[3] && m[2] === '/') { if (stack.length > 1) stack.pop() }
-    else if (m[3]) {
-      const attrs = {}
-      for (const a of m[4].matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[a[1].replace(/^\w+:/, '')] = decode(a[2] ?? a[3])
-      const node = { name: m[3].replace(/^\w+:/, ''), attrs, children: [], text: '' }
-      top.children.push(node)
-      if (!m[5]) stack.push(node)
-    }
-  }
-  return root
-}
-
-const all = (node, name, out = []) => {
-  for (const c of node.children) { if (c.name === name) out.push(c); all(c, name, out) }
-  return out
-}
-const child = (node, name) => node?.children.find(c => c.name === name)
+import { child, descendants, parseXml } from '../../core/xml.mjs'
 
 /** Drop theory parameters and the class prefix. */
 export const methodTitle = name => String(name ?? '').split('(')[0].trim().split('.').at(-1)
@@ -54,7 +22,7 @@ const STATUS = { Passed: 'passed', PassedButRunAborted: 'passed', Completed: 'pa
 export function parseTrx(xml) {
   const doc = parseXml(xml)
   const defs = new Map()
-  for (const ut of all(doc, 'UnitTest')) {
+  for (const ut of descendants(doc, 'UnitTest')) {
     const tm = child(ut, 'TestMethod')
     defs.set(ut.attrs.id, { className: className(tm?.attrs.className), name: tm?.attrs.name ?? ut.attrs.name })
   }
