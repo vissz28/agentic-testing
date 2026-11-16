@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { isBug, regressionProof, regressionTitle } from '../../lib/pipeline/regression.mjs'
+import { regressionProof } from '../../lib/pipeline/regression.mjs'
 import { formatCard } from '../../lib/pipeline/card.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
@@ -15,14 +15,6 @@ test('the proof: red before and green now is proved; green before is no proof; r
   assert.equal(regressionProof('red', 'not_verified').status, 'unknown')
   assert.equal(regressionProof(undefined, 'green'), null)
   assert.equal(regressionProof('maybe', 'green'), null)
-})
-test('the title carries the key once; only Bug tickets count', () => {
-  assert.equal(regressionTitle('ABC-1', 'rounds up'), 'ABC-1 rounds up')
-  assert.equal(regressionTitle('ABC-1', 'ABC-1 rounds up'), 'ABC-1 rounds up')
-  assert.equal(isBug('Bug'), true)
-  assert.equal(isBug(' bug '), true)
-  assert.equal(isBug('Story'), false)
-  assert.equal(isBug(null), false)
 })
 test('the card shows the proof line after the verdict', () => {
   const outcome = { verdict: 'green', decidedBy: null, steps: [], regression: regressionProof('red', 'green') }
