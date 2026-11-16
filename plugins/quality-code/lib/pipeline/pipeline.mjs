@@ -9,11 +9,12 @@ import { result } from './result.mjs'
 import { keyPattern, ownTests } from '../config/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
 import { anchorRange } from './checks/suite-honesty.mjs'
-import { readFileSync } from 'node:fs'
-import { isAbsolute, relative, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
 import { functionLines as realFunctionLines, runStryker as realRunStryker } from './runners/stryker.mjs'
-import { playwrightRunner } from './runners/playwright.mjs'
+import { configFor as playwrightConfigFor, playwrightRunner } from './runners/playwright.mjs'
+import { CONFIG_FILES } from '../stacks/e2e-folder.mjs'
 import { configFor } from './runners/vitest.mjs'
 import * as vitestRunners from './runners/vitest.mjs'
 import * as pytestRunners from './runners/pytest.mjs'
@@ -90,9 +91,25 @@ export function testsStep(run, requested = [], key = null) {
   return result('tests', 'pass', `${data.passed} passed${outside}`, [], data)
 }
 
+// A Playwright spec whose config has no webServer runs against a live app: each mutant is a full rerun there
+// (about 30 s each on TS DMS). With no cap of the team's own, only the strongest few run.
+// ponytail: a fixed default; playwright.maxMutants overrides it.
+export const LIVE_MAX_MUTANTS = 5
+
+/** The cap for one spec: the config's maxMutants, else LIVE_MAX_MUTANTS for a live Playwright spec, else none. */
+export function maxMutantsFor(spec, ctx) {
+  const own = maxMutantsOf(ctx.config)
+  if (own != null || ctx.config.adapter !== 'playwright') return { max: own, live: false }
+  const file = playwrightConfigFor(spec, ctx.config) ?? CONFIG_FILES.find(f => existsSync(join(ctx.root, f)))
+  let text = null
+  try { text = file ? readFileSync(join(ctx.root, file), 'utf8') : null } catch {}
+  return text !== null && !/\bwebServer\s*:/.test(text) ? { max: LIVE_MAX_MUTANTS, live: true } : { max: null, live: false }
+}
+
 async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
   const per = []
   let redOnly = 0
+  let live = false
   for (const spec of specs) {
     const own = ownTests(run.tests, key).filter(t => t.file === spec)
     // No tests for this key: the spec belongs to another ticket, skip it.
@@ -100,7 +117,9 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
     const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
     // Only failing tests: the assertions already proved they can fail.
     if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
-    let r = await mutation.run({ spec, key, baseline, max: maxMutantsOf(ctx.config), timeoutMs, whole }, ctx)
+    const cap = maxMutantsFor(spec, ctx)
+    if (cap.live) live = true
+    let r = await mutation.run({ spec, key, baseline, max: cap.max, timeoutMs, whole }, ctx)
     // Passing tests but nothing to mutate: we can't prove the assertions bind.
     if (r.status === 'pass' && (r.data?.total ?? 0) === 0 && baseline.length) {
       r = result('mutation', 'not_run', `no assertion in ${spec} that mutation can check (snapshot, chai-style or custom matchers)`,
@@ -123,7 +142,7 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
     const where = notRun.map(r => r.spec).join(', ')
     return result('mutation', 'not_run', data.total ? `${data.killed}/${data.total} mutants killed in the specs that ran; not checked in ${where}: ${why}` : why, findings, { ...data, unchecked: notRun.map(r => ({ spec: r.spec, why: r.summary })) })
   }
-  return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed${capped ? `; ${capped} more left out by maxMutants` : ''}`, findings, data)
+  return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed${capped ? `; ${capped} more left out by ${live ? `the live-app default (${LIVE_MAX_MUTANTS} per spec; set playwright.maxMutants to change it)` : 'maxMutants'}` : ''}`, findings, data)
 }
 
 export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key = null, functions = []) {

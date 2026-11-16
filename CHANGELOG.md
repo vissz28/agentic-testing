@@ -12,7 +12,7 @@ Update with `/plugin update quality-code@teamsystem`.
 ### Added
 
 - `/quality-code:ci --gate-only` writes the fast gate job alone, with no install and no test run: for a project whose install or suite cannot run in CI yet.
-- Mutation can be capped per spec: `playwright.maxMutants` and `vitest.maxMutants`, set with `/quality-code:config`; the card says how many were left out. `/quality-code:check --no-mutation` leaves the step out, and the `spec` next step says so for live end-to-end specs.
+- Mutation can be capped per spec: `playwright.maxMutants` and `vitest.maxMutants`, set with `/quality-code:config`; the card says how many were left out. A Playwright spec whose config has no `webServer` (it runs against a live app) runs the 5 strongest mutants by default: on TS DMS's five live specs that is 25 reruns, not 375. `/quality-code:check --no-mutation` leaves the step out, and the `spec` next step says so for live end-to-end specs.
 - Linked Xray tests: when the Xray API is on, the steps of the tests linked to a ticket are read (a new read-only `get_tests` tool) and scored like the description. Off, the ticket gets a flag saying so.
 - Setup on a stack that is not supported yet offers the ticket checks only (a personal setup with the developer role) instead of stopping.
 - A ticket with only a description: the refuse card's option 1 drafts the acceptance criteria from it; you confirm each one, and the script still scores them.
