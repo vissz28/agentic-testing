@@ -1,4 +1,11 @@
 // /quality-code:clean. Deletes only paths from buildList(), re-checked one by one; callers pick groups, never paths.
+// Groups:
+//   setup    older .claude/quality-code.json, the files setup wrote (only while unchanged), its exact .gitignore lines
+//   output   the tickets folder, .quality-code/, .claude/quality-code/ (audit log, run logs, evals, Jira fields)
+//   cache    this project's folder under <Claude folder>/quality-code/progress/
+//   personal <Claude folder>/quality-code.json (every project reads it: only when picked)
+//   specs    tests written by /quality-code:spec (they carry the ticket tag); kept unless picked
+// Every path stays inside the project (no `..`, no link leading out, never .git), except the cache and personal config.
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { lines, localToForwardSlashes } from '../core/text.mjs'
