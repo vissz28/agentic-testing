@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { dirOf, secretIn, short, slug } from './progress.mjs'
 import { readJson } from '../core/files.mjs'
+import { toForwardSlashes } from '../core/text.mjs'
+import { isAbsoluteAnywhere } from '../core/paths.mjs'
 
 export const FACTS = ['flow', 'tests', 'style', 'stack', 'base', 'connectors', 'jira', 'features']
 export const SOURCE_KINDS = ['ttl', 'hash', 'head', 'ticket', 'none']
@@ -74,7 +76,9 @@ export function getFact(root, name, current = null, env = process.env, now = Dat
 
 /** Stores path and hash only. role: target, spec, config… */
 export function recordFile(root, rel, role = 'file', env = process.env, now = Date.now()) {
-  if (typeof rel !== 'string' || !rel || rel.startsWith('/') || rel.split('/').includes('..')) return { ok: false, reason: 'the path is relative to the project and stays inside it' }
+  // A Windows path (..\x, C:\x) is checked and stored as forward slashes, as fileChanged looks it up.
+  if (typeof rel === 'string') rel = toForwardSlashes(rel)
+  if (typeof rel !== 'string' || !rel || isAbsoluteAnywhere(rel) || rel.split('/').includes('..')) return { ok: false, reason: 'the path is relative to the project and stays inside it' }
   const hash = hashFile(root, rel)
   if (!hash) return { ok: false, reason: `${rel} is not there` }
   const ctx = read(root, env)
@@ -84,6 +88,7 @@ export function recordFile(root, rel, role = 'file', env = process.env, now = Da
 }
 
 export function fileChanged(root, rel, env = process.env) {
+  rel = toForwardSlashes(rel)
   const f = read(root, env).files[rel]
   if (!f) return { ok: true, known: false, changed: true }
   return { ok: true, known: true, changed: hashFile(root, rel) !== f.hash, role: f.role }

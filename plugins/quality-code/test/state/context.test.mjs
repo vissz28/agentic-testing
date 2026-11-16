@@ -62,7 +62,10 @@ test('a file is kept as a path and a hash, not as a copy; a change is seen; path
   writeFileSync(join(r, 'src/pricing.ts'), 'export const a = 2\n')
   assert.equal(fileChanged(r, 'src/pricing.ts', e).changed, true)
   assert.equal(fileChanged(r, 'src/other.ts', e).known, false)
-  for (const bad of ['/etc/passwd', '../x', 'src/../../x', 'missing.ts']) assert.equal(recordFile(r, bad, 'file', e).ok, false, bad)
+  for (const bad of ['/etc/passwd', '../x', 'src/../../x', 'missing.ts', '..\\x', 'src\\..\\..\\x', 'C:\\Windows\\x', 'c:/x']) assert.equal(recordFile(r, bad, 'file', e).ok, false, bad)
+  // A Windows path is the same file as its forward-slash spelling.
+  assert.equal(recordFile(r, 'src\\pricing.ts', 'target', e).path, 'src/pricing.ts')
+  assert.equal(fileChanged(r, 'src\\pricing.ts', e).known, true)
 })
 test('clear forgets one fact or all of them; list shows what is kept', () => {
   const e = env(), r = project()
