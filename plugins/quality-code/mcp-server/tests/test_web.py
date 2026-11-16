@@ -87,3 +87,21 @@ def test_logo_is_served(tmp_path):
     with client(tmp=tmp_path) as c:
         r = c.get("/static/teamsystem.png")
     assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+
+
+def test_the_connect_view_explains_the_claude_web_connector(tmp_path):
+    with client(tmp=tmp_path) as c:
+        c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada Lovelace", "email": "ada@teamsystem.com"}, 60))
+        h = c.get("/").text
+    assert "Claude (web &amp; Desktop)" in h and "Add custom connector" in h and "Register automatically" in h and "Sign in now" in h
+
+
+def test_the_icon_is_served_for_claude_and_the_browser_and_named_in_the_server_info(tmp_path):
+    with client(tmp=tmp_path) as c:
+        for path in ("/static/quality-code.png", "/favicon.ico", "/favicon.png"):
+            r = c.get(path)
+            assert r.status_code == 200 and r.headers["content-type"] == "image/png" and r.content[:4] == b"\x89PNG", path
+        c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
+        assert "/plugin install quality-code@teamsystem" in c.get("/").text and "/plugin marketplace add vissz28/agentic-testing" in c.get("/").text
+    s = build(plugin_root(), entra=S, remote=True, fixed_cwd=tmp_path, web_settings=W)
+    assert [i.src for i in s.icons] == [H + "/static/quality-code.png"]

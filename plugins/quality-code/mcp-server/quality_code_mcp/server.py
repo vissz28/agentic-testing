@@ -14,6 +14,7 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
+from mcp.types import Icon
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
@@ -108,6 +109,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             "auth": AuthSettings(issuer_url=entra.issuer_url, resource_server_url=entra.public_url, required_scopes=None, validate_token_resource=False),
             "token_verifier": verifier or EntraTokenVerifier(entra),
         }
+    if entra:
+        extra["icons"] = [Icon(src=f"{entra.public_url.rstrip('/')}/static/quality-code.png", mime_type="image/png", sizes=["512x512"])]  # what Claude shows for the connector
     server = MCPServer(
         "quality-code",
         **extra,

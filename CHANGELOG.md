@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.1] - 2026-11-16
+
+### Added
+
+- The shared server's sign-in page explains how to add it in Claude: a **Claude (web & Desktop)** tab (Customize, Connectors, Add custom connector, type **Web**, **Sign in now**, **Register automatically**) and a **Claude Code plugin** tab with the two install commands.
+- The connector has an icon: the Quality Code logo is served at `/static/quality-code.png` (also `/favicon.ico`) and named in the server's `icons`, so Claude can show it next to the connector.
+
+**What to do:** nothing. Redeploy the server to see them.
+
 ## [0.80.0] - 2026-11-16
 
 ### Added

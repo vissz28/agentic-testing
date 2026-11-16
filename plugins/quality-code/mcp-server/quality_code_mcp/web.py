@@ -180,6 +180,7 @@ def home_page(w: WebSettings, user: dict) -> str:
     who = user.get("name") or user.get("email") or "you"
     initials = escape("".join(p[0] for p in who.split()[:2]).upper())
     cc = f"claude mcp add --transport http quality-code {w.mcp_url}"
+    pm, pi = "/plugin marketplace add vissz28/agentic-testing", "/plugin install quality-code@teamsystem"
     cp = f"/mcp add   (name quality-code, type HTTP, URL {w.mcp_url})"
     js = json.dumps({"mcpServers": {"quality-code": {"type": "http", "url": w.mcp_url}}}, indent=2)
 
@@ -191,10 +192,16 @@ def home_page(w: WebSettings, user: dict) -> str:
             f'<div><h2>Connect to Quality Code</h2><p class="sub">Add the server once. Your assistant opens Microsoft to confirm, and you are already signed in.</p></div>'
             f'<div><p class="lbl">MCP address</p>{field(w.mcp_url)}</div>'
             '<div><p class="lbl">Add it to your assistant</p><div class="tabs" role="tablist">'
-            '<button class="tab" role="tab" aria-selected="true" data-tab="a">Claude Code</button>'
+            '<button class="tab" role="tab" aria-selected="true" data-tab="w">Claude (web &amp; Desktop)</button>'
+            '<button class="tab" role="tab" aria-selected="false" data-tab="p">Claude Code plugin</button>'
+            '<button class="tab" role="tab" aria-selected="false" data-tab="a">Claude Code</button>'
             '<button class="tab" role="tab" aria-selected="false" data-tab="b">Copilot CLI</button>'
             '<button class="tab" role="tab" aria-selected="false" data-tab="c">Cursor &amp; others</button></div>'
-            f'<div class="pane on" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
+            f'<div class="pane on" id="w"><p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b> (on a Team or Enterprise plan an Owner adds it under <b>Organization settings, Connectors</b>). Choose the <b>Web</b> type and paste the address below.</p>{field(w.mcp_url)}'
+            '<p class="sub">Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>. You sign in with Microsoft, accept the rules, and Claude is connected.</p></div>'
+            f'<div class="pane" id="p"><p class="sub">The plugin gives you the commands (<b>/quality-code:spec</b>, <b>check</b>, <b>qa</b> and more) in Claude Code. Run these two, then <b>/reload-plugins</b>:</p>{field(pm)}{field(pi)}'
+            '<p class="sub">Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
+            f'<div class="pane" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
             f'<div class="pane" id="b">{field(cp)}<p class="sub">Start <b>copilot</b>, type this command, and fill in the three values. Sign in with Microsoft when asked.</p></div>'
             f'<div class="pane" id="c"><div class="field"><pre>{escape(js)}</pre><button class="copy" data-copy="{escape(js, quote=True)}">Copy</button></div>'
             '<p class="sub">Paste it into the client’s MCP settings (<b>.mcp.json</b> or <b>mcp.json</b>).</p></div></div>'
@@ -292,6 +299,12 @@ def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: C
         resp = RedirectResponse("/", status_code=303)
         resp.delete_cookie(SESSION_COOKIE, path="/")
         return resp
+
+    async def icon(request):
+        return Response((STATIC / "quality-code.png").read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+    for path in ("/static/quality-code.png", "/favicon.ico", "/favicon.png"):  # the connector icon Claude shows, and the browser tab icon
+        server.custom_route(path, methods=["GET"])(icon)
 
     @server.custom_route("/static/teamsystem.png", methods=["GET"])
     async def logo(request):
