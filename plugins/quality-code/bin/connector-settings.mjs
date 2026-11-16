@@ -14,6 +14,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { projectRoot } from '../lib/config/config.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
+import { noTrailingSlash } from '../lib/core/paths.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -26,7 +27,7 @@ export function apiUrlOf(input) {
   if (u.username || u.password || u.search || u.hash) return null
   if (u.protocol !== 'https:' && !(u.protocol === 'http:' && LOCAL.has(u.hostname))) return null
   if (!u.hostname.includes('.') && !LOCAL.has(u.hostname)) return null
-  const path = u.pathname.replace(/\/+$/, '').replace(/\/api\/v4$/, '')
+  const path = noTrailingSlash(u.pathname).replace(/\/api\/v4$/, '')
   return `${u.protocol}//${u.host}${path}/api/v4`
 }
 
@@ -134,7 +135,7 @@ export function xrayApiUrlOf(input) {
   const raw = String(input ?? '').trim()
   let u
   try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`) } catch { return null }
-  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.search || u.hash || u.pathname.replace(/\/+$/, '')) return null
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.search || u.hash || noTrailingSlash(u.pathname)) return null
   return /^(?:[a-z]{2}\.)?xray\.cloud\.getxray\.app$/.test(u.hostname) ? `https://${u.hostname}` : null
 }
 

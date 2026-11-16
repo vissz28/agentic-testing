@@ -2,9 +2,10 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
-import { DEFAULTS, normaliseTicketsDir } from '../config/config.mjs'
+import { DEFAULTS } from '../config/config.mjs'
 import { isTicketKey, pct, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 
@@ -86,7 +87,7 @@ export function formatCard({ rows, summary }) {
  * answers (`filled`, `sent`) of a ticket already saved are kept: Jira's copy does not hold them.
  */
 export function saveTickets(root, config, clean) {
-  const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
+  const dir = cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
     if (!isTicketKey(t.key)) continue
     const d = resolve(root, dir, t.key)

@@ -10,6 +10,7 @@ import { timeoutSecondsOf } from '../../config/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { leavesFolder } from '../../core/paths.mjs'
 
 /** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
@@ -26,7 +27,7 @@ export function parseReport(json, root) {
   try { base = realpathSync(root) } catch {}
   const rel = name => {
     const r = relative(base, name)
-    return r.startsWith('..') && base !== root ? relative(root, name) : r
+    return leavesFolder(r) && base !== root ? relative(root, name) : r
   }
   for (const tr of json?.testResults ?? []) {
     // Forward slashes, as normalizeSpec spells the requested specs: Windows reports backslashes.

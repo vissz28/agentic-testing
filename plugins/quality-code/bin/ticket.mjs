@@ -7,7 +7,7 @@ import { detectConventions, flowOf, runFlow } from '../lib/stacks/conventions.mj
 import { findTestHome } from '../lib/stacks/test-home.mjs'
 import { configKeys, configSetGet } from '../lib/config/set.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/config/places.mjs'
-import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
+import { configHome, loadConfig, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/stacks/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
@@ -29,6 +29,7 @@ import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, example
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { isTicketKey, plural } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
+import { noTrailingSlash, cleanRelPath } from '../lib/core/paths.mjs'
 
 // --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
 // gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
@@ -112,7 +113,7 @@ const COMMANDS = {
     if (sub === 'set' && a._.length === 2) {
       const r = setActiveRoot(home, folder, env)
       if (!r.ok) { printError(r.error); return 2 }
-      printLine(`ok: the active root is ${folder.replace(/\/+$/, '')}. Every command now works in it.`)
+      printLine(`ok: the active root is ${noTrailingSlash(folder)}. Every command now works in it.`)
       printLine(tag('ROOT', rootsOf(home, env)))
       return 0
     }
@@ -295,7 +296,7 @@ function run(argv, env, cwd) {
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
-  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   const savedPath = key => (isTicketKey(key) ? join(ticketsRoot, key, 'ticket.json') : null)
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
   const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && isTicketKey(basename(dirname(p)))
@@ -464,7 +465,7 @@ function run(argv, env, cwd) {
       const heading = ATTACHED[kind]
       if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { printError('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
       const textPath = resolve(root, from.slice(1))
-      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(cleanRelPath(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
       let raw
       try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { printError(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
       const text = redact(config, raw.trim(), uuidsOf(ticket)).slice(0, DOCX_MAX_CHARS)

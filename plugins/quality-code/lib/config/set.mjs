@@ -10,6 +10,7 @@ import { RUNNERS } from '../stacks/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
+import { noTrailingSlash } from '../core/paths.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -104,7 +105,7 @@ export function parseValue(spec, key, raw) {
       const rows = text.split(',').map(s => s.trim()).filter(Boolean).map(s => { const i = s.lastIndexOf('='); return i > 0 ? { match: s.slice(0, i).trim(), config: s.slice(i + 1).trim() } : null })
       return rows.length && rows.every(Boolean) ? { value: rows } : { error: `${key}: give match=config pairs separated by commas, like services/**=jest.config.js` }
     }
-    case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${text.replace(/\/+$/, '')}` } : { error: `${key}: must not be empty` }
+    case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${noTrailingSlash(text)}` } : { error: `${key}: must not be empty` }
     default: return text ? { value: text } : { error: `${key}: must not be empty` }
   }
 }

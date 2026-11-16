@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { ALWAYS, allowCovers, matches, rulesFor } from '../pipeline/boundary.mjs'
 import { runnerOf } from './runners.mjs'
-import { hasLineBreak, toForwardSlashes } from '../core/text.mjs'
+import { hasLineBreak } from '../core/text.mjs'
+import { stripDotSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']
@@ -18,8 +19,8 @@ const stripComments = src => src
 
 /** A folder as the rest of the plugin writes it: "/" separators, no leading "./", one trailing "/". */
 function normFolder(raw) {
-  const s = String(raw).trim().replace(/\\+/g, '/').replace(/\/{2,}/g, '/').replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
-  if (!s || s === '.' || s.startsWith('/') || /^[A-Za-z]:/.test(s) || s.split('/').includes('..') || hasLineBreak(s)) return null
+  const s = cleanRelPath(String(raw).trim().replace(/\\+/g, '/').replace(/\/{2,}/g, '/'))
+  if (!s || s === '.' || isAbsoluteAnywhere(s) || s.split('/').includes('..') || hasLineBreak(s)) return null
   return `${s}/`
 }
 
@@ -37,7 +38,7 @@ export function readTestDir(root, files = CONFIG_FILES) {
     const literals = [...text.matchAll(/\btestDir\s*:\s*(['"`])([^'"`\n]*)\1/g)].map(m => m[2])
     // A computed value (path.join, a template with ${…}) cannot be read without running the file.
     if (!all || literals.length !== all || literals.some(v => v.includes('${'))) return null
-    const values = [...new Set(literals.map(v => normFolder(dirname(file) === '.' ? v : `${dirname(file)}/${v.replace(/^(?:\.\/)+/, '')}`)))]
+    const values = [...new Set(literals.map(v => normFolder(dirname(file) === '.' ? v : `${dirname(file)}/${stripDotSlash(v)}`)))]
     return values.length === 1 && values[0] ? { value: values[0], file } : null
   }
   return null
@@ -54,7 +55,7 @@ export function e2eFolder(root, config) {
     const t = readTestDir(root, [...new Set([...(config.playwright?.configs ?? []).map(c => c.config), ...CONFIG_FILES])])
     out = t ? { ok: true, folder: t.value, source: 'testDir', configFile: t.file } : { ok: true, folder: DEFAULT_E2E_FOLDER, source: 'default' }
   }
-  const f = toForwardSlashes(out.folder).replace(/^(?:\.\/)+/, '')
+  const f = stripDotSlash(out.folder)
   const always = ALWAYS.find(a => matches(a, f))
   if (always) return { ok: false, error: `the e2e folder "${out.folder}" is inside "${always}", which a test run never writes: set playwright.folder` }
   const rules = rulesFor(config, root)

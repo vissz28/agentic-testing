@@ -16,6 +16,7 @@ import { changedPaths } from '../core/git.mjs'
 import { execFileSync } from 'node:child_process'
 import { readJson, tryReadJson } from '../core/files.mjs'
 import { pct, withoutOrigin } from '../core/text.mjs'
+import { stripDotSlash, noTrailingSlash } from '../core/paths.mjs'
 
 // ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -36,13 +37,13 @@ function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 
     for (const e of entries) {
       if (--budget.n < 0) return
       // The repo itself ("./", Go's default layer) lists its files without a "./" in front.
-      const p = rel ? `${rel.replace(/\/$/, '')}/${e.name}` : e.name
+      const p = rel ? `${noTrailingSlash(rel)}/${e.name}` : e.name
       // A whole-repo walk skips hidden folders (.build-context, .cache): they hold copies, not the project's tests.
       if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-') && !(wholeRepo && e.name.startsWith('.'))) walk(p) }
       else if (spec.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
     }
   }
-  walk(String(folder).replace(/^(?:\.\/)+/, ''))
+  walk(stripDotSlash(folder))
   return out
 }
 

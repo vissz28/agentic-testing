@@ -3,10 +3,11 @@
 // config, tickets, specs or audit log. Every path is checked to sit inside the cache folder (real path, no
 // symlink escape, no `..`) before it is touched; a symlink is skipped, never followed or removed.
 import { existsSync, lstatSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
-import { isAbsolute, join, relative } from 'node:path'
+import { join, relative } from 'node:path'
 import { dirOf, short, slug } from './progress.mjs'
+import { leavesFolder } from '../core/paths.mjs'
 
-const inside = (base, p) => { const r = relative(base, p); return r !== '' && !r.startsWith('..') && !isAbsolute(r) }
+const inside = (base, p) => { const r = relative(base, p); return r !== '' && !leavesFolder(r) }
 
 // The real cache folder, or null when it does not exist or is itself a link (a link could lead anywhere).
 function realBase(env) {

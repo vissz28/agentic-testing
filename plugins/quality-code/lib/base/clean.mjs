@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { lines, localToForwardSlashes } from '../core/text.mjs'
-import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
+import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
 import { CONFIG_FILE } from '../config/places.mjs'
 import { PLAIN } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
@@ -27,6 +27,7 @@ import { projectSpecs } from '../report/quality-program.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
 import { readJson } from '../core/files.mjs'
+import { cleanRelPath, leavesFolder } from '../core/paths.mjs'
 
 export const GROUPS = ['setup', 'output', 'cache', 'personal', 'specs']
 export const LABELS = { setup: 'Setup files', output: 'Saved output', cache: 'Cache', personal: 'Personal config', specs: 'Tests written by spec' }
@@ -43,7 +44,7 @@ const lstat = p => { try { return lstatSync(p) } catch { return null } }
 const read = p => { try { return readFileSync(p, 'utf8') } catch { return null } }
 const real = p => { try { return realpathSync(p) } catch { return resolve(p) } }
 /** a is b or inside it. */
-const inside = (a, b) => { const r = relative(real(b), real(a)); return r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r) }
+const inside = (a, b) => !leavesFolder(relative(real(b), real(a)))
 const GOAL = /^\d{4}-\d{2}-\d{2}-goal\.md$/
 
 /** null when `abs` may be deleted (it is inside `top`, no link on the way, not .git), else the reason. */
@@ -54,7 +55,7 @@ export function unsafeReason(top, abs, { raw = abs } = {}) {
   const full = resolve(abs)
   const rel = relative(base, full)
   if (!rel) return 'that is the project folder itself'
-  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return 'outside the project'
+  if (leavesFolder(rel)) return 'outside the project'
   const parts = rel.split(sep)
   if (parts.includes('.git')) return 'inside .git'
   let cur = base
@@ -70,7 +71,7 @@ export function unsafeReason(top, abs, { raw = abs } = {}) {
     try { real = realpathSync(full) } catch { return 'a broken link' }
     const realBase = realpathSync(base)
     const back = relative(realBase, real)
-    if (back === '..' || back.startsWith(`..${sep}`) || isAbsolute(back)) return 'a link that leads outside the project'
+    if (leavesFolder(back)) return 'a link that leads outside the project'
   }
   return null
 }
@@ -109,7 +110,7 @@ const item = (top, abs, extra = {}) => {
 function rawTicketsDir(top) {
   try {
     const c = readJson(configFileOf(top) ?? join(top, CONFIG_REL))
-    return typeof c?.ticketsDir === 'string' ? normaliseTicketsDir(c.ticketsDir) : DEFAULTS.ticketsDir
+    return typeof c?.ticketsDir === 'string' ? cleanRelPath(c.ticketsDir) : DEFAULTS.ticketsDir
   } catch { return DEFAULTS.ticketsDir }
 }
 
@@ -178,7 +179,7 @@ function ticketItems(top, root, config, env) {
   const abs = resolve(root, dir)
   const rel = localToForwardSlashes(relative(top, abs))
   if (!lstat(abs)) return { items: [], kept }
-  if (!rel || rel.startsWith('..') || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
+  if (!rel || leavesFolder(rel) || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
   if (rel === '.quality-code' || rel.startsWith('.quality-code/') || rel === '.claude/quality-code' || rel.startsWith('.claude/quality-code/')) return { items: [item(top, abs)], kept }
   const items = []
   const xcsv = xrayOf(config)?.csv

@@ -12,6 +12,7 @@ import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
 import { runnerOf } from '../stacks/runners.mjs'
 import { toForwardSlashes, plural } from '../core/text.mjs'
+import { stripDotSlash, noTrailingSlash, leavesFolder } from '../core/paths.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
@@ -33,7 +34,7 @@ const readTsconfig = (root, p) => {
   try { return JSON.parse(stripCodeComments(readFileSync(join(root, p), 'utf8')).replace(/,(\s*[}\]])/g, '$1')) } catch { return null }
 }
 // A tsconfig include entry: a glob, or a file or a folder (everything under it).
-const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${entry.replace(/\/+$/, '')}/`, path))
+const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${noTrailingSlash(entry)}/`, path))
 
 /**
  * The tsconfig to extend. A solution-style one (no files of its own, only references, as in the Vite
@@ -51,7 +52,7 @@ export function ownTsconfig(root, tsconfig, specs) {
     const include = readTsconfig(root, p)?.include ?? ['**/*']
     const n = specs.filter(s => {
       const rel = posix.relative(posix.dirname(p), toForwardSlashes(s))
-      return !rel.startsWith('../') && include.some(e => covers(String(e).replace(/^\.\//, ''), rel))
+      return !leavesFolder(rel) && include.some(e => covers(stripDotSlash(e), rel))
     }).length
     if (n > most) { best = p; most = n }
   }

@@ -6,6 +6,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { BACKENDS } from '../stacks/backends.mjs'
 import { escapeRegExp, toForwardSlashes } from '../core/text.mjs'
+import { noTrailingSlash } from '../core/paths.mjs'
 
 export const CONTAINER_BACKENDS = Object.freeze(['vitest', 'pytest', 'go', 'dotnet'])
 
@@ -307,7 +308,7 @@ func start(name string, run func(context.Context) (string, error)) func(testing.
 
 function dotnetFiles(dbs, { folder, found }) {
   const own = /<RootNamespace>\s*([^<\s]+)\s*<\/RootNamespace>/.exec(found.test.text)?.[1] ?? basename(found.test.path).replace(/\.(?:csproj|fsproj)$/, '')
-  const ns = `${own.replace(/[^\w.]/g, '_')}.${relative(dirname(found.test.path), folder.replace(/\/$/, '')).split('/').filter(Boolean).map(s => s.replace(/\W/g, '_')).join('.') || 'Integration'}`
+  const ns = `${own.replace(/[^\w.]/g, '_')}.${relative(dirname(found.test.path), noTrailingSlash(folder)).split('/').filter(Boolean).map(s => s.replace(/\W/g, '_')).join('.') || 'Integration'}`
   const field = d => d.method.replace(/Async$/, '')
   return [[`${folder}TestDatabases.cs`, `using DotNet.Testcontainers.Containers;
 ${dbs.map(d => `using ${d.pkg};`).join('\n')}

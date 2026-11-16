@@ -11,6 +11,7 @@ import { timeoutSecondsOf } from '../../config/config.mjs'
 import { findUp, kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, noColour, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { leavesFolder } from '../../core/paths.mjs'
 
 const REFUSED = /ERR_CONNECTION_REFUSED|ECONNREFUSED/
 const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
@@ -68,7 +69,7 @@ export function parseReport(json, root, { read } = {}) {
   try { base = realpathSync(root) } catch {}
   const rel = abs => {
     const r = relative(base, abs)
-    return r.startsWith('..') && base !== root ? relative(root, abs) : r
+    return leavesFolder(r) && base !== root ? relative(root, abs) : r
   }
   const rootDir = typeof json?.config?.rootDir === 'string' && json.config.rootDir ? json.config.rootDir : root
   const fileOf = f => {

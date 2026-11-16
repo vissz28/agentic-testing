@@ -9,9 +9,10 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readF
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
+import { claudeDir, configHome } from './config.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson, readJsonOr } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
 
 export { ignoreFolder }
 
@@ -75,12 +76,12 @@ function baseOf(root, source, place, env) {
 export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place, env = process.env) {
   place ??= placeOf(root, source, env)
   const base = baseOf(root, source, place, env)
-  const own = ticketsDir === undefined ? null : normaliseTicketsDir(ticketsDir)
+  const own = ticketsDir === undefined ? null : cleanRelPath(ticketsDir)
   if (place === 'repo') return { place, ticketsDir: own ?? '.quality-code/tickets', auditDir: join(resolve(root), AUDIT_REL) }
   const keepOwn = source === 'personal' && place === 'local' && own && own !== personalDefault
   return {
     place,
-    ticketsDir: normaliseTicketsDir(keepOwn ? own : join(base, 'tickets')),
+    ticketsDir: cleanRelPath(keepOwn ? own : join(base, 'tickets')),
     auditDir: join(base, 'audit'),
   }
 }

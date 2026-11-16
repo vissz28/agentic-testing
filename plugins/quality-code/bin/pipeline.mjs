@@ -21,6 +21,7 @@ import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
+import { leavesFolder } from '../lib/core/paths.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
@@ -94,11 +95,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   for (const s of a.specs) {
     const rel = normalizeSpec(root, resolve(root, s))
-    if (rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/')) return err(`spec must be inside the project: ${s}`)
+    if (leavesFolder(rel)) return err(`spec must be inside the project: ${s}`)
     if (!isFile(resolve(root, rel))) return err(`spec not found: ${s}`)
   }
   if (a.key && !isProjectKey(config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(config).join(', ')}`)
-  const inside = rel => !(rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/'))
+  const inside = rel => !leavesFolder(rel)
   let ticket = null
   let jiraStatus = null
   let issueType = null

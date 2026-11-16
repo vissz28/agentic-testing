@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { backendOf } from '../stacks/backends.mjs'
 import { lines, plural } from '../core/text.mjs'
+import { noTrailingSlash } from '../core/paths.mjs'
 
 export const HUB_TIMEOUT_MS = 3000
 export const DOMAIN = 'quality'
@@ -45,7 +46,7 @@ export const DEFAULT_HUB = 'https://centralcontext-dev.teamsystem.cloud'
 /** The hub base URL for this project: the environment first, then the config, then TeamSystem's hosted hub. */
 export function hubOf(config, env = process.env) {
   const v = env.CC_HUB_URL ?? config?.centralContext?.hub
-  return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : DEFAULT_HUB
+  return typeof v === 'string' && v.trim() ? noTrailingSlash(v.trim()) : DEFAULT_HUB
 }
 
 const SEVERITY = ['critical', 'high', 'medium', 'low']

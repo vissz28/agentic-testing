@@ -2,9 +2,9 @@
 // (guides/save-place.md). The name is built from a fixed kind and a checked date only, so nothing typed can move it.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { normaliseTicketsDir } from '../config/config.mjs'
 import { placeDirs, placeOf } from '../config/places.mjs'
 import { tag } from '../core/script-io.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
 
 export const KINDS = ['kpi', 'tickets-eval', 'consumption']
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -12,7 +12,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 /** The tickets folder in force: the loaded config's (already moved to the place), else the place's default. */
 export function reportsRoot(root, cfg, env = process.env) {
   const dir = cfg?.ok ? cfg.config.ticketsDir : placeDirs(root, { source: 'repo' }, placeOf(root, 'repo', env), env).ticketsDir
-  return resolve(root, normaliseTicketsDir(dir), 'reports')
+  return resolve(root, cleanRelPath(dir), 'reports')
 }
 
 /** The file for a kind and a day, or null when either is not a plain one or the path would leave the folder. */

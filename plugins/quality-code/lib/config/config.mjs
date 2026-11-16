@@ -8,8 +8,9 @@ import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from '../stacks/back
 import { RUNNERS } from '../stacks/runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from '../stacks/conventions.mjs'
-import { hasLineBreak, isLine, toForwardSlashes } from '../core/text.mjs'
+import { hasLineBreak, isLine } from '../core/text.mjs'
 import { readJsonOr, tryReadJson } from '../core/files.mjs'
+import { stripDotSlash, noTrailingSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
@@ -41,7 +42,7 @@ export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => 
 export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
 // Jira statuses that say the work is finished: a red run then warns that the bug is still there.
 export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
-const pathOk = p => isLine(p) && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..')
+const pathOk = p => isLine(p) && !isAbsoluteAnywhere(p) && !p.split(/[\\/]/).includes('..')
 
 export const DEFAULTS = Object.freeze({
   languages: ['en'],
@@ -54,7 +55,6 @@ export const DEFAULTS = Object.freeze({
 })
 
 /** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
-export const normaliseTicketsDir = dir => toForwardSlashes(dir).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
 /** The config file of the project at dir: the one in its place (next to the tickets and audit files), else the legacy .claude/quality-code.json; null when there is none. */
 export function configFileOf(dir, env = process.env) {
@@ -73,7 +73,6 @@ function findHome(dir, env) {
   }
 }
 
-const folderKey = f => toForwardSlashes(f).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'quality-code', 'roots.json')
 
 /**
@@ -82,10 +81,10 @@ const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || joi
  */
 function chosenRoot(home, c, env = process.env) {
   if (!Array.isArray(c?.roots)) return null
-  const allowed = new Set([...c.roots, c.root].filter(pathOk).map(folderKey))
+  const allowed = new Set([...c.roots, c.root].filter(pathOk).map(cleanRelPath))
   let pick = env.QUALITY_CODE_ROOT
   if (!pick) pick = tryReadJson(activeRootsFile(env), null)?.[resolve(home)]
-  return pick && allowed.has(folderKey(pick)) ? pick : null
+  return pick && allowed.has(cleanRelPath(pick)) ? pick : null
 }
 
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
@@ -98,19 +97,19 @@ function withRoot(home, env) {
 /** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
 export function rootsOf(home, env = process.env) {
   const c = tryReadJson(configFileOf(home, env), undefined)
-  const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
-  return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
+  const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(cleanRelPath))] : []
+  return { default: pathOk(c?.root) ? cleanRelPath(c.root) : '.', roots, active: cleanRelPath(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
 
 /** Picks the active root for the config in home (kept on this computer). Returns { ok, error? }. */
 export function setActiveRoot(home, folder, env = process.env) {
   const { roots } = rootsOf(home, env)
   if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
-  if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
+  if (!roots.includes(cleanRelPath(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
   const file = activeRootsFile(env)
   // A broken file stops here, naming it: rewriting it would drop the root picked in every other repo.
   const all = readJsonOr(file, {})
-  all[resolve(home)] = folderKey(folder)
+  all[resolve(home)] = cleanRelPath(folder)
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(all, null, 2))
   return { ok: true }
@@ -171,8 +170,8 @@ function folderRules(c) {
 function folderErrors(folder, name, rules, e) {
   if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
   if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
-  const f = toForwardSlashes(folder).replace(/^(?:\.\/)+/, '')
-  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(toForwardSlashes(r.path).replace(/^(?:\.\/)+/, ''), f))
+  const f = stripDotSlash(folder)
+  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(stripDotSlash(r.path), f))
   if (rule) e.push(`${name} "${folder}" is inside the forbidden "${rule.path}"`)
 }
 
@@ -307,10 +306,10 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.role !== undefined && !['dev', 'qa', 'po'].includes(c.role)) e.push(`role ${JSON.stringify(c.role)}: must be "dev", "qa" or "po"`)
   if (c.testStyle !== undefined && !FLOWS.includes(c.testStyle)) e.push(`testStyle ${JSON.stringify(c.testStyle)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
-    if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
+    if (typeof c.ticketsDir !== 'string' || !cleanRelPath(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (hasLineBreak(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
     else {
-      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !normaliseTicketsDir(c.ticketsDir).split('/').includes('..')
+      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !cleanRelPath(c.ticketsDir).split('/').includes('..')
       if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
     }
   }
@@ -536,11 +535,11 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       // A one-side project is its own one-side view: the adapter the pipeline runs. A fullstack one has none.
       ...(c.frontend && c.backend ? {} : { adapter: c.frontend ?? c.backend }),
       // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
-      jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
+      jira: { trackingProjects: [], ...j, site: noTrailingSlash(j.site) },
       languages: c.languages ?? DEFAULTS.languages,
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
-      ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
+      ticketsDir: cleanRelPath(c.ticketsDir ?? DEFAULTS.ticketsDir),
       // Merged: a custom pattern adds to the default customerId one, it does not turn it off.
       redact: { ...DEFAULTS.redact, ...(c.redact ?? {}) },
       messages: c.messages ?? DEFAULTS.messages,
@@ -594,9 +593,9 @@ export const qaOf = config => {
 export const xrayOf = (config, source = 'repo') => {
   const x = config?.xray
   // Xray is part of Jira: a personal setup (no repo) has it on without a block, with the cases kept in its tickets folder.
-  if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${normaliseTicketsDir(config.ticketsDir)}/xray-cases.csv`, folder: `${normaliseTicketsDir(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
+  if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${cleanRelPath(config.ticketsDir)}/xray-cases.csv`, folder: `${cleanRelPath(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null
-  return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
+  return { csv: x.csv, folder: x.folder ?? `${cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
 
 /** The Playwright titles that are never graded nor mutated (playwright.ungradedTitles), as a regex; null for Vitest or when unset. */
@@ -625,7 +624,7 @@ export const claudeDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(ho
 /** The personal config (no repo): <Claude folder>/quality-code.json. */
 export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'quality-code.json')
 /** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
-export const personalTicketsDir = (env = process.env) => normaliseTicketsDir(join(claudeDir(env), 'quality-code', 'tickets'))
+export const personalTicketsDir = (env = process.env) => cleanRelPath(join(claudeDir(env), 'quality-code', 'tickets'))
 
 function readValidated(p, label, source, env, root) {
   let obj

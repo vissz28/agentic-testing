@@ -15,6 +15,7 @@ import { RUNNERS } from '../../stacks/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { leavesFolder } from '../../core/paths.mjs'
 
 // Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
@@ -52,7 +53,7 @@ function relativeTo(root) {
     const s = String(p ?? '')
     if (!isAbsolute(s)) return toForwardSlashes(s)
     const r = relative(base, s)
-    return toForwardSlashes(r.startsWith('..') && base !== root ? relative(root, s) : r)
+    return toForwardSlashes(leavesFolder(r) && base !== root ? relative(root, s) : r)
   }
 }
 
