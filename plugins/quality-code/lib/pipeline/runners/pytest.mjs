@@ -10,80 +10,12 @@ import { kill, track } from './tool.mjs'
 import { firstLine } from '../../core/text.mjs'
 import { fillPlaceholders } from '../../core/shell.mjs'
 import { stripDotSlash } from '../../core/paths.mjs'
+import { descendants, parseXml } from '../../core/xml.mjs'
 
 const LABEL = 'pytest'
 const CAP = 1 << 20
 const slash = p => stripDotSlash(p)
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
-
-// ---- JUnit XML ----
-
-const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
-
-/** Unknown entities are left as is. */
-export function decodeEntities(s) {
-  return String(s).replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (m, e) => {
-    if (e[0] === '#') {
-      const n = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-      try { return String.fromCodePoint(n) } catch { return m }
-    }
-    return ENTITIES[e] ?? m
-  })
-}
-
-/** Minimal non-validating XML reader, enough for JUnit reports. */
-export function parseXml(xml) {
-  const top = { name: '#document', attrs: {}, children: [], text: '' }
-  const stack = [top]
-  const s = String(xml)
-  let i = 0
-  while (i < s.length) {
-    const lt = s.indexOf('<', i)
-    const cur = stack.at(-1)
-    if (lt < 0) { cur.text += decodeEntities(s.slice(i)); break }
-    if (lt > i) cur.text += decodeEntities(s.slice(i, lt))
-    if (s.startsWith('<!--', lt)) { const e = s.indexOf('-->', lt + 4); i = e < 0 ? s.length : e + 3; continue }
-    if (s.startsWith('<![CDATA[', lt)) {
-      const e = s.indexOf(']]>', lt + 9)
-      cur.text += s.slice(lt + 9, e < 0 ? s.length : e)
-      i = e < 0 ? s.length : e + 3
-      continue
-    }
-    if (s[lt + 1] === '?' || s[lt + 1] === '!') { const e = s.indexOf('>', lt); i = e < 0 ? s.length : e + 1; continue }
-    if (s[lt + 1] === '/') {
-      const e = s.indexOf('>', lt)
-      const name = s.slice(lt + 2, e < 0 ? s.length : e).trim()
-      // A stray end tag closes nothing.
-      const at = stack.map(x => x.name).lastIndexOf(name)
-      if (at > 0) stack.length = at
-      i = e < 0 ? s.length : e + 1
-      continue
-    }
-    // Attributes may contain ">" inside quotes.
-    let j = lt + 1
-    let quote = null
-    for (; j < s.length; j++) {
-      if (quote) { if (s[j] === quote) quote = null } else if (s[j] === '"' || s[j] === "'") quote = s[j]
-      else if (s[j] === '>') break
-    }
-    const body = s.slice(lt + 1, j)
-    const selfClosing = body.endsWith('/')
-    const name = /^[^\s/>]+/.exec(body)?.[0] ?? ''
-    const attrs = {}
-    for (const m of body.slice(name.length).matchAll(/([^\s=/]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[m[1]] = decodeEntities(m[2] ?? m[3] ?? '')
-    const el = { name, attrs, children: [], text: '' }
-    cur.children.push(el)
-    if (!selfClosing) stack.push(el)
-    i = j + 1
-  }
-  return top.children.find(c => c.name) ?? null
-}
-
-function* elements(el, name) {
-  if (!el) return
-  if (el.name === name) yield el
-  for (const c of el.children) yield* elements(c, name)
-}
 
 /**
  * Match a classname (tests.test_orders.TestTotal) to a spec file by module path, aligned from either end:
@@ -115,10 +47,9 @@ function messageOf(el) {
 
 /** titlesOf(file) maps class names to group titles so test paths match what the checks read. */
 export function parseReport(xml, files, titlesOf = () => new Map()) {
-  const root = typeof xml === 'string' ? parseXml(xml) : xml
   const tests = []
   const broken = []
-  for (const tc of elements(root, 'testcase')) {
+  for (const tc of descendants(parseXml(xml), 'testcase')) {
     const name = tc.attrs.name ?? ''
     const classname = tc.attrs.classname ?? ''
     const fail = tc.children.find(c => c.name === 'failure')

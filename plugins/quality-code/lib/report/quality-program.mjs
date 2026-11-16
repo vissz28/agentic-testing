@@ -14,6 +14,7 @@ import { changedPaths, git } from '../core/git.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
 import { pct, withoutOrigin } from '../core/text.mjs'
 import { stripDotSlash, noTrailingSlash } from '../core/paths.mjs'
+import { child, parseXml } from '../core/xml.mjs'
 
 // ponytail: fixed Quality Program targets; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -175,22 +176,19 @@ export function readCoverage(root) {
 const COVERAGE_SKIP = new Set([...SKIP, 'bin', 'obj', '.gradle', '.venv', 'venv', 'vendor', '__pycache__', '.tox'])
 // JaCoCo (Maven, Gradle, aggregate) and coverlet's Cobertura.
 const COVERAGE_XML = /^(?:jacoco\.xml|jacocoTestReport\.xml|testCodeCoverageReport\.xml|coverage\.cobertura\.xml)$/
-const attr = (tag, name) => Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1])
-
 function xmlLines(text) {
-  if (/<report\b/.test(text)) {
-    // Report totals come after the last package/group.
-    const tail = text.slice(Math.max(text.lastIndexOf('</package>'), text.lastIndexOf('</group>'), 0))
-    const tag = tail.match(/<counter\b[^>]*\btype="LINE"[^>]*>/)?.[0]
-    if (!tag) return null
-    const covered = attr(tag, 'covered')
-    const valid = covered + attr(tag, 'missed')
+  const doc = parseXml(text)
+  const report = child(doc, 'report')
+  if (report) {
+    // JaCoCo: the report's own counters are its totals (each package and group has its own).
+    const tag = report.children.find(c => c.name === 'counter' && c.attrs.type === 'LINE')
+    const covered = Number(tag?.attrs.covered)
+    const valid = covered + Number(tag?.attrs.missed)
     return valid > 0 ? { covered, valid } : null
   }
-  const tag = text.match(/<coverage\b[^>]*>/)?.[0]
-  if (!tag) return null
-  const covered = attr(tag, 'lines-covered')
-  const valid = attr(tag, 'lines-valid')
+  const cobertura = child(doc, 'coverage')
+  const covered = Number(cobertura?.attrs['lines-covered'])
+  const valid = Number(cobertura?.attrs['lines-valid'])
   return valid > 0 ? { covered, valid } : null
 }
 
