@@ -144,7 +144,7 @@ h1 em{font-style:normal;background:linear-gradient(90deg,var(--g1),var(--blue) 5
 .field{display:flex;gap:8px;align-items:center;padding:6px 6px 6px 14px;border-radius:12px;background:var(--code);border:1px solid var(--line)}
 .field code{flex:1;overflow:auto;white-space:nowrap;font:13px ui-monospace,SFMono-Regular,Menlo,monospace}.field pre{margin:0;flex:1;overflow:auto;font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;padding:8px 0}
 .copy{border:0;border-radius:9px;padding:9px 13px;font:600 12px inherit;color:#fff;background:var(--deep);cursor:pointer}.copy:hover{background:var(--blue)}
-.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}.tab{padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--muted);font:600 13px inherit;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}.tab{padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--muted);font:600 13px inherit;cursor:pointer}
 .tab[aria-selected=true]{background:var(--soft);border-color:var(--blue);color:var(--ink)}
 .pane{display:none}.pane.on{display:block}
 .foot{text-align:center;font-size:12px;color:var(--muted);margin:0}
@@ -221,9 +221,10 @@ def home_page(w: WebSettings, user: dict) -> str:
             f'<div class="pane on" id="w"><p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b> (on a Team or Enterprise plan an Owner adds it under <b>Organization settings, Connectors</b>). Choose the <b>Web</b> type and paste the address below.</p>{field(w.mcp_url)}'
             '<p class="sub">Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>. You sign in with Microsoft, accept the rules, and Claude is connected.</p></div>'
             f'<div class="pane" id="p"><p class="sub">The plugin gives you the commands (<b>/quality-code:spec</b>, <b>check</b>, <b>qa</b> and more) in Claude Code. Run these two, then <b>/reload-plugins</b>:</p>{field(pm)}{field(pi)}'
-            f'<p class="sub">Or let Claude do it. In the <b>Claude app</b> (Desktop) this opens a new session with the request filled in: read it, press <b>Enter</b>, and approve the two commands.</p><a class="btn" href="{escape(desktop_link(), quote=True)}">Open in the Claude app</a>'
-            f'<p class="sub">In a terminal instead:</p><a class="btn quiet" href="{escape(install_link(), quote=True)}">Open in Claude Code (terminal)</a>'
-            '<p class="sub">The terminal link works on a computer where Claude Code has already run once (send it any message first). Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
+            '<p class="sub">Or let Claude do it: pick where you use Claude Code. Either one opens a new session with the request filled in. Read it, press <b>Enter</b>, and approve the two commands.</p>'
+            f'<div class="row"><a class="btn" href="{escape(desktop_link(), quote=True)}">Open in Claude Code Desktop</a>'
+            f'<a class="btn" href="{escape(install_link(), quote=True)}">Open in Claude Code CLI</a></div>'
+            '<p class="sub">The CLI button works on a computer where Claude Code has already run once (send it any message first). Update later with <b>/plugin update quality-code@teamsystem</b>.</p></div>'
             f'<div class="pane" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
             f'<div class="pane" id="b">{field(cp)}<p class="sub">Start <b>copilot</b>, type this command, and fill in the three values. Sign in with Microsoft when asked.</p></div>'
             f'<div class="pane" id="c"><div class="field"><pre>{escape(js)}</pre><button class="copy" data-copy="{escape(js, quote=True)}">Copy</button></div>'

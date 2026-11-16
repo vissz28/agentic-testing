@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.10] - 2026-11-16
+
+### Changed
+
+- The plugin tab of the shared server's home page has two side-by-side buttons: **Open in Claude Code Desktop** (the Claude app) and **Open in Claude Code CLI** (the terminal). Each opens a new session with the plugin install request filled in; nothing is sent until you press Enter and approve the two commands.
+
+**What to do:** nothing. Redeploy the server to get it.
+
 ## [0.80.9] - 2026-11-16
 
 ### Changed

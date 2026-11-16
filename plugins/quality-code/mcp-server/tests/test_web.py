@@ -163,7 +163,7 @@ def test_the_gitlab_tab_gives_gitlabs_own_mcp_address_and_can_be_switched_off():
     assert web.settings_from_env(S, {**env, "QUALITY_CODE_GITLAB_MCP_URL": "https://g.example.com/api/v4/mcp"}).gitlab_mcp_url == "https://g.example.com/api/v4/mcp"
 
 
-def test_the_plugin_tab_opens_the_claude_app_with_the_install_request_and_keeps_the_terminal_link(tmp_path):
+def test_the_plugin_tab_has_two_buttons_for_claude_code_desktop_and_the_cli(tmp_path):
     import urllib.parse
 
     link = web.desktop_link()
@@ -172,5 +172,5 @@ def test_the_plugin_tab_opens_the_claude_app_with_the_install_request_and_keeps_
     with client(tmp=tmp_path) as c:
         c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
         h = c.get("/").text
-    assert 'href="claude://code/new?q=' in h and "Open in the Claude app" in h
-    assert 'href="claude-cli://open?q=' in h and "Open in Claude Code (terminal)" in h
+    assert 'href="claude://code/new?q=' in h and "Open in Claude Code Desktop" in h
+    assert 'href="claude-cli://open?q=' in h and "Open in Claude Code CLI" in h
