@@ -32,7 +32,7 @@ import { readJson, readJsonOr } from '../lib/core/files.mjs'
 import { plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--print] [--dry-run]'
+const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--gate-only] [--print] [--dry-run]'
 const HEADER = '# Quality Code'
 const FETCH_HINT = 'fetch the full history: fetch-depth 0 on GitHub, GIT_DEPTH 0 on GitLab'
 const WORDS = { green: 'all good', tests_red: 'tests fail', checks_failed: 'problem in the tests', not_verified: 'could not run', skipped: 'skipped' }
@@ -57,13 +57,14 @@ function parse(argv) {
     else if (x === '--print') a.print = true
     else if (x === '--dry-run') a.dryRun = true
     else if (x === '--smoke') a.smoke = true
+    else if (x === '--gate-only') a.gateOnly = true
     else if (x === '--tests') a.tests = true
     else if (x === '--all') a.all = true
     else if (x === 'github' || x === 'gitlab') a.provider = x
     else throw new Error(`unknown option ${x}`)
   }
   if ((a.print || a.dryRun || a.provider) && !a.init) throw new Error(`${a.print ? '--print' : a.dryRun ? '--dry-run' : a.provider} goes with --init`)
-  if (a.smoke && !a.init) throw new Error('--smoke goes with --init')
+  if ((a.smoke || a.gateOnly) && !a.init) throw new Error(`${a.smoke ? '--smoke' : '--gate-only'} goes with --init`)
   if (a.init && (a.base || a.tests || a.all || a.junit)) throw new Error('--init takes github, gitlab and --print only')
   if ((a.all || a.junit) && !a.tests) throw new Error(`${a.all ? '--all' : '--junit'} goes with --tests`)
   return a
@@ -151,15 +152,19 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
   const native = s.backend && s.backend !== 'vitest' ? s.backend : null
   const install = installLines(s)
   const request = provider === 'github' ? 'pull request' : 'merge request'
+  // --gate-only: for projects whose install or suite cannot run in CI yet.
+  const tests = !s.gateOnly
   const head = [
-    `${HEADER}: two jobs on each ${request}. No model is involved: scripts decide.`,
+    `${HEADER}: ${tests ? 'two jobs' : 'the gate job'} on each ${request}. No model is involved: scripts decide.`,
     `# test_quality_gate: on the specs the ${request} changed, honesty (no assertion or test removed, no skip without`,
     '#   a ticket), assertions (every test asserts something) and the frozen evals. git and node only, seconds.',
-    '# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed',
-    `#   but no spec did runs its whole suite without mutation, as does a push to ${provider === 'github' ? s.defaultBranch : 'the default branch'}.`,
-    `# The install lines were guessed from the project${s.ownInstall ? ` (${s.ownInstall.line} from ${s.ownInstall.file})` : ''}: change them if it installs differently (a private registry,`,
-    '#   a generated file); add the variables and secrets the tests need.',
-    ...(s.playwright ? ['# Playwright starts the app through webServer in its config; without one, start the app before the tests.'] : []),
+    ...(tests ? [
+      '# test_quality_tests: types, tests and mutation on the changed specs, one run per module. A side whose code changed',
+      `#   but no spec did runs its whole suite without mutation, as does a push to ${provider === 'github' ? s.defaultBranch : 'the default branch'}.`,
+      `# The install lines were guessed from the project${s.ownInstall ? ` (${s.ownInstall.line} from ${s.ownInstall.file})` : ''}: change them if it installs differently (a private registry,`,
+      '#   a generated file); add the variables and secrets the tests need.',
+      ...(s.playwright ? ['# Playwright starts the app through webServer in its config; without one, start the app before the tests.'] : []),
+    ] : ['# No test_quality_tests job (--gate-only): run /quality-code:ci again without it to add the tests.']),
     source.url === DEFAULT_PLUGIN_URL
       ? '# The plugin is fetched from GitHub at a fixed version: mirror it if your runners cannot reach github.com (ci.pluginSource in the project config, or QUALITY_CODE_PLUGIN_URL and QUALITY_CODE_PLUGIN_REF).'
       : `# The plugin is fetched from ${source.url} at ${source.ref} (ci.pluginSource in the project config).`,
@@ -172,15 +177,13 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
       'on:',
       '  pull_request:',
       ...(s.smoke ? ['  workflow_dispatch:'] : []),
-      '  push:',
-      `    branches: [${s.defaultBranch}]`,
+      ...(tests || s.smoke ? ['  push:', `    branches: [${s.defaultBranch}]`] : []), // smoke also runs on push to the default branch
       ...(s.prefix ? ['defaults:', '  run:', `    working-directory: ${s.prefix}`] : []),
       'jobs:',
       '  test_quality_gate:',
       "    if: github.event_name == 'pull_request'",
       ...start, `      - run: ${fetch}`, `      - run: ${ci}`,
-      '  test_quality_tests:',
-      ...start, ...(native ? GH_SETUP[native](s) : []), ...install.map(l => `      - run: ${l}`), `      - run: ${fetch}`, `      - run: ${ci} --tests`,
+      ...(tests ? ['  test_quality_tests:', ...start, ...(native ? GH_SETUP[native](s) : []), ...install.map(l => `      - run: ${l}`), `      - run: ${fetch}`, `      - run: ${ci} --tests`] : []),
       ...(s.smoke ? smokeJob('github', { fetch, pipeline: 'node /tmp/quality-code/plugins/quality-code/bin/pipeline.mjs', install: jsInstall(install), prefix: s.prefix }) : []),
     ].join('\n')}\n`
   }
@@ -194,6 +197,7 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
     '  rules:',
     '    - if: $CI_PIPELINE_SOURCE == "merge_request_event"',
     '  script:', ...cd, `    - ${fetch}`, `    - ${ci}`,
+    ...(tests ? [
     '',
     'test_quality_tests:',
     '  stage: test',
@@ -213,6 +217,7 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
     '  retry:', '    max: 2', '    when: [runner_system_failure, stuck_or_timeout_failure, scheduler_failure, api_failure]',
     '  script:', ...cd, ...(native ? [`    - ${NODE_TARBALL}`] : []), ...install.map(l => `    - ${l}`), `    - ${fetch}`, `    - ${ci} --tests --junit quality-code-junit.xml`,
     '  artifacts:', '    when: always', '    reports:', `      junit: ${s.prefix}quality-code-junit.xml`,
+    ] : []),
     ...(s.smoke ? ['', ...smokeJob('gitlab', { fetch, pipeline: 'node /tmp/quality-code/plugins/quality-code/bin/pipeline.mjs', install: jsInstall(install), prefix: s.prefix })] : []),
   ].join('\n')}\n`
 }
@@ -236,9 +241,9 @@ function init(root, config, a, env, stdout, stderr) {
   if (source.error) { printError(source.error); return 2 }
   let stack
   try { stack = stackOf(root, config) } catch (e) { printError(e.message); return 2 }
-  const text = template(provider, version, { ...stack, smoke: a.smoke }, source)
+  const text = template(provider, version, { ...stack, smoke: a.smoke, gateOnly: a.gateOnly }, source)
   if (a.print) { stdout(text); return 0 }
-  // Only a file Quality Code wrote is replaced; an existing .gitlab-ci.yml gets the jobs in a file of their own, to include.
+  // Only overwrite our own file; an existing .gitlab-ci.yml gets a separate file to include.
   const free = p => !existsSync(join(top, p)) || readText(join(top, p)).startsWith(HEADER)
   const target = provider === 'github' ? '.github/workflows/quality-code.yml' : free('.gitlab-ci.yml') ? '.gitlab-ci.yml' : '.gitlab/quality-code.gitlab-ci.yml'
   if (!free(target)) { printError(`${target} is there already and Quality Code did not write it: not overwritten. Print the jobs instead: --init ${provider} --print`); return 2 }

@@ -271,3 +271,15 @@ test('junit escapes text and marks skipped phases', () => {
   assert.match(x, /<skipped\/>/)
   assert.match(x, /tests="3" failures="1"/)
 })
+
+test('--gate-only writes the gate job alone: no install, no tests, no push trigger unless smoke needs it', async () => {
+  for (const p of ['github', 'gitlab']) {
+    const t = template(p, '1.0.0', { ...JS_PNPM, gateOnly: true })
+    assert.match(t, /test_quality_gate:/, p)
+    assert.doesNotMatch(t, /test_quality_tests:|pnpm install|--tests/, p)
+    assert.match(t, /No test_quality_tests job \(--gate-only\)/, p)
+  }
+  assert.doesNotMatch(template('github', '1.0.0', { ...JS_PNPM, gateOnly: true }), /push:/)
+  assert.match(template('github', '1.0.0', { ...JS_PNPM, gateOnly: true, smoke: true }), /push:/)
+  assert.equal((await run(['--gate-only'], project())).code, 2, '--gate-only goes with --init')
+})
