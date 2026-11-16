@@ -176,8 +176,18 @@ export function readCoverage(root) {
 const COVERAGE_SKIP = new Set([...SKIP, 'bin', 'obj', '.gradle', '.venv', 'venv', 'vendor', '__pycache__', '.tox'])
 // JaCoCo (Maven, Gradle, aggregate) and coverlet's Cobertura.
 const COVERAGE_XML = /^(?:jacoco\.xml|jacocoTestReport\.xml|testCodeCoverageReport\.xml|coverage\.cobertura\.xml)$/
+/** The text without its per-package detail, from the first opening tag to the last closing one: the totals sit outside it. */
+function withoutDetail(text, open, closes) {
+  const from = text.search(open)
+  const to = Math.max(...closes.map(c => { const i = text.lastIndexOf(c); return i < 0 ? -1 : i + c.length }))
+  return from >= 0 && to > from ? text.slice(0, from) + text.slice(to) : text
+}
+
 function xmlLines(text) {
-  const doc = parseXml(text)
+  // ponytail: string cuts before parsing, so a monorepo report of tens of MB is not built into a tree.
+  const doc = parseXml(/<report[\s>]/.test(text)
+    ? withoutDetail(text, /<(?:group|package)[\s>/]/, ['</group>', '</package>'])
+    : withoutDetail(text, /<packages[\s>/]/, ['</packages>']))
   const report = child(doc, 'report')
   if (report) {
     // JaCoCo: the report's own counters are its totals (each package and group has its own).
