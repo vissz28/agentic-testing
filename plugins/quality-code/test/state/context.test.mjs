@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CONNECTORS_TTL_MS, clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../../lib/state/context.mjs'
+import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../../lib/state/context.mjs'
 import { main } from '../../bin/progress.mjs'
 
 const env = () => ({ CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-ctx-')) })
@@ -19,10 +19,10 @@ test('a fact with no source rule is fresh and keeps its value', () => {
   assert.deepEqual([g.found, g.fresh, g.value.flow], [true, true, 'project'])
 })
 test('ttl: fresh inside the limit, stale after it, with the reason', () => {
-  const e = env(), r = project(), t0 = Date.parse('2026-11-04T08:00:00Z')
-  setFact(r, 'connectors', { jira: 'ok' }, { kind: 'ttl', value: CONNECTORS_TTL_MS }, e, t0)
-  assert.equal(getFact(r, 'connectors', null, e, t0 + CONNECTORS_TTL_MS - 1000).fresh, true)
-  const old = getFact(r, 'connectors', null, e, t0 + CONNECTORS_TTL_MS + 1000)
+  const e = env(), r = project(), t0 = Date.parse('2026-11-04T08:00:00Z'), day = 86400000
+  setFact(r, 'connectors', { jira: 'ok' }, { kind: 'ttl', value: day }, e, t0)
+  assert.equal(getFact(r, 'connectors', null, e, t0 + day - 1000).fresh, true)
+  const old = getFact(r, 'connectors', null, e, t0 + day + 1000)
   assert.deepEqual([old.fresh, old.reason, old.value], [false, 'older than its time limit', undefined])
 })
 test('head, hash and ticket: fresh only while the token is the same', () => {

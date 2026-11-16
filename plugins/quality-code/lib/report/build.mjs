@@ -129,7 +129,7 @@ const toneOf = (tones, i) => tones[i % tones.length]
 const TONES = ['accent', 'pass', 'warn', 'fail', 'idle']
 
 /** `reports`: buildReport's object by command, day and model. */
-export function consumptionReport(reports, { config = null, now = new Date() } = {}) {
+export function consumptionReport(reports, { config = null } = {}) {
   const s = t => safe(config, t)
   const base = reports.command ?? reports.day ?? reports.model
   const t = base.totals

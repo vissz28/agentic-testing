@@ -73,7 +73,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   printLine(a.json ? JSON.stringify(report) : formatCard(report))
   if (a.report) {
     const by = Object.fromEntries(['command', 'day', 'model'].map(b => [b, b === a.by ? report : buildReport(usage, { period, by: b, prices, project: basename(root), priceInfo })]))
-    const built = consumptionReport(by, { config: cfg.ok ? cfg.config : null, now: new Date(now) })
+    const built = consumptionReport(by, { config: cfg.ok ? cfg.config : null })
     try {
       const path = saveReport(reportsRoot(root, cfg, env), 'consumption', new Date(now).toISOString().slice(0, 10), built.html)
       printLine(reportLines(path, 'Quality Code consumption', built.headline).join('\n'))

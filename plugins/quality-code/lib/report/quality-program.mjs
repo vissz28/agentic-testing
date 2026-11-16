@@ -1,5 +1,5 @@
 // Quality Program (§9) numbers a repo can show on its own. Each is a number or "no data", never a made-up 100%.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { layersOf, ungradedTitlesOf } from '../config/config.mjs'
 import { e2eFolder } from '../stacks/e2e-folder.mjs'

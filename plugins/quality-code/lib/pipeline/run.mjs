@@ -1,5 +1,5 @@
 // Marker for an active test-writing run; the boundary hook acts only while one exists.
-import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
+import { readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'

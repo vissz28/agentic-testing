@@ -4,7 +4,6 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFi
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { stripCredentials } from './branch.mjs'
 import { CONFIG_REL, DEFAULTS, configPath, loadConfig, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/config/config.mjs'
-import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { ignoreFolder } from '../lib/core/ignore.mjs'
 import { placeConfigPath, placeOf } from '../lib/config/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/stacks/e2e-folder.mjs'

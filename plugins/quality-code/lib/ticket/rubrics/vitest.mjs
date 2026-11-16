@@ -43,7 +43,7 @@ function deriveSignals(v, config, ticket) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
+  const { key, score, threshold, gate, legacy, feature, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
   const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'

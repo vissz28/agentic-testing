@@ -106,7 +106,7 @@ test('consumption report: cost by command, day and model; empty state', () => {
   const usage = { runs: [run], events: [{ run, t: NOW - 86400000, model: 'm1', tokens: { input: 1000, output: 500, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0 } }] }
   const prices = { m1: { input: 3, output: 15, cacheWrite5m: 3.75, cacheWrite1h: 6, cacheRead: 0.3 } }
   const mk = by => buildReport(usage, { period, by, prices, project: 'demo', priceInfo: { asOf: '2026-10-01', source: 'x', override: null } })
-  const { html } = consumptionReport({ command: mk('command'), day: mk('day'), model: mk('model') }, { now: new Date(NOW) })
+  const { html } = consumptionReport({ command: mk('command'), day: mk('day'), model: mk('model') })
   assertSelfContained(html)
   for (const t of ['Cost per day', 'Cost by command', 'Cost by model']) assert.ok(html.includes(t), t)
   const none = buildReport({ runs: [], events: [] }, { period, by: 'command', prices: {}, project: 'demo', priceInfo: { asOf: null } })

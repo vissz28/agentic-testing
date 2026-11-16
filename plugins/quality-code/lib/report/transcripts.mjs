@@ -1,6 +1,6 @@
 // Splits a project's local Claude Code transcript usage into quality-code runs and the rest. Read-only, offline.
 // Only counts, models, command names, ticket keys and times leave this module, never prompt or reply text.
-import { existsSync, readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { tryReadJson } from '../core/files.mjs'

@@ -4,7 +4,7 @@ import { validateConfig } from '../../lib/config/config.mjs'
 import { buildBrief, formatReport } from '../../lib/ticket/score.mjs'
 import { naturalLength } from '../../lib/ticket/criteria.mjs'
 import { messagesFor } from '../../lib/ticket/messages.mjs'
-import { formatRefuseComment, formatRiskComment, templateLine, browseUrl, jiraUpdate, formatJiraUpdate, isRefuseComment, REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK, RISK_COMMENT_FOOTER, COAUTHOR_LINE } from '../../lib/ticket/jira.mjs'
+import { formatRefuseComment, formatRiskComment, templateLine, jiraUpdate, formatJiraUpdate, isRefuseComment, REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK, RISK_COMMENT_FOOTER, COAUTHOR_LINE } from '../../lib/ticket/jira.mjs'
 
 const base = { version: 2, backend: 'vitest', jira: { site: 'https://example.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [{ label: 'Orders' }] }
 const cfg = (patch = {}) => validateConfig({ ...base, ...patch }).config
@@ -30,9 +30,6 @@ test('template line: override, path, or nothing', () => {
   assert.equal(templateLine(cfg(), 'Bug'), '')
   assert.equal(templateLine(cfg({ ticketTemplates: { bug: '.github/ISSUE_TEMPLATE/bug.md' } }), 'Bug'), 'The full Bug template is at .github/ISSUE_TEMPLATE/bug.md.')
   assert.equal(templateLine(cfg({ messages: { templateLine: { bug: 'X' } } }), 'Bug'), 'X')
-})
-test('browse URL from config', () => {
-  assert.equal(browseUrl(cfg(), 'DEMO-1'), 'https://example.atlassian.net/browse/DEMO-1')
 })
 test('jira update sends only filled sections', () => {
   const t = { ...bare, filled: [{ key: 'ac_present', section: '## Acceptance criteria\n- x' }, { key: 'feature_label', label: 'Orders' }] }
