@@ -39,9 +39,11 @@ export const KEYS = Object.freeze({
   'runners.e2e': { type: T.enum, choices: runnersOf('e2e'), optional: true, project: true },
   'vitest.configs': { type: T.configs, optional: true, project: true },
   'playwright.configs': { type: T.configs, optional: true, project: true },
+  'vitest.maxMutants': { type: T.int, optional: true, project: true },
+  'playwright.maxMutants': { type: T.int, optional: true, project: true },
   'place': { type: T.enum, choices: ['repo', 'local', 'chat'], file: true },
 })
-/** One example value for each settable key, shown by `config keys`. */
+/** Shown by `config keys`. */
 export const EXAMPLES = Object.freeze({
   'jira.site': 'acme.atlassian.net', 'jira.projects': 'ABC,DEF', 'jira.trackingProjects': 'ABC', 'jira.bugTypes': 'Bug,Defect',
   'jira.doneStatuses': 'Done,Closed', 'jira.acceptanceCriteriaField': 'customfield_10100', 'git.base': 'develop', 'root': 'apps/web',
@@ -50,6 +52,7 @@ export const EXAMPLES = Object.freeze({
   'qa.statuses.done': 'Done', 'qa.blockedStop': '2', 'qa.autoPass': 'false', 'place': 'local',
   'runners.unit': 'jest', 'runners.e2e': 'playwright',
   'vitest.configs': 'services/**=jest.config.js,web/**=web/vitest.config.ts', 'playwright.configs': 'e2e/**=e2e/playwright.config.ts',
+  'vitest.maxMutants': '20', 'playwright.maxMutants': '10',
 })
 const CLEAR = /^(none|null|unset|default)$/i
 const PLUGIN_KEY = /^(jira[._-]?email|gitlab|xray[._-]?(api[._-]?url|client)|figma)/i
