@@ -263,6 +263,13 @@ export function hasNaturalAC(items) {
   return naturalLength(items) >= MIN_NATURAL_AC
 }
 
+/** On a one-line Given/When/Then, only the text after the last Then is the outcome (When is input). */
+export function outcomeOf(chunk, v) {
+  const hits = [...chunk.matchAll(v.thenWord)]
+  const last = hits.at(-1)
+  return last && /\b(?:given|when|dato|data|quando)\b/i.test(chunk.slice(0, last.index)) ? chunk.slice(last.index + last[0].length) : chunk
+}
+
 /** Takes a Gherkin string, {gherkin}, {then} or {expected}. */
 export function hasConcreteThen(v, scenario) {
   const src =
@@ -270,7 +277,8 @@ export function hasConcreteThen(v, scenario) {
       ? scenario
       : (scenario?.then ?? scenario?.expected ?? scenario?.gherkin ?? '')
   const text = normalise(src)
-  const thenLine = (text.match(v.thenLineCapture) || [])[1]
+  const oneLine = outcomeOf(text, v)
+  const thenLine = (text.match(v.thenLineCapture) || [])[1] ?? (oneLine === text ? undefined : oneLine)
   // A then/expected field is already the result; a whole scenario needs an explicit Then.
   const isExpectedField =
     typeof scenario === 'object' && scenario !== null && (scenario.then != null || scenario.expected != null)

@@ -66,6 +66,11 @@ test('hasConcreteThen reads strings and objects', () => {
   assert.equal(C.hasConcreteThen(v, { gherkin: 'Then it works correctly' }), false)
   assert.equal(C.hasConcreteThen(v, { expected: 'the total is 150' }), true)
 })
+test('hasConcreteThen reads a Given/When/Then on one line', () => {
+  assert.equal(C.hasConcreteThen(v, { gherkin: 'Given a product When I save quantity 0,004 Then the Quantity cell shows "+0,004"' }), true)
+  assert.equal(C.hasConcreteThen(v, 'Given a product When I save Then it works correctly'), false, 'still vague')
+  assert.equal(C.hasConcreteThen(v, 'Open the page and then read the total of the order'), false, 'a "then" in prose is not a Then')
+})
 test('extractExpectedChunks reads every form, shared regexes keep no state', () => {
   const t = '## Expected\nTotal is 5\n## Other\nWhat is the expected behavior? **zero cost**\nIt shows 7 instead of 0\nThen the last cost is 0'
   for (let i = 0; i < 2; i++) {

@@ -1,7 +1,7 @@
 // Expected values: numbers and quoted text from the ticket's Then/Expected lines must be asserted in its block.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { extractExpectedChunks, extractNaturalAC } from '../../ticket/criteria.mjs'
+import { extractExpectedChunks, extractNaturalAC, outcomeOf } from '../../ticket/criteria.mjs'
 import { buildVocabulary } from '../../ticket/languages/index.mjs'
 import { anchorRange } from './suite-honesty.mjs'
 import { result } from '../result.mjs'
@@ -72,12 +72,7 @@ export function expectedChunks(ticket, v = buildVocabulary(['en', 'it'])) {
   ])]
 }
 
-/** On a one-line Given/When/Then, only the text after the last Then is the outcome (When is input). */
-export function outcomeOf(chunk, v) {
-  const hits = [...chunk.matchAll(v.thenWord)]
-  const last = hits.at(-1)
-  return last && /\b(?:given|when|dato|data|quando)\b/i.test(chunk.slice(0, last.index)) ? chunk.slice(last.index + last[0].length) : chunk
-}
+export { outcomeOf }
 
 /** Distinct expected values, each one present verbatim in the ticket text. */
 // A code written with leading zeros ("000", "007") is that code, not the number: 0 does not assert it.
