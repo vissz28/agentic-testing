@@ -21,10 +21,18 @@ def text(r):
     return r.content[0].text
 
 
-def test_remote_offers_only_the_jira_only_commands(tmp_path):
-    n = names(build(ROOT, remote=True, fixed_cwd=tmp_path))
-    assert n == {"quality_code_" + c.replace("-", "_") for c in REMOTE_COMMANDS} | {"quality_code_run_script", "quality_code_guide"}
-    assert "quality_code_spec" not in n and "quality_code_check" not in n
+def test_remote_offers_every_command_but_only_the_jira_only_ones_run_here(tmp_path):
+    from quality_code_mcp.catalog import load_commands
+
+    s = build(ROOT, remote=True, fixed_cwd=tmp_path)
+    n = names(s)
+    assert n == {c.tool_name for c in load_commands(ROOT)} | {"quality_code_run_script", "quality_code_guide"}
+    assert "quality_code_spec" in n and "quality_code_check" in n and "quality_code_ticket" in n
+    tools = {t.name: t for t in asyncio.run(s.list_tools())}
+    assert tools["quality_code_spec"].description.startswith("Needs your repo")
+    assert not tools["quality_code_ticket"].description.startswith("Needs your repo")
+    assert "NOTE: this command needs your repo" in text(asyncio.run(s.call_tool("quality_code_spec", {"arguments": "ABC-1"})))
+    assert "NOTE: this command needs your repo" not in text(asyncio.run(s.call_tool("quality_code_ticket", {"arguments": "ABC-1"})))
 
 
 def test_remote_script_tool_has_no_folder_and_a_short_allowlist(tmp_path):

@@ -1,7 +1,7 @@
 ---
 description: 'Set this repo up for quality code. Checks the connectors (Jira, GitLab, Figma), finds where the project lives, its Jira project and its base branch, shows them on one card to confirm, and writes the project config after you confirm. It does not check any ticket: that is /quality-code:spec. Add "advanced" for feature labels, QA plans, title prefixes, templates and redaction.'
 argument-hint: '[advanced]'
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_quality-code__quality_code_whoami
 model: sonnet
 ---
 

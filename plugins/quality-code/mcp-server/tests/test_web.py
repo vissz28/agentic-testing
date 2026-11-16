@@ -147,3 +147,17 @@ def test_the_plugin_tab_has_a_deep_link_that_opens_claude_code_with_the_install_
         c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
         h = c.get("/").text
     assert "Open in Claude Code" in h and 'href="claude-cli://open?q=' in h
+
+
+def test_the_gitlab_tab_gives_gitlabs_own_mcp_address_and_can_be_switched_off():
+    import dataclasses
+
+    on = dataclasses.replace(W, gitlab_mcp_url="https://gitlab.example.com/api/v4/mcp")
+    h = web.home_page(on, {"name": "Ada", "email": "a@teamsystem.com"})
+    assert 'data-tab="g"' in h and 'class="pane" id="g"' in h and "https://gitlab.example.com/api/v4/mcp" in h and "never holds your GitLab access" in h
+    off = web.home_page(W, {"name": "Ada", "email": "a@teamsystem.com"})
+    assert 'data-tab="g"' not in off and 'class="pane" id="g"' not in off
+    env = {"QUALITY_CODE_ENTRA_CLIENT_SECRET": "s"}
+    assert web.settings_from_env(S, env).gitlab_mcp_url == web.GITLAB_MCP_URL
+    assert web.settings_from_env(S, {**env, "QUALITY_CODE_GITLAB_MCP_URL": "off"}).gitlab_mcp_url == ""
+    assert web.settings_from_env(S, {**env, "QUALITY_CODE_GITLAB_MCP_URL": "https://g.example.com/api/v4/mcp"}).gitlab_mcp_url == "https://g.example.com/api/v4/mcp"

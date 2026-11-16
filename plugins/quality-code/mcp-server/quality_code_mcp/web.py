@@ -38,6 +38,7 @@ class WebSettings:
     entra: EntraSettings
     client_secret: str  # the web app registration's client secret: the server redeems the sign-in code with it
     session_key: str  # signs the cookies
+    gitlab_mcp_url: str = ""  # GitLab's own MCP server, added in Claude as a second connector: it signs in itself, this server never holds a GitLab token
 
     @property
     def redirect_uri(self) -> str:
@@ -52,13 +53,17 @@ class WebSettings:
         return self.entra.public_url.startswith("https://")
 
 
+GITLAB_MCP_URL = "https://biosphere.teamsystem.com/api/v4/mcp"  # TeamSystem's GitLab; QUALITY_CODE_GITLAB_MCP_URL changes it, "off" hides the GitLab tab
+
+
 def settings_from_env(entra: EntraSettings, env: dict[str, str]) -> WebSettings | None:
     """None when no client secret is set: the view then says sign-in is not set up, and /mcp works as before."""
     secret = (env.get("QUALITY_CODE_ENTRA_CLIENT_SECRET") or "").strip()
     if not secret:
         return None
     key = (env.get("QUALITY_CODE_SESSION_SECRET") or "").strip() or secrets.token_urlsafe(32)  # a random key signs users out on restart
-    return WebSettings(entra=entra, client_secret=secret, session_key=key)
+    gitlab = (env.get("QUALITY_CODE_GITLAB_MCP_URL") or GITLAB_MCP_URL).strip()
+    return WebSettings(entra=entra, client_secret=secret, session_key=key, gitlab_mcp_url="" if gitlab.lower() in ("off", "none") else gitlab)
 
 
 def _sign(w: WebSettings, payload: dict, ttl: int) -> str:
@@ -206,7 +211,8 @@ def home_page(w: WebSettings, user: dict) -> str:
             '<button class="tab" role="tab" aria-selected="false" data-tab="p">Claude Code plugin</button>'
             '<button class="tab" role="tab" aria-selected="false" data-tab="a">Claude Code</button>'
             '<button class="tab" role="tab" aria-selected="false" data-tab="b">Copilot CLI</button>'
-            '<button class="tab" role="tab" aria-selected="false" data-tab="c">Cursor &amp; others</button></div>'
+            '<button class="tab" role="tab" aria-selected="false" data-tab="c">Cursor &amp; others</button>'
+            + ('<button class="tab" role="tab" aria-selected="false" data-tab="g">GitLab</button>' if w.gitlab_mcp_url else "") + '</div>'
             f'<div class="pane on" id="w"><p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b> (on a Team or Enterprise plan an Owner adds it under <b>Organization settings, Connectors</b>). Choose the <b>Web</b> type and paste the address below.</p>{field(w.mcp_url)}'
             '<p class="sub">Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>. You sign in with Microsoft, accept the rules, and Claude is connected.</p></div>'
             f'<div class="pane" id="p"><p class="sub">The plugin gives you the commands (<b>/quality-code:spec</b>, <b>check</b>, <b>qa</b> and more) in Claude Code. Run these two, then <b>/reload-plugins</b>:</p>{field(pm)}{field(pi)}'
@@ -215,7 +221,9 @@ def home_page(w: WebSettings, user: dict) -> str:
             f'<div class="pane" id="a">{field(cc)}<p class="sub">Then type <b>/mcp</b> in Claude Code and choose <b>Authenticate</b>.</p></div>'
             f'<div class="pane" id="b">{field(cp)}<p class="sub">Start <b>copilot</b>, type this command, and fill in the three values. Sign in with Microsoft when asked.</p></div>'
             f'<div class="pane" id="c"><div class="field"><pre>{escape(js)}</pre><button class="copy" data-copy="{escape(js, quote=True)}">Copy</button></div>'
-            '<p class="sub">Paste it into the client’s MCP settings (<b>.mcp.json</b> or <b>mcp.json</b>).</p></div></div>'
+            '<p class="sub">Paste it into the client’s MCP settings (<b>.mcp.json</b> or <b>mcp.json</b>).</p></div>'
+            + (f'<div class="pane" id="g"><p class="sub">GitLab signs in by itself, like Jira: add its own MCP server in Claude as a second connector. This server never holds your GitLab access.</p>{field(w.gitlab_mcp_url)}'
+               '<p class="sub">In Claude open <b>Customize, Connectors</b>, then <b>Add</b> and <b>Add custom connector</b>, choose the <b>Web</b> type and paste the address. Leave <b>Authentication</b> on <b>Sign in now</b> and <b>OAuth client</b> on <b>Register automatically</b>, click <b>Add</b>, then <b>Connect</b>, and accept in GitLab. In Claude Code, type <b>/mcp</b>, choose <b>gitlab</b> and sign in.</p></div>' if w.gitlab_mcp_url else "") + '</div>'
             '<a class="btn quiet" href="/logout">Sign out</a></aside>')
     script = ("document.querySelectorAll('.copy').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);b.textContent='Copied';"
               "setTimeout(()=>b.textContent='Copy',1400)}catch(e){b.textContent='Select + copy'}});"

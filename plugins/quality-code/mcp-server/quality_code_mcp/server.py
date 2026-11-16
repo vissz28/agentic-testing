@@ -32,6 +32,8 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 # Everything that needs a developer's checkout (spec, the run commands, seed, xray, qa, setup, config, kpi) stays on the local server.
 REMOTE_COMMANDS = {"ticket"}
 REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
+NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket and branch scripts, in one fixed folder). "
+                     "Use the instructions as a guide, but run the command itself in Claude Code with the Quality Code plugin, or with the local server (quality-code-mcp over stdio). Do not call quality_code_run_script for the other scripts here.")
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
@@ -88,7 +90,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     """`entra` turns on Entra ID verification (HTTP). `remote` is the shared-server profile: only the Jira-only commands and read-only scripts,
     run in `fixed_cwd` (a caller cannot pick the folder), at most MAX_RUNNING at once, and an open /health."""
     root = root or plugin_root()
-    commands = [c for c in load_commands(root) if not remote or c.name in REMOTE_COMMANDS]
+    commands = load_commands(root)
     scripts = set(list_scripts(root)) & (REMOTE_SCRIPTS if remote else set(list_scripts(root)))
     guides = set(list_guides(root)) & (REMOTE_GUIDES if remote else set(list_guides(root)))
     if remote and not fixed_cwd:
@@ -120,19 +122,25 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         ),
     )
 
+    def needs_repo(cmd: Command) -> bool:
+        """On the shared server only the Jira-only commands can run their scripts; the others need the person's repo."""
+        return remote and cmd.name not in REMOTE_COMMANDS
+
     def command_tool(cmd: Command):
         def run(arguments: str = "") -> str:
-            return render(cmd, root, arguments)
+            body = render(cmd, root, arguments)
+            return f"{NEEDS_REPO_NOTICE}\n\n{body}" if needs_repo(cmd) else body
 
         run.__name__ = cmd.tool_name
         return run
 
     for cmd in commands:
         hint = f" Arguments: {cmd.argument_hint}" if cmd.argument_hint else ""
+        lead = "Needs your repo: here it returns the instructions only, and its scripts run in Claude Code with the plugin or in the local server. " if needs_repo(cmd) else ""
         server.add_tool(
             command_tool(cmd),
             name=cmd.tool_name,
-            description=f"/quality-code:{cmd.name}: {cmd.description}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
+            description=f"{lead}/quality-code:{cmd.name}: {cmd.description}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
             annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
         )
 

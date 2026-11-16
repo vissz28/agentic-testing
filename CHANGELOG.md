@@ -9,6 +9,19 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.8] - 2026-11-16
+
+### Added
+
+- The shared server's home page has a **GitLab** tab: GitLab's own MCP server (default `https://biosphere.teamsystem.com/api/v4/mcp`, set by `QUALITY_CODE_GITLAB_MCP_URL`, `off` hides the tab) with a Copy button and the steps to add it in Claude as a second connector. GitLab signs in by itself, like Jira; this server never holds a GitLab token.
+- `/quality-code:setup` asks the quality-code server who is signed in (`quality_code_whoami`) and offers that Jira email on a card (`Use <jira_email> as your Atlassian email?`) instead of asking you to type it; the GitLab username it returns is used for the GitLab account check when the plugin setting is empty. Only what the tool or you gave is used.
+
+### Changed
+
+- The shared server now offers every command as a tool (`quality_code_spec`, `check`, `qa`, `xray`, `setup` and the rest), not just `ticket`. The ones that need your repo say so in their description and in the instructions they return: on the shared server they only return instructions, and their scripts run in Claude Code with the plugin or in the local server. The script tool is unchanged (`ticket` and `branch`, read-only).
+
+**What to do:** update the plugin (`/quality-code:update`, then `/reload-plugins`) for the setup change; redeploy the server for the rest.
+
 ## [0.80.7] - 2026-11-16
 
 ### Added
