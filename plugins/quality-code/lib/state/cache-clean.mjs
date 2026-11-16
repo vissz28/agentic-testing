@@ -1,10 +1,11 @@
 // Deletes the plugin's local cache (<Claude folder>/quality-code/progress/) and nothing else.
 // Every path must resolve inside the cache folder; symlinks are skipped, never followed or removed.
 import { existsSync, lstatSync, readdirSync, realpathSync, rmSync, rmdirSync } from 'node:fs'
-import { isAbsolute, join, relative } from 'node:path'
+import { join, relative } from 'node:path'
 import { dirOf, short, slug } from './progress.mjs'
+import { leavesFolder } from '../core/paths.mjs'
 
-const inside = (base, p) => { const r = relative(base, p); return r !== '' && !r.startsWith('..') && !isAbsolute(r) }
+const inside = (base, p) => { const r = relative(base, p); return r !== '' && !leavesFolder(r) }
 
 // null when missing or a symlink (a link could point anywhere).
 function realBase(env) {

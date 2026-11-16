@@ -3,12 +3,12 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, loadConfig, normaliseTicketsDir, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/config/config.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, loadConfig, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/config/config.mjs'
 import { FIELDS_REL } from '../lib/ticket/fields.mjs'
 import { ignoreFolder } from '../lib/core/ignore.mjs'
 import { placeConfigPath, placeOf } from '../lib/config/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/stacks/e2e-folder.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut } from '../lib/core/git.mjs'
 import { CI_FILES } from '../lib/pipeline/boundary.mjs'
 import { asAdapter } from '../lib/stacks/stack.mjs'
 import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs'
@@ -20,8 +20,10 @@ import { detectConventions } from '../lib/stacks/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
-import { isLine, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
+import { lines, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
 import { readJson } from '../lib/core/files.mjs'
+import { noTrailingSlash, cleanRelPath, leavesFolder } from '../lib/core/paths.mjs'
+import { isLine, isObject } from '../lib/core/is.mjs'
 
 // Checked in order; new templates go where the repo's host keeps them.
 const TEMPLATE_CANDIDATES = {
@@ -32,13 +34,13 @@ const TEMPLATE_HOME = { gitlab: { bug: '.gitlab/issue_templates/Bug.md', story: 
 
 export const RUNTIME_GITIGNORE = ['.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/']
 
-const rawLine = ticketsDir => `${normaliseTicketsDir(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
+const rawLine = ticketsDir => `${cleanRelPath(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
 
 function boundaryCandidates(root, ignored = new Set()) {
   let names = []
   try { names = readdirSync(root) } catch {}
-  const exists = p => existsSync(join(root, p.replace(/\/$/, ''))) && !ignored.has(p.replace(/\/$/, ''))
-  // Monorepo packages each have their own src/.
+  const exists = p => existsSync(join(root, noTrailingSlash(p))) && !ignored.has(noTrailingSlash(p))
+  // A workspace monorepo's packages each have their code folder.
   const workspaceSrc = top => { try { return readdirSync(join(root, top)).some(n => !BUILD_COPIES.has(n) && !ignored.has(`${top}/${n}`) && existsSync(join(root, top, n, 'src'))) } catch { return false } }
   return [
     ...['src/', 'app/', 'lib/', 'server/', 'pages/', 'components/', 'prisma/', 'migrations/'].filter(exists),
@@ -287,7 +289,7 @@ if (existsSync('${ENV_FILE}')) process.loadEnvFile('${ENV_FILE}')
     : `    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },`
   return `${head}
 export default defineConfig({
-  testDir: './${DEFAULT_E2E_FOLDER.replace(/\/$/, '')}',
+  testDir: './${noTrailingSlash(DEFAULT_E2E_FOLDER)}',
   use: { baseURL: ${quote(url)} },
   webServer: { command: ${quote(command)}, url: ${quote(url)}, reuseExistingServer: !process.env.CI },
   projects: [
@@ -312,7 +314,7 @@ test('the app opens', async ({ page }) => {
 `
 
 function scaffoldProblems(root, config, s) {
-  if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
+  if (!isObject(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
   const e = []
   if (!config.frontend) e.push('scaffold: only for "frontend": "playwright"')
   else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
@@ -325,15 +327,7 @@ function scaffoldProblems(root, config, s) {
 }
 
 function hasLine(path, line) {
-  return existsSync(path) && readFileSync(path, 'utf8').split(/\r?\n/).some(l => l.trim() === line)
-}
-
-function gitOut(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
-  } catch {
-    return null
-  }
+  return existsSync(path) && lines(readFileSync(path, 'utf8')).some(l => l.trim() === line)
 }
 
 /** Git-ignored folders relative to root; detect skips them. Empty outside a repo. */
@@ -375,7 +369,7 @@ function here(root) {
   const gh = p && ghAccount(p.host)
   const kind = gh?.login ? 'github' : p && hostKind(p.host)
   const remote = p && { ...p, kind }
-  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
+  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? noTrailingSlash(prefix) : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
 }
 
 // Jira key (ABC-12) in a branch or commit subject; the project part is 2+ chars.
@@ -498,7 +492,7 @@ export function colocatedProposal(root) {
 export function detect(top, env = process.env, sub = null) {
   let existing = null
   let existingError
-  const cp = configPath(top)
+  const cp = configPath(top, env)
   if (existsSync(cp)) {
     try { existing = fromVersion1(readJson(cp)) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }
@@ -578,7 +572,7 @@ function pathProblem(root, label, p) {
   if (typeof p !== 'string' || !p.trim()) return `${label}: must be a non-empty relative path`
   if (isAbsolute(p) || p.split(/[\\/]/).includes('..')) return `${label} "${p}" must be a relative path inside the project (no ".." or absolute paths)`
   const rel = relative(resolve(root), resolve(root, p))
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return `${label} "${p}" is outside the project`
+  if (rel === '' || leavesFolder(rel)) return `${label} "${p}" is outside the project`
   return null
 }
 
@@ -663,7 +657,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     writeFileSync(cfg, `${JSON.stringify(out, null, 2)}\n`)
     if (!configFile && placeOf(top, 'repo') === 'repo') {
       ignoreFolder(dirname(cfg))
-      ignoreFolder(join(root, normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)))
+      ignoreFolder(join(root, cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)))
     }
     // Only setup's own project files (Playwright output) get .gitignore lines.
     const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]

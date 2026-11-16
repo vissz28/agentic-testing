@@ -13,23 +13,43 @@ export const toForwardSlashes = path => String(path).replace(/\\/g, '/')
 /** For paths this machine built: turns only the OS separator (a backslash is a valid filename char on Unix). */
 export const localToForwardSlashes = path => path.split(sep).join('/')
 
-const TICKET_KEY = /^[A-Z][A-Z0-9_]*-\d+$/
-
-/** A Jira key like ABC-123. A key that passes is safe to use as a folder name. */
-export const isTicketKey = value => typeof value === 'string' && TICKET_KEY.test(value)
-
-/** First non-blank line, trimmed and without colour codes. */
+/**
+ * The first line of a tool's output that says something, trimmed, without colour codes; '' when there is none.
+ * @param {unknown} text
+ * @returns {string}
+ */
 export const firstLine = text => noColour(text).split('\n').map(l => l.trim()).find(Boolean) ?? ''
 
 /** plural(1, 'file') -> "1 file", plural(3, 'file') -> "3 files". */
 export const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
-export const hasLineBreak = text => /[\r\n]/.test(text)
-
-/** A non-blank string with no line break. */
-export const isLine = value => typeof value === 'string' && value.trim() !== '' && !hasLineBreak(value)
-
-/** "origin/develop" -> "develop". */
+/**
+ * The branch without the remote in front: "origin/develop" -> "develop"; a local name stays as it is.
+ * @param {string} ref
+ * @returns {string}
+ */
 export const withoutOrigin = ref => ref.replace(/^origin\//, '')
 
 export const collapseSpaces = text => String(text).replace(/\s+/g, ' ')
+
+/**
+ * The lines of a text, whatever ends them: \n, \r\n or a lone \r.
+ * @param {unknown} text
+ * @returns {string[]}
+ */
+export const lines = text => String(text ?? '').split(/\r\n?|\n/)
+
+/**
+ * The text made safe inside HTML or XML, in a tag or in a quoted attribute: & < > " and ' are escaped.
+ * @param {unknown} text
+ * @returns {string}
+ */
+export const escapeHtml = text => String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+/**
+ * n out of total as a whole percent, rounded; null when there is no total, which is "no data", not 0%.
+ * @param {number} n
+ * @param {number} total
+ * @returns {number | null}
+ */
+export const pct = (n, total) => (total > 0 ? Math.round((100 * n) / total) : null)

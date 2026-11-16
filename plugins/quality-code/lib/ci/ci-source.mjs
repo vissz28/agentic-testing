@@ -1,4 +1,8 @@
-// Where CI clones the plugin from. Mirrors override via ci.pluginSource or QUALITY_CODE_PLUGIN_URL/_REF.
+// Where the CI file fetches the plugin from. Default: the public repo at the tag of this version.
+// A team that mirrors the plugin sets `ci.pluginSource` in the project config ({ "url": "https://...", "ref": "<tag or branch>" })
+// or QUALITY_CODE_PLUGIN_URL / QUALITY_CODE_PLUGIN_REF in the environment of the run (the environment wins).
+import { isObject } from '../core/is.mjs'
+
 export const DEFAULT_PLUGIN_URL = 'https://github.com/vissz28/agentic-testing.git'
 
 // https, no credentials, and only characters safe inside a shell command.
@@ -10,12 +14,12 @@ export const refOk = r => typeof r === 'string' && REF_OK.test(r) && !r.includes
 
 export function ciErrors(ci) {
   if (ci === undefined) return []
-  if (!ci || typeof ci !== 'object' || Array.isArray(ci)) return ['ci: must be an object with an optional "pluginSource"']
+  if (!isObject(ci)) return ['ci: must be an object with an optional "pluginSource"']
   const e = []
   for (const k of Object.keys(ci)) if (k !== 'pluginSource') e.push(`ci.${k}: unknown field (only "pluginSource")`)
   const s = ci.pluginSource
   if (s === undefined) return e
-  if (!s || typeof s !== 'object' || Array.isArray(s)) return [...e, 'ci.pluginSource: must be { "url": "https://...", "ref": "<tag or branch>" }']
+  if (!isObject(s)) return [...e, 'ci.pluginSource: must be { "url": "https://...", "ref": "<tag or branch>" }']
   for (const k of Object.keys(s)) if (k !== 'url' && k !== 'ref') e.push(`ci.pluginSource.${k}: unknown field (only "url" and "ref")`)
   if (s.url !== undefined && !urlOk(s.url)) e.push(`ci.pluginSource.url ${JSON.stringify(s.url)} must be an https address with no credentials, like "https://git.example.com/team/agentic-testing.git"`)
   if (s.ref !== undefined && !refOk(s.ref)) e.push(`ci.pluginSource.ref ${JSON.stringify(s.ref)} must be a tag or branch name (letters, digits, ".", "_", "-", "/")`)

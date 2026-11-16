@@ -4,7 +4,7 @@
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
-import { isLine, isTicketKey } from '../lib/core/text.mjs'
+import { isTicketKey, isLine } from '../lib/core/is.mjs'
 
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/
 const STATUS = /^[A-Za-z0-9 _-]{1,40}$/

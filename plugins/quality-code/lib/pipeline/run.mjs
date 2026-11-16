@@ -1,14 +1,14 @@
-// Marker for an active test-writing run; the boundary hook acts only while one exists.
-import { spawnSync } from 'node:child_process'
+// The run marker: `run start` opens a test-writing run (the boundary hook then acts), `run stop`
+// closes it, `run status` shows it. A marker older than STALE_MS is ignored and replaced.
 import { mkdirSync, readdirSync, rmSync, rmdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { RUN_MARKER, readRunMarker, snapshot } from './boundary.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
+import { gitOut } from '../core/git.mjs'
 
 /** null outside a git repo or before the first commit. */
 export function gitHead(root) {
-  const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-  const sha = r.status === 0 ? String(r.stdout).trim() : ''
+  const sha = gitOut(root, ['rev-parse', '--verify', '--quiet', 'HEAD'])?.trim() ?? ''
   return /^[0-9a-f]{7,64}$/.test(sha) ? sha : null
 }
 

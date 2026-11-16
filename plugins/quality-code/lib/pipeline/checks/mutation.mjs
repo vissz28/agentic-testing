@@ -125,16 +125,25 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
   const tmp = inPlace ? specPath : tempSpecPath(specPath)
   // posix.join: path.join would give backslashes on Windows.
   const relTmp = inPlace ? spec : posix.join(posix.dirname(spec), basename(tmp))
-  // In place: restore the original bytes after each mutant, in finally, and on a signal.
-  const cleanup = inPlace ? () => { try { writeFileSync(specPath, bytes) } catch {} } : () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
-  const onSignal = () => { cleanup(); process.exit(130) }
+  // In place, cleaning up is putting the original bytes back: after each mutant, in finally, on a signal.
+  // A failed restore is kept, not swallowed: the person's own test file would be left mutated.
+  let restoreError = null
+  const cleanup = inPlace
+    ? () => { try { writeFileSync(specPath, bytes); restoreError = null } catch (e) { restoreError = e } }
+    : () => { try { if (existsSync(tmp)) unlinkSync(tmp) } catch {} }
+  // On Ctrl-C the file is put back, then the signal is raised again so the process ends as it would have:
+  // a library does not pick the exit code.
+  const onSignal = signal => { cleanup(); stopListening(); process.kill(process.pid, signal) }
+  const stopListening = () => { process.removeListener('SIGINT', onSignal); process.removeListener('SIGTERM', onSignal) }
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
   const outcomes = []
+  let stopped = null
   try {
     for (const m of mutants) {
       try { writeFileSync(tmp, applyMutant(src, m)) } catch (e) {
-        return result('mutation', 'not_run', `cannot write the ${inPlace ? 'mutant into the spec' : 'temp mutant next to the spec'}: ${String(e?.message ?? e).split('\n')[0]}`)
+        stopped = result('mutation', 'not_run', `cannot write the ${inPlace ? 'mutant into the spec' : 'temp mutant next to the spec'}: ${String(e?.message ?? e).split('\n')[0]}`)
+        break
       }
       let r
       try { r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs }) } finally { if (inPlace) cleanup() }
@@ -145,9 +154,12 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
     }
   } finally {
     cleanup()
-    process.removeListener('SIGINT', onSignal)
-    process.removeListener('SIGTERM', onSignal)
+    stopListening()
   }
+  if (restoreError) {
+    return result('mutation', 'not_run', `could not put ${spec} back as it was (${restoreError.code ?? restoreError.message}): it may still hold a mutant, restore it from git`, [{ file: spec, kind: 'not restored', detail: String(restoreError.message ?? restoreError).split('\n')[0] }])
+  }
+  if (stopped) return stopped
   const graded = outcomes.filter(o => !o.error)
   const killed = graded.filter(o => o.killed).length
   const survivedList = graded.filter(o => !o.killed)

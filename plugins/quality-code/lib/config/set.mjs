@@ -8,6 +8,8 @@ import { RUNNERS } from '../stacks/runners.mjs'
 import { write, writePersonal } from '../../bin/setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
+import { noTrailingSlash } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 const T = { text: 'text', list: 'list', bool: 'bool', int: 'int', enum: 'enum', url: 'url', configs: 'configs' }
 function runnersOf(kind) { return Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind) }
@@ -62,15 +64,14 @@ const SECRET_VALUE = [
 ]
 const looksSecret = v => SECRET_VALUE.some(re => re.test(v)) || v.split(/[\s,]+/).some(w => w.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(w) && /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w))
 
-const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
-/** Drops token-like keys and values that look like a token or key. */
+/** A copy of a config without secrets: a token-like key, or a value that looks like a token or a key. */
 export function withoutSecrets(v) {
   if (Array.isArray(v)) return v.map(withoutSecrets).filter(x => x !== undefined)
-  if (isObj(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
+  if (isObject(v)) return Object.fromEntries(Object.entries(v).filter(([k, x]) => !SECRET_KEY.test(k) && !(typeof x === 'string' && looksSecret(x))).map(([k, x]) => [k, withoutSecrets(x)]))
   return typeof v === 'string' && looksSecret(v) ? undefined : v
 }
 const show = v => (v === undefined ? 'not set' : typeof v === 'string' ? v : JSON.stringify(v))
-const getPath = (o, key) => key.split('.').reduce((v, k) => (isObj(v) ? v[k] : undefined), o)
+const getPath = (o, key) => key.split('.').reduce((v, k) => (isObject(v) ? v[k] : undefined), o)
 
 /** Copy with the key set; undefined removes it (and any block left empty). */
 function setPath(o, key, value) {
@@ -78,7 +79,7 @@ function setPath(o, key, value) {
   const out = { ...o }
   const chain = [out]
   let cur = out
-  for (const k of parts.slice(0, -1)) { cur[k] = isObj(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; chain.push(cur) }
+  for (const k of parts.slice(0, -1)) { cur[k] = isObject(cur[k]) ? { ...cur[k] } : {}; cur = cur[k]; chain.push(cur) }
   if (value !== undefined) { cur[parts.at(-1)] = value; return out }
   delete cur[parts.at(-1)]
   for (let i = parts.length - 1; i > 0; i--) if (Object.keys(chain[i]).length === 0) delete chain[i - 1][parts[i - 1]]
@@ -105,7 +106,7 @@ export function parseValue(spec, key, raw) {
       const rows = text.split(',').map(s => s.trim()).filter(Boolean).map(s => { const i = s.lastIndexOf('='); return i > 0 ? { match: s.slice(0, i).trim(), config: s.slice(i + 1).trim() } : null })
       return rows.length && rows.every(Boolean) ? { value: rows } : { error: `${key}: give match=config pairs separated by commas, like services/**=jest.config.js` }
     }
-    case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${text.replace(/\/+$/, '')}` } : { error: `${key}: must not be empty` }
+    case T.url: return text ? { value: /^https?:\/\//i.test(text) ? text : `https://${noTrailingSlash(text)}` } : { error: `${key}: must not be empty` }
     default: return text ? { value: text } : { error: `${key}: must not be empty` }
   }
 }
@@ -147,7 +148,7 @@ function target(root, env, scope) {
   const loaded = loadConfig(root, env)
   const source = scope ?? loaded.source
   if (!source) return { error: 'Quality Code is not set up here yet: run /quality-code:setup.' }
-  const path = source === 'repo' ? configPath(configHome(root)) : personalConfigPath(env)
+  const path = source === 'repo' ? configPath(configHome(root, env), env) : personalConfigPath(env)
   if (!existsSync(path)) return { error: `There is no ${source === 'repo' ? 'project config (config.json, or the older .claude/quality-code.json)' : `personal config (${path})`}. Run /quality-code:setup, or use ${source === 'repo' ? '--personal' : '--project'}.` }
   try { return { source, path, config: JSON.parse(readFileSync(path, 'utf8')) } } catch (e) { return { error: `${path} is not valid JSON (${e.message})` } }
 }
@@ -251,7 +252,7 @@ export function configSetGet(argv, env = process.env, cwd = process.cwd(), io = 
   const v = validateConfig(candidate, { allowAbsoluteTicketsDir: t.source === 'personal' })
   if (!v.ok) return fail(`${key}: not saved, nothing was written.\n${v.errors.join('\n')}`)
   return finish(() => `${key} set to ${show(next)}.`, () => {
-    const w = t.source === 'repo' ? write(configHome(root), candidate, { configFile: t.path }) : writePersonal(candidate, env)
+    const w = t.source === 'repo' ? write(configHome(root, env), candidate, { configFile: t.path }) : writePersonal(candidate, env)
     return w.ok ? {} : { error: w.errors.join('\n') }
   })
 }

@@ -1,5 +1,7 @@
-// Stryker runner (Vitest). The sandbox must be inside the project or Vitest finds no tests, so it's always removed.
-import { execFileSync, spawn } from 'node:child_process'
+// The Stryker runner: mutates one source file with the project's own Stryker (Vitest test runner)
+// and reads its JSON mutation report. Stryker's sandbox has to live inside the project (outside it Vitest
+// finds no tests), so the runner names one per run and always removes it.
+import { spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -9,15 +11,14 @@ import { pathToFileURL } from 'node:url'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { gitOut } from '../../core/git.mjs'
 
 // stderr starts with a stack frame; show the named error instead.
 const errorOf = s => String(s ?? '').match(/\b[A-Za-z]*Error: [^\n]+/)?.[0] ?? firstLine(s)
 
 /** Tracked folder symlinks: Stryker can't copy them into its sandbox. */
 export function linkedFolders(root) {
-  let out = ''
-  try { out = execFileSync('git', ['ls-files', '-s'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }) } catch { return [] }
-  return out.split('\n').filter(l => l.startsWith('120000 ')).map(l => l.split('\t')[1]).filter(p => {
+  return (gitOut(root, ['ls-files', '-s']) ?? '').split('\n').filter(l => l.startsWith('120000 ')).map(l => l.split('\t')[1]).filter(p => {
     try { return statSync(join(root, p)).isDirectory() } catch { return false }
   }).map(p => `/${p}`)
 }

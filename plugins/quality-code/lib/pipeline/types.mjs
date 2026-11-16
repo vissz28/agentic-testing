@@ -12,6 +12,7 @@ import { kill, toolScript, track } from './runners/tool.mjs'
 import { runnerOf } from '../stacks/runners.mjs'
 import { toForwardSlashes, plural } from '../core/text.mjs'
 import { specDiff } from '../core/git.mjs'
+import { stripDotSlash, noTrailingSlash, leavesFolder } from '../core/paths.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
@@ -31,8 +32,8 @@ const readTsconfig = (root, p) => {
   // ponytail: comments and trailing commas only; a "," before "]" inside a string value would be dropped.
   try { return JSON.parse(stripCodeComments(readFileSync(join(root, p), 'utf8')).replace(/,(\s*[}\]])/g, '$1')) } catch { return null }
 }
-// An include entry is a glob, a file, or a folder (everything under it).
-const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${entry.replace(/\/+$/, '')}/`, path))
+// A tsconfig include entry: a glob, or a file or a folder (everything under it).
+const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${noTrailingSlash(entry)}/`, path))
 
 /** A solution-style tsconfig (only references, as in Vite templates) checks nothing: pick the reference covering most specs. */
 export function ownTsconfig(root, tsconfig, specs) {
@@ -46,7 +47,7 @@ export function ownTsconfig(root, tsconfig, specs) {
     const include = readTsconfig(root, p)?.include ?? ['**/*']
     const n = specs.filter(s => {
       const rel = posix.relative(posix.dirname(p), toForwardSlashes(s))
-      return !rel.startsWith('../') && include.some(e => covers(String(e).replace(/^\.\//, ''), rel))
+      return !leavesFolder(rel) && include.some(e => covers(stripDotSlash(e), rel))
     }).length
     if (n > most) { best = p; most = n }
   }

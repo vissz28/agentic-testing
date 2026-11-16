@@ -5,10 +5,11 @@ import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/stacks/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/stacks/backends.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut as git } from '../lib/core/git.mjs'
 import { e2eFolder } from '../lib/stacks/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { escapeRegExp, isTicketKey, withoutOrigin } from '../lib/core/text.mjs'
+import { escapeRegExp, withoutOrigin } from '../lib/core/text.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
@@ -92,15 +93,7 @@ export function parseNameStatusZ(out) {
 // After origin/HEAD and init.defaultBranch; gitflow teams set git.base to their develop.
 const FALLBACK_BASES = ['main', 'master', 'develop']
 
-function git(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 1e8, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
-  } catch {
-    return null
-  }
-}
-
-/** The branch's open GitHub PR, or null without gh, sign-in, or exactly one PR. */
+/** The branch's one open GitHub pull request ({ baseRefName, title, body }) from the gh CLI; null without gh, sign-in or exactly one. */
 function pullRequest(root, branch) {
   try {
     const prs = JSON.parse(execFileSync('gh', ['pr', 'list', '--head', branch, '--state', 'open', '--json', 'baseRefName,title,body', '--limit', '2'],
@@ -277,7 +270,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     const key = argv[1]
     if (!isTicketKey(key) || argv.length > 2) { printError(USAGE); return 2 }
     const root = projectRoot(env, cwd)
-    const c = loadConfig(root)
+    const c = loadConfig(root, env)
     if (!c.ok) { printError(c.errors.join('\n')); return 2 }
     printLine(tag('MERGED', merged(root, c.config, key)))
     return 0
@@ -294,7 +287,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     } else { printError(USAGE); return 2 }
   }
   const root = projectRoot(env, cwd)
-  const c = loadConfig(root)
+  const c = loadConfig(root, env)
   if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   printLine(tag('BRANCH', detect(root, c.config, opts)))
   return 0

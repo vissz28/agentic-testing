@@ -1,5 +1,7 @@
-// Single-file HTML report shell. Inline CSS and SVG only: no scripts, fonts, images or external links.
-export const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+// The shell of the one-file HTML report: shared CSS (light and dark through custom properties), escaping and
+// the page frame. Inline CSS and SVG only: no script, no font, no image, no link to anywhere.
+import { escapeHtml as esc } from '../core/text.mjs'
+export { esc }
 
 export const CSS = `
 :root{--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--card:#f6f8fa;--line:#d1d9e0;--pass:#1a7f37;--warn:#9a6700;--fail:#cf222e;--idle:#6e7781;--accent:#0969da}

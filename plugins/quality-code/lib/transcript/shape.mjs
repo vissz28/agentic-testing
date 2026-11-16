@@ -1,6 +1,7 @@
 // The shape of what the model extracted from a sprint planning transcript. The script checks the shape; the model
 // never invents what the transcript did not say: that becomes an open question, not a task or a decision.
-import { collapseSpaces, isTicketKey } from '../core/text.mjs'
+import { collapseSpaces } from '../core/text.mjs'
+import { isTicketKey, isObject } from '../core/is.mjs'
 
 export const LIMITS = { goal: 300, line: 500, title: 200, items: 100 }
 
@@ -23,7 +24,7 @@ function strings(list, name, errors, max = LIMITS.line) {
 /** { ok, errors, result } for an extracted result { goal, decisions, tasks[{title, owner?, estimate?, ticket?}], risks, openQuestions }. */
 export function validateResult(input) {
   const errors = []
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return { ok: false, errors: ['the result must be a JSON object'], result: null }
+  if (!isObject(input)) return { ok: false, errors: ['the result must be a JSON object'], result: null }
   const goal = isStr(input.goal) ? oneLine(input.goal) : ''
   if (!goal) errors.push('goal: one sentence is required (if none was said, ask for it; do not invent one)')
   else if (goal.length > LIMITS.goal) errors.push(`goal: over ${LIMITS.goal} characters, keep it to one sentence`)
@@ -36,7 +37,7 @@ export function validateResult(input) {
     if (input.tasks.length > LIMITS.items) errors.push(`tasks: at most ${LIMITS.items} tasks`)
     input.tasks.forEach((t, i) => {
       const at = `tasks[${i}]`
-      if (!t || typeof t !== 'object' || Array.isArray(t)) { errors.push(`${at}: must be an object`); return }
+      if (!isObject(t)) { errors.push(`${at}: must be an object`); return }
       const title = isStr(t.title) ? oneLine(t.title) : ''
       if (!title) { errors.push(`${at}.title: required`); return }
       if (title.length > LIMITS.title) errors.push(`${at}.title: over ${LIMITS.title} characters`)

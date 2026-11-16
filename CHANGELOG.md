@@ -9,6 +9,41 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
+- A crashed check now says where it crashed: `check types crashed: <message>` is followed by `at lib/…/file.mjs:<line>:<column>`, taken from the original error. Before, only the message was printed, which was not enough to find the bug.
+- A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
+
+### Changed
+
+- Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
+- Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
+
+## [0.80.1] - 2026-11-16
+
+### Fixed
+
+- Mutation testing in place (Go, Java, C#, Python): when the test file cannot be put back after a mutant, the check now says so, naming the file (`could not put <spec> back as it was … restore it from git`), instead of passing over it and leaving the file mutated without a word.
+- On Ctrl-C during mutation testing, the library puts the test file back and lets the signal end the process; it no longer picks the exit code itself. `pipeline.mjs` still exits with 130.
+- Every config lookup reads the environment it is given. Before, finding the project from a subfolder read the real environment, so a config kept on this machine (`local`) could be missed when the place or the Claude folder came from the caller.
+
+### Changed
+
+- Internal: `lines`, `escapeHtml` and `pct` in `lib/core/text.mjs` replace hand-written copies; `slug` and `short` live once, in `lib/config/places.mjs`. The CI report now also escapes `'`, and a percent is rounded exactly (29 of 200 is 15%, not 14%).
+- Internal: `lib/core/paths.mjs` holds the path chores written by hand in 25 files: `stripDotSlash`, `noTrailingSlash`, `cleanRelPath` (it replaces `normaliseTicketsDir` and a twin), `isAbsoluteAnywhere` and `leavesFolder`. A file or folder whose name only starts with two dots (`..cache`) is no longer taken for one outside the project.
+
+**What to do:** nothing.
+
+## [0.80.0] - 2026-11-16
+
+### Added
+
+- **Claude connector sign-in** (the shared MCP server): people can now add the server as a connector in Claude. The server is the authorization server: Claude registers itself (dynamic client registration), the person signs in with Microsoft Entra ID, a page shows the TeamSystem rules and asks them to confirm a Jira email and an optional GitLab username (not secrets), and only then Claude gets a token. Nothing about the person is stored: client registrations, codes and tokens are signed with `QUALITY_CODE_TOKEN_SECRET`, and the confirmed details ride in the token (`jira_email`, `gitlab_username`, the rules version accepted). Claude can only be sent back to `claude.ai` and `claude.com` (`/api/mcp/auth_callback`) or a loopback address. Entra's own tokens still work on `/mcp`. Off until `QUALITY_CODE_TOKEN_SECRET` is set.
+- New routes: `/register`, `/authorize`, `/token`, `/connect/start`, `/connect/consent`, `/connect/accept` and the OAuth metadata under `/.well-known/`.
+
+**What to do:** nothing for the plugin. To turn the connector sign-in on, set `QUALITY_CODE_TOKEN_SECRET` (32 or more random characters, as a Container Apps secret) and replace `static/rules.md` (or point `QUALITY_CODE_RULES_FILE` at the file) with the real TeamSystem rules before anyone is asked to accept them. Rotating the secret signs everyone out.
+
 ## [0.79.0] - 2026-11-13
 
 ### Changed

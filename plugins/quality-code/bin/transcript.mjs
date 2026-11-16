@@ -3,13 +3,15 @@
 // Exit 0 ok, 2 bad input or config.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/config/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
-import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
+import { goalPath, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
+import { cleanRelPath } from '../lib/core/paths.mjs'
+import { isDate } from '../lib/core/is.mjs'
 
 // Longer transcripts are truncated with a notice.
 export const MAX_CHARS = 60000
@@ -94,7 +96,7 @@ function run(argv, env, cwd) {
   if (!checked.ok) { checked.errors.forEach(e => printError(`error: ${e}`)); return 2 }
   const date = a.date ?? today()
   if (!isDate(date)) { printError(`--date "${date}" is not a date like 2026-11-04`); return 2 }
-  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   if (!goalPath(ticketsRoot, date)) { printError('cannot build a safe path for the goal file'); return 2 }
   // Redact every field so no customer id or e-mail is written to disk.
   const r = checked.result

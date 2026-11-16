@@ -7,7 +7,8 @@ import { join } from 'node:path'
 import { parseTranscript, speakersOf } from '../../lib/transcript/parse.mjs'
 import { redactTurns, redactText } from '../../lib/transcript/redact.mjs'
 import { validateResult } from '../../lib/transcript/shape.mjs'
-import { goalPath, isDate, renderGoal } from '../../lib/transcript/save.mjs'
+import { goalPath, renderGoal } from '../../lib/transcript/save.mjs'
+import { isDate } from '../../lib/core/is.mjs'
 
 const CLI = new URL('../../bin/transcript.mjs', import.meta.url).pathname
 // The fixture holds a placeholder: a literal customer id may not live in a test file (no-ids.test.mjs).

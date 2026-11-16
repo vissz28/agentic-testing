@@ -13,13 +13,14 @@ import threading
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
-from mcp.server.auth.settings import AuthSettings
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
 from . import web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
+from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
 
 TIMEOUT_S = 900
@@ -82,7 +83,7 @@ def find_node() -> str | None:
     return None
 
 
-def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None) -> MCPServer:
+def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None, connector: connector_mod.ConnectorSettings | None = None) -> MCPServer:
     """`remote` is the shared profile: Jira-only tools, scripts locked to `fixed_cwd`, MAX_RUNNING cap, open /health."""
     root = root or plugin_root()
     commands = [c for c in load_commands(root) if not remote or c.name in REMOTE_COMMANDS]
@@ -92,7 +93,16 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         raise ValueError("the shared server runs its scripts in one folder: pass fixed_cwd")
     running = threading.BoundedSemaphore(MAX_RUNNING)
     extra: dict = {}
-    if entra:
+    provider = None
+    if entra and connector and web_settings:
+        # Claude's connector sign-in: this server issues the tokens (Entra checks who the person is); Entra's own tokens still work on /mcp.
+        provider = connector_mod.ConnectorProvider(connector, verifier or EntraTokenVerifier(entra))
+        extra = {
+            "auth": AuthSettings(issuer_url=connector.url, resource_server_url=connector.url, required_scopes=None, validate_token_resource=False,
+                                 client_registration_options=ClientRegistrationOptions(enabled=True)),
+            "auth_server_provider": provider,
+        }
+    elif entra:
         extra = {
             "auth": AuthSettings(issuer_url=entra.issuer_url, resource_server_url=entra.public_url, required_scopes=None, validate_token_resource=False),
             "token_verifier": verifier or EntraTokenVerifier(entra),
@@ -154,7 +164,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
         server.custom_route("/health", methods=["GET"])(_health)
         if entra:
-            web.register(server, web_settings, entra)  # the sign-in view at /; /mcp still needs a bearer token
+            web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
         server.add_tool(quality_code_run_script, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
 
@@ -256,7 +266,11 @@ def main(argv: list[str] | None = None) -> None:
         enable_dns_rebinding_protection=True,
         allowed_hosts=[host, "127.0.0.1:*", "localhost:*"], allowed_origins=[f"https://{host}", "http://127.0.0.1:*", "http://localhost:*"],
     )
-    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)))
+    try:
+        connector = connector_mod.settings_from_env(entra, dict(os.environ))
+    except (connector_mod.ConnectorConfigError, OSError) as e:
+        raise SystemExit(f"quality-code-mcp: {e}")
+    server = build(entra=entra, fixed_cwd=Path(project).resolve(), remote=True, web_settings=web.settings_from_env(entra, dict(os.environ)), connector=connector)
     asyncio.run(server.run_streamable_http_async(host=a.host, port=a.port, transport_security=security))
 
 

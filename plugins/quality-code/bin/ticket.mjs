@@ -7,7 +7,7 @@ import { detectConventions, flowOf, runFlow } from '../lib/stacks/conventions.mj
 import { findTestHome } from '../lib/stacks/test-home.mjs'
 import { configKeys, configSetGet } from '../lib/config/set.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/config/places.mjs'
-import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
+import { configHome, loadConfig, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/stacks/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
@@ -27,8 +27,10 @@ import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey, plural } from '../lib/core/text.mjs'
+import { plural } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
+import { noTrailingSlash, cleanRelPath } from '../lib/core/paths.mjs'
+import { isTicketKey, isObject } from '../lib/core/is.mjs'
 
 // --no-audit = QC_NO_AUDIT=1. --next adds the gate band and cheapest path over the bar to `score`.
 // --drafted marks an `add` answer as a model draft; it applies only with --confirmed, sent after the Use it/Edit card.
@@ -97,8 +99,8 @@ const COMMANDS = {
     return 2
   },
   root({ a, root, config, env }) {
-    // Active root when one config serves several monorepo projects.
-    const home = configHome(root)
+    // One config serving several projects of a monorepo ("roots"): which one this person works on.
+    const home = configHome(root, env)
     const [sub, folder] = a._
     if (sub === 'get' && a._.length === 1) {
       const r = rootsOf(home, env)
@@ -108,7 +110,7 @@ const COMMANDS = {
     if (sub === 'set' && a._.length === 2) {
       const r = setActiveRoot(home, folder, env)
       if (!r.ok) { printError(r.error); return 2 }
-      printLine(`ok: the active root is ${folder.replace(/\/+$/, '')}. Every command now works in it.`)
+      printLine(`ok: the active root is ${noTrailingSlash(folder)}. Every command now works in it.`)
       printLine(tag('ROOT', rootsOf(home, env)))
       return 0
     }
@@ -240,7 +242,7 @@ const COMMANDS = {
     let list
     const listPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
     try { list = JSON.parse(listPath ? readFileSync(listPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-    if (!Array.isArray(list) || list.some(t => !t || typeof t !== 'object' || Array.isArray(t))) { printError('--in must be a JSON array of tickets'); return 2 }
+    if (!Array.isArray(list) || list.some(t => !isObject(t))) { printError('--in must be a JSON array of tickets'); return 2 }
     const r = evalTickets(config, list)
     if (a.flags.has('--save')) {
       try { saveTickets(root, config, r.clean) } catch (e) { printError(`tickets-eval: cannot save (${e.code ?? e.message})`); return 2 }
@@ -283,8 +285,8 @@ function run(argv, env, cwd) {
   if (!cfg.ok) { cfg.errors.forEach(e => printError(e)); return 2 }
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
-  // The key check keeps the path inside ticketsDir.
-  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
+  const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   const savedPath = key => (isTicketKey(key) ? join(ticketsRoot, key, 'ticket.json') : null)
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
   const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && isTicketKey(basename(dirname(p)))
@@ -298,8 +300,8 @@ function run(argv, env, cwd) {
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-  if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { printError('--in must be a JSON object'); return 2 }
-  // The connector or model sometimes sends these lists as a single value.
+  if (!isObject(ticket)) { printError('--in must be a JSON object'); return 2 }
+  // Lists the connector or the model may hand over as one value: a single label, a single scenario.
   for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
   const project = String(ticket.key ?? '').replace(/-\d+$/, '')
   // Includes tracking-project keys.
@@ -451,7 +453,7 @@ function run(argv, env, cwd) {
       const heading = ATTACHED[kind]
       if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { printError('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
       const textPath = resolve(root, from.slice(1))
-      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(cleanRelPath(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
       let raw
       try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { printError(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
       const text = redact(config, raw.trim(), uuidsOf(ticket)).slice(0, DOCX_MAX_CHARS)

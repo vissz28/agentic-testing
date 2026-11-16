@@ -1,7 +1,7 @@
 // Flags a story that is too long, too thin or unstructured.
 import { join } from 'node:path'
 import { normalise, stripComments } from './text.mjs'
-import { isTicketKey } from '../core/text.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 export const STORY_LIMITS = {
   maxWords: 400,

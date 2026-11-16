@@ -1,13 +1,14 @@
 // Boundary: a test-writing run may write tests, never the code under test (hook + diff check).
 import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { changedPaths } from '../core/git.mjs'
 import { result } from './result.mjs'
 import { backendOf, BACKENDS } from '../stacks/backends.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
-import { toForwardSlashes } from '../core/text.mjs'
 import { readJson } from '../core/files.mjs'
+import { stripDotSlash, leavesFolder } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 // Off limits to every run, so it can't disable its own hook or rewrite what judges it.
 // STATE is written by our own scripts mid-run, so only the hook guards it, not the diff check.
@@ -37,9 +38,9 @@ export function matches(pattern, path) {
 
 /** An allow glob reaches into folder (a src/ rule for *.unit.test.js covers src/), so it may hold tests. */
 export function allowCovers(allow, folder) {
-  const f = toForwardSlashes(folder).replace(/^(?:\.\/)+/, '')
+  const f = stripDotSlash(folder)
   return (allow ?? []).some(a => {
-    const lit = toForwardSlashes(a).replace(/^(?:\.\/)+/, '').split('*')[0]
+    const lit = stripDotSlash(a).split('*')[0]
     return a.includes('*') && (lit.startsWith(f) || f.startsWith(lit))
   })
 }
@@ -70,7 +71,7 @@ export function defaultForbidden(root) {
 // Playwright screenshot baselines (<spec>-snapshots/*.png) are test data: writable even in a forbidden folder.
 const BASELINE_IMAGE = /(?:^|\/)[^/]+\.(?:spec|test)\.[cm]?[jt]sx?-snapshots\/[^/]+\.png$/
 
-const norm = p => toForwardSlashes(p).replace(/^(?:\.\/)+/, '')
+const norm = stripDotSlash
 
 /** Non-Vitest backends keep tests in the code tree (Maven src/test/java, Go): allow their test files there. Vitest uses `allow`. */
 export function testsAnywhere(config) {
@@ -85,8 +86,8 @@ export function rulesFor(config, root) {
 
 /** fold: case-insensitive disk (macOS, Windows), .ENV is .env. Forbidden rules match any case, allow rules exact case. */
 export function violation(relPath, rules, { fold = false } = {}) {
-  const p = toForwardSlashes(relPath ?? '').replace(/^\.\//, '')
-  if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
+  const p = stripDotSlash(relPath ?? '')
+  if (!p || leavesFolder(p)) return null
   const hit = (pattern, path) => (fold ? matches(pattern.toLowerCase(), path.toLowerCase()) : matches(pattern, path))
   if (ALWAYS.some(a => hit(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
@@ -104,7 +105,7 @@ export function readRunMarker(root, now = Date.now()) {
   let marker = null
   try {
     const m = readJson(p)
-    if (m && typeof m === 'object' && !Array.isArray(m)) marker = m
+    if (isObject(m)) marker = m
   } catch {}
   const t = typeof marker?.startedAt === 'string' ? Date.parse(marker.startedAt) : NaN
   const startedMs = Number.isFinite(t) ? t : st.mtimeMs

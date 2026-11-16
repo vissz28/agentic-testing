@@ -1,13 +1,24 @@
 #!/usr/bin/env node
-// What each scheduled /quality-code:routine run executes: fetch, run task or suite tests, report regressions and flakiness.
-// Exit 0 green or nothing new, 1 check failed or test red, 2 usage/config error, 3 could not run (never a pass).
-import { execFileSync, spawnSync } from 'node:child_process'
+// A routine: a check that runs on a schedule and says whether the tests still pass after other people pushed,
+// and whether they are stable (the same code passing and failing). The schedule itself is made by
+// /quality-code:routine with Claude's scheduler; this script is what each scheduled run executes.
+//   node bin/routine.mjs run [--task KEY | --regression] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD]
+//                            [--flaky N] [--force] [--json] [--junit FILE]
+//   node bin/routine.mjs status [--task KEY] [--last N] [--json]
+// run:    fetches the watched branch, sees what others pushed (new commits, shared files such as package.json or a
+//         lockfile), then runs the task's tests (the specs that name the ticket KEY) or the whole suite. With
+//         --flaky N every test runs N times and the ones that pass and fail on the same code are named (flaky).
+//         It says so when the result went from green to not green, with the commits in between. No new commit
+//         (with --since-last or --since): nothing to check, exit 0. Every run is kept in a local history.
+// status: the stability of the last runs from that history: pass rate, flaky tests seen, green to red changes.
+// Exit 0 green or nothing new, 1 a check failed or a test is red, 2 usage or config error, 3 something could not run (never a pass).
+import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { isProjectKey, keyPattern, projectKeys } from '../lib/config/keys.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut as git } from '../lib/core/git.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { adaptersForSide, adaptersOf } from '../lib/stacks/stack.mjs'
 import { SHARED_CONFIG } from '../lib/ci/changes.mjs'
@@ -16,17 +27,14 @@ import { ORDER, junit } from './ci.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { plural, withoutOrigin } from '../lib/core/text.mjs'
+import { isDate, isWholeNumber } from '../lib/core/is.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: routine.mjs run [--task KEY] [--branch REF] [--since "<git date>" | --since-last] [--until YYYY-MM-DD] [--flaky N] [--force] [--json] [--junit FILE] | routine.mjs status [--task KEY] [--last N] [--json]'
 const VALUE = ['--task', '--branch', '--since', '--until', '--flaky', '--junit', '--last', '--id']
-const DATE = /^\d{4}-\d{2}-\d{2}$/
+// A spec of the regression suite carries the tag as a whole word.
 const TAGGED = new RegExp(`${REGRESSION_TAG}\\b`)
 const MIN_RUNS = 3
-
-const git = (root, args) => {
-  try { return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null }
-}
 
 function parse(argv) {
   const [cmd, ...rest] = argv
@@ -44,9 +52,9 @@ function parse(argv) {
     else if (x === '--regression') a.regression = true
     else throw new Error(`unknown option ${x}`)
   }
-  // --id is accepted and ignored; it only labels the scheduled task.
-  for (const k of ['flaky', 'last']) if (a[k] !== undefined && !/^[1-9]\d*$/.test(a[k])) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
-  if (a.until !== undefined && !DATE.test(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
+  // --id names the scheduled task that calls this; the script only accepts it.
+  for (const k of ['flaky', 'last']) if (a[k] !== undefined && !isWholeNumber(a[k], { min: 1 })) throw new Error(`--${k} must be a whole number of 1 or more, not "${a[k]}"`)
+  if (a.until !== undefined && !isDate(a.until)) throw new Error(`--until must be a date like 2026-12-31, not "${a.until}"`)
   if (a.regression && (a.task || cmd === 'status')) throw new Error(`--regression runs the ${REGRESSION_TAG} suite: give it without --task, and only to run`)
   if (a.since !== undefined && a.sinceLast) throw new Error('give --since or --since-last, not both')
   if (cmd === 'status' && (a.since || a.sinceLast || a.until || a.flaky || a.junit || a.branch || a.force)) throw new Error('status takes --task, --last and --json')
@@ -136,7 +144,7 @@ async function handle(argv = process.argv.slice(2), env = process.env, cwd = pro
   const root = projectRoot(env, cwd)
   const today = now.toISOString().slice(0, 10)
   if (a.cmd === 'run' && a.until && today > a.until) { printLine(`routine ended on ${a.until}: nothing to do. Delete its schedule.`); return 0 }
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
   if (cfg.source === 'personal') { printError('A routine needs a repo with its own project config (run /quality-code:setup in the project).'); return 2 }
   const config = cfg.config

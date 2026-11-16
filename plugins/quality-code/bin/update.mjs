@@ -1,10 +1,13 @@
-// Compares running/installed plugin versions with the latest on GitHub. Read-only, installs nothing.
-// Exit 0 ok, 2 usage error, 3 latest version unreadable.
-import { execFileSync } from 'node:child_process'
+// Entry point for /quality-code:update: is a newer version of the plugin out, and what changed?
+// node bin/update.mjs [--json]
+// Reads the running version from this plugin and the one installed on disk (an update waits for /reload-plugins), the latest from the plugin's GitHub repository (raw files,
+// else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
+// 2 usage error, 3 the latest version could not be read.
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson } from '../lib/core/files.mjs'
+import { git } from '../lib/core/git.mjs'
 import { plural } from '../lib/core/text.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
@@ -117,7 +120,9 @@ export async function fetchLatest({ repository, name, fetchImpl = fetch, ls = de
 }
 
 function defaultLs(repository) {
-  return execFileSync('git', ['ls-remote', '--tags', repository], { encoding: 'utf8', timeout: TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+  const r = git(undefined, ['ls-remote', '--tags', repository], { timeout: TIMEOUT_MS })
+  if (!r.ok) throw new Error(r.error)
+  return r.out
 }
 
 export function statusOf(installed, latest, running = installed) {

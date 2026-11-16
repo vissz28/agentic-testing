@@ -20,7 +20,8 @@ import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/ci/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
-import { plural, withoutOrigin } from '../lib/core/text.mjs'
+import { gitOut } from '../lib/core/git.mjs'
+import { escapeHtml as esc, plural, withoutOrigin } from '../lib/core/text.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const USAGE = 'usage: ci.mjs [--base REF] | ci.mjs --tests [--all] [--base REF] [--junit FILE] | ci.mjs --init [github|gitlab] [--smoke] [--gate-only] [--print] [--dry-run]'
@@ -33,7 +34,7 @@ export const ORDER = { green: 0, skipped: 0, tests_red: 1, checks_failed: 1, not
 export const baseFromEnv = env => env.GITHUB_BASE_REF || env.CI_MERGE_REQUEST_DIFF_BASE_SHA || null
 export const providerOf = env => (env.GITHUB_ACTIONS ? 'github' : env.GITLAB_CI ? 'gitlab' : null)
 
-const git = (root, args) => spawnSync('git', args, { cwd: root, encoding: 'utf8' }).stdout?.trim() ?? ''
+const git = (root, args) => gitOut(root, args)?.trim() ?? ''
 const readText = p => { try { return readFileSync(p, 'utf8') } catch { return '' } }
 
 function parse(argv) {
@@ -279,7 +280,6 @@ async function gate(root, config, a, env, stdout) {
 
 // ---- The tests ----
 
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** One testcase per phase so the MR shows each one. */
 export function junit(phases) {
@@ -391,7 +391,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   let a
   try { a = parse(argv) } catch (e) { printError(`${e.message}\n${USAGE}`); return 2 }
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) { printError(cfg.errors.join('\n')); return 2 }
   if (cfg.source === 'personal') { printError('CI needs a repo with its own project config (run /quality-code:setup in the project; the jobs read it from the repo: copy config.json to .claude/quality-code.json there).'); return 2 }
   if (a.init) return init(root, cfg.config, a, env, stdout, stderr)

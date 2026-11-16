@@ -2,7 +2,7 @@
 // Never throws: a failed write must not change a result or exit code.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isTicketKey } from '../core/text.mjs'
+import { isTicketKey, isObject } from '../core/is.mjs'
 
 export const AUDIT_DIR = '.claude/quality-code/audit'
 export const KINDS = ['gate', 'pipeline', 'jira', 'override', 'fill']
@@ -74,7 +74,7 @@ export function readJsonl(path) {
     if (!l.trim()) return []
     try {
       const o = JSON.parse(l)
-      return o && typeof o === 'object' && !Array.isArray(o) ? [o] : []
+      return isObject(o) ? [o] : []
     } catch { return [] }
   })
 }

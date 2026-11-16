@@ -4,7 +4,7 @@
 import { projectRoot } from '../lib/config/config.mjs'
 import { checkRoute, declaredRoutes } from '../lib/base/routes.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
-import { hasLineBreak } from '../lib/core/text.mjs'
+import { hasLineBreak } from '../lib/core/is.mjs'
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s) } = {}) {
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)

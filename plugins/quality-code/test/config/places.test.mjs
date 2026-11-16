@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { audit, readAudit } from '../../lib/state/audit.mjs'
-import { loadConfig } from '../../lib/config/config.mjs'
+import { configHome, loadConfig, projectRoot } from '../../lib/config/config.mjs'
 import { pickPlace, placeDirs, placeOf, placesFor, rememberPlace, savedPlace } from '../../lib/config/places.mjs'
 
 const CLI = new URL('../../bin/ticket.mjs', import.meta.url).pathname
@@ -225,4 +225,17 @@ test('save set moves the config when the project root is a subfolder of the repo
   assert.equal(run(top, claude, 'config', 'check').status, 0, 'the config is found in its new place')
   // The tickets folder sits under the root, outside the ignored .quality-code/: it ignores itself.
   assert.equal(readFileSync(join(top, 'app/.quality-code/tickets/.gitignore'), 'utf8'), '*\n')
+})
+
+test('the environment a script is given is the one every config lookup reads (J9): a config kept on this machine is found from a subfolder', () => {
+  const root = tmp()
+  mkdirSync(join(root, 'src'))
+  const env = { CLAUDE_CONFIG_DIR: join(root, '.home'), QUALITY_CODE_PLACE: 'local' }
+  const file = placeConfigPath(root, env)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(CFG))
+  // The real environment of the test run names another place (repo): the lookup must not fall back to it.
+  assert.equal(projectRoot(env, join(root, 'src')), root)
+  assert.equal(configHome(root, env), root)
+  assert.equal(loadConfig(projectRoot(env, join(root, 'src')), env).path, file)
 })

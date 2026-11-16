@@ -1,11 +1,11 @@
 // Where a command stopped, so it can resume. One file per project, command and ticket under the Claude folder.
 // Holds answers only: never tokens, keys, passwords or ticket text.
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
-import { basename, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { claudeDir } from '../config/config.mjs'
-import { hasLineBreak, isTicketKey } from '../core/text.mjs'
+import { short, slug } from '../config/places.mjs'
 import { readJsonOr } from '../core/files.mjs'
+import { isTicketKey, hasLineBreak, isObject } from '../core/is.mjs'
 
 export const COMMANDS = ['setup', 'spec', 'ticket-eval', 'tickets-eval', 'transcript-goal', 'xray', 'seed', 'qa', 'ci', 'config', 'routine', 'session']
 // `session` holds the user's language and never expires; the rest expire after 7 days.
@@ -17,8 +17,8 @@ const SECRET = /(ghp_|gho_|github_pat_|glpat-|xox[abp]-|sk-[A-Za-z0-9]{16,}|AKIA
 const SECRET_FIELD = /^(token|password|passwd|secret|api[_-]?key|authorization)$/i
 
 export const dirOf = env => join(claudeDir(env), 'quality-code', 'progress')
-export const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
-export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
+// The project folder's name, the same as its place on this machine (places.mjs).
+export { short, slug }
 export const fileOf = (root, command, key, env = process.env) =>
   join(dirOf(env), `${slug(root)}-${short(root)}`, `${command}${key ? `.${key}` : ''}.json`)
 
@@ -59,7 +59,7 @@ export function setProgress(root, command, { key = null, step, label = '', data 
   if (bad) return { ok: false, reason: bad }
   if (!Number.isInteger(step) || step < 0 || step > 99) return { ok: false, reason: 'the step is a whole number from 0 to 99' }
   if (typeof label !== 'string' || label.length > 80 || hasLineBreak(label)) return { ok: false, reason: 'the label is one line of 80 characters at most' }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'the data is a JSON object' }
+  if (!isObject(data)) return { ok: false, reason: 'the data is a JSON object' }
   if (command === 'session') {
     const extra = Object.keys(data).filter(k => k !== 'language')
     if (extra.length) return { ok: false, reason: `session holds only language, not ${extra.join(', ')}` }

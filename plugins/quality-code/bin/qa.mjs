@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadConfig, projectRoot, qaOf } from '../lib/config/config.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
-import { isTicketKey } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const VERDICTS = ['ok', 'ko', 'blocked', 'skipped']
 const TEST_ID = /^[A-Za-z0-9_.-]{1,64}$/

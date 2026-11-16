@@ -3,7 +3,8 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { backendOf } from '../stacks/backends.mjs'
-import { plural } from '../core/text.mjs'
+import { lines, plural } from '../core/text.mjs'
+import { noTrailingSlash } from '../core/paths.mjs'
 
 export const HUB_TIMEOUT_MS = 3000
 export const DOMAIN = 'quality'
@@ -27,7 +28,7 @@ export const DEFAULT_HUB = 'https://centralcontext-dev.teamsystem.cloud'
 /** CC_HUB_URL, then centralContext.hub, then DEFAULT_HUB. */
 export function hubOf(config, env = process.env) {
   const v = env.CC_HUB_URL ?? config?.centralContext?.hub
-  return typeof v === 'string' && v.trim() ? v.trim().replace(/\/+$/, '') : DEFAULT_HUB
+  return typeof v === 'string' && v.trim() ? noTrailingSlash(v.trim()) : DEFAULT_HUB
 }
 
 const SEVERITY = ['critical', 'high', 'medium', 'low']
@@ -59,7 +60,7 @@ export function parseRule(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(text))
   if (!m) return null
   const out = {}
-  for (const line of m[1].split(/\r?\n/)) {
+  for (const line of lines(m[1])) {
     const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line)
     if (kv) out[kv[1]] = scalar(kv[2].trim())
   }

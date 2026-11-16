@@ -2,6 +2,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tryReadJson } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
 
 // Copies of the code (Docker build contexts): never a boundary, spec folder or project.
 export const BUILD_COPIES = new Set(['.build-context', 'build-context', '.build', '.docker-context'])
@@ -25,7 +26,7 @@ export function workspacePatterns(root, pkg) {
 }
 
 const segSource = s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')
-const segments = p => p.replace(/^\.\//, '').replace(/\/+$/, '').split('/').filter(Boolean)
+const segments = p => cleanRelPath(p).split('/').filter(Boolean)
 
 /** Folders with a package.json matching the patterns; "!" patterns subtract. */
 export function workspaceDirs(root, patterns, ignored = new Set()) {

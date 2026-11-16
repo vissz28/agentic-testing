@@ -4,9 +4,11 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, readdirSync, readF
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { claudeDir, configHome, normaliseTicketsDir } from './config.mjs'
+import { claudeDir, configHome } from './config.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson, readJsonOr } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
 export { ignoreFolder }
 
@@ -19,22 +21,22 @@ export const FIELDS_FILE = 'jira-fields.json'
 export const prefsPath = env => join(claudeDir(env), 'quality-code', 'save.json')
 // Personal setup: one pick for every folder. Otherwise one per repo (the folder holding the config),
 // so changing setup's project root doesn't ask again.
-const prefKey = (root, source) => (source === 'personal' ? 'personal' : resolve(configHome(root)))
-const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
-const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
+const prefKey = (root, source, env) => (source === 'personal' ? 'personal' : resolve(configHome(root, env)))
+export const short = root => createHash('sha256').update(resolve(root)).digest('hex').slice(0, 8)
+export const slug = root => (basename(resolve(root)).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'project').slice(0, 40)
 
 function readPrefs(env) {
   try {
     const p = readJson(prefsPath(env))
-    return p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    return isObject(p) ? p : {}
   } catch { return {} }
 }
 
 /** null when never asked. */
 export function savedPlace(root, source, env = process.env) {
   const prefs = readPrefs(env)
-  // Legacy: picks saved per project folder, before they were per repo.
-  const v = prefs[prefKey(root, source)] ?? (source === 'personal' ? undefined : prefs[resolve(root)])
+  // A pick saved for the project folder before picks were per repo still counts.
+  const v = prefs[prefKey(root, source, env)] ?? (source === 'personal' ? undefined : prefs[resolve(root)])
   return PLACES.includes(v) ? v : null
 }
 
@@ -59,16 +61,20 @@ function baseOf(root, source, place, env) {
   return source === 'personal' ? join(claudeDir(env), 'quality-code') : join(claudeDir(env), 'quality-code', 'projects', `${slug(root)}-${short(root)}`)
 }
 
-// ticketsDir: relative to root in the repo, else absolute. auditDir: always absolute (chat logs go to its temp
-// folder). The config's own ticketsDir applies in the repo, or for a personal setup that names one.
-export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place = placeOf(root, source), env = process.env) {
+/**
+ * The folders a place uses: `ticketsDir` (relative to the root in the repo, else absolute) and `auditDir`
+ * (absolute, in every place: the session's audit log lives in its temp folder). The config's own ticketsDir applies in the repo,
+ * and for a personal setup that names one.
+ */
+export function placeDirs(root, { source = 'repo', ticketsDir, personalDefault } = {}, place, env = process.env) {
+  place ??= placeOf(root, source, env)
   const base = baseOf(root, source, place, env)
-  const own = ticketsDir === undefined ? null : normaliseTicketsDir(ticketsDir)
+  const own = ticketsDir === undefined ? null : cleanRelPath(ticketsDir)
   if (place === 'repo') return { place, ticketsDir: own ?? '.quality-code/tickets', auditDir: join(resolve(root), AUDIT_REL) }
   const keepOwn = source === 'personal' && place === 'local' && own && own !== personalDefault
   return {
     place,
-    ticketsDir: normaliseTicketsDir(keepOwn ? own : join(base, 'tickets')),
+    ticketsDir: cleanRelPath(keepOwn ? own : join(base, 'tickets')),
     auditDir: join(base, 'audit'),
   }
 }
@@ -95,7 +101,7 @@ export function rememberPlace(root, source, place, env = process.env) {
   mkdirSync(dirname(p), { recursive: true })
   // Stop on a broken file: rewriting it would drop every other project's pick.
   const prefs = readJsonOr(p, {})
-  writeFileSync(p, `${JSON.stringify({ ...(prefs && typeof prefs === 'object' && !Array.isArray(prefs) ? prefs : {}), [prefKey(root, source)]: place }, null, 2)}\n`)
+  writeFileSync(p, `${JSON.stringify({ ...(isObject(prefs) ? prefs : {}), [prefKey(root, source, env)]: place }, null, 2)}\n`)
 }
 
 // Removes a folder holding only its own .gitignore (what ignoreFolder leaves).
@@ -133,7 +139,7 @@ export function pickPlace(root, opts, place, env = process.env) {
   const old = placeDirs(root, opts, from, env)
   const next = placeDirs(root, opts, place, env)
   // Before saving: afterwards a subfolder root would look for its config in the new, empty place.
-  const home = configHome(root)
+  const home = configHome(root, env)
   rememberPlace(root, opts.source, place, env)
   const counts = { moved: 0, kept: 0 }
   if (from !== place && opts.source !== 'personal') {

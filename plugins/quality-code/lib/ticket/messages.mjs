@@ -1,6 +1,7 @@
-// Text shown to ticket authors. Overridable per key via config.messages, and for stories via config.messages.story.
+// Every text a ticket author reads, as neutral built-in defaults. A project overrides any field of
+// any key through `config.messages`; a story can override again through `config.messages.story`.
+import { isObject } from '../core/is.mjs'
 
-const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
 // Fallback when jira.bugTypes is unset; Jira schemes use many names for a bug.
 const BUG_TYPES = /bug|defect|incident|problem|anomal|difett/i
@@ -193,29 +194,29 @@ const STORY = {
 export function messagesFor(config, kind = 'bug') {
   const story = kind === 'story'
   const base = defaults(config)
-  const cfg = isObj(config.messages) ? config.messages : {}
-  const cfgStory = isObj(cfg.story) ? cfg.story : {}
+  const cfg = isObject(config.messages) ? config.messages : {}
+  const cfgStory = isObject(cfg.story) ? cfg.story : {}
   const out = {}
   for (const key of Object.keys(base)) {
     out[key] = {
       ...base[key],
       ...(story ? STORY[key] : {}),
-      ...(isObj(cfg[key]) ? cfg[key] : {}),
-      ...(story && isObj(cfgStory[key]) ? cfgStory[key] : {}),
+      ...(isObject(cfg[key]) ? cfg[key] : {}),
+      ...(story && isObject(cfgStory[key]) ? cfgStory[key] : {}),
     }
   }
   return out
 }
 
 export function labelOverride(config, issuetype, key) {
-  const cfg = isObj(config.messages) ? config.messages : {}
+  const cfg = isObject(config.messages) ? config.messages : {}
   const story = templateFor(issuetype, config) === 'story'
-  const fromStory = story && isObj(cfg.story) && isObj(cfg.story[key]) ? cfg.story[key].label : undefined
-  const fromKey = isObj(cfg[key]) ? cfg[key].label : undefined
+  const fromStory = story && isObject(cfg.story) && isObject(cfg.story[key]) ? cfg.story[key].label : undefined
+  const fromKey = isObject(cfg[key]) ? cfg[key].label : undefined
   return typeof fromStory === 'string' ? fromStory : typeof fromKey === 'string' ? fromKey : undefined
 }
 
 export function refuseFallback(config) {
-  const custom = isObj(config.messages) ? config.messages.refuseFallback : undefined
+  const custom = isObject(config.messages) ? config.messages.refuseFallback : undefined
   return typeof custom === 'string' ? custom : 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.'
 }

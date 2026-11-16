@@ -8,7 +8,8 @@ import { pathToFileURL } from 'node:url'
 import { XRAY_COLUMNS, loadConfig, projectRoot, xrayOf } from '../lib/config/config.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
-import { isLine, toForwardSlashes, plural } from '../lib/core/text.mjs'
+import { toForwardSlashes, plural } from '../lib/core/text.mjs'
+import { isLine, isObject } from '../lib/core/is.mjs'
 
 const TICKET = /^[A-Z][A-Z0-9_]+-\d+$/
 // Anchored to the cell's last line (buildRows puts it there) so a description line starting "Automated:" isn't taken.
@@ -53,7 +54,7 @@ export function parseCsv(text) {
 
 export function caseError(tc, i = 0) {
   const at = `case ${i + 1}`
-  if (!tc || typeof tc !== 'object' || Array.isArray(tc)) return `${at}: must be an object`
+  if (!isObject(tc)) return `${at}: must be an object`
   if (!isLine(tc.key)) return `${at}: key must be the test's name, one line`
   if (typeof tc.summary !== 'string' || !tc.summary.trim()) return `${at} (${tc.key}): summary must be a non-empty text`
   if (typeof tc.ticket !== 'string' || !TICKET.test(tc.ticket)) return `${at} (${tc.key}): ticket must be a Jira key like ABC-123`

@@ -10,10 +10,10 @@ import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { detectConventions } from '../stacks/conventions.mjs'
 import { BACKENDS, isBackend } from '../stacks/backends.mjs'
-import { changedPaths } from '../core/git.mjs'
-import { execFileSync } from 'node:child_process'
+import { changedPaths, git } from '../core/git.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
-import { withoutOrigin } from '../core/text.mjs'
+import { pct, withoutOrigin } from '../core/text.mjs'
+import { stripDotSlash, noTrailingSlash } from '../core/paths.mjs'
 
 // ponytail: fixed Quality Program targets; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
@@ -24,7 +24,6 @@ const UNIT = /\.unit\.(spec|test)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
 // Other stacks' build output and envs, skipped on a whole-repo walk (Go's "./").
 const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
-const pct = (a, b) => (b ? Math.round((100 * a) / b) : null)
 
 function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 20000 }) {
   const out = []
@@ -34,13 +33,14 @@ function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 
     try { entries = readdirSync(join(root, rel), { withFileTypes: true }) } catch { return }
     for (const e of entries) {
       if (--budget.n < 0) return
-      const p = rel ? `${rel.replace(/\/$/, '')}/${e.name}` : e.name
-      // Hidden folders (.build-context, .cache) hold copies, not tests.
+      // The repo itself ("./", Go's default layer) lists its files without a "./" in front.
+      const p = rel ? `${noTrailingSlash(rel)}/${e.name}` : e.name
+      // A whole-repo walk skips hidden folders (.build-context, .cache): they hold copies, not the project's tests.
       if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-') && !(wholeRepo && e.name.startsWith('.'))) walk(p) }
       else if (spec.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
     }
   }
-  walk(String(folder).replace(/^(?:\.\/)+/, ''))
+  walk(stripDotSlash(folder))
   return out
 }
 
@@ -84,14 +84,8 @@ export function projectSpecs(root, config) {
 export function withoutIgnored(root, paths) {
   const all = new Set(paths)
   if (!paths.length) return all
-  try {
-    const out = execFileSync('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, input: `${paths.join('\0')}\0`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
-    for (const p of out.split('\0')) all.delete(p)
-  } catch (e) {
-    // Exit 1 means nothing ignored; any other failure keeps every path.
-    if (e.status === 1 || !e.stdout) return all
-    for (const p of String(e.stdout).split('\0')) all.delete(p)
-  }
+  // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path git did not name.
+  for (const p of git(root, ['check-ignore', '--no-index', '-z', '--stdin'], { input: `${paths.join('\0')}\0`, okCodes: [1] }).out.split('\0')) all.delete(p)
   return all
 }
 
@@ -147,10 +141,7 @@ export function scanSpecs(root, config) {
 function baseRef(root, config) {
   const name = config.git?.base
   if (!name) return null
-  for (const ref of [`origin/${name}`, name]) {
-    try { execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: root, stdio: 'ignore' }); return ref } catch {}
-  }
-  return null
+  return [`origin/${name}`, name].find(ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) ?? null
 }
 
 // Traceability of specs changed on this branch only: an old suite drags the whole-repo number down for years.

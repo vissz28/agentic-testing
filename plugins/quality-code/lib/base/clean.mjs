@@ -1,11 +1,24 @@
-// /quality-code:clean. Deletes only paths from buildList(), re-checked one by one; callers pick groups, never paths.
-import { execFileSync } from 'node:child_process'
+// What Quality Code created in a project, and the only code that may remove it (/quality-code:clean).
+// buildList() names everything the plugin owns, in groups; runClean() deletes only paths from that list, after a
+// second safety check on each one. Nothing is deleted from a path the caller names: the caller names groups.
+//
+// Groups:
+//   setup    .claude/quality-code.json (older setups; the config now sits with the saved output below), the templates and the Playwright/Vitest files setup wrote (only when they are
+//            still exactly what setup writes), and the .gitignore lines setup added (those exact lines, nothing else)
+//   output   the tickets folder, .quality-code/, .claude/quality-code/ (audit log, run logs, evals, Jira fields)
+//   cache    this project's folder under <Claude folder>/quality-code/progress/
+//   personal <Claude folder>/quality-code.json (read by every project, so only when the person picks it)
+//   specs    tests written by /quality-code:spec (they carry the ticket key tag); kept unless the person picks them
+//
+// Safety: every path must sit inside the project (the folder of the config) with no `..`, no link on the way and no
+// link that leads out; .git is never touched. The only paths outside it are the cache and the personal config
+// (checked against their known locations) and the project's folder of the "this machine" place.
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { localToForwardSlashes } from '../core/text.mjs'
-import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, normaliseTicketsDir, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
+import { lines, localToForwardSlashes } from '../core/text.mjs'
+import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, loadConfig, personalConfigPath, redTagsOf, xrayOf } from '../config/config.mjs'
 import { CONFIG_FILE, prefsPath, savedPlace } from '../config/places.mjs'
-import { PLAIN } from '../core/git.mjs'
+import { git } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
@@ -13,6 +26,7 @@ import { projectSpecs } from '../report/quality-program.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
+import { cleanRelPath, leavesFolder } from '../core/paths.mjs'
 
 export const GROUPS = ['setup', 'output', 'cache', 'personal', 'specs']
 export const LABELS = { setup: 'Setup files', output: 'Saved output', cache: 'Cache', personal: 'Personal config', specs: 'Tests written by spec' }
@@ -28,7 +42,8 @@ const MAX_WALK = 5000
 const lstat = p => { try { return lstatSync(p) } catch { return null } }
 const read = p => { try { return readFileSync(p, 'utf8') } catch { return null } }
 const real = p => { try { return realpathSync(p) } catch { return resolve(p) } }
-const inside = (a, b) => { const r = relative(real(b), real(a)); return r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r) }
+/** a is b or inside it. */
+const inside = (a, b) => !leavesFolder(relative(real(b), real(a)))
 const GOAL = /^\d{4}-\d{2}-\d{2}-goal\.md$/
 
 /** null if safe to delete: inside `top`, no `..`, no symlink on the way or leading out, not .git. Else the reason. */
@@ -39,7 +54,7 @@ export function unsafeReason(top, abs, { raw = abs } = {}) {
   const full = resolve(abs)
   const rel = relative(base, full)
   if (!rel) return 'that is the project folder itself'
-  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return 'outside the project'
+  if (leavesFolder(rel)) return 'outside the project'
   const parts = rel.split(sep)
   if (parts.includes('.git')) return 'inside .git'
   let cur = base
@@ -55,7 +70,7 @@ export function unsafeReason(top, abs, { raw = abs } = {}) {
     try { real = realpathSync(full) } catch { return 'a broken link' }
     const realBase = realpathSync(base)
     const back = relative(realBase, real)
-    if (back === '..' || back.startsWith(`..${sep}`) || isAbsolute(back)) return 'a link that leads outside the project'
+    if (leavesFolder(back)) return 'a link that leads outside the project'
   }
   return null
 }
@@ -79,10 +94,8 @@ const count = abs => {
 
 // null when there is no repo or no git.
 function trackedSet(top) {
-  try {
-    const out = execFileSync('git', [...PLAIN, 'ls-files', '-z'], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
-    return new Set(out.split('\0').filter(Boolean))
-  } catch { return null }
+  const r = git(top, ['ls-files', '-z'])
+  return r.ok ? new Set(r.out.split('\0').filter(Boolean)) : null
 }
 const trackedUnder = (set, rel) => (set ? [...set].filter(f => f === rel || f.startsWith(`${rel}/`)).sort() : [])
 
@@ -94,7 +107,7 @@ const item = (top, abs, extra = {}) => {
 function rawTicketsDir(top) {
   try {
     const c = readJson(configFileOf(top) ?? join(top, CONFIG_REL))
-    return typeof c?.ticketsDir === 'string' ? normaliseTicketsDir(c.ticketsDir) : DEFAULTS.ticketsDir
+    return typeof c?.ticketsDir === 'string' ? cleanRelPath(c.ticketsDir) : DEFAULTS.ticketsDir
   } catch { return DEFAULTS.ticketsDir }
 }
 
@@ -147,7 +160,7 @@ function gitignoreItem(root, top, ownsPlaywright) {
   if (text === null) return null
   const ticketsLine = `${rawTicketsDir(top)}/*/raw.json`
   const wanted = new Set([ticketsLine, FIELDS_REL, ...RUNTIME_GITIGNORE, ...(ownsPlaywright ? PLAYWRIGHT_LINES : []), ...(ownsPlaywright?.signIn ? SIGN_IN_LINES : [])])
-  const present = [...new Set(text.split(/\r?\n/).map(l => l.trim()).filter(l => wanted.has(l)))]
+  const present = [...new Set(lines(text).map(l => l.trim()).filter(l => wanted.has(l)))]
   return present.length ? { abs, rel: localToForwardSlashes(relative(top, abs)), kind: 'lines', lines: present, files: 1 } : null
 }
 
@@ -163,7 +176,7 @@ function ticketItems(top, root, config, env) {
   const abs = resolve(root, dir)
   const rel = localToForwardSlashes(relative(top, abs))
   if (!lstat(abs)) return { items: [], kept }
-  if (!rel || rel.startsWith('..') || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
+  if (!rel || leavesFolder(rel) || String(dir).split(/[\\/]/).includes('..')) return { items: [], kept: [{ rel: dir, why: 'the tickets folder is not inside the project' }] }
   if (rel === '.quality-code' || rel.startsWith('.quality-code/') || rel === '.claude/quality-code' || rel.startsWith('.claude/quality-code/')) return { items: [item(top, abs)], kept }
   const items = []
   const xcsv = xrayOf(config)?.csv
@@ -204,7 +217,7 @@ const dedupe = items => items.filter(i => !items.some(o => nested(o, i)))
 export function buildList(rootIn, env = process.env) {
   const loaded = loadConfig(rootIn, env)
   const config = loaded.ok ? loaded.config : null
-  const top = configHome(resolve(rootIn))
+  const top = configHome(resolve(rootIn), env)
   const root = resolve(rootIn)
   const tracked = trackedSet(top)
   const kept = []
@@ -296,7 +309,7 @@ function removeLines(it, top) {
   if (text === null) return 'could not read'
   const drop = new Set(it.lines)
   const eol = text.includes('\r\n') ? '\r\n' : '\n'
-  const keep = text.split(/\r?\n/).filter(l => !drop.has(l.trim()))
+  const keep = lines(text).filter(l => !drop.has(l.trim()))
   const body = keep.join(eol)
   if (!body.trim()) {
     // Only our lines were left: delete the file unless git tracks it.

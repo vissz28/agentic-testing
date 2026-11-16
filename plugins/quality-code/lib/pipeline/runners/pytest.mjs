@@ -7,12 +7,13 @@ import { adapterOptions, commandOf, timeoutSecondsOf } from '../../config/config
 import { classTitles, locate } from '../../stacks/dialects/pytest.mjs'
 import { result } from '../result.mjs'
 import { kill, track } from './tool.mjs'
-import { firstLine, toForwardSlashes } from '../../core/text.mjs'
+import { firstLine } from '../../core/text.mjs'
 import { fillPlaceholders } from '../../core/shell.mjs'
+import { stripDotSlash } from '../../core/paths.mjs'
 
 const LABEL = 'pytest'
 const CAP = 1 << 20
-const slash = p => toForwardSlashes(p).replace(/^\.\//, '')
+const slash = p => stripDotSlash(p)
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
 
 // ---- JUnit XML ----

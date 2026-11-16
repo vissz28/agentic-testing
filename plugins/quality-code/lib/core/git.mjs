@@ -1,24 +1,33 @@
-// The only git calls the checks make. Read-only; never takes the index lock.
+// Every git call the plugin makes. Never takes an optional lock, never waits on a password prompt.
 import { execFileSync } from 'node:child_process'
 
 // The user's git config must not change what the checks read: a colored or external diff hides
 // every removed expect from the honesty check, a quoted path misses the boundary rules.
-export const PLAIN = ['-c', 'color.ui=never', '-c', 'color.diff=never', '-c', 'core.quotePath=false']
+const PLAIN = ['-c', 'color.ui=never', '-c', 'color.diff=never', '-c', 'core.quotePath=false']
 
-function git(root, args, okCodes = []) {
+/**
+ * Runs git in root. → { ok: true, out } | { ok: false, out, error }: out is what git printed, error the first line of its complaint.
+ * okCodes: exit codes that still count as success (git diff --no-index exits 1 when the files differ).
+ */
+export function git(root, args, { okCodes = [], input, timeout } = {}) {
   try {
-    const out = execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
+    const out = execFileSync('git', [...PLAIN, ...args], { cwd: root, input, timeout, encoding: 'utf8', stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' } })
     return { ok: true, out }
   } catch (err) {
-    if (okCodes.includes(err.status)) return { ok: true, out: String(err.stdout ?? '') }
-    return { ok: false, error: String(err.stderr || err.message).trim().split('\n')[0] }
+    const out = String(err.stdout ?? '')
+    if (okCodes.includes(err.status)) return { ok: true, out }
+    return { ok: false, out, error: String(err.stderr || err.message).trim().split('\n')[0] }
   }
 }
+
+/** What git printed without the closing newline (a leading space stays: status lines start with one); null when git fails. */
+export const gitOut = (root, args) => { const r = git(root, args); return r.ok ? r.out.replace(/\n$/, '') : null }
 
 /** HEAD, or git's empty tree in a repo with no commit yet: there every line of a file reads as added. */
 function head(root) {
   if (git(root, ['rev-parse', '--verify', '--quiet', 'HEAD']).ok) return 'HEAD'
-  try { return execFileSync('git', ['hash-object', '-t', 'tree', '--stdin'], { cwd: root, input: '', encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() } catch { return 'HEAD' }
+  const r = git(root, ['hash-object', '-t', 'tree', '--stdin'], { input: '' })
+  return r.ok ? r.out.trim() : 'HEAD'
 }
 
 const badRange = range => (range && String(range).startsWith('-') ? { ok: false, error: 'range must not start with "-"' } : null)
@@ -34,7 +43,7 @@ export function specDiff(root, paths, range = null) {
     // An untracked spec has no diff against HEAD: read it as all added lines (exit 1 means "differs").
     for (const p of paths) {
       if (git(root, ['ls-files', '--error-unmatch', '--', p]).ok) continue
-      const n = git(root, ['diff', '--no-index', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', '--', '/dev/null', p], [1])
+      const n = git(root, ['diff', '--no-index', '--no-ext-diff', '--no-color', '--src-prefix=a/', '--dst-prefix=b/', '--', '/dev/null', p], { okCodes: [1] })
       if (n.ok) diff += n.out
     }
   }

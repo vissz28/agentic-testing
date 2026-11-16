@@ -2,11 +2,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
-import { DEFAULTS, normaliseTicketsDir } from '../config/config.mjs'
-import { isTicketKey, plural } from '../core/text.mjs'
+import { DEFAULTS } from '../config/config.mjs'
+import { pct, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
-const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
+/** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
 
 /** Same scoring as `ticket.mjs score`, no I/O. Returns the sanitized tickets so the caller can save them. */
 export function evalTickets(config, tickets) {
@@ -34,7 +36,7 @@ export function evalTickets(config, tickets) {
   const summary = {
     scored: rows.length,
     passing,
-    passingPercent: pct(passing, rows.length),
+    passingPercent: pct(passing, rows.length) ?? 0,
     average: rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 0,
     mostMissing: mostMissing(rows, 3),
     // The batch doesn't read attachments, so criteria may be hiding in one.
@@ -42,7 +44,7 @@ export function evalTickets(config, tickets) {
     // A single group would just repeat the project line.
     byTeam: groups.size < 2 ? [] : [...groups].map(([team, rs]) => {
       const p = rs.filter(r => r.gate === 'pass').length
-      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length), mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
+      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length) ?? 0, mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
     }).sort((a, b) => a.passingPercent - b.passingPercent || a.team.localeCompare(b.team)),
   }
   return { rows, summary, clean }
@@ -77,7 +79,7 @@ export function formatCard({ rows, summary }) {
 
 // --save only. Keeps `filled`/`sent` from an existing file: Jira doesn't hold them.
 export function saveTickets(root, config, clean) {
-  const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
+  const dir = cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
     if (!isTicketKey(t.key)) continue
     const d = resolve(root, dir, t.key)
