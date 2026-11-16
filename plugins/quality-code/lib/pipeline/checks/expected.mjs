@@ -11,6 +11,7 @@ import { result } from '../result.mjs'
 import { configHome } from '../../config/config.mjs'
 import { externalChecks } from './external.mjs'
 import { readJson } from '../../core/files.mjs'
+import { escapeRegExp } from '../../core/text.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
@@ -310,9 +311,12 @@ export function groundCandidates(candidates, chunks, have = [], ticketFull = '')
 
 const unescape = s => s.replace(/\\(.)/g, '$1')
 
+// Whole words only: "EU" isn't asserted by "NON-EUROPE".
+const hasWhole = (text, tok) => new RegExp(`${/^\w/.test(tok) ? '(?<!\\w)' : ''}${escapeRegExp(tok)}${/\w$/.test(tok) ? '(?!\\w)' : ''}`).test(text)
+
 export function asserted(token, surfaceText) {
   if (token.kind === 'field') return fold(surfaceText).includes(fold(token.token))
-  if (token.kind === 'string') return surfaceText.includes(token.token) || unescape(surfaceText).includes(token.token)
+  if (token.kind === 'string') return hasWhole(surfaceText, token.token) || hasWhole(unescape(surfaceText), token.token)
   const want = new Set(token.values)
   return [...surfaceText.matchAll(NUMBER)].some(m => normNum(m[0]).some(x => want.has(x)))
 }

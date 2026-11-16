@@ -261,3 +261,10 @@ test('run: the PFO-2556 shape passes when every code sits in a table the test as
   const r = run({ specs: ['src/a.unit.test.js'], key: 'ABC-7', ticket: t }, { root, dialect: V, config: {} })
   assert.equal(r.status, 'pass', JSON.stringify(r))
 })
+
+test('a string value is asserted as a whole word: the ticket\'s EU is not NON-EUROPE', () => {
+  const eu = { kind: 'string', token: 'EU' }
+  assert.equal(asserted(eu, "expect(scope('y')).toBe('NON-EUROPE')"), false)
+  assert.equal(asserted(eu, "expect(scope('y')).toBe('EU')"), true)
+  assert.equal(asserted({ kind: 'string', token: 'Saved' }, "await expect(toast).toHaveText('Saved!')"), true)
+})
