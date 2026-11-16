@@ -9,6 +9,21 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.1] - 2026-11-16
+
+### Fixed
+
+- Mutation testing in place (Go, Java, C#, Python): when the test file cannot be put back after a mutant, the check now says so, naming the file (`could not put <spec> back as it was … restore it from git`), instead of passing over it and leaving the file mutated without a word.
+- On Ctrl-C during mutation testing, the library puts the test file back and lets the signal end the process; it no longer picks the exit code itself. `pipeline.mjs` still exits with 130.
+- Every config lookup reads the environment it is given. Before, finding the project from a subfolder read the real environment, so a config kept on this machine (`local`) could be missed when the place or the Claude folder came from the caller.
+
+### Changed
+
+- Internal: `lines`, `escapeHtml` and `pct` in `lib/core/text.mjs` replace hand-written copies; `slug` and `short` live once, in `lib/config/places.mjs`. The CI report now also escapes `'`, and a percent is rounded exactly (29 of 200 is 15%, not 14%).
+- Internal: `lib/core/paths.mjs` holds the path chores written by hand in 25 files: `stripDotSlash`, `noTrailingSlash`, `cleanRelPath` (it replaces `normaliseTicketsDir` and a twin), `isAbsoluteAnywhere` and `leavesFolder`. A file or folder whose name only starts with two dots (`..cache`) is no longer taken for one outside the project.
+
+**What to do:** nothing.
+
 ## [0.80.0] - 2026-11-16
 
 ### Added
