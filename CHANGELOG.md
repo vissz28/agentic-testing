@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.80.5] - 2026-11-16
+
+### Changed
+
+- The shared server's browser tab shows the TeamSystem logo: `/favicon.ico` and `/favicon.png` serve it, so `/health` and the other pages with no HTML of their own show it too, and the pages link to it. The connector icon Claude shows is unchanged (the Quality Code icon at `/static/quality-code.png`).
+
+**What to do:** nothing. Redeploy the server to get it. A browser that cached the old icon may need a hard refresh.
+
 ## [0.80.4] - 2026-11-16
 
 ### Added

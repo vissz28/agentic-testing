@@ -153,7 +153,7 @@ LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=
 
 def _page(title: str, body: str, script: str = "") -> str:
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{escape(title)}</title><link rel="icon" href="data:image/svg+xml;utf8,{escape(LOGO_SVG)}"><style>{CSS}</style></head>'
+            f'<title>{escape(title)}</title><link rel="icon" type="image/png" href="/favicon.png"><style>{CSS}</style></head>'
             f'<body><header class="top"><div class="mark">{LOGO_SVG}Quality Code</div>'
             '<div class="ts"><img src="/static/teamsystem.png" alt="">TeamSystem</div></header>'
             f'<main>{body}</main><script>{script}</script></body></html>')
@@ -326,11 +326,15 @@ def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: C
         resp.delete_cookie(SESSION_COOKIE, path="/")
         return resp
 
-    async def icon(request):
-        return Response((STATIC / "quality-code.png").read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    def png(name):
+        async def serve(request):
+            return Response((STATIC / name).read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
 
-    for path in ("/static/quality-code.png", "/favicon.ico", "/favicon.png"):  # the connector icon Claude shows, and the browser tab icon
-        server.custom_route(path, methods=["GET"])(icon)
+        return serve
+
+    server.custom_route("/static/quality-code.png", methods=["GET"])(png("quality-code.png"))  # the connector icon Claude shows
+    for path in ("/favicon.ico", "/favicon.png"):  # the browser tab icon, also on the pages with no HTML (/health): the TeamSystem logo
+        server.custom_route(path, methods=["GET"])(png("teamsystem.png"))
 
     @server.custom_route("/static/teamsystem.png", methods=["GET"])
     async def logo(request):

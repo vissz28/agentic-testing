@@ -101,6 +101,9 @@ def test_the_icon_is_served_for_claude_and_the_browser_and_named_in_the_server_i
         for path in ("/static/quality-code.png", "/favicon.ico", "/favicon.png"):
             r = c.get(path)
             assert r.status_code == 200 and r.headers["content-type"] == "image/png" and r.content[:4] == b"\x89PNG", path
+        assert c.get("/favicon.ico").content == (web.STATIC / "teamsystem.png").read_bytes()  # the tab shows the TeamSystem logo
+        assert c.get("/static/quality-code.png").content == (web.STATIC / "quality-code.png").read_bytes()  # Claude keeps the product icon
+        assert 'rel="icon"' in c.get("/").text and "/favicon.png" in c.get("/").text
         c.cookies.set("qc_session", web._sign(W, {"kind": "session", "name": "Ada", "email": "a@teamsystem.com"}, 60))
         assert "/plugin install quality-code@teamsystem" in c.get("/").text and "/plugin marketplace add vissz28/agentic-testing" in c.get("/").text
     s = build(plugin_root(), entra=S, remote=True, fixed_cwd=tmp_path, web_settings=W)
