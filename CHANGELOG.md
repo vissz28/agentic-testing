@@ -23,6 +23,7 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Fixed
 
+- An Italian run showed the checklist steps and the picker's titles and options in English: they are now in the person's language too, like the rest of the chat (only `Jira labels`, not option labels, stay word for word).
 - `/quality-code:check --smoke` found no `@smoke` test in a Playwright spec with a route glob like `page.route('**/api/**')`: the glob was read as a comment and most of the file was dropped. Comments are now stripped with strings left as they are, also for the database-check assertions and the Playwright `testDir`.
 - Setup no longer says to delete the old `.claude/quality-code.json` without a word on CI: the CI jobs read that file, so replace it with `config.json` when you use `/quality-code:ci`.
 - `/quality-code:config set` takes `seed.schema`, `seed.target`, `seed.apply`, `xray.csv` and `xray.folder`, where the seed and Xray cards already sent you.
