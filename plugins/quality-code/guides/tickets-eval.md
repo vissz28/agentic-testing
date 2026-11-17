@@ -1,6 +1,6 @@
 # Project readiness: `/quality-code:ticket <PROJECT> --eval`
 
-From the arguments of `/quality-code:ticket` (without `--eval`): read a project's tickets in one search, score them all with the plugin's script, and show the card. The script scores; you never compute or guess a score. Read-only on Jira: nothing is ever commented, edited or transitioned. Plain English, short sentences, common words.
+From the arguments of `/quality-code:ticket` (without `--eval`): read a project's tickets in one search, score them all with the plugin's script, and show the card. The script scores; you never compute or guess a score. Read-only on Jira: nothing is ever commented, edited or transitioned. Plain words, short sentences, common words.
 
 ## Rules
 

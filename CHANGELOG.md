@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-11-17
+
+### Fixed
+
+- Every command runs in the person's language, not only `/quality-code:spec`: `check`, `help`, `report`, `setup` and `update` follow the language guide too, and `check`, `clean` and `help` no longer keep script output and cards in English. "Plain English" is now "plain words" in every command, and "show it exactly as printed" keeps the numbers and order, not the English words.
+- The checklist is rewritten in the ticket's language once the ticket is read; a command with no ticket and no sentence yet uses the first of `languages` in the config.
+- The picker's page-turn option is `Altre opzioni…` in Italian, so it no longer reads like the picker's own `Altro`. The story check says "this ticket could be clearer", so a bug is not called a story.
+
 ## [0.83.0] - 2026-11-17
 
 ### Added

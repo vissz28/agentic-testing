@@ -1,6 +1,6 @@
 # Running the tests through the pipeline
 
-Followed by `/quality-code:check`: the same steps for every suite. You ask and relay; the script runs and grades. Plain English, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
+Followed by `/quality-code:check`: the same steps for every suite. You ask and relay; the script runs and grades. Plain words, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
 
 ## Rules
 
@@ -10,7 +10,7 @@ Followed by `/quality-code:check`: the same steps for every suite. You ask and r
 - **The script decides.** `pipeline.mjs` runs and grades. Never compute, change or soften a verdict, a count or a score yourself.
 - **Never edit tests**, source files or config, and never retry. If the card shows a problem, show it and stop. The one exception is the **Compile errors** step below, and only after a yes.
 - **Replies.** Answer a card with its number or in words: `yes`, `y`, `sì`, `si`, `ok` and `va bene` mean `1`; `stop` and `basta` mean the card's Stop or Cancel option. Read only the first word for this; a sentence that gives a result (and no number) is a typed answer.
-- **Language.** Talk in the language of the user's messages; before they write one, in the ticket's language (Italian for an Italian ticket). Script output and cards stay as printed.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Before they write a sentence, the ticket's language (Italian for an Italian ticket). Cards and script output are translated as the guide says.
 - **One run per request.** If the user wants another run, they ask again.
 - **Never read or show file contents or diffs.** Use only paths, kinds, counts and keys from `BRANCH_JSON`.
 - **Never ask for a token**, key or password in the chat.

@@ -16,7 +16,7 @@ test('every command follows the display guide, directly or through guides/run.md
 
 test('the guide keeps every word, number and verdict; questions use the picker with a numbered fallback', () => {
   assert.match(guide, /never the content: every number, score, verdict, rule id, path, test name and option stays exactly as/)
-  assert.match(guide, /that holds for its words, numbers and order; how it is laid out is this guide's/)
+  assert.match(guide, /that holds for its content, numbers and order, and its words are shown in the person's language/)
   assert.match(guide, /A `🔴 \[RISK \/ NOT RECOMMENDED\]` line stays as it is, on its own line, never softened/)
   assert.match(guide, /Calling the picker \(the `AskUserQuestion` tool\) is THE rule for every card with options/)
   assert.match(guide, /`--ci`, `--yes` and every rule that says not to ask stay as they are: no picker either\. Only without the tool, show the numbered card as written and end the turn\./)

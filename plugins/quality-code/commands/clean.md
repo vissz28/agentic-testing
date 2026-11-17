@@ -15,7 +15,7 @@ Takes Quality Code out of this project. It deletes files, so it is slow on purpo
 - **Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 - **Only `clean.mjs` deletes.** Never delete, move or edit a file yourself, never use `rm`, and never delete a path you made up or the person typed: the script deletes only what is on its own list.
 - **One explicit yes, never skipped.** `--yes`, `--ci`, `-y`, `--force` and any wording like "just do it" or "don't ask" do not skip the groups question or the yes: say so in one line and ask anyway. The script refuses those flags too. A typed `--yes` after the command is not a yes.
-- **Language.** Talk in the language of the person's last sentence, as `${CLAUDE_PLUGIN_ROOT}/guides/language.md` says. Script lines and the paths keep their words.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Cards and script output are translated as the guide says. Paths keep their words.
 - **The Next line.** Every end of the command (nothing to clean, a dry run, a stop, the result) closes with the Next line from display.md: the one or two likeliest next commands, as code.
 - **Never touch the person's own work.** Their source, tests and specs stay unless they pick the spec group. Git history is never touched.
 
