@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-11-17
+
 ### Added
 
 - Setup finds how the app's tests get past its sign-in (`playwright.signIn`: the tests already do it, a form, a token or dev switch, single sign-on, or none) and shows it on the Confirm card. `/quality-code:spec` writes the sign-in from it, also in a project that already has its own Playwright config: a setup project signs in once and every test reuses it, so no tester signs in by hand.
