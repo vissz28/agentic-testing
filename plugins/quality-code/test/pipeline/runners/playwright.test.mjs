@@ -233,6 +233,16 @@ test('runner: browsers in node_modules get PLAYWRIGHT_BROWSERS_PATH=0; otherwise
     if (prev === undefined) delete process.env.PLAYWRIGHT_BROWSERS_PATH; else process.env.PLAYWRIGHT_BROWSERS_PATH = prev
   }
 })
+test('runner: a failed sign-in setup that skips every requested test could not run, and says why', async () => {
+  const d = proj()
+  const timeout = 'Test timeout of 30000ms exceeded.'
+  fakeBin(d, 'playwright', { exit: 1, report: report(d, [
+    fileSuite('e2e/auth.setup.ts', [spec('sign in', 'e2e/auth.setup.ts', [pt('unexpected', { project: 'setup', message: timeout, result: 'timedOut' })])]),
+    fileSuite('e2e/a.spec.ts', [spec('one', 'e2e/a.spec.ts', [pt('skipped', { project: 'chromium' })]), spec('two', 'e2e/a.spec.ts', [pt('skipped', { project: 'chromium' })])]),
+  ]) })
+  assert.deepEqual(await playwrightRunner(d, cfg())({ files: ['e2e/a.spec.ts'] }),
+    { ran: false, tests: [], error: `the sign-in setup failed (e2e/auth.setup.ts), so every test was skipped: ${timeout}` })
+})
 test('runner: one process per config, results merged; only the requested files count', async () => {
   const d = proj()
   fakeBin(d, 'playwright', { reportFor: {
