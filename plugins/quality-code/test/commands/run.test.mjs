@@ -27,7 +27,7 @@ test('a test runner the config names and the project has not installed stops the
 })
 test('the whole suite is listed by the script, never by the model', () => {
   assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/pipeline.mjs" --suite <suite> [--key <KEY>] [--flaky <N>]'))
-  assert.match(doc, /the script lists them itself \(`--suite <suite>` in step 4\), so do not look for files/)
+  assert.match(doc, /the script lists them itself \(`--suite <suite>` in step 5\), so do not look for files/)
   assert.match(doc, /A whole suite spans many tickets: without `--key`, pass none/)
   assert.match(doc, /`--branch` \(the `full` suite only/)
 })

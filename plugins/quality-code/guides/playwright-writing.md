@@ -21,7 +21,26 @@ fixtures and login, never invent new ones.
   line at a time and fails an `@anchor` or `@finding` whose `@<KEY>` is on another line. If a
   formatter would wrap it, shorten the title.
 - Open the screen with `await page.goto('<route>')` (a path: the config's `baseURL` gives the host),
-  in the test or in a `test.beforeEach`.
+  in the test or in a `test.beforeEach`. When `routes.mjs check` says `Open it as <url>` (a hash
+  router like `/#/orders`, or a router base like `/app/orders`), go to that url, not the bare route.
+- **License banners.** A licensed UI kit without its key in dev mode (MUI X, AG Grid, Syncfusion,
+  DevExtreme, Kendo, Handsontable) lays a banner or watermark over the app ("MUI X Missing license
+  key", "trial version", "for development purposes only"), and clicks under it fail. When
+  `routes.mjs specs` names one, or the app shows one, hide it before every test, in the shared
+  fixture when the folder has one, else in a `test.beforeEach`, with the banner's own text:
+
+  ```ts
+  await page.addLocatorHandler(page.getByText('MUI X Missing license key'), async banner => {
+    // The banner's box is its nearest positioned ancestor. Hidden, not removed: the app's framework owns it.
+    await banner.evaluate(el => {
+      let box = el
+      for (let p: HTMLElement | null = el; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).position !== 'static') { box = p; break }
+      box.style.setProperty('display', 'none', 'important')
+    })
+  })
+  ```
+
+  Never assert on the banner, and never hide anything else this way.
 - Arrange, act, assert, in that order, separated by a blank line.
 
 ```ts

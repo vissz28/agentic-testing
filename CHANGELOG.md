@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-11-17
+
+### Added
+
+- `/quality-code:check` checks the screens the frontend specs open before they run (`routes.mjs specs`): against the routes in the code, and in a browser when the app answers, as a path, after `/#` and under the base path. The agent says which form opens in this environment, so a spec that opens `/orders` on a hash-router app (`/#/orders`) or under a base set at run time is named before its tests fail on the address. `routes.mjs check` also reads hash routers and literal router bases, and takes `/#/orders` as `/orders`. A dev-mode license banner over the app (MUI X, AG Grid, Syncfusion and the like) is hidden before the routes are opened and named on the check, and the Playwright guide shows how specs hide it so it no longer blocks their clicks.
+
 ## [0.82.0] - 2026-11-17
 
 ### Fixed
