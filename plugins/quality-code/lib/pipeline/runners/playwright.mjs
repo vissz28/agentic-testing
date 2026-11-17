@@ -191,6 +191,13 @@ export function playwrightRunner(root, config) {
       const r = await runPlaywright(root, fs, { config: c, projects, testName, timeoutMs: timeoutMs ?? defaultMs })
       if (!r.ran) return { ran: false, tests: [], error: r.error }
       const want = new Set(fs.map(f => normalize(f)))
+      // A failed setup project (the sign-in) skips every test that depends on it: say why, not "skipped".
+      const setup = r.tests.find(t => t.status === 'failed' && !want.has(normalize(t.file)))
+      const mine = r.tests.filter(t => want.has(normalize(t.file)))
+      if (setup && mine.length && mine.every(t => t.status === 'skipped')) {
+        const where = setup.context?.at ?? setup.file
+        return { ran: false, tests: [], error: `the sign-in setup failed (${where}), so every test was skipped: ${setup.message}` }
+      }
       all.tests.push(...r.tests.filter(t => want.has(normalize(t.file))))
       all.broken.push(...r.broken.filter(b => want.has(normalize(b.file))))
     }
