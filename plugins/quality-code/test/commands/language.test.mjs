@@ -15,7 +15,7 @@ test('guides/language.md states the rule, the read and the save', () => {
   assert.ok(g.includes('progress.mjs" get session'))
   assert.ok(g.includes(`progress.mjs" set session --step 0 --label language --data '{"language":"<code>"}'`))
   assert.match(g, /ISO 639-1/)
-  assert.match(g, /ticket's language, else English/)
+  assert.match(g, /ticket's language, else the first of `languages` in the config, else English/)
 })
 test('display.md ends with the Language section pointing to the guide', () => {
   const d = read('guides/display.md').trimEnd()
@@ -34,4 +34,15 @@ test('every command with a Language rule points to the guide', () => {
     assert.doesNotMatch(rule, /English by default/i, f)
   }
   assert.ok(n >= 10, `found ${n} Language rules`)
+})
+test('every command reaches the language guide, and nothing pins its words to English', () => {
+  // check and report hand off to these guides, so the rule lives there.
+  const guides = ['run', 'report-kpi', 'report-cost', 'ticket-eval', 'tickets-eval', 'clean-cache'].map(g => `guides/${g}.md`)
+  const commands = readdirSync(new URL('../../commands/', import.meta.url)).filter(f => f.endsWith('.md') && !['check.md', 'report.md'].includes(f)).map(f => `commands/${f}`)
+  for (const f of [...commands, ...guides]) {
+    const doc = read(f)
+    assert.ok(doc.includes('guides/language.md'), `${f} does not point to the language guide`)
+    assert.doesNotMatch(doc, /Plain English|stay as printed|keep their fixed words/, f)
+  }
+  for (const [cmd, guide] of [['check', 'run'], ['report', 'report-kpi'], ['report', 'report-cost']]) assert.ok(read(`commands/${cmd}.md`).includes(`guides/${guide}.md`), `${cmd} hands off to ${guide}`)
 })
