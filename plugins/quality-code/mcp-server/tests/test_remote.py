@@ -93,3 +93,11 @@ def test_whoami_says_who_is_signed_in_from_the_token_claims():
     finally:
         auth_context_var.reset(reset)
     assert got == {"signed_in": True, "name": "Ada Lovelace", "email": "ada@teamsystem.com", "jira_email": "ada.l@teamsystem.com", "gitlab_username": "ada.l", "rules_version": "abc123", "via": "claude connector"}
+
+
+def test_remote_runs_the_help_script_and_its_command_is_not_marked_as_needing_a_repo(tmp_path):
+    s = build(ROOT, remote=True, fixed_cwd=tmp_path)
+    assert {"ticket", "help"} <= REMOTE_COMMANDS
+    tools = {t.name: t for t in asyncio.run(s.list_tools())}
+    assert not tools["quality_code_help"].description.startswith("Needs your repo")
+    assert "unknown script" not in text(asyncio.run(s.call_tool("quality_code_run_script", {"script": "help"})))

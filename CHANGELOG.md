@@ -62,6 +62,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 **What to do:** update the plugin. If you want results-only replies, turn on the report style in `/quality-code:config` (setup no longer does it). For slow live end-to-end specs, set `playwright.maxMutants` or use `--no-mutation`.
 
+## [0.80.11] - 2026-11-17
+
+### Added
+
+- The shared server writes its Jira config from `QUALITY_CODE_JIRA_SITE` and `QUALITY_CODE_JIRA_PROJECTS` at every start (set both or neither), so the `ticket` command works from a chat with no setup run. The `help` command and `help.mjs` also run on the shared server.
+- The shared server can read Jira as the signed-in person. With `QUALITY_CODE_ATLASSIAN_CLIENT_ID`, `QUALITY_CODE_ATLASSIAN_CLIENT_SECRET` and `QUALITY_CODE_TOKEN_KEY` set, adding the connector in Claude has one more step, **Sign in with Atlassian**, and the server offers the read-only tools `quality_code_jira_search` and `quality_code_jira_issue`. Nothing is stored: the Atlassian tokens are sealed (AES-256-GCM) inside the connector tokens, and a refresh of the connector token refreshes Atlassian too. Without these variables nothing changes.
+
+**What to do:** nothing, unless you run the shared server. To use the new features, redeploy it and set the variables above (the Atlassian app needs the callback `<public address>/connect/atlassian/callback` and the scopes `read:jira-work`, `read:jira-user`, `offline_access`); then remove and add the connector in Claude again.
+
 ## [0.80.10] - 2026-11-16
 
 ### Changed

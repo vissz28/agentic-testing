@@ -19,7 +19,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import agents, web
+from . import agents, jira_config, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
@@ -30,9 +30,9 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 
 # Shared (HTTP) server: only the Jira-only QA/PO commands, the read-only scripts they call and their guides.
 # Anything that needs a checkout (spec, run commands, seed, xray, qa, setup, config, kpi) stays local.
-REMOTE_COMMANDS = {"ticket"}
-REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs"}
-NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket and branch scripts, in one fixed folder). "
+REMOTE_COMMANDS = {"ticket", "help"}
+REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs", "help.mjs"}
+NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket, branch and help scripts, in one fixed folder). "
                      "Use the instructions as a guide, but run the command itself in Claude Code with the Quality Code plugin, or with the local server (quality-code-mcp over stdio). Do not call quality_code_run_script for the other scripts here.")
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
@@ -176,6 +176,10 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
         if entra:
             server.add_tool(quality_code_whoami, name="quality_code_whoami", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+        if provider and provider.s.atlassian:
+            jira = _jira_tools(provider)
+            for fn in jira:
+                server.add_tool(fn, name=fn.__name__, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
         if entra:
             web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
@@ -195,6 +199,42 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     for g in sorted(guides):
         server.add_resource(_guide_resource(root, g))
     return server
+
+
+def _jira_tools(provider) -> list:
+    """Read-only Jira tools that use the signed-in person's own Atlassian access (sealed in their connector token; the server stores nothing)."""
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    from . import atlassian as atl
+
+    def link() -> dict | str:
+        t = get_access_token()
+        who = (t.claims or {}) if t else {}
+        opened = provider.open_link({"oid": t.subject}, who.get("atl")) if t and who.get("atl") else None
+        return opened or "error: Atlassian is not connected for this sign-in. Remove the Quality Code connector in Claude and add it again; you will be asked to sign in with Atlassian."
+
+    def quality_code_jira_search(jql: str, limit: int = 20) -> str:
+        """Search Jira with JQL as the signed-in person (read-only): key, summary, status, type and assignee of up to `limit` issues (at most 50)."""
+        l = link()
+        if isinstance(l, str):
+            return l
+        try:
+            return json.dumps(provider.s.atlassian.search(l, jql, limit), indent=2)
+        except atl.AtlassianError as e:
+            return f"error: {e}"
+
+    def quality_code_jira_issue(key: str) -> str:
+        """Read one Jira issue as the signed-in person (read-only): summary, status, type, assignee, labels, description as text, parent and subtasks."""
+        l = link()
+        if isinstance(l, str):
+            return l
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]*-\d+", key.strip()):
+            return "error: a Jira key looks like ABC-123"
+        try:
+            return json.dumps(provider.s.atlassian.issue(l, key.strip()), indent=2)
+        except atl.AtlassianError as e:
+            return f"error: {e}"
+
+    return [quality_code_jira_search, quality_code_jira_issue]
 
 
 def quality_code_whoami() -> str:
@@ -305,6 +345,10 @@ def main(argv: list[str] | None = None) -> None:
     project = os.environ.get("QUALITY_CODE_PROJECT_DIR")
     if not project or not Path(project).is_dir():
         raise SystemExit("quality-code-mcp: over http the scripts run in one folder only. Set QUALITY_CODE_PROJECT_DIR to the project folder.")
+    try:
+        jira_config.write_config(Path(project).resolve(), dict(os.environ))
+    except (jira_config.JiraConfigError, OSError) as e:
+        raise SystemExit(f"quality-code-mcp: {e}")
     host = urlparse(entra.public_url).netloc
     security = TransportSecuritySettings(
         enable_dns_rebinding_protection=True,

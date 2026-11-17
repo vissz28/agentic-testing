@@ -8,6 +8,7 @@ The one thing kept in memory is the set of codes already used (a code works once
 unfinished sign-in start again."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import re
@@ -25,9 +26,11 @@ from mcp.server.auth.provider import (
 )
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
+from . import atlassian as atl_mod, vault
 from .entra import EntraSettings, EntraTokenVerifier
 
 CONNECT_COOKIE = "qc_connect"
+ATLASSIAN_COOKIE = "qc_atlassian"
 STATIC = Path(__file__).parent / "static"
 ACCESS_TTL, REFRESH_TTL, CODE_TTL, TX_TTL, CONSENT_TTL = 3600, 30 * 86400, 300, 600, 900
 MIN_SECRET = 32
@@ -58,6 +61,12 @@ class ConnectorSettings:
     secret: str
     rules: str
     rules_version: str
+    atlassian: atl_mod.AtlassianSettings | None = None  # set with QUALITY_CODE_ATLASSIAN_CLIENT_ID/SECRET: the person also signs in with Atlassian and the server reads Jira as them
+    vault_key: bytes | None = None  # seals their Atlassian tokens into the connector tokens (QUALITY_CODE_TOKEN_KEY)
+
+    @property
+    def atlassian_redirect(self) -> str:
+        return f"{self.url}/connect/atlassian/callback"
 
     @property
     def url(self) -> str:
@@ -77,7 +86,13 @@ def settings_from_env(entra: EntraSettings, env: dict[str, str]) -> ConnectorSet
         raise ConnectorConfigError(f"QUALITY_CODE_TOKEN_SECRET must be at least {MIN_SECRET} characters (use 32 random bytes, for example openssl rand -base64 32).")
     file = (env.get("QUALITY_CODE_RULES_FILE") or "").strip()
     rules, version = load_rules(Path(file) if file else None)
-    return ConnectorSettings(entra=entra, secret=secret, rules=rules, rules_version=version)
+    try:
+        key, atl = vault.key_from_env(env), atl_mod.settings_from_env(env)
+    except (vault.VaultError, atl_mod.AtlassianConfigError) as e:
+        raise ConnectorConfigError(str(e)) from None
+    if atl and not key:
+        raise ConnectorConfigError("the Atlassian sign-in needs QUALITY_CODE_TOKEN_KEY too (32 random bytes, for example openssl rand -base64 32): it seals the Atlassian tokens.")
+    return ConnectorSettings(entra=entra, secret=secret, rules=rules, rules_version=version, atlassian=atl, vault_key=key if atl else None)
 
 
 class ConnectorCode(AuthorizationCode):
@@ -155,10 +170,22 @@ class ConnectorProvider:
         return ConnectorCode(code=authorization_code, scopes=c.get("sc", []), expires_at=c["exp"], client_id=c["cid"], code_challenge=c["cc"], redirect_uri=c["ru"],
                              redirect_uri_provided_explicitly=bool(c["rue"]), resource=c.get("res"), subject=c["id"].get("oid"), identity=c["id"])
 
+    def seal_link(self, identity: dict, link: dict) -> str:
+        return vault.seal(self.s.vault_key, link, aad=str(identity.get("oid")))
+
+    def open_link(self, identity: dict, sealed: str | None) -> dict | None:
+        return vault.unseal(self.s.vault_key, sealed, aad=str(identity.get("oid"))) if self.s.vault_key else None
+
     def _tokens(self, client_id: str, identity: dict, scopes: list[str], resource: str | None) -> OAuthToken:
-        access = self.sign("access", {"cid": client_id, "sub": identity.get("oid"), "id": identity, "sc": scopes, "res": resource}, ACCESS_TTL)
+        ident = {k: v for k, v in identity.items() if k != "atl"}  # the access token never carries the Atlassian refresh token
+        extra, ttl = {}, ACCESS_TTL
+        link = self.open_link(identity, identity.get("atl"))
+        if link:
+            extra["atl"] = self.seal_link(identity, {k: link.get(k) for k in ("at", "exp", "cloud", "site")})
+            ttl = max(60, min(ACCESS_TTL, int(link["exp"] - time.time()) - atl_mod.SKEW))
+        access = self.sign("access", {"cid": client_id, "sub": identity.get("oid"), "id": ident, "sc": scopes, "res": resource, **extra}, ttl)
         refresh = self.sign("refresh", {"cid": client_id, "sub": identity.get("oid"), "id": identity, "sc": scopes, "res": resource}, REFRESH_TTL)
-        return OAuthToken(access_token=access, expires_in=ACCESS_TTL, scope=" ".join(scopes) or None, refresh_token=refresh)
+        return OAuthToken(access_token=access, expires_in=ttl, scope=" ".join(scopes) or None, refresh_token=refresh)
 
     async def exchange_authorization_code(self, client: OAuthClientInformationFull, authorization_code: ConnectorCode) -> OAuthToken:
         claims = self.read(authorization_code.code, "code")
@@ -176,7 +203,17 @@ class ConnectorProvider:
         return ConnectorRefresh(token=refresh_token, client_id=c["cid"], scopes=c.get("sc", []), expires_at=c["exp"], resource=c.get("res"), subject=c.get("sub"), identity=c["id"])
 
     async def exchange_refresh_token(self, client: OAuthClientInformationFull, refresh_token: ConnectorRefresh, scopes: list[str]) -> OAuthToken:
-        return self._tokens(client.client_id, refresh_token.identity, scopes or refresh_token.scopes, refresh_token.resource)
+        identity = refresh_token.identity
+        if self.s.atlassian and self.s.vault_key:
+            link = self.open_link(identity, identity.get("atl"))
+            if not link:
+                raise TokenError(error="invalid_grant", error_description="Atlassian is not connected: connect the connector again")
+            try:
+                link = await asyncio.to_thread(self.s.atlassian.refresh, link)
+            except atl_mod.AtlassianError:
+                raise TokenError(error="invalid_grant", error_description="Atlassian access ended: connect the connector again") from None
+            identity = {**identity, "atl": self.seal_link(identity, link)}
+        return self._tokens(client.client_id, identity, scopes or refresh_token.scopes, refresh_token.resource)
 
     # -- the bearer check of /mcp: our tokens first, Entra's own tokens as before
     async def load_access_token(self, token: str) -> AccessToken | None:
@@ -184,7 +221,7 @@ class ConnectorProvider:
         if c:
             i = c.get("id", {})
             return AccessToken(token=token, client_id=c["cid"], scopes=c.get("sc", []), expires_at=c["exp"], resource=self.s.url, subject=c.get("sub"),
-                               claims={"iss": self.s.url, "tid": self.s.entra.tenant_id, "upn": i.get("email"), "name": i.get("name"), "jira_email": i.get("jira_email"),
+                               claims={"atl": c.get("atl"), "iss": self.s.url, "tid": self.s.entra.tenant_id, "upn": i.get("email"), "name": i.get("name"), "jira_email": i.get("jira_email"),
                                        "gitlab_username": i.get("gitlab_username"), "rules": i.get("rules")})
         return await self.entra_verifier.verify_token(token) if self.entra_verifier else None
 
@@ -298,6 +335,36 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
         if problem:
             return html(consent_page(s, c["who"], c["csrf"], problem, {"jira_email": jira, "gitlab_username": gitlab}), 400)
         identity = {**c["who"], "jira_email": jira, "gitlab_username": gitlab or None, "rules": s.rules_version}
+        if s.atlassian:  # one more step: the person signs in with Atlassian, so the server can read Jira as them
+            state = secrets.token_urlsafe(24)
+            resp = RedirectResponse(s.atlassian.authorize_url(s.atlassian_redirect, state), status_code=303)
+            resp.set_cookie(ATLASSIAN_COOKIE, provider.sign("atl_state", {"tx": c["tx"], "id": identity, "state": state}, CONSENT_TTL), max_age=CONSENT_TTL, httponly=True,
+                            secure=s.secure, samesite="lax", path="/")
+            resp.delete_cookie(CONNECT_COOKIE, path="/")
+            return resp
+        return back({"code": provider.make_code(tx, identity)})
+
+    @server.custom_route("/connect/atlassian/callback", methods=["GET"])
+    async def atlassian_callback(request):
+        c = provider.read(request.cookies.get(ATLASSIAN_COOKIE), "atl_state")
+        tx = provider.read(c["tx"], "tx") if c else None
+        q = request.query_params
+        if not (s.atlassian and c and tx) or not secrets.compare_digest(q.get("state", ""), c["state"]):
+            return html(web.login_page(configured=True, error="The Atlassian sign-in expired. Add the connector in Claude again."), 400)
+
+        def back(params: dict):
+            qs = {k: v for k, v in {**params, "state": tx.get("st")}.items() if v}
+            resp = RedirectResponse(f"{tx['ru']}{'&' if '?' in tx['ru'] else '?'}{urllib.parse.urlencode(qs)}", status_code=303)
+            resp.delete_cookie(ATLASSIAN_COOKIE, path="/")
+            return resp
+
+        if q.get("error") or not q.get("code"):
+            return back({"error": "access_denied", "error_description": "Atlassian was not connected."})
+        try:
+            link = await asyncio.to_thread(s.atlassian.link, q["code"], s.atlassian_redirect)
+        except atl_mod.AtlassianError as e:
+            return html(web.login_page(configured=True, error=f"{e}. Add the connector in Claude again."), 400)
+        identity = {**c["id"], "atl": provider.seal_link(c["id"], link)}
         return back({"code": provider.make_code(tx, identity)})
 
     return {"after_identity": after_identity}
