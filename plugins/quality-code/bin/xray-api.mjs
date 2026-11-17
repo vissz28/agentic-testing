@@ -1,17 +1,10 @@
 #!/usr/bin/env node
-// The Xray connector: a stdio MCP server over Xray Cloud's GraphQL API, for /quality-code:qa. It is
-// started by bin/mcp-launch.mjs, only when the API key's secret is set (xray_client_id and
-// xray_client_secret in the plugin settings); without it the launcher answers with no tools. The key
-// comes from the environment .mcp.json fills from the keychain, goes only to the Xray API address,
-// and is never printed. Five tools: read a test execution's runs (tests, steps, statuses), set a
-// run's status, add a defect to a run, create manual tests, add tests to a test execution. The qa and
-// xray commands ask the tester before each write.
-//
-//   node bin/mcp-launch.mjs xray -- node bin/xray-api.mjs
+// Stdio MCP server over Xray Cloud, started by mcp-launch.mjs only when the client secret is set.
+// The key comes from env, is sent only to the Xray API and never printed.
 import { reply, serve, tokenSet } from './mcp-launch.mjs'
 import { DEFAULT_XRAY_API, xrayApiUrlOf } from './connector-settings.mjs'
 import { isMain } from '../lib/core/script-io.mjs'
-import { isLine, isTicketKey } from '../lib/core/text.mjs'
+import { isTicketKey, isLine } from '../lib/core/is.mjs'
 
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/
 const STATUS = /^[A-Za-z0-9 _-]{1,40}$/
@@ -19,8 +12,9 @@ const PROJECT = /^[A-Z][A-Z0-9_]*$/
 const ISSUE_ID = /^\d{1,12}$/
 const MAX_TESTS = 50
 const MAX_STEPS = 40
-const PAGE = 100 // the most testRuns Xray returns at once
-const q = JSON.stringify // a GraphQL string literal, for values the patterns above already checked
+const MAX_READ = 10
+const PAGE = 100 // Xray's max testRuns per page
+const q = JSON.stringify // GraphQL string literal; only for values already validated above
 
 const runsQuery = (key, start) => `{
   getTestExecutions(jql: ${q(`key = "${key}"`)}, limit: 1) {
@@ -42,7 +36,6 @@ const runsQuery = (key, start) => `{
   }
 }`
 
-/** One test run as the qa command reads it. */
 export const shapeRun = r => ({
   id: r.id,
   status: r.status?.name ?? null,
@@ -52,7 +45,7 @@ export const shapeRun = r => ({
   defects: r.defects ?? [],
 })
 
-/** The Xray Cloud client: signs in once, again after a 401 (the token lasts about a day). */
+// Re-authenticates after a 401; the token lasts about a day.
 export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeoutMs = 30000, sleep = ms => new Promise(r => setTimeout(r, ms)), pollMs = 1500, polls = 40 }) {
   const api = xrayApiUrlOf(base || DEFAULT_XRAY_API)
   let token = null
@@ -67,7 +60,6 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
     if (!r.ok) throw new Error(`Xray sign-in failed (${r.status}): check xray_client_id and xray_client_secret in /plugin, and xray_api_url`)
     token = await r.json()
   }
-  /** An authenticated REST call (the import endpoints): signs in again after a 401, as gql does. */
   async function rest(method, path, body, retried = false) {
     if (!api) throw new Error('xray_api_url must be https://xray.cloud.getxray.app or a regional address like https://eu.xray.cloud.getxray.app')
     if (!token) await signIn()
@@ -107,13 +99,24 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
       const statuses = (await gql('{ getStatuses { name final } }')).getStatuses ?? []
       return { key, summary: exec.jira?.summary ?? null, statuses: statuses.map(s => ({ name: s.name, final: Boolean(s.final) })), runs: runs.map(shapeRun) }
     },
+    // A ticket's linked tests, read-only: their steps are often its clearest criteria.
+    async tests(keys) {
+      if (!Array.isArray(keys) || keys.length < 1 || keys.length > MAX_READ || keys.some(k => !isTicketKey(k))) throw new Error(`give 1 to ${MAX_READ} test keys, like ABC-12`)
+      const found = (await gql(`{ getTests(jql: ${q(`key in (${keys.join(', ')})`)}, limit: ${MAX_READ}) { results { jira(fields: ["key", "summary"]) testType { name } steps { action data result } unstructured gherkin } } }`)).getTests?.results ?? []
+      const tests = found.map(t => ({
+        key: t.jira?.key ?? null, summary: t.jira?.summary ?? null, type: t.testType?.name ?? null,
+        steps: (t.steps ?? []).map(x => ({ action: x.action ?? '', data: x.data ?? '', expected: x.result ?? '' })),
+        definition: t.gherkin || t.unstructured || null,
+      }))
+      return { tests, notTests: keys.filter(k => !tests.some(t => t.key === k)) }
+    },
     async setStatus(runId, status) {
       if (!RUN_ID.test(String(runId))) throw new Error(`not a test run id: ${JSON.stringify(runId)}`)
       if (!STATUS.test(String(status))) throw new Error(`not a status name: ${JSON.stringify(status)}`)
       await gql(`mutation { updateTestRunStatus(id: ${q(runId)}, status: ${q(status)}) }`)
       return { ok: true, runId, status }
     },
-    /** Creates manual tests in a project through Xray's bulk import, and waits for the job. */
+    // Bulk import, then polls the job.
     async createTests(project, tests) {
       if (!PROJECT.test(String(project))) throw new Error(`not a Jira project key: ${JSON.stringify(project)}`)
       if (!Array.isArray(tests) || tests.length < 1 || tests.length > MAX_TESTS) throw new Error(`give 1 to ${MAX_TESTS} tests`)
@@ -136,7 +139,7 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(jobId)) throw new Error('Xray did not start an import job')
       for (let i = 0; i < polls; i++) {
         const s = await rest('GET', `/api/v2/import/test/bulk/${jobId}/status`)
-        // pending and working: not done yet. partially_successful still lists the tests it created, so no retry duplicates them.
+        // partially_successful still lists what it created, so the caller won't retry and duplicate.
         if (s?.status && !['pending', 'working'].includes(s.status)) {
           const issues = s.result?.issues ?? []
           return {
@@ -150,7 +153,6 @@ export function xrayClient({ id, secret, base, fetch = globalThis.fetch, timeout
       }
       throw new Error(`the Xray import ${jobId} is still running: check Test Repository in Xray, do not create the tests again`)
     },
-    /** Adds tests (by key) to a test execution (by key). */
     async addTestsToExecution(execKey, testKeys) {
       if (!isTicketKey(execKey)) throw new Error(`not a Jira key: ${JSON.stringify(execKey)}`)
       if (!Array.isArray(testKeys) || testKeys.length < 1 || testKeys.length > 100 || testKeys.some(k => !isTicketKey(k))) throw new Error('give 1 to 100 test keys, like ABC-12')
@@ -182,6 +184,11 @@ export const TOOLS = [
     inputSchema: obj({ key: str('The test execution key, like ABC-123') }, ['key']),
   },
   {
+    name: 'get_tests',
+    description: "Read Xray tests by key: each test's summary, type and steps (action, data, expected result), or its Gherkin or free-text definition. For the tests linked to a ticket. Read-only.",
+    inputSchema: obj({ keys: { type: 'array', items: { type: 'string' }, description: `1 to ${MAX_READ} test keys, like ABC-12` } }, ['keys']),
+  },
+  {
     name: 'set_test_run_status',
     description: "Set one test run's status in Xray, by a status name from get_test_run (like PASSED or FAILED). Writes to Xray: only after the tester said yes.",
     inputSchema: obj({ runId: str('The test run id from get_test_run'), status: str('A status name from get_test_run') }, ['runId', 'status']),
@@ -206,7 +213,7 @@ export const TOOLS = [
   },
 ]
 
-/** Answers one JSON-RPC message: the five tools, the rest as the no-tools server does. */
+// Non-tool messages are answered as the no-tools server does.
 export function handler(client) {
   return async msg => {
     if (msg?.id === undefined || msg?.id === null) return reply(msg, 'xray')
@@ -216,6 +223,7 @@ export function handler(client) {
     const { name, arguments: a = {} } = msg.params ?? {}
     const calls = {
       get_test_run: () => client.testRun(a.key),
+      get_tests: () => client.tests(a.keys),
       set_test_run_status: () => client.setStatus(a.runId, a.status),
       add_defect_to_test_run: () => client.addDefect(a.runId, a.defect),
       create_tests: () => client.createTests(a.project, a.tests),

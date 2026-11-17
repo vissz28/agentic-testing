@@ -52,6 +52,18 @@ test('the list: setup files, saved output, cache, personal config and specs each
   const all = l.groups.flatMap(g => g.items.map(i => i.rel))
   assert.ok(!all.includes('src/app.ts') && !all.includes('e2e/mine.spec.ts'), 'the person\'s own files are never listed')
 })
+test('settings outside the plugin\'s files are named under Kept, with the way back, and never edited', () => {
+  const { root, env, claude } = project()
+  put(root, '.claude/settings.json', JSON.stringify({ outputStyle: 'quality-code:report' }))
+  put(claude, 'settings.json', JSON.stringify({ pluginConfigs: { 'quality-code@quality-code': { options: { jira_email: 'a@b.c' } } } }))
+  put(claude, 'quality-code/save.json', JSON.stringify({ [realpathSync(root)]: 'repo', [root]: 'repo' }))
+  const kept = buildList(root, env).kept.map(k => k.rel)
+  assert.ok(kept.includes('.claude/settings.json (outputStyle)'), kept.join('\n'))
+  assert.ok(kept.includes(`${join(claude, 'settings.json')} (jira_email)`))
+  assert.ok(kept.some(k => k.endsWith("save.json (this project's pick)")))
+  runClean(root, { groups: ['setup', 'output', 'cache'] }, env)
+  assert.equal(JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8')).outputStyle, 'quality-code:report')
+})
 test('setup files are listed only while they are still what setup wrote', () => {
   const { root, env } = project()
   writeFileSync(join(root, 'playwright.config.ts'), playwrightConfigText({ command: 'npm run dev', url: 'http://localhost:5173', signIn: false }) + '// mine\n')

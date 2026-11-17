@@ -224,7 +224,10 @@ test('coverage: JaCoCo reports of a multi-module Maven or Gradle build, summed; 
   writeFileSync(join(root, 'orders/target/site/jacoco/jacoco.xml'), jacoco(80, 20))
   mkdirSync(join(root, 'report/target/site/jacoco-aggregate'), { recursive: true })
   writeFileSync(join(root, 'report/target/site/jacoco-aggregate/jacoco.xml'), jacoco(7, 3))
-  assert.deepEqual(readCoverage(root), { pct: 70, file: 'report/target/site/jacoco-aggregate/jacoco.xml' })
+  assert.deepEqual(readCoverage(root), { pct: 70, file: 'report/target/site/jacoco-aggregate/jacoco.xml' })  // A Gradle aggregate wraps its packages in groups, each with its own counters: only the report's own count.
+  const grouped = jacoco(9, 1).replace('<package', '<group name="orders"><package').replace('</package>', '</package><counter type="LINE" missed="50" covered="50"/></group><group name="empty"/>')
+  writeFileSync(join(root, 'report/target/site/jacoco-aggregate/jacoco.xml'), grouped)
+  assert.deepEqual(readCoverage(root), { pct: 90, file: 'report/target/site/jacoco-aggregate/jacoco.xml' })
 })
 
 test('coverage: coverlet Cobertura reports per test project, the newest run of each TestResults folder', async () => {

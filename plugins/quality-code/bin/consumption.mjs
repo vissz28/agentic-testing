@@ -1,6 +1,4 @@
-// Entry point for /quality-code:report --cost: AI usage and estimated cost of the plugin's runs in this project.
-// node bin/consumption.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--by command|ticket|day|model] [--prices file] [--json | --report]
-// Reads local transcripts only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no transcripts found.
+// /report --cost: AI usage and cost from local transcripts. Exit 0 ok, 2 usage, 3 no transcripts.
 import { statSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { keySource } from '../lib/config/keys.mjs'
@@ -53,12 +51,12 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     } catch (e) { return err(e.message) }
   }
   // A project with "root" set (an app in a monorepo) is often worked on from the repo top: look under both.
-  const homes = [...new Set([root, configHome(root)])]
+  const homes = [...new Set([root, configHome(root, env)])]
   const found = homes.map(h => findProjectDirs(h, configDir(env)))
   const dirs = [...new Set(found.flatMap(f => f.dirs))]
   const files = Object.assign({}, ...found.map(f => f.sessions ?? {}))
   const looked = found.flatMap(f => f.looked)
-  // --session: only this session, the transcript written to last.
+  // --session: the most recently written transcript.
   if (a.session) {
     const all = dirs.flatMap(d => (files[d] ?? []).map(f => ({ d, f, at: mtimeOf(join(d, f)) })))
     const last = all.sort((x, y) => y.at - x.at)[0]
@@ -74,9 +72,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const report = buildReport(usage, { period, by: a.by, prices, project: basename(root), priceInfo })
   printLine(a.json ? JSON.stringify(report) : formatCard(report))
   if (a.report) {
-    // One self-contained HTML file with the cost by command, day and model; the card above stays the text version.
     const by = Object.fromEntries(['command', 'day', 'model'].map(b => [b, b === a.by ? report : buildReport(usage, { period, by: b, prices, project: basename(root), priceInfo })]))
-    const built = consumptionReport(by, { config: cfg.ok ? cfg.config : null, now: new Date(now) })
+    const built = consumptionReport(by, { config: cfg.ok ? cfg.config : null })
     try {
       const path = saveReport(reportsRoot(root, cfg, env), 'consumption', new Date(now).toISOString().slice(0, 10), built.html)
       printLine(reportLines(path, 'Quality Code consumption', built.headline).join('\n'))

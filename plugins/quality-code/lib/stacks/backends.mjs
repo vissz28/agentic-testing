@@ -1,8 +1,7 @@
-// The backends: one entry per test runner a project's backend side can use. Everything that differs
-// between stacks and is not syntax (the dialect) or running (the runner) lives here, so a new stack is
-// one entry plus its runner, dialect and writing guide. No imports: config.mjs and stack.mjs read it.
+// Per-backend settings. A new stack is one entry here plus its runner, dialect and writing guide.
+// No imports: config.mjs and stack.mjs both load it.
 
-// JavaScript and TypeScript sources, as branch.mjs always counted them.
+// Same JS/TS sources branch.mjs counts.
 const JS_CODE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 
 const entry = e => Object.freeze({ ...e, defaultLayers: Object.freeze(e.defaultLayers.map(l => Object.freeze(l))) })
@@ -41,7 +40,7 @@ export const BACKENDS = Object.freeze({
     stryker: false,
     typeCheck: null,
     compiled: true,
-    // A first build downloads and compiles: more than a script's test run.
+    // First build downloads deps and compiles.
     timeoutSeconds: 600,
     guide: 'junit-writing.md',
   }),
@@ -50,7 +49,7 @@ export const BACKENDS = Object.freeze({
     language: 'Go',
     testFile: /_test\.go$/,
     codeFile: /\.go$/,
-    // Go tests live beside the code: the layer is the whole repo ("./").
+    // Go tests sit beside the code.
     defaultLayers: [{ name: 'unit', folder: './' }],
     stryker: false,
     typeCheck: null,
@@ -76,8 +75,7 @@ export const BACKEND_ADAPTERS = Object.freeze(Object.keys(BACKENDS))
 
 export const isBackend = adapter => typeof adapter === 'string' && Object.hasOwn(BACKENDS, adapter)
 
-/** The adapter of a config's backend side, null on a frontend project or the Playwright view. */
+/** null on a frontend project or the Playwright view. */
 export const backendOf = config => config?.backend ?? null
 
-/** The runner's name as the card and the summaries show it: Vitest, pytest, …, Playwright. */
 export const runnerLabel = adapter => (adapter === 'playwright' ? 'Playwright' : BACKENDS[adapter]?.label ?? adapter)

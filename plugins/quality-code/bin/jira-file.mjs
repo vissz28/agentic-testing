@@ -1,18 +1,12 @@
 #!/usr/bin/env node
-// A ticket's attachment, read from the short-lived link the Atlassian connector gives for it
-// (downloadJiraIssueAttachment, on a v2 connection). The connector signs the link, so this script
-// holds no token: it only downloads from Atlassian's media address, at most 5 MB, images and .docx.
-//   node bin/jira-file.mjs <KEY> '<download url>' '<file name>'
-//     an image is saved as <ticketsDir>/<KEY>/files/<n>.<ext>: FILE_JSON:{ path, name, bytes }
-//     a .docx is not saved: DOCX_JSON, as `ticket.mjs docx` prints it
-//   node bin/jira-file.mjs done <KEY>     deletes <ticketsDir>/<KEY>/files/
-// Exit 0 read, 2 usage or a file that is not read (the reason on stderr).
+// Downloads a Jira attachment from the connector's pre-signed link (no token here). Atlassian media only, <=5 MB.
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/config/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey } from '../lib/core/text.mjs'
+import { cleanRelPath } from '../lib/core/paths.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const USAGE = "usage: jira-file.mjs <KEY> '<download url>' '<file name>' | jira-file.mjs done <KEY>"
 export const MEDIA_HOST = 'api.media.atlassian.com'
@@ -25,7 +19,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const cfg = loadConfig(root, env)
   if (!cfg.ok) { cfg.errors.forEach(e => err(e)); return 2 }
   // A key that cannot leave the tickets folder.
-  const dirOf = key => join(resolve(root, normaliseTicketsDir(cfg.config.ticketsDir)), key, 'files')
+  const dirOf = key => join(resolve(root, cleanRelPath(cfg.config.ticketsDir)), key, 'files')
   if (argv[0] === 'done') {
     if (!isTicketKey(argv[1]) || argv.length > 2) { err(USAGE); return 2 }
     rmSync(dirOf(argv[1]), { recursive: true, force: true })

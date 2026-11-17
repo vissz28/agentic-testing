@@ -30,6 +30,13 @@ test('too long: over maxWords, even when structured', () => {
   const c = checkStory(T(`${STRUCTURED}\n\n${words(STORY_LIMITS.maxWords)}`))
   assert.ok(c.flagged && c.reasons.includes('too_long'))
 })
+test('criteria copied into the criteria field count once', () => {
+  const ac = 'Given a product with stock 5   \nWhen I filter by under stock   \nThen it is listed with 5'
+  const description = `${STRUCTURED}\n\n## Acceptance criteria\n\n${ac.replace(/ {3}\n/g, '      \n')}`
+  const c = checkStory({ text: { description, acField: ac } })
+  assert.equal(c.words, checkStory(T(description)).words, 'the copy is not added again')
+  assert.ok(checkStory({ text: { description: STRUCTURED, acField: ac } }).words > checkStory(T(STRUCTURED)).words, 'a criteria field of its own still counts')
+})
 test('too long: many plain paragraphs with no heading', () => {
   const paras = Array.from({ length: STORY_LIMITS.maxProseParagraphs + 1 }, (_, i) => `Paragraph ${i} says something about the page in plain prose.`).join('\n\n')
   const c = checkStory(T(paras))

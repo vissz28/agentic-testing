@@ -92,10 +92,10 @@ test('setStatus and addDefect send one mutation each, with checked values', asyn
   await assert.rejects(c.addDefect('5acc', 'not a key'), /not a Jira key/)
 })
 
-test('MCP: initialize and the five tools; a call answers JSON text, a failure isError, an unknown tool an error', async () => {
+test('MCP: initialize and the six tools; a call answers JSON text, a failure isError, an unknown tool an error', async () => {
   const h = handler({ testRun: async key => ({ key, runs: [] }), setStatus: async () => { throw new Error('Xray answered 500') }, addDefect: async () => ({}) })
   assert.equal((await h({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })).result.serverInfo.name, 'quality-code-xray')
-  assert.deepEqual((await h({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).result.tools.map(t => t.name), ['get_test_run', 'set_test_run_status', 'add_defect_to_test_run', 'create_tests', 'add_tests_to_test_execution'])
+  assert.deepEqual((await h({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).result.tools.map(t => t.name), ['get_test_run', 'get_tests', 'set_test_run_status', 'add_defect_to_test_run', 'create_tests', 'add_tests_to_test_execution'])
   const ok = await h({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_test_run', arguments: { key: 'ABC-1' } } })
   assert.deepEqual(JSON.parse(ok.result.content[0].text), { key: 'ABC-1', runs: [] })
   const bad = await h({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'set_test_run_status', arguments: {} } })
@@ -105,8 +105,24 @@ test('MCP: initialize and the five tools; a call answers JSON text, a failure is
   assert.equal(await h({ jsonrpc: '2.0', method: 'notifications/initialized' }), null)
 })
 test('the write tools say they need the tester\'s yes', () => {
-  for (const t of TOOLS.filter(t => t.name !== 'get_test_run')) assert.match(t.description, /only after the tester said yes/)
-  assert.match(TOOLS[0].description, /Read-only/)
+  const reads = ['get_test_run', 'get_tests']
+  for (const t of TOOLS.filter(t => !reads.includes(t.name))) assert.match(t.description, /only after the tester said yes/)
+  for (const t of TOOLS.filter(t => reads.includes(t.name))) assert.match(t.description, /Read-only/)
+})
+
+test('tests: reads linked tests by key, their steps or definition, and names the keys that are no Xray test', async () => {
+  const x = fakeXray([{ data: { getTests: { results: [
+    { jira: { key: 'ABC-12', summary: 'Filter by code' }, testType: { name: 'Manual' }, steps: [{ action: 'Filter by 22', data: '', result: 'The grid shows 5 rows' }] },
+    { jira: { key: 'ABC-13', summary: 'Export' }, testType: { name: 'Cucumber' }, steps: [], gherkin: 'Given …\nThen a file is downloaded' },
+  ] } } }])
+  const r = await xrayClient({ id: 'id', secret: 's', fetch: x.fetch }).tests(['ABC-12', 'ABC-13', 'ABC-14'])
+  assert.deepEqual(r.tests[0], { key: 'ABC-12', summary: 'Filter by code', type: 'Manual', steps: [{ action: 'Filter by 22', data: '', expected: 'The grid shows 5 rows' }], definition: null })
+  assert.equal(r.tests[1].definition, 'Given …\nThen a file is downloaded')
+  assert.deepEqual(r.notTests, ['ABC-14'])
+  assert.match(x.calls[1].body.query, /getTests\(jql: "key in \(ABC-12, ABC-13, ABC-14\)", limit: 10\)/)
+  for (const bad of [[], ['abc'], ['ABC-1) OR (1=1'], Array.from({ length: 11 }, (_, i) => `ABC-${i + 1}`)]) {
+    await assert.rejects(() => xrayClient({ id: 'id', secret: 's', fetch: fakeXray([]).fetch }).tests(bad), /give 1 to 10 test keys/, JSON.stringify(bad))
+  }
 })
 
 /** A fake Xray for the REST import: answers each call in turn and records method, path and body. */

@@ -1,18 +1,17 @@
-// Boundary: a test-writing run writes tests, never the code under test. Path rules from the
-// config; a hook that only acts while a run is active; a diff mode that is the check that counts.
+// Boundary: a test-writing run may write tests, never the code under test (hook + diff check).
 import { createHash } from 'node:crypto'
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { appendFileSync, existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { changedPaths } from '../core/git.mjs'
 import { result } from './result.mjs'
 import { backendOf, BACKENDS } from '../stacks/backends.mjs'
 import { ignoreFolder } from '../core/ignore.mjs'
-import { toForwardSlashes } from '../core/text.mjs'
 import { readJson } from '../core/files.mjs'
+import { stripDotSlash, leavesFolder } from '../core/paths.mjs'
+import { isObject } from '../core/is.mjs'
 
-// Never written by a test run: build output and packages at any depth (monorepos), git, and the
-// plugin's own state, so a run cannot switch its own hook off or rewrite what it is judged by.
-// The plugin's scripts write their state during a run, so only the hook guards it, not the diff check.
+// Off limits to every run, so it can't disable its own hook or rewrite what judges it.
+// STATE is written by our own scripts mid-run, so only the hook guards it, not the diff check.
 const STATE = ['.claude/quality-code/run.active', '.claude/quality-code/boundary.jsonl', '.claude/quality-code/audit/']
 export const ALWAYS = ['**/dist/', '**/node_modules/', '.git/', '.claude/quality-code.json', '.quality-code/config.json', ...STATE, '.claude/settings.json', '.claude/settings.local.json']
 export const DEFAULT_WHY = 'application code: a test run writes tests, it never changes the code under test.'
@@ -20,7 +19,7 @@ export const RUN_MARKER = '.claude/quality-code/run.active'
 export const BOUNDARY_LOG = '.claude/quality-code/boundary.jsonl'
 export const STALE_MS = 12 * 3600 * 1000
 export const CI_FILES = ['.gitlab-ci.yml', '.github/workflows/', 'Jenkinsfile', 'azure-pipelines.yml', 'bitbucket-pipelines.yml', '.circleci/']
-// Committed examples of an env file, with no real values: a pattern like .env.* never forbids them.
+// Committed env templates hold no secrets; .env.* must not forbid them.
 const ENV_TEMPLATE = /(?:^|\/)\.env\.(?:example|sample|template)$/
 
 const globRe = pattern => new RegExp(`^${pattern
@@ -28,29 +27,26 @@ const globRe = pattern => new RegExp(`^${pattern
   .map(part => (part === '**/' ? '(?:.*/)?' : part === '**' ? '.*' : part === '*' ? '[^/]*' : part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')))
   .join('')}$`)
 
-/** A prefix ending in / (also matches the folder itself), a glob with * or **, or an exact path. */
+/** Pattern: folder prefix ending in / (matches the folder too), a * / ** glob, or an exact path. */
 export function matches(pattern, path) {
-  // A glob folder (packages/*/src/) covers the folder and everything inside it, as a plain one does.
+  // A glob folder (packages/*/src/) covers itself and everything inside, like a plain one.
   if (pattern.includes('*') && pattern.endsWith('/')) return globRe(`${pattern}**`).test(path) || globRe(pattern.slice(0, -1)).test(path)
   if (pattern.includes('*')) return globRe(pattern).test(path)
   if (pattern.endsWith('/')) return path === pattern.slice(0, -1) || path.startsWith(pattern)
   return path === pattern
 }
 
-/** True when an allow rule is about files inside `folder` (a rule on src/ files named *.unit.test.js covers the folder src/): the folder holds tests, whose names the rule lets through. */
+/** An allow glob reaches into folder (a src/ rule for *.unit.test.js covers src/), so it may hold tests. */
 export function allowCovers(allow, folder) {
-  const f = toForwardSlashes(folder).replace(/^(?:\.\/)+/, '')
+  const f = stripDotSlash(folder)
   return (allow ?? []).some(a => {
-    const lit = toForwardSlashes(a).replace(/^(?:\.\/)+/, '').split('*')[0]
+    const lit = stripDotSlash(a).split('*')[0]
     return a.includes('*') && (lit.startsWith(f) || f.startsWith(lit))
   })
 }
 
-// The code folders of a workspace monorepo, when it has one.
 const WORKSPACE_SRC = ['packages/*/src/', 'apps/*/src/']
 
-// What a test run must leave alone besides the code, each with its reason: the packages a project
-// depends on, its secrets and environment, its CI.
 export const DEPENDENCY_FILES = [
   '**/package.json', '**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/bun.lockb',
   '**/pyproject.toml', '**/requirements*.txt', '**/Pipfile', '**/Pipfile.lock', '**/poetry.lock', '**/setup.py', '**/setup.cfg',
@@ -72,17 +68,12 @@ export function defaultForbidden(root) {
   ]
 }
 
-// Playwright's screenshot baselines (<spec>-snapshots/<name>-<project>-<platform>.png) are tests' data, committed
-// beside the spec (guides/visual-regression.md): a run may write them even where the code folder is forbidden.
+// Playwright screenshot baselines (<spec>-snapshots/*.png) are test data: writable even in a forbidden folder.
 const BASELINE_IMAGE = /(?:^|\/)[^/]+\.(?:spec|test)\.[cm]?[jt]sx?-snapshots\/[^/]+\.png$/
 
-const norm = p => toForwardSlashes(p).replace(/^(?:\.\/)+/, '')
+const norm = stripDotSlash
 
-/**
- * The test file names a run may write even inside a forbidden folder: those of a backend other than
- * Vitest, whose tests live in the code tree (Maven's src/test/java/, Go beside the code). A Vitest
- * project keeps its rules as they are: an exception there is an "allow" entry.
- */
+/** Non-Vitest backends keep tests in the code tree (Maven src/test/java, Go): allow their test files there. Vitest uses `allow`. */
 export function testsAnywhere(config) {
   const b = backendOf(config)
   return b && b !== 'vitest' ? BACKENDS[b].testFile : null
@@ -93,10 +84,10 @@ export function rulesFor(config, root) {
   return { forbidden: forbidden.map(r => ({ ...r, path: norm(r.path) })), allow: (config.boundaries?.allow ?? []).map(norm), tests: testsAnywhere(config) }
 }
 
-/** fold: the disk ignores case (macOS, Windows), so a new .ENV is .env: forbidden paths match in any case, allowed ones only as written. */
+/** fold: case-insensitive disk (macOS, Windows), .ENV is .env. Forbidden rules match any case, allow rules exact case. */
 export function violation(relPath, rules, { fold = false } = {}) {
-  const p = toForwardSlashes(relPath ?? '').replace(/^\.\//, '')
-  if (!p || p.startsWith('../') || p === '..' || isAbsolute(p)) return null
+  const p = stripDotSlash(relPath ?? '')
+  if (!p || leavesFolder(p)) return null
   const hit = (pattern, path) => (fold ? matches(pattern.toLowerCase(), path.toLowerCase()) : matches(pattern, path))
   if (ALWAYS.some(a => hit(a, p))) return { path: p, why: 'never written by a test run.' }
   if (rules.allow.some(a => matches(a, p))) return null
@@ -106,11 +97,7 @@ export function violation(relPath, rules, { fold = false } = {}) {
   return rule ? { path: p, why: rule.why ?? DEFAULT_WHY } : null
 }
 
-/**
- * The run marker as written by `run start`: { marker, startedMs, stale }, or null when there is none.
- * Age comes from the marker's startedAt; a marker that is not JSON or has no valid startedAt falls
- * back to the file's mtime.
- */
+/** Age from startedAt, falling back to the file's mtime if the marker is unreadable. */
 export function readRunMarker(root, now = Date.now()) {
   const p = join(root, RUN_MARKER)
   let st
@@ -118,7 +105,7 @@ export function readRunMarker(root, now = Date.now()) {
   let marker = null
   try {
     const m = readJson(p)
-    if (m && typeof m === 'object' && !Array.isArray(m)) marker = m
+    if (isObject(m)) marker = m
   } catch {}
   const t = typeof marker?.startedAt === 'string' ? Date.parse(marker.startedAt) : NaN
   const startedMs = Number.isFinite(t) ? t : st.mtimeMs
@@ -130,10 +117,7 @@ export function runActive(root, now = Date.now()) {
   return Boolean(m && !m.stale)
 }
 
-/**
- * The path on disk as the filesystem knows it: symlinks followed, the case a case-insensitive disk
- * stores, /tmp as /private/tmp. A file not written yet keeps its name under its deepest existing folder.
- */
+/** Real path (symlinks, stored case, /tmp -> /private/tmp); a not-yet-written file resolves via its deepest existing folder. */
 export function onDisk(p) {
   const tail = []
   let cur = resolve(p)
@@ -149,20 +133,18 @@ export function onDisk(p) {
 const FOLDS = process.platform === 'darwin' || process.platform === 'win32'
 
 /**
- * home: the folder holding the config, above root when its root field names a subfolder. runRoots: the folders whose
- * run marker counts (the package's and the session's, for a run started at the top of a monorepo). guarded: files
- * outside the project a run never writes (the config in its place, the place and root picks). A config that does
- * not load during a run is judged by the default rules: breaking the config never switches the hook off.
+ * home: config folder (above root when config.root names a subfolder). runRoots: folders whose marker counts.
+ * guarded: files outside the project a run must not write. A broken config falls back to default rules, so it can't disable the hook.
  */
 export function hookDecision(payload, { root, home = root, config, now = Date.now(), runRoots = [root], guarded = [], fold = FOLDS }) {
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   if (!target || !runRoots.some(r => runActive(r, now))) return { decision: 'allow' }
-  // SRC/a.ts, a symlinked folder or the /tmp alias reach the same file as src/a.ts: compare the real paths.
+  // Compare real paths: SRC/a.ts, symlinks and /tmp aliases can all reach src/a.ts.
   const file = onDisk(resolve(root, target))
   const same = (a, b) => (fold ? a.toLowerCase() === b.toLowerCase() : a === b)
   const g = guarded.find(p => same(onDisk(p), file))
   const v = violation(relative(onDisk(root), file), rulesFor(config ?? {}, root), { fold })
-    // The config and Claude's settings at home stay off limits, though outside the project.
+    // Config and Claude settings at home are off limits even though they're outside the project.
     ?? (home === root ? null : violation(relative(onDisk(home), file), { forbidden: [], allow: [] }, { fold }))
     ?? (g ? { path: g, why: 'never written by a test run.' } : null)
   return v ? { decision: 'deny', path: v.path, why: v.why } : { decision: 'allow' }
@@ -172,7 +154,7 @@ export function hookReason(path, why) {
   return `Blocked by the quality-code boundary: ${path} is off limits during a test run.\n\n${why}\n\nThe attempt is recorded in ${BOUNDARY_LOG}. If the change genuinely belongs there, ask the user; do not work around it.`
 }
 
-/** One line per refused write. A failed log write never decides whether a tool runs. */
+/** Best effort: a failed log write must not affect the hook's decision. */
 export function logBlocked(root, entry) {
   try {
     const p = join(root, BOUNDARY_LOG)
@@ -185,17 +167,13 @@ const hashOf = (root, p) => {
   try { return createHash('sha1').update(readFileSync(join(root, p))).digest('hex') } catch { return null }
 }
 
-/** Every changed or untracked path with the hash of its content (null: deleted), as run start records it. */
+/** Changed/untracked path -> content hash (null if deleted), taken at run start. */
 export function snapshot(root) {
   const c = changedPaths(root)
   return c.ok ? Object.fromEntries(c.paths.map(p => [p, hashOf(root, p)])) : null
 }
 
-/**
- * The paths a run wrote: without a range, those whose state differs from the snapshot run start took,
- * so an edit the developer already had is not the run's (and one the run reverted is). With a range,
- * or a marker without a snapshot, every changed path.
- */
+/** Without a range, diff against the run-start snapshot so the developer's prior edits aren't blamed on the run. */
 function writtenPaths(root, range) {
   const c = changedPaths(root, range)
   if (!c.ok || range) return c

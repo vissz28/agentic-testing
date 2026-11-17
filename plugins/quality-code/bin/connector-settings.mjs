@@ -1,23 +1,15 @@
-// Connector settings asked for in the chat: the GitLab address and username or email, the Jira
-// email and the Xray API address. They are saved where Claude Code keeps plugin options
-// (pluginConfigs in the user settings file). No token is ever handled here: secrets go through the
-// /plugin dialog into the keychain. Also the reply style: the project's outputStyle, in its shared
-// .claude/settings.json.
-//
-//   node bin/connector-settings.mjs --gitlab-check <address>
-//   node bin/connector-settings.mjs --gitlab-save <address> <username or email>
-//   node bin/connector-settings.mjs --jira-save <email>
-//   node bin/connector-settings.mjs --xray-save <address>
-//   node bin/connector-settings.mjs --style [on|off]
+// Saves non-secret connector settings to pluginConfigs; tokens never pass here (they go via /plugin to the keychain).
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { projectRoot } from '../lib/config/config.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
+import { noTrailingSlash } from '../lib/core/paths.mjs'
+import { isObject } from '../lib/core/is.mjs'
 
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
-/** The API address (…/api/v4, no trailing /) of a host, a site or an API address; null when unusable. */
+/** Normalizes a host, site or API address to .../api/v4; null when unusable. */
 export function apiUrlOf(input) {
   const raw = String(input ?? '').trim()
   if (!raw || /\s/.test(raw)) return null
@@ -26,18 +18,18 @@ export function apiUrlOf(input) {
   if (u.username || u.password || u.search || u.hash) return null
   if (u.protocol !== 'https:' && !(u.protocol === 'http:' && LOCAL.has(u.hostname))) return null
   if (!u.hostname.includes('.') && !LOCAL.has(u.hostname)) return null
-  const path = u.pathname.replace(/\/+$/, '').replace(/\/api\/v4$/, '')
+  const path = noTrailingSlash(u.pathname).replace(/\/api\/v4$/, '')
   return `${u.protocol}//${u.host}${path}/api/v4`
 }
 
-/** A GitLab username (an optional leading @) or an email. A token-looking value is refused. */
+/** Username or email; refuses anything that looks like a token. */
 export function validUser(value) {
   const v = String(value ?? '').trim()
   if (!v || v.length > 255 || /\s/.test(v) || /^gl[a-z]+-/i.test(v)) return false
   return /^@?[A-Za-z0-9][A-Za-z0-9._-]*$/.test(v) || /^[^@]+@[^@]+\.[^@]+$/.test(v)
 }
 
-/** GitLab answers /version with 401 without a token and 200 with one: either means it is a GitLab. */
+/** /version answers 401 without a token, 200 with one: either means GitLab. */
 export async function checkGitlab(apiUrl, { timeoutMs = 10000 } = {}) {
   try {
     const r = await fetch(`${apiUrl}/version`, { signal: AbortSignal.timeout(timeoutMs), redirect: 'manual' })
@@ -50,23 +42,21 @@ export async function checkGitlab(apiUrl, { timeoutMs = 10000 } = {}) {
 
 const userSettings = () => join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'settings.json')
 
-/** An email address, never a token. */
 export function validEmail(value) {
   const v = String(value ?? '').trim()
   return v.length <= 255 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 }
 
-/** A settings file as an object ({} when absent), or { reason } when it cannot be read. */
 function readSettings(file) {
   if (!existsSync(file)) return { data: {} }
   let data
   try { data = JSON.parse(readFileSync(file, 'utf8')) } catch (e) { return { reason: `could not read ${file}: ${e.message}` } }
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return { reason: `could not read ${file}: not a settings object` }
+  if (!isObject(data)) return { reason: `could not read ${file}: not a settings object` }
   return { data }
 }
 
 function writeSettings(file, data) {
-  // A settings.json that links into a dotfiles repo is written through the link, not replaced by a file.
+  // Write through a symlink (dotfiles repo) instead of replacing it.
   if (existsSync(file)) file = realpathSync(file)
   mkdirSync(dirname(file), { recursive: true })
   const tmp = `${file}.qc-${process.pid}.tmp`
@@ -74,7 +64,6 @@ function writeSettings(file, data) {
   renameSync(tmp, file)
 }
 
-/** Merges `options` into pluginConfigs[<quality-code id>].options; nothing else in the file changes. */
 export function saveOptions({ file = userSettings(), options }) {
   const { data, reason } = readSettings(file)
   if (reason) return { ok: false, reason }
@@ -86,15 +75,9 @@ export function saveOptions({ file = userSettings(), options }) {
   return { ok: true, plugin, options }
 }
 
-/** The plugin's output style (output-styles/report.md), as Claude Code names it in outputStyle. */
 export const REPORT_STYLE = 'quality-code:report'
 
-/**
- * The reply style of the project at root. `on` true or false writes it to the shared
- * .claude/settings.json: on sets outputStyle to the report style, off removes it only when it is
- * ours (another style the team chose stays). Without `on`, only reads. `inForce` is what Claude
- * Code applies: .claude/settings.local.json (where /output-style writes) wins over the shared file.
- */
+// Off removes outputStyle only if it is ours. settings.local.json (where /output-style writes) wins over the shared file.
 export function outputStyle({ root = projectRoot(), on } = {}) {
   const shared = join(root, '.claude', 'settings.json')
   const read = readSettings(shared)
@@ -110,7 +93,6 @@ export function outputStyle({ root = projectRoot(), on } = {}) {
   return { ok: true, file: shared, shared: value, local, report: inForce === REPORT_STYLE }
 }
 
-/** Saves gitlab_api_url and gitlab_username. */
 export function saveGitlabSettings({ file, url, user }) {
   const apiUrl = apiUrlOf(url)
   if (!apiUrl) return { ok: false, reason: `not a GitLab address: ${JSON.stringify(String(url ?? ''))} (use https://, for example gitlab.example.com)` }
@@ -118,7 +100,6 @@ export function saveGitlabSettings({ file, url, user }) {
   return saveOptions({ file, options: { gitlab_api_url: apiUrl, gitlab_username: String(user).trim().replace(/^@/, '') } })
 }
 
-/** Saves jira_email. */
 export function saveJiraSettings({ file, email }) {
   if (!validEmail(email)) return { ok: false, reason: 'give the email of your Atlassian account (never a token)' }
   return saveOptions({ file, options: { jira_email: String(email).trim().toLowerCase() } })
@@ -126,19 +107,15 @@ export function saveJiraSettings({ file, email }) {
 
 export const DEFAULT_XRAY_API = 'https://xray.cloud.getxray.app'
 
-/**
- * Xray Cloud's address, global or regional (https://eu.xray.cloud.getxray.app), with no path; null
- * for any other host, since the API key is sent there.
- */
+/** Xray Cloud hosts only (global or regional): the API key is sent there. */
 export function xrayApiUrlOf(input) {
   const raw = String(input ?? '').trim()
   let u
   try { u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`) } catch { return null }
-  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.search || u.hash || u.pathname.replace(/\/+$/, '')) return null
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || u.search || u.hash || noTrailingSlash(u.pathname)) return null
   return /^(?:[a-z]{2}\.)?xray\.cloud\.getxray\.app$/.test(u.hostname) ? `https://${u.hostname}` : null
 }
 
-/** Saves xray_api_url. */
 export function saveXraySettings({ file, url }) {
   const apiUrl = xrayApiUrlOf(url)
   if (!apiUrl) return { ok: false, reason: `not an Xray Cloud address: ${JSON.stringify(String(url ?? ''))} (${DEFAULT_XRAY_API}, or a regional one like https://eu.xray.cloud.getxray.app)` }

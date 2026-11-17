@@ -1,7 +1,5 @@
-// The Quality Program numbers (its §9) a repo can show by itself, as the old in-repo kpi.mjs did:
-// traceability, completeness of the tickets, suite honesty, gate integrity, adoption, coverage and the
-// mutation kill rate. Each is a number or "no data", never a made-up 100%.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+// Quality Program (§9) numbers a repo can show on its own. Each is a number or "no data", never a made-up 100%.
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { layersOf, ungradedTitlesOf } from '../config/config.mjs'
 import { e2eFolder } from '../stacks/e2e-folder.mjs'
@@ -12,21 +10,21 @@ import { grade } from '../pipeline/checks/suite-honesty.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { detectConventions } from '../stacks/conventions.mjs'
 import { BACKENDS, isBackend } from '../stacks/backends.mjs'
-import { changedPaths } from '../core/git.mjs'
-import { execFileSync } from 'node:child_process'
+import { changedPaths, git } from '../core/git.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
-import { withoutOrigin } from '../core/text.mjs'
+import { pct, withoutOrigin } from '../core/text.mjs'
+import { stripDotSlash, noTrailingSlash } from '../core/paths.mjs'
+import { child, parseXml } from '../core/xml.mjs'
 
-// ponytail: fixed targets, the Quality Program's defaults; a config field when a team needs its own.
+// ponytail: fixed Quality Program targets; a config field when a team needs its own.
 export const TARGETS = Object.freeze({ traceability: 100, completeness: 95, suiteHonesty: 100, gateIntegrity: 100, coverage: 80, adoption: null })
-// Cypress names its specs *.cy.ts.
+// .cy is Cypress.
 const SPEC = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
-// A unit spec by name (foo.unit.test.jsx): it runs under the unit runner even when it sits in the e2e folder.
+// Runs under the unit runner even inside the e2e folder.
 const UNIT = /\.unit\.(spec|test)\.[cm]?[jt]sx?$/
 const SKIP = new Set(['node_modules', '.git', 'dist'])
-// The build output and environments of the other stacks: a walk of a whole repo (Go's "./") skips them.
+// Other stacks' build output and envs, skipped on a whole-repo walk (Go's "./").
 const SKIP_BUILD = new Set([...SKIP, 'target', 'build', 'bin', 'obj', 'vendor', '.venv', 'venv', '__pycache__', '.gradle', '.tox'])
-const pct = (a, b) => (b ? Math.round((100 * a) / b) : null)
 
 function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 20000 }) {
   const out = []
@@ -37,21 +35,19 @@ function specsIn(root, folder, { spec = SPEC, skip = SKIP } = {}, budget = { n: 
     for (const e of entries) {
       if (--budget.n < 0) return
       // The repo itself ("./", Go's default layer) lists its files without a "./" in front.
-      const p = rel ? `${rel.replace(/\/$/, '')}/${e.name}` : e.name
+      const p = rel ? `${noTrailingSlash(rel)}/${e.name}` : e.name
       // A whole-repo walk skips hidden folders (.build-context, .cache): they hold copies, not the project's tests.
       if (e.isDirectory()) { if (!skip.has(e.name) && !e.name.startsWith('mut-tmp-') && !(wholeRepo && e.name.startsWith('.'))) walk(p) }
       else if (spec.test(e.name) && !e.name.startsWith('mut-tmp-')) out.push(p)
     }
   }
-  walk(String(folder).replace(/^(?:\.\/)+/, ''))
+  walk(stripDotSlash(folder))
   return out
 }
 
 /**
- * The project's spec files, each with its adapter: the backend's layer folders and the e2e folder, and
- * when most of the project's tests sit next to the code (foo.unit.test.js next to foo.js), those too: a unit spec is
- * found by its name wherever it is, as the runner's own include would find it. A unit spec inside the e2e
- * folder runs under the unit runner, not Playwright.
+ * Spec files with their adapter: layer folders, the e2e folder, and specs beside the code when that's the
+ * project's convention. A unit spec in the e2e folder belongs to the unit runner, not Playwright.
  */
 export function projectSpecs(root, config) {
   const seen = new Map()
@@ -61,12 +57,11 @@ export function projectSpecs(root, config) {
     const view = asAdapter(config, adapter)
     const backend = isBackend(adapter)
     const folders = backend ? layersOf(view).map(l => l.folder) : [e2e].filter(Boolean)
-    // Each backend's own test file names; Vitest and Playwright keep the JS/TS spec names.
     const names = backend && adapter !== 'vitest' ? { spec: BACKENDS[adapter].testFile, skip: SKIP_BUILD } : {}
     const pw = !backend ? { spec: { test: n => SPEC.test(n) && !UNIT.test(n) } } : null
     for (const f of folders) for (const p of specsIn(root, f, pw ?? names)) if (!seen.has(p)) seen.set(p, adapter)
   }
-  // Tests beside the code: the JS/TS backend (Vitest, or Jest as the unit runner) owns them.
+  // Specs beside the code belong to the JS/TS backend.
   const js = has.find(a => isBackend(a) && (a === 'vitest' || BACKENDS[a].codeFile.test('x.js')))
   if (js) {
     const conv = detectConventions(root)
@@ -75,7 +70,7 @@ export function projectSpecs(root, config) {
       const cache = new Map()
       for (const p of specsIn(root, '', { spec: SPEC, skip: SKIP_BUILD })) {
         if (seen.has(p)) continue
-        // A monorepo workspace on another unit runner (a Vitest frontend beside Jest services) is not this runner's.
+        // Skip monorepo workspaces on another unit runner (Vitest frontend beside Jest services).
         if (otherRunnersTest(root, p, runner, cache)) continue
         if (e2e && p.startsWith(e2e) && !UNIT.test(p)) continue
         seen.set(p, js)
@@ -86,22 +81,16 @@ export function projectSpecs(root, config) {
   return [...seen].filter(([path]) => kept.has(path)).map(([path, adapter]) => ({ path, adapter }))
 }
 
-/** The paths git does not ignore (build copies such as .build-context/ are not the project's tests). All of them when root is not a git repo. */
+/** Drops git-ignored paths (build copies like .build-context/). Keeps all outside a git repo. */
 export function withoutIgnored(root, paths) {
   const all = new Set(paths)
   if (!paths.length) return all
-  try {
-    const out = execFileSync('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, input: `${paths.join('\0')}\0`, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 1e8, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
-    for (const p of out.split('\0')) all.delete(p)
-  } catch (e) {
-    // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path.
-    if (e.status === 1 || !e.stdout) return all
-    for (const p of String(e.stdout).split('\0')) all.delete(p)
-  }
+  // Exit 1: nothing is ignored. Any other failure (no git, not a repo): keep every path git did not name.
+  for (const p of git(root, ['check-ignore', '--no-index', '-z', '--stdin'], { input: `${paths.join('\0')}\0`, okCodes: [1] }).out.split('\0')) all.delete(p)
   return all
 }
 
-/** The unit test tools the nearest package.json above a spec depends on (its workspace's own); null when no package.json is found. */
+// Unit test tools in the nearest package.json above the spec; null if there is none.
 function workspaceTools(root, spec, cache) {
   let dir = spec.includes('/') ? spec.slice(0, spec.lastIndexOf('/')) : ''
   for (;;) {
@@ -117,13 +106,11 @@ function workspaceTools(root, spec, cache) {
     dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
   }
 }
-/** A spec of a workspace that declares another unit runner than the backend's: the frontend's Vitest tests are not for Jest, and the reverse. */
 function otherRunnersTest(root, spec, runner, cache) {
   const tools = workspaceTools(root, spec, cache)
   return Boolean(tools && tools.size && ['jest', 'vitest', 'mocha'].includes(runner) && !tools.has(runner))
 }
 
-/** Traceability and suite honesty, read from the spec files themselves. */
 export function scanSpecs(root, config) {
   const specs = projectSpecs(root, config)
   const key = new RegExp(keySource(config))
@@ -134,7 +121,7 @@ export function scanSpecs(root, config) {
     let src
     try { src = readFileSync(join(root, s.path), 'utf8') } catch { continue }
     const d = dialectFor(runnerOf(config, s.adapter))
-    // Linked to a ticket: its key in a group's or a test's title, or in the file name (ABC-123.spec.ts).
+    // Traced: ticket key in a group/test title or the file name.
     const titles = [...src.matchAll(new RegExp(d.groupRe.source, 'gm')), ...src.matchAll(new RegExp(d.suite.testRe.source, 'g'))].map(m => m[3] ?? '')
     if ([...titles, s.path.split('/').at(-1)].some(t => key.test(t.toUpperCase()))) { traced++; tracedPaths.add(s.path) }
     if (!byAdapter.has(s.adapter)) byAdapter.set(s.adapter, [])
@@ -151,21 +138,14 @@ export function scanSpecs(root, config) {
   return { specs: specs.length, traced, tests, honest, branch: branchTrace(root, config, specs, tracedPaths) }
 }
 
-// The ref of the branch the work started from (git.base), local or on origin; null when the config names none or git has none.
+// git.base, preferring origin/.
 function baseRef(root, config) {
   const name = config.git?.base
   if (!name) return null
-  for (const ref of [`origin/${name}`, name]) {
-    try { execFileSync('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd: root, stdio: 'ignore' }); return ref } catch {}
-  }
-  return null
+  return [`origin/${name}`, name].find(ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) ?? null
 }
 
-/**
- * Traceability of the work in progress: of the spec files this branch changed (against git.base, plus uncommitted and new
- * ones), how many name a ticket. An old suite pulls the whole-repo number down for years; this one judges new work.
- * Null when there is no base or no changed spec file.
- */
+// Traceability of specs changed on this branch only: an old suite drags the whole-repo number down for years.
 export function branchTrace(root, config, specs, tracedPaths) {
   const ref = baseRef(root, config)
   if (!ref) return null
@@ -176,7 +156,7 @@ export function branchTrace(root, config, specs, tracedPaths) {
   return mine.length ? { base: withoutOrigin(ref), specs: mine.length, traced: mine.filter(s => tracedPaths.has(s.path)).length } : null
 }
 
-/** Line coverage from an Istanbul summary, else an lcov report (most runners' default), else the JaCoCo and Cobertura reports, when the project has one. */
+/** Line coverage: Istanbul summary, else lcov, else JaCoCo/Cobertura XML. */
 export function readCoverage(root) {
   const p = 'coverage/coverage-summary.json'
   try {
@@ -192,36 +172,39 @@ export function readCoverage(root) {
   return xmlCoverage(root)
 }
 
-// Java and .NET write their reports inside the build output (target/, build/, TestResults/), so this walk enters it.
+// Java and .NET write reports inside build output (target/, build/, TestResults/), so don't skip those.
 const COVERAGE_SKIP = new Set([...SKIP, 'bin', 'obj', '.gradle', '.venv', 'venv', 'vendor', '__pycache__', '.tox'])
-// JaCoCo: Maven's jacoco.xml, Gradle's jacocoTestReport.xml and the aggregation plugin's testCodeCoverageReport.xml.
-// Cobertura: coverlet's coverage.cobertura.xml (dotnet test --collect "XPlat Code Coverage", or coverlet.msbuild).
+// JaCoCo (Maven, Gradle, aggregate) and coverlet's Cobertura.
 const COVERAGE_XML = /^(?:jacoco\.xml|jacocoTestReport\.xml|testCodeCoverageReport\.xml|coverage\.cobertura\.xml)$/
-const attr = (tag, name) => Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1])
+/** The text without its per-package detail, from the first opening tag to the last closing one: the totals sit outside it. */
+function withoutDetail(text, open, closes) {
+  const from = text.search(open)
+  const to = Math.max(...closes.map(c => { const i = text.lastIndexOf(c); return i < 0 ? -1 : i + c.length }))
+  return from >= 0 && to > from ? text.slice(0, from) + text.slice(to) : text
+}
 
-/** Covered and valid lines of one JaCoCo or Cobertura report, or null when it has no line totals. */
 function xmlLines(text) {
-  if (/<report\b/.test(text)) {
-    // The report's own counters come last, after every package (and group, in an aggregate report).
-    const tail = text.slice(Math.max(text.lastIndexOf('</package>'), text.lastIndexOf('</group>'), 0))
-    const tag = tail.match(/<counter\b[^>]*\btype="LINE"[^>]*>/)?.[0]
-    if (!tag) return null
-    const covered = attr(tag, 'covered')
-    const valid = covered + attr(tag, 'missed')
+  // ponytail: string cuts before parsing, so a monorepo report of tens of MB is not built into a tree.
+  const doc = parseXml(/<report[\s>]/.test(text)
+    ? withoutDetail(text, /<(?:group|package)[\s>/]/, ['</group>', '</package>'])
+    : withoutDetail(text, /<packages[\s>/]/, ['</packages>']))
+  const report = child(doc, 'report')
+  if (report) {
+    // JaCoCo: the report's own counters are its totals (each package and group has its own).
+    const tag = report.children.find(c => c.name === 'counter' && c.attrs.type === 'LINE')
+    const covered = Number(tag?.attrs.covered)
+    const valid = covered + Number(tag?.attrs.missed)
     return valid > 0 ? { covered, valid } : null
   }
-  const tag = text.match(/<coverage\b[^>]*>/)?.[0]
-  if (!tag) return null
-  const covered = attr(tag, 'lines-covered')
-  const valid = attr(tag, 'lines-valid')
+  const cobertura = child(doc, 'coverage')
+  const covered = Number(cobertura?.attrs['lines-covered'])
+  const valid = Number(cobertura?.attrs['lines-valid'])
   return valid > 0 ? { covered, valid } : null
 }
 
 /**
- * Line coverage from the JaCoCo (Java, Kotlin) and Cobertura (.NET) reports anywhere in the repo, summed over the
- * modules. An aggregate JaCoCo report stands for the modules when there is one; JaCoCo's integration-test report
- * (jacoco-it) is left out, as its lines are the unit report's too. Each TestResults folder keeps only its newest
- * run, since coverlet writes a new one per run.
+ * Sums reports across modules. An aggregate report replaces the per-module ones; jacoco-it is skipped
+ * (it double-counts unit lines). Coverlet writes a folder per run, so only the newest TestResults run counts.
  */
 function xmlCoverage(root) {
   let files = specsIn(root, '', { spec: COVERAGE_XML, skip: COVERAGE_SKIP }).filter(p => !p.includes('jacoco-it/'))
@@ -248,15 +231,14 @@ function xmlCoverage(root) {
   return { pct: Math.round((100 * covered) / valid), file: used.length === 1 ? used[0] : `${used.length} reports (${used[0]}, …)` }
 }
 
-/** The numbers, from the period's audit events and the repo scan. */
 export function qualityKpi({ finals, runs, scan, coverage }) {
   const scored = finals.filter(g => typeof g.score === 'number')
-  // A run with every gate: not forced past the readiness gate, and with the ticket, so the value check ran.
+  // Relaxed: forced past the readiness gate, or run without the ticket (no value check).
   const known = runs.filter(r => r.flags)
   const relaxed = known.filter(r => r.incompleteTicket || !r.flags.ticket)
   const ready = finals.filter(g => g.gate === 'pass' && g.key)
   const ran = new Set(runs.map(r => r.key).filter(Boolean))
-  // The pipeline logs the mutation counts (killed of total), not a score.
+  // The pipeline logs killed/total, not a score.
   const killRate = s => (typeof s?.score === 'number' ? s.score : s?.total > 0 && typeof s.killed === 'number' ? (100 * s.killed) / s.total : null)
   const mutation = runs.map(r => killRate((r.steps ?? []).find(s => s.check === 'mutation'))).filter(v => v !== null)
   return {
@@ -274,7 +256,6 @@ export function qualityKpi({ finals, runs, scan, coverage }) {
 const mark = (value, target) => (value === null || value === undefined || target === null ? '— ' : value >= target ? '✅' : '⚠️')
 const shown = (v, unit = '%') => (v === null || v === undefined ? 'no data' : `${v}${unit}`)
 
-/** The card's Quality lines. */
 export function formatQuality(q) {
   const t = q.targets
   const line = (name, value, target, detail, unit = '%') =>

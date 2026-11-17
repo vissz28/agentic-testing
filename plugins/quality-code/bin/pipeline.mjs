@@ -1,8 +1,5 @@
-// Entry point for the pipeline (Vitest, Playwright, or both): node bin/pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--no-audit] [--json]
-// Exit 0 green, 1 checks failed or tests red, 2 usage/config error or a crash, 3 not verified.
-// --incomplete-ticket marks a run the developer forced past the readiness gate ("continue anyway"):
-// the card carries the risk line, the verdict is unchanged. Every run is logged in the local audit log.
-// --suite takes every spec of one side (frontend: the e2e folder, backend: the backend's layers) or of both.
+// Runs the test pipeline on specs or a whole suite. Exit 0 green, 1 checks failed or tests red, 2 usage/crash, 3 not verified.
+// --incomplete-ticket only adds a risk line to the card; the verdict is unchanged.
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { dialectFor } from '../lib/stacks/dialects/index.mjs'
@@ -19,13 +16,13 @@ import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
-import { isMain, printLine, printError } from '../lib/core/script-io.mjs'
+import { crashMessage, isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
+import { leavesFolder } from '../lib/core/paths.mjs'
+import { isObject, isWholeNumber } from '../lib/core/is.mjs'
 
 const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
-// The suites: frontend is Playwright, backend is the project's backend runner (Vitest when it has none),
-// full is whatever the project has.
 const SUITES = ['frontend', 'backend', 'full']
 const suiteAdapters = (suite, config) => (suite === 'full' ? null : adaptersForSide(suite, config))
 const sideName = (suite, config) => `${suite} (${runnerLabel(suiteAdapters(suite, config)[0])})`
@@ -53,7 +50,7 @@ function parse(argv) {
   if (a.smoke && a.suite !== undefined && a.suite !== 'frontend') throw new Error('--smoke runs the frontend (Playwright) suite')
   if (a.function !== undefined && a.target === undefined) throw new Error('--function names code in the --target file: give --target too')
   if (a.function !== undefined && !/^[A-Za-z_$][\w$]*(?:,[A-Za-z_$][\w$]*)*$/.test(a.function)) throw new Error(`--function must be one or more function names, comma-separated, like upsertTotal,applyDiscount, not "${a.function}"`)
-  if (a.flaky !== undefined && !/^[1-9]\d*$/.test(a.flaky)) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
+  if (a.flaky !== undefined && !isWholeNumber(a.flaky, { min: 1 })) throw new Error(`--flaky must be a whole number of 1 or more, not "${a.flaky}"`)
   if (a.incomplete !== undefined && !(/^(0|[1-9]\d?)$/.test(a.incomplete) && Number(a.incomplete) < THRESHOLD)) {
     throw new Error(`--incomplete-ticket must be the ticket's score, a whole number from 0 to ${THRESHOLD - 1}, below the bar (${THRESHOLD}), not "${a.incomplete}"`)
   }
@@ -69,7 +66,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (a.smoke && !a.specs.length) a.suite = 'frontend'
   if (!a.specs.length && a.suite === undefined) return err(`needs at least one spec path, or --suite. ${USAGE}`)
   const root = projectRoot(env, cwd)
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
   if (a.suite !== undefined) {
@@ -82,7 +79,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   let smokeVars = null
   if (a.smoke) {
-    // Only the Playwright runner reads the smoke grep and the url: any other would run every test against its own baseUrl.
+    // Only Playwright honours the smoke grep and url; any other runner would run everything against its own baseUrl.
     if (runnerOf(config, 'playwright') !== 'playwright') return err(`--smoke runs the Playwright e2e suite: this project's e2e runner is ${runnerOf(config, 'playwright')}`)
     const u = a.url === undefined ? { url: null } : checkUrl(a.url)
     if (u.error) return err(u.error)
@@ -94,11 +91,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   }
   for (const s of a.specs) {
     const rel = normalizeSpec(root, resolve(root, s))
-    if (rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/')) return err(`spec must be inside the project: ${s}`)
+    if (leavesFolder(rel)) return err(`spec must be inside the project: ${s}`)
     if (!isFile(resolve(root, rel))) return err(`spec not found: ${s}`)
   }
   if (a.key && !isProjectKey(config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(config).join(', ')}`)
-  const inside = rel => !(rel === '..' || rel.startsWith('../') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/'))
+  const inside = rel => !leavesFolder(rel)
   let ticket = null
   let jiraStatus = null
   let issueType = null
@@ -108,11 +105,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     ticket = resolve(root, t)
     let obj
     try { obj = JSON.parse(readFileSync(ticket, 'utf8')) } catch (e) { return err(`--ticket ${t}: ${isFile(ticket) ? `not valid JSON (${e.message.split('\n')[0]})` : 'file not found'}`) }
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return err(`--ticket ${t}: not a ticket object`)
+    if (!isObject(obj)) return err(`--ticket ${t}: not a ticket object`)
     jiraStatus = typeof obj.status === 'string' ? obj.status : null
     issueType = typeof obj.issuetype === 'string' ? obj.issuetype : null
   }
-  // --expected: the values the writer says its tests pin, as a JSON list; the check keeps only those the ticket's expected text holds.
+  // --expected: JSON list of values the tests claim to pin; the check keeps only those found in the ticket.
   let candidates = []
   if (a.expected !== undefined) {
     if (!ticket) return err('--expected needs --ticket: the values are checked against the ticket')
@@ -133,10 +130,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     if (!isFile(resolve(root, target))) return err(`--target not found: ${a.target}`)
     if (a.specs.some(s => normalizeSpec(root, resolve(root, s)) === target)) return err(`--target ${a.target} is one of the specs: name the code the tests check`)
   }
-  // What /quality-code:spec read before it wrote these tests (rules.mjs --key): Central Context, or the fallback.
+  // The rules /quality-code:spec read before writing (rules.mjs --key).
   let rules = null
   if (a.key) try { rules = readJsonOr(resolve(root, config.ticketsDir, a.key, 'rules.json'), null) } catch (e) { return err(e.message) }
-  // A fullstack run picks the dialect per spec.
+  // Fullstack: null, the dialect is picked per spec.
   const ctx = { config, dialect: isFullstack(config) ? null : dialectFor(runnerOf(config)), root }
   const incompleteTicket = a.incomplete === undefined ? null : { score: Number(a.incomplete), bar: THRESHOLD }
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.noAudit, dir: cfg.auditDir })
@@ -149,7 +146,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, ctx)
   } catch (e) {
     restore()
-    printError(`check ${e?.step ?? 'pipeline'} crashed: ${String(e?.message ?? e).split('\n')[0]}`)
+    printError(crashMessage(e?.step ?? 'pipeline', e))
     return 2
   }
   restore()
@@ -166,7 +163,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     rules: rules && { source: rules.source, hub: rules.hub, release: rules.release },
     flags: { ticket: Boolean(ticket), expected: candidates.length > 0, target: Boolean(target), range: Boolean(a.range), flaky: a.flaky ? Number(a.flaky) : null },
   })
-  // The developer log, next to the ticket's other files: local like the audit log, and off with it.
+  // Local like the audit log, and disabled with it.
   let logPath = null
   if (a.key && !auditOff(env, a.noAudit)) {
     const rel = `${config.ticketsDir}/${a.key}/run.md`
@@ -182,8 +179,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
 }
 
 if (isMain(import.meta.url)) {
-  // A killed run (Ctrl-C, a tool call's timeout) stops the tools it started, their workers too, and
-  // removes their temp files from the project. The mutation step's own handler, when one is set, exits.
+  // On Ctrl-C or a tool timeout, kill child tools and clean their temp files; exit here only if no other handler (mutation) is set.
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { stopAll(); if (process.listenerCount(sig) === 1) process.exit(130) })
   process.exitCode = await main()
 }

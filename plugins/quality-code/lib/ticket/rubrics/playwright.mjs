@@ -1,8 +1,7 @@
 import { countDerivable, hasHeading } from '../criteria.mjs'
 import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, hasListChecks, omittedKeys, stepsSignal } from './shared.mjs'
 
-// Weighted rubric for the Playwright stack, sums to 100. Routes a test to a screen, so a feature
-// label and a QA plan carry weight.
+// Playwright rubric, sums to 100. Feature label and QA plan matter because they route the test to a screen.
 const weights = {
   ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading) — in the field or description'],
   ac_testable: [15, 'testable acceptance criteria — each one names a result you can see, not "works correctly"'],
@@ -15,8 +14,7 @@ const weights = {
   environment: [5, 'environment / workspace context'],
 }
 
-// No `issuetype`: the Bug/Story split only hints at WHICH section to expect, and both are
-// accepted either way.
+// Ignores issuetype: Bug and Story sections are accepted either way.
 function deriveSignals(v, config, ticket) {
   const description = ticket.text?.description || ''
   const acField = ticket.text?.acField || ''
@@ -48,6 +46,8 @@ function briefExtras(config, ticket, feature) {
   }
 }
 
+export const SCENARIOS_NONE_DRAFTED = 'Scenarios: none drafted yet · the acceptance criteria in the text were read and scored'
+
 function formatReport(brief) {
   const { key, score, threshold, gate, legacy, feature, route, scenarios = [], derivable = 0, qaPlan, figma, mr, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
   const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
@@ -60,7 +60,10 @@ function formatReport(brief) {
     `${key} — test-readiness ${score}/100 · ${band} (needs ${threshold})`,
     `Feature: ${feature || 'none'}${route ? ` → ${route}` : ''}`,
     omitted.has('qa_plan_found') ? null : `QA plan: ${qaPlan?.url ? `found — ${qaPlan.title || qaPlan.url} · ${(qaPlan.scenarios || []).length} scenarios` : 'not found'}`,
-    `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to test`,
+    // No scenario drafted, yet the criteria in the text were credited: "0 read" would contradict the score.
+    !scenarios.length && !derivable && brief.signals?.ac_present
+      ? SCENARIOS_NONE_DRAFTED
+      : `Scenarios: ${scenarios.length} read from the ticket · ${derivable} with an expected result clear enough to test`,
     `Figma: ${figma || 'none'}   ·   MR: ${mr || 'none'}`,
     shown.length
       ? `Missing (points each would add):\n${shown.map(m => `  - ${m.label} (+${gains[m.key] ?? m.weight})`).join('\n')}`
@@ -77,10 +80,8 @@ export default {
   derivable: (v, ticket) => countDerivable(v, [...(ticket.scenarios || []), ...(ticket.qaPlan?.scenarios || [])]),
   feature: (config, ticket) => ticket.feature ?? featureOf(config, ticket.labels),
   briefExtras,
-  // A QA plan the project cannot find is left out of the score rather than costing every ticket
-  // points it can never earn: a team without Confluence ("confluence": false), or one whose features
-  // carry no qaPlanSearch while the ticket has no QA-plan page attached. With a search configured, a
-  // plan the search did not find is still missing.
+  // Omit the QA plan when it can't be found at all (no Confluence, or no qaPlanSearch and no page).
+  // With a search configured, a plan it didn't find still counts as missing.
   omitted: (config, ticket = null) => {
     const keys = omittedKeys(config)
     const searchable = (config.features ?? []).some(f => f?.qaPlanSearch)

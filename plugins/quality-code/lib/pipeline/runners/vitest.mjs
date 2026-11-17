@@ -1,5 +1,4 @@
-// The Vitest runner: runs specs with the project's own Vitest and reads its JSON report.
-// Implements the runner contract of the shared checks. Never writes into the project.
+// Vitest runner via the JSON reporter. Writes nothing into the project.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,8 +9,9 @@ import { timeoutSecondsOf } from '../../config/config.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { escapeRegExp, firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { leavesFolder } from '../../core/paths.mjs'
 
-/** Vitest matches -t against the full name (describe titles and the test title joined by spaces). */
+/** -t matches the full name: describe titles and test title joined by spaces. */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
 
 export function configFor(file, config) {
@@ -26,10 +26,10 @@ export function parseReport(json, root) {
   try { base = realpathSync(root) } catch {}
   const rel = name => {
     const r = relative(base, name)
-    return r.startsWith('..') && base !== root ? relative(root, name) : r
+    return leavesFolder(r) && base !== root ? relative(root, name) : r
   }
   for (const tr of json?.testResults ?? []) {
-    // Forward slashes, as normalizeSpec spells the requested specs: Windows reports backslashes.
+    // Windows reports backslashes; normalizeSpec uses forward slashes.
     const file = toForwardSlashes(isAbsolute(tr.name ?? '') ? rel(tr.name) : String(tr.name ?? ''))
     const ars = tr.assertionResults ?? []
     if (tr.status === 'failed' && !ars.some(a => a.status === 'failed')) broken.push({ file, message: firstLine(tr.message) })

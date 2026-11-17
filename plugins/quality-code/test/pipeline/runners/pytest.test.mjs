@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { baseName, decodeEntities, fillTemplate, nodeIds, parseReport, parseXml, pytestRunner, resolveClassname, splitCommand, typeCheck } from '../../../lib/pipeline/runners/pytest.mjs'
+import { baseName, fillTemplate, nodeIds, parseReport, pytestRunner, resolveClassname, splitCommand, typeCheck } from '../../../lib/pipeline/runners/pytest.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
 
 const put = (d, p, s, mode) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s, mode ? { mode } : undefined) }
@@ -35,18 +35,6 @@ E       AssertionError]]></failure></testcase>
 <testcase classname="tests.test_order.TestTotal.TestNested" name="test_inner"><error message="failed on setup with &quot;fixture 'db' not found&quot;">x</error></testcase>
 <testcase classname="tests.test_order" name="test_top" time="0.001" />
 </testsuite></testsuites>`
-
-test('the XML reader: elements, attributes with ">" in quotes, entities, CDATA, comments and the declaration skipped', () => {
-  const root = parseXml('<?xml version="1.0"?><!DOCTYPE x><a k="1 &gt; 0" j=\'q&apos;s\'><b/><c>t&#x41;&#66;<![CDATA[<raw> &amp;]]></c><!-- <d/> --></a>')
-  assert.equal(root.name, 'a')
-  assert.deepEqual(root.attrs, { k: '1 > 0', j: "q's" })
-  assert.deepEqual(root.children.map(c => c.name), ['b', 'c'])
-  assert.equal(root.children[1].text, 'tAB<raw> &amp;')
-  assert.equal(decodeEntities('&lt;&unknown;&#10;&#xZZ;'), '<&unknown;\n&#xZZ;')
-  assert.equal(parseXml(''), null)
-  // A stray end tag closes nothing; an unclosed element still holds its children.
-  assert.deepEqual(parseXml('<a></x><b><c/></a>').children.map(c => c.name), ['b'])
-})
 
 test('a classname names one of the given files from either end of its rootdir, then its classes', () => {
   const files = ['tests/test_order.py', 'api/tests/test_order.py', 'tests/unit/test_more.py']
@@ -265,4 +253,12 @@ test('real pytest: statuses, a collection error, one test by node id in a temp c
   const cases = await run({ files: [tmp], testName: 'test_cases' })
   assert.deepEqual(cases.tests.map(t => [t.title, t.status]), [['test_cases', 'passed'], ['test_cases', 'failed']])
   assert.deepEqual(listing(d), [...before, tmp].sort(), 'no cache, bytecode or report in the project')
+})
+
+test('a report cut off while written is a run that could not be read, never part of the results as all of them', async () => {
+  const cut = CASES.slice(0, CASES.indexOf('<testcase classname="tests.test_order.TestTotal" name="test_sum"'))
+  assert.throws(() => parseReport(cut, ['tests/test_order.py']), /unclosed <testsuite>/)
+  const d = project({ 'tests/test_order.py': SPEC, '.fake-report.xml': cut, '.fake-exit': '1' })
+  put(d, '.venv/bin/python', FAKE, 0o755)
+  assert.deepEqual(await pytestRunner(d, { adapter: 'pytest' })({ files: ['tests/test_order.py'] }), { ran: false, tests: [], broken: [], error: 'pytest wrote a report that is cut off' })
 })

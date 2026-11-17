@@ -1,7 +1,4 @@
-"""The browser view of the shared server: sign in with Microsoft Entra ID, then see how to connect to /mcp.
-
-Authorization-code flow with PKCE for the web app registration. The MCP endpoint itself is still protected by bearer tokens (entra.py);
-this view only signs a person in and shows them the address and the commands to connect their client."""
+"""Browser sign-in for the shared server (Entra ID, auth code + PKCE); /mcp itself still needs a bearer token (entra.py)."""
 from __future__ import annotations
 
 import base64
@@ -36,7 +33,7 @@ LOGO_SVG = (
 @dataclass(frozen=True)
 class WebSettings:
     entra: EntraSettings
-    client_secret: str  # the web app registration's client secret: the server redeems the sign-in code with it
+    client_secret: str  # redeems the sign-in code
     session_key: str  # signs the cookies
     gitlab_mcp_url: str = ""  # GitLab's own MCP server, added in Claude as a second connector: it signs in itself, this server never holds a GitLab token
 
@@ -84,7 +81,7 @@ def _b64(b: bytes) -> str:
 
 
 def redeem_code(w: WebSettings, code: str, verifier: str) -> str:
-    """Trade the sign-in code for the ID token at Microsoft (blocking: callers run it off the event loop)."""
+    """Swaps the sign-in code for an ID token. Blocking: call it off the event loop."""
     body = urllib.parse.urlencode({
         "client_id": w.entra.client_id, "client_secret": w.client_secret, "grant_type": "authorization_code", "code": code,
         "redirect_uri": w.redirect_uri, "code_verifier": verifier, "scope": "openid profile email",
@@ -285,7 +282,7 @@ def add_browser_redirect(app, w: WebSettings | None):
 
 def register(server, w: WebSettings | None, entra: EntraSettings, *, exchange: Callable[[str, str], str] | None = None,
              signing_key: Callable[[str], Any] | None = None, provider=None) -> None:
-    """Add /, /login, /auth/callback, /logout and /static/teamsystem.png to the server. All are open (no bearer token): the page is for people."""
+    """Adds /, /login, /auth/callback, /logout and the logo route. No bearer token: these pages are for people."""
     from starlette.responses import HTMLResponse, RedirectResponse, Response
     import asyncio
 

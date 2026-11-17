@@ -9,6 +9,7 @@ import { baseFromEnv, junit, main, providerOf, stackOf, template } from '../../b
 import { validateConfig } from '../../lib/config/config.mjs'
 
 const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] } }
+const JS_PNPM = { backend: 'vitest', playwright: false, pm: 'pnpm', lock: false, prisma: false, containers: false, pip: [], pyproject: false, maven: false, go: '1.23', prefix: '', defaultBranch: 'main' }
 const SPEC = "import { it, expect } from 'vitest'\nit('adds', () => {\n  expect(1 + 1).toBe(2)\n})\nit('subtracts', () => {\n  expect(2 - 1).toBe(1)\n})\nit('divides', () => {\n  expect(6 / 3).toBe(2)\n})\n"
 const put = (d, p, s) => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }
 const git = (d, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: d, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
@@ -91,6 +92,19 @@ test('stackOf reads the lockfile, Prisma, Testcontainers and the folder from the
   const s = stackOf(join(d, 'web'), validateConfig(cfg).config)
   assert.deepEqual({ backend: s.backend, pm: s.pm, lock: s.lock, prisma: s.prisma, containers: s.containers, prefix: s.prefix }, { backend: 'vitest', pm: 'npm', lock: true, prisma: true, containers: true, prefix: 'web/' })
   assert.equal(stackOf(project(), validateConfig(cfg).config).containers, false)
+})
+
+test('the package install is copied from the repo CI file, flags and all; a guess only when none has one', () => {
+  const pkg = { 'package.json': '{}', 'package-lock.json': '{}' }
+  const own = files => stackOf(project({ ...pkg, ...files }), validateConfig(cfg).config).ownInstall
+  assert.deepEqual(own({ '.gitlab-ci.yml': 'build:\n  script:\n    - npm install -g pnpm\n    - npm ci --legacy-peer-deps\n' }), { line: 'npm ci --legacy-peer-deps', file: '.gitlab-ci.yml' })
+  assert.equal(own({ '.github/workflows/ci.yml': 'steps:\n  - run: cd web && npm ci --no-audit && npm test\n' }).line, 'npm ci --no-audit')
+  assert.equal(own({ '.gitlab-ci.yml': '# Quality Code: ours\n    - npm ci --legacy-peer-deps\n' }), null, 'never from the file Quality Code wrote')
+  assert.equal(own({ '.gitlab-ci.yml': '    - npm install -g bun\n' }), null, 'a global tool is no project install')
+  const t = template('gitlab', '1.0.0', { ...stackOf(project({ ...pkg, '.gitlab-ci.yml': '    - npm ci --legacy-peer-deps\n' }), validateConfig(cfg).config) })
+  assert.match(t, /\n    - npm ci --legacy-peer-deps\n/)
+  assert.match(t, /guessed from the project \(npm ci --legacy-peer-deps from \.gitlab-ci\.yml\)/)
+  assert.match(template('gitlab', '1.0.0', { ...JS_PNPM, ownInstall: { line: 'pnpm install --ignore-scripts', file: '.gitlab-ci.yml' } }), /- corepack enable && pnpm install --ignore-scripts\n/)
 })
 
 test('--init writes the file for the CI the repo uses at the repo top, replaces only its own, and --print writes nothing', async () => {
@@ -256,4 +270,16 @@ test('junit escapes text and marks skipped phases', () => {
   assert.match(x, /name="a&lt;b"><failure message="problem in the tests">x &amp; &quot;y&quot;/)
   assert.match(x, /<skipped\/>/)
   assert.match(x, /tests="3" failures="1"/)
+})
+
+test('--gate-only writes the gate job alone: no install, no tests, no push trigger unless smoke needs it', async () => {
+  for (const p of ['github', 'gitlab']) {
+    const t = template(p, '1.0.0', { ...JS_PNPM, gateOnly: true })
+    assert.match(t, /test_quality_gate:/, p)
+    assert.doesNotMatch(t, /test_quality_tests:|pnpm install|--tests/, p)
+    assert.match(t, /No test_quality_tests job \(--gate-only\)/, p)
+  }
+  assert.doesNotMatch(template('github', '1.0.0', { ...JS_PNPM, gateOnly: true }), /push:/)
+  assert.match(template('github', '1.0.0', { ...JS_PNPM, gateOnly: true, smoke: true }), /push:/)
+  assert.equal((await run(['--gate-only'], project())).code, 2, '--gate-only goes with --init')
 })

@@ -10,5 +10,5 @@ Changes move one way: `dev`, then `test`, then `main`.
 
 - A pull request into `dev`, `test` or `main` runs the tests before it can merge. Turn on branch protection for `main` and `test` and require the `test` workflow to pass.
 - Nothing is published from `dev` or `test`; the image is built only on `test` and `main`. A manual run of `harbor` publishes only when it runs on `main`.
-- The version is bumped and the CHANGELOG written on `dev`; the tag goes on the commit that reaches `main`.
+- The version is bumped and the CHANGELOG written on `dev`; the tag goes on the commit that reaches `main`. `node scripts/release.mjs bump X.Y.Z` on `dev` writes the version in the three manifests and dates the Unreleased notes (it refuses a version that is not newer, a tag that exists, or empty notes); `node scripts/release.mjs tag` on `main`, once it matches `origin/main`, checks and creates the tag locally and prints the push command. Neither commits nor pushes. The test suite checks that the manifests and the changelog agree.
 - Both remotes carry all three branches: `origin` (github.com/vissz28/agentic-testing) and `ghe` (teamsystem.ghe.com/teamsystem/quality-code).

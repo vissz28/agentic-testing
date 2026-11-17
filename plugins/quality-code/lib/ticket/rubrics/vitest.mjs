@@ -2,7 +2,7 @@ import { countDerivableFromText, hasHeading } from '../criteria.mjs'
 import { acSignals, attachmentsSignal, linksSignal, envSignal, featureOf, hasFeatureLabel, hasListChecks, introSignal, omittedKeys, stepsSignal } from './shared.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
-// Weighted rubric for the Vitest stack, sums to 100. No route or QA-plan signals.
+// Backend rubric, sums to 100. No route or QA-plan signals.
 const weights = {
   ac_present: [25, 'acceptance criteria (Given / When / Then, or a list under an Acceptance criteria heading), in the criteria field or the description'],
   ac_testable: [15, 'testable acceptance criteria: each one names a result you can see, not "works correctly"'],
@@ -43,7 +43,7 @@ function deriveSignals(v, config, ticket) {
 }
 
 function formatReport(brief) {
-  const { key, score, threshold, gate, legacy, feature, scenarios = [], derivable = 0, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
+  const { key, score, threshold, gate, legacy, feature, missing = [], flags = [], omitted = new Set(), gains = {} } = brief
   const band = legacy ? 'free text only' : gate === 'pass' ? 'ready' : 'too thin'
   const gateLine =
     gate === 'pass'

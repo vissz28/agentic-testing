@@ -55,6 +55,10 @@ test.describe('ABC-123 Orders show their total', { tag: '@ABC-123' }, () => {
 - No CSS or XPath selectors (`page.locator('.btn-primary')`, `//div[2]`) unless the team guide says
   so: they break when the markup changes and say nothing about what the user sees.
 - No `nth()`, `first()` or `last()` unless the order is the behaviour under test.
+- **Build `has` and `hasNot` locators from `page`**, never from another chain:
+  `row.filter({ has: page.getByText('Code') })`, not `row.filter({ has: panel.getByText('Code') })`.
+  The inner locator is resolved inside each candidate, so one that starts from another element
+  matches nothing and the action waits for the test timeout.
 
 ## Assertions
 
@@ -125,12 +129,18 @@ test('Accessibility: /orders/new has no axe violations', async ({ page }) => {
   'serial' })`, no value carried from one test to the next.
 - Never depend on data a previous run left behind, on today's date or on the machine's time zone:
   `page.clock` sets the time when the screen shows dates.
+- **Dates and numbers in the user's format:** when the app formats them by the user's language or
+  settings, assert the format the test account sees (its language in the app's code or the team
+  guide), not the ticket's example as written. Unknown: a `test.fixme('…')` that names the question.
 
 ## Network stubs
 
 - **Stub only at boundaries**, with `page.route(…)`: third-party services (payments, maps,
   analytics, an identity provider, a mail or chat service), and the app's own API only when the
   team guide says so or the specs already in the folder stub it. Everything else runs for real.
+- **Never stub the call the ticket is about**: the request whose behaviour the ticket changes runs
+  for real, even when other calls of the app are stubbed. A test that asserts only what its own stub
+  returned checks the stub, not the feature.
 - **Copy the response shape from an existing stub** in the folder, never guess it. Fill it with the
   ticket's facts.
 - Every field the ticket names appears on a stubbed row, even one the screen does not show yet.

@@ -12,7 +12,7 @@ import { filesOf } from '../../lib/base/containers.mjs'
 import { audit } from '../../lib/state/audit.mjs'
 import { logBlocked } from '../../lib/pipeline/boundary.mjs'
 import { startRun } from '../../lib/pipeline/run.mjs'
-import { FIELDS_REL, storeField } from '../../lib/ticket/fields.mjs'
+import { storeField } from '../../lib/ticket/fields.mjs'
 import { filePattern } from '../../lib/pipeline/runners/playwright.mjs'
 import { calls, fakeBin, fakeCommand } from '../fake-bin.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
@@ -684,6 +684,15 @@ test('detect: a script that runs node --test names Node\'s own runner; a runner 
   assert.deepEqual(detect(repo({ scripts: { test: 'node --test' }, devDependencies: { jest: '30' } })).runners, { unit: 'jest' })
   assert.deepEqual(detect(repo({ scripts: { start: 'node server.js', lint: 'eslint --test-mode' } })).runners, {}, 'no node --test')
 })
+test('detect: test files that import node:test name Node\'s own runner with no script for it (TS DMS 6)', () => {
+  const d = repo({ devDependencies: { '@playwright/test': '1' } })
+  mkdirSync(join(d, 'test'))
+  writeFileSync(join(d, 'test/total.test.mjs'), "import { test } from 'node:test'\n")
+  const r = detect(d)
+  assert.deepEqual([...sidesOf(r), r.runners], ['playwright', 'vitest', { unit: 'node' }])
+  writeFileSync(join(d, 'test/total.test.mjs'), "import { test } from 'vitest'\n")
+  assert.deepEqual(detect(d).runners, {}, 'a test file of another runner')
+})
 
 test('detect: a repo with no test runner that is not a frontend alone gets Vitest; a frontend with its server gets both', () => {
   const nest = repo({ dependencies: { '@nestjs/core': '11' }, scripts: { start: 'nest start' } })
@@ -890,6 +899,8 @@ test('a version 1 config comes back from detect with its sides, so a rerun of se
   assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', backend: 'go', jira }), { version: 2, jira, frontend: 'playwright', backend: 'go' })
   assert.deepEqual(fromVersion1({ version: 1, adapter: 'fullstack', jira }), { version: 2, jira, frontend: 'playwright', backend: 'vitest' }, 'the old default')
   assert.deepEqual(fromVersion1({ version: 2, backend: 'vitest', jira }), { version: 2, backend: 'vitest', jira }, 'a version 2 file is left alone')
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'vitest', testFlow: 'both', jira }), { version: 2, testStyle: 'both', jira, backend: 'vitest' }, 'testFlow, from before 0.69, becomes testStyle')
+  assert.deepEqual(fromVersion1({ version: 1, adapter: 'vitest', testFlow: 'both', testStyle: 'project', jira }).testStyle, 'project', 'testStyle wins over an old testFlow')
   const d = repo({ devDependencies: { vitest: '1' } })
   mkdirSync(join(d, '.claude'), { recursive: true })
   writeFileSync(join(d, '.claude/quality-code.json'), JSON.stringify({ version: 1, adapter: 'fullstack', jira }))

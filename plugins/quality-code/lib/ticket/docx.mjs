@@ -1,17 +1,16 @@
-// The text of a Word (.docx) file: its word/document.xml, unzipped with node:zlib, tags dropped.
-// Only what a ticket's analysis needs: paragraphs, tabs and line breaks; no styles, no images.
+// Plain text from a .docx (word/document.xml via node:zlib), no styles or images.
 import { inflateRawSync } from 'node:zlib'
 
-/** Unzipped document.xml larger than this is refused: a real analysis is far smaller (a zip bomb is not). */
+// Zip bomb guard: real documents are far smaller.
 const MAX_XML = 20 * 1024 * 1024
-export const DOCX_MAX_CHARS = 20000
-/** The largest file read, a .docx or an image. */
+// Shared functional analyses run past 20,000 chars and got cut off at that size.
+export const DOCX_MAX_CHARS = 60000
 export const MAX_BYTES = 5 * 1024 * 1024
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
-/** The bytes of one file of a zip archive, or null when it is not there. Throws on what is not a zip. */
+/** null when the entry is missing; throws on a non-zip. */
 export function unzipEntry(buf, name) {
-  // The end-of-central-directory record is in the last 22 bytes, plus a comment of at most 64 KB.
+  // EOCD sits in the last 22 bytes, plus up to a 64 KB comment.
   let eocd = -1
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
     if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break }
@@ -40,7 +39,6 @@ export function unzipEntry(buf, name) {
 
 const char = (code, m) => { try { return String.fromCodePoint(code) } catch { return m } }
 
-/** { text, truncated } of a .docx file's body, at most maxChars characters. Throws on what is not a .docx. */
 export function docxText(buf, { maxChars = DOCX_MAX_CHARS } = {}) {
   let xml
   try { xml = unzipEntry(buf, 'word/document.xml') } catch (e) {
@@ -48,6 +46,9 @@ export function docxText(buf, { maxChars = DOCX_MAX_CHARS } = {}) {
   }
   if (!xml) throw new Error('not a .docx (no word/document.xml)')
   const text = xml.toString('utf8')
+    // Mark list paragraphs so the scorer reads them as a list.
+    // ponytail: every list item gets "- "; numbering.xml tells bullets from numbers, read it if steps need "1.".
+    .replace(/<w:numPr\b/g, '- $&')
     .replace(/<w:tab\/>/g, '\t')
     .replace(/<w:(?:br|cr)\b[^>]*\/>|<\/w:p>/g, '\n')
     .replace(/<[^>]*>/g, '')

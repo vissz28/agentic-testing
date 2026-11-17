@@ -203,7 +203,6 @@ test('plan: one mutant per assertion (the strongest), green tests only, inside t
     ['Rounds_a_total_of_10_005_up', 'invert-assert', 'Assert.NotEqual(10.01m, total);'],
     ['Doubles', 'invert-should', '.Should().NotBe(expected);'],
   ])
-  assert.equal(planMutants(XUNIT, passed, { key: 'ABC-12', thorough: true }, D).length, 3)
   // The hollow test passes with nothing to mutate: it keeps the step from passing.
   assert.deepEqual(unmutated(XUNIT, passed, plan, { key: 'ABC-12' }, D), ['Hollow'])
   assert.equal(planMutants(XUNIT, passed, { key: 'ABC-99' }, D), null)

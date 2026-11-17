@@ -1,6 +1,4 @@
-// The JUnit runner: runs Java and Kotlin specs with the project's Maven or Gradle (its wrapper when
-// it has one) and reads the JUnit XML reports the build writes. Implements the runner contract of the
-// shared checks. Writes nothing into the project but the build's own output (target/, build/).
+// JUnit runner for Maven/Gradle (wrapper if present). Writes nothing beyond the build's target/ or build/.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,84 +8,15 @@ import { structure } from '../../stacks/dialects/junit.mjs'
 import { kill, track } from './tool.mjs'
 import { firstLine, localToForwardSlashes } from '../../core/text.mjs'
 import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
+import { parseXml } from '../../core/xml.mjs'
 
 const WIN = process.platform === 'win32'
 const OUTPUT_MAX = 1 << 20
 
-// ---------------------------------------------------------------------------------------------
-// JUnit XML: surefire's TEST-*.xml and Gradle's test-results/*.xml. Elements, attributes, entities,
-// CDATA and comments; no DTD, no namespaces beyond keeping the prefixed name.
-
-const ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }
-
-/** Resolves &lt; &amp; &#38; &#x26; (an unknown entity stays as written). */
-export function decodeEntities(s) {
-  return String(s).replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (all, e) => {
-    if (e[0] === '#') {
-      const n = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-      try { return String.fromCodePoint(n) } catch { return all }
-    }
-    return ENTITIES[e] ?? all
-  })
-}
-
-/** A small XML tree: { name, attrs, children, text }. Throws on a tag left open at the end. */
-export function parseXml(xml) {
-  const root = { name: '#document', attrs: {}, children: [], text: '' }
-  const stack = [root]
-  const top = () => stack.at(-1)
-  let i = 0
-  const s = String(xml).replace(/^\uFEFF/, '')
-  while (i < s.length) {
-    const lt = s.indexOf('<', i)
-    if (lt < 0) { top().text += decodeEntities(s.slice(i)); break }
-    if (lt > i) top().text += decodeEntities(s.slice(i, lt))
-    if (s.startsWith('<!--', lt)) { const e = s.indexOf('-->', lt + 4); i = e < 0 ? s.length : e + 3; continue }
-    if (s.startsWith('<![CDATA[', lt)) {
-      const e = s.indexOf(']]>', lt + 9)
-      top().text += s.slice(lt + 9, e < 0 ? s.length : e)
-      i = e < 0 ? s.length : e + 3
-      continue
-    }
-    if (s.startsWith('<?', lt)) { const e = s.indexOf('?>', lt + 2); i = e < 0 ? s.length : e + 2; continue }
-    if (s.startsWith('<!', lt)) { const e = s.indexOf('>', lt + 2); i = e < 0 ? s.length : e + 1; continue }
-    if (s[lt + 1] === '/') {
-      const e = s.indexOf('>', lt + 2)
-      const name = s.slice(lt + 2, e < 0 ? s.length : e).trim()
-      while (stack.length > 1 && top().name !== name) stack.pop()
-      if (stack.length > 1) stack.pop()
-      i = e < 0 ? s.length : e + 1
-      continue
-    }
-    // A start tag: the name, then attributes whose values may hold ">" inside quotes.
-    const nm = /^<([^\s/>]+)/.exec(s.slice(lt, lt + 256))
-    if (!nm) { top().text += '<'; i = lt + 1; continue }
-    const el = { name: nm[1], attrs: {}, children: [], text: '' }
-    let j = lt + nm[0].length
-    const attr = /\s*([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')|\s*(\/?>)/y
-    let selfClosing = false
-    for (;;) {
-      attr.lastIndex = j
-      const a = attr.exec(s)
-      if (!a) { j = s.indexOf('>', j); j = j < 0 ? s.length : j + 1; break }
-      j = attr.lastIndex
-      if (a[4]) { selfClosing = a[4] === '/>'; break }
-      el.attrs[a[1]] = decodeEntities(a[2] ?? a[3] ?? '')
-    }
-    top().children.push(el)
-    if (!selfClosing) stack.push(el)
-    i = j
-  }
-  if (stack.length > 1) throw new Error(`unclosed <${top().name}>`)
-  return root
-}
-
-/**
- * The test cases of a JUnit XML report: { classname, name, status, message }. A failure or an error
- * fails the test; skipped skips it; a surefire rerun's flakyFailure leaves its pass a pass.
- */
+/** JUnit XML from surefire (TEST-*.xml) and Gradle (test-results/*.xml). A surefire rerun's flakyFailure doesn't turn a pass into a failure; a cut-off report throws. */
 export function parseJUnitXml(xml) {
   const doc = parseXml(xml)
+  if (doc.unclosed) throw new Error(`unclosed <${doc.unclosed}>`)
   const out = []
   const visit = (node, suiteName) => {
     for (const c of node.children) {
@@ -104,22 +33,19 @@ export function parseJUnitXml(xml) {
   return out
 }
 
-// ---------------------------------------------------------------------------------------------
-// Specs to classes.
-
-/** What the runner needs of one spec: its classes by binary name and its tests' names. */
+/** Classes by binary name, plus test names. */
 export function specInfo(file, src) {
   const s = structure(src)
   const prefix = s.pkg ? `${s.pkg}.` : ''
   const tops = s.classes.filter(c => !c.parent)
-  // A file with no class the dialect can read still runs as the class its name says.
+  // Unparseable file: fall back to the class named after the file.
   if (!tops.length) tops.push({ name: basename(file).replace(/\.\w+$/, ''), binary: basename(file).replace(/\.\w+$/, ''), displayName: null, parent: null })
   const classes = new Map()
   for (const c of [...tops, ...s.classes.filter(c => c.parent)]) classes.set(`${prefix}${c.binary}`, c)
   return { file, pkg: s.pkg, tops: tops.map(t => `${prefix}${t.binary}`), classes, tests: s.tests.map(t => ({ ...t, cls: t.cls ? `${prefix}${t.cls}` : null })) }
 }
 
-/** A report's test name as the dialect titles it: the method name, from "m()", "m(int)[2]" or a @DisplayName. */
+/** Method name from "m()", "m(int)[2]" or a @DisplayName. */
 export function titleOf(name, info, classname) {
   const raw = String(name ?? '').trim()
   const own = info?.tests.filter(t => !classname || !t.cls || t.cls === classname) ?? []
@@ -131,12 +57,11 @@ export function titleOf(name, info, classname) {
   return bare || raw
 }
 
-/** The tests of the reports that belong to the requested specs, titled and placed as the checks read them. */
 export function collect(cases, infos) {
   const byClass = new Map()
   for (const info of infos) {
     for (const [binary] of info.classes) byClass.set(binary, info)
-    // A report that names the class by its @DisplayName (surefire's phrased names) still finds it.
+    // Surefire may report the class by its @DisplayName.
     for (const [binary, c] of info.classes) if (c.displayName && !byClass.has(c.displayName)) byClass.set(c.displayName, { ...info, alias: binary })
   }
   const tests = []
@@ -148,10 +73,10 @@ export function collect(cases, infos) {
     const binary = hit.alias ?? c.classname
     const parts = binary.slice(info.pkg ? info.pkg.length + 1 : 0).split('$')
     const top = info.classes.get(`${info.pkg ? `${info.pkg}.` : ''}${parts[0]}`)
-    // The top-level group's title is the class's @DisplayName, where the ticket key is (see keys.mjs).
+    // The class @DisplayName carries the ticket key (see keys.mjs).
     const path = [top?.displayName ?? parts[0], ...parts.slice(1)]
     const simple = parts.at(-1)
-    // A class-level failure (@BeforeAll, a constructor, JUnit 4's initializationError) is no test of its own.
+    // Class-level failures (@BeforeAll, constructor, initializationError) aren't tests: mark the file broken.
     if (!c.name || c.name === c.classname || c.name === simple || c.name === 'initializationError' || c.name === 'classMethod') {
       if (c.status === 'failed') broken.push({ file: info.file, message: c.message })
       continue
@@ -161,12 +86,9 @@ export function collect(cases, infos) {
   return { tests, broken }
 }
 
-// ---------------------------------------------------------------------------------------------
-// The build.
-
 const BUILD_FILES = [['maven', 'pom.xml'], ['gradle', 'build.gradle.kts'], ['gradle', 'build.gradle']]
 
-/** The build of a spec: the nearest pom.xml or build.gradle(.kts) above it, up to the root; or null. */
+/** Nearest pom.xml or build.gradle(.kts) above the spec, up to root. */
 export function moduleOf(root, file) {
   const top = resolve(root)
   for (let d = dirname(resolve(top, file)); ; d = dirname(d)) {
@@ -175,7 +97,6 @@ export function moduleOf(root, file) {
   }
 }
 
-/** The first of names found from dir up to the root, or null. */
 function upTo(root, dir, names) {
   const top = resolve(root)
   for (let d = dir; ; d = dirname(d)) {
@@ -184,21 +105,16 @@ function upTo(root, dir, names) {
   }
 }
 
-// A word for cmd.exe: in double quotes, a quote doubled.
-
-/**
- * How to run one module: { cmd, args, cwd, reports, shell } for Maven or Gradle. A module below the build's top
- * runs from the top (Maven -pl, a Gradle project path), so its siblings it depends on build too.
- */
+/** Submodules run from the build's top (Maven -pl, Gradle project path) so sibling dependencies build too. */
 export function buildCommand(root, mod, selectors, win = WIN) {
   const b = toolCommand(root, mod, selectors, win)
-  // Node starts a .cmd or .bat only through cmd.exe (EINVAL without a shell): one line, each word quoted.
+  // Node can only start .cmd/.bat through a shell (EINVAL otherwise).
   return win && /\.(?:cmd|bat)$/i.test(b.cmd) ? { ...b, cmd: [b.cmd, ...b.args].map(s => shellQuote(s, true)).join(' '), args: [], shell: true } : b
 }
 
 function toolCommand(root, mod, selectors, win) {
   if (mod.tool === 'maven') {
-    // The reactor's top: the highest pom.xml between the module and the root.
+    // Reactor top: the highest pom.xml between module and root.
     let top = mod.dir
     for (let d = dirname(mod.dir); resolve(d).startsWith(resolve(root)); d = dirname(d)) {
       if (existsSync(join(d, 'pom.xml'))) top = d
@@ -219,7 +135,7 @@ function toolCommand(root, mod, selectors, win) {
   const settings = upTo(root, mod.dir, ['settings.gradle.kts', 'settings.gradle'])
   const top = wrapper?.dir ?? settings?.dir ?? mod.dir
   const project = localToForwardSlashes(relative(top, mod.dir)).split('/').filter(Boolean).map(p => `:${p}`).join('')
-  // cleanTest: an up-to-date test task would run nothing and leave the last run's reports.
+  // cleanTest: an up-to-date test task would skip and leave stale reports.
   return {
     tool: 'gradle',
     cmd: wrapper ? wrapper.path : win ? 'gradle.bat' : 'gradle',
@@ -229,7 +145,6 @@ function toolCommand(root, mod, selectors, win) {
   }
 }
 
-/** The project's junit.command with its placeholders filled; each value quoted for the shell. */
 export function fillCommand(template, { files, report, tool, selectors }) {
   const q = s => shellQuote(s, WIN)
   const test = tool === 'gradle'
@@ -238,7 +153,7 @@ export function fillCommand(template, { files, report, tool, selectors }) {
   return fillPlaceholders(template, { files: files.map(q).join(' '), report: q(report), test })
 }
 
-/** The first compiler error of the build output, the one naming the spec when there is one. */
+/** Prefer the compiler error that names the spec. */
 export function compileError(output, file) {
   const lines = String(output ?? '').split('\n').map(l => l.trim())
   const errs = lines.filter(l => /^\[ERROR\]\s+\S/.test(l) || /^e:\s+\S/.test(l) || /\.(?:java|kt):\d+(?::\d+)?:?\s*error:/.test(l) || /^error:/.test(l))
@@ -246,7 +161,7 @@ export function compileError(output, file) {
   return errs.find(l => l.includes(name)) ?? errs[0] ?? ''
 }
 
-/** Every *.xml under dir (one level of subfolders too) written at or after `since`. */
+/** *.xml under dir (one level deep) modified since `since`. */
 function reportFiles(dir, since = 0) {
   const out = []
   const visit = (d, depth) => {
@@ -264,7 +179,7 @@ function reportFiles(dir, since = 0) {
   return out
 }
 
-/** Removes the last run's reports of these classes, so only this run's are read back. */
+/** Delete stale reports for these classes so only this run's are read. */
 function clearReports(dir, classes) {
   let names = []
   try { names = readdirSync(dir) } catch { return }
@@ -310,7 +225,6 @@ const LABEL = { maven: 'Maven', gradle: 'Gradle' }
 const MISSING = { maven: 'Maven is not installed: no mvnw in the project and no mvn on PATH', gradle: 'Gradle is not installed: no gradlew in the project and no gradle on PATH' }
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
 
-/** The classes and methods one run selects: a whole class, or the methods named testName in it. */
 export function selectorsFor(infos, testName) {
   const out = []
   for (const info of infos) {
@@ -339,17 +253,17 @@ async function runModule(root, mod, infos, { testName, timeoutMs, template }) {
       clearReports(b.reports, selectors.map(s => s.cls))
       r = await spawnTool({ ...b, timeoutMs })
     }
-    // 9009: cmd.exe found no such command, its ENOENT.
+    // 9009 is cmd.exe's ENOENT.
     if (!template && b.shell && r.code === 9009) return { ran: false, error: MISSING[b.tool] }
     if (!r.started) return { ran: false, error: r.error === 'ENOENT' ? MISSING[b.tool] : `could not start ${LABEL[b.tool]}: ${r.error}` }
     if (r.timedOut) return { ran: false, error: took(timeoutMs) }
     const cases = []
-    // A second's slack: some file systems keep whole-second times.
+    // 1s slack: some filesystems store whole-second mtimes.
     for (const f of dirs.flatMap(d => reportFiles(d, start - 1000))) {
       try { cases.push(...parseJUnitXml(readFileSync(f, 'utf8'))) } catch {}
     }
     const { tests, broken } = collect(cases, infos)
-    // A file with no result from a failed build never ran: a compile error, most of the time.
+    // Failed build and no results for a file: usually a compile error.
     if (r.code !== 0) {
       for (const info of infos) {
         if (tests.some(t => t.file === info.file) || broken.some(x => x.file === info.file)) continue

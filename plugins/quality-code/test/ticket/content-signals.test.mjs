@@ -6,6 +6,8 @@ import { validateConfig } from '../../lib/config/config.mjs'
 import { buildBrief } from '../../lib/ticket/score.mjs'
 import { buildVocabulary } from '../../lib/ticket/languages/index.mjs'
 import { extractListCriteria, hasActionSteps, namesObservable } from '../../lib/ticket/criteria.mjs'
+import { findFields } from '../../lib/ticket/fields.mjs'
+import { checkStory } from '../../lib/ticket/story.mjs'
 import { sides } from '../config-fields.mjs'
 
 const cfg = adapter => validateConfig({
@@ -73,6 +75,32 @@ test('a numbered list of five checks without a heading is credited as acceptance
     assert.equal(b.legacy, false)
   }
   assert.equal(extractListCriteria(v, SPRINT['five-checks']).length, 5)
+})
+
+test('open questions are no criteria, bulleted or not; plain lines of checks count as a list (TS DMS 3.1)', () => {
+  const questions = ['Is the export limited to the rows the user can see?', 'What happens above 10,000 rows?', 'Are hidden columns exported?', 'Which encoding does the file use?']
+  const checks = SPRINT['five-checks'].split('\n').slice(2).map(l => l.replace(/^\d\. /, ''))
+  for (const pre of ['- ', '']) {
+    const asList = lines => `The export needs these.\n\n${lines.map(l => pre + l).join('\n')}`
+    assert.deepEqual(extractListCriteria(v, asList(questions)), [], `questions, marker "${pre}"`)
+    assert.equal(extractListCriteria(v, asList(checks)).length, 5, `checks, marker "${pre}"`)
+    assert.equal(buildBrief(FE, ticket(asList(checks))).signals.ac_present, true, `checks, marker "${pre}"`)
+  }
+  assert.equal(namesObservable(v, 'Is the counter 3?'), false)
+  // A plain line needs a word or a quoted text: a number alone (a date, a version) is prose.
+  assert.deepEqual(extractListCriteria(v, 'Released in version 2.3 on 12 May.\nSee the notes of build 45 too.'), [])
+})
+
+test('a bare "Acceptance" heading opens the criteria as "Acceptance criteria" does; a field named "Acceptance date" is none (TS DMS 3.3)', () => {
+  const body = 'The total row shows 108.00 for the sample order of two items in the grid. The Export button is disabled while the grid has no rows to export to the file.'
+  for (const head of ['## Acceptance', 'Acceptance:', '**Accettazione**']) {
+    const d = `As a buyer I want the order total, so that I can check the invoice before I pay it.\n\n${head}\n${body}`
+    assert.equal(buildBrief(FE, ticket(d)).signals.ac_present, true, head)
+    assert.equal(checkStory(ticket(d)).hasCriteria, true, head)
+  }
+  assert.equal(v.acHeading.test('Acceptance testing is done by QA'), false)
+  const fields = JSON.stringify([{ key: 'customfield_1', name: 'Acceptance date' }, { key: 'customfield_2', name: 'Acceptance' }])
+  assert.deepEqual(findFields(FE, fields).matches.map(m => m.key), ['customfield_2'])
 })
 
 test('a list whose items say "works correctly" is not credited as testable criteria', () => {

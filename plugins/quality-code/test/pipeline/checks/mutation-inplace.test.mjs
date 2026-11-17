@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -58,7 +58,7 @@ test('in place: the spec comes back when the runner throws mid-run', async () =>
   assert.ok(bytes(d).equals(Buffer.from(SRC)))
 })
 
-test('in place: SIGINT mid-run puts the original bytes back', async () => {
+test('in place: SIGINT mid-run puts the original bytes back, then ends the process by the signal, not by an exit code of its own', async () => {
   const d = spec()
   const child = spawn(process.execPath, [join(HERE, 'mutation-inplace.fixture.mjs'), d], { stdio: 'ignore' })
   const mutated = await new Promise(done => {
@@ -70,8 +70,23 @@ test('in place: SIGINT mid-run puts the original bytes back', async () => {
   })
   assert.ok(mutated, 'the fixture wrote a mutant into the spec')
   child.kill('SIGINT')
-  const code = await new Promise(done => child.on('exit', done))
-  assert.equal(code, 130)
+  const [code, signal] = await new Promise(done => child.on('exit', (...end) => done(end)))
+  assert.deepEqual([code, signal], [null, 'SIGINT'])
   assert.ok(bytes(d).equals(Buffer.from(SRC)))
   assert.deepEqual(readdirSync(join(d, 'pkg')), ['total_test.fake'])
+})
+
+test('in place: a spec that cannot be put back is reported, naming it, never passed over (J4)', async () => {
+  const d = spec()
+  const file = join(d, 'pkg/total_test.fake')
+  const runTests = async ({ files, testName }) => {
+    // The first mutant runs, then the spec cannot be written any more: the restore fails.
+    if (testName) chmodSync(file, 0o444)
+    return { ran: true, tests: ['total', 'count'].filter(t => !testName || t === testName).map(title => ({ title, file: files[0], status: testName ? 'failed' : 'passed' })) }
+  }
+  const r = await run({ spec: 'pkg/total_test.fake' }, { root: d, dialect: FAKE, runTests })
+  chmodSync(file, 0o644)
+  assert.equal(r.status, 'not_run')
+  assert.match(r.summary, /^could not put pkg\/total_test\.fake back as it was \(EACCES\): it may still hold a mutant, restore it from git$/)
+  assert.equal(r.findings[0].kind, 'not restored')
 })

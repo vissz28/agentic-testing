@@ -238,7 +238,7 @@ test('vitest block: absent stays absent; only with backend vitest', () => {
 test('vitest block: each wrong part is named', () => {
   const r = validateConfig({ ...vgood, vitest: { configs: [{ match: '../x', config: 'a.ts' }, { match: 'test/', config: '/abs.ts' }, { match: 'x' }, 'no'], tsconfig: '', timeoutSeconds: 5, extra: 1 } })
   assert.deepEqual(r.errors, [
-    'vitest.extra: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")',
+    'vitest.extra: unknown field (only "configs", "tsconfig", "timeoutSeconds", "maxMutants", "layers" and "stryker")',
     'vitest.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'vitest.configs[1].config "/abs.ts" must be a relative path inside the project (no "..", not absolute, one line)',
     'vitest.configs[2].config undefined must be a relative path inside the project (no "..", not absolute, one line)',
@@ -359,7 +359,7 @@ test('playwright block: absent stays absent; only with frontend playwright; not 
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
   assert.deepEqual(r.errors, [
-    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")',
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles" and "redTags")',
     'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'playwright.configs[1]: must be an object with "match" and "config"',
     'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -367,6 +367,8 @@ test('playwright block: each wrong part is named', () => {
   ])
   assert.ok(validateConfig({ ...good, playwright: { configs: {} } }).errors.includes('playwright.configs: must be a list of { "match", "config" }'))
   for (const t of [1.5, 3601, '60']) assert.ok(validateConfig({ ...good, playwright: { timeoutSeconds: t } }).errors.includes('playwright.timeoutSeconds: must be a whole number from 10 to 3600'), String(t))
+  for (const m of [0, 2.5, '10']) assert.ok(validateConfig({ ...good, playwright: { maxMutants: m } }).errors.includes('playwright.maxMutants: must be a whole number from 1, the most mutants run per spec'), String(m))
+  assert.equal(validateConfig({ ...good, playwright: { maxMutants: 20 } }).ok, true)
 })
 test('playwright.projects: 1 to 10 one-line names, not starting with "-", no duplicates', () => {
   const list = 'playwright.projects: must be a list of 1 to 10 project names'

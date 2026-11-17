@@ -62,8 +62,8 @@ test('flaky classification', () => {
   for (const [vs, v] of E.flaky.overall) assert.equal(overall(vs), v, vs.join())
 })
 describe('mutation plans', () => {
-  for (const m of E.mutation) test(`${m.fixture}${m.key ? ` --key ${m.key}` : ''}${m.thorough ? ' thorough' : ''}`, () => {
-    const plan = planMutants(read(`checks/${m.fixture}`), m.passed, { key: m.key, thorough: m.thorough, ungraded: U[m.repo] }, D[m.repo])
+  for (const m of E.mutation) test(`${m.fixture}${m.key ? ` --key ${m.key}` : ''}`, () => {
+    const plan = planMutants(read(`checks/${m.fixture}`), m.passed, { key: m.key, ungraded: U[m.repo] }, D[m.repo])
     assert.deepEqual(m.repo === 'fe' && plan ? plan.filter(p => !VALUE_FLIPS.has(p.kind)) : plan, m.mutants)
   })
 })

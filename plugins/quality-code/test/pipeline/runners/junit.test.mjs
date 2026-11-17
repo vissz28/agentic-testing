@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  buildCommand, collect, compileError, decodeEntities, fillCommand, junitRunner, moduleOf, parseJUnitXml, parseXml, selectorsFor, specInfo, titleOf,
+  buildCommand, collect, compileError, fillCommand, junitRunner, moduleOf, parseJUnitXml, selectorsFor, specInfo, titleOf,
 } from '../../../lib/pipeline/runners/junit.mjs'
 import { inKeyBlock } from '../../../lib/config/keys.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
@@ -29,14 +29,8 @@ function project(files) {
   return d
 }
 
-test('parseXml: entities, CDATA, comments, quotes holding ">", self-closing tags', () => {
-  const doc = parseXml('<?xml version="1.0"?>\n<!-- a <comment> -->\n<a x="1 &gt; 0" y=\'it&apos;s\'><b/><c><![CDATA[<raw> & stuff]]> &amp; &#38;&#x41;</c></a>')
-  const a = doc.children[0]
-  assert.deepEqual(a.attrs, { x: '1 > 0', y: "it's" })
-  assert.deepEqual(a.children.map(c => c.name), ['b', 'c'])
-  assert.equal(a.children[1].text, '<raw> & stuff & &A')
-  assert.equal(decodeEntities('&unknown; &#10;'), '&unknown; \n')
-  assert.throws(() => parseXml('<a><b>'), /unclosed <b>/)
+test('parseJUnitXml: a report cut off while written throws, naming the open element', () => {
+  assert.throws(() => parseJUnitXml('<testsuite><testcase name="a">'), /unclosed <testcase>/)
 })
 
 test('surefire: passed, a failure with a multi-line stack, an error, a skipped, parameterized invocations', () => {
@@ -279,4 +273,8 @@ test('junit.command: the project\'s own command, its reports read from {report}'
     // The temp report folder is gone; nothing was written into the project.
     assert.deepEqual(readdirSync(d).sort(), ['pom.xml', 'src'])
   } finally { process.env.PATH = before }
+})
+
+test('parseJUnitXml: a stray end tag closes nothing, so the test keeps its suite', () => {
+  assert.deepEqual(parseJUnitXml('<testsuites><testsuite name="s"></x><testcase name="n"/></testsuite></testsuites>').map(t => t.classname), ['s'])
 })

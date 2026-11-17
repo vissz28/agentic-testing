@@ -9,6 +9,59 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- `/quality-code:ci --gate-only` writes the fast gate job alone, with no install and no test run: for a project whose install or suite cannot run in CI yet.
+- Mutation can be capped per spec: `playwright.maxMutants` and `vitest.maxMutants`, set with `/quality-code:config`; the card says how many were left out. A Playwright spec whose config has no `webServer` (it runs against a live app) runs the 5 strongest mutants by default: on TS DMS's five live specs that is 25 reruns, not 375. `/quality-code:check --no-mutation` leaves the step out, and the `spec` next step says so for live end-to-end specs.
+- Linked Xray tests: when the Xray API is on, the steps of the tests linked to a ticket are read (a new read-only `get_tests` tool) and scored like the description. Off, the ticket gets a flag saying so.
+- Setup on a stack that is not supported yet offers the ticket checks only (a personal setup with the developer role) instead of stopping.
+- A ticket with only a description: the refuse card's option 1 drafts the acceptance criteria from it; you confirm each one, and the script still scores them.
+- `/quality-code:spec` reads a ready ticket's screenshots when it plans Playwright tests, for the labels and texts the tests check.
+
+### Fixed
+
+- `save set repo` with the project in a subfolder (`root`) moved nothing, so `config check` then said the project was not set up. The config now moves, and the tickets folder under the subfolder ignores itself in git, so a raw ticket is never committed.
+- `branch.mjs --detect` compares with `origin/<base>`: a local base that fell behind no longer lists a colleague's merged work as this branch's.
+- Every Playwright test stopping before its first line (no sign-in file, no browser) is `could not run`, not failing tests.
+- Readiness score: an open question (`…?`) is never a criterion; Given/When/Then made of filler (lorem ipsum) scores as nothing; a list whose bullets were lost still reads as a list; an `Acceptance` heading counts as the criteria heading. The card says `Scenarios: none drafted yet` when only the text's criteria were scored, instead of `0 read`.
+- The Word reader keeps list items as a list and reads up to 60,000 characters (was 20,000).
+- The expected-value check matches a text value as a whole word: the ticket's `EU` is no longer found in `NON-EUROPE`. A code written with leading zeros (`000`, `007`) must be asserted as written: the number `0` no longer counts for it.
+- The type check no longer fails new tests over an old type error on a line this change did not touch; it names it instead.
+- A title starting `[FE][BE]` is a fullstack ticket. Every ticket command (fill-in, story check, side), not only the score, refuses an epic.
+- `/quality-code:xray --route` checks the route against the app's router, as `spec` does.
+- `report --cost` counts the card answers of a command's session under that command.
+- `clean` lists what setup changed outside its own files: the reply style, your save choice and your Jira email.
+- Setup no longer asks for your Atlassian email when the connector gives only an account id, and no longer turns on the report reply style: turn it on in `/quality-code:config`.
+- A file path written with backslashes (Windows) is checked and stored with forward slashes, so `..\x` cannot leave the project.
+- The note added to a Jira description after the fill-in ends with the co-author line, as comments do.
+- pytest and .NET: a report cut off while written is `could not run` (`pytest wrote a report that is cut off`), as JUnit already was; before, part of the results could pass for all of them.
+- `report`: coverage totals are read without building the per-package detail, so a JaCoCo or Cobertura report of tens of MB takes milliseconds and no extra memory.
+- .NET: a TRX report with a character reference that is no character (`&#99999999;`) no longer crashes the test step; it is kept as text.
+- JUnit: a stray end tag in a report no longer closes the whole document, so the tests after it keep their suite name.
+- JUnit: a report cut off while written is always read as broken; before, some cut-off points gave half the results.
+- Setup, in a repo with several projects: an unstaged change in the first line of `git status` now counts for its folder. The line lost its leading space, so `api/x.ts` was read as `pi/x.ts` and setup could ask which project this is, or pick the wrong one.
+- A crashed check now says where it crashed: `check types crashed: <message>` is followed by `at lib/…/file.mjs:<line>:<column>`, taken from the original error. Before, only the message was printed, which was not enough to find the bug.
+- A date that does not exist (`2026-02-31`) is refused by `routine --until` and when a report file is named, as `report --cost` and `transcript` already did.
+- `/quality-code:setup` on a version 1 config from before 0.69 no longer stops on `testFlow: unknown field`: the old `testFlow` becomes `testStyle`, keeping its value (`both` stays `both`). A `testStyle` already there wins.
+- The readiness report of a Playwright ticket counted 0 scenarios with a clear expected result when each scenario was on one line (`Given … When … Then the cell shows "+0,004"`). The text after the last Then is now read as the result, as the expected-values check already did. The score does not change; a refused ticket can now reach the borderline fill-in.
+- The story check counted the acceptance criteria twice when the ticket has them both in the description and in the criteria field, so a normal ticket was flagged too long (AGT-144: 770 words instead of 471). The copy counts once.
+- Mutation testing in place (Go, Java, C#, Python): when the test file cannot be put back after a mutant, the check now says so, naming the file (`could not put <spec> back as it was … restore it from git`), instead of passing over it and leaving the file mutated without a word.
+- On Ctrl-C during mutation testing, the library puts the test file back and lets the signal end the process; it no longer picks the exit code itself. `pipeline.mjs` still exits with 130.
+- Every config lookup reads the environment it is given. Before, finding the project from a subfolder read the real environment, so a config kept on this machine (`local`) could be missed when the place or the Claude folder came from the caller.
+
+### Changed
+
+- `/quality-code:qa` runs on Sonnet and compares each step with the page as text, taking a screenshot only for evidence: a run costs less.
+- Flags never change the score, which stays the scripts' alone. A ready ticket with flags says `Ready, with <n> open point(s)`, and `spec` lists them on its plan card; a scenario a flag leaves without a value is written as a pending test that names the question.
+- Writing guides: Playwright `has` locators are built from `page`; dates and numbers are asserted in the test account's format; the request a ticket is about is never stubbed. JUnit: `Optional` over `null` in test code.
+- Internal: one XML reader, `lib/core/xml.mjs` (`parseXml`, `decodeEntities`, `child`, `descendants`), replaces the three written in the JUnit, pytest and .NET runners and the regex reading of JaCoCo and Cobertura coverage.
+- Internal: every git call goes through `git()` and `gitOut()` in `lib/core/git.mjs` (13 hand-written runners in 10 files). Each one now reads plain output whatever the user's git config, takes no optional lock, and never waits on a password prompt (`routine`'s `git fetch` fails instead of hanging).
+- Internal: `lib/core/is.mjs` holds the value checks: `isObject` (4 definitions and 22 inline checks), `isDate` (4 copies), `isWholeNumber` (3 argument checks), and `isLine`, `hasLineBreak` and `isTicketKey`, moved from `text.mjs`. `--flaky`, `--last` and `progress --step` refuse a number written with a leading zero (`01`).
+- Internal: `lines`, `escapeHtml` and `pct` in `lib/core/text.mjs` replace hand-written copies; `slug` and `short` live once, in `lib/config/places.mjs`. The CI report now also escapes `'`, and a percent is rounded exactly (29 of 200 is 15%, not 14%).
+- Internal: `lib/core/paths.mjs` holds the path chores written by hand in 25 files: `stripDotSlash`, `noTrailingSlash`, `cleanRelPath` (it replaces `normaliseTicketsDir` and a twin), `isAbsoluteAnywhere` and `leavesFolder`. A file or folder whose name only starts with two dots (`..cache`) is no longer taken for one outside the project.
+
+**What to do:** update the plugin. If you want results-only replies, turn on the report style in `/quality-code:config` (setup no longer does it). For slow live end-to-end specs, set `playwright.maxMutants` or use `--no-mutation`.
+
 ## [0.80.11] - 2026-11-17
 
 ### Added

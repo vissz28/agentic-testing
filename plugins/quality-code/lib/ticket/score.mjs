@@ -5,28 +5,25 @@ import vitest from './rubrics/vitest.mjs'
 import { adaptersForSide, isFullstack, sideOfAdapter, ticketSide } from '../stacks/stack.mjs'
 import { backendOf, isBackend, runnerLabel } from '../stacks/backends.mjs'
 
-/** Pass bar. A constant: never read from config or flags. */
+// Deliberately not configurable.
 export const THRESHOLD = 70
 
 const RUBRICS = { playwright, vitest }
 
-/** The rubric of an adapter: every backend runner is scored with the backend rubric (id "vitest"), Playwright with its own. */
+// Every backend runner uses the backend rubric (id "vitest").
 export const rubricOfAdapter = adapter => (adapter === 'playwright' ? playwright : isBackend(adapter) ? vitest : undefined)
 
-/** A Story is never asked for these: they are Bug language. */
+// Bug-only items, never asked of a Story.
 const NOT_ON_STORY = ['environment', 'expected_defined']
 
-/**
- * The keys that never count against a ticket: those the rubric omits for this config, and on a
- * Story the Bug keys, so a missing item the fill-in will not ask for never costs points.
- */
+/** Keys that can't cost points: rubric omissions for this config, plus Bug keys on a Story. */
 export function omittedFor(rubric, config, ticket) {
   const keys = new Set(rubric.omitted?.(config, ticket) ?? [])
   if (templateFor(ticket?.issuetype, config) === 'story') for (const k of NOT_ON_STORY) keys.add(k)
   return keys
 }
 
-/** The rubric a ticket is scored with. On a fullstack project it depends on the ticket's side: see buildBrief. */
+/** On fullstack the rubric depends on the ticket's side; see buildBrief. */
 export function rubricFor(config, ticket = null) {
   if (isFullstack(config)) return RUBRICS[buildBrief(config, ticket ?? {}).rubric]
   const r = rubricOfAdapter(config.adapter)
@@ -34,17 +31,12 @@ export function rubricFor(config, ticket = null) {
   return r
 }
 
-/** The side a ticket is scored for on a fullstack project: the one set with `ticket.mjs side`, else its marks. */
+/** `ticket.mjs side` overrides the side inferred from the ticket. */
 export const sideFor = (config, ticket) => ticket?.side ?? ticketSide(config, ticket)
 
 /**
- * Score in 0..100 plus what is missing. ac_testable only counts if ac_present is also true.
- * A key in `omitted` is a key this config or this ticket can never earn (no features configured,
- * no title prefixes configured, "confluence": false…), or one a Story is never asked for: it is
- * left out of the denominator when not credited, so it never lowers the score, is never in
- * `missing` and is never offered by the fill-in — instead of leaving points permanently out of
- * reach. Earned anyway, it counts as usual, so a Story that already has an environment section is
- * not marked down for lacking one, and gets credit for it.
+ * Score 0..100. ac_testable counts only with ac_present.
+ * An omitted key leaves the denominator unless earned, so unreachable points never lower the score.
  */
 export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   let score = 0
@@ -60,28 +52,23 @@ export function scoreTicket(rubric, signals = {}, omitted = new Set()) {
   }
   missing.sort((a, b) => b.weight - a.weight)
   const scaled = n => (total ? Math.max(0, Math.min(100, Math.round((n * 100) / total))) : 0)
-  // What each missing item adds to the printed score: its weight, unless omitted keys rescale it.
+  // Points each missing item adds, after rescaling.
   const gains = Object.fromEntries(missing.map(m => [m.key, scaled(score + m.weight) - scaled(score)]))
   return { score: scaled(score), missing, gains }
 }
 
-/** Below the threshold is refuse: a readable Then does not save a thin ticket. */
 export function decideGate(score) {
   return score >= THRESHOLD ? 'pass' : 'refuse'
 }
 
-/**
- * The readiness brief. On a fullstack project a frontend ticket is scored with the Playwright rubric,
- * a backend one with the Vitest rubric, and a fullstack or unmarked one with both: it gets tests on
- * both sides, so the lower score decides.
- */
+// Fullstack: a ticket on both sides (or unmarked) is scored with both rubrics and the lower wins.
 export function buildBrief(config, ticket) {
   if (!isFullstack(config)) return briefFor(config, rubricOfAdapter(config.adapter) ?? rubricFor(config), ticket)
   const side = sideFor(config, ticket)
   const briefs = adaptersForSide(side, config).map(a => briefFor({ ...config, adapter: a }, rubricOfAdapter(a), ticket))
   const brief = briefs.reduce((low, b) => (b.score < low.score ? b : low))
   brief.side = side
-  // Non-enumerable, like rubric: the side line names the project's backend runner.
+  // Non-enumerable so it stays out of the JSON brief.
   Object.defineProperty(brief, 'backendLabel', { value: runnerLabel(backendOf(config)), enumerable: false })
   if (briefs.length > 1) brief.sides = Object.fromEntries(briefs.map(b => [sideOfAdapter(b.rubric), { score: b.score, gate: b.gate }]))
   return brief
@@ -115,14 +102,13 @@ function briefFor(config, rubric, ticket) {
     flags,
     signals,
   }
-  // Non-enumerable: the JSON brief keeps exactly today's field set.
+  // Non-enumerable so the JSON brief's fields don't change.
   Object.defineProperty(brief, 'rubric', { value: rubric.id, enumerable: false })
   Object.defineProperty(brief, 'omitted', { value: omitted, enumerable: false })
   Object.defineProperty(brief, 'gains', { value: gains, enumerable: false })
   return brief
 }
 
-/** The human-readable report, in the wording of the brief's own rubric. */
 export function formatReport(brief) {
   const rubric = RUBRICS[brief.rubric]
   if (!rubric) throw new Error('brief has no rubric')

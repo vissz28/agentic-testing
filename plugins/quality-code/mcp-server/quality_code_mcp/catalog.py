@@ -1,4 +1,4 @@
-"""Reads the plugin's commands, guides and scripts from its folder. Nothing is copied: the plugin stays the one source."""
+"""Reads the plugin's commands, guides and scripts in place, so the plugin stays the single source."""
 from __future__ import annotations
 
 import os
@@ -6,12 +6,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-# Scripts that must not be run by a client: the connector launcher starts third-party servers.
+# Not runnable by a client: the connector launcher starts third-party servers.
 HIDDEN_SCRIPTS = {"mcp-launch.mjs"}
 
 
 def plugin_root() -> Path:
-    """QUALITY_CODE_PLUGIN_ROOT, else the plugin this server sits in (plugins/quality-code/mcp-server/..)."""
+    """QUALITY_CODE_PLUGIN_ROOT, else the plugin folder this server sits in."""
     env = os.environ.get("QUALITY_CODE_PLUGIN_ROOT")
     root = Path(env) if env else Path(__file__).resolve().parents[2]
     if not (root / "commands").is_dir():
@@ -63,7 +63,7 @@ def list_scripts(root: Path) -> list[str]:
 
 
 def render(cmd: Command, root: Path, arguments: str = "") -> str:
-    """The command as a prompt for the calling model: the plugin folder and arguments filled in, plus how this server replaces Claude Code's tools."""
+    """The command prompt with the plugin folder and arguments filled in, plus how to stand in for Claude Code's tools."""
     body = cmd.body.replace("${CLAUDE_PLUGIN_ROOT}", str(root)).replace("$ARGUMENTS", arguments)
     body = re.sub(r"\$\{user_config\.([a-z_]+)\}", lambda m: os.environ.get("QUALITY_CODE_" + m.group(1).upper(), ""), body)
     note = (

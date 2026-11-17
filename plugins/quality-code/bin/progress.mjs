@@ -1,18 +1,13 @@
 #!/usr/bin/env node
-// Entry point for the "where did I stop" cache the commands use between steps and sessions.
-// node bin/progress.mjs get <command> [--key KEY]
-// node bin/progress.mjs set <command> --step N --label "text" [--key KEY] [--data '{"site":"…"}']
-// node bin/progress.mjs clear <command> [--key KEY]
-// node bin/progress.mjs list
-// node bin/progress.mjs context get <fact> [--head | --current TOKEN]
-// node bin/progress.mjs context set <fact> --data JSON --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
-// node bin/progress.mjs context file <path> [--role target|spec|config] | changed <path> | clear [<fact>] | list
-// Local files only, never sent anywhere, never in the repo. Exit 0 ok, 2 usage or refused input.
-import { execFileSync } from 'node:child_process'
+// Local resume cache for commands (steps and cached facts). Never sent anywhere, never in the repo.
+// context set --source ttl:MS|hash:TOKEN|head|ticket:UPDATED|none
+// Exit 0 ok, 2 usage or refused input.
 import { projectRoot } from '../lib/config/config.mjs'
 import { clearContext, fileChanged, getFact, listContext, recordFile, setFact } from '../lib/state/context.mjs'
 import { clearProgress, getProgress, listProgress, setProgress } from '../lib/state/progress.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
+import { gitOut } from '../lib/core/git.mjs'
+import { isWholeNumber } from '../lib/core/is.mjs'
 
 const USAGE = 'usage: progress.mjs get <command> [--key KEY] | set <command> --step N --label "text" [--key KEY] [--data JSON] | clear <command> [--key KEY] | list | context get|set|file|changed|clear|list …'
 
@@ -31,7 +26,7 @@ function parse(argv) {
   return a
 }
 
-// A file it cannot trust (a broken config or saved step) stops it with the file's name, as qa.mjs does.
+// A broken config or saved step exits 2 with the file name, not a stack trace.
 export async function main(argv = process.argv.slice(2), io = {}) {
   try { return await handle(argv, io) } catch (e) { lineWriter(io.stderr ?? (s => process.stderr.write(s)))(`progress.mjs: ${e?.message ?? e}`); return 2 }
 }
@@ -59,7 +54,7 @@ async function handle(argv = process.argv.slice(2), { env = process.env, cwd = p
     return 0
   }
   if (sub === 'set') {
-    if (a.step === null || !/^\d+$/.test(a.step)) return fail('set needs --step N (a whole number)')
+    if (a.step === null || !isWholeNumber(a.step)) return fail('set needs --step N (a whole number)')
     let data = {}
     if (a.data !== null) { try { data = JSON.parse(a.data) } catch { return fail('--data is not valid JSON') } }
     const r = setProgress(root, command, { key: a.key, step: Number(a.step), label: a.label, data }, env)
@@ -77,7 +72,7 @@ async function handle(argv = process.argv.slice(2), { env = process.env, cwd = p
 }
 
 // The git commit this project is at: the token a `head` fact is compared with.
-const gitHead = root => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null } }
+const gitHead = root => gitOut(root, ['rev-parse', 'HEAD'])
 
 function parseSource(text) {
   const [kind, ...rest] = String(text ?? '').split(':')

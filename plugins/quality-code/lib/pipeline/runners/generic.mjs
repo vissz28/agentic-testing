@@ -1,8 +1,4 @@
-// The generic tier's runner: runs specs with the project's own Jest, Mocha, node --test or Cypress and
-// reads one result per test, the runner contract of the shared checks. Jest's JSON report has the shape
-// Vitest's copies; Mocha has a JSON reporter; node --test takes the plugin's own reporter; Cypress gives
-// its results through its Module API. Never writes into the project: reports and artifacts go to a temp
-// folder that is always deleted.
+// Generic runner for Jest, Mocha, node --test and Cypress. Reports go to a temp dir that is always deleted.
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,18 +11,18 @@ import { RUNNERS } from '../../stacks/runners.mjs'
 import { kill, toolScript, track } from './tool.mjs'
 import { firstLine, toForwardSlashes } from '../../core/text.mjs'
 import { tryReadJson } from '../../core/files.mjs'
+import { leavesFolder } from '../../core/paths.mjs'
 
-// Cypress checks its baseUrl before any spec and, when the app is down, says so only on its output.
+// Cypress reports an unreachable baseUrl only on stdout, before any spec runs.
 const APP_DOWN = /could not verify that this server is running:\s*>\s*(\S+)/i
 const CYPRESS_RUN = fileURLToPath(new URL('./cypress-run.mjs', import.meta.url))
 const NODE_REPORTER = fileURLToPath(new URL('./node-test-reporter.mjs', import.meta.url))
 
-// The node flags a test script may need to load its specs (a TypeScript loader, a setup file, an env
-// file), each with its value when it takes one. Every other flag of the script is left out.
+// Loader/setup/env flags the project's test script needs to load specs; everything else is dropped.
 const NODE_FLAG_VALUE = new Set(['--import', '--require', '-r', '--loader', '--experimental-loader', '--env-file', '--conditions', '-C'])
 const NODE_FLAG = /^(?:--import|--require|-r|--loader|--experimental-loader|--env-file|--conditions|-C|--experimental-[\w-]+|--no-warnings|--enable-source-maps)(?:=|$)/
 
-/** The loading flags of the project's node --test script (its "test" script first), so the specs load as they do there. */
+/** Loader flags from the project's node --test script ("test" checked first). */
 export function nodeFlags(root) {
   const scripts = tryReadJson(join(root, 'package.json'), null)?.scripts ?? {}
   const all = Object.entries(scripts).sort(([a], [b]) => (a === 'test' ? -1 : b === 'test' ? 1 : 0)).map(([, s]) => String(s))
@@ -44,7 +40,7 @@ export function nodeFlags(root) {
   return []
 }
 
-/** A path the runner reported, relative to the project (it may report the real path of a symlinked root). */
+/** Runners may report the realpath of a symlinked root. */
 function relativeTo(root) {
   let base = root
   try { base = realpathSync(root) } catch {}
@@ -52,11 +48,10 @@ function relativeTo(root) {
     const s = String(p ?? '')
     if (!isAbsolute(s)) return toForwardSlashes(s)
     const r = relative(base, s)
-    return toForwardSlashes(r.startsWith('..') && base !== root ? relative(root, s) : r)
+    return toForwardSlashes(leavesFolder(r) && base !== root ? relative(root, s) : r)
   }
 }
 
-/** Mocha's JSON reporter: every test with its full title and file; failures and pending name the red and the skipped. */
 export function parseMocha(json, root) {
   const rel = relativeTo(root)
   const id = t => `${t.file}\0${t.fullTitle}`
@@ -65,16 +60,15 @@ export function parseMocha(json, root) {
   const all = json?.tests ?? []
   const tests = all.map(t => {
     const status = failed.has(id(t)) ? 'failed' : pending.has(id(t)) ? 'skipped' : 'passed'
-    // Mocha names no group by itself: the full title less the test's own is its describe path.
+    // Mocha has no describe path: derive it from fullTitle minus title.
     const parent = String(t.fullTitle ?? '').slice(0, -String(t.title ?? '').length || undefined).trim()
     return { title: t.title, path: parent ? [parent] : [], file: rel(t.file), status, message: status === 'failed' ? firstLine(failed.get(id(t)).err?.message) : '' }
   })
-  // A failed hook (before all) is a failure with no test of its own: the tests of its file never ran.
+  // A failed before-all hook has no test of its own: its file never ran.
   const broken = [...failed.values()].filter(f => !all.some(t => id(t) === id(f))).map(f => ({ file: rel(f.file), message: firstLine(f.err?.message) }))
   return { tests, broken }
 }
 
-/** The plugin's node --test reporter: { tests, broken } with absolute files. */
 export function parseNodeTest(json, root) {
   const rel = relativeTo(root)
   return {
@@ -83,7 +77,6 @@ export function parseNodeTest(json, root) {
   }
 }
 
-/** Cypress's Module API results: one run per spec, each test with its title path and state. */
 export function parseCypress(json) {
   if (!Array.isArray(json?.runs)) return { tests: [], broken: [], error: firstLine(json?.message) || 'Cypress ran no spec' }
   const tests = []
@@ -100,8 +93,6 @@ export function parseCypress(json) {
   return { tests, broken }
 }
 
-// How each runner runs some specs: the package that must be installed, the script to start, its
-// arguments, and how to read the report it writes to `out`.
 export const HOW = Object.freeze({
   jest: {
     packages: ['jest'],
@@ -113,7 +104,6 @@ export const HOW = Object.freeze({
     args: ({ files, out, config, testName }) => [...files, '--reporter', 'json', '--reporter-option', `output=${out}`, ...(config ? ['--config', config] : []), ...(testName !== undefined ? ['--grep', titlePattern(testName)] : [])],
     parse: parseMocha,
   },
-  // Node's own runner: no package, the plugin's reporter, and the loading flags of the project's script.
   node: {
     packages: null,
     args: ({ files, out, testName, root }) => [...nodeFlags(root), '--test', `--test-reporter=${NODE_REPORTER}`, `--test-reporter-destination=${out}`, ...(testName !== undefined ? [`--test-name-pattern=${titlePattern(testName)}`] : []), ...files],
@@ -133,7 +123,6 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
   const label = RUNNERS[runner]?.label ?? runner
   return new Promise(done => {
     if (!how) return done({ ran: false, error: `no runner for ${runner}` })
-    // node --test is Node itself: nothing to install.
     const bin = how.packages ? toolScript(root, how.packages, runner) : null
     if (how.packages && !bin) return done({ ran: false, error: `${label} is not installed in this project` })
     const dir = mkdtempSync(join(tmpdir(), `qc-${runner}-`))
@@ -153,8 +142,7 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
     }
     let child
     try {
-      // A run started from inside a node:test process must not inherit its marker: node --test would
-      // take itself for a nested run and run nothing.
+      // Inheriting NODE_TEST_CONTEXT makes node --test think it's nested and run nothing.
       const env = { ...process.env, NO_COLOR: '1', CI: '1' }
       delete env.NODE_TEST_CONTEXT
       child = spawn(process.execPath, args, { cwd: root, detached: true, windowsHide: true, env, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -188,7 +176,7 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
   })
 }
 
-/** The runner contract for a generic runner: specs grouped by the config that runs them (vitest.configs or playwright.configs). */
+/** Specs grouped by their config (vitest.configs or playwright.configs). */
 export function genericRunner(root, config, runner) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const configFor = RUNNERS[runner]?.kind === 'e2e' ? e2eConfigFor : unitConfigFor

@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Builds plugins/quality-code/resources/commands.pdf, the guide shipped with the plugin: the commands, grouped, with what is new.
-
-    python3 scripts/build-commands-pdf.py
-"""
+"""Builds plugins/quality-code/resources/commands.pdf, the command guide shipped with the plugin."""
 from datetime import date
 from pathlib import Path
 import json
@@ -18,7 +15,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = json.loads((ROOT / 'plugins/quality-code/.claude-plugin/plugin.json').read_text())['version']
 SHORT = '.'.join(VERSION.split('.')[:2])
-OUT = ROOT / 'plugins' / 'quality-code' / 'resources' / 'commands.pdf'  # shipped with the plugin: update points to it
+OUT = ROOT / 'plugins' / 'quality-code' / 'resources' / 'commands.pdf'  # /quality-code:update links to it
 TODAY = date.today().strftime('%-d %b %Y')
 
 TS_BLUE, TS_DARK, TS_PALE = colors.HexColor('#0090D1'), colors.HexColor('#005075'), colors.HexColor('#E5F4FB')

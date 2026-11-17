@@ -176,7 +176,6 @@ test('plan: one mutant per assertion (the strongest), green scenarios only, insi
   ])
   const own = planMutants(TWO_BLOCKS, passed, { key: 'ABC-7' }, GO)
   assert.deepEqual(own.map(m => m.title), ['a sale of 3 leaves 2', 'a sale over the stock is refused'])
-  assert.ok(planMutants(TWO_BLOCKS, passed, { thorough: true }, GO).length > all.length)
   assert.equal(planMutants(TWO_BLOCKS, passed, { key: 'ABC-99' }, GO), null)
   // The hollow scenario passes with no assertion: not mutated, so the step cannot pass.
   assert.deepEqual(unmutated(TWO_BLOCKS, passed, own, { key: 'ABC-7' }, GO), ['hollow'])

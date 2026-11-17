@@ -1,5 +1,4 @@
-// Type-check step: the project's own tsc, --noEmit, with the tsconfig of the vitest or playwright block
-// plus the specs, so a spec its include leaves out is still checked. Only an error in a spec fails.
+// Type-check step: the project's tsc --noEmit on its tsconfig plus the specs; only spec errors fail.
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -12,16 +11,17 @@ import { stripCodeComments } from './checks/expected.mjs'
 import { kill, toolScript, track } from './runners/tool.mjs'
 import { runnerOf } from '../stacks/runners.mjs'
 import { toForwardSlashes, plural } from '../core/text.mjs'
+import { specDiff } from '../core/git.mjs'
+import { stripDotSlash, noTrailingSlash, leavesFolder } from '../core/paths.mjs'
 
 const CYPRESS_TSCONFIG = 'cypress/tsconfig.json'
 const TS = /\.(ts|tsx|mts|cts)$/
 const CAP = 1 << 20
 
 /**
- * The tsconfig tsc runs on: the project's own (its options, include and exclude are inherited) with the
- * specs added. Written next to it, so its relative paths resolve the same. The specs are relative too: an
- * absolute path under a symlinked root makes tsc load a spec twice, the second under a ../ path. composite
- * is off: it would refuse a spec its include does not list.
+ * Extends the project's tsconfig and lives next to it so relative paths resolve the same.
+ * Spec paths stay relative: absolute ones under a symlinked root make tsc load a spec twice.
+ * composite is off, or tsc rejects specs outside its include.
  * ponytail: a base with no include and no files (tsc's default: every file) then only gets the specs and what they import.
  */
 export function scopedTsconfig(tsconfig, specs) {
@@ -33,13 +33,9 @@ const readTsconfig = (root, p) => {
   try { return JSON.parse(stripCodeComments(readFileSync(join(root, p), 'utf8')).replace(/,(\s*[}\]])/g, '$1')) } catch { return null }
 }
 // A tsconfig include entry: a glob, or a file or a folder (everything under it).
-const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${entry.replace(/\/+$/, '')}/`, path))
+const covers = (entry, path) => matches(entry, path) || (!entry.includes('*') && matches(`${noTrailingSlash(entry)}/`, path))
 
-/**
- * The tsconfig to extend. A solution-style one (no files of its own, only references, as in the Vite
- * templates) checks nothing and has no compiler options: the referenced one whose include covers the
- * most specs is the one the project's own build checks them with.
- */
+/** A solution-style tsconfig (only references, as in Vite templates) checks nothing: pick the reference covering most specs. */
 export function ownTsconfig(root, tsconfig, specs) {
   const base = readTsconfig(root, tsconfig)
   if (!base?.references?.length || !(base.files?.length === 0 || base.include?.length === 0)) return tsconfig
@@ -51,20 +47,42 @@ export function ownTsconfig(root, tsconfig, specs) {
     const include = readTsconfig(root, p)?.include ?? ['**/*']
     const n = specs.filter(s => {
       const rel = posix.relative(posix.dirname(p), toForwardSlashes(s))
-      return !rel.startsWith('../') && include.some(e => covers(String(e).replace(/^\.\//, ''), rel))
+      return !leavesFolder(rel) && include.some(e => covers(stripDotSlash(e), rel))
     }).length
     if (n > most) { best = p; most = n }
   }
   return best
 }
 
-/** tsc's output, graded for the specs alone: errors elsewhere in the project are not the specs' to fix. */
-export function readTsc(out, code, specs, truncated = false) {
+/** Lines this change added or edited (uncommitted, plus range if given); null when git fails. */
+export function changedLines(root, spec, range = null) {
+  const lines = new Set()
+  for (const r of range ? [range, null] : [null]) {
+    const d = specDiff(root, [spec], r)
+    if (!d.ok) return null
+    // Track the new-file line number through each hunk; '+' lines are ours.
+    let n = null
+    for (const l of d.diff.split('\n')) {
+      const h = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(l)
+      if (h) n = Number(h[1])
+      else if (l.startsWith('diff ')) n = null // skip the next file's ---/+++ header
+      else if (n === null) continue
+      else if (l.startsWith('+')) lines.add(n++)
+      else if (l.startsWith(' ')) n++
+    }
+  }
+  return lines
+}
+
+/** Only spec errors count. With isNew, errors on untouched lines are pre-existing: reported, not failed. */
+export function readTsc(out, code, specs, truncated = false, isNew = null) {
   const lines = out.split('\n').map(l => l.trim()).filter(Boolean)
   const errors = lines.filter(l => /error TS\d+/.test(l))
   const inSpec = errors.filter(l => specs.some(s => l.startsWith(`${s}(`)))
-  if (inSpec.length) return result('types', 'fail', inSpec[0], inSpec.map(l => ({ file: l.slice(0, l.indexOf('(')), kind: 'compile error', detail: l })), { applicable: true })
-  // An error with no file, or in a tsconfig: tsc stopped before it checked anything, which is not a pass.
+  const fresh = isNew ? inSpec.filter(l => isNew(l.slice(0, l.indexOf('(')), Number(/\((\d+),/.exec(l)?.[1]))) : inSpec
+  if (fresh.length) return result('types', 'fail', fresh[0], fresh.map(l => ({ file: l.slice(0, l.indexOf('(')), kind: 'compile error', detail: l })), { applicable: true })
+  if (inSpec.length) return result('types', 'pass', `compiles where this change wrote; ${plural(inSpec.length, 'type error')} already in the specs before it, on lines it did not touch (first: ${inSpec[0]})`, [], { applicable: true, oldErrors: inSpec.length })
+  // No file, or a tsconfig error: tsc stopped before checking anything, so not a pass.
   const config = errors.find(l => /^error TS/.test(l) || /^[^(]*\.json\(\d+,\d+\): error TS/.test(l))
   if (config) return result('types', 'not_run', `tsc could not check the specs: ${config}`)
   if (truncated) return result('types', 'not_run', 'the tsc output was too long to read')
@@ -73,7 +91,7 @@ export function readTsc(out, code, specs, truncated = false) {
   return result('types', 'pass', `compiles; ${errors.length} error(s) in other files, not in the specs`, [], { applicable: true, otherErrors: errors.length })
 }
 
-/** The nearest tsconfig.json above a spec, up to the project root (a workspace's own); null when none. */
+/** Nearest tsconfig.json above the spec, up to root. */
 export function nearestTsconfig(root, spec) {
   let dir = posix.dirname(toForwardSlashes(spec))
   for (;;) {
@@ -86,11 +104,9 @@ export function nearestTsconfig(root, spec) {
 
 const WORST = { fail: 2, not_run: 1, pass: 0 }
 
-/**
- * The type-check. With a tsconfig named in the config (vitest.tsconfig, playwright.tsconfig) or one at the root, every spec goes to it.
- * With neither, each spec goes to the nearest tsconfig.json above it, so a monorepo with no tsconfig at its root is checked workspace by workspace.
- */
+/** Configured or root tsconfig if any; otherwise each spec uses its nearest one (monorepo without a root tsconfig). */
 export async function typeCheck(root, config, specs, opts = {}) {
+  // opts.range: lines committed on the branch count as this change too.
   const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
   if (adapterOptions(config).tsconfig || cypress || existsSync(join(root, 'tsconfig.json'))) return typeCheckOne(root, config, specs, opts)
   const tsSpecs = specs.filter(s => TS.test(s))
@@ -110,8 +126,8 @@ export async function typeCheck(root, config, specs, opts = {}) {
   return result('types', status, summary, results.flatMap(r => r.findings ?? []), { applicable: results.some(r => r.data?.applicable !== false), tsconfigs: [...groups.keys()] })
 }
 
-function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000 } = {}, forced = null) {
-  // Cypress keeps the types its specs need (cy, its chainers) in cypress/tsconfig.json.
+function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config) * 1000, range = null } = {}, forced = null) {
+  // Cypress keeps its spec types (cy, chainers) in cypress/tsconfig.json.
   const cypress = runnerOf(config) === 'cypress' && existsSync(join(root, CYPRESS_TSCONFIG))
   const configured = forced ?? adapterOptions(config).tsconfig ?? (cypress ? CYPRESS_TSCONFIG : 'tsconfig.json')
   const tsSpecs = specs.filter(s => TS.test(s))
@@ -122,7 +138,7 @@ function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config
   const tsconfig = ownTsconfig(root, configured, tsSpecs)
   return new Promise(done => {
     const tmp = mkdtempSync(join(tmpdir(), 'qc-tsc-'))
-    // mut-tmp-*: the name setup already git-ignores, so a killed run leaves nothing to commit.
+    // mut-tmp-* is already git-ignored by setup, so a killed run leaves nothing to commit.
     const scoped = join(dirname(tsconfig), `mut-tmp-qc-tsconfig-${randomBytes(4).toString('hex')}.json`)
     let out = ''
     let truncated = false
@@ -160,7 +176,14 @@ function typeCheckOne(root, config, specs, { timeoutMs = timeoutSecondsOf(config
     child.on('close', code => {
       if (timedOut) return
       try {
-        finish(readTsc(out, code, tsSpecs, truncated))
+        // Ask git lazily, only for specs that have errors.
+        const seen = new Map()
+        const isNew = (file, line) => {
+          if (!seen.has(file)) seen.set(file, changedLines(root, file, range))
+          const set = seen.get(file)
+          return !set || set.has(line)
+        }
+        finish(readTsc(out, code, tsSpecs, truncated, isNew))
       } catch (e) {
         finish(result('types', 'not_run', `could not read the tsc output: ${e.message}`))
       }

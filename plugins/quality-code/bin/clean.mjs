@@ -1,11 +1,6 @@
 #!/usr/bin/env node
-// Entry point of /quality-code:clean: lists what Quality Code created in the project and, on the person's pick,
-// deletes it. The only code that deletes; it deletes only paths from its own list, inside the project.
-// node bin/clean.mjs list [--dry-run]
-// node bin/clean.mjs delete --groups setup,output,cache,personal,specs [--specs all|PATH,PATH] --confirmed
-// node bin/clean.mjs delete --groups … --dry-run        (lists what would go; deletes nothing)
-// It never skips the person's yes: --yes, --ci and the like are refused, and a delete needs --confirmed, which the
-// command passes only after the person said yes. Exit 0 ok, 2 usage or refused.
+// /clean: deletes only paths from its own list, inside the project.
+// Never skips the user's yes: --yes/--ci are refused and delete needs --confirmed, passed only after a yes.
 import { projectRoot } from '../lib/config/config.mjs'
 import { GROUPS, LABELS, buildList, runClean } from '../lib/base/clean.mjs'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'

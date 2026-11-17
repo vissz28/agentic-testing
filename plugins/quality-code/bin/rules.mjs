@@ -1,7 +1,5 @@
-// Entry point for the Central Context testing rules of a ticket's side, read by /quality-code:spec and /quality-code:xray before the plan.
-// node bin/rules.mjs [--side frontend|backend|fullstack] [--key KEY]
-// Without --side, the project's own side (a fullstack project: fullstack). Prints the rules block, then a
-// RULES_JSON: line. With --key, also saves what was read to <ticketsDir>/<KEY>/rules.json for the result card. Exit 0 whether or not the hub answers (the rules inform, they never stop a run), 2 usage error.
+// Prints the Central Context testing rules for a side, then a RULES_JSON: line; --key also saves them to rules.json.
+// Exits 0 even when the hub is down: rules inform, they never block a run. 2 on usage error.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { isProjectKey } from '../lib/config/keys.mjs'
