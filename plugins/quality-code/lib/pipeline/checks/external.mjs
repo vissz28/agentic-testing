@@ -3,7 +3,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { matches } from '../boundary.mjs'
-import { toForwardSlashes } from '../../core/text.mjs'
+import { stripCodeComments, toForwardSlashes } from '../../core/text.mjs'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next'])
 const MAX_FILES = 5000
@@ -13,8 +13,7 @@ const MAX_BYTES = 1_000_000
 const PGTAP = /\b(?:is|isnt|ok|is_empty|results_eq|results_ne|set_eq|bag_eq|row_eq|cmp_ok|throws_ok|lives_ok|matches|imatches|like|ilike|performs_ok|isa_ok|has_\w+|hasnt_\w+|col_\w+|fk_\w+|pk_\w+|is_\w+|policies_are|functions_are|tables_are)\s*\(/i
 
 export function stripComments(text, sql) {
-  const noBlock = text.replace(/\/\*[\s\S]*?\*\//g, '')
-  return sql ? noBlock.replace(/--[^\n]*/g, '') : noBlock.replace(/(^|[^:"'])\/\/[^\n]*/g, '$1')
+  return sql ? text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '') : stripCodeComments(text)
 }
 
 /** For .sql, keep only statements that call a pgTAP assertion. */

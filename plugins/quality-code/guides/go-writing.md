@@ -14,7 +14,7 @@ cannot grade it, and the step stays "could not run".
 - A `*_test.go` file **beside the code it tests**, in the same package (`package orders`), or in the
   external test package (`package orders_test`) when the test needs only the exported API.
 - **The ticket's block is one test function whose doc comment starts with the key**:
-  `// <KEY> <summary>` right above `func TestXxx(t *testing.T)`, with no blank line between. Everything
+  `// <KEY> <summary> @<KEY>` (the `@<KEY>` at the end marks the tests as written by spec, for `/quality-code:clean`) right above `func TestXxx(t *testing.T)`, with no blank line between. Everything
   for the ticket goes inside that function. Another ticket gets its own function.
 - **One `t.Run` per scenario, its name a string literal** that says the scenario in plain words:
   `t.Run("stock of 4 reorders", …)`. Each literal `t.Run` is one test for the pipeline: it is run,
@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// ABC-123 Reorder when the stock falls below the threshold
+// ABC-123 Reorder when the stock falls below the threshold @ABC-123
 func TestReorder(t *testing.T) {
 	t.Run("a stock of 4 orders 20 more", func(t *testing.T) {
 		item := Item{SKU: "A-1", Stock: 4, Threshold: 5}
@@ -62,7 +62,7 @@ func TestReorder(t *testing.T) {
   read as the ticket's. All of the ticket's scenarios go in that one function.
 
 ```go
-// ABC-124 VAT rounds half a cent up
+// ABC-124 VAT rounds half a cent up @ABC-124
 func TestVAT(t *testing.T) {
 	t.Run("half a cent rounds up", func(t *testing.T) {
 		cases := []struct {

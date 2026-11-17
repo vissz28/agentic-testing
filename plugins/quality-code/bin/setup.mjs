@@ -672,7 +672,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     return { ok: false, errors: [`${step}: ${err.message}`] }
   }
   const legacy = !configFile && existsSync(join(top, CONFIG_REL)) ? CONFIG_REL : null
-  return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy, note: `${legacy} is still there and is no longer read once the new config exists; delete it when you like.` } : {}) }
+  return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy, note: `${legacy} is still there: on this machine the new config wins, but CI jobs read ${legacy} from the repo. Using /quality-code:ci? Replace it with config.json. If not, delete it.` } : {}) }
 }
 
 /** Personal config only: no repo files, .gitignore or templates. */

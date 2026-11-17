@@ -65,6 +65,21 @@ for (const [name, c, bare, vagueTicket] of [['playwright', FE, feBare, feVague],
     assert.ok(applyAnswer(c, vagueTicket, 'ac_testable', m.ac_testable.example).ok)
     assert.ok(applyAnswer(c, bare, 'feature_label', m.feature_label.example).ok, 'the label example is a configured label')
   })
+  test(`${name}: the Italian examples pass the rules themselves, under Italian headings`, () => {
+    const it = validateConfig({ ...raw(name), languages: ['it', 'en'] }).config
+    const m = messagesFor(it, 'bug')
+    const ac = applyAnswer(it, bare, 'ac_present', m.ac_present.example)
+    assert.ok(ac.ok && ac.input.filled[0].section.startsWith('## Criteri di accettazione\n'), ac.reason)
+    assert.ok(applyAnswer(it, vagueTicket, 'ac_testable', m.ac_testable.example).ok)
+    for (const k of ['steps', 'expected_defined', 'context', 'environment', 'title_prefix', 'feature_label', 'links']) {
+      if (!fillMenu(it, brief(it, bare)).items.some(i => i.key === k)) continue
+      const r = applyAnswer(it, bare, k, m[k].example)
+      assert.ok(r.ok, `${k}: ${r.reason}`)
+    }
+    const story = messagesFor(it, 'story')
+    const st = applyAnswer(it, { ...bare, issuetype: 'Story' }, 'steps', story.steps.example)
+    assert.ok(st.ok, st.reason)
+  })
   test(`${name}: stripVagueCriteria never touches prose outside the AC section`, () => {
     const v = buildVocabulary(c.languages)
     assert.equal(

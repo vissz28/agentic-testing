@@ -2,7 +2,9 @@
 
 Shared by every command. The person keeps their language from the first sentence to the last, in answers, questions, summaries and the Done text.
 
-**The rule.** Talk in the language of the person's last sentence. These do NOT change it: a pick, a number, a click on an option, a slash command with no words, a script's output, a card. Script lines and cards keep their fixed words. Everything around them stays in the person's language: explanations, questions, summaries, descriptions of options, the Done text.
+**The rule.** Talk in the language of the person's last sentence. These do NOT change it: a pick, a number, a click on an option, a slash command with no words, a script's output, a card. Everything you show is in the person's language: explanations, questions, summaries, the checklist items, the picker's question, header and option labels and descriptions, the Done text, and the words of cards and script lines too, translated as you show them.
+
+**Kept word for word, never translated.** Machine lines (`..._JSON:` and the other tag lines) and their values, keys, ids, file paths, commands, code, numbers and scores, Jira labels, ticket text quoted from Jira, and every text that goes to Jira or into a file (a comment, a fill-in, a defect, a case). That text is sent exactly as the script printed it, so the preview shows it so too. Its language is the project's, not the person's: the first of `languages` in the config.
 
 **At the start of every command.** One call, nothing shown: `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" get session`. Read its `PROGRESS_JSON:` line: `data.language` is the saved language (a code like `it`, `en`, `sq`). Use it until the person writes a sentence in another language.
 

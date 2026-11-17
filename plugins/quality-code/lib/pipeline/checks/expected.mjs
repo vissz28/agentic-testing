@@ -8,7 +8,7 @@ import { result } from '../result.mjs'
 import { configHome } from '../../config/config.mjs'
 import { externalChecks } from './external.mjs'
 import { readJson } from '../../core/files.mjs'
-import { escapeRegExp } from '../../core/text.mjs'
+import { escapeRegExp, stripCodeComments } from '../../core/text.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
@@ -122,26 +122,6 @@ function closeParen(src, open) {
     else if (c === ')' && --depth === 0) return i + 1
   }
   return src.length
-}
-
-/** Strings are kept as is. */
-export function stripCodeComments(src) {
-  let out = ''
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]
-    if (c === '"' || c === "'" || c === '`') {
-      const start = i
-      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++
-      out += src.slice(start, i + 1)
-    } else if (c === '/' && src[i + 1] === '/') {
-      while (i < src.length && src[i] !== '\n') i++
-      out += '\n'
-    } else if (c === '/' && src[i + 1] === '*') {
-      const e = src.indexOf('*/', i + 2)
-      i = e < 0 ? src.length : e + 1
-    } else out += c
-  }
-  return out
 }
 
 /** Like closeParen, for any of ( [ {. */

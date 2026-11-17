@@ -1,6 +1,6 @@
 // Text shown to ticket authors. Overridable per key via config.messages, and for stories via config.messages.story.
 import { isObject } from '../core/is.mjs'
-
+import * as it from './messages-it.mjs'
 
 // Fallback when jira.bugTypes is unset; Jira schemes use many names for a bug.
 const BUG_TYPES = /bug|defect|incident|problem|anomal|difett/i
@@ -20,6 +20,9 @@ export function templateFor(issuetype, config = null) {
   const bug = Array.isArray(types) ? types.some(t => t.toLowerCase() === name.toLowerCase()) : BUG_TYPES.test(name)
   return bug ? 'bug' : 'story'
 }
+
+/** The language of the text for ticket authors: the config's first language, so it matches the fill-in headings. */
+export const textLang = config => (config?.languages?.[0] === 'it' ? 'it' : 'en')
 
 const featureLabels = config => (config.features || []).map(f => f.label)
 const prefixes = config => (config.titlePrefixes || []).map(p => `[${p}]`)
@@ -192,14 +195,16 @@ const STORY = {
 /** Merge order: defaults, config.messages[key], then config.messages.story[key] for stories. */
 export function messagesFor(config, kind = 'bug') {
   const story = kind === 'story'
-  const base = defaults(config)
+  const lang = textLang(config)
+  const base = lang === 'it' ? it.defaults(featureLabels(config), prefixes(config), config) : defaults(config)
+  const storyText = lang === 'it' ? it.STORY : STORY
   const cfg = isObject(config.messages) ? config.messages : {}
   const cfgStory = isObject(cfg.story) ? cfg.story : {}
   const out = {}
   for (const key of Object.keys(base)) {
     out[key] = {
       ...base[key],
-      ...(story ? STORY[key] : {}),
+      ...(story ? storyText[key] : {}),
       ...(isObject(cfg[key]) ? cfg[key] : {}),
       ...(story && isObject(cfgStory[key]) ? cfgStory[key] : {}),
     }
@@ -217,5 +222,5 @@ export function labelOverride(config, issuetype, key) {
 
 export function refuseFallback(config) {
   const custom = isObject(config.messages) ? config.messages.refuseFallback : undefined
-  return typeof custom === 'string' ? custom : 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.'
+  return typeof custom === 'string' ? custom : textLang(config) === 'it' ? it.COMMENT.fallback : 'Please add Steps to reproduce, Expected, Actual, and Given / When / Then.'
 }

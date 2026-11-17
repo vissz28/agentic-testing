@@ -24,6 +24,8 @@ const LANGS = new Set(['en', 'it'])
 const OTHER_BACKENDS = BACKEND_ADAPTERS.filter(a => a !== 'vitest')
 // Placeholders allowed in a backend's test command.
 const COMMAND_SLOTS = new Set(['files', 'report', 'test'])
+// How the app's screens are reached in a test: setup finds it, spec writes the sign-in from it.
+const SIGN_IN = ['handled', 'form', 'token', 'sso', 'none']
 const quoted = list => list.map(a => `"${a}"`)
 const orList = list => `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`
 const SPACE_KEY = /^[A-Za-z0-9_~-]+$/
@@ -395,7 +397,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
     else if (!isObject(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles" and "redTags")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags', 'signIn'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles", "redTags" and "signIn")`)
       runnerFields(c.playwright, 'playwright', e)
       const u = c.playwright.ungradedTitles
       if (u !== undefined) {
@@ -410,6 +412,10 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
           if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
           else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
         }
+      }
+      const si = c.playwright.signIn
+      if (si !== undefined) {
+        if (!isObject(si) || !SIGN_IN.includes(si.kind) || !isLine(si.how) || si.how.length > 300 || Object.keys(si).some(k => k !== 'kind' && k !== 'how')) e.push(`playwright.signIn: must be { "kind", "how" }: kind ${orList(quoted(SIGN_IN))}, how one line (at most 300 characters) saying how a tester gets past the sign-in, never a password or a token`)
       }
       if (c.playwright.folder !== undefined) folderErrors(c.playwright.folder, 'playwright.folder', folderRules(c), e)
       if (c.playwright.guide !== undefined && !guideOk(c.playwright.guide)) e.push(`playwright.guide ${JSON.stringify(c.playwright.guide)} must be a relative path to a .md file inside the project`)

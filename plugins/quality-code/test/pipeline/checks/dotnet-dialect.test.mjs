@@ -259,7 +259,7 @@ test('the value check passes on decimal literals and names what a C# block leave
 test('the writing guide\'s example is a spec the checks read: one key block, one test, one assertion, one mutant', () => {
   const guide = readFileSync(new URL('../../../guides/dotnet-writing.md', import.meta.url), 'utf8')
   const src = /```csharp\n([\s\S]*?)```/.exec(guide)[1]
-  assert.deepEqual(groups(src, D).map(g => g.title), ['ABC-123 Line totals round to the cent'])
+  assert.deepEqual(groups(src, D).map(g => g.title), ['ABC-123 Line totals round to the cent @ABC-123'])
   assert.deepEqual(scoreSpec(src, D).map(t => [t.title, t.mod, t.expects]), [['Rounds_a_total_of_10_005_up', null, 1]])
   assert.deepEqual(planMutants(src, ['Rounds_a_total_of_10_005_up'], { key: 'ABC-123' }, D).map(m => m.kind), ['invert-assert'])
 })

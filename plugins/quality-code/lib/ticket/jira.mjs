@@ -1,5 +1,6 @@
 // Jira comment and update bodies for refused tickets and fill-ins.
-import { messagesFor, refuseFallback, templateFor } from './messages.mjs'
+import { messagesFor, refuseFallback, templateFor, textLang } from './messages.mjs'
+import { COMMENT as IT } from './messages-it.mjs'
 
 export { templateFor }
 
@@ -15,20 +16,36 @@ export const REFUSE_COMMENT_FOOTER = 'Thanks, we can continue as soon as these a
 // Footer used before 2026-09-23; still matched or a re-run would duplicate.
 export const OLD_FOOTER = 'Thanks — we can continue as soon as these are on the ticket.'
 
+// Identifies the risk note so a re-run edits it.
+export const RISK_COMMENT_FOOTER = 'Logged by quality-code: tests were written on an incomplete ticket.'
+
 // Default for config.messages.jiraFillMark.
 export const JIRA_FILL_MARK = '_Added during the quality-code readiness check._'
 
 export function jiraFillMark(config) {
   const custom = config?.messages?.jiraFillMark
-  return typeof custom === 'string' ? custom : JIRA_FILL_MARK
+  return typeof custom === 'string' ? custom : text(config).fillMark
 }
+
+const EN = {
+  hello: 'Hi, this ticket needs a bit more information before we can start the checks.',
+  whatToAdd: 'Here is what to add:',
+  footer: REFUSE_COMMENT_FOOTER,
+  template: (kind, path) => `The full ${kind === 'bug' ? 'Bug' : 'Story'} template is at ${path}.`,
+  fillMark: JIRA_FILL_MARK,
+  risk: (score, threshold) => `Tests were written for this ticket although it is not complete: it has ${score} points and needs ${threshold}.`,
+  riskWarning: '🔴 [RISK / NOT RECOMMENDED] The tests check what the ticket says today. Until the missing parts are added, they may check the wrong thing.',
+  stillMissing: 'Still missing:',
+  riskFooter: RISK_COMMENT_FOOTER,
+}
+const text = config => (textLang(config) === 'it' ? IT : EN)
 
 // Not in the Story template.
 const NOT_ON_STORY = new Set(['environment', 'expected_defined'])
 
 export function isRefuseComment(text) {
   const s = String(text ?? '')
-  return [REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK].some(m => s.includes(m))
+  return [REFUSE_COMMENT_FOOTER, OLD_FOOTER, IT.footer, REFUSE_COMMENT_MARK].some(m => s.includes(m))
 }
 
 export function templateLine(config, issuetype) {
@@ -37,7 +54,7 @@ export function templateLine(config, issuetype) {
   if (typeof custom === 'string') return custom
   const path = config.ticketTemplates?.[kind]
   if (!path) return ''
-  return `The full ${kind === 'bug' ? 'Bug' : 'Story'} template is at ${path}.`
+  return text(config).template(kind, path)
 }
 
 function authorGaps(config, brief) {
@@ -69,34 +86,33 @@ export function formatRefuseComment(config, brief) {
     })
     .join('\n\n')
   const line = templateLine(config, brief.issuetype)
+  const t = text(config)
   return [
-    'Hi, this ticket needs a bit more information before we can start the checks.',
+    t.hello,
     '',
-    'Here is what to add:',
+    t.whatToAdd,
     '',
     body || refuseFallback(config),
     '',
     ...(line ? [line, ''] : []),
-    REFUSE_COMMENT_FOOTER,
+    t.footer,
     '',
     COAUTHOR_LINE,
   ].join('\n')
 }
 
-// Identifies the risk note so a re-run edits it.
-export const RISK_COMMENT_FOOTER = 'Logged by quality-code: tests were written on an incomplete ticket.'
-
 /** Note for tests written past the gate (refuse option 3). Posted verbatim. */
 export function formatRiskComment(config, brief) {
   const msgs = messagesFor(config, templateFor(brief.issuetype, config))
   const gaps = authorGaps(config, brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
+  const t = text(config)
   return [
-    `Tests were written for this ticket although it is not complete: it has ${brief.score} points and needs ${brief.threshold}.`,
+    t.risk(brief.score, brief.threshold),
     '',
-    '🔴 [RISK / NOT RECOMMENDED] The tests check what the ticket says today. Until the missing parts are added, they may check the wrong thing.',
-    ...(gaps.length ? ['', 'Still missing:', ...gaps] : []),
+    t.riskWarning,
+    ...(gaps.length ? ['', t.stillMissing, ...gaps] : []),
     '',
-    RISK_COMMENT_FOOTER,
+    t.riskFooter,
     '',
     COAUTHOR_LINE,
   ].join('\n')

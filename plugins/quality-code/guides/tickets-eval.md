@@ -10,7 +10,7 @@ From the arguments of `/quality-code:ticket` (without `--eval`): read a project'
 - **Connector.** Refer to Jira tools by operation name on the Atlassian (Rovo) connector, whichever Atlassian MCP connection is available in this session. If none is connected, stop once: `Sign in to Atlassian when prompted (type /mcp to connect it), then run this command again.`
 - **Read-only.** Only `searchJiraIssuesUsingJql` on the Atlassian connector. Never comment on, edit or transition a ticket here, and never write to Confluence.
 - **One search.** ONE `searchJiraIssuesUsingJql` (paged only with `nextPageToken`), never one call per ticket. No comment reads, no Confluence, no Figma: the score uses what the search returns.
-- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. The card keeps its fixed words.
+- **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. The card is translated as the guide says.
 - Redact customer ids (`\bU\d{5,}\b`, plus the config's `redact` patterns) in anything you echo.
 - When a Jira tool needs a `cloudId`, pass the hostname of `jira.site` (no `https://`).
 
