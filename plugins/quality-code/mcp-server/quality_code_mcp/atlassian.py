@@ -4,21 +4,20 @@ The tokens are never stored: they are sealed (vault.py) into the connector token
 the connector token refreshes Atlassian too and seals the new pair, because Atlassian rotates its refresh tokens."""
 from __future__ import annotations
 
-import json
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 AUTH = "https://auth.atlassian.com"
 API = "https://api.atlassian.com"
-SCOPES = "read:jira-work read:jira-user offline_access"
+KEY, SLUG, NAME = "atl", "atlassian", "Atlassian"
+SCOPES = "read:jira-work write:jira-work read:jira-user offline_access"
+VIEW = ("at", "exp", "cloud", "site")  # what the access token carries of the link (never the refresh token)
 SKEW = 60  # an access token this close to its end is treated as expired
 MAX_RESULTS = 50
 
-Http = Callable[[str, str, dict, dict | None], Any]  # (method, url, headers, json body) -> parsed json
+from .webclient import Http
 
 
 class AtlassianError(RuntimeError):
@@ -30,15 +29,9 @@ class AtlassianConfigError(ValueError):
 
 
 def real_http(method: str, url: str, headers: dict, body: dict | None):
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={"Accept": "application/json", **({"Content-Type": "application/json"} if body is not None else {}), **headers})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:  # noqa: S310 - only the fixed https hosts above
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        raise AtlassianError(f"Atlassian answered {e.code}") from None
-    except (urllib.error.URLError, TimeoutError, ValueError) as e:
-        raise AtlassianError(f"Atlassian could not be reached: {e}") from None
+    from .webclient import real_http as call
+
+    return call(method, url, headers, body, err=AtlassianError, name="Atlassian")
 
 
 @dataclass(frozen=True)
@@ -77,21 +70,89 @@ class AtlassianSettings:
         r = self._token({"grant_type": "refresh_token", "refresh_token": link["rt"]})
         return self._pack(r, link.get("cloud"), link.get("site"), link["rt"])
 
-    # -- read-only Jira calls with a link
-    def _get(self, link: dict, path: str, params: dict | None = None):
+    # -- Jira calls with a link: reads, and the few writes the commands make (each only after the person confirmed a preview in the chat)
+    def _call(self, method: str, link: dict, path: str, params: dict | None = None, body: dict | None = None):
         if int(link.get("exp", 0)) - SKEW < time.time():
             raise AtlassianError("The Atlassian access has expired: reconnect the connector")
         q = f"?{urllib.parse.urlencode(params)}" if params else ""
-        return self.http("GET", f"{API}/ex/jira/{link['cloud']}/rest/api/3/{path}{q}", {"Authorization": f"Bearer {link['at']}"}, None)
+        return self.http(method, f"{API}/ex/jira/{link['cloud']}/rest/api/3/{path}{q}", {"Authorization": f"Bearer {link['at']}"}, body)
+
+    def _get(self, link: dict, path: str, params: dict | None = None):
+        return self._call("GET", link, path, params)
 
     def search(self, link: dict, jql: str, limit: int = 20) -> list[dict]:
-        r = self._get(link, "search/jql", {"jql": jql, "maxResults": max(1, min(limit, MAX_RESULTS)), "fields": "summary,status,issuetype,assignee"})
+        r = self._get(link, "search/jql", {"jql": jql, "maxResults": max(1, min(limit, MAX_RESULTS)), "fields": "summary,status,issuetype,assignee,issuelinks,attachment,parent"})
         return [brief(i) for i in r.get("issues", [])]
 
-    def issue(self, link: dict, key: str) -> dict:
-        r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}", {"fields": "summary,status,issuetype,assignee,labels,description,parent,subtasks,issuelinks", "expand": ""})
-        return {**brief(r), "labels": r["fields"].get("labels") or [], "description": adf_text(r["fields"].get("description")),
-                "parent": (r["fields"].get("parent") or {}).get("key"), "subtasks": [s["key"] for s in r["fields"].get("subtasks") or []]}
+    def issue(self, link: dict, key: str, full: bool = False) -> dict:
+        fields = "summary,status,issuetype,assignee,labels,description,parent,subtasks,issuelinks,components,attachment,comment" if full else "summary,status,issuetype,assignee,labels,description,parent,subtasks"
+        r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}", {"fields": fields})
+        f = r["fields"]
+        out = {**brief(r), "labels": f.get("labels") or [], "description": adf_text(f.get("description")), "parent": (f.get("parent") or {}).get("key"),
+               "subtasks": [s["key"] for s in f.get("subtasks") or []]}
+        if full:
+            out.update({"components": [c.get("name") for c in f.get("components") or []],
+                        "attachments": [{"name": a.get("filename"), "type": a.get("mimeType"), "size": a.get("size")} for a in f.get("attachment") or []],
+                        "links": [link_brief(x) for x in f.get("issuelinks") or []],
+                        "comments": [{"author": (c.get("author") or {}).get("displayName"), "created": c.get("created"), "text": adf_text(c.get("body"))} for c in (f.get("comment") or {}).get("comments", [])[-20:]]})
+        return out
+
+    def remote_links(self, link: dict, key: str) -> list[dict]:
+        r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}/remotelink")
+        return [{"title": (x.get("object") or {}).get("title"), "url": (x.get("object") or {}).get("url")} for x in r] if isinstance(r, list) else []
+
+    def projects(self, link: dict, query: str = "", limit: int = 20) -> list[dict]:
+        r = self._get(link, "project/search", {"query": query, "maxResults": max(1, min(limit, MAX_RESULTS))})
+        return [{"key": p.get("key"), "name": p.get("name")} for p in r.get("values", [])]
+
+    def transitions(self, link: dict, key: str) -> list[dict]:
+        r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}/transitions")
+        return [{"id": t.get("id"), "name": t.get("name"), "to": (t.get("to") or {}).get("name")} for t in r.get("transitions", [])]
+
+    def create_meta(self, link: dict, project: str, issue_type: str = "") -> Any:
+        r = self._get(link, f"issue/createmeta/{urllib.parse.quote(project, safe='')}/issuetypes", {"maxResults": 50})
+        types = [{"id": t.get("id"), "name": t.get("name"), "subtask": t.get("subtask")} for t in r.get("issueTypes", r.get("values", []))]
+        if not issue_type:
+            return types
+        t = next((x for x in types if x["name"].lower() == issue_type.lower() or x["id"] == issue_type), None)
+        if not t:
+            raise AtlassianError(f"no issue type {issue_type!r} in {project}: {', '.join(x['name'] for x in types)}")
+        f = self._get(link, f"issue/createmeta/{urllib.parse.quote(project, safe='')}/issuetypes/{t['id']}", {"maxResults": 100})
+        return [{"id": x.get("fieldId") or x.get("key"), "name": x.get("name"), "required": x.get("required"), "allowed": [v.get("name") or v.get("value") for v in (x.get("allowedValues") or [])][:20]}
+                for x in f.get("fields", f.get("values", []))]
+
+    def create(self, link: dict, project: str, issue_type: str, summary: str, description: str = "", fields: dict | None = None) -> dict:
+        body = {"fields": {"project": {"key": project}, "issuetype": {"name": issue_type}, "summary": summary, **({"description": to_adf(description)} if description else {}), **(fields or {})}}
+        r = self._call("POST", link, "issue", None, body)
+        return {"key": r.get("key"), "url": f"{link.get('site', '').rstrip('/')}/browse/{r.get('key')}"}
+
+    def comment(self, link: dict, key: str, text: str) -> dict:
+        r = self._call("POST", link, f"issue/{urllib.parse.quote(key, safe='')}/comment", None, {"body": to_adf(text)})
+        return {"id": r.get("id"), "key": key}
+
+    def transition(self, link: dict, key: str, transition_id: str) -> dict:
+        self._call("POST", link, f"issue/{urllib.parse.quote(key, safe='')}/transitions", None, {"transition": {"id": str(transition_id)}})
+        return {"key": key, "transition": str(transition_id)}
+
+    def edit(self, link: dict, key: str, fields: dict) -> dict:
+        self._call("PUT", link, f"issue/{urllib.parse.quote(key, safe='')}", None, {"fields": fields})
+        return {"key": key, "edited": sorted(fields)}
+
+    def link_issues(self, link: dict, link_type: str, inward: str, outward: str) -> dict:
+        self._call("POST", link, "issueLink", None, {"type": {"name": link_type}, "inwardIssue": {"key": inward}, "outwardIssue": {"key": outward}})
+        return {"linked": [inward, outward], "type": link_type}
+
+
+def link_brief(x: dict) -> dict:
+    other = x.get("outwardIssue") or x.get("inwardIssue") or {}
+    f = other.get("fields") or {}
+    return {"type": (x.get("type") or {}).get("name"), "direction": "outward" if x.get("outwardIssue") else "inward", "key": other.get("key"), "summary": f.get("summary"), "status": (f.get("status") or {}).get("name")}
+
+
+def to_adf(text: str) -> dict:
+    """Plain text as Jira's document format: one paragraph per line."""
+    lines = (text or "").split("\n")
+    return {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": [{"type": "text", "text": ln}] if ln else []} for ln in lines]}
 
 
 def brief(i: dict) -> dict:

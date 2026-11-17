@@ -82,3 +82,7 @@ Known limits: the scripts see one shared project folder, so ticket copies that t
 ```bash
 .venv/bin/pip install -e ".[test]" && .venv/bin/python -m pytest
 ```
+
+### Commands use the server's own tools
+
+When the server offers its own Jira, GitLab merge request or GitHub pull request tools, each command prompt tells the model to call them instead of the client's connector operations (the note names exactly the tools present). Without them the prompt is unchanged.

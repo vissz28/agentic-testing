@@ -9,6 +9,17 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.81.1] - 2026-11-17
+
+The shared server now runs the commands end to end as the signed-in person: Jira reads and writes, GitLab merge requests and GitHub pull requests.
+
+- Jira tools on the server: issue (full), search, links, projects, transitions, create meta, and, after the command's preview and your yes, create, comment, transition, edit and link issues. The Atlassian sign-in now asks for `write:jira-work` too.
+- GitLab (`quality_code_gitlab_mr`, `_project`, `_user`) and GitHub (`quality_code_github_pr`, `_user`) read-only tools, each with its own sign-in step; tokens stay sealed in the connector tokens, nothing is stored.
+- The command instructions tell the model to use these server tools instead of its own connectors when they exist.
+- GitHub OAuth Apps have no read-only repository scope, so the sign-in asks for `repo read:user`; the tools only read.
+
+What to do: update the plugin. To use the sign-ins, the server admin sets the GitLab and GitHub client variables (README); until then the tools are absent and nothing changes. People who already connected the server are asked to sign in again to the new services.
+
 ## [0.81.0] - 2026-11-17
 
 ### Added

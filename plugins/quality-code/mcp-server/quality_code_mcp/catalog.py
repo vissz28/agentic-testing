@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,8 +63,32 @@ def list_scripts(root: Path) -> list[str]:
     return sorted(p.name for p in d.glob("*.mjs") if p.name not in HIDDEN_SCRIPTS) if d.is_dir() else []
 
 
-def render(cmd: Command, root: Path, arguments: str = "") -> str:
-    """The command prompt with the plugin folder and arguments filled in, plus how to stand in for Claude Code's tools."""
+# What each tool of this server replaces, so a command uses it instead of the client's own connector operation.
+SERVER_TOOL_MAP: dict[str, str] = {
+    "quality_code_jira_issue": "getJiraIssue",
+    "quality_code_jira_search": "searchJiraIssuesUsingJql",
+    "quality_code_jira_links": "getJiraIssueRemoteIssueLinks",
+    "quality_code_jira_projects": "getVisibleJiraProjects",
+    "quality_code_jira_transitions": "getTransitionsForJiraIssue",
+    "quality_code_jira_createmeta": "getJiraProjectIssueTypesMetadata and getJiraIssueTypeMetaWithFields",
+    "quality_code_jira_create": "createJiraIssue",
+    "quality_code_jira_comment": "addCommentToJiraIssue",
+    "quality_code_jira_transition": "transitionJiraIssue",
+    "quality_code_jira_edit": "editJiraIssue",
+    "quality_code_jira_link_issues": "createIssueLink",
+    "quality_code_gitlab_mr": "the GitLab merge request operations",
+    "quality_code_github_pr": "the GitHub pull request operations",
+}
+JIRA_WRITE_TOOLS = ("quality_code_jira_create", "quality_code_jira_comment", "quality_code_jira_transition", "quality_code_jira_edit", "quality_code_jira_link_issues")
+
+
+def server_tool_names(tool_names: Iterable[str]) -> frozenset[str]:
+    """Only the names of this server's tools that replace a client operation; anything else is ignored."""
+    return frozenset(n for n in tool_names if n in SERVER_TOOL_MAP)
+
+
+def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str] | frozenset[str] = frozenset()) -> str:
+    """The command as a prompt for the calling model: the plugin folder and arguments filled in, plus how this server replaces Claude Code's tools."""
     body = cmd.body.replace("${CLAUDE_PLUGIN_ROOT}", str(root)).replace("$ARGUMENTS", arguments)
     body = re.sub(r"\$\{user_config\.([a-z_]+)\}", lambda m: os.environ.get("QUALITY_CODE_" + m.group(1).upper(), ""), body)
     note = (
@@ -74,4 +99,13 @@ def render(cmd: Command, root: Path, arguments: str = "") -> str:
         "Where they point to a guide file, call `quality_code_guide` with its name. "
         "Jira, GitLab, Figma and file tools are the ones your own client offers.\n\n---\n\n"
     )
+    present = [n for n in SERVER_TOOL_MAP if n in server_tools]
+    if present:
+        lines = "".join(f"- `{n}` instead of {SERVER_TOOL_MAP[n]}\n" for n in present)
+        extra = "This server offers its own tools: use them instead of your client's connector operations.\n" + lines
+        if any(n in JIRA_WRITE_TOOLS for n in present):
+            extra += "A Jira write tool changes Jira: show a preview and wait for a clear yes in the chat before calling it.\n"
+        if any(n.startswith("quality_code_jira_") for n in present):
+            extra += "getAccessibleAtlassianResources and a cloudId are not needed: the server already knows the site.\n"
+        note = note[: -len("---\n\n")] + extra + "\n---\n\n"
     return note + body

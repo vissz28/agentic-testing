@@ -70,7 +70,7 @@ def flow(c):
     assert r.status_code == 303 and r.headers["location"].startswith("https://auth.atlassian.com/authorize?")
     q = parse_qs(urlparse(r.headers["location"]).query)
     assert q["client_id"] == ["aid"] and q["redirect_uri"] == [H + "/connect/atlassian/callback"] and "offline_access" in q["scope"][0]
-    assert "write" not in q["scope"][0]
+    assert "write:jira-work" in q["scope"][0]  # the commands write to Jira (create, comment, transition), each only after a preview and a yes in the chat
     return cid, verifier, q["state"][0]
 
 
@@ -172,3 +172,15 @@ def test_the_jira_tools_exist_only_when_atlassian_is_set(tmp_path, cs):
     names = lambda s: {t.name for t in asyncio.run(s.list_tools())}  # noqa: E731
     assert {"quality_code_jira_search", "quality_code_jira_issue"} <= names(on)
     assert not ({"quality_code_jira_search", "quality_code_jira_issue"} & names(off))
+
+
+def test_the_jira_write_tools_act_as_the_person_and_bad_input_is_refused(monkeypatch, cs, fake):
+    sealed = vault.seal(KEY, {"at": "at9", "exp": int(time.time()) + 3000, "cloud": "cloud-1", "site": SITE}, aad="oid-1")
+    fake.calls.clear()
+    run_tool(monkeypatch, cs, "quality_code_jira_comment", {"atl": sealed}, key="AGT-1", text="hello")
+    run_tool(monkeypatch, cs, "quality_code_jira_transition", {"atl": sealed}, key="AGT-1", transition_id="451")
+    assert [(m, u.rsplit("/", 2)[-1]) for m, u, *_ in fake.calls] == [("POST", "comment"), ("POST", "transitions")]
+    assert all(h.get("Authorization") == "Bearer at9" for _, _, h, _ in fake.calls)
+    assert "ABC-123" in run_tool(monkeypatch, cs, "quality_code_jira_comment", {"atl": sealed}, key="../x", text="t")
+    assert "JSON object" in run_tool(monkeypatch, cs, "quality_code_jira_edit", {"atl": sealed}, key="AGT-1", fields_json="[1]")
+    assert "not connected" in run_tool(monkeypatch, cs, "quality_code_jira_create", {}, project="AGT", issue_type="Story", summary="s")

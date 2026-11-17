@@ -19,10 +19,10 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import agents, jira_config, web
+from . import agents, github, gitlab, jira_config, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
-from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render
+from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render, server_tool_names
 
 TIMEOUT_S = 900
 MAX_OUT = 200_000
@@ -125,9 +125,11 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         """On the shared server only the Jira-only commands can run their scripts; the others need the person's repo."""
         return remote and cmd.name not in REMOTE_COMMANDS
 
+    offered: set[str] = set()  # the sign-in tools this server really has; filled below, read when a command is called
+
     def command_tool(cmd: Command):
         def run(arguments: str = "") -> str:
-            body = render(cmd, root, arguments)
+            body = render(cmd, root, arguments, server_tools=server_tool_names(offered))
             return f"{NEEDS_REPO_NOTICE}\n\n{body}" if needs_repo(cmd) else body
 
         run.__name__ = cmd.tool_name
@@ -176,10 +178,10 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
         if entra:
             server.add_tool(quality_code_whoami, name="quality_code_whoami", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
-        if provider and provider.s.atlassian:
-            jira = _jira_tools(provider)
-            for fn in jira:
-                server.add_tool(fn, name=fn.__name__, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+        if provider:
+            for fn, writes in _upstream_tools(provider):
+                server.add_tool(fn, name=fn.__name__, annotations=ToolAnnotations(readOnlyHint=not writes, destructiveHint=False, openWorldHint=True))
+                offered.add(fn.__name__)
         if entra:
             web.register(server, web_settings, entra, provider=provider)  # the sign-in view at /; /mcp still needs a bearer token
     else:
@@ -201,10 +203,26 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     return server
 
 
+def _upstream_tools(provider) -> list:
+    """(tool, writes) for every service the person signs in to: Jira (Atlassian), GitLab merge requests, GitHub pull requests."""
+    s = provider.s
+    out = [(fn, fn.__name__ in JIRA_WRITE_TOOLS) for fn in _jira_tools(provider)] if s.atlassian else []
+    for client, mod in ((s.gitlab, gitlab), (s.github, github)):
+        if client:
+            out += [(fn, False) for fn in mod.tools(provider)]
+    return out
+
+
+JIRA_WRITE_TOOLS = {"quality_code_jira_create", "quality_code_jira_comment", "quality_code_jira_transition", "quality_code_jira_edit", "quality_code_jira_link_issues"}
+
+
 def _jira_tools(provider) -> list:
-    """Read-only Jira tools that use the signed-in person's own Atlassian access (sealed in their connector token; the server stores nothing)."""
+    """Jira tools that use the signed-in person's own Atlassian access (sealed in their connector token; the server stores nothing).
+    The reads are read-only; the writes change Jira as that person and are for after the command's preview and a yes."""
     from mcp.server.auth.middleware.auth_context import get_access_token
     from . import atlassian as atl
+
+    keyed = re.compile(r"[A-Z][A-Z0-9_]*-\d+")
 
     def link() -> dict | str:
         t = get_access_token()
@@ -212,29 +230,75 @@ def _jira_tools(provider) -> list:
         opened = provider.open_link({"oid": t.subject}, who.get("atl")) if t and who.get("atl") else None
         return opened or "error: Atlassian is not connected for this sign-in. Remove the Quality Code connector in Claude and add it again; you will be asked to sign in with Atlassian."
 
+    def call(fn, *keys: str):
+        """Run fn(client, link) as the person: JSON on success, `error: ...` text on a bad key, no link or an Atlassian error."""
+        for k in keys:
+            if not keyed.fullmatch(k.strip()):
+                return "error: a Jira key looks like ABC-123"
+        l = link()
+        if isinstance(l, str):
+            return l
+        try:
+            return json.dumps(fn(provider.s.atlassian, l), indent=2)
+        except (atl.AtlassianError, ValueError) as e:
+            return f"error: {e}"
+
+    def fields_of(text: str) -> dict:
+        try:
+            v = json.loads(text) if text.strip() else {}
+        except ValueError:
+            raise ValueError("fields_json must be a JSON object")
+        if not isinstance(v, dict):
+            raise ValueError("fields_json must be a JSON object")
+        return v
+
     def quality_code_jira_search(jql: str, limit: int = 20) -> str:
         """Search Jira with JQL as the signed-in person (read-only): key, summary, status, type and assignee of up to `limit` issues (at most 50)."""
-        l = link()
-        if isinstance(l, str):
-            return l
-        try:
-            return json.dumps(provider.s.atlassian.search(l, jql, limit), indent=2)
-        except atl.AtlassianError as e:
-            return f"error: {e}"
+        return call(lambda c, l: c.search(l, jql, limit))
 
-    def quality_code_jira_issue(key: str) -> str:
-        """Read one Jira issue as the signed-in person (read-only): summary, status, type, assignee, labels, description as text, parent and subtasks."""
-        l = link()
-        if isinstance(l, str):
-            return l
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]*-\d+", key.strip()):
-            return "error: a Jira key looks like ABC-123"
-        try:
-            return json.dumps(provider.s.atlassian.issue(l, key.strip()), indent=2)
-        except atl.AtlassianError as e:
-            return f"error: {e}"
+    def quality_code_jira_issue(key: str, full: bool = False) -> str:
+        """Read one Jira issue as the signed-in person (read-only): summary, status, type, assignee, labels, description as text, parent and subtasks. With full: also components, attachments (names only), issue links and the last comments."""
+        return call(lambda c, l: c.issue(l, key.strip(), full), key)
 
-    return [quality_code_jira_search, quality_code_jira_issue]
+    def quality_code_jira_links(key: str) -> str:
+        """The web links (remote links) of a Jira issue, such as merge requests and Figma (read-only)."""
+        return call(lambda c, l: c.remote_links(l, key.strip()), key)
+
+    def quality_code_jira_projects(query: str = "", limit: int = 20) -> str:
+        """The Jira projects the signed-in person can see, filtered by `query` (read-only)."""
+        return call(lambda c, l: c.projects(l, query, limit))
+
+    def quality_code_jira_transitions(key: str) -> str:
+        """The status changes available now on a Jira issue: id, name and target status (read-only)."""
+        return call(lambda c, l: c.transitions(l, key.strip()), key)
+
+    def quality_code_jira_createmeta(project: str, issue_type: str = "") -> str:
+        """The issue types of a Jira project; with `issue_type`, that type's fields (id, name, required, allowed values) (read-only)."""
+        return call(lambda c, l: c.create_meta(l, project.strip(), issue_type.strip()))
+
+    def quality_code_jira_create(project: str, issue_type: str, summary: str, description: str = "", fields_json: str = "") -> str:
+        """CREATES a Jira issue as the signed-in person. Call only after the person saw the preview and said yes. fields_json: extra fields as a JSON object (labels, components, parent, custom fields)."""
+        return call(lambda c, l: c.create(l, project.strip(), issue_type.strip(), summary, description, fields_of(fields_json)))
+
+    def quality_code_jira_comment(key: str, text: str) -> str:
+        """ADDS a comment to a Jira issue as the signed-in person. Call only after the person saw the preview and said yes."""
+        return call(lambda c, l: c.comment(l, key.strip(), text), key)
+
+    def quality_code_jira_transition(key: str, transition_id: str) -> str:
+        """CHANGES the status of a Jira issue as the signed-in person (ids from quality_code_jira_transitions). Call only after the person saw the preview and said yes."""
+        return call(lambda c, l: c.transition(l, key.strip(), transition_id.strip()), key)
+
+    def quality_code_jira_edit(key: str, fields_json: str) -> str:
+        """EDITS fields of a Jira issue as the signed-in person; fields_json is a JSON object of field id to value. Call only after the person saw the preview and said yes."""
+        return call(lambda c, l: c.edit(l, key.strip(), fields_of(fields_json)), key)
+
+    def quality_code_jira_link_issues(link_type: str, inward: str, outward: str) -> str:
+        """LINKS two Jira issues (for example link type Test, or Defect) as the signed-in person. Call only after the person saw the preview and said yes."""
+        return call(lambda c, l: c.link_issues(l, link_type.strip(), inward.strip(), outward.strip()), inward, outward)
+
+    return [quality_code_jira_search, quality_code_jira_issue, quality_code_jira_links, quality_code_jira_projects, quality_code_jira_transitions,
+            quality_code_jira_createmeta, quality_code_jira_create, quality_code_jira_comment, quality_code_jira_transition, quality_code_jira_edit,
+            quality_code_jira_link_issues]
 
 
 def quality_code_whoami() -> str:
