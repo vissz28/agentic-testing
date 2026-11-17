@@ -19,10 +19,10 @@ class EntraConfigError(ValueError):
 @dataclass(frozen=True)
 class EntraSettings:
     tenant_id: str
-    client_id: str  # the app registration of this server (its Application (client) ID)
+    client_id: str  # this server's app registration (Application ID)
     public_url: str  # where clients reach this server, for example https://qc-mcp.example.com
     required_scope: str | None = None  # a delegated scope (scp) or an app role (roles) the token must carry
-    authority: str = AUTHORITY  # the login host; another for a sovereign cloud (login.microsoftonline.us) or a test tenant
+    authority: str = AUTHORITY  # e.g. login.microsoftonline.us for a sovereign cloud, or a test tenant
 
     @property
     def issuers(self) -> list[str]:
@@ -63,7 +63,7 @@ class EntraTokenVerifier:
 
     def __init__(self, settings: EntraSettings, signing_key: Callable[[str], Any] | None = None):
         self.s = settings
-        # signing_key(token) -> key. By default the tenant's published keys, fetched and cached by PyJWT.
+        # Defaults to the tenant's published keys; PyJWT fetches and caches them.
         if signing_key is None:
             client = jwt.PyJWKClient(settings.jwks_uri, cache_keys=True)
             signing_key = lambda t: client.get_signing_key_from_jwt(t).key  # noqa: E731

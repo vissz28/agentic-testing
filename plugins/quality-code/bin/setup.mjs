@@ -1,16 +1,13 @@
-// Deterministic half of the setup command: --detect scans the repo (read-only), --write validates and
-// writes, --smoke runs the smoke test setup writes for a frontend that had no Playwright, and
-// --unit-overlap lists the e2e specs the project's own unit runner (Vitest, Jest) would pick up too.
+// Setup script: --detect (read-only scan), --write, --smoke, --unit-overlap.
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { stripCredentials } from './branch.mjs'
-import { CONFIG_REL, DEFAULTS, configPath, loadConfig, normaliseTicketsDir, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/config/config.mjs'
-import { FIELDS_REL } from '../lib/ticket/fields.mjs'
+import { CONFIG_REL, DEFAULTS, configPath, loadConfig, personalConfigPath, timeoutSecondsOf, validateConfig } from '../lib/config/config.mjs'
 import { ignoreFolder } from '../lib/core/ignore.mjs'
 import { placeConfigPath, placeOf } from '../lib/config/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../lib/stacks/e2e-folder.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut } from '../lib/core/git.mjs'
 import { CI_FILES } from '../lib/pipeline/boundary.mjs'
 import { asAdapter } from '../lib/stacks/stack.mjs'
 import { configFor, runPlaywright } from '../lib/pipeline/runners/playwright.mjs'
@@ -22,10 +19,12 @@ import { detectConventions } from '../lib/stacks/conventions.mjs'
 import { containersScaffold, containersWrite } from '../lib/base/containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from '../lib/base/workspaces.mjs'
 import { isMain, tag, printLine } from '../lib/core/script-io.mjs'
-import { isLine, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
+import { lines, toForwardSlashes, withoutOrigin } from '../lib/core/text.mjs'
 import { readJson } from '../lib/core/files.mjs'
+import { noTrailingSlash, cleanRelPath, leavesFolder } from '../lib/core/paths.mjs'
+import { isLine, isObject } from '../lib/core/is.mjs'
 
-// Found in this order; a new one is written where the repo's host keeps issue templates.
+// Checked in order; new templates go where the repo's host keeps them.
 const TEMPLATE_CANDIDATES = {
   bug: ['.gitlab/issue_templates/Bug.md', '.github/ISSUE_TEMPLATE/bug.md', '.github/ISSUE_TEMPLATE/bug_report.md'],
   story: ['.gitlab/issue_templates/Story.md', '.github/ISSUE_TEMPLATE/story.md', '.github/ISSUE_TEMPLATE/feature_request.md'],
@@ -34,15 +33,14 @@ const TEMPLATE_HOME = { gitlab: { bug: '.gitlab/issue_templates/Bug.md', story: 
 
 export const RUNTIME_GITIGNORE = ['.claude/quality-code/*.jsonl', '.claude/quality-code/run.active', 'mut-tmp-*', '.claude/quality-code/audit/']
 
-const rawLine = ticketsDir => `${normaliseTicketsDir(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
+const rawLine = ticketsDir => `${cleanRelPath(typeof ticketsDir === 'string' ? ticketsDir : DEFAULTS.ticketsDir)}/*/raw.json`
 
 function boundaryCandidates(root, ignored = new Set()) {
   let names = []
   try { names = readdirSync(root) } catch {}
-  const exists = p => existsSync(join(root, p.replace(/\/$/, ''))) && !ignored.has(p.replace(/\/$/, ''))
+  const exists = p => existsSync(join(root, noTrailingSlash(p))) && !ignored.has(noTrailingSlash(p))
   // A workspace monorepo's packages each have their code folder.
   const workspaceSrc = top => { try { return readdirSync(join(root, top)).some(n => !BUILD_COPIES.has(n) && !ignored.has(`${top}/${n}`) && existsSync(join(root, top, n, 'src'))) } catch { return false } }
-  // Order: code folders, environment files, CI files.
   return [
     ...['src/', 'app/', 'lib/', 'server/', 'pages/', 'components/', 'prisma/', 'migrations/'].filter(exists),
     ...['packages', 'apps'].filter(workspaceSrc).map(t => `${t}/*/src/`),
@@ -55,7 +53,7 @@ function boundaryCandidates(root, ignored = new Set()) {
 const VITEST_CONFIG = /^vitest(\.[\w-]+)?\.config\.[cm]?[jt]s$|^vitest\.config(\.[\w-]+)?\.[cm]?[jt]s$/
 const VITE_CONFIG = /^vite\.config\.[cm]?[jt]s$/
 
-/** Vitest config files at the root: vitest.config.*, and a vite.config.* that holds a test block. */
+/** Root vitest.config.*, plus any vite.config.* with a test block. */
 function vitestConfigs(root) {
   let names = []
   try { names = readdirSync(root) } catch {}
@@ -65,14 +63,11 @@ function vitestConfigs(root) {
 
 const SPEC_FILE = /\.(spec|test|cy)\.[cm]?[jt]sx?$/
 
-// The files that name a Python project's test runner; any of them that mentions pytest makes it pytest.
+// Any of these that mentions pytest means the project uses pytest.
 const PYTHON_FILES = /^(?:pyproject\.toml|pytest\.ini|setup\.cfg|tox\.ini|requirements[\w.-]*\.txt)$/
 const DOTNET_FILES = /\.(?:csproj|fsproj|sln)$/
 
-/**
- * The backend runners a repo shows, in the order setup proposes them: Vitest (package.json), pytest,
- * JUnit (Maven or Gradle), Go (go.mod), .NET (a project or solution file, at the top or one folder down).
- */
+/** Backend runners found, in the order setup proposes them. .NET project files may be one folder down. */
 export function detectBackends(root, deps = {}, ignored = new Set()) {
   let names = []
   try { names = readdirSync(root) } catch {}
@@ -103,7 +98,7 @@ function hasSpecBesideCode(dir, budget = { n: 5000 }) {
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', ...BUILD_COPIES])
 
-/** The folders (first two path segments, ending in "/") that hold specs: sorted, at most 10. */
+/** Folders (first two path segments) holding specs, sorted, max 10. */
 function specFolders(root, ignored = new Set(), budget = { n: 20000 }) {
   const found = new Set()
   const walk = (rel, depth) => {
@@ -119,10 +114,7 @@ function specFolders(root, ignored = new Set(), budget = { n: 20000 }) {
   return [...found].sort().slice(0, 10)
 }
 
-/**
- * Playwright config files at the root or up to two folders down (Playwright finds only the root one by
- * itself), each with the test folder its testDir gives, or null when it cannot be read.
- */
+/** Playwright configs up to two folders deep (Playwright only finds the root one), each with its testDir or null. */
 function playwrightConfigs(root, ignored = new Set()) {
   const names = new Set(CONFIG_FILES)
   const found = []
@@ -139,12 +131,12 @@ function playwrightConfigs(root, ignored = new Set()) {
   return found.sort((a, b) => a.config.split('/').length - b.config.split('/').length || (a.config < b.config ? -1 : 1)).slice(0, 5)
 }
 
-// A frontend: one of these in its dependencies, or an index.html at the root.
+// Frontend: any of these deps, or a root index.html.
 const UI_DEPS = ['react', 'vue', '@angular/core', 'svelte', 'solid-js', 'preact', 'lit', 'next', 'nuxt', 'astro', '@sveltejs/kit', 'ember-source', 'vite', 'parcel', 'webpack-dev-server']
-// A server: one of these in its dependencies. A frontend with one is a frontend with its backend.
+// Server deps; a frontend with one of these also has a backend.
 const SERVER_DEPS = ['express', '@nestjs/core', 'fastify', 'koa', '@hapi/hapi', 'hono', 'restify', '@adonisjs/core', '@feathersjs/feathers', 'h3']
 const DEV_SCRIPTS = ['dev', 'start', 'serve']
-// The port a dev server opens on when its script and config name none.
+// Default dev-server ports when the script and config set none.
 const DEFAULT_PORTS = [[/\bnext\b|\breact-scripts\b|\bnuxi?\b/, 3000], [/\bng\b/, 4200], [/\bastro\b/, 4321], [/\bparcel\b/, 1234], [/\bvue-cli-service\b|\bwebpack\b/, 8080], [/\bvite\b|\bremix\b|\breact-router\b/, 5173]]
 const LOCKFILES = [['pnpm-lock.yaml', 'pnpm'], ['yarn.lock', 'yarn'], ['bun.lock', 'bun'], ['bun.lockb', 'bun'], ['package-lock.json', 'npm']]
 const ADD_DEV = { npm: 'npm install --save-dev', pnpm: 'pnpm add -D', yarn: 'yarn add -D', bun: 'bun add -d' }
@@ -154,13 +146,19 @@ const AUTH_STATE = 'playwright/.auth/user.json'
 const ENV_FILE = '.env.e2e'
 const PLAYWRIGHT_GITIGNORE = ['test-results/', 'playwright-report/']
 const SIGN_IN_GITIGNORE = [`${dirname(AUTH_STATE)}/`, ENV_FILE]
-// The unit runners setup recognises, the first one found winning; Vitest is the specialized one.
-// Node's own runner is no dependency: a script that runs node --test names it.
+// Unit runners in priority order. node --test has no dependency: found via a script or a node:test import.
 const UNIT_RUNNERS = ['vitest', 'jest', 'mocha']
 const NODE_TEST = /(?:^|&&|\|\||;|\|)\s*node\b[^&|;]*\s--test\b/
 const runsNodeTest = pkg => Object.values(pkg?.scripts ?? {}).some(s => NODE_TEST.test(String(s)))
+const NODE_TEST_IMPORT = /\b(?:from|require\()\s*['"]node:test['"]/
+/** node:test imported from test/ or tests/, with no script running it. */
+const importsNodeTest = root => ['test', 'tests'].some(dir => {
+  let names = []
+  try { names = readdirSync(join(root, dir)) } catch { return false }
+  return names.some(n => { try { return SPEC_FILE.test(n) && NODE_TEST_IMPORT.test(readFileSync(join(root, dir, n), 'utf8')) } catch { return false } })
+})
 
-/** The package manager, from package.json or the nearest lockfile up to the repo top (a workspace keeps one at its root); npm when none. */
+/** From packageManager or the nearest lockfile up to the repo top (workspaces keep it at the root); npm by default. */
 export function packageManager(root, pkg) {
   let pm = /^(npm|pnpm|yarn|bun)@/.exec(pkg.packageManager ?? '')?.[1] ?? null
   let pnp = false
@@ -179,7 +177,7 @@ function vitePort(root) {
   return null
 }
 
-/** How the app starts for the tests: its dev script, and the address it opens at; null for what cannot be read. */
+/** The dev script and its URL; null where unknown. */
 function devServer(root, pkg, pm) {
   const name = DEV_SCRIPTS.find(n => typeof pkg.scripts?.[n] === 'string')
   if (!name) return { command: null, url: null }
@@ -189,23 +187,19 @@ function devServer(root, pkg, pm) {
   return { command: `${pm} run ${name}`, url: port ? `http://localhost:${port}` : null }
 }
 
-/**
- * What setup adds to a frontend with no Playwright config: the install command (null when Playwright is
- * installed), the browser download, the app's command and address, the files it writes. Null when the
- * repo has a Playwright config, or is no frontend (a backend, a UI library, or no package.json).
- */
+/** Playwright setup for a frontend with no Playwright config; null for backends, UI libraries or no package.json. */
 function playwrightScaffold(root, pkg, adapter, configs) {
   if (!pkg || configs.length) return null
   const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-  // A repo that runs Cypress keeps it: its e2e tests are written and checked in Cypress.
+  // Cypress repos stay on Cypress.
   if ('cypress' in deps) return null
   const installed = '@playwright/test' in deps
   const { pm, pnp } = packageManager(root, pkg)
   const app = devServer(root, pkg, pm)
-  // With Vitest already, a frontend also needs a script that serves it: a UI library is tested with Vitest alone.
+  // With Vitest present, add Playwright only if there's a dev script; a UI library stays Vitest-only.
   if (!installed && !(isFrontend(root, deps) && (adapter === null || (adapter === 'vitest' && app.command)))) return null
   const ts = existsSync(join(root, 'tsconfig.json'))
-  // As npm init playwright does: the config reads process, which TypeScript knows from @types/node.
+  // Like npm init playwright: the config uses process, typed by @types/node.
   const packages = ['@playwright/test', ...(ts && !('@types/node' in deps) ? ['@types/node'] : [])]
   const ext = ts ? 'ts' : 'js'
   const s = {
@@ -221,11 +215,7 @@ function playwrightScaffold(root, pkg, adapter, configs) {
 const isFrontend = (root, deps) => UI_DEPS.some(d => d in deps) || existsSync(join(root, 'index.html'))
 const pnpProblem = tool => `Yarn Plug'n'Play keeps no node_modules folder, which the checks run ${tool} from: set nodeLinker: node-modules in .yarnrc.yml, then run /quality-code:spec again.`
 
-/**
- * What setup adds to a repo with no test runner that is not a frontend alone (a backend, a library, or a
- * frontend with its server, which gets Playwright too): the install command and the Vitest config. Null
- * when the repo has any runner, or no package.json.
- */
+/** Vitest setup for a repo with no runner that isn't a pure frontend; null if it has one or no package.json. */
 function vitestScaffold(root, pkg, adapter) {
   if (!pkg || adapter !== null) return null
   const deps = { ...pkg.dependencies, ...pkg.devDependencies }
@@ -240,10 +230,7 @@ function vitestScaffold(root, pkg, adapter) {
   return s
 }
 
-/**
- * Why the Vitest an install gets (5) cannot run here, or null: it starts on Node 22.12 or newer, beside a
- * Vite of 6.4 or newer. vite is the repo's own range for it (a frontend's), checked by its major only.
- */
+/** Why Vitest 5 can't run here (needs Node 22.12+ and Vite 6.4+), or null. The vite range is checked by major only. */
 export function vitestProblem(node, vite) {
   const [major, minor] = String(node).split('.').map(Number)
   if (major < 22 || (major === 22 && minor < 12)) return `Vitest needs Node 22.12 or newer, and this is Node ${node}: update Node, then run /quality-code:spec again.`
@@ -251,7 +238,7 @@ export function vitestProblem(node, vite) {
   return null
 }
 
-/** The Vitest config setup writes; next to Playwright, the e2e folder is left to Playwright, and the integration folder to its own config. */
+/** Vitest config text; excludes the e2e and integration folders, which have their own configs. */
 export function vitestConfigText({ e2e, integration = null }) {
   const out = [...(e2e ? [DEFAULT_E2E_FOLDER] : []), ...(integration ? [integration] : [])]
   const test = out.length ? `{ exclude: [...configDefaults.exclude, ${out.map(f => `'${f}**'`).join(', ')}] }` : '{}'
@@ -284,7 +271,7 @@ function vitestScaffoldProblems(config, v) {
 
 const quote = s => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
 
-/** The Playwright config setup writes. With signIn, a setup project signs in once and every test starts signed in. */
+/** Playwright config text. With signIn, a setup project signs in once for all tests. */
 export function playwrightConfigText({ command, url, signIn }) {
   const head = signIn
     ? `import { existsSync } from 'node:fs'
@@ -301,7 +288,7 @@ if (existsSync('${ENV_FILE}')) process.loadEnvFile('${ENV_FILE}')
     : `    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },`
   return `${head}
 export default defineConfig({
-  testDir: './${DEFAULT_E2E_FOLDER.replace(/\/$/, '')}',
+  testDir: './${noTrailingSlash(DEFAULT_E2E_FOLDER)}',
   use: { baseURL: ${quote(url)} },
   webServer: { command: ${quote(command)}, url: ${quote(url)}, reuseExistingServer: !process.env.CI },
   projects: [
@@ -311,7 +298,7 @@ ${projects}
 `
 }
 
-// Each expect names what it checks: the first line of a failure says what is wrong with the setup.
+// Expect messages make the first failure line name the setup problem.
 export const SMOKE_TEXT = `import { test, expect } from '@playwright/test'
 
 // Written by quality-code setup. While it is the only spec here, /quality-code:spec runs it first, so a
@@ -326,7 +313,7 @@ test('the app opens', async ({ page }) => {
 `
 
 function scaffoldProblems(root, config, s) {
-  if (s === null || typeof s !== 'object' || Array.isArray(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
+  if (!isObject(s)) return ['scaffold: must be an object with "command", "url" and "signIn"']
   const e = []
   if (!config.frontend) e.push('scaffold: only for "frontend": "playwright"')
   else if (runnerOf(config, 'playwright') !== 'playwright') e.push(`scaffold: it sets up Playwright, and this project's e2e runner is ${runnerOf(config, 'playwright')}`)
@@ -339,18 +326,10 @@ function scaffoldProblems(root, config, s) {
 }
 
 function hasLine(path, line) {
-  return existsSync(path) && readFileSync(path, 'utf8').split(/\r?\n/).some(l => l.trim() === line)
+  return existsSync(path) && lines(readFileSync(path, 'utf8')).some(l => l.trim() === line)
 }
 
-function gitOut(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).trim()
-  } catch {
-    return null
-  }
-}
-
-/** The folders git ignores (relative to root, no trailing slash): detect never reads them. Empty outside a repo. */
+/** Git-ignored folders relative to root; detect skips them. Empty outside a repo. */
 export function ignoredDirs(root) {
   const out = gitOut(root, ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory']) ?? ''
   return new Set(out.split('\n').filter(l => l.endsWith('/')).map(l => l.slice(0, -1)))
@@ -364,13 +343,10 @@ export function remoteProject(url) {
   return m ? { host: m[1], path: m[2] } : null
 }
 
-/** github, bitbucket, or gitlab for any other host (GitLab is the one usually self-hosted under its own name). */
+/** Any host other than GitHub or Bitbucket is taken as GitLab, the one usually self-hosted. */
 export const hostKind = host => (/github/i.test(host) ? 'github' : /bitbucket/i.test(host) ? 'bitbucket' : 'gitlab')
 
-/**
- * The account the gh CLI is signed in with on host: { login }, else { login: null, reason }. Local
- * for a host gh has no account on: it never sends a request to a GitLab.
- */
+/** gh's active account on host: { login } or { login: null, reason }. Never calls a host gh has no account on. */
 export function ghAccount(host) {
   try {
     const out = execFileSync('gh', ['auth', 'status', '--hostname', host, '--active', '--json', 'hosts'],
@@ -383,12 +359,7 @@ export function ghAccount(host) {
   }
 }
 
-/**
- * Where the project lives: its folder, the git repo around it, and the origin's project: remote
- * for any host, gitlab only when the host is a GitLab (the GitLab connector looks it up), github
- * (gh's account there) only when it is a GitHub. A GitHub on its own domain (GitHub Enterprise) is
- * known by gh's sign-in to it, not by its name.
- */
+/** Folder, repo and origin. GitHub is detected by gh's sign-in, not the hostname, so GitHub Enterprise works. */
 function here(root) {
   const top = gitOut(root, ['rev-parse', '--show-toplevel'])
   if (!top) return { folder: basename(root), repoTop: null, subfolder: null, remote: null, gitlab: null, github: null }
@@ -397,22 +368,22 @@ function here(root) {
   const gh = p && ghAccount(p.host)
   const kind = gh?.login ? 'github' : p && hostKind(p.host)
   const remote = p && { ...p, kind }
-  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? prefix.replace(/\/$/, '') : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
+  return { folder: basename(root), repoTop: basename(top), subfolder: prefix ? noTrailingSlash(prefix) : null, remote, gitlab: kind === 'gitlab' ? p : null, github: kind === 'github' ? gh : null }
 }
 
-// A Jira key in a branch name or a commit subject: ABC-12. Jira keys have at least two characters.
+// Jira key (ABC-12) in a branch or commit subject; the project part is 2+ chars.
 const JIRA_KEY = /(?<![A-Za-z0-9_])([A-Z][A-Z0-9_]+)-\d+(?!\d)/g
-// Shaped like a key, never a Jira project: UTF-8, SHA-256, ISO-8601, PR-12.
+// Look like keys but aren't: UTF-8, SHA-256, ISO-8601, PR-12.
 const NOT_PROJECTS = new Set(['UTF', 'ISO', 'SHA', 'RFC', 'CVE', 'HTTP', 'TLS', 'ES', 'PR', 'MR', 'WIP'])
 const MAX_SUBJECTS = 200
 
-/** The project prefixes of the Jira keys in the texts, most frequent first (ties: first seen), at most 5. */
+/** Jira project prefixes in the texts, most frequent first (ties: first seen), max 5. */
 export function projectCandidates(texts) {
   const count = new Map()
   for (const t of texts) {
     for (const m of String(t ?? '').matchAll(JIRA_KEY)) if (!NOT_PROJECTS.has(m[1])) count.set(m[1], (count.get(m[1]) ?? 0) + 1)
   }
-  // A key that reads like another one (PF0 with a zero beside PFO with the letter, 1 and I) is a typo of the more used one: it is dropped.
+  // Lookalikes (PF0 vs PFO, 1 vs I) are typos of the more frequent key: drop them.
   const look = k => k.replace(/0/g, 'O').replace(/1/g, 'I')
   const digits = k => (k.match(/[01]/g) ?? []).length
   const kept = []
@@ -425,42 +396,37 @@ export function projectCandidates(texts) {
   return kept.slice(0, 5).map(([key]) => key)
 }
 
-/** Project keys named by the local branches and the last 200 commit subjects: setup proposes them. */
+/** Project keys from local branches and the last 200 commit subjects. */
 function jiraCandidates(root) {
   const branches = gitOut(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']) ?? ''
   const subjects = gitOut(root, ['log', `-${MAX_SUBJECTS}`, '--format=%s']) ?? ''
   return projectCandidates([...branches.split('\n'), ...subjects.split('\n')])
 }
 
-/**
- * The branch features start from, as git alone sees it: develop when origin/develop exists (gitflow),
- * else origin/HEAD. Setup may replace it by the target of recent merge requests. Null outside a repo.
- */
+/** develop if origin/develop exists, else origin/HEAD; setup may override it from recent MR targets. Null outside a repo. */
 function baseCandidate(root) {
   if (gitOut(root, ['rev-parse', '--verify', '--quiet', 'refs/remotes/origin/develop^{commit}'])) return { proposed: 'develop', source: 'develop' }
   const head = gitOut(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])
   return head ? { proposed: withoutOrigin(head), source: 'origin-head' } : null
 }
 
-/** The host whose issue-template folder new templates go to: the remote's, else the folder the repo already has. */
+/** Where new issue templates go: the remote's host, else whichever folder exists. */
 function templateHost(root, remote) {
   if (remote) return remote.kind === 'gitlab' ? 'gitlab' : 'github'
   return existsSync(join(root, '.github')) && !existsSync(join(root, '.gitlab')) ? 'github' : 'gitlab'
 }
 
-/**
- * A version 1 config (it names an adapter) as version 2 names its sides, so a rerun of setup rewrites it:
- * playwright is the frontend, a backend runner the backend, fullstack both (Vitest when it named no backend).
- */
+/** Upgrades a v1 config (single adapter) to v2 sides; fullstack with no backend means Vitest. */
 export function fromVersion1(c) {
   if (!c || typeof c !== 'object' || !('adapter' in c)) return c
-  const { adapter, backend, ...rest } = c
+  // testFlow was renamed testStyle in 0.69; a file older than that still has it.
+  const { adapter, backend, testFlow, ...rest } = c
   const sides = adapter === 'fullstack' ? { frontend: 'playwright', backend: backend ?? 'vitest' }
     : adapter === 'playwright' ? { frontend: 'playwright' } : { backend: adapter }
-  return { ...rest, version: 2, ...sides }
+  return { ...(testFlow === undefined ? {} : { testStyle: testFlow }), ...rest, version: 2, ...sides }
 }
 
-/** The personal config (no repo): its path and what it holds now (null when there is none). */
+/** Personal config path and its current contents (null if none). */
 function personalState(env) {
   const path = personalConfigPath(env)
   const state = { path, existing: null }
@@ -470,13 +436,12 @@ function personalState(env) {
   return state
 }
 
-// A tool in package.json that runs tests: a subfolder with one is proposed first as the project root.
+// A subfolder depending on one of these is proposed first as the project root.
 const TEST_DEPS = [...UNIT_RUNNERS, '@playwright/test', 'cypress']
 
-/** The folder has a package.json that names a test tool or runs node --test. */
 const hasTestTool = (top, n) => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
 
-/** The folders one down that hold a package.json, those with a test tool first: where the project may live when the top has none. */
+/** Subfolders with a package.json, test-tool ones first: root candidates when the top has none. */
 function rootCandidates(top, ignored = new Set()) {
   let names = []
   try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name) && !ignored.has(e.name)).map(e => e.name).sort() } catch {}
@@ -485,10 +450,7 @@ function rootCandidates(top, ignored = new Set()) {
   return [...found.filter(tested), ...found.filter(n => !tested(n))]
 }
 
-/**
- * Where the work is, for a repo with several projects: the folders this branch changed (against the base, and not yet
- * committed) come first, then those with the most spec files. Each candidate gets its evidence; nothing is guessed by name.
- */
+/** Ranks root candidates by files changed on this branch (committed or not), then by spec count. Never by name. */
 export function rankRoots(top, candidates) {
   if (candidates.length < 2) return { ordered: candidates, evidence: {}, decisive: candidates.length === 1 }
   const evidence = Object.fromEntries(candidates.map(c => [c, { changed: 0, specs: 0 }]))
@@ -504,16 +466,15 @@ export function rankRoots(top, candidates) {
   ].filter(Boolean)
   for (const f of touched) { const c = folderOf(f); if (c in evidence) evidence[c].changed++ }
   const ordered = [...candidates].sort((a, b) => evidence[b].changed - evidence[a].changed || evidence[b].specs - evidence[a].specs || candidates.indexOf(a) - candidates.indexOf(b))
-  // Decisive: exactly one folder holds this branch's work. Otherwise the person says which service this is.
-  // Or exactly one folder can run tests at all (a test tool or spec files): the others cannot be where tests are written.
+  // Decisive: one folder has this branch's changes, or none do and only one can run tests. Else the user picks.
   const changed = ordered.filter(c => evidence[c].changed > 0)
   const testable = ordered.filter(c => evidence[c].specs > 0 || hasTestTool(top, c))
   return { ordered, evidence, decisive: changed.length === 1 || (changed.length === 0 && testable.length === 1) }
 }
 
 /**
- * Tests that sit next to the code (src/**\/*.unit.test.jsx): the layer that finds them and the boundary rule that lets a run
- * write their names, or null when the project keeps its tests apart. A layer in src/ needs the rule: src/ is otherwise protected.
+ * For tests next to the code (src/**\/*.unit.test.jsx): the layer plus an allow rule, since src/ is otherwise
+ * protected. Null when tests live apart.
  */
 export function colocatedProposal(root) {
   const c = detectConventions(root)
@@ -525,20 +486,19 @@ export function colocatedProposal(root) {
 }
 
 /**
- * What setup proposes, read from the project root: the subfolder sub names ("." the top), else the
- * existing config's root, else the first candidate when the top shows no project of its own. The
- * config, existing and personal stay at the top.
+ * Setup's proposal. Project root: sub ("." = top), else the config's root, else the top candidate when
+ * the top has no project. The config files stay at the top.
  */
 export function detect(top, env = process.env, sub = null) {
   let existing = null
   let existingError
-  const cp = configPath(top)
+  const cp = configPath(top, env)
   if (existsSync(cp)) {
     try { existing = fromVersion1(readJson(cp)) } catch (err) { existingError = `${cp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json'} is not valid JSON (${err.message})` }
   }
   const ignored = ignoredDirs(top)
   const topPkg = (() => { try { return readJson(join(top, 'package.json')) } catch { return null } })()
-  // A workspaces root (npm, Yarn, pnpm) is ONE project with many test roots: never a choice of which service.
+  // A workspaces root (npm, Yarn, pnpm) is one project with many test roots, not a pick of services.
   const patterns = workspacePatterns(top, topPkg)
   const wsDirs = patterns ? workspaceDirs(top, patterns, ignored) : []
   const monorepo = wsDirs.length > 0 && !sub && typeof existing?.root !== 'string'
@@ -557,37 +517,35 @@ export function detect(top, env = process.env, sub = null) {
       deps = { ...pkg.dependencies, ...pkg.devDependencies }
     } catch { deps = {}; pkg = null }
   }
-  // The JavaScript unit runner (Vitest, else Jest, Mocha or node --test under the vitest adapter) and the e2e one.
-  // A monorepo is tested with what its workspaces are: the runner most of them use, each with its own config.
+  // Unit runner: Vitest, else Jest/Mocha/node --test. A monorepo uses the runner most workspaces use.
   const wsRunners = monorepo ? workspaceRunners(top, wsDirs) : []
   const wsRunner = majorityRunner(wsRunners)
   const wsAll = monorepo ? { ...workspaceDeps(top, wsDirs), ...deps } : deps
-  const unit = wsRunner ?? UNIT_RUNNERS.find(r => r in wsAll) ?? (runsNodeTest(pkg) ? 'node' : null)
+  const unit = wsRunner ?? UNIT_RUNNERS.find(r => r in wsAll) ?? (runsNodeTest(pkg) || importsNodeTest(root) ? 'node' : null)
   const e2e = '@playwright/test' in wsAll ? 'playwright' : 'cypress' in wsAll ? 'cypress' : null
-  // Each workspace's own config (Jest started at the root without --config trips over the copies of packages in build folders):
-  // the project's vitest.configs maps the folder to it. Only the workspaces on the runner the project uses.
+  // Per-workspace configs: Jest at the root without --config trips over package copies in build folders.
   const unitConfigs = wsRunners.filter(w => w.runner === unit && w.config).map(w => ({ match: `${w.dir}/`, config: w.config }))
-  // The backend runner: the first one found; with an e2e runner too the repo is both (fullstack + backend).
+  // First backend runner found; with an e2e runner too, the adapter is 'both'.
   const backends = detectBackends(root, deps, ignored)
   if (unit && !backends.includes('vitest')) backends.unshift('vitest')
   const backend = backends[0] ?? null
   const frontend = e2e ? 'playwright' : null
   const adapter = e2e && backend ? 'both' : e2e ? 'playwright' : backend
-  // The config names a runner only when it is not the default of its kind: { unit: 'jest' }, { e2e: 'cypress' }.
+  // Only non-default runners are named: { unit: 'jest' }, { e2e: 'cypress' }.
   const runners = { ...(backend === 'vitest' && unit && unit !== 'vitest' ? { unit } : {}), ...(e2e === 'cypress' ? { e2e } : {}) }
   const pwConfigs = playwrightConfigs(root, ignored)
   const vitest = monorepo ? null : vitestScaffold(root, pkg, adapter)
-  // The backend that gets real databases: Vitest when it runs the tests (or setup adds it), else pytest, Go or .NET.
+  // Backend that gets real databases: Vitest if it runs (or setup adds it), else pytest, Go or .NET.
   const containerBackend = monorepo ? null : unit === 'vitest' || (vitest && !vitest.problem) ? 'vitest' : backend && backend !== 'vitest' ? backend : null
   const templates = {}
   for (const [kind, paths] of Object.entries(TEMPLATE_CANDIDATES)) {
     templates[kind] = paths.find(p => existsSync(join(root, p))) ?? null
   }
   const result = {
-    // ask: several projects and nothing decides which one is this work: the person picks (setup shows the card).
+    // ask: several projects and nothing decides, so the user picks.
     root: { proposed, candidates: ranking?.ordered ?? candidates, ask: Boolean(ranking && ranking.ordered.length > 1 && !ranking.decisive), evidence: ranking?.evidence ?? {} },
     frontend, backend, backends, runners, templates, existing,
-    // monorepo: one project over these workspace folders; unitConfigs is the vitest.configs proposal (folder -> its own config).
+    // unitConfigs: proposed vitest.configs (folder -> its own config).
     workspaces: monorepo ? { folders: wsDirs, unit, unitConfigs } : null,
     gitignore: hasLine(join(root, '.gitignore'), rawLine(existing?.ticketsDir)),
     boundaries: boundaryCandidates(root, ignored),
@@ -609,23 +567,19 @@ export function detect(top, env = process.env, sub = null) {
   return result
 }
 
-// A path the proposal names must stay inside the project root.
+// Paths in the proposal must stay inside the project root.
 function pathProblem(root, label, p) {
   if (typeof p !== 'string' || !p.trim()) return `${label}: must be a non-empty relative path`
   if (isAbsolute(p) || p.split(/[\\/]/).includes('..')) return `${label} "${p}" must be a relative path inside the project (no ".." or absolute paths)`
   const rel = relative(resolve(root), resolve(root, p))
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return `${label} "${p}" is outside the project`
+  if (rel === '' || leavesFolder(rel)) return `${label} "${p}" is outside the project`
   return null
 }
 
-/**
- * scaffold ({ command, url, signIn }) also writes the Playwright config and the smoke test, vitestScaffold
- * (true) the Vitest config, containersScaffold (true) the integration layer that runs on real databases;
- * an existing file is never replaced.
- */
+/** Writes the config plus optional scaffolds (Playwright + smoke test, Vitest config, containers). Never replaces a file. */
 export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated, configFile } = {}) {
-  // configFile: a change to the config already in force is written back to that file, not to the setup location.
-  // colocated (true): the project's tests sit next to its code: its test folder is the code folder, with the test names allowed.
+  // configFile: an edit to the active config goes back to that file, not the setup location.
+  // colocated: tests sit next to the code, so the code folder is the test folder.
   if (colocated !== undefined) {
     if (colocated !== true) return { ok: false, errors: ['colocated: must be true'] }
     const proposal = colocatedProposal(resolve(top, config?.root ?? '.'))
@@ -640,7 +594,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   const v = validateConfig(config)
   if (!v.ok) return { ok: false, errors: v.errors }
   const loaded = v.config
-  // The config stays at the top; every file it names, and what setup adds, is in the project root.
+  // Config stays at the top; the files it names and setup adds live in the project root.
   const root = resolve(top, config.root ?? '.')
   if (!existsSync(root)) return { ok: false, errors: [`root "${config.root}" is not a folder of this repository`] }
   const errors = []
@@ -671,7 +625,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   const ts = existsSync(join(root, 'tsconfig.json'))
   let out = { ...config }
   const backend = config.backend ?? null
-  // The project's own Vitest config, which the integration config builds on: the one there, else the one written now.
+  // The integration config extends the project's Vitest config (existing, or the one written now).
   const own = vitestConfigs(root).filter(n => !n.startsWith('vitest.integration.config.'))
   const containers = containersScaffold === undefined ? null
     : containersWrite(root, backend, out, { deps: packageDeps(root), base: own[0] ?? (vitestScaffold !== undefined ? `vitest.config.${ts ? 'ts' : 'js'}` : null), cmd: { ts, exec: EXEC[packageManager(root, packageJson(root)).pm] } })
@@ -685,7 +639,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     toWrite.push([`vitest.config.${ts ? 'ts' : 'js'}`, vitestConfigText({ e2e: Boolean(config.frontend && config.backend), integration: backend === 'vitest' ? containers?.folder ?? null : null })])
   }
   for (const [p, body] of containers?.files ?? []) if (!existsSync(join(root, p))) toWrite.push([p, body])
-  // A config-set write (configFile) saves only the keys it previewed: no templates found on the way.
+  // A config-set write saves only the previewed keys, not discovered templates.
   if (!configFile && out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
 
   let step = ''
@@ -696,17 +650,16 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
       mkdirSync(dirname(full), { recursive: true })
       writeFileSync(full, body.endsWith('\n') ? body : `${body}\n`, { flag: 'wx' })
     }
-    // The config sits next to the tickets and audit files, in the place this person keeps them (on this machine, or the
-    // session's temp folder until setup's last step picks); nothing about it is written into the repo's .gitignore.
+    // Config lives with the tickets and audit files in the chosen place; it never adds a line to the repo's .gitignore.
     step = 'config.json'
     const cfg = configFile ?? placeConfigPath(top)
     mkdirSync(dirname(cfg), { recursive: true })
     writeFileSync(cfg, `${JSON.stringify(out, null, 2)}\n`)
     if (!configFile && placeOf(top, 'repo') === 'repo') {
       ignoreFolder(dirname(cfg))
-      ignoreFolder(join(root, normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)))
+      ignoreFolder(join(root, cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)))
     }
-    // Only what setup adds to the project itself (the Playwright files) gets a line in its .gitignore.
+    // Only setup's own project files (Playwright output) get .gitignore lines.
     const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]
     const gi = join(root, '.gitignore')
     step = '.gitignore'
@@ -722,7 +675,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy, note: `${legacy} is still there and is no longer read once the new config exists; delete it when you like.` } : {}) }
 }
 
-/** Writes the personal config only: no repo file, no .gitignore, no template. */
+/** Personal config only: no repo files, .gitignore or templates. */
 export function writePersonal(config, env = process.env) {
   const v = validateConfig(config, { allowAbsoluteTicketsDir: true })
   if (!v.ok) return { ok: false, errors: v.errors }
@@ -737,9 +690,8 @@ export function writePersonal(config, env = process.env) {
 }
 
 /**
- * Runs the smoke test setup wrote: { code, line }. code 0: it passed, or there was nothing to run; 1: it
- * failed, so the setup does not work yet; 2: no usable e2e folder. With ifFirst it runs only while it is
- * the only frontend spec: before the first ticket's tests, never after them.
+ * Runs setup's smoke test. code 0 passed or skipped, 1 failed, 2 no e2e folder.
+ * ifFirst: only while it's the only frontend spec.
  */
 export async function smoke(root, config, { ifFirst = false, run = runPlaywright } = {}) {
   const e2e = e2eFolder(root, config)
@@ -752,7 +704,7 @@ export async function smoke(root, config, { ifFirst = false, run = runPlaywright
   const why = m => String(m).replace(/^Error: /, '')
   if (!r.ran) return { code: 1, line: `The app did not open: ${why(r.error)}` }
   if (r.broken.length) return { code: 1, line: `${r.broken[0].file} does not load: ${why(r.broken[0].message)}` }
-  // A setup project (the sign-in) runs first; when it fails, the smoke test does not run.
+  // The sign-in setup project runs first; if it fails, the smoke test never runs.
   const signIn = r.tests.find(t => t.status === 'failed' && t.file !== file)
   if (signIn) return { code: 1, line: `The sign-in failed (${signIn.file}): ${why(signIn.message)}` }
   const t = r.tests.find(x => x.file === file)
@@ -762,17 +714,14 @@ export async function smoke(root, config, { ifFirst = false, run = runPlaywright
   return { code: 0, line: 'ok: the app opens' }
 }
 
-// How a unit runner lists the files it would run, with its default config.
+// How each unit runner lists the files it would run.
 // ponytail: Mocha runs only its spec glob (./test by default), so it is taken to leave the e2e folder alone.
 const LISTS = {
   vitest: { packages: ['vitest'], args: ['list', '--filesOnly', '--json'], files: list => list.map(t => t?.file) },
   jest: { packages: ['jest'], args: ['--listTests', '--json'], files: list => list },
 }
 
-/**
- * The e2e specs the project's own unit runner (Vitest, Jest) picks up too, where they fail: Playwright's
- * test() runs only under Playwright. { files } from the runner's own list, or { error } when it cannot list them.
- */
+/** E2E specs the unit runner also picks up, where Playwright's test() fails. { files } or { error }. */
 export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 120000 } = {}) {
   const how = LISTS[runner]
   if (!how) return { files: [] }
@@ -792,7 +741,7 @@ export function unitOverlap(root, folder, runner = 'vitest', { timeoutMs = 12000
 }
 
 function main(argv) {
-  // Where the user set up: not a parent folder's project, which projectRoot would find.
+  // The current dir, not a parent project that projectRoot would find.
   const root = process.env.CLAUDE_PROJECT_DIR || process.cwd()
   if (argv[0] === '--detect' && (argv.length === 1 || (argv[1] === '--root' && argv.length === 3))) {
     const sub = argv[2] ?? null
@@ -802,7 +751,7 @@ function main(argv) {
     return 0
   }
   if ((argv[0] === '--write' || argv[0] === '--write-personal') && argv[1]) {
-    // The proposal inline ('{"config": …}') or from a file (@proposal.json).
+    // Proposal as inline JSON or @file.
     const inline = argv[1].trimStart().startsWith('{')
     const ref = argv[1].startsWith('@') ? argv[1].slice(1) : argv[1]
     let proposal
@@ -829,7 +778,7 @@ function main(argv) {
   if (argv[0] === '--unit-overlap' && argv.length === 1) {
     const cfg = loadConfig(root)
     if (!cfg.ok) { printLine(cfg.errors.join('\n')); return 2 }
-    // A pytest, JUnit, Go or .NET backend never runs the Playwright specs: its runner lists none of them.
+    // pytest, JUnit, Go and .NET never pick up Playwright specs, so their list comes back empty.
     const backend = backendOf(cfg.config)
     const runner = backend && backend !== 'vitest' ? backend : runnerOf(cfg.config, 'vitest')
     const label = RUNNERS[runner]?.label ?? runnerLabel(runner)

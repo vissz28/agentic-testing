@@ -1,10 +1,10 @@
-// Monorepo helpers for setup's detect: the folders an npm (or pnpm) workspaces root holds, each one's own unit
-// test config, and the folders detect never reads (build copies such as .build-context/, and what git ignores).
+// npm/pnpm workspace helpers for setup's detect.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tryReadJson } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
 
-/** Folders that only hold copies of the code (Docker build contexts, build output): never a boundary, spec folder or project. */
+// Copies of the code (Docker build contexts): never a boundary, spec folder or project.
 export const BUILD_COPIES = new Set(['.build-context', 'build-context', '.build', '.docker-context'])
 
 const JEST_CONFIG = /^jest\.config\.[cm]?[jt]s$|^jest\.config\.json$/
@@ -12,7 +12,7 @@ const VITEST_CONFIG = /^vitest\.config\.[cm]?[jt]s$/
 
 const join2 = (rel, n) => (rel ? `${rel}/${n}` : n)
 
-/** The workspace patterns of a root: package.json "workspaces" (a list, or { packages }), else pnpm-workspace.yaml's packages list; null when none. */
+/** package.json "workspaces" (list or { packages }), else pnpm-workspace.yaml. */
 export function workspacePatterns(root, pkg) {
   const w = pkg?.workspaces
   const list = Array.isArray(w) ? w : Array.isArray(w?.packages) ? w.packages : null
@@ -26,9 +26,9 @@ export function workspacePatterns(root, pkg) {
 }
 
 const segSource = s => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')
-const segments = p => p.replace(/^\.\//, '').replace(/\/+$/, '').split('/').filter(Boolean)
+const segments = p => cleanRelPath(p).split('/').filter(Boolean)
 
-/** The folders (relative, forward slashes) the patterns name that hold a package.json; `ignored` folders are skipped, "!" patterns subtract. */
+/** Folders with a package.json matching the patterns; "!" patterns subtract. */
 export function workspaceDirs(root, patterns, ignored = new Set()) {
   const out = new Set()
   const skip = rel => ignored.has(rel) || BUILD_COPIES.has(rel.split('/').pop()) || rel.split('/').pop() === 'node_modules'
@@ -51,10 +51,7 @@ export function workspaceDirs(root, patterns, ignored = new Set()) {
   return [...out].sort()
 }
 
-/**
- * What each workspace runs its unit tests with: { dir, runner, config } where runner is vitest or jest (Vitest when its
- * dependencies name it) and config the workspace's own config file or, for Jest, its package.json (the "jest" key); null when none.
- */
+/** Vitest wins if it's a dependency. For Jest, config may be package.json (the "jest" key). */
 export function workspaceRunners(root, dirs) {
   const found = []
   for (const dir of dirs) {
@@ -73,13 +70,12 @@ export function workspaceRunners(root, dirs) {
   return found
 }
 
-/** The unit runner most workspaces use (ties: vitest before jest); null when none. */
+// Ties go to vitest.
 export function majorityRunner(found) {
   const n = r => found.filter(f => f.runner === r).length
   return ['vitest', 'jest'].filter(n).sort((a, b) => n(b) - n(a))[0] ?? null
 }
 
-/** The dependencies of every workspace, merged: what the monorepo as a whole is tested with. */
 export function workspaceDeps(root, dirs) {
   const all = {}
   for (const dir of dirs) { const pkg = tryReadJson(join(root, dir, 'package.json'), null); Object.assign(all, pkg?.dependencies, pkg?.devDependencies) }

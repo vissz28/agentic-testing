@@ -1,6 +1,4 @@
-// Guided fill-in: option 2 on the refuse card. The model asks the questions; these decide.
-// A menu of the gaps with their real gains, a projection of a pick, and an answer writer that
-// keeps an answer only if the rubric then credits it.
+// Guided fill-in for a refused ticket. The model asks; these functions decide what counts.
 import { buildVocabulary } from './languages/index.mjs'
 import { extractNaturalAC, hasGherkin, hasThen, MIN_NATURAL_AC, naturalLength, stripVagueCriteria } from './criteria.mjs'
 import { messagesFor, templateFor } from './messages.mjs'
@@ -10,7 +8,7 @@ import { backendOf } from '../stacks/backends.mjs'
 import playwright from './rubrics/playwright.mjs'
 import vitest from './rubrics/vitest.mjs'
 
-// Rejection wording, one table per rubric: the two stacks phrase these slightly differently.
+// Rejection messages per rubric.
 const REASONS = {
   playwright: {
     unknownKey: k => `There is no criterion called ${k} that can be typed in.`,
@@ -28,13 +26,12 @@ const REASONS = {
   },
 }
 
-/** The menu items a design can answer: what the screen shows, not who asked or where. */
+// Items a Figma design can answer.
 export const DESIGN_ITEMS = ['ac_present', 'ac_testable', 'steps', 'expected_defined']
 
 const FIGMA_URL = /https?:\/\/(?:[\w-]+\.)?figma\.com\/(?:design|file|proto|board)\/[^\s<>"'`)\]]+/gi
 export const MAX_FIGMA_LINKS = 5
 
-/** The distinct Figma URLs of a ticket (its links, description and `figma` field), http(s) only, at most 5. */
 export function figmaLinks(ticket) {
   const sources = [
     ...(Array.isArray(ticket?.links) ? ticket.links.map(l => (typeof l === 'string' ? l : l?.url)) : []),
@@ -53,7 +50,7 @@ export function figmaLinks(ticket) {
   return found.slice(0, MAX_FIGMA_LINKS)
 }
 
-/** The signals as they would be if `keys` were filled. AC also credits testable and expected, as the rubric does. */
+// Filling AC also credits testable and expected, as the rubric does.
 function credit(signals, keys) {
   const s = { ...signals }
   for (const k of keys) {
@@ -63,14 +60,11 @@ function credit(signals, keys) {
   return s
 }
 
-/** The numbered list QA picks from: the refuse comment's gaps, each with the points it would really add. */
 export function fillMenu(config, brief) {
-  // On a fullstack project the brief says which side's rubric decided it.
   const rubric = { playwright, vitest }[brief.rubric] ?? rubricFor(config)
   const kind = templateFor(brief.issuetype, config)
   const msgs = messagesFor(config, kind)
   const keys = new Set(brief.missing.map(m => m.key))
-  // The brief's own omitted keys (a Story's Bug keys among them): each gain is what the score becomes.
   const omitted = brief.omitted ?? omittedFor(rubric, config, brief)
   const order = Object.keys(rubric.weights)
   const items = brief.missing
@@ -83,19 +77,18 @@ export function fillMenu(config, brief) {
     .sort((a, b) => b.gain - a.gain || order.indexOf(a.key) - order.indexOf(b.key))
     .map((item, i) => ({ n: i + 1, ...item }))
   const menu = { key: brief.key, rubric: rubric.id, issuetype: brief.issuetype, score: brief.score, threshold: brief.threshold, signals: brief.signals, items }
-  // Non-enumerable, as on the brief: projectPick scores a pick over the same keys.
+  // Non-enumerable, as on the brief.
   Object.defineProperty(menu, 'omitted', { value: [...omitted], enumerable: false })
-  // What no answer typed here can add (a Confluence QA plan): named when the list is empty.
+  // Gaps that can't be typed in (a Confluence QA plan).
   Object.defineProperty(menu, 'untyped', { value: brief.missing.filter(m => m.key === 'qa_plan_found').map(m => m.label), enumerable: false })
   return menu
 }
 
-/** The rubric a menu was built for, read from its signal keys so a menu that went through JSON still works. */
+// The rubric id is non-enumerable, so a menu read back from JSON is identified by its signal keys.
 function rubricOfSignals(signals) {
   return Object.keys(signals ?? {}).includes('context') ? vitest : playwright
 }
 
-/** Would filling these menu numbers reach the bar? */
 export function projectPick(menu, nums) {
   const picked = []
   for (const n of nums) {
@@ -115,14 +108,11 @@ export function projectPick(menu, nums) {
   }
 }
 
-// Up to ten points under the bar, with something to check, a ticket is borderline: /quality-code:spec
-// goes on with the risk mark instead of stopping. ponytail: a fixed gap, a config field if a team asks.
+// Within 10 points and with something to check, /quality-code:spec goes on with a risk mark.
+// ponytail: a fixed gap, a config field if a team asks.
 export const BORDERLINE_GAP = 10
 
-/**
- * What the gate means for the next step: the band (ready, borderline or refused) and the fewest
- * fill-in items, biggest gain first, that get the ticket over the bar, with the score they reach.
- */
+/** Band (ready/borderline/refused) and the fewest fill-in items, biggest gain first, that pass the bar. */
 export function nextStep(config, brief) {
   if (brief.gate === 'pass') return { band: 'ready', fix: [], reach: brief.score, threshold: brief.threshold, enough: true }
   const band = brief.score >= brief.threshold - BORDERLINE_GAP && brief.derivable >= 1 ? 'borderline' : 'refused'
@@ -133,7 +123,6 @@ export function nextStep(config, brief) {
   return { band, fix, reach: pick?.score ?? brief.score, threshold: brief.threshold, enough: Boolean(pick?.enough) }
 }
 
-/** The one line that leads the refuse card, or null for a ready ticket. */
 export function formatNextStep(step) {
   if (step.band === 'ready' || !step.fix.length) return null
   const names = step.fix.map(f => f.title)
@@ -144,8 +133,7 @@ export function formatNextStep(step) {
 }
 
 export function formatFillMenu(menu) {
-  // A refused ticket never gets an empty list to pick from: say what is missing and point to the
-  // comment or the override.
+  // Never show an empty list on a refused ticket.
   if (!menu.items.length && menu.score < menu.threshold) {
     return [
       `This ticket has ${menu.score} points and needs ${menu.threshold}.`,
@@ -170,7 +158,6 @@ export function formatPick(pick) {
     : `With ${nums} the ticket reaches ${pick.score} points (needs ${pick.threshold}): ${pick.short} points short. Pick more numbers, or type them again.`
 }
 
-/** The example shown after a rejected answer: only for a key the rubric lets the author type in. */
 export function exampleFor(config, ticket, key) {
   const rubric = rubricFor(config, ticket)
   if (key === 'qa_plan_found' || !Object.hasOwn(rubric.weights, key)) return undefined
@@ -178,10 +165,8 @@ export function exampleFor(config, ticket, key) {
 }
 
 /**
- * Write one answer into the ticket, but only if the rubric then credits it. A rejected answer
- * returns the untouched input and the reason, so nothing half-written reaches the file.
- * `drafted`: the text began as the model's draft and the author confirmed it. The fill-in record
- * and the ticket's `drafted` list say so; the score is the same as for a typed answer.
+ * Writes the answer only if the rubric then credits it; a rejection returns the input untouched.
+ * `drafted` marks a model draft the author confirmed; it scores the same.
  */
 export function applyAnswer(config, ticket, key, answer, { drafted = false } = {}) {
   const rubric = rubricFor(config, ticket)
@@ -194,14 +179,14 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
   if (!text) return reject('The answer is empty.')
   const next = { ...ticket, text: { ...(ticket.text ?? {}) }, labels: [...(ticket.labels ?? [])] }
   let desc = next.text.description ?? ''
-  // What this answer adds, recorded so a Jira update can push only QA's text.
+  // Recorded so a Jira update pushes only QA's text.
   const entry = { key }
   const addSection = (heading, body) => {
     entry.section = `## ${heading}\n${body}`
     desc = [desc.trimEnd(), entry.section].filter(Boolean).join('\n\n')
   }
   const vague = t => t.match(v.vague)?.[0]
-  // Headings in the first configured language, so that language's vocabulary credits them.
+  // First configured language, so its vocabulary credits them.
   const h = v.headings
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const featureLabels = (config.features ?? []).map(f => f.label)
@@ -211,9 +196,8 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
     case 'ac_present':
     case 'ac_testable': {
       if (vague(text)) return reject(why.vague(vague(text)))
-      // Gherkin carries its own structure; plain sentences must say enough to test against. Real
-      // Gherkin is the scorer's rule: a lone "When ..." sentence is plain criteria, not Gherkin.
-      // Gherkin typed as "- Given ..." bullets is written without them, so the scorer reads it.
+      // Uses the scorer's Gherkin rule; a lone "When ..." is plain criteria. Bullets are stripped
+      // from "- Given ..." so the scorer reads it as Gherkin.
       const unbulleted = lines.map(l => l.replace(/^[-*]\s+/, ''))
       const bulletedGherkin = lines.some(l => /^[-*]\s+/.test(l)) && hasGherkin(v, unbulleted.join('\n'))
       if (bulletedGherkin) lines.splice(0, lines.length, ...unbulleted)
@@ -222,7 +206,7 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
       const stepsOnly = !isGherkin && !hasThen(v, text) && unbulleted.some(l => v.gherkinStep.test(l))
       if (stepsOnly && length === 0) return reject(why.noThen)
       if (!isGherkin && length < MIN_NATURAL_AC) return reject(why.short(length))
-      // The menu folds ac_testable into ac_present, so an AC answer replaces the vague lines too.
+      // The menu folds ac_testable into ac_present, so this also replaces the vague lines.
       const stripped = stripVagueCriteria(v, desc)
       const acField = next.text.acField && stripVagueCriteria(v, next.text.acField, { headingless: true })
       if (key === 'ac_testable' || stripped !== desc || acField !== next.text.acField) {
@@ -277,7 +261,7 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
       break
     }
     case 'attachments':
-      // A file cannot be typed in. "done" is only a promise: the score counts it after the ticket is read again.
+      // "done" is only a promise; it counts once the ticket is re-read from Jira.
       if (!/^(done|fatto)$/i.test(text)) return reject('Attach a screenshot, a video or a file on the Jira ticket, then answer: done')
       return { ok: false, pending: true, input: ticket, reason: 'Not counted yet. The check only counts a file it can see on the ticket: it is read again from Jira, then scored.' }
     case 'environment': {
@@ -289,8 +273,8 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
   }
   next.text.description = desc
   const brief = buildBrief(config, next)
-  // Credited by the rubric it was asked for: on a fullstack project the other side's may decide now.
-  // The backend rubric's id is "vitest"; the side it scores is the project's backend runner.
+  // Check credit with the rubric that asked: on fullstack the other side's may decide the brief.
+  // The backend rubric's id is "vitest" whatever the runner.
   const { signals } = isFullstack(config) ? buildBrief(asAdapter(config, rubric.id === 'playwright' ? 'playwright' : backendOf(config)), next) : brief
   const credited = key === 'ac_present' ? signals.ac_present && signals.ac_testable : signals[key]
   if (!credited) return reject('The answer was added, but the check still does not count it. Try the example form.')

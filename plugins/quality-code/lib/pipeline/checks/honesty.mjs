@@ -1,17 +1,12 @@
-// Honesty: did the change to a spec remove an assertion or a test, or skip one without a ticket?
-// Static analysis of a git diff. The dialect decides what counts as a test declaration and
-// whether moved lines are forgiven (see the plan's Ruling 1).
+// Honesty: flag diffs that remove an assertion or test, or skip one without a ticket.
 import { keySource } from '../../config/keys.mjs'
 import { specDiff } from '../../core/git.mjs'
 import { result } from '../result.mjs'
 import { redTagsOf } from '../../config/config.mjs'
 import { escapeRegExp } from '../../core/text.mjs'
 
-// Ways to stop a test from running or failing: skip, an expected failure (fail, fails), a condition
-// (skipIf, runIf), an inline test.fixme(). A new test.fixme('title', …) declaration is the guides' "not
-// pinned down yet" and stays allowed; .only drops every other test.
-// xit, xdescribe (Jest, Jasmine, Mocha) skip; fit, fdescribe focus like .only; { skip: true } on a
-// test's options skips it (node --test, Vitest).
+// Anything that stops a test running or failing: skip, fail(s), skipIf/runIf, inline test.fixme(), xit, { skip: true }.
+// A new test.fixme('title', …) declaration means "not pinned down yet" and is allowed. .only/fit drop every other test.
 const SKIP = [/(?<![.\w$])(?:it|test|describe)\s*\(\s*(['"`]).*?\1\s*,\s*\{[^{}]*\bskip\s*:(?!\s*false\b)/, /\b(?:it|test|describe|context|specify)\.skip\b/, /\.skip\s*\(/, /(?<![.\w$])(?:it|test)\.(?:fails?|skipIf|runIf)\b/, /(?<![.\w$])test\.fixme\s*\((?!\s*(?:['"`]|$))/, /(?<![.\w$])x(?:it|test|describe|context|specify)\s*\(/]
 const ONLY = /(?<![.\w$])(?:(?:it|test|describe|suite|context|specify)(?:\.describe)?\.only\b|f(?:it|describe)\s*\()/
 const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', 'runIf'])
@@ -19,9 +14,8 @@ const DISABLING = new Set(['skip', 'fixme', 'fail', 'fails', 'todo', 'skipIf', '
 const ENV_READ = /\b(?:process\.env|import\.meta\.env|os\.environ|System\.getenv|Environment\.GetEnvironmentVariable|getenv)\b/
 const ENV_NAME = /\b(?:set|define|export|missing|requires?|needs?)\s+[`'"]?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/
 /**
- * A skip with a condition and a reason (test.skip(!ids, "set STS_TAXPAYER_ID …")) is honest when the condition reads the
- * environment, or its reason names an environment variable or the ticket under test: the test is not dropped, it waits
- * for the data it needs, and says so. A bare test.skip('title') is never excused this way.
+ * test.skip(!ids, "set STS_TAXPAYER_ID …") is fine when it reads the env or names an env var or the ticket:
+ * the test waits for data rather than being dropped. A bare test.skip('title') is never excused.
  */
 export function envGatedSkip(body, own) {
   const m = /\.(?:skip|fixme)\s*\(\s*([^'"`\s][^,]*?)\s*,\s*(['"`])(.*?)\2/.exec(body)
@@ -29,14 +23,13 @@ export function envGatedSkip(body, own) {
   return ENV_READ.test(m[1]) || ENV_NAME.test(m[3]) || Boolean(own && new RegExp(`(?<![A-Za-z0-9_-])${escapeRegExp(own)}(?!\\d)`).test(m[3]))
 }
 
-/** The modifier and title of a test(/it( declaration on the same line; else null. */
 function testDecl(line) {
   const m = /(?<![.\w$])(?:test|it)(?:\.(\w+))?\s*\(\s*(['"`])(.+?)\2/.exec(line)
   return m ? { mod: m[1] ?? null, title: m[3] } : null
 }
 const testTitle = line => testDecl(line)?.title ?? null
 
-/** The path of a `+++` header: drop the b/ prefix and a trailing tab; unquote what git quoted. */
+/** Path from a `+++` header: drop b/ and a trailing tab, decode git's quoted octal escapes. */
 function headerPath(rest) {
   let p = rest.replace(/\t.*$/, '')
   if (p.startsWith('"') && p.endsWith('"') && p.length > 1) {
@@ -53,14 +46,10 @@ function headerPath(rest) {
   return p.replace(/^b\//, '')
 }
 
-/**
- * redTags: the red-test tags (playwright.redTags) that need a ticket tag beside them. own: the
- * ticket under test; its key is in every title of its block, so it never excuses a skip there.
- */
+/** redTags (playwright.redTags) need a ticket tag beside them. own: the key under test never excuses a skip. */
 export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own = null } = {}) {
   const h = dialect.honesty
-  // A dialect may name its own assertions and skips (Go: t.Errorf, assert.Equal, t.Skip; pytest: assert,
-  // @pytest.mark.skipif; JUnit's assertEquals and @Disabled through assertRe and skipRe below).
+  // Dialects may bring their own assertions and skips (Go t.Errorf/t.Skip, pytest skipif, JUnit @Disabled).
   const assertion = h.assertionRe ?? h.assertion ?? dialect.removedAssertion ?? /\bexpect\s*\(/
   const skips = [...(h.skips ?? SKIP), ...(dialect.skipMarks ?? [])]
   const tracked = new RegExp(`\\b${own ? `(?!${escapeRegExp(own)}\\b)` : ''}${keySrc}\\b`)
@@ -83,12 +72,12 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
       if (h.forgiveMoves) {
         const lineKey = `${file}\0${body.trim()}`
         addedLines.set(lineKey, (addedLines.get(lineKey) ?? 0) + 1)
-        // Formatters put a long title on its own line, so a bare string-literal line is a title too.
+        // Formatters move long titles to their own line, so a bare string line is a title too.
         const decl = testDecl(body)
         const open = /(?<![.\w$])(?:test|it)(?:\.(\w+))?\s*\(\s*$/.exec(body)
         if (open) pendingMod = open[1] ?? null
         const title = decl?.title ?? /^\s*(['"`])(.+?)\1,\s*$/.exec(body)?.[2]
-        // Only a re-add that still runs forgives a removal: test.fixme('same title') hides the test it replaces.
+        // Re-adding as test.fixme('same title') hides the test, so it doesn't forgive the removal.
         if (title && !DISABLING.has(decl ? decl.mod : pendingMod)) added.add(`${file}\0${title}`)
       }
       if (h.anchorTags && redTag?.test(body) && !taggedKey.test(body))
@@ -98,8 +87,7 @@ export function scanDiff(diff, dialect, keySrc, { redTags = redTagsOf(null), own
     }
   }
   const kept = !h.forgiveMoves ? out : out.filter(v => {
-    // A removed test( re-added with the same title was edited; a removed expect( re-added verbatim
-    // (bar indentation) only moved. Each re-add covers one removal.
+    // Same-title test or identical expect re-added = edited/moved, not removed. One re-add per removal.
     if (v.kind === 'test removed') return !(v.title && added.has(`${v.file}\0${v.title}`))
     if (v.kind !== 'assertion removed') return true
     const key = `${v.file}\0${v.line}`

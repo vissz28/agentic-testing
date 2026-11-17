@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Installs the local Quality Code MCP server for a developer: a virtual environment next to this file,
-# then a check, then the config to paste into your MCP client. Needs Python 3.10+ and Node.js 18+.
+# Local install: a venv next to this file, a self-check, then the MCP client config. Needs Python 3.10+, Node 18+.
 set -euo pipefail
 cd "$(dirname "$0")"
 PY="${PYTHON:-python3}"

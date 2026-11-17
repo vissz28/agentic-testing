@@ -1,4 +1,4 @@
-// Find, load and validate the team config. The only module that knows where it lives.
+// Finds, loads and validates the team config. The only module that knows where it lives.
 import { ciErrors } from '../ci/ci-source.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -8,21 +8,21 @@ import { BACKEND_ADAPTERS, BACKENDS, backendOf, isBackend } from '../stacks/back
 import { RUNNERS } from '../stacks/runners.mjs'
 import { placeConfigPath, placeDirs, placeOf } from './places.mjs'
 import { FLOWS } from '../stacks/conventions.mjs'
-import { hasLineBreak, isLine, toForwardSlashes } from '../core/text.mjs'
 import { readJsonOr, tryReadJson } from '../core/files.mjs'
+import { stripDotSlash, noTrailingSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
+import { hasLineBreak, isLine, isObject } from '../core/is.mjs'
 
 export const CONFIG_REL = '.claude/quality-code.json'
 const SETUP = 'Run /quality-code:setup.'
 const KEY = /^[A-Z][A-Z0-9_]+$/
-/** How a team tests a frontend feature: Playwright (e2e), unit tests of its components and code, or both. */
 export const FEATURE_APPROACHES = Object.freeze(['e2e', 'unit', 'both'])
-/** A JavaScript unit runner is there: a Vitest backend, or a Jest, Mocha or node --test runner named in `runners.unit`. */
+/** Vitest backend, or Jest/Mocha/node --test in `runners.unit`. */
 const hasUnitRunner = c => c.backend === 'vitest' || c.runners?.unit !== undefined
 const FIELDS = new Set(['$schema', 'root', 'git', 'version', 'frontend', 'runners', 'jira', 'languages', 'features', 'titlePrefixes', 'confluenceSpaces', 'ticketTemplates', 'ticketsDir', 'testStyle', 'role', 'gate', 'expected', 'assertionHelpers', 'ticketAnchor', 'roots', 'redact', 'messages', 'boundaries', 'vitest', 'playwright', 'seed', 'ci', 'sides', 'testRules', 'qaPlans', 'qa', 'externalChecks', 'xray', 'confluence', 'backend', 'centralContext', ...BACKEND_ADAPTERS])
 const LANGS = new Set(['en', 'it'])
-// The backends other than Vitest: each has a block of its own options, named after it.
+// Each non-Vitest backend has its own options block, named after it.
 const OTHER_BACKENDS = BACKEND_ADAPTERS.filter(a => a !== 'vitest')
-// The placeholders a backend's own test command may hold.
+// Placeholders allowed in a backend's test command.
 const COMMAND_SLOTS = new Set(['files', 'report', 'test'])
 const quoted = list => list.map(a => `"${a}"`)
 const orList = list => `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`
@@ -31,17 +31,17 @@ const PATH_RULE = 'must be a relative path inside the project (no "..", not abso
 const LAYER_NAME = /^[a-z][a-z0-9-]{0,30}$/
 export const DEFAULT_LAYERS = Object.freeze([Object.freeze({ name: 'unit', folder: 'test/' })])
 export const DEFAULT_STRYKER_THRESHOLD = 60
-// Stryker reruns the tests once per code change: minutes on a database-backed suite, so not the tests' limit.
+// Stryker reruns the suite per mutant: minutes on a DB-backed suite, so it gets its own limit.
 export const DEFAULT_STRYKER_TIMEOUT_SECONDS = 1800
-// The Xray CSV's columns in order, with their default header; "data" is no column: it is the word
-// before a step's data in the action cell. A team's importer mapping may want other headers.
+// Xray CSV columns in order with default headers. "data" isn't a column: it's the word before a step's
+// data in the action cell.
 export const XRAY_HEADERS = Object.freeze({ tcid: 'TC ID', summary: 'Summary', description: 'Description', step: 'Step', action: 'Action', expected: 'Expected Result', label: 'Label', priority: 'Priority', component: 'Component', ticket: 'Linked Issues', epic: 'Epic', testType: 'Test Type', data: 'Data' })
 export const XRAY_COLUMNS = Object.freeze(Object.keys(XRAY_HEADERS).filter(k => k !== 'data'))
-// The tags write puts on red Playwright tests: a ticket scenario's and an extra probe's.
+// Tags on red Playwright tests: ticket scenarios and extra probes.
 export const DEFAULT_RED_TAGS = Object.freeze({ scenario: '@anchor', extra: '@finding' })
-// Jira statuses that say the work is finished: a red run then warns that the bug is still there.
+// Finished statuses: a red run then warns the bug is still there.
 export const DEFAULT_DONE_STATUSES = Object.freeze(['Test OK', 'Done', 'Ready for test', 'Closed', 'Resolved', 'Chiuso', 'Risolto'])
-const pathOk = p => isLine(p) && !p.startsWith('/') && !/^[A-Za-z]:/.test(p) && !p.split(/[\\/]/).includes('..')
+const pathOk = p => isLine(p) && !isAbsoluteAnywhere(p) && !p.split(/[\\/]/).includes('..')
 
 export const DEFAULTS = Object.freeze({
   languages: ['en'],
@@ -54,97 +54,88 @@ export const DEFAULTS = Object.freeze({
 })
 
 /** ticketsDir as every caller uses it: "/" separators, no leading "./", no trailing "/". */
-export const normaliseTicketsDir = dir => toForwardSlashes(dir).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 
-/** The config file of the project at dir: the one in its place (next to the tickets and audit files), else the legacy .claude/quality-code.json; null when there is none. */
+/** The config in its place, else the legacy .claude/quality-code.json, else null. */
 export function configFileOf(dir, env = process.env) {
   const placed = placeConfigPath(dir, env)
   if (existsSync(placed)) return placed
   const legacy = join(dir, CONFIG_REL)
   return existsSync(legacy) ? legacy : null
 }
-const hasConfig = dir => configFileOf(dir) !== null
+const hasConfig = (dir, env) => configFileOf(dir, env) !== null
 
 /** The nearest folder at or above dir that holds the config, or null. */
-function findHome(dir) {
+function findHome(dir, env) {
   for (let d = resolve(dir); ; d = dirname(d)) {
-    if (hasConfig(d)) return d
+    if (hasConfig(d, env)) return d
     if (dirname(d) === d) return null
   }
 }
 
-const folderKey = f => toForwardSlashes(f).replace(/^(?:\.\/)+/, '').replace(/\/+$/, '')
 const activeRootsFile = (env = process.env) => join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'quality-code', 'roots.json')
 
-/**
- * The project one config serves out of several ("roots"): QUALITY_CODE_ROOT for one run, else the folder this
- * person picked with `ticket.mjs root set` (kept on this computer, per repo). Only a folder the config lists counts.
- */
+/** Active root of a multi-root config: QUALITY_CODE_ROOT, else `root set`'s pick. Must be listed in the config. */
 function chosenRoot(home, c, env = process.env) {
   if (!Array.isArray(c?.roots)) return null
-  const allowed = new Set([...c.roots, c.root].filter(pathOk).map(folderKey))
+  const allowed = new Set([...c.roots, c.root].filter(pathOk).map(cleanRelPath))
   let pick = env.QUALITY_CODE_ROOT
   if (!pick) pick = tryReadJson(activeRootsFile(env), null)?.[resolve(home)]
-  return pick && allowed.has(folderKey(pick)) ? pick : null
+  return pick && allowed.has(cleanRelPath(pick)) ? pick : null
 }
 
 /** The project of the config in home: the folder its root field names (an app in web/), else home. A bad root is left to validateConfig. */
-function withRoot(home) {
-  const c = tryReadJson(configFileOf(home), undefined)
-  const r = chosenRoot(home, c) ?? c?.root
+function withRoot(home, env) {
+  const c = tryReadJson(configFileOf(home, env), undefined)
+  const r = chosenRoot(home, c, env) ?? c?.root
   return pathOk(r) ? resolve(home, r) : home
 }
 
-/** { default, roots, active } of the config in home: what `ticket.mjs root get` shows. */
+/** What `root get` shows: { default, roots, active }. */
 export function rootsOf(home, env = process.env) {
-  const c = tryReadJson(configFileOf(home), undefined)
-  const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(folderKey))] : []
-  return { default: pathOk(c?.root) ? folderKey(c.root) : '.', roots, active: folderKey(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
+  const c = tryReadJson(configFileOf(home, env), undefined)
+  const roots = Array.isArray(c?.roots) ? [...new Set([...c.roots, ...(pathOk(c.root) ? [c.root] : [])].map(cleanRelPath))] : []
+  return { default: pathOk(c?.root) ? cleanRelPath(c.root) : '.', roots, active: cleanRelPath(chosenRoot(home, c, env) ?? (pathOk(c?.root) ? c.root : '.')) }
 }
 
-/** Picks the active root for the config in home (kept on this computer). Returns { ok, error? }. */
+/** Saved on this machine. → { ok, error? } */
 export function setActiveRoot(home, folder, env = process.env) {
   const { roots } = rootsOf(home, env)
   if (!roots.length) return { ok: false, error: 'this config has no "roots" list: add one (for example "roots": ["app", "backend-executor"])' }
-  if (!roots.includes(folderKey(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
+  if (!roots.includes(cleanRelPath(folder))) return { ok: false, error: `${folder} is not one of the roots: ${roots.join(', ')}` }
   const file = activeRootsFile(env)
-  // A broken file stops here, naming it: rewriting it would drop the root picked in every other repo.
+  // Stop on a broken file: rewriting it would drop every other repo's pick.
   const all = readJsonOr(file, {})
-  all[resolve(home)] = folderKey(folder)
+  all[resolve(home)] = cleanRelPath(folder)
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(all, null, 2))
   return { ok: true }
 }
 
 /** The project dir is in: that of the nearest config at or above it, or null. */
-export function findRoot(dir) {
-  const home = findHome(dir)
-  return home && withRoot(home)
+export function findRoot(dir, env = process.env) {
+  const home = findHome(dir, env)
+  return home && withRoot(home, env)
 }
 
 /** The folder whose config governs the project at root: root itself, else the one above whose root field names it. */
-export function configHome(root) {
-  if (hasConfig(root)) return root
-  const up = findHome(dirname(resolve(root)))
-  return up && withRoot(up) === resolve(root) ? up : root
+export function configHome(root, env = process.env) {
+  if (hasConfig(root, env)) return root
+  const up = findHome(dirname(resolve(root)), env)
+  return up && withRoot(up, env) === resolve(root) ? up : root
 }
 
-/**
- * The project: CLAUDE_PROJECT_DIR when it holds the config, else the nearest folder up from cwd that
- * does (a script run from src/, a package of a monorepo); with no config anywhere, CLAUDE_PROJECT_DIR
- * or cwd, where setup writes it. A config whose root field names a subfolder makes that the project.
- */
+// CLAUDE_PROJECT_DIR if it holds the config, else the nearest config up from cwd (scripts in src/, monorepos),
+// else CLAUDE_PROJECT_DIR or cwd. A root field naming a subfolder makes that the project.
 export function projectRoot(env = process.env, cwd = process.cwd()) {
   const dir = env.CLAUDE_PROJECT_DIR
-  if (dir && hasConfig(dir)) return withRoot(dir)
-  return findRoot(cwd) ?? (dir || cwd)
+  if (dir && hasConfig(dir, env)) return withRoot(dir, env)
+  return findRoot(cwd, env) ?? (dir || cwd)
 }
-/** The config file of the project at root: the existing one (its place first, then the legacy repo file); with none, where setup writes it. */
+/** The existing config, else where setup would write it. */
 export const configPath = (root, env = process.env) => configFileOf(root, env) ?? placeConfigPath(root, env)
 
-const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v)
 
-/** The fields the vitest and playwright blocks share: configs, tsconfig, timeoutSeconds. */
+/** Fields shared by the vitest and playwright blocks. */
 function runnerFields(b, name, e) {
   const cf = b.configs
   if (cf !== undefined) {
@@ -155,30 +146,36 @@ function runnerFields(b, name, e) {
     })
   }
   if (b.tsconfig !== undefined && !pathOk(b.tsconfig)) e.push(`${name}.tsconfig ${JSON.stringify(b.tsconfig)} ${PATH_RULE}`)
-  const t = b.timeoutSeconds
-  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+  limitErrors(b, name, e)
 }
 
-/** The rules a test folder is checked against: the configured boundaries, else the default ones. */
+/** timeoutSeconds and maxMutants (per-spec cap), on every runner block. */
+function limitErrors(b, name, e) {
+  const t = b.timeoutSeconds
+  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
+  const m = b.maxMutants
+  if (m !== undefined && !(Number.isInteger(m) && m >= 1)) e.push(`${name}.maxMutants: must be a whole number from 1, the most mutants run per spec`)
+}
+
 function folderRules(c) {
-  // The default boundary when none is configured; the CI files never hold a folder of tests.
+  // Default boundary: test folders never go inside the CI files.
   const forbidden = Array.isArray(c.boundaries?.forbidden) ? c.boundaries.forbidden.filter(r => isObject(r) && pathOk(r.path)) : [{ path: 'src/' }, { path: '.env' }, { path: '.env.*' }]
   const allow = Array.isArray(c.boundaries?.allow) ? c.boundaries.allow.filter(pathOk) : []
   return { forbidden, allow }
 }
 
-/** A folder a writing run writes in: relative, ending in "/", not inside a forbidden rule unless allowed. */
+/** Relative, ends in "/", not inside a forbidden rule unless allowed. */
 function folderErrors(folder, name, rules, e) {
   if (!pathOk(folder)) return e.push(`${name} ${JSON.stringify(folder)} ${PATH_RULE}`)
   if (!folder.endsWith('/')) return e.push(`${name} "${folder}" must end with "/"`)
-  const f = toForwardSlashes(folder).replace(/^(?:\.\/)+/, '')
-  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(toForwardSlashes(r.path).replace(/^(?:\.\/)+/, ''), f))
+  const f = stripDotSlash(folder)
+  const rule = rules.allow.some(a => matches(a, f)) || allowCovers(rules.allow, f) ? null : rules.forbidden.find(r => matches(stripDotSlash(r.path), f))
   if (rule) e.push(`${name} "${folder}" is inside the forbidden "${rule.path}"`)
 }
 
 const guideOk = g => pathOk(g) && /\.md$/i.test(g)
 
-/** The layers of a backend block: 1 to 5 { name, folder, guide }, names unique, folders writable. */
+/** 1 to 5 { name, folder, guide }, unique names, writable folders. */
 function layerErrors(ls, name, rules, e) {
   if (ls === undefined) return
   if (!Array.isArray(ls) || ls.length < 1 || ls.length > 5) return e.push(`${name}.layers: must be a list of 1 to 5 { "name", "folder", "guide" }`)
@@ -194,16 +191,13 @@ function layerErrors(ls, name, rules, e) {
   })
 }
 
-/** One line of shell text, not empty. */
 
-/** The block of a backend other than Vitest: layers, timeoutSeconds, command (and pytest's typeCheck). */
+/** Non-Vitest backend block: layers, timeoutSeconds, command (and pytest's typeCheck). */
 function otherBackendErrors(b, name, e) {
-  const fields = ['layers', 'timeoutSeconds', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
+  const fields = ['layers', 'timeoutSeconds', 'maxMutants', 'command', ...(name === 'pytest' ? ['typeCheck'] : [])]
   for (const k of Object.keys(b)) if (!fields.includes(k)) e.push(`${name}.${k}: unknown field (only ${orList(quoted(fields))})`)
-  const t = b.timeoutSeconds
-  if (t !== undefined && !(Number.isInteger(t) && t >= 10 && t <= 3600)) e.push(`${name}.timeoutSeconds: must be a whole number from 10 to 3600`)
-  // The test file names are the backend's own, so a layer may sit in a code folder (src/test/java/, Go's
-  // tests beside the code): the boundary lets test files through by their name, see boundary.mjs.
+  limitErrors(b, name, e)
+  // Layers may sit in code folders (src/test/java/, Go): the boundary lets test files through by name.
   layerErrors(b.layers, name, { forbidden: [], allow: [] }, e)
   if (b.command !== undefined) {
     if (!isLine(b.command)) e.push(`${name}.command: must be one line of text, the project's test command, like "${name === 'pytest' ? 'poetry run pytest {files} --junitxml={report}' : 'make test'}"`)
@@ -214,7 +208,7 @@ function otherBackendErrors(b, name, e) {
 
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
-  const c = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
+  const c = isObject(input) ? input : {}
   for (const k of Object.keys(c)) {
     if (k === 'adapter') e.push('adapter: replaced by "frontend" and "backend" (like "frontend": "playwright", "backend": "vitest"): re-run /quality-code:setup')
     else if (!FIELDS.has(k)) e.push(`${k}: unknown field (remove it, or re-run /quality-code:setup)`)
@@ -226,9 +220,8 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.backend !== undefined && !isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
   const backend = c.backend
   const uses = a => c.frontend === a || c.backend === a
-  const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v)
-  const j = isObj(c.jira) ? c.jira : {}
-  if (!isObj(c.jira)) e.push('jira: must be an object with site and projects')
+  const j = isObject(c.jira) ? c.jira : {}
+  if (!isObject(c.jira)) e.push('jira: must be an object with site and projects')
   else {
     if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
     if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
@@ -270,7 +263,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
   }
   if (c.confluence !== undefined && typeof c.confluence !== 'boolean') e.push('confluence: must be true or false (false: the team has no Confluence, so no QA plan is looked for or scored)')
-  // Absent means the QA-plan search looks in every Confluence space.
+  // Absent: search every Confluence space.
   if (c.confluenceSpaces !== undefined) {
     if (!Array.isArray(c.confluenceSpaces)) e.push('confluenceSpaces: must be a list of Confluence space keys like "ABC"')
     else if (!c.confluenceSpaces.length) e.push('confluenceSpaces: must name at least one space; leave it out to search all spaces')
@@ -280,7 +273,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.gate !== undefined) {
     const g = c.gate
-    if (!isObj(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
+    if (!isObject(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
     else {
       for (const k of Object.keys(g)) if (!['omit', 'contextFromIntro'].includes(k)) e.push(`gate.${k}: unknown field (only "omit" and "contextFromIntro")`)
       const OMIT = ['attachments', 'links', 'context', 'environment']
@@ -290,13 +283,13 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.expected !== undefined) {
     const x = c.expected
-    if (!isObj(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
+    if (!isObject(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
     else {
       for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
       if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(isLine))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
       if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
       if (x.aliases !== undefined) {
-        if (!isObj(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
+        if (!isObject(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
         else for (const [k, v] of Object.entries(x.aliases)) if (!isLine(k) || !(isLine(v) || (Array.isArray(v) && v.length > 0 && v.every(isLine)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
       }
     }
@@ -307,16 +300,16 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.role !== undefined && !['dev', 'qa', 'po'].includes(c.role)) e.push(`role ${JSON.stringify(c.role)}: must be "dev", "qa" or "po"`)
   if (c.testStyle !== undefined && !FLOWS.includes(c.testStyle)) e.push(`testStyle ${JSON.stringify(c.testStyle)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
   if (c.ticketsDir !== undefined) {
-    if (typeof c.ticketsDir !== 'string' || !normaliseTicketsDir(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
+    if (typeof c.ticketsDir !== 'string' || !cleanRelPath(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
     else if (hasLineBreak(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
     else {
-      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !normaliseTicketsDir(c.ticketsDir).split('/').includes('..')
+      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !cleanRelPath(c.ticketsDir).split('/').includes('..')
       if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
     }
   }
-  // The branch a feature branch starts from, when origin/HEAD is not it (gitflow: develop).
+  // When origin/HEAD isn't the base (gitflow: develop).
   if (c.git !== undefined) {
-    if (!isObj(c.git)) e.push('git: must be an object with an optional "base"')
+    if (!isObject(c.git)) e.push('git: must be an object with an optional "base"')
     else {
       for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
       const b = c.git.base
@@ -324,14 +317,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.ticketTemplates !== undefined) {
-    if (!isObj(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
+    if (!isObject(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
     else for (const [k, v] of Object.entries(c.ticketTemplates)) {
       if (k !== 'bug' && k !== 'story') e.push(`ticketTemplates.${k}: unknown field (only "bug" and "story")`)
       else if (v !== null && typeof v !== 'string') e.push(`ticketTemplates.${k}: must be text or null`)
     }
   }
   if (c.redact !== undefined) {
-    if (!isObj(c.redact)) e.push('redact: must be an object of name to regular expression')
+    if (!isObject(c.redact)) e.push('redact: must be an object of name to regular expression')
     else for (const [name, src] of Object.entries(c.redact)) {
       if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
       let re
@@ -339,18 +332,18 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (re.test('')) e.push(`redact.${name}: must not match empty text (it would insert the mask between every character)`)
     }
   }
-  if (c.messages !== undefined && !isObj(c.messages)) e.push('messages: must be an object')
+  if (c.messages !== undefined && !isObject(c.messages)) e.push('messages: must be an object')
   else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
     e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
   if (c.boundaries !== undefined) {
-    if (!isObj(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
+    if (!isObject(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
     else {
       for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
       const f = c.boundaries.forbidden
       if (f !== undefined) {
         if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
         else f.forEach((r, i) => {
-          if (!isObj(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
+          if (!isObject(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
           if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
           if (r.why !== undefined && !isLine(r.why)) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
           for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
@@ -364,26 +357,26 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     }
   }
   if (c.runners !== undefined) {
-    if (!isObj(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
+    if (!isObject(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
     else for (const [kind, name] of Object.entries(c.runners)) {
       const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
       if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
       else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
-      // Jest and Mocha run JavaScript: a pytest, JUnit, Go or .NET backend has its own runner already.
+      // Jest/Mocha are JS: non-JS backends already have their own runner.
       else if (kind === 'unit' && isBackend(backend) && backend !== 'vitest') e.push(`runners.unit: ${JSON.stringify(name)} runs JavaScript tests, and this project's backend is ${BACKENDS[backend].label}, which runs its own tests: leave runners.unit out (it is only for a Vitest backend)`)
       else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with ${kind === 'unit' ? '"backend": "vitest"' : '"frontend": "playwright"'}`)
     }
   }
   if (c.vitest !== undefined) {
     if (!uses('vitest')) e.push('vitest: only allowed with "backend": "vitest"')
-    else if (!isObj(c.vitest)) e.push('vitest: must be an object')
+    else if (!isObject(c.vitest)) e.push('vitest: must be an object')
     else {
-      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "layers" and "stryker")`)
+      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "maxMutants", "layers" and "stryker")`)
       runnerFields(c.vitest, 'vitest', e)
       layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
       const st = c.vitest.stryker
       if (st !== undefined) {
-        if (!isObj(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
+        if (!isObject(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
         else {
           for (const k of Object.keys(st)) if (k !== 'threshold' && k !== 'timeoutSeconds') e.push(`vitest.stryker.${k}: unknown field (only "threshold" and "timeoutSeconds")`)
           if (st.threshold !== undefined && !(Number.isInteger(st.threshold) && st.threshold >= 0 && st.threshold <= 100)) e.push('vitest.stryker.threshold: must be a whole number from 0 to 100')
@@ -395,14 +388,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   for (const name of OTHER_BACKENDS) {
     if (c[name] === undefined) continue
     if (!uses(name)) e.push(`${name}: only allowed with "backend": "${name}"`)
-    else if (!isObj(c[name])) e.push(`${name}: must be an object`)
+    else if (!isObject(c[name])) e.push(`${name}: must be an object`)
     else otherBackendErrors(c[name], name, e)
   }
   if (c.playwright !== undefined) {
     if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
-    else if (!isObj(c.playwright)) e.push('playwright: must be an object')
+    else if (!isObject(c.playwright)) e.push('playwright: must be an object')
     else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "folder", "guide", "ungradedTitles" and "redTags")`)
+      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles" and "redTags")`)
       runnerFields(c.playwright, 'playwright', e)
       const u = c.playwright.ungradedTitles
       if (u !== undefined) {
@@ -412,7 +405,7 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
       const rt = c.playwright.redTags
       if (rt !== undefined && rt !== null) {
-        if (!isObj(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
+        if (!isObject(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
         else for (const k of Object.keys(rt)) {
           if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
           else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
@@ -437,19 +430,19 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   e.push(...ciErrors(c.ci))
   if (c.seed !== undefined) {
     const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
-    if (!isObj(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
+    if (!isObject(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
     else {
       const s = c.seed
-      // The test-data printer's fields (before 0.31.0): ignored, so an old config keeps working.
+      // Pre-0.31.0 test-data printer fields: ignored so old configs still load.
       for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
       if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
       if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
       if (s.target !== undefined && !isLine(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
       if (s.apply !== undefined && !(isLine(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
-      if (s.tenant !== undefined && !(isObj(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
+      if (s.tenant !== undefined && !(isObject(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
     }
   }
-  // A folder of QA plans as Markdown, one per feature label: extra rules write reads (never scored).
+  // Markdown QA plans, one per feature label: extra rules for writing, never scored.
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
   if (c.externalChecks !== undefined) {
     if (!Array.isArray(c.externalChecks) || !c.externalChecks.length) e.push('externalChecks: must be a non-empty list of files or globs (tests run outside the unit tests, like a pgTAP file), relative to the folder that holds the config')
@@ -457,17 +450,17 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.qa !== undefined) {
     const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
-    if (!isObj(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
+    if (!isObject(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
     else {
       const q = c.qa
-      // Names go into JQL between double quotes: one line, no quote, no backslash.
+      // Interpolated into JQL in double quotes: one line, no quote, no backslash.
       const nameOk = v => isLine(v) && !/["\\]/.test(v) && v.length <= 80
       for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
       if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
       if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')
       if (q.app !== undefined && !(typeof q.app === 'string' && /^https?:\/\/[^\s]+$/.test(q.app))) e.push('qa.app: must be the address of the app to test, starting with http:// or https://')
       if (q.statuses !== undefined) {
-        if (!isObj(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
+        if (!isObject(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
         else for (const [k, v] of Object.entries(q.statuses)) {
           if (!['ko', 'ready', 'done'].includes(k)) e.push(`qa.statuses.${k}: unknown field (only "ko", "ready" and "done")`)
           else if (!nameOk(v)) e.push(`qa.statuses.${k}: must be a Jira status name (one line, no double quote), like "TEST KO"`)
@@ -479,14 +472,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.xray !== undefined) {
     if (!uses('playwright')) e.push('xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)')
-    else if (!isObj(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
+    else if (!isObject(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
     else {
       const x = c.xray
       for (const k of Object.keys(x)) if (!['csv', 'folder', 'headers'].includes(k)) e.push(`xray.${k}: unknown field (only "csv", "folder" and "headers")`)
       if (!(pathOk(x.csv) && /\.csv$/i.test(x.csv))) e.push(`xray.csv ${JSON.stringify(x.csv)} must be a relative path to a .csv file inside the project`)
       if (x.folder !== undefined) folderErrors(x.folder, 'xray.folder', folderRules(c), e)
       if (x.headers !== undefined) {
-        if (!isObj(x.headers)) e.push('xray.headers: must be an object of column to header text')
+        if (!isObject(x.headers)) e.push('xray.headers: must be an object of column to header text')
         else {
           for (const [k, v] of Object.entries(x.headers)) {
             if (!Object.hasOwn(XRAY_HEADERS, k)) e.push(`xray.headers.${k}: unknown column (only ${Object.keys(XRAY_HEADERS).join(', ')})`)
@@ -498,9 +491,9 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       }
     }
   }
-  // Central Context: the hub the testing rules are read from (lib/base/rules.mjs). "off" reads none.
+  // Central Context hub for testing rules (lib/base/rules.mjs). "off" reads none.
   if (c.testRules !== undefined) {
-    if (!isObj(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
+    if (!isObject(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
     else for (const [side, v] of Object.entries(c.testRules)) {
       if (side !== 'backend' && side !== 'frontend') e.push(`testRules.${side}: unknown field (only "backend" and "frontend")`)
       else if (v !== 'own' && v !== 'plugin') e.push(`testRules.${side}: must be "own" (the team's rules and specs win) or "plugin" (the plugin's rules win), found ${JSON.stringify(v)}`)
@@ -508,19 +501,19 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
   if (c.centralContext !== undefined) {
     const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
-    if (!isObj(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
+    if (!isObject(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
     else {
       for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
       const h = c.centralContext.hub
       if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
-      // The team's own rules, read next to the hub's on every run.
+      // Team rules, read alongside the hub's.
       const l = c.centralContext.local
       if (l !== undefined && !(pathOk(l) && l.endsWith('/'))) e.push(`centralContext.local ${JSON.stringify(l)} must be a folder inside the project, ending with "/" (one rule per .md file, in the Central Context rule format)`)
     }
   }
   if (c.sides !== undefined) {
     if (!(c.frontend && c.backend)) e.push('sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)')
-    else if (!isObj(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
+    else if (!isObject(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
     else for (const [k, v] of Object.entries(c.sides)) {
       if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
       else if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend", "fullstack" and "default")`)
@@ -532,15 +525,14 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
     ok: true,
     config: {
       ...c,
-      // The side the code runs, never written back to the file: the one side, or fullstack for both.
-      // A one-side project is its own one-side view: the adapter the pipeline runs. A fullstack one has none.
+      // Derived, never written back: single-side projects get their adapter; fullstack gets none.
       ...(c.frontend && c.backend ? {} : { adapter: c.frontend ?? c.backend }),
       // A trailing "/" is dropped: commands build <site>/wiki/… and <site>/browse/… from it.
-      jira: { trackingProjects: [], ...j, site: j.site.replace(/\/+$/, '') },
+      jira: { trackingProjects: [], ...j, site: noTrailingSlash(j.site) },
       languages: c.languages ?? DEFAULTS.languages,
       features: c.features ?? DEFAULTS.features,
       titlePrefixes: c.titlePrefixes ?? DEFAULTS.titlePrefixes,
-      ticketsDir: normaliseTicketsDir(c.ticketsDir ?? DEFAULTS.ticketsDir),
+      ticketsDir: cleanRelPath(c.ticketsDir ?? DEFAULTS.ticketsDir),
       // Merged: a custom pattern adds to the default customerId one, it does not turn it off.
       redact: { ...DEFAULTS.redact, ...(c.redact ?? {}) },
       messages: c.messages ?? DEFAULTS.messages,
@@ -549,34 +541,33 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   }
 }
 
-/**
- * The test folders a writing run may use: the backend block's layers, else the backend's default (one
- * "unit" layer: test/ for Vitest). A frontend project reads Vitest's, as it always did.
- */
+/** The backend block's layers, else the backend's default. Frontend projects read Vitest's. */
 export const layersOf = config => {
   const backend = backendOf(config) ?? 'vitest'
   return config?.[backend]?.layers ?? (backend === 'vitest' ? DEFAULT_LAYERS : BACKENDS[backend].defaultLayers)
 }
 
-/** The block of the configured adapter (a backend or playwright), or {} when there is none. */
+/** {} when there is none. */
 export const adapterOptions = config => {
   const b = isBackend(config?.adapter) || config?.adapter === 'playwright' ? config[config.adapter] : null
-  return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
+  return isObject(b) ? b : {}
 }
 
-/** Seconds one test-runner process may take: the block's timeoutSeconds, else 600 for Playwright, the backend's default (300 for Vitest). */
+/** Per runner process: the block's timeoutSeconds, else 600 for Playwright, else the backend's default. */
 export const timeoutSecondsOf = config => adapterOptions(config).timeoutSeconds ?? (config?.adapter === 'playwright' ? 600 : BACKENDS[config?.adapter]?.timeoutSeconds ?? 300)
 
-/** The project's own test command of a backend block (a template with {files}, {report}, {test}), or null. */
+/** null means no cap. */
+export const maxMutantsOf = config => adapterOptions(config).maxMutants ?? null
+
+/** Template with {files}, {report}, {test}, or null. */
 export const commandOf = config => adapterOptions(config).command ?? null
 
-/** The seed block with its defaults: every field null. */
 export const seedOf = config => {
-  const s = config?.seed && typeof config.seed === 'object' && !Array.isArray(config.seed) ? config.seed : {}
+  const s = isObject(config?.seed) ? config.seed : {}
   return { schema: s.schema ?? null, target: s.target ?? null, apply: s.apply ?? null, tenant: s.tenant ?? null, guide: s.guide ?? null }
 }
 
-/** The qa block with its defaults: Xray's execution types, the open sprint, no fixed app or status names, stop after 2 blocked tests in a row. */
+/** Defaults stop after 2 blocked tests in a row. */
 export const qaOf = config => {
   const q = isObject(config?.qa) ? config.qa : {}
   const s = isObject(q.statuses) ? q.statuses : {}
@@ -590,42 +581,40 @@ export const qaOf = config => {
   }
 }
 
-/** The xray block with its defaults (per-ticket files in the tickets folder), or null when it is off. */
+/** null when off. */
 export const xrayOf = (config, source = 'repo') => {
   const x = config?.xray
   // Xray is part of Jira: a personal setup (no repo) has it on without a block, with the cases kept in its tickets folder.
-  if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${normaliseTicketsDir(config.ticketsDir)}/xray-cases.csv`, folder: `${normaliseTicketsDir(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
-  if (!x || typeof x !== 'object' || Array.isArray(x)) return null
-  return { csv: x.csv, folder: x.folder ?? `${normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
+  if (!x && source === 'personal' && config?.ticketsDir) return { csv: `${cleanRelPath(config.ticketsDir)}/xray-cases.csv`, folder: `${cleanRelPath(config.ticketsDir)}/`, headers: { ...XRAY_HEADERS } }
+  if (!isObject(x)) return null
+  return { csv: x.csv, folder: x.folder ?? `${cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)}/`, headers: { ...XRAY_HEADERS, ...(x.headers ?? {}) } }
 }
 
-/** The Playwright titles that are never graded nor mutated (playwright.ungradedTitles), as a regex; null for Vitest or when unset. */
+/** playwright.ungradedTitles as a regex: never graded or mutated. null when unset. */
 export const ungradedTitlesOf = (config, dialect) => {
   const u = config?.playwright?.ungradedTitles
   return dialect?.name === 'playwright' && typeof u === 'string' && u ? new RegExp(u, 'i') : null
 }
 
-/** The red-test tags as a list (scenario's, extra's); [] when playwright.redTags is null. */
+/** [] when playwright.redTags is null. */
 export const redTagsOf = config => {
   const rt = config?.playwright?.redTags
   return rt === null ? [] : Object.values({ ...DEFAULT_RED_TAGS, ...(rt ?? {}) })
 }
 
-/** The Jira statuses that mean finished. */
 export const doneStatusesOf = config => config?.jira?.doneStatuses ?? DEFAULT_DONE_STATUSES
 
-/** The share of Stryker mutants the tests must catch, as a whole percentage. */
+/** Whole percentage of Stryker mutants that must be killed. */
 export const strykerThreshold = config => config?.vitest?.stryker?.threshold ?? DEFAULT_STRYKER_THRESHOLD
 
-/** Seconds one Stryker run may take. */
 export const strykerTimeoutSeconds = config => config?.vitest?.stryker?.timeoutSeconds ?? DEFAULT_STRYKER_TIMEOUT_SECONDS
 
-/** The user's Claude folder: CLAUDE_CONFIG_DIR, else ~/.claude. */
+/** CLAUDE_CONFIG_DIR, else ~/.claude. */
 export const claudeDir = (env = process.env) => env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
-/** The personal config (no repo): <Claude folder>/quality-code.json. */
+/** Personal config (no repo). */
 export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'quality-code.json')
 /** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
-export const personalTicketsDir = (env = process.env) => normaliseTicketsDir(join(claudeDir(env), 'quality-code', 'tickets'))
+export const personalTicketsDir = (env = process.env) => cleanRelPath(join(claudeDir(env), 'quality-code', 'tickets'))
 
 function readValidated(p, label, source, env, root) {
   let obj
@@ -636,19 +625,15 @@ function readValidated(p, label, source, env, root) {
   if (source === 'personal' && isObject(obj) && obj.ticketsDir === undefined) obj = { ...obj, ticketsDir: personalTicketsDir(env) }
   const r = { ...validateConfig(obj, { allowAbsoluteTicketsDir: source === 'personal' }), source, path: p }
   if (!r.ok) return r
-  // The tickets folder is where this person keeps the project's files: the repo, this machine or the chat.
+  // ticketsDir follows the person's place pick: repo, local or chat.
   const dirs = placeDirs(root, { source, ticketsDir: own, personalDefault: personalTicketsDir(env) }, placeOf(root, source, env), env)
   return { ...r, config: { ...r.config, ticketsDir: dirs.ticketsDir }, place: dirs.place, auditDir: dirs.auditDir }
 }
 
-/**
- * The config in force: the repo's .claude/quality-code.json first, else the personal one. The result is
- * validateConfig's, plus where it came from: source "repo" | "personal" and its path, and where this
- * person keeps the project's files: place "repo" | "local" | "chat" (this session), and auditDir.
- * config.ticketsDir is that place's tickets folder.
- */
+// Repo config first, else the personal one. validateConfig's result plus source, path, place and auditDir;
+// config.ticketsDir is the place's tickets folder.
 export function loadConfig(root, env = process.env) {
-  const rp = configFileOf(configHome(root), env)
+  const rp = configFileOf(configHome(root, env), env)
   if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)
   const pp = personalConfigPath(env)
   if (existsSync(pp)) return readValidated(pp, pp, 'personal', env, root)

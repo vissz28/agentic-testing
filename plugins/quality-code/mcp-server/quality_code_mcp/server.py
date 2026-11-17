@@ -28,8 +28,8 @@ TIMEOUT_S = 900
 MAX_OUT = 200_000
 MAX_RUNNING = 4  # script runs at once on a shared server
 
-# What a shared (HTTP) server offers: the Jira-only commands for QA and PO, the read-only scripts they call, the guides they point to.
-# Everything that needs a developer's checkout (spec, the run commands, seed, xray, qa, setup, config, kpi) stays on the local server.
+# Shared (HTTP) server: only the Jira-only QA/PO commands, the read-only scripts they call and their guides.
+# Anything that needs a checkout (spec, run commands, seed, xray, qa, setup, config, kpi) stays local.
 REMOTE_COMMANDS = {"ticket", "help"}
 REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs", "help.mjs"}
 NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket, branch and help scripts, in one fixed folder). "
@@ -46,7 +46,7 @@ def _newest_first(dirs) -> list[Path]:
 
 
 def find_node() -> str | None:
-    """Path of a Node.js 18+ `node`: the PATH first, then where it is usually installed (per user or for all users)."""
+    """A Node.js 18+ `node`: PATH first, then the usual per-user and system install dirs."""
     found = shutil.which("node")
     if found:
         return found
@@ -87,8 +87,7 @@ def find_node() -> str | None:
 
 
 def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None, connector: connector_mod.ConnectorSettings | None = None) -> MCPServer:
-    """`entra` turns on Entra ID verification (HTTP). `remote` is the shared-server profile: only the Jira-only commands and read-only scripts,
-    run in `fixed_cwd` (a caller cannot pick the folder), at most MAX_RUNNING at once, and an open /health."""
+    """`remote` is the shared profile: Jira-only tools, scripts locked to `fixed_cwd`, MAX_RUNNING cap, open /health."""
     root = root or plugin_root()
     commands = load_commands(root)
     scripts = set(list_scripts(root)) & (REMOTE_SCRIPTS if remote else set(list_scripts(root)))
@@ -309,7 +308,7 @@ def check() -> int:
 
 
 def client_config() -> str:
-    """The JSON to paste into Claude Desktop, Cursor or `.mcp.json`, plus the Claude Code one-liner, with this install's own paths."""
+    """Config for Claude Desktop, Cursor or `.mcp.json`, plus the Claude Code one-liner, with this install's paths."""
     cmd = shutil.which("quality-code-mcp") or str(Path(sys.argv[0]).resolve())
     env = {"QUALITY_CODE_PLUGIN_ROOT": str(plugin_root())}
     cfg = json.dumps({"mcpServers": {"quality-code": {"command": cmd, "args": [], "env": env}}}, indent=2)

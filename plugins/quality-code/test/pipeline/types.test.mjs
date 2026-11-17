@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { ownTsconfig, readTsc, scopedTsconfig, typeCheck } from '../../lib/pipeline/types.mjs'
+import { changedLines, ownTsconfig, readTsc, scopedTsconfig, typeCheck } from '../../lib/pipeline/types.mjs'
 import { calls, fakeBin } from '../fake-bin.mjs'
 
 const cfg = { adapter: 'vitest', jira: { projects: ['ABC'] } }
@@ -127,4 +127,22 @@ test('Playwright: playwright.tsconfig is used; the vitest block is not read', as
   assert.match(calls(d, 'tsc')[0][2], SCOPED)
   const p = await typeCheck(proj(false), { adapter: 'playwright', jira: { projects: ['ABC'] } }, ['e2e/a.spec.ts'])
   assert.deepEqual([p.status, p.summary], ['not_run', 'no tsconfig.json: cannot type-check the TypeScript specs'])
+})
+
+test('an old type error in a spec the tests were added to does not fail the step; one on a new line does', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const d = mkdtempSync(join(tmpdir(), 'qc-tsc-git-'))
+  const git = (...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd: d })
+  git('init', '-q')
+  writeFileSync(join(d, 'a.spec.ts'), 'const x: number = "old"\n')
+  git('add', '-A'); git('commit', '-qm', 'init')
+  writeFileSync(join(d, 'a.spec.ts'), 'const x: number = "old"\nconst y: number = 1\n')
+  assert.deepEqual([...changedLines(d, 'a.spec.ts')], [2])
+  const isNew = (f, l) => changedLines(d, f).has(l)
+  const old = "a.spec.ts(1,7): error TS2322: Type 'string' is not assignable to type 'number'."
+  const r = readTsc(old, 2, ['a.spec.ts'], false, isNew)
+  assert.equal(r.status, 'pass')
+  assert.match(r.summary, /1 type error already in the specs before it/)
+  assert.equal(readTsc(`${old}\na.spec.ts(2,7): error TS2322: x`, 2, ['a.spec.ts'], false, isNew).status, 'fail')
+  assert.equal(readTsc(old, 2, ['a.spec.ts']).status, 'fail', 'without git, every error in a spec fails as before')
 })

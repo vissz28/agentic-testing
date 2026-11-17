@@ -12,7 +12,7 @@ const front = c => {
   return { text: t, fields: Object.fromEntries((m?.[1] ?? '').split('\n').map(l => l.split(/:\s(.*)/s).slice(0, 2))) }
 }
 // spec writes tests: it runs on the session model.
-const MODEL = { routine: 'sonnet', update: 'haiku', help: 'haiku', ci: 'haiku', report: 'haiku', check: 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', 'transcript-goal': 'sonnet' }
+const MODEL = { routine: 'sonnet', update: 'haiku', help: 'haiku', ci: 'haiku', report: 'haiku', check: 'haiku', setup: 'sonnet', config: 'sonnet', clean: 'sonnet', ticket: 'sonnet', qa: 'sonnet', 'transcript-goal': 'sonnet' }
 const SCRIPTS = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)'
 
 test('every command is listed here, so a new one gets a deliberate model choice', () => {

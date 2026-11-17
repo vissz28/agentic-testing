@@ -3,11 +3,11 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { basename, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { audit } from '../lib/state/audit.mjs'
-import { detectConventions, flowOf, runFlow } from '../lib/stacks/conventions.mjs'
+import { detectConventions, runFlow } from '../lib/stacks/conventions.mjs'
 import { findTestHome } from '../lib/stacks/test-home.mjs'
 import { configKeys, configSetGet } from '../lib/config/set.mjs'
 import { pickPlace, placeDirs, placesFor, savedPlace } from '../lib/config/places.mjs'
-import { configHome, loadConfig, normaliseTicketsDir, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
+import { configHome, loadConfig, personalTicketsDir, projectRoot, rootsOf, setActiveRoot } from '../lib/config/config.mjs'
 import { e2eFolder, e2eFolderLine } from '../lib/stacks/e2e-folder.mjs'
 import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
@@ -27,24 +27,22 @@ import { checkNegative, formatNegativeCheck } from '../lib/ticket/negative.mjs'
 import { checkStory, draftPath, draftTicket, formatStoryCheck, storyPath, storyShape } from '../lib/ticket/story.mjs'
 import { fillMenu, projectPick, formatFillMenu, formatPick, applyAnswer, exampleFor, figmaLinks, nextStep, formatNextStep } from '../lib/ticket/fill.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { isTicketKey, plural } from '../lib/core/text.mjs'
+import { plural } from '../lib/core/text.mjs'
 import { readJsonOr, tryReadJson } from '../lib/core/files.mjs'
+import { noTrailingSlash, cleanRelPath } from '../lib/core/paths.mjs'
+import { isTicketKey, isObject } from '../lib/core/is.mjs'
 
-// --no-audit turns the local audit log off for this call (as QC_NO_AUDIT=1 does). --next adds the
-// gate's band and the cheapest way over the bar to `score` (its default output stays as it is).
-// --save keeps the per-ticket results of `tickets-eval`; --report also writes the HTML report of it. --drafted marks an `add` answer as the
-// model's draft the author confirmed (the script still decides whether it counts); a draft is applied only with --confirmed too, which
-// the command passes after the person picked Use it (or typed an edit) on the Use it / Edit / Skip card. --runner adds to
-// `config check` the test runners the config names and the project has not installed.
+// --no-audit = QC_NO_AUDIT=1. --next adds the gate band and cheapest path over the bar to `score`.
+// --drafted marks an `add` answer as a model draft; it applies only with --confirmed, sent after the Use it/Edit card.
 const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--confirmed', '--runner', '--report'])
 
-// The heading `attach` puts each kind of read file under in the description.
+// Description headings `attach` uses per kind.
 const ATTACHED = { screenshot: 'Attached screenshot', page: 'Linked page' }
 
-// The runners setup adds when a repo has none, and the packages that install each.
+// Runners setup can add: [adapter, label, packages].
 const ADDABLE = [['vitest', 'Vitest', ['vitest']], ['playwright', 'Playwright', ['@playwright/test', 'playwright']]]
 
-/** A line per runner the config writes tests in that this project has not installed, saying how to add it. */
+/** One hint per configured runner that isn't installed. */
 function missingRunners(root, config) {
   const pkg = tryReadJson(join(root, 'package.json'), null)
   const deps = { ...pkg?.dependencies, ...pkg?.devDependencies }
@@ -56,7 +54,7 @@ function missingRunners(root, config) {
       : `${label} is not installed in this project: run /quality-code:spec to add it.`))
 }
 
-/** The ticketsDir the config file itself names, before the place moves it; undefined when it names none. */
+/** ticketsDir as written in the file, before the place setting moves it. */
 function rawTicketsDir(path) {
   const c = tryReadJson(path, null)
   return typeof c?.ticketsDir === 'string' ? c.ticketsDir : undefined
@@ -66,7 +64,7 @@ function parseArgs(argv) {
   const a = { _: [], flags: new Set() }
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i]
-    // `--` ends the flags: everything after it is positional, so an answer may start with "--".
+    // `--` ends flags, so an answer can start with "--".
     if (t === '--') { a._.push(...argv.slice(i + 1)); break }
     if (t === '--in' || t === '--out' || t === '--draft') a[t.slice(2)] = argv[++i]
     else if (t.startsWith('--')) {
@@ -77,10 +75,10 @@ function parseArgs(argv) {
   return a
 }
 
-// The commands that take no ticket, by name (`config <sub>` for the config ones).
+// Commands that take no ticket; config ones are keyed `config <sub>`.
 const COMMANDS = {
   save({ a, root, cfg, env }) {
-    // Where this person keeps the project's files and logs: asked once, after the first run that saved some.
+    // Where files and logs are kept; asked once, after the first run that saves some.
     const [sub, place] = a._
     const options = placesFor(cfg.source)
     const opts = { source: cfg.source, ticketsDir: rawTicketsDir(cfg.path), personalDefault: personalTicketsDir(env) }
@@ -100,9 +98,9 @@ const COMMANDS = {
     printError(`usage: ticket.mjs save get | save set ${options.join('|')}`)
     return 2
   },
-  root({ a, root, config, env }) {
+  root({ a, root, env }) {
     // One config serving several projects of a monorepo ("roots"): which one this person works on.
-    const home = configHome(root)
+    const home = configHome(root, env)
     const [sub, folder] = a._
     if (sub === 'get' && a._.length === 1) {
       const r = rootsOf(home, env)
@@ -112,7 +110,7 @@ const COMMANDS = {
     if (sub === 'set' && a._.length === 2) {
       const r = setActiveRoot(home, folder, env)
       if (!r.ok) { printError(r.error); return 2 }
-      printLine(`ok: the active root is ${folder.replace(/\/+$/, '')}. Every command now works in it.`)
+      printLine(`ok: the active root is ${noTrailingSlash(folder)}. Every command now works in it.`)
       printLine(tag('ROOT', rootsOf(home, env)))
       return 0
     }
@@ -120,15 +118,14 @@ const COMMANDS = {
     return 2
   },
   'jira-posted'({ a, log, savedPath }) {
-    // Called after the connector posted a refuse comment, pushed a fill-in or posted a risk note, or
-    // after qa filed a defect, posted a retest comment or moved a status: the key and the kind only.
+    // Logs a Jira write the connector made (comment, fill-in, risk, or qa's defect/retest/status): key and kind only.
     const [key, action] = a._
     if (!savedPath(key) || !['comment', 'update', 'risk', 'defect', 'retest', 'status'].includes(action)) {
       printError('usage: ticket.mjs jira-posted <KEY> comment|update|risk|defect|retest|status')
       return 2
     }
     log('jira', { key, action })
-    // The fill-in answers now on Jira are no longer waiting: `saved` stops offering them.
+    // Mark the answers as sent so `saved` stops offering them.
     if (action === 'update') {
       const t = readJsonOr(savedPath(key), null)
       if (t) try { writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length })) } catch {}
@@ -137,7 +134,7 @@ const COMMANDS = {
     return 0
   },
   saved({ a, config, savedPath }) {
-    // What an earlier run left for this ticket: fill-in answers typed here that never reached Jira.
+    // Fill-in answers from an earlier run that never reached Jira.
     const [key] = a._
     if (!savedPath(key) || a._.length > 1) { printError('usage: ticket.mjs saved <KEY>'); return 2 }
     const t = readJsonOr(savedPath(key), null)
@@ -146,7 +143,7 @@ const COMMANDS = {
     return 0
   },
   docx({ a }) {
-    // A Word file the user named, when the connection cannot download it: its text, to add to the raw description.
+    // Text of a local .docx, for when the connector can't download it.
     const [file] = a._
     if (!file || a._.length > 1) { printError("usage: ticket.mjs docx '<path to a .docx>'"); return 2 }
     const path = resolve(file.replace(/^~(?=\/|$)/, homedir()))
@@ -157,9 +154,7 @@ const COMMANDS = {
     } catch (e) { printError(`${basename(path)}: ${e.code === 'ENOENT' ? 'no such file' : e.message}`); return 2 }
   },
   'config flow'({ a, root, config }) {
-    // How this run writes tests: the project's own style (its naming and folders) or Quality Code's.
-    // --style project|quality-code (one run) wins over testStyle in the config; with neither, the project's
-    // when it has tests, else Quality Code's.
+    // Test style for this run. Arg beats config testStyle; default is the project's style if it has tests.
     const flag = a._[1]
     if (flag !== undefined && !['project', 'quality-code', 'both'].includes(flag)) { printError('usage: ticket.mjs config flow [project|quality-code|both]'); return 2 }
     const conv = detectConventions(root)
@@ -176,7 +171,7 @@ const COMMANDS = {
     return 0
   },
   'config test-home'({ a, root }) {
-    // Where a new test for this source file goes: the file that tests it, the central test file, or a new one.
+    // Where a new test for this source goes: its test file, the central one, or a new file.
     if (!a._[1] || a._.length > 2) { printError('usage: ticket.mjs config test-home <target>'); return 2 }
     const home = findTestHome(root, a._[1])
     printLine(home.kind === 'none' ? `test home: none yet: ${home.reason}` : `test home: ${home.file} (${home.kind === 'unit-file' ? 'tests this file' : "the project's central tests"}): ${home.reason}`)
@@ -191,9 +186,8 @@ const COMMANDS = {
     return 0
   },
   rules({ config }) {
-    // Whose rules the tests follow, per side: "own" (the team's guides and existing specs win, the plugin's guide fills
-    // the gaps) or "plugin" (the plugin's guide wins, the team's specs are read only for imports and fixtures).
-    // `set` null: not answered yet, spec asks once. `guides` are the team's own files the config names for the side.
+    // Per side: "own" (team guides and specs win) or "plugin" (plugin guide wins; team specs only for imports/fixtures).
+    // set is null until answered (spec asks once).
     const guides = {
       backend: BACKEND_ADAPTERS.map(k => config[k]).flatMap(b => (b?.layers ?? []).map(l => l.guide)).filter(Boolean),
       frontend: [config.playwright?.guide, ...(config.features ?? []).map(f => f.guide)].filter(Boolean)
@@ -204,8 +198,7 @@ const COMMANDS = {
     return 0
   },
   approach({ a, root, config }) {
-    // How the team tests a frontend feature: e2e (Playwright), unit (the JavaScript unit runner) or both, and the
-    // team's own file about it. `approach <feature label>`; a label the config does not list gets the default, e2e.
+    // Frontend feature approach (e2e, unit or both) and its team guide; unlisted labels default to e2e.
     const [label] = a._
     if (!label || a._.length > 1) { printError('usage: ticket.mjs approach <feature label>'); return 2 }
     const feature = (config.features ?? []).find(f => f.label.toLowerCase() === label.toLowerCase()) ?? null
@@ -231,7 +224,7 @@ const COMMANDS = {
       return 0
     }
     if (sub === 'find' && project?.startsWith('@')) {
-      // project is the saved field-metadata file here: the fields whose name is the criteria heading.
+      // Here `project` is @<field metadata file>: find fields named like the criteria heading.
       let text
       try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { printError(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
       const r = findFields(config, text)
@@ -243,25 +236,24 @@ const COMMANDS = {
     return 2
   },
   'tickets-eval'({ a, root, config, ticketsRoot }) {
-    // Project-wide: --in is a JSON array of raw tickets. Scores them all, sends nothing, writes nothing unless --save.
+    // --in is an array of raw tickets. Scores all; writes nothing unless --save.
     if (!a.in) { printError('usage: ticket.mjs tickets-eval --in @<tickets.json> [--json | --report] [--save]'); return 2 }
     if (a.flags.has('--report') && a.flags.has('--json')) { printError('--json and --report do not go together'); return 2 }
     let list
     const listPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
     try { list = JSON.parse(listPath ? readFileSync(listPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-    if (!Array.isArray(list) || list.some(t => !t || typeof t !== 'object' || Array.isArray(t))) { printError('--in must be a JSON array of tickets'); return 2 }
+    if (!Array.isArray(list) || list.some(t => !isObject(t))) { printError('--in must be a JSON array of tickets'); return 2 }
     const r = evalTickets(config, list)
     if (a.flags.has('--save')) {
       try { saveTickets(root, config, r.clean) } catch (e) { printError(`tickets-eval: cannot save (${e.code ?? e.message})`); return 2 }
     }
-    // The raw search results go once they are scored (as sanitize removes raw.json).
-    // Only the search results file the command writes; any other input is left as it is.
+    // Delete the raw search results once scored, but only the file the command itself wrote.
     if (listPath === join(ticketsRoot, 'tickets-eval.json')) { try { unlinkSync(listPath) } catch { /* already gone */ } }
     const machine = tag('TICKETS_EVAL', { summary: r.summary, tickets: r.rows })
     if (a.flags.has('--json')) printLine(machine)
     else { printLine(formatCard(r)); printLine(machine) }
     if (a.flags.has('--report')) {
-      // One self-contained HTML file in <ticketsDir>/reports/; the card above stays the text version.
+      // Self-contained HTML in <ticketsDir>/reports/.
       const now = new Date()
       const built = ticketsEvalReport(r, { config, project: r.rows[0]?.key?.replace(/-\d+$/, '') ?? null, now })
       try { printLine(reportLines(saveReport(join(ticketsRoot, 'reports'), 'tickets-eval', now.toISOString().slice(0, 10), built.html), 'Tickets readiness', built.headline).join('\n')) } catch (e) { printError(`tickets-eval: cannot save the report (${e.code ?? e.message})`); return 2 }
@@ -271,7 +263,7 @@ const COMMANDS = {
 }
 
 export function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd()) {
-  // A crash is an error (2), never a refuse (1): the commands read exit 1 as "the ticket is too thin".
+  // Crash exits 2, never 1: callers read 1 as "ticket too thin".
   try { return run(argv, env, cwd) } catch (e) { printError(`ticket.mjs: ${e.message}`); return 2 }
 }
 
@@ -286,7 +278,6 @@ function run(argv, env, cwd) {
   if (cmd === 'config' && a._[0] === 'check') {
     if (!cfg.ok) { cfg.errors.forEach(e => printLine(e)); return 2 }
     printLine(`ok (${cfg.source}: ${cfg.path})`)
-    // The folder the commands write ticket files in: the config's ticketsDir, where this person keeps files.
     printLine(`tickets folder: ${cfg.config.ticketsDir} (files kept ${{ repo: 'in the project', local: 'on this machine', chat: 'in this session (a temp folder)' }[cfg.place]})`)
     if (a.flags.has('--runner') && cfg.source === 'repo') missingRunners(root, cfg.config).forEach(m => printLine(`missing: ${m}`))
     return 0
@@ -295,7 +286,7 @@ function run(argv, env, cwd) {
   const config = cfg.config
   const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
-  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   const savedPath = key => (isTicketKey(key) ? join(ticketsRoot, key, 'ticket.json') : null)
   // The only file sanitize may delete: a raw ticket in its own key folder under ticketsDir.
   const isRawTicket = p => basename(p) === 'raw.json' && dirname(dirname(p)) === ticketsRoot && isTicketKey(basename(dirname(p)))
@@ -309,20 +300,21 @@ function run(argv, env, cwd) {
   const inPath = a.in.startsWith('@') ? resolve(root, a.in.slice(1)) : null
   let ticket
   try { ticket = JSON.parse(inPath ? readFileSync(inPath, 'utf8') : a.in) } catch (e) { printError(`--in is not readable JSON: ${e.message}`); return 2 }
-  if (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) { printError('--in must be a JSON object'); return 2 }
+  if (!isObject(ticket)) { printError('--in must be a JSON object'); return 2 }
   // Lists the connector or the model may hand over as one value: a single label, a single scenario.
   for (const k of ['labels', 'scenarios', 'flags']) if (k in ticket && !Array.isArray(ticket[k])) ticket[k] = ticket[k] == null ? [] : [ticket[k]]
   const project = String(ticket.key ?? '').replace(/-\d+$/, '')
-  // A tracking project's keys belong to the project too (start proposes them).
+  // Includes tracking-project keys.
   const keys = projectKeys(config)
   const mismatch = Boolean(ticket.key) && !keys.includes(project)
-  // With --json, stdout is the JSON alone: the mismatch line goes to stderr.
+  // With --json, keep stdout pure JSON.
   if (mismatch) (a.flags.has('--json') ? printError : printLine)(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: keys })}`)
+  // An epic holds tickets and is none: no step works on it. sanitize still runs, so the raw copy is cleaned and goes.
+  if (cmd !== 'sanitize' && isContainerType(ticket.issuetype)) { printError(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
   switch (cmd) {
     case 'sanitize': {
       if (!a.out) { printError('sanitize needs --out <path>'); return 2 }
-      // sanitize deletes its input, so a file input must be a raw ticket: <ticketsDir>/<KEY>/raw.json.
-      // Anything else (package.json, a spec) is refused and left as it is, with nothing written.
+      // sanitize deletes its input, so only <ticketsDir>/<KEY>/raw.json is accepted.
       if (inPath && !isRawTicket(inPath)) {
         printError(`sanitize reads only <ticketsDir>/<KEY>/raw.json, and deletes it; ${a.in.slice(1)} is left as it is`)
         return 2
@@ -330,13 +322,12 @@ function run(argv, env, cwd) {
       const outPath = resolve(root, a.out)
       try {
         writeFileSync(outPath, `${JSON.stringify(sanitizeTicket(config, ticket))}\n`)
-        // The raw input goes once the clean copy is on disk, unless the two are the same file.
+        // Delete the raw input only after the clean copy is written.
         if (inPath && inPath !== outPath) unlinkSync(inPath)
       } catch (e) { printError(`sanitize: cannot write ${a.out} (${e.code ?? e.message})`); return 2 }
       return 0
     }
     case 'score': {
-      if (isContainerType(ticket.issuetype)) { printError(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
       if (mismatch && a.flags.has('--ci')) { printError(`${ticket.key} is not a ticket of this project's Jira projects (${keys.join(', ')})`); return 2 }
       const b = buildBrief(config, ticket)
       log('gate', {
@@ -354,15 +345,14 @@ function run(argv, env, cwd) {
       return b.gate === 'refuse' ? 1 : 0
     }
     case 'negative-check': {
-      // Does the ticket name invalid input, errors or permission denied? A suggestion only: it never changes the score or the gate.
+      // Hints at missing negative cases; never affects the score or gate.
       const c = checkNegative(ticket)
       if (a.flags.has('--json')) printLine(JSON.stringify(c))
       else { printLine(formatNegativeCheck(c)); printLine(tag('NEGATIVE', c)) }
       return 0
     }
     case 'story-check': {
-      // After the score: is the story too long, unstructured or too thin? Without --draft it decides whether to offer a
-      // rewrite. With --draft @<file> it checks the draft, re-scores it as the ticket's story and prints old and new score.
+      // Without --draft: should we offer a rewrite? With --draft @file: re-score the draft as the story.
       if (!a.draft) {
         const check = checkStory(ticket)
         if (a.flags.has('--json')) printLine(JSON.stringify(check))
@@ -385,7 +375,7 @@ function run(argv, env, cwd) {
       return 0
     }
     case 'story-save': {
-      // Saves the confirmed draft (<ticketsDir>/<KEY>/story-draft.md) as <ticketsDir>/<KEY>/story.md. Local only.
+      // Moves the confirmed story-draft.md to story.md. Local only.
       const from = draftPath(ticketsRoot, ticket.key), to = storyPath(ticketsRoot, ticket.key)
       if (!from) { printError('story-save needs a ticket with a valid key'); return 2 }
       if (!existsSync(from)) { printError(`story-save: no draft at ${from}`); return 2 }
@@ -399,7 +389,7 @@ function run(argv, env, cwd) {
       return b.gate === 'refuse' ? 1 : 0
     }
     case 'risk-comment': {
-      // The risk note marks tests written past the gate ("continue anyway"): a ticket that passes has none.
+      // The risk note marks tests written past a failed gate; a passing ticket has none.
       const b = buildBrief(config, ticket)
       if (b.gate === 'pass') { printError(`risk-comment is for a ticket that does not pass: ${b.key} has ${b.score} points and needs ${b.threshold}, so there is no risk note to post`); return 2 }
       printLine(formatRiskComment(config, b))
@@ -430,7 +420,7 @@ function run(argv, env, cwd) {
       const r = applyAnswer(config, ticket, key, answer, { drafted })
       if (r.ok) {
         try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { printError(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
-        // One line per accepted answer: the key, the item and whether it began as a draft. Never the text.
+        // Never log the answer text.
         log('fill', { key: r.input.key, item: key, drafted })
         const b = r.brief
         printLine(`Accepted. The ticket now has ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
@@ -445,7 +435,7 @@ function run(argv, env, cwd) {
       return r.ok ? 0 : 1
     }
     case 'attachments': {
-      // After the model read the ticket again: the file count from Jira is saved here, and the script re-scores.
+      // Saves the Jira attachment count and re-scores.
       if (!inPath) { printError('attachments needs --in @<ticket.json> to save the count'); return 2 }
       const n = Number(a._[0])
       if (!Number.isInteger(n) || n < 0) { printError('usage: ticket.mjs attachments --in @<ticket.json> <count>'); return 2 }
@@ -457,14 +447,13 @@ function run(argv, env, cwd) {
       return 0
     }
     case 'attach': {
-      // A refused ticket's screenshot or linked page, read after the first score: the words a screenshot
-      // shows, or the page's text. The text comes in a file in the ticket's folder (deleted once read),
-      // is redacted and added to the description, so the script scores it like the description.
+      // Adds a screenshot's or linked page's text to the description so it scores like the rest.
+      // The text file must sit in the ticket's folder; it's redacted and deleted once read.
       const [kind, from] = a._
       const heading = ATTACHED[kind]
       if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { printError('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
       const textPath = resolve(root, from.slice(1))
-      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(normaliseTicketsDir(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(cleanRelPath(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
       let raw
       try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { printError(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
       const text = redact(config, raw.trim(), uuidsOf(ticket)).slice(0, DOCX_MAX_CHARS)
@@ -485,7 +474,7 @@ function run(argv, env, cwd) {
       return 0
     }
     case 'side': {
-      // Fullstack projects: which side a ticket gets tests on. With a side, it is saved in the ticket file.
+      // Fullstack only: which side gets tests; a given value is saved to the ticket file.
       if (!isFullstack(config)) { printError(`side is for fullstack projects: this one is ${config.adapter}`); return 2 }
       const [value] = a._
       if (value === undefined) {

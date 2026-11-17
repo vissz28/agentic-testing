@@ -66,6 +66,11 @@ test('hasConcreteThen reads strings and objects', () => {
   assert.equal(C.hasConcreteThen(v, { gherkin: 'Then it works correctly' }), false)
   assert.equal(C.hasConcreteThen(v, { expected: 'the total is 150' }), true)
 })
+test('hasConcreteThen reads a Given/When/Then on one line', () => {
+  assert.equal(C.hasConcreteThen(v, { gherkin: 'Given a product When I save quantity 0,004 Then the Quantity cell shows "+0,004"' }), true)
+  assert.equal(C.hasConcreteThen(v, 'Given a product When I save Then it works correctly'), false, 'still vague')
+  assert.equal(C.hasConcreteThen(v, 'Open the page and then read the total of the order'), false, 'a "then" in prose is not a Then')
+})
 test('extractExpectedChunks reads every form, shared regexes keep no state', () => {
   const t = '## Expected\nTotal is 5\n## Other\nWhat is the expected behavior? **zero cost**\nIt shows 7 instead of 0\nThen the last cost is 0'
   for (let i = 0; i < 2; i++) {
@@ -220,6 +225,11 @@ test('placeholder text is not a criterion: lorem ipsum, TBD, TODO, N/A, to be de
   assert.equal(C.isPlaceholder('The total shows 0 after a reload.'), false)
   assert.deepEqual(C.extractNaturalAC(v, '## Acceptance criteria\nTBD\nThe total shows 0 after a reload.'), ['The total shows 0 after a reload.'])
   assert.deepEqual(C.extractNaturalAC(v, 'Lorem ipsum dolor sit amet', { headingless: true }), [])
+  // Gherkin made of filler is no Gherkin: its steps are dropped, so no Then is left.
+  const lorem = 'Given lorem ipsum dolor sit amet\nWhen consectetur adipiscing elit\nThen sed do eiusmod tempor 5 rows'
+  assert.equal(C.hasGherkin(v, lorem), false)
+  assert.equal(C.hasThen(v, lorem), false)
+  assert.equal(C.hasGherkin(v, 'Given a cart with 2 items\nWhen I remove one\nThen the cart shows 1 item'), true)
 })
 test('a deeper heading or a bold sub-heading groups criteria inside the section', () => {
   const a = 'The exported file has one row per order, with the order number and the total.'

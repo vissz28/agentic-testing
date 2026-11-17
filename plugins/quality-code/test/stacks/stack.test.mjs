@@ -28,6 +28,8 @@ test('a ticket side from its title prefix or labels; FE and BE together are full
   assert.equal(ticketSide(c, ticket('[FE] Orders total')), 'frontend')
   assert.equal(ticketSide(c, ticket('[be] Orders total')), 'backend')
   assert.equal(ticketSide(c, ticket('[FS] Orders total')), 'fullstack')
+  assert.equal(ticketSide(c, ticket('[FE][BE] Orders total')), 'fullstack')
+  assert.equal(ticketSide(c, ticket('[FE] [Orders] total')), 'frontend')
   assert.equal(ticketSide(c, ticket('Orders total', ['Orders', 'FE', 'BE'])), 'fullstack')
   assert.equal(ticketSide(c, ticket('Orders total')), null)
   for (const t of ['FE - Orders total', 'FE-Orders total', 'FE: Orders total', 'fe – Orders total', ' [FE] Orders total']) assert.equal(ticketSide(c, ticket(t)), 'frontend', t)

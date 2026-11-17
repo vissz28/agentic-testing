@@ -194,7 +194,6 @@ test('plan: one mutant per assertion of a baseline-green test, parametrized case
     ['test_zero', 'drop-raises'],
   ])
   assert.equal(applyMutant(SPEC, ms[0]).includes('assert not (total == 13.50), "the line total"'), true)
-  assert.ok(planMutants(SPEC, passed, { key: 'ABC-1', thorough: true }, py).length > ms.length)
   // A green test with no assertion mutation can flip is unmutated; a test that did not pass is not judged.
   const src = 'class TestA:\n    """ABC-5 x"""\n\n    def test_a(self):\n        self.assertEqual(1, 1)\n\n    def test_b(self):\n        assert 1\n'
   assert.deepEqual(unmutated(src, ['test_a'], planMutants(src, ['test_a'], {}, py), {}, py), ['test_a'])

@@ -1,7 +1,5 @@
-// Checks that live outside the unit tests: a pgTAP file for a seeded table, a contract test, a database test run by
-// another tool. The config lists them (externalChecks, relative to the folder that holds the config). Quality Code does not
-// run them. It reads them so a ticket's value that only they can check (a seeded code, a stored row) is not asked of a test
-// that would restate a mock, and it says on the verdict which file carries it.
+// externalChecks (pgTAP, contract, DB tests): never run, only read, so a value only they can check
+// isn't demanded from a unit test that would just restate a mock.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { matches } from '../boundary.mjs'
@@ -11,16 +9,15 @@ const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.nex
 const MAX_FILES = 5000
 const MAX_BYTES = 1_000_000
 
-// The statements of a pgTAP file that assert (SELECT is(...), ok(...), results_eq(...), has_table(...)); the rest is setup.
+// pgTAP assertion functions; other statements are setup.
 const PGTAP = /\b(?:is|isnt|ok|is_empty|results_eq|results_ne|set_eq|bag_eq|row_eq|cmp_ok|throws_ok|lives_ok|matches|imatches|like|ilike|performs_ok|isa_ok|has_\w+|hasnt_\w+|col_\w+|fk_\w+|pk_\w+|is_\w+|policies_are|functions_are|tables_are)\s*\(/i
 
-/** The code of a file without its comments (-- and /* *\/ for SQL, // and /* *\/ otherwise). */
 export function stripComments(text, sql) {
   const noBlock = text.replace(/\/\*[\s\S]*?\*\//g, '')
   return sql ? noBlock.replace(/--[^\n]*/g, '') : noBlock.replace(/(^|[^:"'])\/\/[^\n]*/g, '$1')
 }
 
-/** What a file can assert: a .sql file keeps only the statements that call an assertion function. */
+/** For .sql, keep only statements that call a pgTAP assertion. */
 export function assertionText(file, text) {
   const sql = /\.sql$/i.test(file)
   const code = stripComments(text, sql)
@@ -40,7 +37,6 @@ function* walk(dir, home, patterns, seen) {
   }
 }
 
-/** The external check files the config names: [{ file, text }], text being what the file asserts. */
 export function externalChecks(home, patterns) {
   if (!Array.isArray(patterns) || !patterns.length) return []
   const out = []

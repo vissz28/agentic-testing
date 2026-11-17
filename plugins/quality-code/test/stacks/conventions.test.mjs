@@ -159,3 +159,10 @@ test('every writing guide opens with "Project conventions come first"', () => {
   }
   assert.match(readFileSync(new URL('../../guides/junit-writing.md', import.meta.url), 'utf8'), /defaults, used only when the project has no tests/)
 })
+
+test('the JUnit guide prefers Optional to null in test code, unless the code itself returns null', () => {
+  const g = readFileSync(new URL('../../guides/junit-writing.md', import.meta.url), 'utf8')
+  assert.match(g, /\*\*`Optional` over `null`\*\*/)
+  assert.match(g, /assertThat\(found\)\.isEmpty\(\)/)
+  assert.match(g, /When the code under test itself returns `null`, assert the `null`/)
+})

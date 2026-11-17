@@ -1,20 +1,15 @@
-// Suite honesty: does every test that runs carry an assertion? Static; no model opinion.
-// A hollow test (runs, asserts nothing) fails the check; so does a run where no test asserts.
+// Suite honesty: every test that runs must assert something (static check).
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { result } from '../result.mjs'
 import { keyPattern } from '../../config/keys.mjs'
 import { ungradedTitlesOf } from '../../config/config.mjs'
 
-// An x- or f- prefix (xdescribe, xit, fit: Jest, Jasmine, Mocha) skips or focuses like .skip and .only.
-// Only on a JavaScript test word: Go's func TestX or a Python def is no focus mark.
+// xit/fit/xdescribe (Jest, Jasmine, Mocha) act as .skip/.only; only on JS test words, not Go's TestX.
 const PREFIXED = { x: 'skip', f: 'only' }
 const prefixed = m => (/^[xf](?:it|test|describe|context|specify)\b/.test(m[0]) ? PREFIXED[m[0][0]] : null)
 
-/**
- * Top-level groups (column 0): { idx, mod, title }; a chain holding skip, todo or fixme never runs. A
- * dialect whose skip is no chain (a JUnit @Disabled class) sets the named group skip instead.
- */
+/** Column-0 groups. Dialects without a .skip chain (JUnit @Disabled) set the `skip` named group. */
 export function groups(src, dialect) {
   const re = new RegExp(dialect.groupRe.source, 'gm')
   const out = []
@@ -27,7 +22,7 @@ export function groups(src, dialect) {
 }
 
 /**
- * The index of the slash closing a regex literal that starts at i, or -1: a quote inside one (/'/) is no string.
+ * End of the regex literal starting at i, or -1, so a quote inside one (/'/) isn't read as a string.
  * ponytail: a regex starts after start of line, an operator or return; after another keyword it is read as division.
  */
 function regexEnd(src, i) {
@@ -46,7 +41,7 @@ function regexEnd(src, i) {
   return -1
 }
 
-/** Index just past the ")" closing the "(" at `open`, skipping strings and regex literals. */
+/** Index past the matching ")", skipping strings and regex literals. */
 function closeAt(src, open) {
   let depth = 0
   for (let i = open; i < src.length; i++) {
@@ -60,19 +55,17 @@ function closeAt(src, open) {
   return src.length
 }
 
-// A test skipped or marked todo by its options: test('x', { skip: true }, …) (node --test, Vitest).
+// test('x', { skip: true }, …) in node --test and Vitest.
 const OPTION_MOD = /^\s*,\s*\{([^{}]*)\}/
 
-/** The skip or todo an options object right after the title sets, or null. */
 function optionMod(after) {
   const opts = OPTION_MOD.exec(after)?.[1] ?? ''
   return /\bskip\s*:(?!\s*false\b)/.test(opts) ? 'skip' : /\btodo\s*:(?!\s*false\b)/.test(opts) ? 'todo' : null
 }
 
 /**
- * Test declarations in order: { mod, title, idx }. An each/for test takes the title after its table.
- * modOf: the dialect's reading of m[1], when its skip mark is no "skip" in the source (C#'s [Ignore]).
- * A dialect whose skip or not-yet mark is an annotation (JUnit @Disabled) sets the named group skip or todo.
+ * each/for tests take the title after their table. modOf maps m[1] when skip isn't spelled "skip" (C# [Ignore]).
+ * Annotation dialects (JUnit @Disabled) set the `skip`/`todo` named groups.
  */
 export function testMarks(src, re, modOf = null) {
   const all = new RegExp(re.source, 'g')
@@ -86,7 +79,7 @@ export function testMarks(src, re, modOf = null) {
   return out
 }
 
-/** The code without comments and with every string emptied, so expect( in a string or a comment is not read. */
+/** Strip comments and blank out strings so expect( inside them isn't counted. */
 function codeOnly(src) {
   let out = ''
   for (let i = 0; i < src.length; i++) {
@@ -104,14 +97,13 @@ function codeOnly(src) {
 }
 
 /**
- * Assertions in a test body: an expect (or expect.soft / expect.poll) that ends in a matcher call, or an
- * assert call. A bare expect(x) or an uncalled .toBeTruthy asserts nothing. chai (the generic tier) also
- * counts Chai's property chains (expect(ok).to.be.true) and Cypress's .should(…).
+ * expect(...) only counts with a matcher call; a bare expect(x) or uncalled .toBeTruthy asserts nothing.
+ * chai also counts property chains (expect(ok).to.be.true) and Cypress .should(…).
  */
 export function countAssertions(body, { chai = false, helpers = [] } = {}) {
   const code = codeOnly(body)
   let n = (code.match(/(?<![.\w$])assert(?:\.\w+)?\s*\(/g) || []).length
-  // A page object asserts for the test: page.expectGridVisible(), dashboard.assertTitle(), and the project's own prefixes.
+  // Page-object helpers count too: page.expectGridVisible(), dashboard.assertTitle(), plus configured prefixes.
   const prefixes = ['expect', 'assert', 'verify', ...helpers].filter(p => /^[A-Za-z_$][\w$]*$/.test(p))
   n += (code.match(new RegExp(`\\.(?:${prefixes.join('|')})[A-Z_$][\\w$]*\\s*\\(`, 'g')) || []).length
   if (chai) n += (code.match(/\.should\b(?:\s*\.\s*\w+)*\s*\(/g) || []).length
@@ -122,14 +114,12 @@ export function countAssertions(body, { chai = false, helpers = [] } = {}) {
   return n
 }
 
-/** Char ranges of top-level skipped groups: a test inside one never runs. */
 export function skippedGroupRanges(src, dialect) {
   const tops = groups(src, dialect)
   return tops.map((t, i) => (t.mod === 'skip' ? [t.idx, i + 1 < tops.length ? tops[i + 1].idx : src.length] : null)).filter(Boolean)
 }
 
-/** [start, end) of the top-level group whose title holds the key, up to the next top-level group. */
-/** With `whole` (ticketAnchor "branch"), a spec changed on the branch with no block of the key counts as a whole. */
+/** [start, end) of the key's top-level group. `whole` (ticketAnchor "branch"): no block means the whole file. */
 export function anchorRange(src, key, dialect, { whole = false } = {}) {
   const tops = groups(src, dialect)
   const keyRe = keyPattern(key)
@@ -139,19 +129,14 @@ export function anchorRange(src, key, dialect, { whole = false } = {}) {
   return [start.idx, next ? next.idx : src.length]
 }
 
-/**
- * ungraded: the titles not graded (a Playwright project's playwright.ungradedTitles), or null. A dialect
- * whose marks a regex cannot give (Go: a skip is a call in the body) brings its own suite.marks(src),
- * each mark with its end, and its own suite.countAssertions(body).
- */
+/** ungraded: playwright.ungradedTitles. Dialects a regex can't parse (Go skips are calls) bring suite.marks/countAssertions. */
 export function scoreSpec(src, dialect, ungraded = null, helpers = []) {
   const s = dialect.suite
   const skipRanges = s.skippedGroups ? skippedGroupRanges(src, dialect) : []
   const marks = s.marks ? s.marks(src) : testMarks(src, s.testRe, s.modOf)
-  // A dialect may count its own assertions (C#'s Assert.Equal, .Should(), Go's testify, pytest's assert); else expect and assert.
+  // Dialect-specific counters: C# Assert/.Should(), Go testify, pytest assert.
   const count = s.countAssertions ?? dialect.countAssertions ?? countAssertions
   return marks.map((mk, i) => {
-    // A test's slice runs up to the next test (or to its own end, when the dialect knows it).
     const expects = count(src.slice(mk.idx, mk.end ?? (i + 1 < marks.length ? marks[i + 1].idx : src.length)), { chai: s.chai, helpers })
     const inSkipped = skipRanges.some(([a, b]) => mk.idx >= a && mk.idx < b)
     return { title: mk.title, mod: inSkipped ? 'skip' : mk.mod, expects, idx: mk.idx, capture: Boolean(ungraded?.test(mk.title)) }
@@ -169,7 +154,7 @@ export function grade(files, { key = null, ungraded = null, helpers = [], whole 
   for (const { path, src } of files) {
     let tests = scoreSpec(src, dialect, ungraded, helpers)
     if (key) {
-      // The key's block, else (older specs: test('ABC-1-1 …') at the top level) the tests named with the key.
+      // Key block, else tests titled with the key (older specs: top-level test('ABC-1-1 …')).
       const r = anchorRange(src, key, dialect, { whole })
       const named = r ? [] : tests.filter(t => keyPattern(key).test(t.title))
       if (!r && !named.length) { missingFiles.push(path); continue }
@@ -180,7 +165,7 @@ export function grade(files, { key = null, ungraded = null, helpers = [], whole 
       if (t.mod === dialect.suite.notYet) notYet++
       if (t.mod === 'skip') skipped++
       behavioral++
-      // Only skip and the not-yet marker are exempt; .only, .concurrent, .fails run, so they must assert.
+      // Only skip and not-yet are exempt; .only, .concurrent, .fails still run and must assert.
       const plain = t.mod !== 'skip' && t.mod !== dialect.suite.notYet
       if (plain && t.expects >= 1) honest++
       if (plain && t.expects === 0) hollow.push({ file: path, test: t.title })

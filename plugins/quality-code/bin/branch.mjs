@@ -1,30 +1,27 @@
-// Local git facts for /quality-code:spec: the branch, its base, what changed, and ticket keys.
-// Read-only. Offline, except one `gh pr list` for the branch's GitHub pull request. Never reads diff
-// contents. --detect prints one BRANCH_JSON: line.
+// Git facts for /spec: branch, base, changed files, ticket keys. Read-only; only `gh pr list` goes online.
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/stacks/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/stacks/backends.mjs'
-import { PLAIN } from '../lib/core/git.mjs'
+import { gitOut as git } from '../lib/core/git.mjs'
 import { e2eFolder } from '../lib/stacks/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
-import { escapeRegExp, isTicketKey, withoutOrigin } from '../lib/core/text.mjs'
+import { escapeRegExp, withoutOrigin } from '../lib/core/text.mjs'
+import { isTicketKey } from '../lib/core/is.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
 
-/** The origin URL without any user:password@ part. */
 export function stripCredentials(url) {
   if (!url) return null
   return String(url).replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]*@/i, '$1')
 }
 
-/** Ticket keys of the configured projects, in the order found, each once. */
 export function keyCandidates(texts, projects) {
   if (!projects.length) return []
-  // The configured keys themselves, longest first: MY_PROJ-12 is never also read as PROJ-12.
+  // Longest first so MY_PROJ-12 is never read as PROJ-12.
   const names = [...new Set(projects)].sort((a, b) => b.length - a.length).map(escapeRegExp)
   const re = new RegExp(`(?<![A-Z0-9])(${names.join('|')})[-_](\\d+)(?!\\d)`, 'g')
   const out = []
@@ -39,7 +36,7 @@ export function keyCandidates(texts, projects) {
 
 const NOT_A_PROJECT = new Set(['RELEASE', 'HOTFIX', 'FEATURE', 'BUGFIX', 'FIX', 'V', 'RC', 'SPRINT', 'VERSION'])
 
-/** A key-shaped name in the branch itself (ABC-123), for a project the config does not list. The branch name is the person's own choice, so it is trusted more than a commit subject. */
+/** A key in the branch name even for an unlisted project; trusted more than a commit subject. */
 export function branchKey(branch) {
   for (const m of String(branch ?? '').toUpperCase().matchAll(/(?<![A-Z0-9])([A-Z][A-Z0-9]{1,9})[-_](\d+)(?!\d)/g)) {
     if (!NOT_A_PROJECT.has(m[1])) return `${m[1]}-${m[2]}`
@@ -47,16 +44,12 @@ export function branchKey(branch) {
   return null
 }
 
-/** Playwright test folders: the e2e folder write uses (playwright.folder, else testDir), else e2e/ and tests/. */
 export function playwrightTestDirs(root, config) {
   const f = e2eFolder(root, config)
   return f.ok && f.source !== 'default' ? [f.folder] : ['e2e/', 'tests/']
 }
 
-/**
- * test, code or other. JS/TS spec names and Playwright's test folders as always; a backend other than
- * Vitest adds its own test names (test_x.py, FooTest.java, x_test.go, FooTests.cs) and source files.
- */
+/** 'test', 'code' or 'other'. Non-Vitest backends add their own test names (test_x.py, FooTest.java, ...). */
 export function kindOf(path, adapter, testDirs = [], backend = isBackend(adapter) ? adapter : null) {
   const own = backend && backend !== 'vitest' ? BACKENDS[backend] : null
   if (TEST_NAME.test(path) || own?.testFile.test(path)) return 'test'
@@ -64,7 +57,7 @@ export function kindOf(path, adapter, testDirs = [], backend = isBackend(adapter
   return CODE_EXT.test(path) || own?.codeFile.test(path) ? 'code' : 'other'
 }
 
-/** `git status --porcelain=v1 -z` → files. Untracked counts as added; a rename is followed by its old path. */
+/** Untracked counts as added; a rename entry is followed by its old path. */
 export function parseStatusZ(out) {
   const t = String(out ?? '').split('\0')
   const files = []
@@ -79,7 +72,7 @@ export function parseStatusZ(out) {
   return files
 }
 
-/** `git diff --name-status -z -M` → files. Renames keep the new path; copies count as added. */
+/** Renames keep the new path; copies count as added. */
 export function parseNameStatusZ(out) {
   const t = String(out ?? '').split('\0')
   const files = []
@@ -99,14 +92,6 @@ export function parseNameStatusZ(out) {
 
 // After origin/HEAD and init.defaultBranch; gitflow teams set git.base to their develop.
 const FALLBACK_BASES = ['main', 'master', 'develop']
-
-function git(root, args) {
-  try {
-    return execFileSync('git', [...PLAIN, ...args], { cwd: root, encoding: 'utf8', maxBuffer: 1e8, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).replace(/\n$/, '')
-  } catch {
-    return null
-  }
-}
 
 /** The branch's one open GitHub pull request ({ baseRefName, title, body }) from the gh CLI; null without gh, sign-in or exactly one. */
 function pullRequest(root, branch) {
@@ -138,9 +123,8 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     .split('\n').filter(b => b && b !== 'origin' && b !== 'origin/HEAD')
 
   const exists = ref => git(root, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) !== null
-  // The integration branch: where finished work lands (git.base, else origin/HEAD, else a guess). A pull or merge
-  // request can target another feature branch instead; the base then differs from it.
-  const local = name => (exists(name) ? name : exists(`origin/${name}`) ? `origin/${name}` : null)
+  // Prefer origin/: a stale local base would count colleagues' merged work as this branch's.
+  const local = name => (name.startsWith('origin/') ? (exists(name) ? name : null) : exists(`origin/${name}`) ? `origin/${name}` : exists(name) ? name : null)
   const configured = config.git?.base
   let integration = null
   if (configured && local(configured)) integration = { ref: local(configured), source: 'config' }
@@ -156,13 +140,12 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     }
   }
   out.integration = integration?.ref ?? null
-  // Priority: an explicit --base flag, then the merge request's target (--mr-base, found through GitLab), then an
-  // open GitHub pull request's base, then the integration branch.
+  // Base priority: --base, --mr-base, GitHub PR base, integration branch.
   const pr = rawBranch === null ? null : pullRequest(root, rawBranch)
   const prBase = typeof pr?.baseRefName === 'string' ? local(pr.baseRefName) : null
   const mrRef = mrBase ? local(mrBase) : null
   if (baseFlag) {
-    const ref = local(baseFlag)
+    const ref = exists(baseFlag) ? baseFlag : local(baseFlag)
     if (ref) Object.assign(out, { base: ref, baseSource: 'flag' })
   } else if (mrRef) Object.assign(out, { base: mrRef, baseSource: 'merge-request' })
   else if (prBase) Object.assign(out, { base: prBase, baseSource: 'pull-request' })
@@ -175,9 +158,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     if (out.mergeBase) {
       const [behind, ahead] = (git(root, ['rev-list', '--left-right', '--count', `${out.base}...HEAD`]) ?? '0 0').split(/\s+/).map(Number)
       Object.assign(out, { ahead, behind })
-      // No pull request or merge request names the base: the branch may still have been cut from a sibling of the
-      // configured one (develop12 for develop). When another long-lived branch is clearly closer, say so; the diff
-      // against the configured base would hold that branch's commits as noise.
+      // Branch may be cut from a sibling (develop12 vs develop); flag a clearly closer long-lived branch.
       if (!baseFlag && !out.onBase && ['config', 'origin-head', 'fallback'].includes(out.baseSource) && ahead > 0) {
         const heads = (git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/', 'refs/heads/']) ?? '').split('\n')
         const names = [...new Set(heads.filter(r => r && !r.endsWith('/HEAD')).map(r => withoutOrigin(r)))]
@@ -197,10 +178,10 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
       }
     }
   }
-  // Uncommitted work counts even with no merge base (a shallow CI clone, an orphan branch).
+  // Counts even with no merge base (shallow CI clone, orphan branch).
   for (const f of parseStatusZ(git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=all']))) files.set(f.path, { ...f, committed: false })
 
-  // git prints paths from the repo top; a project in a subfolder keeps only its own files, relative to itself.
+  // git paths are repo-relative; a project in a subfolder keeps only its own files.
   const prefix = git(root, ['rev-parse', '--show-prefix']) ?? ''
   const playwright = adaptersOf(config).includes('playwright')
   const dirs = playwright ? playwrightTestDirs(root, config) : []
@@ -213,8 +194,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     out.counts[f.kind]++
     if (!f.committed) out.counts.uncommitted++
   }
-  // The whole feature: when the base is another feature branch (a pull or merge request into it), this
-  // branch's own changes are only a part. Everything since the branch left the integration branch is the feature.
+  // Base is another feature branch: the whole feature is everything since leaving the integration branch.
   out.baseKind = !out.base ? null : out.integration && out.base !== out.integration ? 'feature' : 'integration'
   out.needsConfirm = out.baseKind === 'feature' && (out.baseSource === 'pull-request' || out.baseSource === 'merge-request')
   if (out.baseKind === 'feature' && out.head && !out.onBase) {
@@ -230,14 +210,12 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
     }
   }
   const subjects = out.mergeBase && !out.onBase ? (git(root, ['log', '--format=%s', `${out.mergeBase}..HEAD`]) ?? '').split('\n') : []
-  // The full sha is for git; the report shows the short one.
   if (out.mergeBase) out.mergeBase = out.mergeBase.slice(0, 7)
   out.branch = rawBranch === null ? null : clean(rawBranch)
   out.keys = keyCandidates([out.branch?.toUpperCase(), pr && clean(pr.title).toUpperCase(), ...subjects.map(s => clean(s).toUpperCase())], projects)
-  // A ticket named in the branch counts even when its project is not in the config (the config may list another project, or none).
   const named = branchKey(out.branch)
   if (named && !out.keys.includes(named)) out.keys.unshift(named)
-  // The branch's own commit messages, newest first and redacted: what a fill-in suggestion may quote.
+  // Redacted: a fill-in suggestion may quote these.
   out.subjects = subjects.filter(Boolean).slice(0, 20).map(clean)
   if (pr) out.pullRequest = { base: clean(pr.baseRefName), title: clean(pr.title), description: clean(pr.body) }
   return out
@@ -246,12 +224,7 @@ export function detect(root, config, { base: baseFlag, mrBase } = {}) {
 const I18N = /(?:^|\/)i18n\/[^/]+\.json$|(?:^|\/)locales?\/[^/]+\.json$/
 const MAX_COMMITS = 20
 
-/**
- * What a ticket's change touched once it is merged, when the current branch no longer shows it: the
- * diff of the merge commit whose source branch carries the key, else the files of the commits that
- * name it (at most 20). Read-only and offline: nothing is fetched. Translation files count as code,
- * since they hold the texts a screen shows.
- */
+/** Files a merged ticket touched: its merge commit's diff, else up to 20 commits naming the key. i18n counts as code. */
 export function merged(root, config, key) {
   const out = { key, found: null, commit: null, files: [], counts: { code: 0, test: 0, other: 0 } }
   if (git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return out
@@ -268,17 +241,16 @@ export function merged(root, config, key) {
       return { path, status, kind }
     })
   }
-  // Branches, remotes and tags: --all would also read refs/stash, whose "index on ABC-12-x" is no change.
+  // Not --all: refs/stash "index on ABC-12-x" would match.
   const refs = ['--branches', '--remotes', '--tags']
   const merges = (git(root, ['log', ...refs, '--merges', '-i', `--grep=${key}`, '--format=%H%x09%s']) ?? '').split('\n').filter(Boolean)
-  // The ticket's branch is the source, not a sync into it: "Merge branch 'ABC-12-total' into 'develop'"
-  // (GitLab, git), "Merge pull request #7 from acme/ABC-12-total" (GitHub), "Merged in ABC-12-total (pull request #7)" (Bitbucket).
+  // Key must be in the source branch, not the target. Formats: git/GitLab, GitHub, Bitbucket.
   const source = s => (/^merge (?:branch|remote-tracking branch) '([^']+)'/i.exec(s) ?? /^merge pull request #\d+ from [^/\s]+\/(\S+)/i.exec(s) ?? /^merged in (\S+) \(pull request #\d+\)/i.exec(s))?.[1] ?? ''
   const merge = merges.map(l => l.split('\t')).find(([, s]) => own.test(source(s)))
   if (merge) {
     out.found = 'merge'
     out.commit = merge[0].slice(0, 7)
-    // Three dots: what the branch changed since it forked, not main's later work as deletions.
+    // Three dots: main's later work must not show as deletions.
     take(parseNameStatusZ(git(root, ['diff', '--name-status', '-z', '-M', `${merge[0]}^1...${merge[0]}^2`])))
     return out
   }
@@ -298,7 +270,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     const key = argv[1]
     if (!isTicketKey(key) || argv.length > 2) { printError(USAGE); return 2 }
     const root = projectRoot(env, cwd)
-    const c = loadConfig(root)
+    const c = loadConfig(root, env)
     if (!c.ok) { printError(c.errors.join('\n')); return 2 }
     printLine(tag('MERGED', merged(root, c.config, key)))
     return 0
@@ -315,7 +287,7 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
     } else { printError(USAGE); return 2 }
   }
   const root = projectRoot(env, cwd)
-  const c = loadConfig(root)
+  const c = loadConfig(root, env)
   if (!c.ok) { printError(c.errors.join('\n')); return 2 }
   printLine(tag('BRANCH', detect(root, c.config, opts)))
   return 0

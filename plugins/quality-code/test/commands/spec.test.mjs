@@ -530,7 +530,7 @@ test('step 7 ends with the next command for the ticket side: check --backend (Te
   const s = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
   assert.match(s, /\*\*Next step\.\*\*/)
   assert.match(s, /`Next: \/quality-code:check --backend runs the whole backend suite, including the integration tests that use real databases in Testcontainers \(Docker must be running\)\.`/)
-  assert.match(s, /`Next: \/quality-code:check --frontend runs every frontend spec against the running app\.`/)
+  assert.match(s, /`Next: \/quality-code:check --frontend runs every frontend spec against the running app \(add --no-mutation to skip the slow mutation step on live specs\)\.`/)
   assert.match(s, /fullstack: both lines, backend first/)
 })
 
@@ -584,4 +584,11 @@ test('spec asks whose rules to follow, the team\'s or the plugin\'s, once per si
   assert.match(doc, /detect it yourself whether the team already has its own way of testing; nothing has to be listed in the config/)
   assert.match(doc, /\*\*Change nothing the team has:\*\* never edit, move, rename or delete an existing spec/)
   assert.match(doc, /Miss nothing:/)
+})
+
+test('the Playwright plan reads a passing ticket\'s screenshots for locators and texts, never as new scenarios', () => {
+  assert.match(doc, /\*\*Screenshots of a passing ticket:\*\*/)
+  assert.match(doc, /download up to 3 as \*\*Ticket files\*\*/)
+  assert.match(doc, /for the locators and the texts the tests check, never as a new scenario/)
+  assert.match(doc, /jira-file\.mjs\\" done <KEY>`|jira-file\.mjs" done <KEY>`/)
 })

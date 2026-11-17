@@ -1,13 +1,10 @@
-// Entry point for /quality-code:update: is a newer version of the plugin out, and what changed?
-// node bin/update.mjs [--json]
-// Reads the running version from this plugin and the one installed on disk (an update waits for /reload-plugins), the latest from the plugin's GitHub repository (raw files,
-// else the repository's git tags). Read-only: it installs nothing. Exit 0 ok (up to date or update found),
-// 2 usage error, 3 the latest version could not be read.
-import { execFileSync } from 'node:child_process'
+// Compares running/installed plugin versions with the latest on GitHub. Read-only, installs nothing.
+// Exit 0 ok, 2 usage error, 3 latest version unreadable.
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson } from '../lib/core/files.mjs'
+import { git } from '../lib/core/git.mjs'
 import { plural } from '../lib/core/text.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
@@ -18,7 +15,7 @@ const MAX_LINES = 5
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/
 
-/** -1, 0 or 1; a version that is not x.y.z sorts before every real one. */
+// Non-x.y.z versions sort before every real one.
 export function compareVersions(a, b) {
   const x = SEMVER.exec(String(a ?? '').trim())
   const y = SEMVER.exec(String(b ?? '').trim())
@@ -27,13 +24,13 @@ export function compareVersions(a, b) {
   return 0
 }
 
-/** `owner/repo` of a GitHub URL (https, ssh, with or without .git), else null. */
+// https or ssh, with or without .git.
 export function githubRepo(url) {
   const m = /github\.com[/:]([^/\s]+)\/([^/\s#]+?)(?:\.git)?(?:[/#].*)?$/i.exec(String(url ?? '').trim())
   return m ? `${m[1]}/${m[2]}` : null
 }
 
-/** The sections of a Keep a Changelog file newer than `installed`, up to `latest`, newest first. */
+/** Keep a Changelog sections in (installed, latest], newest first. */
 export function newerSections(changelog, installed, latest) {
   const out = []
   const parts = String(changelog ?? '').split(/^## \[/m).slice(1)
@@ -47,7 +44,6 @@ export function newerSections(changelog, installed, latest) {
   return out.sort((a, b) => compareVersions(b.version, a.version))
 }
 
-// The bullets of a section: first line of each, markdown emphasis dropped, a few of them.
 function summarise(body) {
   const items = []
   for (const line of body.split('\n')) {
@@ -58,7 +54,6 @@ function summarise(body) {
   return { items: items.slice(0, MAX_LINES), more: Math.max(0, items.length - MAX_LINES) }
 }
 
-// Claude Code's installed plugins, keyed `name@marketplace` ({} when it cannot be read).
 function installedPlugins(env) {
   try {
     const dir = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
@@ -66,12 +61,12 @@ function installedPlugins(env) {
   } catch { return {} }
 }
 
-/** The id `name@marketplace` the plugin is installed as; `name@teamsystem` (the marketplace this repo publishes) when it cannot be read. */
+// Falls back to the marketplace this repo publishes.
 export function pluginId(name, env = process.env) {
   return Object.keys(installedPlugins(env)).find(k => k.startsWith(`${name}@`)) ?? `${name}@teamsystem`
 }
 
-/** The highest version of `name` that Claude Code has installed on disk (null when it cannot be read). */
+// Installed on disk can be ahead of running until /reload-plugins.
 export function diskVersion(name, env = process.env) {
   try {
     const plugins = installedPlugins(env)
@@ -94,7 +89,7 @@ async function getText(fetchImpl, url) {
   return res.text()
 }
 
-/** The latest version and its changelog: raw files first, git tags when those cannot be read (a private repository). */
+// Raw files first; git tags when those are unreadable (private repo).
 export async function fetchLatest({ repository, name, fetchImpl = fetch, ls = defaultLs }) {
   const repo = githubRepo(repository)
   const errors = []
@@ -122,10 +117,11 @@ export async function fetchLatest({ repository, name, fetchImpl = fetch, ls = de
 }
 
 function defaultLs(repository) {
-  return execFileSync('git', ['ls-remote', '--tags', repository], { encoding: 'utf8', timeout: TIMEOUT_MS, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+  const r = git(undefined, ['ls-remote', '--tags', repository], { timeout: TIMEOUT_MS })
+  if (!r.ok) throw new Error(r.error)
+  return r.out
 }
 
-/** The status of an installed version against the latest one. */
 export function statusOf(installed, latest, running = installed) {
   const c = compareVersions(latest, installed)
   if (c > 0) return 'update'

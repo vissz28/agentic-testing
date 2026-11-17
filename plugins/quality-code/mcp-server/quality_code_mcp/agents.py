@@ -1,8 +1,4 @@
-"""Plugin-style files for other coding agents (GitHub Copilot, OpenAI Codex, Cursor, Gemini CLI), written from the plugin's own commands.
-
-Each file is a thin wrapper: it calls the local MCP server's tool for that command and follows what the tool returns, so the instructions,
-the plugin folder and the scripts stay the one source in the plugin. Local only: the server runs over stdio on this machine.
-Nothing is written unless `write` is set, and an existing file is never replaced."""
+"""Copilot, Codex, Cursor and Gemini CLI wrappers that call the local (stdio) MCP server; never overwrites a file."""
 from __future__ import annotations
 
 import json
@@ -15,7 +11,7 @@ from .catalog import Command, load_commands, plugin_root
 
 TOOLS = ("copilot", "codex", "cursor", "gemini")
 
-# Commands that need Claude Code itself: routine schedules with Claude's scheduler, update updates through Claude's plugin manager.
+# Need Claude Code itself: its scheduler (routine) and plugin manager (update).
 CLAUDE_ONLY = {"routine", "update"}
 
 SERVER = "quality-code"
@@ -35,7 +31,7 @@ def _server() -> dict:
         script = str(Path(sys.argv[0]).resolve())
     if script:
         return {"command": script, "args": [], "env": env}
-    return {"command": sys.executable, "args": ["-m", "quality_code_mcp"], "env": env}  # not installed as a command: run it as a module
+    return {"command": sys.executable, "args": ["-m", "quality_code_mcp"], "env": env}  # no console script: run as a module
 
 
 def _commands(root: Path) -> list[Command]:
@@ -43,7 +39,6 @@ def _commands(root: Path) -> list[Command]:
 
 
 def _body(c: Command, where: str) -> str:
-    """The wrapper text: which tool to call, with what, and the rule to follow what it returns."""
     hint = f" Arguments: {c.argument_hint}." if c.argument_hint else ""
     return (
         f"Run Quality Code's `{c.name}` command: {c.description}{hint}\n\n"
@@ -63,7 +58,7 @@ def _q(text: str) -> str:
 
 
 def copilot(root: Path) -> list[Planned]:
-    """VS Code: the MCP server in .vscode/mcp.json and one prompt file per command (run it with /quality-code-<name> in agent mode)."""
+    """VS Code: .vscode/mcp.json plus a prompt file per command (/quality-code-<name> in agent mode)."""
     cfg = {"servers": {SERVER: {"type": "stdio", **_server()}}}
     out = [Planned(".vscode/mcp.json", json.dumps(cfg, indent=2) + "\n")]
     for c in _commands(root):
@@ -75,7 +70,7 @@ def copilot(root: Path) -> list[Planned]:
 
 
 def codex(root: Path) -> list[Planned]:
-    """Codex: one skill per command in .agents/skills/. The MCP server goes in ~/.codex/config.toml (printed, never written for you)."""
+    """Codex: a skill per command in .agents/skills/; the ~/.codex/config.toml entry is printed, not written."""
     out = []
     for c in _commands(root):
         text = f"---\nname: {PREFIX}{c.name}\ndescription: {_q(c.description)}\n---\n\n" + _body(c, "this session")
@@ -90,7 +85,7 @@ def codex_toml() -> str:
 
 
 def cursor(root: Path) -> list[Planned]:
-    """Cursor: the MCP server in .cursor/mcp.json and one command file each (type /quality-code-<name> in chat)."""
+    """Cursor: .cursor/mcp.json plus a command file per command."""
     out = [Planned(".cursor/mcp.json", json.dumps({"mcpServers": {SERVER: _server()}}, indent=2) + "\n")]
     for c in _commands(root):
         out.append(Planned(f".cursor/commands/{PREFIX}{c.name}.md", f"# Quality Code: {c.name}\n\n" + _body(c, "this chat")))
@@ -98,7 +93,7 @@ def cursor(root: Path) -> list[Planned]:
 
 
 def gemini(root: Path) -> list[Planned]:
-    """Gemini CLI: an extension folder, quality-code-gemini/, with the MCP server and one command each (/quality-code:<name>)."""
+    """Gemini CLI: an extension folder, quality-code-gemini/, with the server and one command each."""
     manifest = {"name": SERVER, "version": _version(root), "description": "Quality Code: from a Jira ticket to tests you can trust.", "mcpServers": {SERVER: _server()}}
     out = [Planned("quality-code-gemini/gemini-extension.json", json.dumps(manifest, indent=2) + "\n")]
     for c in _commands(root):
@@ -125,7 +120,7 @@ NEXT = {
 
 
 def init(tool: str, target: Path, *, write: bool, root: Path | None = None) -> tuple[list[str], list[str]]:
-    """Plans the files of `tool` under `target`; with `write`, writes those that do not exist yet. Returns (written or planned, skipped)."""
+    """With `write`, writes the planned files that do not exist yet. Returns (written or planned, skipped)."""
     if tool not in PLANS:
         raise ValueError(f"unknown tool {tool!r}: one of {', '.join(TOOLS)}")
     done, skipped = [], []

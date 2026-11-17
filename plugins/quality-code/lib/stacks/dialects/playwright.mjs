@@ -1,4 +1,4 @@
-// Playwright syntax, as the frontend checks read it.
+// Playwright dialect for the frontend checks.
 import { flipMutations as valueFlips, mutation as vitest } from './vitest.mjs'
 import { collapseSpaces } from '../../core/text.mjs'
 
@@ -34,20 +34,20 @@ function flipMutations(expectSrc) {
   if (/\.toBeFalsy\s*\(/.test(expectSrc)) add('flip-falsy→truthy', expectSrc.replace(/\.toBeFalsy\s*\(/g, '.toBeTruthy('))
   add('corrupt-getBy-string', expectSrc.replace(/(getBy(?:Text|Label|Placeholder|AltText|Title)\(\s*)(['"`])([^'"`★]+)\2/, (_, pre, q, s) => `${pre}${q}${s}★MUT${q}`))
   add('corrupt-role-name', expectSrc.replace(/(name:\s*)(['"`])([^'"`★]+)\2/, (_, pre, q, s) => `${pre}${q}${s}★MUT${q}`))
-  // A plain value check (expect(await rows.count()).toBe(3), expect(r.status()).toBe(200)): the strongest value flip.
+  // Plain value check (expect(await rows.count()).toBe(3)): take the strongest value flip.
   if (!out.length) out.push(...valueFlips(expectSrc).sort((a, b) => vitest.rank(a.kind) - vitest.rank(b.kind)).slice(0, 1))
   return out
 }
 
-/** A block mutation judges: ran green (by title or title prefix), not skipped, fixme, an expected failure or ungraded. */
+/** Green by title or title prefix, and not skip/fixme/fail/ungraded. */
 function eligible(block, passed, ungraded = null) {
   if (block.mod === 'fixme' || block.mod === 'skip' || block.mod === 'fail' || ungraded?.test(block.title)) return false
   const key = block.title.split(' — ')[0]
-  // The prefix counts only up to the ' — ' it was cut at: "login" is not green because "login fails" passed.
+  // Prefix matches only up to ' — ': "login fails" passing doesn't make "login" green.
   return passed.has(block.title) || [...passed].some(t => t === key || t.startsWith(`${key} — `))
 }
 
-/** Every flip of every expect in a baseline-green test (by title or title prefix), inside the range. */
+/** Every flip of every expect in a baseline-green test, inside the range. */
 function plan({ src, passedTitles, range, blocks, expects, ungraded = null }) {
   const passed = new Set(passedTitles)
   const mutants = []
@@ -63,8 +63,7 @@ function plan({ src, passedTitles, range, blocks, expects, ungraded = null }) {
   return mutants
 }
 
-// Web-first matchers whose arguments hold the values a ticket expects (the expected check reads them).
-// expect(...) itself is read too: the locator's text is the value the screen shows.
+// Matchers whose args hold expected values. expect(...) is read too: the locator's text is what the screen shows.
 export const expected = {
   readsActual: true,
   matchers: ['toHaveText', 'toContainText', 'toHaveValue', 'toHaveValues', 'toHaveCount', 'toHaveURL', 'toHaveTitle', 'toHaveAttribute', 'toHaveAccessibleName', 'toHaveAccessibleDescription', 'toHaveJSProperty', 'toHaveCSS', 'toHaveId', 'toHaveClass'],

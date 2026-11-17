@@ -1,10 +1,5 @@
-// The Go runner: runs the specs' packages with `go test -json` and reads its event stream.
-// Implements the runner contract of the shared checks. Never writes into the project: go keeps its
-// build cache outside the repo, and a {report} file of go.command goes to a temp folder.
-//
-// One result per scenario, as the dialect (dialects/go.mjs) titles them: a direct t.Run with a
-// literal name, else the test function itself (a table-driven test's cases fold into it). path[0] is
-// the function's doc comment (where the ticket key is), else its name.
+// Go runner: `go test -json` per package. Writes nothing into the project ({report} goes to a temp dir).
+// One result per literal t.Run, else per function (table cases fold in); path[0] is the doc comment holding the key.
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -17,7 +12,7 @@ import { fillPlaceholders, shellQuote } from '../../core/shell.mjs'
 
 const LABEL = 'Go'
 
-/** The module of a package folder: { root, path } from the nearest go.mod, or null. */
+/** Nearest go.mod: { root, path }, or null. */
 export function moduleOf(dirAbs) {
   const mod = findUp(dirAbs, 'go.mod')
   if (!mod) return null
@@ -25,11 +20,7 @@ export function moduleOf(dirAbs) {
   return path ? { root: dirname(mod), path } : null
 }
 
-/**
- * What the specs hold, per package: { importPath, dir, cwd, pattern, funcs: Map name →
- * { file, group, literal: Map goName → title } }. Only the requested files' functions: another
- * file's tests in the same package are not this run's.
- */
+/** Only the requested files' functions; other files in the same package aren't this run's. */
 export function indexSpecs(root, files) {
   const pkgs = new Map()
   for (const file of files) {
@@ -52,7 +43,7 @@ export function indexSpecs(root, files) {
   return { pkgs: [...pkgs.values()] }
 }
 
-/** The -run regex: every requested function, or the one scenario testName names (a function or a literal subtest). */
+/** -run regex: all requested functions, or the one function or literal subtest testName names. */
 export function runPattern(pkgs, testName) {
   const all = pkgs.flatMap(p => [...p.funcs.entries()])
   if (testName === undefined) {
@@ -62,11 +53,10 @@ export function runPattern(pkgs, testName) {
   if (all.some(([n]) => n === testName)) return `^${escapeRegExp(testName)}$`
   const owners = [...new Set(all.filter(([, f]) => [...f.literal.values()].includes(testName)).map(([n]) => n))]
   if (!owners.length) return null
-  // A "/" in a name is a level of its own for go test: each level gets its own anchored pattern.
+  // go test splits -run on "/": anchor each level separately.
   return [`^(${owners.map(escapeRegExp).join('|')})$`, ...goName(testName).split('/').map(p => `^${escapeRegExp(p)}$`)].join('/')
 }
 
-/** The JSON events of a `go test -json` stream; other lines are left out. */
 export function parseEvents(text) {
   const out = []
   for (const line of String(text).split('\n')) {
@@ -78,13 +68,13 @@ export function parseEvents(text) {
 
 const COMPILE = /^\S+\.go:\d+(?::\d+)?: .+/
 
-/** The first compiler (or vet) error line of a build's output, else its first line that says something. */
+/** First compiler/vet error, else the first meaningful line. */
 export function compileError(lines) {
   const ls = lines.join('').split('\n').map(l => l.trim())
   return ls.find(l => COMPILE.test(l)) ?? ls.find(l => l && !l.startsWith('#') && !/^(FAIL|ok)\s/.test(l)) ?? 'the package does not build'
 }
 
-/** Why a test failed: its first file.go:NN: line (testify's Error, expected and actual with it), or the panic. */
+/** First file.go:NN: line (with testify's Error/expected/actual), or the panic. */
 export function failureLine(lines) {
   const ls = lines.join('').split('\n')
   for (let i = 0; i < ls.length; i++) {
@@ -103,7 +93,6 @@ export function failureLine(lines) {
   return ls.map(x => x.trim()).find(x => x && !/^(=== |--- |FAIL\b|PASS\b|ok\s)/.test(x)) ?? ''
 }
 
-/** The events grouped per package: { tests: Map name → { status, output }, output, status, failedBuild }, and build output per import path. */
 export function collect(events) {
   const pkgs = new Map()
   const builds = new Map()
@@ -112,7 +101,7 @@ export function collect(events) {
     return pkgs.get(name)
   }
   for (const e of events) {
-    // Go 1.24+: the build's own events, keyed by "<import path> [<import path>.test]".
+    // Go 1.24+ build events, keyed "<import path> [<import path>.test]".
     if (e.Action === 'build-output' || e.Action === 'build-fail') {
       const ip = String(e.ImportPath ?? '').split(' ')[0]
       if (!builds.has(ip)) builds.set(ip, [])
@@ -137,10 +126,7 @@ export function collect(events) {
 
 const STATUS = { pass: 'passed', fail: 'failed', skip: 'skipped' }
 
-/**
- * The results of one run for the indexed packages: { tests, broken }. stderr holds what an older go
- * (before 1.24) prints of a failed build.
- */
+/** stderr: where go < 1.24 prints a failed build. */
 export function results(events, pkgs, stderr = '') {
   const { pkgs: seen, builds } = collect(events)
   const tests = []
@@ -164,7 +150,7 @@ export function results(events, pkgs, stderr = '') {
       const kids = [...p.tests].filter(([n]) => n.startsWith(`${name}/`))
       const outputOf = prefix => kids.filter(([n]) => n === prefix || n.startsWith(`${prefix}/`)).flatMap(([, t]) => t.output)
       const result = (title, t, output) => {
-        // A test that started and never ended: a panic elsewhere stopped the package.
+        // Started but never ended: a panic elsewhere stopped the package.
         const status = STATUS[t.status] ?? (p.status === 'fail' ? 'failed' : 'skipped')
         if (status === 'failed') anyFailed = true
         return { title, path: [f.group], file: f.file, status, message: status === 'failed' ? failureLine(output) || failureLine([pkgOut]) : '' }
@@ -176,21 +162,17 @@ export function results(events, pkgs, stderr = '') {
           if (title !== undefined) out.push(result(title, t, outputOf(n)))
         }
       }
-      // No literal scenario ran (a plain or table-driven test, or a skip before them), or the function failed outside them.
+      // No literal subtest ran, or the function failed outside them.
       if (!out.length || (top.status === 'fail' && !out.some(r => r.status === 'failed'))) out.push(result(name, top, [...top.output, ...outputOf(name)]))
       tests.push(...out.filter(r => own.has(r.file)))
     }
-    // The package failed with no test failing: TestMain, an init panic, a timeout.
+    // Package failed with no failing test: TestMain, init panic, timeout.
     if (p.status === 'fail' && !anyFailed) for (const file of own) broken.push({ file, message: failureLine([pkgOut]) || 'the test binary failed outside the tests' })
   }
   return { tests, broken }
 }
 
-/**
- * The command for one module: go test -json, or go.command with {files} (the package patterns),
- * {test} (the -run regex) and {report} (a file for the JSON stream, else it is read from stdout).
- * A command with no placeholder gets the flags and packages appended.
- */
+/** go.command placeholders: {files} packages, {test} -run regex, {report} JSON file. Without any, flags and packages are appended. */
 export function commandFor(config, patterns, run, report) {
   const flags = ['-json', '-count=1', ...(run ? ['-run', run] : [])]
   const custom = commandOf(config)
@@ -226,7 +208,7 @@ function runGo(cwd, cmd, report, timeoutMs, dir) {
     } catch (e) {
       return finish({ ran: false, error: `could not start ${LABEL}: ${e.message}` })
     }
-    // The stream can be long (one event per output line); stderr only needs its first lines.
+    // One event per output line, so stdout can be large; stderr only needs the start.
     child.stdout.on('data', d => { if (stdout.length < 64 * 1024 * 1024) stdout += d })
     child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
     timer = setTimeout(() => {
@@ -250,7 +232,6 @@ export function goRunner(root, config) {
     const idx = indexSpecs(root, files)
     if (idx.error) return { ran: false, tests: [], broken: [], error: idx.error }
     const run = runPattern(idx.pkgs, testName)
-    // Nothing to run: no test function in the specs, or no scenario of that name.
     if (!run) return { ran: true, tests: [], broken: [] }
     const byModule = new Map()
     for (const p of idx.pkgs) byModule.set(p.cwd, [...(byModule.get(p.cwd) ?? []), p])
@@ -262,7 +243,7 @@ export function goRunner(root, config) {
         const cmd = commandFor(config, pkgs.map(p => p.pattern), run, report)
         const r = await runGo(cwd, cmd, report, timeoutMs ?? defaultMs, dir)
         if (!r.ran) return { ran: false, tests: [], broken: [], error: r.error }
-        // go stopped before any package (no module, a bad flag): no result to read.
+        // go failed before any package (no module, bad flag).
         if (!r.events.length && r.code !== 0) return { ran: false, tests: [], broken: [], error: firstLine(r.stderr) || `${LABEL} exited with code ${r.code}` }
         const got = results(r.events, pkgs, r.stderr)
         all.tests.push(...got.tests)

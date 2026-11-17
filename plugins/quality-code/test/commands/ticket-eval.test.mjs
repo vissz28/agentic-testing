@@ -315,3 +315,27 @@ test('screenshots that cannot be read are said once, with the way to fix it; an 
   assert.match(doc, /An epic is not scored\./)
   assert.match(doc, /never ask for acceptance criteria, never write any/)
 })
+
+test('a description-only ticket: option 1 offers to draft the criteria from it, the author confirms, the script scores', () => {
+  const g = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
+  assert.match(g, /\*\*A ticket with only a description\.\*\*/)
+  assert.match(g, /Option 1 can draft the acceptance criteria from the description: you confirm each one before it counts/)
+  assert.match(g, /The script still scores the result: nothing passes on the draft alone\./)
+})
+
+test('flags never change the score, but a passing ticket shows them as open points and spec carries them to its plan', () => {
+  const g = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
+  const spec = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
+  assert.match(g, /They do not change the score: the score is the scripts' alone/)
+  assert.match(g, /Ready, with <n> open point\(s\) the score cannot see/)
+  assert.match(spec, /\*\*Open on the ticket:\*\*/)
+  assert.match(spec, /naming the question, never with a guessed value/)
+})
+
+test('linked Xray tests: their steps are read with get_tests and scored like the description', () => {
+  const g = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
+  assert.match(g, /\*\*Linked Xray tests\.\*\*/)
+  assert.match(g, /call `get_tests` once with their keys/)
+  assert.match(g, /`## Linked Xray test <KEY>: <summary>`/)
+  assert.match(g, /Read only: never write to Xray here\./)
+})

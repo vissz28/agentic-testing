@@ -2,18 +2,15 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeTicket } from './sanitize.mjs'
 import { buildBrief } from './score.mjs'
-import { DEFAULTS, normaliseTicketsDir } from '../config/config.mjs'
-import { isTicketKey, plural } from '../core/text.mjs'
+import { DEFAULTS } from '../config/config.mjs'
+import { pct, plural } from '../core/text.mjs'
 import { readJsonOr } from '../core/files.mjs'
+import { cleanRelPath } from '../core/paths.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 /** Share of `n` in `total` as a whole percent (half up); 0 for an empty set. */
-const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
-/**
- * Sanitize and score every raw ticket the way `ticket.mjs score` does (a fullstack config scores
- * both sides and takes the lower). Pure: no I/O, nothing sent. Returns the rows, the project
- * summary and the sanitized tickets (so the caller may save them).
- */
+/** Same scoring as `ticket.mjs score`, no I/O. Returns the sanitized tickets so the caller can save them. */
 export function evalTickets(config, tickets) {
   const clean = tickets.map(t => sanitizeTicket(config, t))
   const rows = clean.map(t => {
@@ -21,7 +18,7 @@ export function evalTickets(config, tickets) {
     const shown = b.missing.filter(m => !b.omitted.has(m.key))
     return {
       key: b.key ?? t.key ?? '?',
-      // The team is the ticket's first Jira component: no setup, Jira already says who owns it.
+      // Team = first Jira component.
       team: (Array.isArray(t.components) && typeof t.components[0] === 'string' && t.components[0]) || null,
       files: Number(t.attachments) > 0,
       score: b.score,
@@ -39,21 +36,20 @@ export function evalTickets(config, tickets) {
   const summary = {
     scored: rows.length,
     passing,
-    passingPercent: pct(passing, rows.length),
+    passingPercent: pct(passing, rows.length) ?? 0,
     average: rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 0,
     mostMissing: mostMissing(rows, 3),
-    // Refused with files on the ticket: the batch reads no file, so their criteria may be in one.
+    // The batch doesn't read attachments, so criteria may be hiding in one.
     unreadFiles: rows.filter(r => r.gate === 'refuse' && r.files).length,
-    // Only when the tickets name more than one component: one group is the project line again.
+    // A single group would just repeat the project line.
     byTeam: groups.size < 2 ? [] : [...groups].map(([team, rs]) => {
       const p = rs.filter(r => r.gate === 'pass').length
-      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length), mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
+      return { team, scored: rs.length, passing: p, passingPercent: pct(p, rs.length) ?? 0, mostMissing: mostMissing(rs, 1)[0]?.item ?? null }
     }).sort((a, b) => a.passingPercent - b.passingPercent || a.team.localeCompare(b.team)),
   }
   return { rows, summary, clean }
 }
 
-/** The `top` items missing from the most rows, most first (ties by name). */
 function mostMissing(rows, top) {
   const count = new Map()
   for (const r of rows) for (const m of r.missing) count.set(m, (count.get(m) ?? 0) + 1)
@@ -63,7 +59,6 @@ function mostMissing(rows, top) {
     .map(([item, tickets]) => ({ item, tickets }))
 }
 
-/** The card: one line per ticket (lowest score first), then the project summary. */
 export function formatCard({ rows, summary }) {
   if (!rows.length) return 'No tickets to score.'
   const lines = rows.map(r => `${r.key} · ${r.score}/100 · ${r.gate}${r.biggestMissing ? ` · missing: ${r.biggestMissing}` : ''}`)
@@ -82,12 +77,9 @@ export function formatCard({ rows, summary }) {
   ].join('\n')
 }
 
-/**
- * Write each sanitized ticket to <ticketsDir>/<KEY>/ticket.json. Only used with --save. The fill-in
- * answers (`filled`, `sent`) of a ticket already saved are kept: Jira's copy does not hold them.
- */
+// --save only. Keeps `filled`/`sent` from an existing file: Jira doesn't hold them.
 export function saveTickets(root, config, clean) {
-  const dir = normaliseTicketsDir(config.ticketsDir ?? DEFAULTS.ticketsDir)
+  const dir = cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)
   for (const t of clean) {
     if (!isTicketKey(t.key)) continue
     const d = resolve(root, dir, t.key)

@@ -92,7 +92,9 @@ test('item 15: the reply style is read and written by connector-settings --style
   assert.match(step(2), /Replies · in \.claude\/settings\.json, shared with your team/)
   assert.ok(step(3).includes(`${BIN}/connector-settings.mjs" --style on\``))
   assert.ok(step(4).includes('`Commit .claude/settings.json so your team gets it too. It applies from your next message.`'))
-  assert.ok(readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8').includes(`${BIN}/connector-settings.mjs" --style on\``), 'setup turns it on')
+  const setup = readFileSync(new URL('../../commands/setup.md', import.meta.url), 'utf8')
+  assert.ok(!setup.includes('--style on'), 'setup leaves the reply style off: it changes every reply in the repo')
+  assert.ok(setup.includes('turn on the report style in /quality-code:config'))
 })
 
 test('item 16: the qa block is changed through setup --write, one setting at a time, with only that block touched', () => {

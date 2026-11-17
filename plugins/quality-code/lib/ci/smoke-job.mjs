@@ -1,12 +1,10 @@
-// The optional post-deploy job of the CI file (bin/ci.mjs --init --smoke): the smoke suite (tests tagged @smoke)
-// against the URL in the SMOKE_URL variable. The variable is the project's own (GitHub: Settings > Variables;
-// GitLab: CI/CD variables); no URL, no token and no password is ever written into the file.
+// Optional post-deploy @smoke job (ci.mjs --init --smoke). The URL comes from a CI variable, never the file.
 export const SMOKE_VAR = 'SMOKE_URL'
 
-/** Install lines a Playwright run needs: the JavaScript ones, not a backend toolchain's. */
+/** Playwright needs only the JS installs, not a backend toolchain. */
 export const jsInstall = lines => lines.filter(l => !/^(pip |go |dotnet )/.test(l))
 
-/** The job as lines of YAML for one provider. `fetch` clones the plugin; `pipeline` is the pipeline.mjs command. */
+/** `fetch` clones the plugin; `pipeline` is the pipeline.mjs command. */
 export function smokeJob(provider, { fetch, pipeline, install = [], prefix = '' }) {
   const run = `${pipeline} --smoke --url "$${SMOKE_VAR}"`
   if (provider === 'github') {

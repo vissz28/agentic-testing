@@ -62,6 +62,12 @@ class LineTotalTest {
   `total.shouldBe(108)`. The value check reads call arguments.
 - Exceptions: `assertThrows(IllegalArgumentException.class, () -> …)`, then assert the message if
   the ticket states it.
+- **`Optional` over `null`** (Java 8 and later): a value that may be missing is an `Optional` in the
+  test code, never a `null` passed or returned by a helper. Assert it as one:
+  `assertThat(found).isEmpty()` / `assertThat(found).contains(order)` (AssertJ), or
+  `assertTrue(found.isEmpty())` / `assertEquals(Optional.of(order), found)`, not `found.get()` and not
+  `assertNull`. When the code under test itself returns `null`, assert the `null`: the test checks
+  what the code does. The project's own habit wins, as everywhere above.
 
 ## Expected values
 

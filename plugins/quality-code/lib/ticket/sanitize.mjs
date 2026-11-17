@@ -1,14 +1,10 @@
-// The n-th distinct UUID of a ticket: still private, but two different ids stay two ids.
+// Numbered placeholders: the real id is hidden, but distinct ids stay distinct.
 const placeholder = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
-// An e-mail, but not a file name like icon@2x.png.
+// Skips file names like icon@2x.png.
 const EMAIL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?!(?:png|jpe?g|gif|svg|webp|ico|bmp|tiff?|pdf)\b)[a-zA-Z]{2,}/g
 
-/**
- * Flatten ADF (or anything nested) to plain text. Strings pass through. Blocks (paragraphs,
- * headings, list items) are one per line; the text runs inside one block join as written; a
- * hardBreak is a line break.
- */
+/** ADF to plain text, one block per line. */
 export function adfToText(node) {
   if (node == null) return ''
   if (typeof node === 'string') return node
@@ -16,7 +12,7 @@ export function adfToText(node) {
   if (Array.isArray(node)) return node.map(adfToText).join('')
   if (typeof node === 'object') {
     if (node.type === 'hardBreak') return '\n'
-    // Lists and headings keep their markdown markers, so the scorer reads them as in a markdown ticket.
+    // Keep markdown markers so the scorer reads lists and headings as usual.
     if ((node.type === 'bulletList' || node.type === 'orderedList') && Array.isArray(node.content)) {
       const start = Number(node.attrs?.order) || 1
       return node.content.map((item, i) => {
@@ -36,8 +32,8 @@ export function adfToText(node) {
 }
 
 /**
- * Replace every pattern in config.redact, then e-mails and UUIDs. A pattern named customerId keeps
- * the legacy text U######. `uuids` numbers the distinct UUIDs: share one map across a ticket's fields.
+ * Applies config.redact, then e-mails and UUIDs. customerId keeps the legacy U###### text.
+ * Share one `uuids` map across a ticket's fields so the same id gets the same placeholder.
  */
 export function redact(config, text, uuids = new Map()) {
   if (text == null) return ''
@@ -59,16 +55,13 @@ export function redact(config, text, uuids = new Map()) {
   return s
 }
 
-/**
- * The numbering of a saved ticket, to redact more of its text (an attachment, a draft): its
- * placeholders keep their own text and a new id gets a new number. The real ids are never saved.
- */
+/** Rebuilds the uuid map from a saved ticket's placeholders so later text continues the numbering. */
 export function uuidsOf(ticket) {
   const found = JSON.stringify(ticket ?? '').match(UUID) ?? []
   return new Map(found.filter(u => /^00000000-0000-4000-8000-\d{12}$/.test(u)).map(u => [u, u]))
 }
 
-/** First merge-request (or pull-request) URL in the ticket (description, comments, remote links), on any host. */
+/** First MR/PR URL anywhere in the ticket, any host. */
 export function findMergeRequest(input = {}) {
   const hay = JSON.stringify(input ?? '')
   // GitLab /-/merge_requests/N, GitHub /pull/N, Bitbucket /pull-requests/N.
@@ -79,7 +72,6 @@ export function findMergeRequest(input = {}) {
   return { url, iid: Number(m[1]) }
 }
 
-/** Redact every string leaf of a harvested value; other values keep their shape. */
 function redactLeaves(config, value, uuids) {
   if (typeof value === 'string') return redact(config, value, uuids)
   if (Array.isArray(value)) return value.map(v => redactLeaves(config, v, uuids))
@@ -87,16 +79,16 @@ function redactLeaves(config, value, uuids) {
   return value
 }
 
-/** Free text the model harvested next to the ticket body. */
+// Free text the model gathered beside the body.
 const HARVESTED = ['scenarios', 'qaPlan', 'flags', 'mergeRequest']
 
-/** How many files are on the ticket: a number, or a list (only its length is kept: no names, no URLs). */
+/** Keeps only the count: no file names or URLs. */
 export function attachmentCount(value) {
   const n = Array.isArray(value) ? value.length : Number(value)
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
 }
 
-/** The ticket's linked issues and web links as { url, title }: http(s) only, redacted, nothing else kept. */
+/** http(s) links only, redacted, as { url, title }. */
 export function cleanLinks(config, value, uuids = new Map()) {
   if (!Array.isArray(value)) return []
   return value
@@ -107,7 +99,6 @@ export function cleanLinks(config, value, uuids = new Map()) {
 
 export function sanitizeTicket(config, input = {}) {
   const text = input.text ?? {}
-  // One numbering for the whole ticket: the same UUID reads the same in every field.
   const uuids = new Map()
   const summary = redact(config, input.summary ?? '', uuids)
   const description = redact(config, text.description ?? '', uuids)
@@ -120,7 +111,7 @@ export function sanitizeTicket(config, input = {}) {
     ...('links' in input ? { links: cleanLinks(config, input.links, uuids) } : {}),
     summary,
     text: { description, acField },
-    // A link in the branch's own merge request is not one the ticket gives.
+    // The branch's own MR isn't a link the ticket gives.
     gitlab: findMergeRequest({ ...input, mergeRequest: undefined }),
   }
 }

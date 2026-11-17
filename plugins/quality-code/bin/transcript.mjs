@@ -1,23 +1,19 @@
 #!/usr/bin/env node
-// The scripts behind /quality-code:transcript-goal. Local only: nothing here is sent anywhere.
-//   transcript.mjs parse (--file <path> | --text '<pasted text>') [--mask-speakers]
-//       reads a .vtt, .txt, .md or .docx transcript (or pasted text), redacts it, prints the speaker turns
-//   transcript.mjs validate --in '<json>'|@file
-//       checks the shape of the extracted result: goal, decisions, tasks[title, owner?, estimate?, ticket?], risks, openQuestions
-//   transcript.mjs save --in '<json>'|@file [--date YYYY-MM-DD]
-//       validates, redacts and writes <ticketsDir>/sprint/<date>-goal.md
+// Parse, validate and save for /quality-code:transcript-goal. Local only, nothing is sent anywhere.
 // Exit 0 ok, 2 bad input or config.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
-import { loadConfig, normaliseTicketsDir, projectRoot } from '../lib/config/config.mjs'
+import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { docxText, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { KINDS, parseTranscript, speakersOf } from '../lib/transcript/parse.mjs'
 import { redactText, redactTurns } from '../lib/transcript/redact.mjs'
 import { validateResult } from '../lib/transcript/shape.mjs'
-import { goalPath, isDate, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
+import { goalPath, renderGoal, saveGoal } from '../lib/transcript/save.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
+import { cleanRelPath } from '../lib/core/paths.mjs'
+import { isDate } from '../lib/core/is.mjs'
 
-/** Characters of transcript printed for the model to read; more is cut and said so. */
+// Longer transcripts are truncated with a notice.
 export const MAX_CHARS = 60000
 const USAGE = 'usage: transcript.mjs parse (--file <path> | --text <text>) [--mask-speakers] | validate --in <json>|@file | save --in <json>|@file [--date YYYY-MM-DD]'
 
@@ -43,7 +39,7 @@ function readJson(a, root) {
   try { return JSON.parse(src) } catch (e) { throw new Error(`--in is not readable JSON: ${e.message}`) }
 }
 
-/** The text of a transcript file by its kind. Throws a plain message on what it cannot read. */
+/** .vtt, .txt, .md or .docx. Throws a plain message on anything unreadable. */
 export function readTranscriptFile(path) {
   const kind = extname(path).toLowerCase()
   if (!KINDS.includes(kind)) throw new Error(`cannot read a ${kind || 'file with no extension'}: use ${KINDS.join(', ')}, or paste the text`)
@@ -97,13 +93,12 @@ function run(argv, env, cwd) {
     return 0
   }
 
-  // save
   if (!checked.ok) { checked.errors.forEach(e => printError(`error: ${e}`)); return 2 }
   const date = a.date ?? today()
   if (!isDate(date)) { printError(`--date "${date}" is not a date like 2026-11-04`); return 2 }
-  const ticketsRoot = resolve(root, normaliseTicketsDir(config.ticketsDir))
+  const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   if (!goalPath(ticketsRoot, date)) { printError('cannot build a safe path for the goal file'); return 2 }
-  // Redact every text of the result: what is saved never holds a customer id, an e-mail or an id.
+  // Redact every field so no customer id or e-mail is written to disk.
   const r = checked.result
   const clean = s => redactText(config, s)
   const result = {

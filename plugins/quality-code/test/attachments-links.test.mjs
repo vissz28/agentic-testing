@@ -191,3 +191,13 @@ test('cli: add attachments done is pending; attachments <count> saves the count 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('the Scenarios line says none drafted, not "0 read", when the criteria in the text were scored', () => {
+  const c = cfg('playwright', { features: [] })
+  const t = { key: 'ABC-1', issuetype: 'Story', summary: 's', labels: [], scenarios: [], text: { acField: '', description: 'Acceptance criteria\n- Click Export: a file orders.csv is downloaded\n- Above 10,000 rows the message "Export too large" is shown\n- Dates in the file are written as YYYY-MM-DD, one row per visible order' } }
+  const b = buildBrief(c, t)
+  assert.equal(b.signals.ac_present, true)
+  assert.match(playwright.formatReport(b), /^Scenarios: none drafted yet · the acceptance criteria in the text were read and scored$/m)
+  const bare = buildBrief(c, { ...t, text: { acField: '', description: 'nothing here' } })
+  assert.match(playwright.formatReport(bare), /^Scenarios: 0 read from the ticket · 0 with an expected result clear enough to test$/m)
+})

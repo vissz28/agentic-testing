@@ -28,10 +28,11 @@ test('the rules: the script writes the files, never invent, no tokens, no spec a
   assert.doesNotMatch(doc, /bin\/pipeline\.mjs/)
   assert.doesNotMatch(doc, /run start/)
 })
-test('step 1: --sync runs only the script; config check; no xray block stops; connectors with Jira', () => {
+test('step 1: --sync runs only the script; config check; no xray block stops at one script call, before the connectors; connectors with Jira', () => {
   const s = step(1)
   assert.ok(s.includes(`${XRAY} sync`))
-  assert.ok(s.includes('`Xray test cases are off in this project: add an "xray" block to the project config.json (docs/GUIDE.md, "Xray test cases").`'))
+  assert.ok(s.includes(`before any guide or connector, run \`${XRAY} created <KEY>\`: exit 2 means Xray test cases are off here`))
+  assert.ok(s.indexOf(`${XRAY} created`) < s.indexOf('guides/connectors.md'))
   assert.ok(s.includes('config check'))
   assert.ok(s.includes('guides/connectors.md'))
   assert.match(s, /Jira is required/)
@@ -113,4 +114,10 @@ test('step 2: source code links check the GitLab connector, no repo needed, neve
   assert.match(s, /No repo is needed/)
   assert.match(s, /Continue without the code/)
   assert.match(s, /\/quality-code:setup/)
+})
+
+test('a route is checked against the router before it is used, as spec does', () => {
+  assert.match(doc, /\*\*Check the route against the app's router before using it\*\*/)
+  assert.match(doc, /bin\/routes\.mjs" check <route>`\. Exit 0 \(found, or fits a nested route\) or 3/)
+  assert.match(doc, /`Use <route> anyway` \/ `Another screen` \/ `Stop`/)
 })

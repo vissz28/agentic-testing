@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-// Entry point for /quality-code:report --kpi: the rollup of the local audit log and the boundary log.
-// node bin/kpi.mjs [--since 7d|30d|YYYY-MM-DD] [--until YYYY-MM-DD] [--json]
-// Reads local files only and sends nothing anywhere. Exit 0 ok, 2 usage error, 3 no audit data yet.
+// /report --kpi: rollup of the local audit and boundary logs. Exit 0 ok, 2 usage, 3 no audit data.
 import { basename, join } from 'node:path'
 import { AUDIT_DIR, KINDS, readAudit, readJsonl } from '../lib/state/audit.mjs'
 import { BOUNDARY_LOG } from '../lib/pipeline/boundary.mjs'
@@ -37,10 +35,7 @@ function parse(argv) {
   return a
 }
 
-/**
- * Every event of every kind, plus the boundary log, and the places read. `auditDir` is the log's folder
- * when this person keeps it outside the repo; null when they keep no log (the chat).
- */
+/** auditDir: log folder when kept outside the repo, null when there is no log (chat only). */
 export function loadEvents(root, auditDir) {
   const events = Object.fromEntries(KINDS.map(k => [k, readAudit(root, k, auditDir)]))
   events.boundary = readJsonl(join(root, BOUNDARY_LOG))
@@ -48,7 +43,6 @@ export function loadEvents(root, auditDir) {
   return events
 }
 
-// The short name of a criterion: its rubric label up to the first bracket, colon, dash or comma.
 function criterionLabel(key, rubric) {
   const label = (RUBRICS[rubric] ?? vitest).weights[key]?.[1] ?? vitest.weights[key]?.[1] ?? playwright.weights[key]?.[1]
   return label ? label.split(/ \(| — |:|,/)[0].trim() : key
@@ -57,14 +51,13 @@ function criterionLabel(key, rubric) {
 const countBy = (list, f) => list.reduce((m, x) => { const k = f(x); if (k !== null && k !== undefined) m.set(k, (m.get(k) ?? 0) + 1); return m }, new Map())
 const ranked = m => [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
 
-/** The report object behind the card and KPI_JSON. */
 export function buildKpi(events, { period, project, scan = null, coverage = null }) {
   const at = e => Date.parse(e.date ?? e.ts)
   const inPeriod = e => { const t = at(e); return t >= period.since && t < period.until }
   const pick = k => (events[k] ?? []).filter(inPeriod).sort((a, b) => at(a) - at(b))
   const [gates, runs, jira, overrides, blocked, fills] = ['gate', 'pipeline', 'jira', 'override', 'boundary', 'fill'].map(pick)
 
-  // One ticket per key; an evaluation without a key is its own ticket.
+  // An evaluation without a key counts as its own ticket.
   const tickets = new Map()
   gates.forEach((g, i) => {
     const id = g.key ?? `#${i}`
@@ -98,7 +91,7 @@ export function buildKpi(events, { period, project, scan = null, coverage = null
       scores,
       missing: [...missing.values()].sort((a, b) => b.tickets - a.tickets || (a.key < b.key ? -1 : 1)).slice(0, 3),
       filledThenPassed,
-      // Accepted fill-in answers that began as the model's draft, confirmed by the author.
+      // Model-drafted fill-ins the author accepted.
       draftedFillIns: fills.filter(f => f.drafted === true).length,
     },
     jira: { comments: jira.filter(j => j.action === 'comment').length, updates: jira.filter(j => j.action === 'update').length, risks: jira.filter(j => j.action === 'risk').length },
@@ -155,11 +148,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
     printLine(`No quality-code audit data yet for ${root}.\n${chat}Looked in:\n${events.looked.map(l => `  ${l}`).join('\n')}\nThe log fills as tickets are gated and checks run.`)
     return 3
   }
-  // The spec files are read for traceability and suite honesty; without a config there is nothing to find them by.
+  // No config, no way to find the specs.
   const report = buildKpi(events, { period, project: basename(root), scan: cfg.ok ? scanSpecs(root, cfg.config) : null, coverage: readCoverage(root) })
   printLine(a.json ? JSON.stringify(report) : formatKpiCard(report))
   if (a.report) {
-    // One self-contained HTML file, saved where this person keeps their files; the card above stays the text version.
     const built = kpiReport(report, kpiSeries(events, period), { config: cfg.ok ? cfg.config : null, now: new Date(now) })
     try {
       const path = saveReport(reportsRoot(root, cfg, env), 'kpi', new Date(now).toISOString().slice(0, 10), built.html)

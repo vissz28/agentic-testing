@@ -1,33 +1,25 @@
-// pytest syntax, as the backend checks read it. A test is a function named test_* (def or async def), at
-// the top level of the file or inside a class. A group is a top-level class; its title is the first line
-// of its docstring when it has one, else its name: class TestTotals: """ABC-123 Line totals""" is the
-// ABC-123 block (a class name cannot hold the "-" of a key). Assertions are plain assert statements and
-// with pytest.raises(...) blocks.
+// pytest dialect. Tests are test_* functions, top-level or in a class; a group is a top-level class.
+// A class name can't hold a key's "-", so its title is the docstring's first line when there is one.
 import { collapseSpaces } from '../../core/text.mjs'
 
 export const name = 'pytest'
 
-// A decorator line and the lines a long decorator wraps onto (none starts a decorator, def or class).
+// A decorator plus its wrapped continuation lines.
 const STOP = String.raw`[ \t]*(?:@|(?:async[ \t]+)?def[ \t]|class[ \t])`
 const DECO = String.raw`@[^\n]*\n(?:(?!${STOP})[^\n]*\n)*?[ \t]*`
-// A test's def line, then its body up to a "pytest." call: the body ends at the next decorator, def or class.
+// def line, then the body up to a "pytest." call, stopping at the next decorator, def or class.
 const BODY = String.raw`(?:${DECO})*(?:async[ \t]+)?def[ \t]+test\w*[^\n]*\n(?:(?!${STOP})[^\n]*\n)*?(?!${STOP})[^\n#]*?\bpytest\.`
 const MARK = String.raw`(?:${DECO})*?@[\w.]*?\.`
 
-/**
- * Top-level group (column 0): a class or a function, so a top-level test after a class is outside that
- * class's block. m[1] = its decorators (a .skip there skips the class), m[3] = its title: the class
- * docstring's first line, else the name.
- */
+// Top-level class or function, so a test after a class falls outside its block.
+// m[1] = decorators (a .skip skips the class), m[3] = docstring's first line, else the name.
 export const groupRe = new RegExp(
   String.raw`(?<![^\n])((?:@[^\n]*\n(?:(?!(?:@|(?:async[ \t]+)?def[ \t]|class[ \t]))[^\n]*\n)*?)*)(?:async[ \t]+)?(?:class|def)[ \t]+` +
   String.raw`(?:(?<=class[ \t]+)\w+[^\n]*:[ \t]*(?:#[^\n]*)?\n(?:[ \t]*(?:#[^\n]*)?\n)*[ \t]+[rRuU]?("""|'''|"|')(?:[ \t]*\n)?[ \t]*)?` +
   String.raw`((?<=(?:"""|'''|"|')\s*)[^\n]*?(?=[ \t]*(?:\2|\n|$))|\w+)`, 'gm')
 
-/**
- * A test: m[1] = its mark (skip for skip and skipif, xfail, parametrize; a skip or xfail call in the body
- * counts as the mark), m[3] = the function name. The mark is read from a lookahead, strongest first.
- */
+// m[1] = mark (skip/skipif → skip, xfail, parametrize; a skip/xfail call in the body counts), m[3] = name.
+// The mark is read via lookahead, strongest first.
 const TEST = new RegExp(
   String.raw`(?<![^\n])[ \t]*(?:(?=(?:${MARK}(?=skip)|${BODY}(?=skip\s*\()|${MARK}(?=xfail\b)|${BODY}(?=xfail\s*\()|${MARK}(?=parametrize\b))(skip|xfail|parametrize))|)` +
   String.raw`(?:${DECO})*(async[ \t]+)?def[ \t]+(test\w*)`, 'g')
@@ -38,22 +30,18 @@ export const honesty = {
   anchorTags: false,
 }
 
-/** A removed line that held an assertion (the honesty check's "assertion removed"). */
+/** For the honesty check's "assertion removed". */
 export const removedAssertion = /(?<![\w.])assert\b|\b(?:pytest\.)?(?:raises|approx|fail)\s*\(|\.assert[A-Z]\w*\s*\(/
 
-/** Added lines that stop a test from running or failing, besides the shared .skip( forms. */
+/** Added lines that stop a test running or failing, beyond the shared .skip( forms. */
 export const skipMarks = [/@(?:\w+\.)*mark\.(?:skip(?:if)?|xfail)\b/, /\bpytest\.(?:skip|xfail|importorskip)\s*\(/]
 
-// ---- A small Python lexer: what is code, what is a string, what is a comment. ----
+// ---- Minimal Python lexer ----
 
 const STR_START = /^([rRbBuUfF]{0,2})("""|'''|"|')/
 
-/**
- * The source with every string's content and every comment blanked to spaces (newlines kept), so
- * offsets stay the same and "assert" in a docstring or a comment is never read as code. Also returns
- * the string literals: { start, end, prefix, quote } (start at the prefix, end past the closing quote),
- * and bare: the source with only its comments blanked.
- */
+// Blanks string contents and comments (newlines kept) so offsets hold and "assert" in a docstring isn't code.
+// Also returns strings [{ start, end, prefix, quote }] and bare (only comments blanked).
 export function lex(src) {
   const out = src.split('')
   const bare = src.split('')
@@ -65,7 +53,7 @@ export function lex(src) {
       i--
       continue
     }
-    // A prefix only starts a string at a word start: the "f" of "if" is no prefix.
+    // Prefix only at a word start: the "f" in "if" isn't one.
     const atWord = i === 0 || !/[\w]/.test(src[i - 1])
     const m = (c === '"' || c === "'" || (atWord && /[rRbBuUfF]/.test(c))) ? STR_START.exec(src.slice(i, i + 5)) : null
     if (!m) continue
@@ -144,11 +132,8 @@ function topLevel(code) {
   return { commas, compare }
 }
 
-/**
- * The assertions of a source, in order: { kind: 'assert'|'raises', start, end, expr: [a, b] }. An assert
- * runs to the end of its logical line; expr is its expression, without the message after a top-level
- * comma. A raises is the pytest.raises(...) call of a with statement.
- */
+// [{ kind: 'assert'|'raises'|'other', start, end, expr }]. An assert runs to the end of its logical line;
+// expr excludes the message. A raises is the pytest.raises(...) of a with statement.
 export function assertions(src) {
   const { code } = lex(src)
   const out = []
@@ -163,7 +148,7 @@ export function assertions(src) {
       const end = closeOf(code, m.index + m[0].length - 1)
       out.push({ kind: 'raises', start, end, expr: [start, end] })
     } else {
-      // pytest.raises(X, fn) as a call, pytest.fail(...), self.assertEqual(...): assertions mutation cannot flip.
+      // pytest.raises(X, fn), pytest.fail(...), self.assertEqual(...): counted, but not flippable.
       out.push({ kind: 'other', start: m.index, end: closeOf(code, m.index + m[0].length - 1), expr: null })
     }
   }
@@ -176,23 +161,23 @@ function trimEnd(code, end) {
   return end
 }
 
-/** The number of assertions in a test's text: assert statements, pytest.raises, pytest.fail and self.assert*(. */
+/** Counts assert, pytest.raises, pytest.fail and self.assert*(. */
 export const countAssertions = body => assertions(body).length
 
 // ---- Mutation ----
 
-// Strongest first: inverting an assertion is the definitive "does it bind anything" mutant.
+// Strongest first: inverting an assertion best shows whether it checks anything.
 const mutantRank = k => (k === 'invert-assert' || k === 'true→false' || k === 'drop-raises' ? 0 : k === 'num→n+1' ? 1 : 2)
 
 const NUM = /(?<![\w.])\d+(?:\.\d+)?(?:[eE][+-]?\d+)?(?![\w.])/
 
-/** The mutants of one assertion's text (an assert statement, or a pytest.raises(...) call). */
+/** Mutants of one assert statement or pytest.raises(...) call. */
 export function flipMutations(text) {
   const out = []
   const add = (kind, t) => { if (t !== text) out.push({ kind, text: t }) }
   const { code, strings } = lex(text)
   if (/^(?:pytest\.)?raises\s*\(/.test(text)) {
-    // No exception expected any more: the code under test must raise for the test to pass.
+    // Swap raises for a no-op context: the test must now fail on the raise.
     add('drop-raises', '__import__("contextlib").nullcontext()')
     return out
   }
@@ -212,8 +197,7 @@ export function flipMutations(text) {
     add('true→false', `${text.slice(0, opEnd)}${rightText.replace(/True|False/, b => (b === 'True' ? 'False' : 'True'))}${text.slice(exprEnd)}`)
   }
   add('flip-compare', `${text.slice(0, opAt)}${compare.to}${text.slice(opEnd)}`)
-  // The compared literal: the right operand's first, else a bare one on the left (not a subscript or
-  // an argument there: result[0] and total([40]) are no expected values).
+  // Right operand's literal first, else a bare one on the left (result[0], total([40]) are not expected values).
   const bare = (at, [a]) => a === opEnd || depthAt(code, a, at) === 0
   for (const range of [right, left]) {
     const m = [...code.slice(...range).matchAll(new RegExp(NUM.source, 'g'))].find(x => bare(range[0] + x.index, range))
@@ -233,14 +217,14 @@ export function flipMutations(text) {
   return out
 }
 
-/** Every passed title of a test: its own, or its parametrized cases' (test_total[a-1]). */
+/** The test's own title or its parametrized cases' (test_total[a-1]). */
 const ran = (title, passed) => passed.has(title) || [...passed].some(p => p.startsWith(`${title}[`))
 
-/** A block mutation judges: it ran green (all its cases, for a parametrized test), not skipped nor xfail. */
+/** Green (every parametrized case), not skipped or xfail. */
 const eligible = (block, passed) => block.mod !== 'skip' && block.mod !== 'xfail' && ran(block.title, passed)
 
-/** One mutant per assertion (the strongest) unless thorough; baseline-green tests only, inside the range. */
-function plan({ src, passedTitles, range, thorough, blocks }) {
+/** One mutant per assertion (the strongest); baseline-green tests only, inside the range. */
+function plan({ src, passedTitles, range, blocks }) {
   const passed = new Set(passedTitles)
   const all = []
   for (const a of assertions(src)) {
@@ -253,7 +237,6 @@ function plan({ src, passedTitles, range, thorough, blocks }) {
       all.push({ title: block.title, start: a.start, end: a.end, kind: flip.kind, replacement: flip.text, snippet: `${flip.kind}: ${collapseSpaces(original).slice(0, 60)}` })
     }
   }
-  if (thorough) return all
   const best = new Map()
   for (const m of all) {
     const cur = best.get(m.start)
@@ -277,11 +260,8 @@ function blankCalls(text) {
   return out.join('')
 }
 
-/**
- * The value check's reading of a key block: the expression of every assert (its message is no
- * assertion) and the arguments of every pytest.raises. actual: false leaves out what the test feeds
- * in: the call arguments of the left operand of a comparison (write actual == expected).
- */
+// For the value check: every assert's expression (not its message) and pytest.raises args.
+// actual: false drops call args on the left of a comparison as test input (actual == expected).
 function surface(block, { actual = true } = {}) {
   const clean = lex(block).bare
   const parts = []
@@ -295,7 +275,7 @@ function surface(block, { actual = true } = {}) {
   return parts.join('\n')
 }
 
-// The value check: a field the ticket names must be read in an assertion (unit tests read fields).
+// Fields the ticket names must be read in an assertion.
 export const expected = { fieldNames: true, surface }
 
 export const suite = {
@@ -305,7 +285,7 @@ export const suite = {
 }
 
 export const mutation = {
-  // A copy next to the spec runs as a module of its own: the temp-copy path, as for Vitest.
+  // A mutated copy beside the spec runs as its own module, so no in-place edit (like Vitest).
   inPlace: false,
   expectRe: /(?<![\w.])assert\b|\bwith[ \t]+(?:pytest\.)?raises\s*\(/,
   testRe: TEST,
@@ -317,7 +297,7 @@ export const mutation = {
 
 // ---- Where a test is, for the runner ----
 
-/** The title of each top-level class, by name: its docstring's first line, else its name. */
+/** Class name → docstring's first line, else the name. */
 export function classTitles(src) {
   const out = new Map()
   for (const m of src.matchAll(new RegExp(groupRe.source, 'gm'))) {
@@ -327,7 +307,7 @@ export function classTitles(src) {
   return out
 }
 
-/** The tests of a source with the classes around each: [{ name, classes: ['TestA', 'TestNested'] }]. */
+/** [{ name, classes: ['TestA', 'TestNested'] }] per test. */
 export function locate(src) {
   const { code } = lex(src)
   const stack = []
@@ -338,7 +318,7 @@ export function locate(src) {
     if (m[2]) stack.push({ indent, name: m[3] })
     else {
       if (/^test/.test(m[4])) out.push({ name: m[4], classes: stack.map(s => s.name) })
-      // A def opens a scope too: a class inside a function holds no collected test.
+      // A def opens a scope too: classes inside functions aren't collected.
       stack.push({ indent, name: null })
     }
   }

@@ -1,21 +1,21 @@
-// The comment posted on a refused ticket, and what is pushed to Jira after a guided fill-in.
+// Jira comment and update bodies for refused tickets and fill-ins.
 import { messagesFor, refuseFallback, templateFor } from './messages.mjs'
 
 export { templateFor }
 
-/** Tag on the oldest comments. Never emit it: Jira renders it as visible text. */
+// Only on old comments. Never emit it: Jira renders it as visible text.
 export const REFUSE_COMMENT_MARK = '<!-- /spec refuse -->'
 
-/** The last line of everything the plugin writes to Jira (a comment, a defect, a created task), so the team can see who helped. */
+// Last line of everything we write to Jira.
 export const COAUTHOR_LINE = 'Co-authored via Quality Code'
 
-/** Marks our comment, so a re-run edits it instead of posting a second one. */
+// Identifies our comment so a re-run edits it instead of posting again.
 export const REFUSE_COMMENT_FOOTER = 'Thanks, we can continue as soon as these are on the ticket.'
 
-/** Same footer as posted before 2026-09-23. Still matched, or a re-run would duplicate. */
+// Footer used before 2026-09-23; still matched or a re-run would duplicate.
 export const OLD_FOOTER = 'Thanks — we can continue as soon as these are on the ticket.'
 
-/** The line above the sections a fill-in adds to Jira, unless config.messages.jiraFillMark says otherwise. */
+// Default for config.messages.jiraFillMark.
 export const JIRA_FILL_MARK = '_Added during the quality-code readiness check._'
 
 export function jiraFillMark(config) {
@@ -23,7 +23,7 @@ export function jiraFillMark(config) {
   return typeof custom === 'string' ? custom : JIRA_FILL_MARK
 }
 
-/** Sections the Story template does not have. Never ask a Story author for them. */
+// Not in the Story template.
 const NOT_ON_STORY = new Set(['environment', 'expected_defined'])
 
 export function isRefuseComment(text) {
@@ -31,7 +31,6 @@ export function isRefuseComment(text) {
   return [REFUSE_COMMENT_FOOTER, OLD_FOOTER, REFUSE_COMMENT_MARK].some(m => s.includes(m))
 }
 
-/** The closing line: the configured one, a pointer to the template file, or nothing. */
 export function templateLine(config, issuetype) {
   const kind = templateFor(issuetype, config)
   const custom = config.messages?.templateLine?.[kind]
@@ -41,9 +40,6 @@ export function templateLine(config, issuetype) {
   return `The full ${kind === 'bug' ? 'Bug' : 'Story'} template is at ${path}.`
 }
 
-export const browseUrl = (config, key) => `${config.jira.site}/browse/${key}`
-
-/** The gaps a ticket author can fix, in the brief's order. */
 function authorGaps(config, brief) {
   const kind = templateFor(brief.issuetype, config)
   const items = brief.missing || []
@@ -51,18 +47,16 @@ function authorGaps(config, brief) {
   const omitted = brief.omitted ?? new Set()
   return items.filter(
     m =>
-      // a missing QA plan is on us, not on the ticket author
+      // the QA plan is on us, not the author
       m.key !== 'qa_plan_found' &&
-      // a key this config can never credit is never asked for
       !omitted.has(m.key) &&
-      // if Given/When/Then is missing, skip the "Then is vague" item, it is one fix
+      // missing AC and vague AC are one fix
       !(m.key === 'ac_testable' && keys.has('ac_present')) &&
-      // and never ask for a section the ticket's own template does not carry
       !(kind === 'story' && NOT_ON_STORY.has(m.key)),
   )
 }
 
-/** The Jira comment body. Posted verbatim, never rewritten. */
+/** Posted verbatim, never rewritten. */
 export function formatRefuseComment(config, brief) {
   const kind = templateFor(brief.issuetype, config)
   const msgs = messagesFor(config, kind)
@@ -89,10 +83,10 @@ export function formatRefuseComment(config, brief) {
   ].join('\n')
 }
 
-/** Marks the note left when tests are written past the gate, so a re-run edits it. */
+// Identifies the risk note so a re-run edits it.
 export const RISK_COMMENT_FOOTER = 'Logged by quality-code: tests were written on an incomplete ticket.'
 
-/** The Jira note after refuse option 3: tests were written anyway. Posted verbatim, never rewritten. */
+/** Note for tests written past the gate (refuse option 3). Posted verbatim. */
 export function formatRiskComment(config, brief) {
   const msgs = messagesFor(config, templateFor(brief.issuetype, config))
   const gaps = authorGaps(config, brief).map(m => `- ${msgs[m.key]?.title ?? m.label}`)
@@ -108,11 +102,7 @@ export function formatRiskComment(config, brief) {
   ].join('\n')
 }
 
-/**
- * What to send to Jira after a guided fill-in: new sections to append to the description, labels
- * to add, and a title prefix. Built from the `filled` record only, so the sanitized (redacted) text
- * on disk never goes back.
- */
+// Built from `filled` only, so the redacted text on disk never goes back to Jira.
 export function jiraUpdate(config, input) {
   const filled = input.filled ?? []
   const sections = filled.filter(f => f.section).map(f => f.section)

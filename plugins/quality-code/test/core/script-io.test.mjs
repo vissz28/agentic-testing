@@ -6,7 +6,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileS
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isMain, lineWriter, printError, printLine, tag } from '../../lib/core/script-io.mjs'
+import { crashMessage, isMain, lineWriter, tag } from '../../lib/core/script-io.mjs'
 
 const PLUGIN = fileURLToPath(new URL('../../', import.meta.url))
 const BIN = join(PLUGIN, 'bin')
@@ -79,4 +79,15 @@ test('printLine and printError: exactly the text and one "\\n", printLine on std
   assert.equal(r.status, 0, r.stderr)
   assert.equal(r.stdout, 'out 1\na\nb\n')
   assert.equal(r.stderr, 'err 1\n\n')
+})
+
+test('crashMessage: the first line, then the plugin file and line of the original error (J7)', () => {
+  const cause = new Error('kaput\nmore')
+  const wrapped = new Error('kaput\nmore', { cause })
+  wrapped.stack = 'Error: kaput\n    at step (file:///elsewhere/pipeline.mjs:170:5)'
+  assert.match(crashMessage('types', wrapped), /^check types crashed: kaput\n  at test\/core\/script-io\.test\.mjs:\d+:\d+$/)
+  const outside = new Error('no frame of ours')
+  outside.stack = 'Error: no frame of ours\n    at node:internal/x:1:1'
+  assert.equal(crashMessage('boom', outside), 'check boom crashed: no frame of ours')
+  assert.equal(crashMessage('boom2', 'x'), 'check boom2 crashed: x')
 })

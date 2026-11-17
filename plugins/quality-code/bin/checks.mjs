@@ -1,5 +1,4 @@
-// Entry point for every check: node bin/checks.mjs <check> [args] [--json]
-// Exit 0 pass, 1 fail, 2 usage or config error, 3 not run.
+// Runs one check: checks.mjs <check> [args] [--json]. Exit 0 pass, 1 fail, 2 usage/config, 3 not run.
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { claudeDir, configHome, configPath, findRoot, loadConfig, projectRoot } from '../lib/config/config.mjs'
@@ -17,7 +16,7 @@ import * as runMarker from '../lib/pipeline/run.mjs'
 import { EXIT } from '../lib/pipeline/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/stacks/backends.mjs'
-import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
+import { crashMessage, isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -54,7 +53,7 @@ function parse(argv) {
 async function hook(sessionRoot, stdin) {
   let payload = {}
   try { payload = JSON.parse(stdin || '{}') } catch { return 0 }
-  // The project the file is in (a package of a monorepo with its own config), else the session's.
+  // A monorepo package with its own config wins over the session root.
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
   const c = loadConfig(root)
@@ -69,14 +68,14 @@ async function hook(sessionRoot, stdin) {
 }
 
 /** run start --key KEY | run stop | run status [--json] */
-function runCmd(root, rest, err) {
+function runCmd(root, rest, err, env = process.env) {
   const [sub, ...more] = rest
   let a
   try { a = parse(more) } catch (e) { return err(e.message) }
   if (a.specs.length) return err(`unexpected argument ${a.specs[0]}. ${USAGE}`)
   if (sub === 'start') {
     if (!a.key) return err(`run start needs --key KEY. ${USAGE}`)
-    const cfg = loadConfig(root)
+    const cfg = loadConfig(root, env)
     if (!cfg.ok) return err(cfg.errors.join('\n'))
     if (!isProjectKey(cfg.config, a.key)) return err(`--key ${a.key} is not a key of ${projectKeys(cfg.config).join(', ')}`)
     const r = runMarker.startRun(root, a.key)
@@ -105,7 +104,6 @@ const readStdin = () => new Promise(done => {
   process.stdin.on('error', () => done(''))
 })
 
-/** A fullstack project: each side's specs in their own dialect, one result. */
 async function fullstackCheck(name, check, args, config, root) {
   const side = adapter => ({ config: asAdapter(config, adapter), dialect: dialectFor(runnerOf(config, adapter)), root })
   if (check.specs === 'none') return check.run(args, side(backendOf(config)))
@@ -115,11 +113,10 @@ async function fullstackCheck(name, check, args, config, root) {
   return parts.length === 1 ? parts[0].steps[0] : mergeSides(parts)[0]
 }
 
-/** One check over a project's specs: each side of a fullstack project in its own dialect. */
+/** Fullstack projects run each side in its own dialect. */
 export const checkProject = (name, args, config, root) =>
   isFullstack(config) ? fullstackCheck(name, CHECKS[name], args, config, root) : CHECKS[name].run(args, { config, dialect: dialectFor(runnerOf(config)), root })
 
-/** A result as lines: the verdict, then one line per finding. */
 export function formatResult(r) {
   const lines = [`${ICON[r.status]} ${r.check}: ${r.summary}`]
   for (const f of r.findings) lines.push(`   ${[f.file, f.test && `'${f.test}'`].filter(Boolean).join(' › ')}${f.kind ? ` [${f.kind}]` : ''}${f.detail ? `: ${f.detail}` : ''}`)
@@ -133,11 +130,11 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   if (name === 'boundary' && rest.includes('--hook')) {
     try { return await hook(root, stdin ?? await readStdin()) } catch { return 0 }
   }
-  if (name === 'run') return runCmd(root, rest, err)
+  if (name === 'run') return runCmd(root, rest, err, env)
   if (!name || (!CHECKS[name] && !NEEDS_RUNNER.has(name))) return err(USAGE)
   let a
   try { a = parse(rest) } catch (e) { return err(e.message) }
-  const cfg = loadConfig(root)
+  const cfg = loadConfig(root, env)
   if (!cfg.ok) return err(cfg.errors.join('\n'))
   const config = cfg.config
   if (NEEDS_RUNNER.has(name)) return err(`${name} needs the test runner: it runs in the pipeline, node bin/pipeline.mjs <spec…>${name === 'flaky' ? ' --flaky N' : ''}`)
@@ -152,8 +149,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   try {
     r = await checkProject(name, args, config, root)
   } catch (e) {
-    const msg = String(e?.message ?? e).split('\n')[0]
-    printError(`check ${name} crashed: ${msg}`)
+    printError(crashMessage(name, e))
     return 2
   }
   if (a.flags.has('--json')) printLine(JSON.stringify(r))
