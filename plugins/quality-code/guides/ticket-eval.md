@@ -1,6 +1,6 @@
 # Ticket readiness: `/quality-code:ticket <KEY> --eval`
 
-From the arguments of `/quality-code:ticket` (without `--eval`): read the ticket, run the readiness gate with the plugin's script, and act on the result. The script scores; you never compute or guess a score. Below 70 the ticket is refused, interactive and `--ci` alike. Read-only on Jira, except one refuse comment and, after a preview the user confirms, appending their own fill-in to the ticket. Plain English everywhere a human reads. Short sentences, common words. `/quality-code:spec` follows these steps as its gate.
+From the arguments of `/quality-code:ticket` (without `--eval`): read the ticket, run the readiness gate with the plugin's script, and act on the result. The script scores; you never compute or guess a score. Below 70 the ticket is refused, interactive and `--ci` alike. Read-only on Jira, except one refuse comment and, after a preview the user confirms, appending their own fill-in to the ticket. Plain words everywhere a human reads. Short sentences, common words. `/quality-code:spec` follows these steps as its gate.
 
 ## Rules
 
@@ -123,7 +123,7 @@ From the arguments of `/quality-code:ticket` (without `--eval`): read the ticket
 Only when step 5c flagged the story. Cards follow display.md: the AskUserQuestion picker, four options at most (page the rest with `More…`; Stop and Cancel are reachable by typing `stop` or `cancel` in `Other`). Run `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" get ticket-eval --key <KEY>` first: when its `data` holds a `storySource`, say `Last time you rewrote it from <source>.` in the question.
 
 ```
-This story could be clearer: <the reasons, from the check>. Rewrite it?
+This ticket could be clearer: <the reasons, from the check>. Rewrite it?
 1. From the ticket description
 2. From Figma
 3. From Confluence

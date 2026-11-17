@@ -52,7 +52,7 @@ const WHY = {
   no_criteria: 'it has no acceptance criteria',
 }
 export const formatStoryCheck = c => (c.flagged
-  ? `Story check: this story could be clearer (${c.reasons.map(r => WHY[r]).join('; ')}). ${c.words} words.`
+  ? `Story check: this ticket could be clearer (${c.reasons.map(r => WHY[r]).join('; ')}). ${c.words} words.`
   : `Story check: ok (${c.words} words).`)
 
 export function storyShape(draft) {

@@ -10,6 +10,6 @@ Shared by every command. The person keeps their language from the first sentence
 
 **When the person writes a sentence** (not a pick or a number) in a language other than the saved one, save it. One call, nothing shown: `node "${CLAUDE_PLUGIN_ROOT}/bin/progress.mjs" set session --step 0 --label language --data '{"language":"<code>"}'`, with the lowercase two-letter ISO 639-1 code. Not `ok`: say nothing and go on.
 
-**No saved language and no sentence yet.** Use the ticket's language, else English.
+**No saved language and no sentence yet.** Use the ticket's language, else the first of `languages` in the config, else English.
 
 The saved language is kept per project folder on this machine, never expires, and holds nothing else.
