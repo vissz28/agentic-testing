@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-11-17
+
+### Fixed
+
+- When the sign-in setup failed (for example the app took longer than 5 seconds to open), Playwright skipped every test and the card showed only "skipped", with no reason. The card now says the tests could not run, and names which sign-in line failed and why. The sign-in that `/quality-code:spec` writes waits up to 30 seconds for the app to open; an existing `auth.setup` file keeps its own wait, so add `setup.setTimeout(60_000)` and `{ timeout: 30_000 }` on its `expect`, or let spec write it again.
+
 ## [0.81.1] - 2026-11-17
 
 The shared server now runs the commands end to end as the signed-in person: Jira reads and writes, GitLab merge requests and GitHub pull requests.
