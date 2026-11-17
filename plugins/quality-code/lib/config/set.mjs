@@ -41,6 +41,11 @@ export const KEYS = Object.freeze({
   'playwright.configs': { type: T.configs, optional: true, project: true },
   'vitest.maxMutants': { type: T.int, optional: true, project: true },
   'playwright.maxMutants': { type: T.int, optional: true, project: true },
+  'seed.schema': { type: T.text, optional: true, project: true },
+  'seed.target': { type: T.text, optional: true, project: true },
+  'seed.apply': { type: T.text, optional: true, project: true },
+  'xray.csv': { type: T.text, optional: true, project: true },
+  'xray.folder': { type: T.text, optional: true, project: true },
   'place': { type: T.enum, choices: ['repo', 'local', 'chat'], file: true },
 })
 /** Shown by `config keys`. */
@@ -53,6 +58,8 @@ export const EXAMPLES = Object.freeze({
   'runners.unit': 'jest', 'runners.e2e': 'playwright',
   'vitest.configs': 'services/**=jest.config.js,web/**=web/vitest.config.ts', 'playwright.configs': 'e2e/**=e2e/playwright.config.ts',
   'vitest.maxMutants': '20', 'playwright.maxMutants': '10',
+  'seed.schema': 'prisma/schema.prisma', 'seed.target': 'echo localhost:5432/app', 'seed.apply': 'psql -h localhost -d app -v ON_ERROR_STOP=1 -f {file}',
+  'xray.csv': 'e2e/xray-cases.csv', 'xray.folder': 'e2e/tickets/',
 })
 const CLEAR = /^(none|null|unset|default)$/i
 const PLUGIN_KEY = /^(jira[._-]?email|gitlab|xray[._-]?(api[._-]?url|client)|figma)/i

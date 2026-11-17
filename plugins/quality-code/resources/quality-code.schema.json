@@ -204,6 +204,16 @@
         "folder": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Where /quality-code:spec puts new Playwright specs, ending in /. Must be inside your Playwright config's testDir and not inside a forbidden boundary. Default: the default config's testDir when it is a plain string, else e2e/." },
         "guide": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\s*$)(?!.*(^|[\\\\/])\\.\\.([\\\\/]|$))[^\\r\\n]+$", "description": "Optional .md file with the team's Playwright conventions (fixtures, login, which APIs to stub), read on top of the plugin's writing guide." },
         "ungradedTitles": { "type": "string", "minLength": 1, "description": "Optional regular expression (any case) for the titles of tests that never assert, such as screenshot captures (\"conformance|capture\"). They are neither graded nor mutated. Left out, every test is graded." },
+        "signIn": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "how"],
+          "properties": {
+            "kind": { "enum": ["handled", "form", "token", "sso", "none"], "description": "handled: the project's own tests already get past the sign-in. form: a user and password form. token: a token or a dev switch set before the app loads. sso: an outside sign-in provider. none: no sign-in." },
+            "how": { "type": "string", "maxLength": 300, "pattern": "^[^\\r\\n]*\\S[^\\r\\n]*$", "description": "One line on how a tester gets past it, from the app's code, like \"localStorage warehouseToken, then /?useCustomLogin=true\". Never a password or a token." }
+          },
+          "description": "Found by /quality-code:setup. /quality-code:spec writes the sign-in (auth.setup and a setup project) from it, so no test signs in by hand."
+        },
         "redTags": {
           "oneOf": [
             { "type": "null" },

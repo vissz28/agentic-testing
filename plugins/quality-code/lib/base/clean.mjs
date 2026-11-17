@@ -16,6 +16,9 @@ import { dirOf, short, slug } from '../state/progress.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
 import { projectSpecs } from '../report/quality-program.mjs'
+import { anchorRange, scoreSpec } from '../pipeline/checks/suite-honesty.mjs'
+import { dialectFor } from '../stacks/dialects/index.mjs'
+import { keyPattern } from '../config/keys.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
 import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
@@ -187,20 +190,37 @@ function ticketItems(top, root, config, env) {
   return { items, kept }
 }
 
+/** Title of the first test outside the keys' blocks, or null. A file the dialect can't read counts as spec's. */
+function otherTest(text, runner, keys) {
+  let dialect
+  try { dialect = dialectFor(runner) } catch { return null }
+  const blocks = keys.map(k => anchorRange(text, k, dialect)).filter(Boolean)
+  // A test outside every block is still spec's when its title or its own line (a Playwright tag list) has the key.
+  const line = t => text.slice(t.idx, (text.indexOf('\n', t.idx) + 1 || text.length + 1) - 1)
+  const t = scoreSpec(text, dialect).find(t => !blocks.some(([a, b]) => t.idx >= a && t.idx < b) && !keys.some(k => keyPattern(k).test(t.title) || keyPattern(k).test(line(t))))
+  return t ? t.title : null
+}
+
 function specItems(root, top, config) {
-  if (!config) return []
+  const none = { items: [], kept: [] }
+  if (!config) return none
   const tags = Object.values(redTagsOf(config))
-  const out = []
+  const out = [], kept = []
   let specs = []
-  try { specs = projectSpecs(root, config) } catch { return [] }
+  try { specs = projectSpecs(root, config) } catch { return none }
   for (const s of specs) {
     const abs = join(root, s.path)
     const text = read(abs)
     if (text === null) continue
     const why = KEY_TAG.exec(text)?.[0] ?? tags.find(t => text.includes(t))
-    if (why) out.push({ ...item(top, abs), marker: why })
+    if (!why) continue
+    // Spec added its tests to a file that holds other tests: deleting it would take those too.
+    // Read as the checks read it: a test is spec's inside the block of a key tagged in this file, or named with that key.
+    const other = otherTest(text, s.adapter, [...new Set([...text.matchAll(new RegExp(KEY_TAG, 'g'))].map(m => m[0].slice(1)))])
+    if (other !== null) kept.push({ rel: item(top, abs).rel, why: `it also holds tests not written by spec (${other.slice(0, 60)}): take the ${why} tests out by hand` })
+    else out.push({ ...item(top, abs), marker: why })
   }
-  return out
+  return { items: out, kept }
 }
 
 const nested = (a, b) => a.abs !== b.abs && (b.abs === a.abs || b.abs.startsWith(`${a.abs}${sep}`))
@@ -254,12 +274,16 @@ export function buildList(rootIn, env = process.env) {
   const plugins = tryReadJson(join(claudeDir(env), 'settings.json'), null)?.pluginConfigs ?? {}
   if (Object.entries(plugins).some(([k, v]) => k.startsWith('quality-code@') && v?.options?.jira_email)) kept.push({ rel: `${join(claudeDir(env), 'settings.json')} (jira_email)`, why: 'your Jira email, used by every project: change it in /quality-code:config' })
 
+  const specs = specItems(root, top, config)
+  kept.push(...specs.kept)
+  if (!loaded.ok && !loaded.missing) kept.push({ rel: LABELS.specs, why: `not listed, the config does not load (${loaded.errors[0]}). Run /quality-code:setup, then clean again` })
+
   const groups = [
     { id: 'setup', items: own(setup) },
     { id: 'output', items: output },
     { id: 'cache', items: cache },
     { id: 'personal', items: personal },
-    { id: 'specs', items: own(specItems(root, top, config)) },
+    { id: 'specs', items: own(specs.items) },
   ].map(g => ({
     ...g,
     label: LABELS[g.id],

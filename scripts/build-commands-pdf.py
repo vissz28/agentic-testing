@@ -3,6 +3,7 @@
 from datetime import date
 from pathlib import Path
 import json
+import os
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -13,7 +14,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = json.loads((ROOT / 'plugins/quality-code/.claude-plugin/plugin.json').read_text())['version']
+VERSION = os.environ.get('QC_VERSION') or json.loads((ROOT / 'plugins/quality-code/.claude-plugin/plugin.json').read_text())['version']
 SHORT = '.'.join(VERSION.split('.')[:2])
 OUT = ROOT / 'plugins' / 'quality-code' / 'resources' / 'commands.pdf'  # /quality-code:update links to it
 TODAY = date.today().strftime('%-d %b %Y')
@@ -69,6 +70,16 @@ def page(canvas, doc):
 
 
 new = [
+    ('Tests sign in by themselves (0.81).', 'Setup finds how the app\'s tests get past its sign-in (a form, a token or dev switch, single sign-on, or none) and shows it on the Confirm card; spec writes a setup project that signs in once for every test. Linked Xray tests are read and scored like the description. A ticket with only a description gets its criteria drafted from it for you to confirm.'),
+    ('Faster checks on live apps (0.81).', 'A Playwright spec with no webServer (run against a live app) runs the 5 strongest mutants by default; playwright.maxMutants and vitest.maxMutants cap it, and check --no-mutation leaves the step out. ci --gate-only writes the fast gate job alone, for a project whose suite cannot run in CI yet.'),
+    ('Italian (0.81).', 'Cards and script lines are shown in your language, not only the text around them. What goes to Jira (the refuse and risk comments, the fill-in) is in the project\'s language: Italian when the first of languages in the config is it, English otherwise. Keys, commands, file paths, scores and quoted ticket text are never translated.'),
+    ('The Quality Code server comes with the plugin (0.80.4-0.80.10).', 'Install the plugin and the shared server is there as the quality-code connector: the first time one of its tools is used, you sign in with Microsoft and accept the TeamSystem rules; nothing to type or add by hand. Setup asks the server who is signed in and offers that Jira email on a card. The server offers every command as a tool; the ones that need your repo run in Claude Code. Its home page has Open in Claude Code buttons (Desktop and terminal) and a GitLab tab. If you added the server by hand before, remove that connector.'),
+    ('Add Quality Code as a Claude connector (0.80).', 'The shared server can be added in Claude (web and Desktop) as a custom connector: sign in with Microsoft, read the TeamSystem rules, confirm your Jira email and, optionally, your GitLab username. Nothing about you is stored on the server.'),
+    ('Sides, not an adapter (0.77, breaking).', 'The project config says "frontend": "playwright" and "backend": "vitest" (or pytest, junit, go, dotnet), or both for a fullstack project; adapter and fullstack are gone. Re-run /quality-code:setup: it converts the old file. A saved file that is broken now stops the command with its name, instead of being read as empty and overwritten.'),
+    ('The right base branch (0.76).', '/quality-code:spec notices a branch cut from a sibling of the base (develop12 when the config says develop) and asks which one is its base, so the diff carries no noise. File writes no longer fail when node is not on the hook\'s PATH (Copilot CLI with nvm on Windows).'),
+    ('Faster mutation, on the ticket\'s own code (0.75).', 'Stryker mutates only the function that holds the ticket\'s behaviour and keeps its results between runs: on a 753-line file, from 8½ minutes to under 2 the first time and about half a minute after.'),
+    ('Your team\'s rules or ours (0.74).', 'When the project already tests with its own library, /quality-code:spec asks once per side whose rules the new tests follow. With the team\'s rules, existing specs, helpers and config are never changed. The answer is saved as testRules.backend / testRules.frontend.'),
+    ('Unit and Playwright tests together (0.73).', 'On a project with Vitest and Playwright, a frontend ticket gets both kinds of tests by default. A project with only one runner gets one card: Add Vitest too or Add Playwright too.'),
     ('qa checks its drafts against Central Context (0.72).', '/quality-code:qa searches Central Context once before a task\'s first test plan and once before a run\'s first defect, and adds one line per rule that applies. A rule never adds a scenario, changes a verdict or reaches Jira.'),
     ('Playwright set up from check (0.71.1).', '/quality-code:check --frontend (and --smoke) on a project with no Playwright asks Set it up now? and, on Yes, installs it, writes the config and a first smoke test, then runs the check.'),
     ('Jira without a token (0.71).', 'The Jira connector uses Atlassian\'s v2 endpoint. A ticket\'s screenshots and Word files are read with the normal Jira sign-in, so the Jira API token setting and the jira-files connector are gone. After updating: /reload-plugins, then /mcp, choose atlassian-rovo and sign in again. xray reads Central Context before it plans its cases.'),
@@ -129,14 +140,14 @@ story += [p('1. Set up and settings', 'h1'), cmds([
 ]),
           PageBreak(),
           p('3. Run and grade the tests', 'h1'), cmds([
-    ('/quality-code:check', 'The full suite. --branch: only the tests your branch changed. --evals: the frozen evals.', '/quality-code:check --branch'),
+    ('/quality-code:check', 'The full suite. --branch: only the tests your branch changed. --evals: the frozen evals. --no-mutation leaves mutation out.', '/quality-code:check --branch'),
     ('/quality-code:check --frontend', 'Every Playwright spec of the project.', '/quality-code:check --frontend'),
     ('/quality-code:check --backend', 'Every backend spec: Vitest, pytest, JUnit, Go or .NET.', '/quality-code:check --backend'),
     ('/quality-code:check --smoke', 'Only the tests tagged @smoke, against the running app or any URL. Read-only. Frontend only for now.', '/quality-code:check --smoke --url https://staging.example.com'),
 ]),
           p('The card ends in one verdict, decided by a script: all good, tests fail, problem in the tests or could not run. A Bug ticket also shows the fail-then-pass proof (--regression-before red|green).'),
           p('4. CI and scheduled checks', 'h1'), cmds([
-    ('/quality-code:ci', 'Writes the CI file for GitHub Actions or GitLab: a quick quality-gate job and a quality-tests job. --smoke adds an optional post-deploy job that runs the smoke suite against SMOKE_URL.', '/quality-code:ci github\n/quality-code:ci --smoke'),
+    ('/quality-code:ci', 'Writes the CI file for GitHub Actions or GitLab: a quick quality-gate job and a quality-tests job. --smoke adds an optional post-deploy job that runs the smoke suite against SMOKE_URL. --gate-only writes the gate job alone.', '/quality-code:ci github\n/quality-code:ci --smoke'),
     ('/quality-code:routine', 'Schedules a run with Claude\'s scheduler; reports a change from green to red; --flaky N finds flaky tests; --regression runs the @regression suite.', '/quality-code:routine run --regression'),
 ]),
           p('5. For QA and product owners', 'h1'), cmds([

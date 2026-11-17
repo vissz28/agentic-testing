@@ -11,6 +11,7 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Added
 
+- Setup finds how the app's tests get past its sign-in (`playwright.signIn`: the tests already do it, a form, a token or dev switch, single sign-on, or none) and shows it on the Confirm card. `/quality-code:spec` writes the sign-in from it, also in a project that already has its own Playwright config: a setup project signs in once and every test reuses it, so no tester signs in by hand.
 - `/quality-code:ci --gate-only` writes the fast gate job alone, with no install and no test run: for a project whose install or suite cannot run in CI yet.
 - Mutation can be capped per spec: `playwright.maxMutants` and `vitest.maxMutants`, set with `/quality-code:config`; the card says how many were left out. A Playwright spec whose config has no `webServer` (it runs against a live app) runs the 5 strongest mutants by default: on TS DMS's five live specs that is 25 reruns, not 375. `/quality-code:check --no-mutation` leaves the step out, and the `spec` next step says so for live end-to-end specs.
 - Linked Xray tests: when the Xray API is on, the steps of the tests linked to a ticket are read (a new read-only `get_tests` tool) and scored like the description. Off, the ticket gets a flag saying so.
@@ -20,6 +21,11 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ### Fixed
 
+- `/quality-code:check --smoke` found no `@smoke` test in a Playwright spec with a route glob like `page.route('**/api/**')`: the glob was read as a comment and most of the file was dropped. Comments are now stripped with strings left as they are, also for the database-check assertions and the Playwright `testDir`.
+- Setup no longer says to delete the old `.claude/quality-code.json` without a word on CI: the CI jobs read that file, so replace it with `config.json` when you use `/quality-code:ci`.
+- `/quality-code:config set` takes `seed.schema`, `seed.target`, `seed.apply`, `xray.csv` and `xray.folder`, where the seed and Xray cards already sent you.
+- `/quality-code:clean` keeps a tagged spec that also holds tests not written by spec, and says why, instead of offering to delete the whole file; it reads the file as the checks do, for every runner. With a config that does not load, it says the spec group could not be listed instead of showing nothing.
+- Backend tests now carry the ticket tag too: the block's title or key line ends in `@<KEY>` (`describe('ABC-123 Line totals round @ABC-123', …)`, the pytest docstring, JUnit `@DisplayName`, the .NET and Go key comment), so `/quality-code:clean` finds them like the Playwright ones. Backend tests written before this have no tag and are not listed.
 - `save set repo` with the project in a subfolder (`root`) moved nothing, so `config check` then said the project was not set up. The config now moves, and the tickets folder under the subfolder ignores itself in git, so a raw ticket is never committed.
 - `branch.mjs --detect` compares with `origin/<base>`: a local base that fell behind no longer lists a colleague's merged work as this branch's.
 - Every Playwright test stopping before its first line (no sign-in file, no browser) is `could not run`, not failing tests.

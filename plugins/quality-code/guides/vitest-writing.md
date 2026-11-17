@@ -9,7 +9,7 @@ The generic rules `/quality-code:spec` always follows. A layer's own `guide` (se
 
 ## Shape
 
-- One spec file per layer, all its tests inside one top-level `describe('<KEY> <summary>', …)` block.
+- One spec file per layer, all its tests inside one top-level `describe('<KEY> <summary> @<KEY>', …)` block (the `@<KEY>` at the end marks the tests as written by spec, for `/quality-code:clean`).
 - One `it` per scenario of the ticket, named after the scenario in plain words.
 - **One behaviour per `it`.** If a test needs "and" in its name, it is two tests.
 - **Arrange, act, assert**, in that order, separated by a blank line. Arrange builds the input; act
@@ -19,7 +19,7 @@ The generic rules `/quality-code:spec` always follows. A layer's own `guide` (se
 import { describe, expect, it } from 'vitest'
 import { lineTotal } from '../src/pricing'
 
-describe('ABC-123 Line totals round to the cent', () => {
+describe('ABC-123 Line totals round to the cent @ABC-123', () => {
   it('rounds a total of 10.005 up to 10.01', () => {
     const line = { unitPrice: 3.335, quantity: 3 }
 

@@ -23,7 +23,7 @@ differ.
   never create a test project.
 - **One test class per ticket**, in a file named after the class (`LineTotalTests.cs`), in the
   project's namespace.
-- **The ticket key goes in a comment line right above the class**: `// <KEY> <summary>`. C# has no
+- **The ticket key goes in a comment line right above the class**: `// <KEY> <summary> @<KEY>` (the `@<KEY>` at the end marks the tests as written by spec, for `/quality-code:clean`). C# has no
   title for a class, so this line is the block the checks look for. Attributes may sit between the
   comment and the class; nothing else may.
 - One test method per scenario of the ticket, named after the scenario in plain words with
@@ -38,7 +38,7 @@ using Xunit;
 
 namespace Orders.Tests;
 
-// ABC-123 Line totals round to the cent
+// ABC-123 Line totals round to the cent @ABC-123
 public class LineTotalTests
 {
     [Fact]

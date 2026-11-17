@@ -147,6 +147,6 @@ A script call that fails with `node is not recognized`, `command not found: node
 
 ## Language
 
-Talk in the language of the person's last sentence. A pick, a number, a click on an option, a slash command with no words, a script's output or a card does not change it. Script lines and cards keep their fixed words; everything around them (explanations, questions, summaries, option descriptions, the Done text) stays in the person's language.
+Talk in the language of the person's last sentence. A pick, a number, a click on an option, a slash command with no words, a script's output or a card does not change it. Everything shown is in the person's language, the words of cards and script lines too; machine lines, numbers, paths, code and every text that goes to Jira stay word for word.
 
 The rule and the saved language are in `${CLAUDE_PLUGIN_ROOT}/guides/language.md`.

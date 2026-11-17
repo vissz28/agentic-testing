@@ -359,7 +359,7 @@ test('playwright block: absent stays absent; only with frontend playwright; not 
 test('playwright block: each wrong part is named', () => {
   const r = validateConfig({ ...good, playwright: { configs: [{ match: '../x', config: 'a.ts' }, 'no'], tsconfig: '/abs.json', timeoutSeconds: 9, layers: [] } })
   assert.deepEqual(r.errors, [
-    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles" and "redTags")',
+    'playwright.layers: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles", "redTags" and "signIn")',
     'playwright.configs[0].match "../x" must be a relative path inside the project (no "..", not absolute, one line)',
     'playwright.configs[1]: must be an object with "match" and "config"',
     'playwright.tsconfig "/abs.json" must be a relative path inside the project (no "..", not absolute, one line)',
@@ -399,6 +399,9 @@ test('playwright.ungradedTitles, playwright.redTags and jira.doneStatuses: check
   assert.deepEqual(redTagsOf({}), ['@anchor', '@finding'])
   assert.deepEqual(redTagsOf({ playwright: { redTags: { scenario: '@red' } } }), ['@red', '@finding'])
   assert.deepEqual(redTagsOf({ playwright: { redTags: null } }), [])
+  assert.equal(pw({ signIn: { kind: 'token', how: 'localStorage warehouseToken, then /?useCustomLogin=true' } }).ok, true)
+  for (const si of [{ kind: 'magic', how: 'x' }, { kind: 'form' }, { kind: 'form', how: 'a\nb' }, { kind: 'form', how: 'x'.repeat(301) }, { kind: 'form', how: 'x', password: 'p' }, 'form'])
+    assert.ok(pw({ signIn: si }).errors.some(e => e.startsWith('playwright.signIn:')), JSON.stringify(si))
   const jira = doneStatuses => validateConfig({ ...good, jira: { ...good.jira, doneStatuses } })
   assert.equal(jira(['Released']).ok, true)
   for (const d of ['Done', [''], [3]]) assert.ok(jira(d).errors.includes('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]'), JSON.stringify(d))
@@ -410,7 +413,7 @@ test('the schema documents the playwright block with the validator\'s path patte
   const p = schema.properties.playwright
   assert.equal(p.type, 'object')
   assert.equal(p.additionalProperties, false)
-  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'redTags', 'timeoutSeconds', 'tsconfig', 'ungradedTitles'])
+  assert.deepEqual(Object.keys(p.properties).sort(), ['configs', 'folder', 'guide', 'projects', 'redTags', 'signIn', 'timeoutSeconds', 'tsconfig', 'ungradedTitles'])
   const path = schema.properties.vitest.properties.tsconfig.pattern
   assert.equal(p.properties.folder.pattern, path)
   assert.equal(p.properties.guide.pattern, path)

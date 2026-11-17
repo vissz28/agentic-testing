@@ -16,7 +16,7 @@ and wins where they differ.
   `<Subject>Test.java` (or `.kt`), never the ticket key in the name (`LineTotalTest`, not
   `Abc123Test`). It goes in `src/test/java/` (or `src/test/kotlin/`), in the same package as the
   code under test, so the folders mirror the package.
-- **The ticket key goes on the class:** `@DisplayName("<KEY> <summary>")` on the top-level class.
+- **The ticket key goes on the class:** `@DisplayName("<KEY> <summary> @<KEY>")` on the top-level class (the `@<KEY>` at the end marks the tests as written by spec, for `/quality-code:clean`).
   This is the ticket's block: the pipeline finds the tests of a ticket by that display name. A class
   without it has no block.
 - **One `@Test` per scenario**, its `@DisplayName` the scenario in plain words. The method name says
@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("ABC-123 Line totals round to the cent")
+@DisplayName("ABC-123 Line totals round to the cent @ABC-123")
 class LineTotalTest {
 
   @Test
@@ -112,7 +112,7 @@ class LineTotalTest {
 
 ## Kotlin
 
-- The same rules; `@DisplayName("<KEY> <summary>")` on the class, `@Test fun`.
+- The same rules; `@DisplayName("<KEY> <summary> @<KEY>")` on the class, `@Test fun`.
 - Backtick names are fine: ``fun `rounds 10.005 up to 10.01`()``.
 - kotlin.test (`assertEquals`, `assertFailsWith<…> { }`) and kotest matchers inside JUnit 5 tests
   are read; kotest's own spec styles (`StringSpec`, `FunSpec`) are not.
