@@ -2,5 +2,5 @@ $ routes check /orders
 exit 3
 --- stdout
 no router found in the code, so /orders cannot be checked. It is used as it is.
-ROUTE_JSON:{"status":"unknown","route":"/orders","matches":[],"suggestions":[]}
+ROUTE_JSON:{"status":"unknown","route":"/orders","url":"/orders","hash":false,"base":"","matches":[],"suggestions":[]}
 --- stderr

@@ -2,4 +2,4 @@ $ routes
 exit 2
 --- stdout
 --- stderr
-usage: routes.mjs check </path> | routes.mjs list (the path starts with /, like /orders)
+usage: routes.mjs check </path> | routes.mjs list | routes.mjs specs [--url URL] [spec…] (the path starts with /, like /orders)
