@@ -12,7 +12,7 @@ in `pytest.layers`) adds the team's conventions on top of these and wins where t
 - One spec file per layer, named `test_<topic>.py` (or `<topic>_test.py`) in the layer's folder
   (`tests/` by default).
 - **One class per ticket**: `class Test<Topic>:` at the top level of the file, whose docstring's first
-  line is `<KEY> <summary>`. The docstring is the ticket's block: pytest has no titles and a class name
+  line is `<KEY> <summary> @<KEY>` (the `@<KEY>` at the end marks the tests as written by spec, for `/quality-code:clean`). The docstring is the ticket's block: pytest has no titles and a class name
   cannot hold the `-` of a key, so the checks find the block by its docstring's first line (the class
   name when there is no docstring). Every test of the ticket goes inside that class.
 - One test method per scenario of the ticket: `def test_<scenario>(self):`, the scenario in plain
@@ -28,7 +28,7 @@ from app.pricing import line_total
 
 
 class TestLineTotals:
-    """ABC-123 Line totals round to the cent"""
+    """ABC-123 Line totals round to the cent @ABC-123"""
 
     def test_rounds_a_total_of_10_005_up_to_10_01(self):
         line = {"unit_price": "3.335", "quantity": 3}

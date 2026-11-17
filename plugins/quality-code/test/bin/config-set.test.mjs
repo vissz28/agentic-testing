@@ -199,6 +199,15 @@ test('runners.unit and runners.e2e are read, set, validated and cleared', () => 
   assert.equal(s.run('set', 'runners.unit', 'none', '--yes').status, 0)
   assert.equal(s.repoCfg().runners, undefined)
 })
+test('seed.* and xray.* are settable; xray stays Playwright-only', () => {
+  const s = setup()
+  assert.equal(s.run('set', 'seed.target', 'echo postgres/app', '--yes').status, 0)
+  assert.equal(s.run('set', 'seed.apply', 'psql -d app -f {file}', '--yes').status, 0)
+  assert.deepEqual(s.repoCfg().seed, { target: 'echo postgres/app', apply: 'psql -d app -f {file}' })
+  assert.equal(s.run('set', 'seed.apply', 'psql -d app', '--yes').status, 2)
+  assert.equal(s.run('set', 'xray.csv', 'e2e/xray-cases.csv', '--yes').status, 2)
+  assert.equal(s.repoCfg().xray, undefined)
+})
 test('vitest.configs maps a folder to a config; a malformed pair is refused', () => {
   const s = setup()
   assert.equal(s.run('set', 'vitest.configs', 'services/**=jest.config.js, web/**=web/vitest.config.ts', '--yes').status, 0)

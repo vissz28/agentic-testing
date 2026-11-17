@@ -34,6 +34,11 @@ test('only a test or describe title or a tag option counts, as --grep matches: n
   assert.ok(!hasSmokeTag("test('cart', async () => { await test.step('@smoke step', async () => {}) })"))
 })
 
+test('a route glob in a string is not a block comment', () => {
+  const spec = "await page.route('**/api/stock/**', r => r.fulfill())\nawait page.route('**/api/items/**', r => r.fulfill())\ntest('stock', { tag: ['@smoke'] }, async () => {})"
+  assert.ok(hasSmokeTag(spec))
+})
+
 test('smokeSpecs keeps the tagged files and drops the rest and the unreadable', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-smoke-'))
   put(d, 'e2e/a.spec.ts', TAGGED)

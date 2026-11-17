@@ -32,3 +32,23 @@ export const escapeHtml = text => String(text ?? '').replace(/&/g, '&amp;').repl
 
 /** Whole percent, or null when total is 0 (no data, not 0%). */
 export const pct = (n, total) => (total > 0 ? Math.round((100 * n) / total) : null)
+
+// JS/TS comments out, strings kept as is: a route glob in a string is not a comment.
+export function stripCodeComments(src) {
+  let out = ''
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (c === '"' || c === "'" || c === '`') {
+      const start = i
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++
+      out += src.slice(start, i + 1)
+    } else if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++
+      out += '\n'
+    } else if (c === '/' && src[i + 1] === '*') {
+      const e = src.indexOf('*/', i + 2)
+      i = e < 0 ? src.length : e + 1
+    } else out += c
+  }
+  return out
+}

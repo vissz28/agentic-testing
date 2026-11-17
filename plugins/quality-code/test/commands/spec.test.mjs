@@ -102,7 +102,7 @@ test('step 5: run start before any file, the active-run card, the file naming an
   assert.ok(s.includes(`${RUN} stop`))
   assert.ok(s.includes('`<target basename>.<key lowercased>.spec.ts`'))
   assert.match(s, /`\.spec\.js` when the project has no `tsconfig\.json`/)
-  assert.ok(s.includes("describe('<KEY> <summary>', …)"))
+  assert.ok(s.includes("describe('<KEY> <summary> @<KEY>', …)"))
   assert.match(s, /One `it` per scenario/)
   assert.match(s, /real expected values from the ticket/)
   assert.match(s, /it\.todo/)

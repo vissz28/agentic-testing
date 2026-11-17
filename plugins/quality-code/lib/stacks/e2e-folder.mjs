@@ -5,15 +5,12 @@ import { ALWAYS, allowCovers, matches, rulesFor } from '../pipeline/boundary.mjs
 import { runnerOf } from './runners.mjs'
 import { stripDotSlash, cleanRelPath, isAbsoluteAnywhere } from '../core/paths.mjs'
 import { hasLineBreak } from '../core/is.mjs'
+import { stripCodeComments } from '../core/text.mjs'
 
 // Playwright's own lookup order for its default config file.
 export const CONFIG_FILES = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mts', 'playwright.config.mjs', 'playwright.config.cts', 'playwright.config.cjs']
 export const DEFAULT_E2E_FOLDER = 'e2e/'
 export const CYPRESS_FOLDER = 'cypress/e2e/'
-
-const stripComments = src => src
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .split('\n').map(l => l.replace(/(^|\s)\/\/.*$/, '$1')).join('\n')
 
 /** "/" separators, no leading "./", one trailing "/"; null when unsafe. */
 function normFolder(raw) {
@@ -28,7 +25,7 @@ export function readTestDir(root, files = CONFIG_FILES) {
   for (const file of files) {
     let src
     try { src = readFileSync(join(root, file), 'utf8') } catch { continue }
-    const text = stripComments(src)
+    const text = stripCodeComments(src)
     const all = [...text.matchAll(/\btestDir\s*:/g)].length
     const literals = [...text.matchAll(/\btestDir\s*:\s*(['"`])([^'"`\n]*)\1/g)].map(m => m[2])
     // Computed values (path.join, ${…}) can't be read without running the config.
