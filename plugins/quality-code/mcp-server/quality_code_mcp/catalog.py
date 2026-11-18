@@ -78,6 +78,7 @@ SERVER_TOOL_MAP: dict[str, str] = {
     "quality_code_jira_link_issues": "createIssueLink",
     "quality_code_gitlab_mr": "the GitLab merge request operations",
     "quality_code_github_pr": "the GitHub pull request operations",
+    "quality_code_rules": "`node bin/rules.mjs --side <side>` (Central Context testing rules, read-only; never `--key`)",
 }
 JIRA_WRITE_TOOLS = ("quality_code_jira_create", "quality_code_jira_comment", "quality_code_jira_transition", "quality_code_jira_edit", "quality_code_jira_link_issues")
 

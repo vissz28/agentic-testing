@@ -32,7 +32,7 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 # Shared (HTTP) server: only the Jira-only QA/PO commands, the read-only scripts they call and their guides.
 # Anything that needs a checkout (spec, run commands, seed, xray, qa, setup, config, kpi) stays local.
 REMOTE_COMMANDS = {"ticket", "help"}
-REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs", "help.mjs"}
+REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs", "help.mjs", "rules.mjs"}
 NEEDS_REPO_NOTICE = (
     "NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket, branch and help scripts, in one fixed folder). "
     "Do not call quality_code_run_script for the other scripts here.\n\n"
@@ -178,6 +178,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         name = script if script.endswith(".mjs") else script + ".mjs"
         if name not in scripts:
             return f"error: unknown script {script!r}. Scripts: {', '.join(sorted(scripts))}"
+        if remote and name == "rules.mjs" and "--key" in (args or []):
+            return "error: the shared server saves no file: run rules.mjs without --key (or use quality_code_rules)."
         node = find_node()
         if not node:
             return "error: Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found."
@@ -221,6 +223,15 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             return run_script(script, args, fixed_cwd, person_config())
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
+
+        def quality_code_rules(side: str = "fullstack") -> str:
+            """The company's testing rules for a side (frontend, backend or fullstack), read from Central Context (read-only), with the built-in rules as fallback. Nothing is saved."""
+            if side not in ("frontend", "backend", "fullstack"):
+                return "error: side is frontend, backend or fullstack."
+            return run_script("rules.mjs", ["--side", side], fixed_cwd, person_config())
+
+        server.add_tool(quality_code_rules, name="quality_code_rules", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+        offered.add("quality_code_rules")
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
         if entra:
             server.add_tool(quality_code_whoami, name="quality_code_whoami", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))

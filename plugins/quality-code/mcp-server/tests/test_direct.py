@@ -78,3 +78,15 @@ def test_a_command_that_needs_a_repo_tells_how_to_find_or_add_one(tmp_path):
     assert "find the repo" in text and "git rev-parse --show-toplevel" in text and "specify one and put it in their Claude environment" in text
     ticket = asyncio.run(s.call_tool("quality_code_direct", {"request": "Using Quality Code evaluate ticket PFO-111"}))
     assert "needs your repo" not in "".join(getattr(b, "text", "") for b in ticket.content)
+
+
+def test_the_shared_server_reads_the_central_context_rules_and_saves_nothing(tmp_path):
+    s = build(ROOT, remote=True, fixed_cwd=tmp_path)
+    assert "quality_code_rules" in {t.name for t in asyncio.run(s.list_tools())}
+    bad = asyncio.run(s.call_tool("quality_code_rules", {"side": "mobile"}))
+    assert "error: side" in "".join(getattr(b, "text", "") for b in bad.content)
+    keyed = asyncio.run(s.call_tool("quality_code_run_script", {"script": "rules.mjs", "args": ["--side", "frontend", "--key", "ABC-1"]}))
+    assert "saves no file" in "".join(getattr(b, "text", "") for b in keyed.content)
+    ok = asyncio.run(s.call_tool("quality_code_rules", {"side": "frontend"}))
+    assert "RULES_JSON:" in "".join(getattr(b, "text", "") for b in ok.content)
+    assert "quality_code_rules" not in {t.name for t in asyncio.run(build(ROOT).list_tools())}

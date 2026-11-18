@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.9] - 2026-11-18
+
+### Added
+
+- **MCP server only.** `quality_code_rules`: the shared server reads the company's testing rules from Central Context for a side (`frontend`, `backend` or `fullstack`), read-only, with the built-in rules as fallback, like the plugin's `rules.mjs`. It saves no file (`--key` is refused). The plugin is unchanged.
+
+**What to do:** nothing for the plugin. Restart the Azure Web App to pick up the new image, then remove and add the connector so the new tool appears.
+
 ## [0.89.8] - 2026-11-18
 
 ### Added

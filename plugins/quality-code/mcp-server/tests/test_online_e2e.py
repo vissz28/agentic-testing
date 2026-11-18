@@ -101,7 +101,7 @@ def test_signed_in_client_gets_every_command_as_a_tool_and_runs_a_script(server,
     from quality_code_mcp.catalog import load_commands, plugin_root
 
     tools, out = session(server, token(tenant))
-    assert tools == {c.tool_name for c in load_commands(plugin_root())} | {"quality_code_run_script", "quality_code_guide", "quality_code_whoami", "quality_code_direct", "quality_code_connectors"}
+    assert tools == {c.tool_name for c in load_commands(plugin_root())} | {"quality_code_run_script", "quality_code_guide", "quality_code_whoami", "quality_code_direct", "quality_code_connectors", "quality_code_rules"}
     assert "[exit code" in out
 
 
