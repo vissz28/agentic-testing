@@ -11,6 +11,7 @@ import { keyPattern, ownTests } from '../config/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
 import { anchorRange } from './checks/suite-honesty.mjs'
 import { existsSync, readFileSync } from 'node:fs'
+import { availableParallelism } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { localToForwardSlashes } from '../core/text.mjs'
 import { functionLines as realFunctionLines, runStryker as realRunStryker } from './runners/stryker.mjs'
@@ -107,28 +108,68 @@ export function maxMutantsFor(spec, ctx) {
   return text !== null && !/\bwebServer\s*:/.test(text) ? { max: LIVE_MAX_MUTANTS, live: true } : { max: null, live: false }
 }
 
-async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
-  const per = []
+// Runners whose specs can mutate side by side: each run is its own process over its own temp copy of the spec.
+// Compiled stacks mutate the spec itself and share one build folder, so they mutate one spec at a time.
+const PARALLEL_RUNNERS = new Set(['vitest', 'jest', 'mocha', 'node'])
+// A test config that runs its files one at a time (a shared database, say) keeps its specs' mutation one at a time too:
+// two runs on one database can fail each other's tests, and a mutant counted as killed that way hides a weak assertion.
+const SERIAL_CONFIG = /\bfileParallelism\s*:\s*false\b|\bsingleFork\s*:\s*true\b|\bsingleThread\s*:\s*true\b|\bmaxWorkers\s*:\s*1\b|\brunInBand\b/
+const UNIT_CONFIGS = ['vitest', 'vite', 'jest'].flatMap(n => ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map(e => `${n}.config.${e}`))
+
+/** Specs that mutate at once: a few fewer than the cores, at most 4. */
+export const mutationWorkers = (cpus = availableParallelism()) => Math.max(1, Math.min(4, cpus - 2))
+
+/** Whether a spec's mutation may run beside other specs'. */
+export function parallelSpec(spec, ctx, runner) {
+  if (!PARALLEL_RUNNERS.has(runner) || ctx.dialect?.mutation?.inPlace) return false
+  const file = configFor(spec, ctx.config) ?? UNIT_CONFIGS.find(f => existsSync(join(ctx.root, f)))
+  let text = ''
+  try { text = file ? readFileSync(join(ctx.root, file), 'utf8') : '' } catch {}
+  return !SERIAL_CONFIG.test(text)
+}
+
+/** Runs fn over items, n at a time; results keep the items' order. */
+export async function inPool(items, n, fn) {
+  const out = new Array(items.length)
+  let next = 0
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i]) } }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(n, items.length)) }, worker))
+  return out
+}
+
+async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false, { runner = null, workers = mutationWorkers() } = {}) {
   let redOnly = 0
   let live = false
-  for (const spec of specs) {
+  // One tally for every spec, so the band counts the whole step even while several specs run at once.
+  const tally = { done: 0, total: 0, killed: 0, files: { done: 0, total: specs.length } }
+  const show = () => ctx.live?.count('mutants', { ...tally, files: { ...tally.files } })
+  const progress = { plan: n => { tally.total += n; show() }, done: killed => { tally.done++; if (killed) tally.killed++; show() } }
+  const one = async spec => {
     const own = ownTests(run.tests, key).filter(t => t.file === spec)
     // No tests for this key: the spec belongs to another ticket, skip it.
-    if (key && !own.length) continue
+    if (key && !own.length) return null
     const baseline = own.filter(t => t.status === 'passed').map(t => t.title)
     // Only failing tests: the assertions already proved they can fail.
-    if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; continue }
+    if (!baseline.length && own.some(t => t.status === 'failed')) { redOnly++; return null }
     const cap = maxMutantsFor(spec, ctx)
     if (cap.live) live = true
-    let r = await mutation.run({ spec, key, baseline, max: cap.max, timeoutMs, whole }, ctx)
+    let r = await mutation.run({ spec, key, baseline, max: cap.max, timeoutMs, whole }, { ...ctx, mutationProgress: progress })
+    tally.files.done++
+    show()
     // Passing tests but nothing to mutate: we can't prove the assertions bind.
     if (r.status === 'pass' && (r.data?.total ?? 0) === 0 && baseline.length) {
       r = result('mutation', 'not_run', `no assertion in ${spec} that mutation can check (snapshot, chai-style or custom matchers)`,
         [{ file: spec, kind: 'nothing to mutate', detail: `${baseline.length} passing test(s) unchecked` }])
     }
-    if (key && r.status === 'not_run' && r.findings.some(f => f.kind === 'no anchor block')) continue
-    per.push({ ...r, spec })
+    if (key && r.status === 'not_run' && r.findings.some(f => f.kind === 'no anchor block')) return null
+    return { ...r, spec }
   }
+  // The parallel specs share the workers; the serial ones go one at a time beside them.
+  const together = specs.filter(sp => workers > 1 && parallelSpec(sp, ctx, runner))
+  const alone = specs.filter(sp => !together.includes(sp))
+  const [a, b] = await Promise.all([inPool(together, workers, one), inPool(alone, 1, one)])
+  const bySpec = new Map([...together.map((sp, i) => [sp, a[i]]), ...alone.map((sp, i) => [sp, b[i]])])
+  const per = specs.map(sp => bySpec.get(sp)).filter(Boolean)
   if (!per.length && redOnly) return result('mutation', 'pass', 'skipped: no passing test to mutate (see tests)', [], { killed: 0, survived: 0, errors: 0, total: 0, survivors: [] })
   if (!per.length) return result('mutation', 'not_run', key ? `no ${key} block in the specs` : 'nothing to mutate')
   const sum = k => per.reduce((n, r) => n + (r.data?.[k] ?? 0), 0)
@@ -144,6 +185,18 @@ async function mutationStep(specs, key, run, ctx, timeoutMs, whole = false) {
     return result('mutation', 'not_run', data.total ? `${data.killed}/${data.total} mutants killed in the specs that ran; not checked in ${where}: ${why}` : why, findings, { ...data, unchecked: notRun.map(r => ({ spec: r.spec, why: r.summary })) })
   }
   return result('mutation', 'pass', `${data.killed}/${data.total} mutants killed${capped ? `; ${capped} more left out by ${live ? `the live-app default (${LIVE_MAX_MUTANTS} per spec; set playwright.maxMutants to change it)` : 'maxMutants'}` : ''}`, findings, data)
+}
+
+/**
+ * A whole-suite run mutates only the specs changed on the branch (mutateOnly); the card says how many it left out.
+ * The others were mutation-checked when they were written, and --all-mutants checks them all again.
+ */
+export async function scopedMutation(specs, mutateOnly, runStep) {
+  if (!mutateOnly) return runStep()
+  const left = specs.filter(sp => !mutateOnly.includes(sp)).length
+  if (left === specs.length) return result('mutation', 'pass', `not applicable: no spec changed on this branch (--all-mutants mutates all ${specs.length})`, [], { applicable: false, unchanged: left })
+  const r = await runStep()
+  return left ? { ...r, summary: `${r.summary}; ${left} unchanged spec(s) left out (--all-mutants checks them)`, data: { ...r.data, unchanged: left } } : r
 }
 
 export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key = null, functions = []) {
@@ -275,7 +328,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, functions = [], candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true, sides = 1 } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, functions = [], candidates = [], mutation: mutate = true, mutateOnly = null, multi = false }, ctx, { boundary: withBoundary = true, sides = 1 } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
@@ -317,7 +370,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   else if (ticket) steps.push(await at('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
   // Whole-suite CI runs pass --no-mutation: it's the slow step, kept for changed specs.
   if (!mutate) steps.push(result('mutation', 'pass', 'not applicable: left out of this run (--no-mutation)', [], { applicable: false }))
-  else if (tests.status !== 'not_run') steps.push(await at('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
+  else if (tests.status !== 'not_run') steps.push(await at('mutation', () => scopedMutation(specs, mutateOnly, () => mutationStep(specs.filter(sp => !mutateOnly || mutateOnly.includes(sp)), key, run, c, timeoutMs, whole, { runner, workers: ctx.mutationWorkers ?? mutationWorkers() }))))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))

@@ -9,6 +9,18 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-11-18
+
+### Changed
+
+- Mutation runs much faster, on every stack. The mutants of a spec run in rounds of one per test, so one run (and, for Java, .NET and Go, one compile) checks a mutant in every test at once: a spec of 30 tests with 140 assertions takes about 5 runs instead of 140. Every runner (Vitest, Playwright, Jest, Mocha, `node --test`, pytest, JUnit, .NET, Go) runs only the round's tests. A test that did not run in its round gets a run of its own before it counts, so nothing is counted from a test that never ran. Vitest, Jest, Mocha and `node --test` specs also mutate side by side, a few fewer than the cores (at most 4); specs whose test config runs files one at a time (`fileParallelism: false`, `singleFork`, `maxWorkers: 1`, `runInBand`), Playwright, Cypress, pytest and the compiled stacks mutate one spec at a time, so tests that share a database or a server never fail each other's runs. On three warehouse-backend specs (180 mutants) the mutation step went from 94 s to 8 s, same result.
+- A whole-suite `/quality-code:check` (`--backend`, `--frontend` or the full suite) mutates only the specs this branch changed or added, committed or not, instead of every spec; the card says how many it left out. `--all-mutants` mutates them all. On warehouse-backend a whole-suite check mutated about 5,400 assertions, well over an hour.
+- The band counts mutation across every spec of the run, with the specs done (`mutants 120/300 · 118 killed · files 10/40`).
+
+### Fixed
+
+- The band often showed nothing in Claude Code Desktop, in `/quality-code:spec` and `/quality-code:check` alike. Desktop starts a session from a spare engine parked in a neutral folder and moves it to the project when you write; the band picked its progress file once, in the parking folder, and never saw the project's run. It now follows the session's folder. A session that got a spare still starting up (a quick first message) or a fresh engine (after a rewind) already worked, which is why the band came and went.
+
 ## [0.86.0] - 2026-11-18
 
 ### Added

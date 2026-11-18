@@ -123,7 +123,7 @@ export function fillTemplate(template, { targets, report, testName }) {
       if (w === '{test}' && out.length && out.at(-1).startsWith('-')) out.pop()
       continue
     }
-    out.push(fillPlaceholders(w, { files: targets.join(' '), report, test: testName ?? '' }))
+    out.push(fillPlaceholders(w, { files: targets.join(' '), report, test: [].concat(testName ?? '').join(' or ') }))
   }
   return out
 }
@@ -179,7 +179,8 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
   const report = join(dir, 'report.xml')
   try {
     // Run one test by node id (all parametrized cases); fall back to the files if not found.
-    const ids = testName === undefined ? [] : nodeIds(root, files, testName)
+    // A list (a mutation round) runs each name's node ids.
+    const ids = testName === undefined ? [] : [].concat(testName).flatMap(n => nodeIds(root, files, n))
     const targets = ids.length ? ids : files.map(slash)
     const env = { ...process.env, PYTHONDONTWRITEBYTECODE: '1', COVERAGE_FILE: join(dir, '.coverage'), NO_COLOR: '1', PY_COLORS: '0' }
     const template = commandOf(config)
@@ -217,7 +218,11 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
       const want = new Set(files.map(f => normalize(slash(f))))
       let tests = parsed.tests.filter(t => want.has(normalize(t.file)))
       // Report parametrized cases under the requested name; the checks match on it.
-      if (testName !== undefined) tests = tests.filter(t => t.title === testName || baseName(t.title) === testName).map(t => ({ ...t, title: testName }))
+      if (testName !== undefined) {
+        const names = [].concat(testName)
+        const named = t => names.find(n => t.title === n || baseName(t.title) === n)
+        tests = tests.filter(named).map(t => ({ ...t, title: named(t) }))
+      }
       return { ran: true, tests, broken: parsed.broken.filter(b => want.has(normalize(b.file))) }
     }
     const why = last?.spawnError ? 'Python is not installed (no python or python3 on PATH)' : `${LABEL} is not installed for this project's Python`
@@ -229,7 +234,8 @@ export async function runPytest(root, files, { config = null, testName, timeoutM
 
 export function pytestRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
-  return ({ files, testName, timeoutMs }) => runPytest(root, files, { config, testName, timeoutMs: timeoutMs ?? defaultMs })
+  // testName may be a list (a mutation round).
+  return Object.assign(({ files, testName, timeoutMs }) => runPytest(root, files, { config, testName, timeoutMs: timeoutMs ?? defaultMs }), { namesFilter: true })
 }
 
 // ---- The types step ----

@@ -20,9 +20,10 @@ import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { crashMessage, isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
 import { leavesFolder } from '../lib/core/paths.mjs'
+import { branchChangedPaths } from '../lib/core/git.mjs'
 import { isObject, isWholeNumber } from '../lib/core/is.mjs'
 
-const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--regression-before red|green] [--no-audit] [--json]'
+const USAGE = 'usage: pipeline.mjs <spec...>|--suite frontend|backend|full [--key KEY] [--range A...B] [--flaky N] [--ticket @file] [--expected @file] [--target path [--function name,name]] [--incomplete-ticket SCORE] [--smoke [--url URL]] [--no-mutation] [--all-mutants] [--regression-before red|green] [--no-audit] [--json]'
 const EXIT = { green: 0, checks_failed: 1, tests_red: 1, not_verified: 3 }
 const SUITES = ['frontend', 'backend', 'full']
 const suiteAdapters = (suite, config) => (suite === 'full' ? null : adaptersForSide(suite, config))
@@ -40,6 +41,7 @@ function parse(argv) {
     } else if (x === '--json') a.json = true
     else if (x === '--no-audit') a.noAudit = true
     else if (x === '--no-mutation') a.mutation = false
+    else if (x === '--all-mutants') a.allMutants = true
     else if (x === '--smoke') a.smoke = true
     else if (x.startsWith('-')) throw new Error(`unknown option ${x}`)
     else a.specs.push(x)
@@ -143,10 +145,19 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const before = { ...process.env }
   const restore = () => { for (const k of Object.keys(smokeVars ?? {})) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k] } }
   if (smokeVars) Object.assign(process.env, smokeVars)
+  // A whole suite mutates only the specs this branch changed or added; --all-mutants mutates every one.
+  let mutateOnly = null
+  if (a.suite !== undefined && a.mutation && !a.allMutants) {
+    const changed = branchChangedPaths(root, config.git?.base ?? null)
+    if (changed) {
+      const mine = new Set(changed.map(p => normalizeSpec(root, p)))
+      mutateOnly = [...new Set(a.specs.map(s => normalizeSpec(root, s)))].filter(s => mine.has(s))
+    }
+  }
   // The band above the prompt reads this run's progress.
   const live = startLive(root, { key: a.key ?? null })
   try {
-    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, { ...ctx, live })
+    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation, mutateOnly }, { ...ctx, live })
   } catch (e) {
     live.finish('crashed')
     restore()

@@ -180,7 +180,8 @@ export function runGeneric(root, runner, files, { config = null, testName, timeo
 export function genericRunner(root, config, runner) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const configFor = RUNNERS[runner]?.kind === 'e2e' ? e2eConfigFor : unitConfigFor
-  return async ({ files, testName, timeoutMs }) => {
+  // Jest, Mocha and node --test filter by a title regex, so testName may be a list (a mutation round).
+  return Object.assign(async ({ files, testName, timeoutMs }) => {
     const groups = new Map()
     for (const f of files) {
       const c = configFor(f, config)
@@ -195,5 +196,5 @@ export function genericRunner(root, config, runner) {
       all.broken.push(...r.broken.filter(b => want.has(normalize(b.file))))
     }
     return all
-  }
+  }, { namesFilter: Boolean(HOW[runner]) })
 }

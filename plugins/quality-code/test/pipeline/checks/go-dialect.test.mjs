@@ -185,24 +185,24 @@ test('plan: one mutant per assertion (the strongest), green scenarios only, insi
   ])
 })
 
-test('mutation in place on a Go spec: each mutant runs from the spec itself, which comes back byte for byte', async () => {
+test('mutation in place on a Go spec: the mutants run from the spec itself, one round, and it comes back byte for byte', async () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-go-mut-'))
   mkdirSync(join(d, 'orders'))
   const spec = 'orders/stock_test.go'
   writeFileSync(join(d, spec), TWO_BLOCKS)
   const seen = []
   // A mutant is killed when its flipped condition is in the file the run reads.
-  const runTests = async ({ files, testName }) => {
+  const runTests = Object.assign(async ({ files, testName }) => {
     const now = readFileSync(join(d, files[0]), 'utf8')
     seen.push(testName)
-    const titles = testName ? [testName] : ['a sale of 3 leaves 2', 'a sale over the stock is refused', 'hollow']
-    return { ran: true, broken: [], tests: titles.map(title => ({ title, path: ['ABC-7 Stock is never negative'], file: files[0], status: testName && now !== TWO_BLOCKS ? 'failed' : 'passed' })) }
-  }
+    const titles = testName === undefined ? ['a sale of 3 leaves 2', 'a sale over the stock is refused', 'hollow'] : [].concat(testName)
+    return { ran: true, broken: [], tests: titles.map(title => ({ title, path: ['ABC-7 Stock is never negative'], file: files[0], status: now !== TWO_BLOCKS ? 'failed' : 'passed' })) }
+  }, { namesFilter: true })
   const r = await mutationRun({ spec, key: 'ABC-7' }, { root: d, dialect: GO, runTests, config: { adapter: 'go' } })
   assert.equal(r.status, 'not_run', 'the hollow scenario keeps it from passing')
   assert.equal(r.data.killed, 2)
   assert.equal(r.data.unmutated, 1)
-  assert.deepEqual(seen.slice(1), ['a sale of 3 leaves 2', 'a sale over the stock is refused'])
+  assert.deepEqual(seen.slice(1), [['a sale of 3 leaves 2', 'a sale over the stock is refused']])
   assert.equal(readFileSync(join(d, spec), 'utf8'), TWO_BLOCKS)
 })
 

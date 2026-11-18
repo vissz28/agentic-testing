@@ -48,7 +48,8 @@ export function visible(run: Live | null, now: number): boolean {
 /** How far the running step is, from its own counts. */
 export function stepFraction(run: Live): number {
   if (run.step === 'tests') return run.tests?.files?.total ? ratio(run.tests.files.done, run.tests.files.total) : ratio(run.tests?.done, run.tests?.total)
-  if (run.step === 'mutation') return ratio(run.mutants?.done, run.mutants?.total)
+  // Mutation's total grows as each spec plans its mutants, so the specs done move the bar.
+  if (run.step === 'mutation') return run.mutants?.files?.total ? ratio(run.mutants.files.done, run.mutants.files.total) : ratio(run.mutants?.done, run.mutants?.total)
   if (run.step === 'stryker') return ratio(run.stryker?.done, run.stryker?.total)
   return 0
 }
@@ -79,7 +80,10 @@ function counts(run: Live, w: typeof WORDS.en): string {
     const files = t.files?.total ? ` · ${w.files} ${t.files.done}/${t.files.total}` : ''
     return `${w.tests} ${t.done}/${t.total} · ✅ ${t.passed ?? 0}  ❌ ${t.failed ?? 0}  ⏭ ${t.skipped ?? 0}${files}`
   }
-  if (run.step === 'mutation' && run.mutants) return `${w.mutants} ${run.mutants.done}/${run.mutants.total} · ${run.mutants.killed ?? 0} ${w.killed}`
+  if (run.step === 'mutation' && run.mutants) {
+    const files = run.mutants.files && run.mutants.files.total > 1 ? ` · ${w.files} ${run.mutants.files.done}/${run.mutants.files.total}` : ''
+    return `${w.mutants} ${run.mutants.done}/${run.mutants.total} · ${run.mutants.killed ?? 0} ${w.killed}${files}`
+  }
   if (run.step === 'stryker' && run.stryker) return `${w.changes} ${run.stryker.done}/${run.stryker.total} · ${run.stryker.survived ?? 0} ${w.survived}`
   return ''
 }

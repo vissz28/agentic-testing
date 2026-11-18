@@ -14,7 +14,8 @@ import { tryReadJson } from '../../core/files.mjs'
 import { leavesFolder } from '../../core/paths.mjs'
 
 /** -t matches the full name: describe titles and test title joined by spaces. */
-export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
+/** Several titles (a mutation round) match any of them. */
+export const titlePattern = title => `(?:^| )${Array.isArray(title) ? `(?:${title.map(escapeRegExp).join('|')})` : escapeRegExp(title)}$`
 
 const LIVE_REPORTER = fileURLToPath(new URL('./live-reporter.mjs', import.meta.url))
 
@@ -97,7 +98,8 @@ export function runVitest(root, files, { config = null, testName, timeoutMs, liv
 
 export function vitestRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
-  return async ({ files, testName, timeoutMs, live }) => {
+  // testName may be a list (a mutation round): the title filter is a regex.
+  return Object.assign(async ({ files, testName, timeoutMs, live }) => {
     const groups = new Map()
     for (const f of files) {
       const c = configFor(f, config)
@@ -112,5 +114,5 @@ export function vitestRunner(root, config) {
       all.broken.push(...r.broken.filter(b => want.has(normalize(b.file))))
     }
     return all
-  }
+  }, { namesFilter: true })
 }

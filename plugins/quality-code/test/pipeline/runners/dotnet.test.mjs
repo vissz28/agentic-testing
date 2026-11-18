@@ -248,8 +248,8 @@ test('the pipeline on .NET: green with every mutant killed in place, and the spe
     const src = fs.readFileSync(cwd + '/${SPEC}', 'utf8')
     const pristine = src === ${JSON.stringify(SRC)}
     const filter = args[args.indexOf('--filter') + 1]
-    const only = filter.split('.').at(-1)
-    const names = ['Rounds_up', 'Rounds_down'].filter(n => !only || n === only)
+    const only = filter.split('|').map(c => c.split('.').at(-1)).filter(Boolean)
+    const names = ['Rounds_up', 'Rounds_down'].filter(n => !only.length || only.includes(n))
     return { exit: pristine ? 0 : 1, trx: trx(names.map(name => ({ cls: 'Demo.Tests.PricingTests', name, outcome: pristine ? 'Passed' : 'Failed', message: pristine ? '' : 'Assert.Equal() Failure' }))) }`)
   t.after(fake.restore)
   const config = { adapter: 'dotnet', jira: { projects: ['DEMO'] } }
@@ -258,7 +258,8 @@ test('the pipeline on .NET: green with every mutant killed in place, and the spe
   assert.equal(out.verdict, 'green', JSON.stringify(out.steps.map(s => [s.check, s.status, s.summary])))
   assert.equal(step('suite-honesty').summary, '2/2 tests carry assertions (100%)')
   assert.equal(step('mutation').summary, '2/2 mutants killed')
-  assert.deepEqual(fake.calls().slice(1).map(c => c.args[c.args.indexOf('--filter') + 1]), ['FullyQualifiedName~Demo.Tests.PricingTests.Rounds_up', 'FullyQualifiedName~Demo.Tests.PricingTests.Rounds_down'])
+  // Both tests' mutants in one build and one run, filtered to those two tests.
+  assert.deepEqual(fake.calls().slice(1).map(c => c.args[c.args.indexOf('--filter') + 1]), ['FullyQualifiedName~Demo.Tests.PricingTests.Rounds_up|FullyQualifiedName~Demo.Tests.PricingTests.Rounds_down'])
   assert.equal(readFileSync(join(d, SPEC), 'utf8'), SRC)
 })
 
