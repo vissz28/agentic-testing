@@ -1,8 +1,8 @@
 # Build the Quality Code MCP server image; on main, publish it to Harbor (harbor.ts-paas.com, project quality), image deploy-server.
 # The branch flow: dev is ours (no pipeline), test builds the image and smoke tests it (nothing is published), main publishes.
 # Runs on every push to test or main that changes the plugin, and by hand (Actions > "harbor" > Run workflow; a run by hand
-# publishes only from main). Harbor keeps only :latest: the new image replaces it when the build and the smoke test pass,
-# and the older images are deleted.
+# publishes only from main). Harbor keeps only :latest: the new image replaces it
+# when the build and the smoke test pass.
 # No Azure here: it only builds the image and pushes it.
 #
 # Secrets (Settings > Secrets and variables > Actions): HARBOR_USERNAME (the robot account) and HARBOR_PASSWORD.
@@ -89,29 +89,6 @@ jobs:
         run: |
           docker tag quality-code-mcp:ci "$IMAGE:latest"
           docker push "$IMAGE:latest"
-
-      # Harbor keeps one image: every artifact that does not carry the tag latest (the previous latest, now untagged,
-      # and any old version tag) is deleted. The robot account needs the "delete artifact" permission on the project;
-      # without it this step only warns and the old images stay.
-      - name: Delete the old images
-        if: env.PUBLISH == 'true' && env.HAS_HARBOR == 'true'
-        env:
-          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
-          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
-          HOST: ${{ vars.HARBOR_HOST || 'harbor.ts-paas.com' }}
-          PROJECT: ${{ vars.HARBOR_PROJECT || 'quality' }}
-        run: |
-          API="https://$HOST/api/v2.0/projects/$PROJECT/repositories/deploy-server/artifacts"
-          json=$(curl -fsS -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API?page_size=100&with_tag=true") || { echo "::warning::could not list the artifacts, old images kept"; exit 0; }
-          for digest in $(echo "$json" | jq -r '.[] | select(([.tags[]?.name] | index("latest")) | not) | .digest'); do
-            if curl -fsS -o /dev/null -X DELETE -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API/$digest"; then
-              echo "deleted $digest"
-            else
-              echo "::warning::could not delete $digest (the robot account needs the delete artifact permission)"
-            fi
-          done
-          echo "left in Harbor:"
-          curl -fsS -u "$HARBOR_USERNAME:$HARBOR_PASSWORD" "$API?page_size=100&with_tag=true" | jq -r '.[] | "\(.digest[0:19])  tags: \([.tags[]?.name] | join(","))"'
 
       - name: Summary (test)
         if: env.PUBLISH != 'true'
