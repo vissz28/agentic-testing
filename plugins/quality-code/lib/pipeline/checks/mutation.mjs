@@ -151,6 +151,7 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
       const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || whole || !t.path?.length || inKeyBlock(t, key))) : []
       if (!executed.length) outcomes.push({ ...m, error: true })
       else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
+      ctx.live?.count('mutants', { spec, done: outcomes.length, total: mutants.length, killed: outcomes.filter(o => o.killed).length })
     }
   } finally {
     cleanup()
