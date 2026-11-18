@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { detect, stripCredentials, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
+import { detect, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
+import { stripCredentials } from '../../lib/core/git.mjs'
 import { fakeCommand } from '../fake-bin.mjs'
 
 const put = (d, p, s = 'x') => { mkdirSync(dirname(join(d, p)), { recursive: true }); writeFileSync(join(d, p), s) }

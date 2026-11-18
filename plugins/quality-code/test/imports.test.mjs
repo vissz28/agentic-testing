@@ -33,7 +33,6 @@ const KNOWN_BIN = [
   'bin/ci.mjs -> bin/evals.mjs',
   'bin/ci.mjs -> bin/setup.mjs',
   'bin/evals.mjs -> bin/xray.mjs',
-  'bin/setup.mjs -> bin/branch.mjs',
   'bin/routine.mjs -> bin/ci.mjs',
   'bin/xray-api.mjs -> bin/mcp-launch.mjs',
   'bin/xray-api.mjs -> bin/connector-settings.mjs',
