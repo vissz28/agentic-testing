@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { KEYS, EXAMPLES, keyRows, refusal, pluginSteps } from '../../lib/config/set.mjs'
+import { KEYS, EXAMPLES, keyRows, refusal, pluginSteps } from '../../lib/base/set.mjs'
 
 const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const config = read('commands/config.md')

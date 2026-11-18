@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { parseValue, KEYS } from '../../lib/config/set.mjs'
+import { parseValue, KEYS } from '../../lib/base/set.mjs'
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '../../bin/ticket.mjs')
 const base = () => ({ version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] })
