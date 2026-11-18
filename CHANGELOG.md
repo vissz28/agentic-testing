@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.84.1] - 2026-11-18
+
+### Changed
+
+- Internal only, nothing to do on update: setup's code moved from `bin/setup.mjs` to `lib/base/setup.mjs` and `config set` to `lib/base/set.mjs`, so no library file imports a command script any more. `bin/setup.mjs` still takes the same flags. The config check is split into smaller checks with the same messages.
+
 ## [0.84.0] - 2026-11-17
 
 ### Fixed

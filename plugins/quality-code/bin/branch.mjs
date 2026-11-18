@@ -5,7 +5,7 @@ import { loadConfig, projectRoot } from '../lib/config/config.mjs'
 import { redact } from '../lib/ticket/sanitize.mjs'
 import { adaptersOf } from '../lib/stacks/stack.mjs'
 import { BACKENDS, backendOf, isBackend } from '../lib/stacks/backends.mjs'
-import { gitOut as git } from '../lib/core/git.mjs'
+import { gitOut as git, stripCredentials } from '../lib/core/git.mjs'
 import { e2eFolder } from '../lib/stacks/e2e-folder.mjs'
 import { isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
 import { escapeRegExp, withoutOrigin } from '../lib/core/text.mjs'
@@ -13,11 +13,6 @@ import { isTicketKey } from '../lib/core/is.mjs'
 
 const CODE_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|vue|svelte|astro|html)$/
 const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
-
-export function stripCredentials(url) {
-  if (!url) return null
-  return String(url).replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]*@/i, '$1')
-}
 
 export function keyCandidates(texts, projects) {
   if (!projects.length) return []

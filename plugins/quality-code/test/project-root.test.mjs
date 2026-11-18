@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { configHome, findRoot, loadConfig, projectRoot } from '../lib/config/config.mjs'
-import { detect, write } from '../bin/setup.mjs'
+import { detect, write } from '../lib/base/setup.mjs'
 import { ENV } from './git-env.mjs'
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '../bin')

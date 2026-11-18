@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { detect, projectCandidates, write } from '../../bin/setup.mjs'
+import { detect, projectCandidates, write } from '../../lib/base/setup.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }

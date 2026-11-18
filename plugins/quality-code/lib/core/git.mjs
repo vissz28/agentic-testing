@@ -23,6 +23,12 @@ export function git(root, args, { okCodes = [], input, timeout } = {}) {
 /** What git printed without the closing newline (a leading space stays: status lines start with one); null when git fails. */
 export const gitOut = (root, args) => { const r = git(root, args); return r.ok ? r.out.replace(/\n$/, '') : null }
 
+/** A remote URL without its user:password@ part; null for none. */
+export function stripCredentials(url) {
+  if (!url) return null
+  return String(url).replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]*@/i, '$1')
+}
+
 /** HEAD, or git's empty tree in a repo with no commit yet: there every line of a file reads as added. */
 function head(root) {
   if (git(root, ['rev-parse', '--verify', '--quiet', 'HEAD']).ok) return 'HEAD'

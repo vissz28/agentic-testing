@@ -20,7 +20,7 @@ import { anchorRange, scoreSpec } from '../pipeline/checks/suite-honesty.mjs'
 import { dialectFor } from '../stacks/dialects/index.mjs'
 import { keyPattern } from '../config/keys.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
-import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from '../../bin/setup.mjs'
+import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from './setup.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
 import { cleanRelPath, leavesFolder } from '../core/paths.mjs'
 
