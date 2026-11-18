@@ -9,9 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-11-18
+
 ### Added
 
 - A live band above the prompt while `/quality-code:check` or `/quality-code:spec` runs the checks: the ticket, the side (Vitest, Playwright), the step running out of the side's steps, a bar with the percent of the whole run, and the step's own counts: tests done out of the total with passed, failed and skipped (Vitest also by files), mutants killed, Stryker's code changes and survivors. When the run ends it shows the verdict for 20 seconds, then goes away. Its words follow the saved language (English or Italian). pytest, JUnit, Go and .NET show the step only, with no counts yet. The band uses Claude Code's plugin modules (early access); a Claude Code without them shows nothing, and the checks run as before.
+
 ## [0.84.1] - 2026-11-18
 
 ### Changed
