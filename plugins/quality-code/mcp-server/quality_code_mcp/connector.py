@@ -207,7 +207,16 @@ class ConnectorProvider:
         now = time.time()
         self._used = {j: t for j, t in self._used.items() if t > now}  # forget codes that have expired anyway
         self._used[claims["jti"]] = claims["exp"] + 5
-        return self._tokens(client.client_id, authorization_code.identity, authorization_code.scopes, authorization_code.resource)
+        identity = authorization_code.identity
+        for key, slug, up in self.s.upstreams:
+            link = self.open_link(identity, identity.get(key))
+            if link and not link.get("at") and link.get("rt"):
+                try:
+                    link = await asyncio.to_thread(up.refresh, link)
+                except RuntimeError:
+                    raise TokenError(error="invalid_grant", error_description=f"{slug.title()} access ended: connect the connector again") from None
+                identity = {**identity, key: self.seal_link(identity, link)}
+        return self._tokens(client.client_id, identity, authorization_code.scopes, authorization_code.resource)
 
     async def load_refresh_token(self, client: OAuthClientInformationFull, refresh_token: str) -> ConnectorRefresh | None:
         c = self.read(refresh_token, "refresh")
@@ -372,7 +381,10 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
             c = provider.read(request.cookies.get(LINK_COOKIE), "link_state")
             tx = provider.read(c["tx"], "tx") if c else None
             q = request.query_params
-            if not (c and tx) or c.get("k") != key or not secrets.compare_digest(q.get("state", ""), c["state"]):
+            if c and tx and c.get("k") != key:
+                # A stale tab or a back button: the cookie says another service is next. Do not dead-end, go on with the service that is still missing.
+                return proceed(c["tx"], tx, c["id"])
+            if not (c and tx) or not secrets.compare_digest(q.get("state", ""), c["state"]):
                 return html(web.login_page(configured=True, error=f"The {slug.title()} sign-in expired. Add the connector in Claude again."), 400)
             if q.get("error") or not q.get("code"):
                 qs = {k: v for k, v in {"error": "access_denied", "error_description": f"{slug.title()} was not connected.", "state": tx.get("st")}.items() if v}
@@ -383,7 +395,9 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
                 link = await asyncio.to_thread(client.link, q["code"], s.upstream_redirect(slug))
             except RuntimeError as e:
                 return html(web.login_page(configured=True, error=f"{e}. Add the connector in Claude again."), 400)
-            return proceed(c["tx"], tx, {**c["id"], key: provider.seal_link(c["id"], link)})
+            # Atlassian's access token is long: carrying it through the next sign-in cookie would pass the 4 KB cookie limit (the GitHub step then lost its state). Keep only the refresh token; the code exchange gets a fresh access token.
+            slim = {k: v for k, v in link.items() if k != "at"} if link.get("rt") else link
+            return proceed(c["tx"], tx, {**c["id"], key: provider.seal_link(c["id"], slim)})
 
         return callback
 

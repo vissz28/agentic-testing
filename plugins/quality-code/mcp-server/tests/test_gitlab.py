@@ -97,9 +97,9 @@ def test_the_gitlab_sign_in_ends_with_tokens_that_hold_only_a_sealed_access_toke
     access = jwt.decode(tok["access_token"], SECRET, algorithms=["HS256"], audience=H)
     assert "gl" not in access["id"] and "at1" not in tok["access_token"] and "rt1" not in tok["access_token"]
     link = vault.unseal(KEY, access["gl"], aad="oid-1")
-    assert link["at"] == "at1" and link["base"] == API and "rt" not in link
+    assert link["at"] == "at2" and link["base"] == API and "rt" not in link
     refresh = jwt.decode(tok["refresh_token"], SECRET, algorithms=["HS256"], audience=H)
-    assert vault.unseal(KEY, refresh["id"]["gl"], aad="oid-1")["rt"] == "rt1"
+    assert vault.unseal(KEY, refresh["id"]["gl"], aad="oid-1")["rt"] == "rt2"
     exchange = [b for m, u, h, b in fake.calls if b and b["grant_type"] == "authorization_code"][0]
     assert exchange["code"] == "gcode" and exchange["redirect_uri"] == H + "/connect/gitlab/callback"
     assert tok["expires_in"] <= 7200
@@ -112,8 +112,8 @@ def test_refreshing_the_connector_token_refreshes_gitlab_and_rotates_the_pair(c,
     r = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
     assert r.status_code == 200, r.text
     new = r.json()
-    assert vault.unseal(KEY, jwt.decode(new["access_token"], SECRET, algorithms=["HS256"], audience=H)["gl"], aad="oid-1")["at"] == "at2"
-    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["gl"], aad="oid-1")["rt"] == "rt2"
+    assert vault.unseal(KEY, jwt.decode(new["access_token"], SECRET, algorithms=["HS256"], audience=H)["gl"], aad="oid-1")["at"] == "at3"
+    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["gl"], aad="oid-1")["rt"] == "rt3"
     again = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
     assert again.status_code == 400 and again.json()["error"] == "invalid_grant"
 
@@ -154,7 +154,7 @@ def test_the_chain_goes_microsoft_then_atlassian_then_gitlab_then_the_code(tmp_p
         assert r.headers["location"].startswith(CB)
         code = parse_qs(urlparse(r.headers["location"]).query)["code"][0]
         access = jwt.decode(token(c, cid, verifier, code).json()["access_token"], SECRET, algorithms=["HS256"], audience=H)
-        assert vault.unseal(KEY, access["atl"], aad="oid-1")["at"] == "atl1" and vault.unseal(KEY, access["gl"], aad="oid-1")["at"] == "at1"
+        assert vault.unseal(KEY, access["atl"], aad="oid-1")["at"] == "atl1" and vault.unseal(KEY, access["gl"], aad="oid-1")["at"] == "at2"
 
 
 def run_tool(monkeypatch, cs, fn, claims, **args):
@@ -222,3 +222,47 @@ def test_the_gitlab_tools_exist_only_when_gitlab_is_set(tmp_path, cs):
     assert mine <= names(on) and not (mine & names(off))
     tools = {t.name: t for t in asyncio.run(on.list_tools())}
     assert all(tools[n].annotations.read_only_hint for n in mine)
+
+
+class BigAtl(FakeAtl):
+    """Atlassian's real access tokens are long: the sign-in cookie must still fit a browser's 4 KB limit."""
+
+    def __call__(self, method, url, headers, body):
+        r = super().__call__(method, url, headers, body)
+        if isinstance(r, dict) and r.get("access_token"):
+            r = {**r, "access_token": r["access_token"] + "x" * 2500}
+        return r
+
+
+def chain(tmp_path, monkeypatch, atl_http):
+    gs = gitlab.GitLabSettings("gid", "gsecret", http=FakeGitLab())
+    cs = connector.ConnectorSettings(entra=S, secret=SECRET, rules="Rule.", rules_version="v1", vault_key=KEY, gitlab=gs,
+                                     atlassian=atlassian.AtlassianSettings("aid", "asecret", site="https://example.atlassian.net", http=atl_http))
+    monkeypatch.setattr(web, "redeem_code", lambda w, code, verifier: "id-token")
+    monkeypatch.setattr(web, "check_id_token", lambda w, tok, nonce, key: CLAIMS)
+    return build(plugin_root(), entra=S, remote=True, fixed_cwd=tmp_path, web_settings=W, connector=cs)
+
+
+def test_a_long_atlassian_token_does_not_overflow_the_cookie_of_the_next_sign_in(tmp_path, monkeypatch):
+    s = chain(tmp_path, monkeypatch, BigAtl())
+    with TestClient(s.streamable_http_app(host="qc-mcp.example.com"), base_url=H, follow_redirects=False) as c:
+        cid = register(c).json()["client_id"]
+        verifier, challenge = pkce()
+        through_entra(c, start(c, cid, challenge))
+        r = c.post("/connect/accept", data={**FORM, "csrf": csrf_of(c)})
+        r = c.get(f"/connect/atlassian/callback?code=a&state={parse_qs(urlparse(r.headers['location']).query)['state'][0]}")
+        assert r.headers["location"].startswith(f"{HOST}/oauth/authorize?")
+        cookie = r.headers["set-cookie"]
+        assert len(cookie) < 4000, len(cookie)
+
+
+def test_a_stale_tab_goes_on_with_the_missing_service_instead_of_a_dead_end(tmp_path, monkeypatch):
+    s = chain(tmp_path, monkeypatch, FakeAtl())
+    with TestClient(s.streamable_http_app(host="qc-mcp.example.com"), base_url=H, follow_redirects=False) as c:
+        cid = register(c).json()["client_id"]
+        verifier, challenge = pkce()
+        through_entra(c, start(c, cid, challenge))
+        r = c.post("/connect/accept", data={**FORM, "csrf": csrf_of(c)})
+        assert r.headers["location"].startswith("https://auth.atlassian.com/authorize?")
+        r = c.get("/connect/gitlab/callback?code=g&state=old")  # a gitlab page from another tab, while Atlassian is the step in progress
+        assert r.status_code == 303 and r.headers["location"].startswith("https://auth.atlassian.com/authorize?")

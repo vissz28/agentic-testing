@@ -93,9 +93,9 @@ def test_the_atlassian_sign_in_ends_with_tokens_that_hold_only_a_sealed_access_t
     access = jwt.decode(tok["access_token"], SECRET, algorithms=["HS256"], audience=H)
     assert "atl" not in access["id"] and "at1" not in tok["access_token"] and "rt1" not in tok["access_token"]
     link = vault.unseal(KEY, access["atl"], aad="oid-1")
-    assert link["at"] == "at1" and link["cloud"] == "cloud-1" and "rt" not in link  # the refresh token is not in the access token
+    assert link["at"] == "at2" and link["cloud"] == "cloud-1" and "rt" not in link  # the refresh token is not in the access token
     refresh = jwt.decode(tok["refresh_token"], SECRET, algorithms=["HS256"], audience=H)
-    assert vault.unseal(KEY, refresh["id"]["atl"], aad="oid-1")["rt"] == "rt1"
+    assert vault.unseal(KEY, refresh["id"]["atl"], aad="oid-1")["rt"] == "rt2"
     assert tok["expires_in"] <= 3600
 
 
@@ -107,8 +107,8 @@ def test_refreshing_the_connector_token_refreshes_atlassian_and_rotates_the_pair
     assert r.status_code == 200, r.text
     new = r.json()
     link = vault.unseal(KEY, jwt.decode(new["access_token"], SECRET, algorithms=["HS256"], audience=H)["atl"], aad="oid-1")
-    assert link["at"] == "at2"
-    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["atl"], aad="oid-1")["rt"] == "rt2"
+    assert link["at"] == "at3"
+    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["atl"], aad="oid-1")["rt"] == "rt3"
     # the old refresh token was rotated away at Atlassian: using it again fails and asks to connect again
     again = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
     assert again.status_code == 400 and again.json()["error"] == "invalid_grant"

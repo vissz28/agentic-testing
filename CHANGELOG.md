@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.4] - 2026-11-18
+
+### Fixed
+- Signing in with Atlassian then GitHub ended on "The GitHub sign-in expired". Atlassian's long access token made the short sign-in cookie pass the browser's 4 KB limit, so the next step lost its state. The cookie now keeps only the refresh token, and the code exchange gets a fresh access token.
+- A stale tab or the back button on a sign-in step no longer ends on an error page: the sign-in goes on with the service that is still missing.
+
+**What to do:** server: deploy the new image, then remove and add the Quality Code connector again.
+
 ## [0.89.3] - 2026-11-18
 
 ### Changed
