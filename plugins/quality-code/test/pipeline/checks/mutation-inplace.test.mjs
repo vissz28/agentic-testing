@@ -18,20 +18,21 @@ function spec() {
 }
 const bytes = d => readFileSync(join(d, 'pkg/total_test.fake'))
 
-test('in place: each mutant runs from the spec\'s own path and the spec is byte-identical afterwards', async () => {
+test('in place: the mutants run from the spec\'s own path, one per test in a single run, and the spec is byte-identical afterwards', async () => {
   const d = spec()
   const seen = []
-  const runTests = async ({ files, testName }) => {
+  const runTests = Object.assign(async ({ files, testName }) => {
     const now = readFileSync(join(d, files[0]), 'utf8')
     seen.push({ files, testName, mutated: now !== SRC })
     // The mutant is killed when the spec no longer reads as the original.
-    const status = testName && now !== SRC ? 'failed' : 'passed'
-    return { ran: true, tests: ['total', 'count'].filter(t => !testName || t === testName).map(title => ({ title, file: files[0], status })) }
-  }
+    const status = now !== SRC ? 'failed' : 'passed'
+    return { ran: true, tests: (testName === undefined ? ['total', 'count'] : [].concat(testName)).map(title => ({ title, file: files[0], status })) }
+  }, { namesFilter: true })
   const r = await run({ spec: 'pkg/total_test.fake' }, { root: d, dialect: FAKE, runTests })
   assert.equal(r.status, 'pass', r.summary)
   assert.deepEqual(r.data.total, 2)
-  assert.deepEqual(seen.slice(1).map(s => s.files), [['pkg/total_test.fake'], ['pkg/total_test.fake']])
+  // Two tests, one mutant each: one round, one compile, both names asked for.
+  assert.deepEqual(seen.slice(1).map(s => [s.files, s.testName]), [[['pkg/total_test.fake'], ['total', 'count']]])
   assert.ok(seen.slice(1).every(s => s.mutated), 'the spec itself held the mutant while it ran')
   assert.ok(bytes(d).equals(Buffer.from(SRC)))
   assert.deepEqual(readdirSync(join(d, 'pkg')), ['total_test.fake'], 'no temp copy beside it')
@@ -79,10 +80,11 @@ test('in place: SIGINT mid-run puts the original bytes back, then ends the proce
 test('in place: a spec that cannot be put back is reported, naming it, never passed over (J4)', async () => {
   const d = spec()
   const file = join(d, 'pkg/total_test.fake')
-  const runTests = async ({ files, testName }) => {
-    // The first mutant runs, then the spec cannot be written any more: the restore fails.
-    if (testName) chmodSync(file, 0o444)
-    return { ran: true, tests: ['total', 'count'].filter(t => !testName || t === testName).map(title => ({ title, file: files[0], status: testName ? 'failed' : 'passed' })) }
+  const runTests = async ({ files }) => {
+    // The first round runs, then the spec cannot be written any more: the restore fails.
+    const mutated = readFileSync(file, 'utf8') !== SRC
+    if (mutated) chmodSync(file, 0o444)
+    return { ran: true, tests: ['total', 'count'].map(title => ({ title, file: files[0], status: mutated ? 'failed' : 'passed' })) }
   }
   const r = await run({ spec: 'pkg/total_test.fake' }, { root: d, dialect: FAKE, runTests })
   chmodSync(file, 0o644)

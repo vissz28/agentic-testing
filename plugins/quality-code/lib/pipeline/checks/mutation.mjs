@@ -1,5 +1,6 @@
 // Assertion mutation: mutate each expect in green tests and run it from a temp copy; any survivor fails.
 // Compiled dialects (mutation.inPlace) can't run a sibling copy (duplicate class), so they mutate the spec and restore its bytes.
+// Mutants run in rounds: one per test at a time, so one run (one compile) checks a mutant in every test.
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix, resolve } from 'node:path'
 import { result } from '../result.mjs'
@@ -84,6 +85,21 @@ export function applyMutant(src, m) {
   return `${src.slice(0, m.start)}${m.replacement}${src.slice(m.end)}`
 }
 
+/** Several mutants in one source, last first so the earlier offsets still hold. */
+export const applyMutants = (src, ms) => [...ms].sort((a, b) => b.start - a.start).reduce(applyMutant, src)
+
+/**
+ * Rounds of mutants that run together: at most one per test title, so a failing test names its own mutant.
+ * Each test's mutants keep their order, so the first round holds every test's strongest.
+ */
+export function rounds(mutants) {
+  const byTest = new Map()
+  for (const m of mutants) byTest.set(m.title, [...(byTest.get(m.title) ?? []), m])
+  const out = []
+  for (const list of byTest.values()) list.forEach((m, i) => { (out[i] ??= []).push(m) })
+  return out
+}
+
 /** Remove temp mutants left by dead processes. */
 export function sweepStale(dir) {
   let names = []
@@ -120,6 +136,7 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
   // maxMutants keeps the strongest; the summary reports how many were dropped.
   const capped = max != null && mutants.length > max ? mutants.length - max : 0
   if (capped) mutants = mutants.slice(0, max)
+  ctx.mutationProgress?.plan(mutants.length)
 
   const inPlace = ctx.dialect.mutation.inPlace === true
   const tmp = inPlace ? specPath : tempSpecPath(specPath)
@@ -137,21 +154,40 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
   const stopListening = () => { process.removeListener('SIGINT', onSignal); process.removeListener('SIGTERM', onSignal) }
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
-  const outcomes = []
+  const outcomes = new Map()
   let stopped = null
-  try {
-    for (const m of mutants) {
-      try { writeFileSync(tmp, applyMutant(src, m)) } catch (e) {
-        stopped = result('mutation', 'not_run', `cannot write the ${inPlace ? 'mutant into the spec' : 'temp mutant next to the spec'}: ${String(e?.message ?? e).split('\n')[0]}`)
-        break
-      }
-      let r
-      try { r = await ctx.runTests({ files: [relTmp], testName: m.title, timeoutMs }) } finally { if (inPlace) cleanup() }
-      // A same-named test in another ticket's block can't kill this mutant; no describe path means no other block.
+  // A runner that filters by several titles (a regex) runs only the round's tests; the others run the whole spec.
+  const filterOf = ms => (ms.length === 1 ? ms[0].title : ctx.runTests.namesFilter ? ms.map(m => m.title) : undefined)
+  const settle = (m, killed) => {
+    outcomes.set(m, killed === null ? { ...m, error: true } : { ...m, killed })
+    ctx.mutationProgress?.done(killed === true)
+  }
+  /** null: the mutants could not be written, and the run stops. */
+  async function runRound(ms) {
+    try { writeFileSync(tmp, applyMutants(src, ms)) } catch (e) {
+      stopped = result('mutation', 'not_run', `cannot write the ${inPlace ? 'mutant into the spec' : 'temp mutant next to the spec'}: ${String(e?.message ?? e).split('\n')[0]}`)
+      return null
+    }
+    let r
+    try { r = await ctx.runTests({ files: [relTmp], testName: filterOf(ms), timeoutMs }) } finally { if (inPlace) cleanup() }
+    // A same-named test in another ticket's block can't kill this mutant; no describe path means no other block.
+    return ms.map(m => {
       const executed = r.ran ? r.tests.filter(t => t.title === m.title && (t.status === 'passed' || t.status === 'failed') && (!key || whole || !t.path?.length || inKeyBlock(t, key))) : []
-      if (!executed.length) outcomes.push({ ...m, error: true })
-      else outcomes.push({ ...m, killed: executed.some(t => t.status === 'failed') })
-      ctx.live?.count('mutants', { spec, done: outcomes.length, total: mutants.length, killed: outcomes.filter(o => o.killed).length })
+      return executed.length ? executed.some(t => t.status === 'failed') : null
+    })
+  }
+  try {
+    // A mutant whose test did not run in a shared round (a broken compile, a serial group that stopped early) gets a run of its own.
+    const alone = []
+    for (const round of rounds(mutants)) {
+      const got = await runRound(round)
+      if (!got) break
+      round.forEach((m, i) => (got[i] === null && round.length > 1 ? alone.push(m) : settle(m, got[i])))
+    }
+    for (const m of stopped ? [] : alone) {
+      const got = await runRound([m])
+      if (!got) break
+      settle(m, got[0])
     }
   } finally {
     cleanup()
@@ -161,10 +197,10 @@ export async function run({ spec, key = null, baseline = null, max = null, timeo
     return result('mutation', 'not_run', `could not put ${spec} back as it was (${restoreError.code ?? restoreError.message}): it may still hold a mutant, restore it from git`, [{ file: spec, kind: 'not restored', detail: String(restoreError.message ?? restoreError).split('\n')[0] }])
   }
   if (stopped) return stopped
-  const graded = outcomes.filter(o => !o.error)
+  const graded = mutants.filter(m => outcomes.has(m)).map(m => outcomes.get(m)).filter(o => !o.error)
   const killed = graded.filter(o => o.killed).length
   const survivedList = graded.filter(o => !o.killed)
-  const errors = outcomes.length - graded.length
+  const errors = outcomes.size - graded.length
   const score = graded.length ? Math.round((100 * killed) / graded.length) : null
   const data = { killed, survived: survivedList.length, errors, total: graded.length, score, survivors: survivedList.map(o => o.snippet), unmutated: bare.length, ...(capped ? { capped } : {}) }
   if (survivedList.length) {

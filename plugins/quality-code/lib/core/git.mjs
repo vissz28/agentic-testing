@@ -67,3 +67,17 @@ export function changedPaths(root, range = null) {
   const paths = `${d.out}\0${u.out}`.split('\0').filter(Boolean)
   return { ok: true, paths: [...new Set(paths)] }
 }
+
+/**
+ * Paths this branch changed: committed since it left its base, not committed yet, and untracked; relative to root.
+ * The base is base (origin/ first), else origin/HEAD, main or master; with none, only what is not committed yet.
+ * null outside a git repo.
+ */
+export function branchChangedPaths(root, base = null) {
+  if (gitOut(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return null
+  const tries = [base && `origin/${base}`, base, gitOut(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']), 'origin/main', 'origin/master', 'main', 'master']
+  const ref = tries.find(r => r && !r.startsWith('-') && git(root, ['rev-parse', '--verify', '--quiet', `${r}^{commit}`]).ok)
+  const fork = ref ? gitOut(root, ['merge-base', 'HEAD', ref]) : null
+  const r = changedPaths(root, fork || null)
+  return r.ok ? r.paths : null
+}

@@ -63,8 +63,10 @@ export function projectOf(root, file) {
   }
 }
 
+/** testName may be a list (a mutation round): one clause per class and name. */
 export function filterFor(classes, testName) {
-  return classes.map(c => `FullyQualifiedName~${c.fqn}.${testName === undefined ? '' : testName}`).join('|')
+  const names = testName === undefined ? [''] : [].concat(testName)
+  return classes.flatMap(c => names.map(n => `FullyQualifiedName~${c.fqn}.${n}`)).join('|')
 }
 
 /** Multi-targeted projects write one .trx per framework. */
@@ -147,7 +149,7 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
 export function dotnetRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const command = commandOf(config)
-  return async ({ files, testName, timeoutMs }) => {
+  return Object.assign(async ({ files, testName, timeoutMs }) => {
     const out = { ran: true, tests: [], broken: [] }
     const byProject = new Map()
     for (const f of files) {
@@ -173,10 +175,10 @@ export function dotnetRunner(root, config) {
         // Match by full name, else by short name if it's unique.
         const c = byFqn.get(t.className) ?? byName.get(t.className.split('.').at(-1))
         if (!c) continue
-        if (testName !== undefined && t.title !== testName) continue
+        if (testName !== undefined && ![].concat(testName).includes(t.title)) continue
         out.tests.push({ title: t.title, path: [c.title], file: c.file, status: t.status, message: t.message })
       }
     }
     return out
-  }
+  }, { namesFilter: true })
 }

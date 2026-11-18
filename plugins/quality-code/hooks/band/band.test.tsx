@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 import type { Live, Seen } from './types'
 import { SHOW_AFTER_FINISH_MS, STALE_MS, bar, percent, view, visible } from './view'
@@ -44,6 +44,12 @@ test('two sides: the second starts past the first', () => {
 test('mutation and Stryker show their own counts', () => {
   expect(view(run({ step: 'mutation', mutants: { total: 22, done: 7, killed: 7 } }), T0 + 5000).detail).toBe('mutants 7/22 · 7 killed · 5s')
   expect(view(run({ step: 'stryker', stryker: { total: 58, done: 47, survived: 3 } }), T0 + 5000).detail).toBe('code changes 47/58 · 3 survived · 5s')
+})
+
+test('mutation over several specs counts them, and the specs done move the bar', () => {
+  const m = (done: number) => run({ step: 'mutation', mutants: { total: 300, done: 120, killed: 118, files: { done, total: 40 } } })
+  expect(view(m(10), T0 + 5000).detail).toBe('mutants 120/300 · 118 killed · files 10/40 · 5s')
+  expect(percent(m(10)) < percent(m(30))).toBe(true)
 })
 
 test('a finished run says its verdict, in the person\'s language', () => {
@@ -94,5 +100,25 @@ test('nothing to show: the band leaves the row to the engine', async ($, on) => 
   })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await ui.find({ type: 'Text' }))?.text).toBe('engine')
+  await ui.unmount()
+})
+
+test('a spare engine moved to the project after it started shows the project\'s run, not the parking folder\'s', async ($, on) => {
+  // Claude Code Desktop parks a spare engine in a neutral folder and moves it to the project when the person writes.
+  const clock = mock.clock(on, { now: T0 + 130_000 })
+  let folder = '/Users/me/claude-spares/spare-1'
+  const fileOf = (dir: string) => `/tmp/quality-code/live/${dir.replace(/[^A-Za-z0-9]+/g, '-')}.json`
+  const repo = fileOf('/repo')
+  on('session.cwd', () => ({ value: folder }))
+  on('process.run', (_, e) => ({ value: { exitCode: 0, stdout: e.argv.includes('live.mjs') ? fileOf(e.init?.cwd ?? folder) : '{}', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('fs.stat', (_, e) => ({ value: { kind: 'file', size: 1, mtimeMs: e.path === repo ? 5 : 1, isLink: false } }))
+  on('fs.read', (_, e) => ({ value: e.path === repo ? JSON.stringify(run({ updatedAt: iso(T0 + 129_000) })) : '{}' }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: folder, surface: 'desktop', isInteractive: true })
+  await clock.advance(1000)
+  folder = '/repo'
+  await clock.advance(1000)
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /step 4\/6 tests/ }))?.text).toBe('🧪 Quality Code · AGT-212 · Vitest · step 4/6 tests')
   await ui.unmount()
 })
