@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-11-18
+
 ### Changed
 
 - Mutation runs much faster, on every stack. The mutants of a spec run in rounds of one per test, so one run (and, for Java, .NET and Go, one compile) checks a mutant in every test at once: a spec of 30 tests with 140 assertions takes about 5 runs instead of 140. Every runner (Vitest, Playwright, Jest, Mocha, `node --test`, pytest, JUnit, .NET, Go) runs only the round's tests. A test that did not run in its round gets a run of its own before it counts, so nothing is counted from a test that never ran. Vitest, Jest, Mocha and `node --test` specs also mutate side by side, a few fewer than the cores (at most 4); specs whose test config runs files one at a time (`fileParallelism: false`, `singleFork`, `maxWorkers: 1`, `runInBand`), Playwright, Cypress, pytest and the compiled stacks mutate one spec at a time, so tests that share a database or a server never fail each other's runs. On three warehouse-backend specs (180 mutants) the mutation step went from 94 s to 8 s, same result.
