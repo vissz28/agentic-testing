@@ -112,6 +112,13 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
         "Where they point to a guide file, call `quality_code_guide` with its name. "
         "Jira, GitLab, Figma and file tools are the ones your own client offers.\n\n---\n\n"
     )
+    if NO_SLASH:
+        note = note[: -len("---\n\n")] + (
+            "Follow EVERY step of this command and of the guides it points to, to its end, not only the first one, and keep every step on this server: "
+            "each script through `quality_code_run_script`, each guide through `quality_code_guide`, and each next command (a `Next:` line, "
+            "or a choice the person makes) through `quality_code_direct` with `Quality Code <command> <arguments>`. "
+            "When the person answers a card with a number or a word, carry on with the next step of the same command.\n\n---\n\n"
+        )
     present = [n for n in SERVER_TOOL_MAP if n in server_tools]
     if present:
         lines = "".join(f"- `{n}` instead of {SERVER_TOOL_MAP[n]}\n" for n in present)

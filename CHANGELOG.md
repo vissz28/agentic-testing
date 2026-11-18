@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.3] - 2026-11-18
+
+### Changed
+- On the shared MCP server every command now tells the model to follow all its steps and its guides to the end, and to keep each step on the server: scripts through `quality_code_run_script`, guides through `quality_code_guide`, and each next command through `quality_code_direct`, not only the first step.
+
+**What to do:** nothing for the plugin. Server: deploy the new image.
+
 ## [0.89.2] - 2026-11-18
 
 ### Changed

@@ -46,6 +46,8 @@ def test_the_shared_server_offers_no_slash_command(tmp_path):
         text = asyncio.run(s.call_tool("quality_code_direct", {"request": "Quality Code ticket PFO-1 --eval"}))
         assert "/quality-code:" not in str(text) and "Quality Code ticket" in str(text)
         assert "/quality-code:" not in render_guide(catalog.plugin_root(), "ticket-eval")
+        assert "Follow EVERY step" in str(text) and "quality_code_direct" in str(text)
     finally:
         build(catalog.plugin_root())  # back to the plugin's own profile
     assert "/quality-code:" in render_guide(catalog.plugin_root(), "ticket-eval")
+    assert "Follow EVERY step" not in catalog.render(catalog.load_commands(catalog.plugin_root())[0], catalog.plugin_root())
