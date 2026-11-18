@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.1] - 2026-11-18
+
+### Changed
+- The shared MCP server writes no config file any more. Each run gets the person's own Jira site and visible projects (else the default TeamSystem Jira and any project) in the environment of the script (`QUALITY_CODE_CONFIG_JSON`); the `people/<hash>/` folders and the startup `.claude/quality-code.json` are gone. The plugin keeps its file-based setup, unchanged.
+
+**What to do:** nothing for the plugin. Server: deploy the new image.
+
 ## [0.89.0] - 2026-11-18
 
 The plugin now works as one entry: say "Using Quality Code ..." in the chat and the right command runs, with its own scripts, parameters and suggestions.

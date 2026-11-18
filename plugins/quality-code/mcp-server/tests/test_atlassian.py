@@ -199,10 +199,9 @@ def test_each_person_gets_a_scripts_folder_with_their_own_site_and_projects(tmp_
     link = {"at": "a", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
     keys = atlassian.AtlassianSettings("i", "s", http=http).project_keys(link)
     assert keys == ["AAA", "BBB", "CCC"] and "startAt=2" in calls[1]
-    a = jira_config.write_person_config(tmp_path, "oid-1", SITE, keys)
-    b = jira_config.write_person_config(tmp_path, "oid-2", SITE, ["ZZZ"])
-    assert a != b and a.parent == tmp_path / "people"
-    assert json.loads((a / ".claude" / "quality-code.json").read_text())["jira"] == {"site": SITE, "projects": ["AAA", "BBB", "CCC"]}
-    assert json.loads((b / ".claude" / "quality-code.json").read_text())["jira"]["projects"] == ["ZZZ"]
+    a = json.loads(jira_config.config_json(SITE, keys))
+    assert a["jira"] == {"site": SITE, "projects": ["AAA", "BBB", "CCC"]}
+    assert json.loads(jira_config.config_json(SITE, ["ZZZ"]))["jira"]["projects"] == ["ZZZ"]
+    assert list(tmp_path.iterdir()) == []  # nothing is written to disk
     with pytest.raises(jira_config.JiraConfigError):
-        jira_config.write_person_config(tmp_path, "oid-3", SITE, [])
+        jira_config.config_json(SITE, [])

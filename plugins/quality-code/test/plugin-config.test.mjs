@@ -3,6 +3,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { loadConfig } from '../lib/config/config.mjs'
 
 const mcp = JSON.parse(readFileSync(new URL('../.mcp.json', import.meta.url), 'utf8')).mcpServers
 const plugin = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
@@ -87,4 +89,11 @@ test('setting descriptions say which way each one is for', () => {
   assert.match(settings.gitlab_username.description, /confirms/)
   assert.match(settings.gitlab_api_url.description, /no \/ at the end/)
   assert.match(settings.figma_api_key.description, /optional/i)
+})
+
+test('loadConfig reads the config from QUALITY_CODE_CONFIG_JSON (the shared server writes no file)', () => {
+  const cfg = '{"version":2,"frontend":"playwright","jira":{"site":"https://x.atlassian.net","projects":["*"]}}'
+  const r = loadConfig(tmpdir(), { QUALITY_CODE_CONFIG_JSON: cfg })
+  assert.equal(r.ok, true)
+  assert.equal(loadConfig(tmpdir(), { QUALITY_CODE_CONFIG_JSON: '{bad' }).ok, false)
 })

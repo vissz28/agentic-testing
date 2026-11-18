@@ -1,13 +1,11 @@
-"""The shared server's Jira setup, from its environment: there is no person to run /quality-code:setup, so the server writes the config the scripts read."""
+"""The shared server's Jira setup, from its environment: there is no person to run /quality-code:setup, so the server hands the scripts a config in their environment (no file is written)."""
 from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
 SITE = re.compile(r"^https://[^/\s]+$")
 KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
-CONFIG_REL = Path(".claude") / "quality-code.json"
 DEFAULT_SITE = "https://teamsystem.atlassian.net"
 ANY_PROJECT = "*"  # no project list: any key counts, the person's own Jira access decides what they see
 
@@ -32,25 +30,15 @@ def settings_from_env(env: dict[str, str]) -> tuple[str, list[str]]:
     return site, projects
 
 
-def write_person_config(base: Path, oid: str, site: str, projects: list[str]) -> Path:
-    """The scripts' working folder for one signed-in person: <base>/people/<hash of oid>/ with a config built from THEIR Jira site and visible projects."""
-    import hashlib
-
+def config_json(site: str, projects: list[str]) -> str:
+    """The config the scripts read, as one JSON string for QUALITY_CODE_CONFIG_JSON: nothing is written to disk."""
     site = site.rstrip("/")
-    projects = [p for p in projects if KEY.match(p)]
+    projects = [p for p in projects if p == ANY_PROJECT or KEY.match(p)]
     if not SITE.match(site) or not projects:
         raise JiraConfigError("this Atlassian account has no Jira site or no visible project")
-    folder = base / "people" / hashlib.sha256(oid.encode()).hexdigest()[:20]
-    path = folder / CONFIG_REL
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"version": 2, "frontend": "playwright", "jira": {"site": site, "projects": projects}}, indent=2) + "\n", encoding="utf-8")
-    return folder
+    return json.dumps({"version": 2, "frontend": "playwright", "jira": {"site": site, "projects": projects}})
 
 
-def write_config(project: Path, env: dict[str, str]) -> Path:
-    """Write <project>/.claude/quality-code.json for the Jira-only scripts when the Jira variables are set. The variables win on every start."""
-    site, projects = settings_from_env(env)
-    path = project / CONFIG_REL
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"version": 2, "frontend": "playwright", "jira": {"site": site, "projects": projects}}, indent=2) + "\n", encoding="utf-8")
-    return path
+def default_config_json(env: dict[str, str]) -> str:
+    """The server's own default (QUALITY_CODE_JIRA_SITE/PROJECTS, else TeamSystem's Jira and any project), used when the person has no Atlassian sign-in."""
+    return config_json(*settings_from_env(env))

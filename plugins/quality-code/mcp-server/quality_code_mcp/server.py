@@ -172,7 +172,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         """Run one of the plugin's checked scripts (node bin/<script>) in the project folder `cwd`. Each argument is its own list item."""
         return run_script(script, args, fixed_cwd or (Path(cwd).expanduser() if cwd else Path.cwd()))
 
-    def run_script(script: str, args: list[str] | None, work: Path) -> str:
+    def run_script(script: str, args: list[str] | None, work: Path, config: str | None = None) -> str:
         name = script if script.endswith(".mjs") else script + ".mjs"
         if name not in scripts:
             return f"error: unknown script {script!r}. Scripts: {', '.join(sorted(scripts))}"
@@ -182,6 +182,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         if not work.is_dir():
             return f"error: {work} is not a folder."
         env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
+        if config:
+            env["QUALITY_CODE_CONFIG_JSON"] = config
         if not running.acquire(blocking=False):
             return f"error: busy: {MAX_RUNNING} scripts are running already. Try again in a moment."
         try:
@@ -193,27 +195,26 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         out = (p.stdout + p.stderr)[:MAX_OUT]
         return f"{out}\n[exit code {p.returncode}]"
 
-    def person_folder() -> Path | None:
-        """With the Atlassian sign-in, the scripts run in a folder whose config is the person's own Jira site and visible projects (nothing fixed on the server); else None (the shared folder)."""
+    def person_config() -> str | None:
+        """With the Atlassian sign-in, the person's own Jira site and visible projects as a config string (nothing fixed on the server, nothing written); else the server default."""
         from mcp.server.auth.middleware.auth_context import get_access_token
 
-        if not (provider and provider.s.atlassian and fixed_cwd):
-            return None
-        t = get_access_token()
-        who = (t.claims or {}) if t else {}
-        link = provider.open_link({"oid": t.subject}, who.get("atl")) if t and who.get("atl") else None
-        if not link:
-            return None
         try:
-            return jira_config.write_person_config(fixed_cwd, t.subject, link.get("site") or "", provider.s.atlassian.project_keys(link))
-        except Exception:  # no site, no visible project, Atlassian down: fall back to the shared folder
-            return None
+            if provider and provider.s.atlassian:
+                t = get_access_token()
+                who = (t.claims or {}) if t else {}
+                link = provider.open_link({"oid": t.subject}, who.get("atl")) if t and who.get("atl") else None
+                if link:
+                    return jira_config.config_json(link.get("site") or "", provider.s.atlassian.project_keys(link))
+        except Exception:  # no site, no visible project, Atlassian down: the default
+            pass
+        return jira_config.default_config_json(dict(os.environ))
 
     if remote:
         # No `cwd` in the schema: a remote caller never picks the folder.
         def quality_code_run_script_remote(script: str, args: list[str] | None = None) -> str:
             """Run one of the plugin's checked read-only scripts (node bin/<script>). Each argument is its own list item."""
-            return run_script(script, args, person_folder() or fixed_cwd)
+            return run_script(script, args, fixed_cwd, person_config())
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))
@@ -472,7 +473,7 @@ def main(argv: list[str] | None = None) -> None:
     if not project or not Path(project).is_dir():
         raise SystemExit("quality-code-mcp: over http the scripts run in one folder only. Set QUALITY_CODE_PROJECT_DIR to the project folder.")
     try:
-        jira_config.write_config(Path(project).resolve(), dict(os.environ))
+        jira_config.default_config_json(dict(os.environ))  # only checks the Jira variables; no file is written
     except (jira_config.JiraConfigError, OSError) as e:
         raise SystemExit(f"quality-code-mcp: {e}")
     host = urlparse(entra.public_url).netloc

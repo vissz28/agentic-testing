@@ -650,9 +650,9 @@ export const personalConfigPath = (env = process.env) => join(claudeDir(env), 'q
 /** Where a personal setup saves tickets: absolute, so it never depends on the folder the user is in. */
 export const personalTicketsDir = (env = process.env) => cleanRelPath(join(claudeDir(env), 'quality-code', 'tickets'))
 
-function readValidated(p, label, source, env, root) {
+function readValidated(p, label, source, env, root, raw) {
   let obj
-  try { obj = JSON.parse(readFileSync(p, 'utf8')) } catch (err) {
+  try { obj = JSON.parse(raw ?? readFileSync(p, 'utf8')) } catch (err) {
     return { ok: false, source, path: p, errors: [`${label} is not valid JSON (${err.message}). ${SETUP}`] }
   }
   const own = isObject(obj) ? obj.ticketsDir : undefined
@@ -667,6 +667,9 @@ function readValidated(p, label, source, env, root) {
 // Repo config first, else the personal one. validateConfig's result plus source, path, place and auditDir;
 // config.ticketsDir is the place's tickets folder.
 export function loadConfig(root, env = process.env) {
+  // The shared MCP server hands the config over in the environment (no file is written): the person's own Jira site and projects.
+  const inline = String(env.QUALITY_CODE_CONFIG_JSON ?? '').trim()
+  if (inline) return readValidated('(environment)', 'QUALITY_CODE_CONFIG_JSON', 'personal', env, root, inline)
   const rp = configFileOf(configHome(root, env), env)
   if (rp) return readValidated(rp, rp.endsWith(CONFIG_REL) ? CONFIG_REL : 'config.json', 'repo', env, root)
   const pp = personalConfigPath(env)
