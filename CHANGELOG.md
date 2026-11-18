@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-11-18
+
+### Added
+
+- A `summary.md` next to `run.md` after every `/quality-code:check` or `/quality-code:spec` run with a ticket key: one page in plain words for people outside QA, made to open in the VS Code preview. It gives the verdict in one line, a few points on what happened during the run, each test as a sentence (what the user does, what they should see), which part of the ticket each test covers and any part with no test, and how we know the tests are real (each check as one sentence with its numbers). Claude writes it from the run's results, the saved ticket and the test files; the verdict and counts are copied, never changed. `run.md` stays the full technical log.
+
 ## [0.85.0] - 2026-11-18
 
 ### Added
