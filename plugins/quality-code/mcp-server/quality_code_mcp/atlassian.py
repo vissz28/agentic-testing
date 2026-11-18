@@ -4,6 +4,7 @@ The tokens are never stored: they are sealed (vault.py) into the connector token
 the connector token refreshes Atlassian too and seals the new pair, because Atlassian rotates its refresh tokens."""
 from __future__ import annotations
 
+import re
 import time
 import urllib.parse
 from dataclasses import dataclass
@@ -97,6 +98,44 @@ class AtlassianSettings:
                         "comments": [{"author": (c.get("author") or {}).get("displayName"), "created": c.get("created"), "text": adf_text(c.get("body"))} for c in (f.get("comment") or {}).get("comments", [])[-20:]]})
         return out
 
+    def search_detail(self, link: dict, jql: str, limit: int, excerpt: int = 400) -> list[dict]:
+        r = self._get(link, "search/jql", {"jql": jql, "maxResults": max(1, min(limit, MAX_RESULTS)), "fields": "summary,status,issuetype,assignee,description,parent"})
+        out = []
+        for i in r.get("issues", []):
+            f = i.get("fields") or {}
+            out.append({**brief(i), "parent": (f.get("parent") or {}).get("key"), "description": adf_text(f.get("description")).strip()[:excerpt]})
+        return out
+
+    def tree(self, link: dict, key: str, query: str = "", limit: int = 30) -> dict:
+        """The ticket and what it points to, so a command can use the criteria that live elsewhere: its parent or epic, subtasks, linked issues, the keys and ranges its
+        description names (a range like `PFO-4052 to PFO-4093` is expanded), and, with `query`, the children of its epic whose title has those words. Read-only, one level deep."""
+        root = self.issue(link, key, True)
+        text = root["description"] + "\n" + "\n".join(c.get("text") or "" for c in root.get("comments", []))
+        mentioned = [k for k in dict.fromkeys(KEY_RE.findall(text)) if k != key]
+        related = {"parent": [root["parent"]] if root.get("parent") else [], "subtasks": root.get("subtasks", []),
+                   "linked": [x["key"] for x in root.get("links", []) if x.get("key")], "mentioned": mentioned}
+        ranges = []
+        for proj, a, b in RANGE_RE.findall(root["description"]):
+            lo, hi = sorted((int(a), int(b)))
+            if proj and 0 < hi - lo <= RANGE_MAX:
+                ranges.append(f"(project = {proj} AND key >= {proj}-{lo} AND key <= {proj}-{hi})")
+        keys = list(dict.fromkeys(k for group in related.values() for k in group))
+        out: dict[str, Any] = {"issue": {k: root[k] for k in ("key", "summary", "status", "type", "assignee")}, "referenced": {}, "range": [], "epic_children": [], "remote_links": []}
+        if keys:
+            found = {i["key"]: i for i in self.search_detail(link, f"key in ({','.join(keys[:limit])})", limit)}
+            out["referenced"] = {name: [found[k] for k in group if k in found] for name, group in related.items() if group}
+        if ranges:
+            out["range"] = self.search_detail(link, f"({' OR '.join(ranges)}) ORDER BY key", limit, 200)
+        epic = root["parent"] if root.get("parent") else (key if root["type"] == "Epic" else None)
+        if epic and (query or root["type"] == "Epic"):
+            words = " AND ".join(f'summary ~ "{w}"' for w in re.findall(r"\w+", query)[:6])
+            out["epic_children"] = self.search_detail(link, f"parent = {epic}" + (f" AND {words}" if words else "") + " ORDER BY key", limit, 200)
+        try:
+            out["remote_links"] = self.remote_links(link, key)
+        except AtlassianError:
+            pass
+        return out
+
     def remote_links(self, link: dict, key: str) -> list[dict]:
         r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}/remotelink")
         return [{"title": (x.get("object") or {}).get("title"), "url": (x.get("object") or {}).get("url")} for x in r] if isinstance(r, list) else []
@@ -173,17 +212,30 @@ def brief(i: dict) -> dict:
 
 
 def adf_text(node: Any) -> str:
-    """Plain text of Jira's document format (what the description is), one block per line."""
+    """Plain text of Jira's document format (what the description is), one block per line. Links stay: a smart link or a link mark keeps its address."""
     if not node:
         return ""
     if isinstance(node, str):
         return node
-    if node.get("type") == "text":
-        return node.get("text", "")
-    if node.get("type") == "hardBreak":
+    kind = node.get("type")
+    attrs = node.get("attrs") or {}
+    if kind == "text":
+        text = node.get("text", "")
+        href = next((((m.get("attrs") or {}).get("href")) for m in node.get("marks") or [] if m.get("type") == "link"), None)
+        return f"{text} ({href})" if href and href not in text else text
+    if kind in {"inlineCard", "blockCard", "embedCard"}:
+        return attrs.get("url") or (attrs.get("data") or {}).get("url") or ""
+    if kind == "mention":
+        return attrs.get("text") or ""
+    if kind == "hardBreak":
         return "\n"
     inner = "".join(adf_text(c) for c in node.get("content", []))
-    return inner + ("\n" if node.get("type") in {"paragraph", "heading", "listItem", "codeBlock", "blockquote", "tableRow"} else "")
+    return inner + ("\n" if kind in {"paragraph", "heading", "listItem", "codeBlock", "blockquote", "tableRow"} else "")
+
+
+KEY_RE = re.compile(r"\b[A-Z][A-Z0-9_]*-\d+\b")
+RANGE_RE = re.compile(r"\b([A-Z][A-Z0-9_]*)-(\d+)(?:\)|/\S*)?\s*(?:to|until|through|-|\u2013|\u2014|\.\.\.?)\s*(?:https?://\S+/browse/)?(?:[A-Z][A-Z0-9_]*-)?(\d+)\b", re.I)
+RANGE_MAX = 200
 
 
 def settings_from_env(env: dict[str, str]) -> AtlassianSettings | None:

@@ -123,7 +123,11 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
             "Never write a ticket, raw, attached or audit file.\n"
             "Ask every question to the person as choice cards with the AskUserQuestion picker, never as a plain or numbered text question: one card per question, the real choices first, "
             "and the last option is always \"Other\" for their own words. When the person's own words name a Jira key or a task, use the most specific tool for it "
-            "(a key: `quality_code_jira_issue`; search words: `quality_code_jira_search`; a command: `quality_code_direct`).\n\n---\n\n"
+            "(a key: `quality_code_jira_issue`; search words: `quality_code_jira_search`; a command: `quality_code_direct`).\n"
+            "A ticket often points to other tickets (its epic, linked issues, keys or a range such as PFO-4052 to PFO-4093 in its description) where the criteria live. "
+            "When `quality_code_jira_tree` is offered, call it with the key (add `query` words from the description, such as a title phrase, to find the epic's matching children), "
+            "add each related issue as a `links` entry, and add its useful text to the end of the raw description after a line `## Related <KEY>: <summary>` (as the linked Xray tests are added), "
+            "so the script scores it. Never invent: use only what those issues say, and say which ones you used.\n\n---\n\n"
         )
     present = [n for n in SERVER_TOOL_MAP if n in server_tools]
     if present:

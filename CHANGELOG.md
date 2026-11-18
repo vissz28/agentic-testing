@@ -9,6 +9,16 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.8] - 2026-11-18
+
+### Added
+- Shared MCP server: `quality_code_jira_tree`. It reads a ticket and what it points to: its parent or epic, subtasks, linked issues, the issues and ranges its description names (`PFO-4052 to PFO-4093` is expanded), the web links, and, with `query` words, the children of its epic whose title has them. Each related issue comes with its type, status, summary and the start of its description. The command instructions tell the model to add the related issues as links and their text after `## Related <KEY>` so the script scores them.
+
+### Fixed
+- The description text from the server kept no links (a smart link in the description came out blank). Smart links and link marks now keep their address.
+
+**What to do:** nothing for the plugin. Server: deploy the new image.
+
 ## [0.89.7] - 2026-11-18
 
 ### Changed

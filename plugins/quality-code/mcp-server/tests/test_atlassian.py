@@ -205,3 +205,41 @@ def test_each_person_gets_a_scripts_folder_with_their_own_site_and_projects(tmp_
     assert list(tmp_path.iterdir()) == []  # nothing is written to disk
     with pytest.raises(jira_config.JiraConfigError):
         jira_config.config_json(SITE, [])
+
+
+def test_a_description_keeps_its_links():
+    doc = {"type": "doc", "content": [{"type": "paragraph", "content": [
+        {"type": "text", "text": "in epic "}, {"type": "inlineCard", "attrs": {"url": f"{SITE}/browse/PFO-2346"}},
+        {"type": "text", "text": " and ", "marks": []}, {"type": "text", "text": "the spec", "marks": [{"type": "link", "attrs": {"href": "https://wiki/x"}}]}]}]}
+    assert atlassian.adf_text(doc).strip() == f"in epic {SITE}/browse/PFO-2346 and the spec (https://wiki/x)"
+
+
+def test_the_tree_follows_the_keys_and_ranges_of_the_description_and_the_epic():
+    desc = {"type": "doc", "content": [{"type": "paragraph", "content": [
+        {"type": "text", "text": "tests in epic "}, {"type": "inlineCard", "attrs": {"url": f"{SITE}/browse/PFO-2346"}},
+        {"type": "text", "text": " from "}, {"type": "inlineCard", "attrs": {"url": f"{SITE}/browse/PFO-4052"}},
+        {"type": "text", "text": " to "}, {"type": "inlineCard", "attrs": {"url": f"{SITE}/browse/PFO-4055"}}]}]}
+    asked = []
+
+    def http(method, url, headers, body):
+        asked.append(url)
+        if "/remotelink" in url:
+            return [{"object": {"title": "Wiki", "url": "https://wiki/p"}}]
+        if "/search/jql" in url:
+            jql = parse_qs(urlparse(url).query)["jql"][0]
+            if "key in" in jql:
+                return {"issues": [{"key": "PFO-2346", "fields": {"summary": "Epic", "status": {"name": "IN PROGRESS"}, "issuetype": {"name": "Epic"}, "description": None}}]}
+            if "key >= PFO-4052" in jql:
+                return {"issues": [{"key": "PFO-4053", "fields": {"summary": "Spese sanitarie UI login", "status": {"name": "DONE"}, "issuetype": {"name": "Task"}, "description": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Given a user When..."}]}]}}}]}
+            if "parent = PFO-2346" in jql and 'summary ~ "sanitarie"' in jql:
+                return {"issues": [{"key": "PFO-4060", "fields": {"summary": "Spese sanitarie UI list", "status": {"name": "TO DO"}, "issuetype": {"name": "Task"}}}]}
+            raise AssertionError(jql)
+        return {"key": "PFO-4178", "fields": {"summary": "S", "status": {"name": "TO DO"}, "issuetype": {"name": "Story"}, "assignee": None, "labels": [], "description": desc,
+                                              "parent": {"key": "PFO-2346"}, "subtasks": [], "issuelinks": []}}
+
+    link = {"at": "a", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
+    out = atlassian.AtlassianSettings("i", "s", http=http).tree(link, "PFO-4178", "sanitarie")
+    assert [i["key"] for i in out["referenced"]["parent"]] == ["PFO-2346"] and out["referenced"]["parent"][0]["type"] == "Epic"
+    assert [i["key"] for i in out["range"]] == ["PFO-4053"] and out["range"][0]["description"].startswith("Given a user")
+    assert [i["key"] for i in out["epic_children"]] == ["PFO-4060"] and out["remote_links"][0]["url"] == "https://wiki/p"
+    assert any("key+%3E%3D+PFO-4052" in u or "key >= PFO-4052" in u.replace("%20", " ").replace("+", " ") for u in asked)
