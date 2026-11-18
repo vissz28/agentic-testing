@@ -186,6 +186,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
         if config:
             env["QUALITY_CODE_CONFIG_JSON"] = config
+        if remote:
+            env["QUALITY_CODE_STATELESS"] = "1"  # the shared server keeps no ticket, audit or run file: the chat holds them
         if not running.acquire(blocking=False):
             return f"error: busy: {MAX_RUNNING} scripts are running already. Try again in a moment."
         try:

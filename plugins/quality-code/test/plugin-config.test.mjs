@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { loadConfig } from '../lib/config/config.mjs'
 
 const mcp = JSON.parse(readFileSync(new URL('../.mcp.json', import.meta.url), 'utf8')).mcpServers
@@ -96,4 +97,22 @@ test('loadConfig reads the config from QUALITY_CODE_CONFIG_JSON (the shared serv
   const r = loadConfig(tmpdir(), { QUALITY_CODE_CONFIG_JSON: cfg })
   assert.equal(r.ok, true)
   assert.equal(loadConfig(tmpdir(), { QUALITY_CODE_CONFIG_JSON: '{bad' }).ok, false)
+})
+
+test('QUALITY_CODE_STATELESS: the ticket comes back on a TICKET_JSON line, nothing is written (only the shared server sets it)', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const { mkdtempSync, readdirSync } = await import('node:fs')
+  const dir = mkdtempSync(join(tmpdir(), 'qc-sl-'))
+  const cfg = '{"version":2,"frontend":"playwright","jira":{"site":"https://x.atlassian.net","projects":["*"]}}'
+  const bin = new URL('../bin/ticket.mjs', import.meta.url).pathname
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: dir, QUALITY_CODE_CONFIG_JSON: cfg, QUALITY_CODE_STATELESS: '1', HOME: dir }
+  const run = args => execFileSync('node', [bin, ...args], { env, cwd: dir, encoding: 'utf8' })
+  const t = '{"key":"ABC-1","issuetype":"Story","status":"TO DO","summary":"s","labels":[],"text":{"description":"A page that lists the orders of the month for the shop owner.","acField":""},"scenarios":[],"attachments":0,"links":[],"flags":[]}'
+  const out = run(['attachments', '--in', t, '2'])
+  const line = out.split('\n').find(l => l.startsWith('TICKET_JSON:'))
+  assert.ok(line, out)
+  assert.equal(JSON.parse(line.slice('TICKET_JSON:'.length)).attachments, 2)
+  assert.ok(run(['sanitize', '--in', t]).includes('TICKET_JSON:'))
+  assert.ok(run(['add', '--in', t, 'links', '--', 'https://example.com/design']).includes('TICKET_JSON:'))
+  assert.deepEqual(readdirSync(dir), [])
 })

@@ -117,7 +117,10 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
             "Follow EVERY step of this command and of the guides it points to, to its end, not only the first one, and keep every step on this server: "
             "each script through `quality_code_run_script`, each guide through `quality_code_guide`, and each next command (a `Next:` line, "
             "or a choice the person makes) through `quality_code_direct` with `Quality Code <command> <arguments>`. "
-            "When the person answers a card with a number or a word, carry on with the next step of the same command.\n\n---\n\n"
+            "When the person answers a card with a number or a word, carry on with the next step of the same command.\n"
+            "This server keeps no file: no ticket copy, no audit log, no saved run. Hold them in the chat. A script that changes the ticket prints it on a `TICKET_JSON:` line: "
+            "keep that line, and pass its JSON back as `--in '<json>'` wherever the steps say `--in @<ticketsDir>/<KEY>/ticket.json` (and `ticket.mjs sanitize` needs no `--out`; `attach` takes the text itself in place of `@attached.txt`). "
+            "Never write a ticket, raw, attached or audit file.\n\n---\n\n"
         )
     present = [n for n in SERVER_TOOL_MAP if n in server_tools]
     if present:

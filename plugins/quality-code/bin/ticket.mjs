@@ -34,6 +34,9 @@ import { isTicketKey, isObject } from '../lib/core/is.mjs'
 
 // --no-audit = QC_NO_AUDIT=1. --next adds the gate band and cheapest path over the bar to `score`.
 // --drafted marks an `add` answer as a model draft; it applies only with --confirmed, sent after the Use it/Edit card.
+// QUALITY_CODE_STATELESS=1 is set only by the shared MCP server: nothing is written there. A command that changes the ticket prints it on a TICKET_JSON: line,
+// the chat keeps it, and it comes back as --in '<json>'. The plugin never sets it and keeps writing its files.
+const stateless = env => env.QUALITY_CODE_STATELESS === '1'
 const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--confirmed', '--runner', '--report'])
 
 // Description headings `attach` uses per kind.
@@ -117,7 +120,7 @@ const COMMANDS = {
     printError('usage: ticket.mjs root get | root set <folder>')
     return 2
   },
-  'jira-posted'({ a, log, savedPath }) {
+  'jira-posted'({ a, log, savedPath, env }) {
     // Logs a Jira write the connector made (comment, fill-in, risk, or qa's defect/retest/status): key and kind only.
     const [key, action] = a._
     if (!savedPath(key) || !['comment', 'update', 'risk', 'defect', 'retest', 'status'].includes(action)) {
@@ -126,7 +129,7 @@ const COMMANDS = {
     }
     log('jira', { key, action })
     // Mark the answers as sent so `saved` stops offering them.
-    if (action === 'update') {
+    if (action === 'update' && !stateless(env)) {
       const t = readJsonOr(savedPath(key), null)
       if (t) try { writeFileSync(savedPath(key), JSON.stringify({ ...t, sent: (t.filled ?? []).length })) } catch {}
     }
@@ -217,6 +220,11 @@ const COMMANDS = {
       printLine(tag('FIELD', { project, field: r.field ?? null, source: r.source }))
       return 0
     }
+    if (sub === 'set' && project && value && stateless(env)) {
+      printLine(tag('FIELD', { project, field: value === 'none' ? null : value, source: 'chat' })) // not stored: the chat remembers it
+      printLine('ok')
+      return 0
+    }
     if (sub === 'set' && project && value) {
       const r = storeField(root, project, value, env)
       if (!r.ok) { printError(r.error); return 2 }
@@ -284,7 +292,12 @@ function run(argv, env, cwd) {
   }
   if (!cfg.ok) { cfg.errors.forEach(e => printError(e)); return 2 }
   const config = cfg.config
-  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit'), dir: cfg.auditDir })
+  const log = (kind, entry) => audit(root, kind, entry, { env, off: a.flags.has('--no-audit') || stateless(env), dir: cfg.auditDir })
+  // Keep the changed ticket: in a file, or (the shared server) on a TICKET_JSON: line for the chat to hold.
+  const keep = (inPath, next, what) => {
+    if (stateless(env)) { printLine(tag('TICKET', next)); return true }
+    try { writeFileSync(inPath, JSON.stringify(next)); return true } catch (e) { printError(`${what}: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return false }
+  }
   // The saved copy of a ticket: <ticketsDir>/<KEY>/ticket.json, for a key that cannot leave that folder.
   const ticketsRoot = resolve(root, cleanRelPath(config.ticketsDir))
   const savedPath = key => (isTicketKey(key) ? join(ticketsRoot, key, 'ticket.json') : null)
@@ -313,6 +326,7 @@ function run(argv, env, cwd) {
   if (cmd !== 'sanitize' && isContainerType(ticket.issuetype)) { printError(containerRefusal(ticket.key, ticket.issuetype)); return 2 }
   switch (cmd) {
     case 'sanitize': {
+      if (stateless(env)) { printLine(tag('TICKET', sanitizeTicket(config, ticket))); return 0 }
       if (!a.out) { printError('sanitize needs --out <path>'); return 2 }
       // sanitize deletes its input, so only <ticketsDir>/<KEY>/raw.json is accepted.
       if (inPath && !isRawTicket(inPath)) {
@@ -410,7 +424,7 @@ function run(argv, env, cwd) {
       return p.error ? 2 : p.enough ? 0 : 1
     }
     case 'add': {
-      if (!inPath) { printError('add needs --in @<ticket.json> so the accepted answer can be saved'); return 2 }
+      if (!inPath && !stateless(env)) { printError('add needs --in @<ticket.json> so the accepted answer can be saved'); return 2 }
       const [key, answer] = a._
       const drafted = a.flags.has('--drafted')
       if (drafted && !a.flags.has('--confirmed')) {
@@ -419,7 +433,7 @@ function run(argv, env, cwd) {
       }
       const r = applyAnswer(config, ticket, key, answer, { drafted })
       if (r.ok) {
-        try { writeFileSync(inPath, JSON.stringify(r.input)) } catch (e) { printError(`add: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+        if (!keep(inPath, r.input, 'add')) return 2
         // Never log the answer text.
         log('fill', { key: r.input.key, item: key, drafted })
         const b = r.brief
@@ -436,11 +450,11 @@ function run(argv, env, cwd) {
     }
     case 'attachments': {
       // Saves the Jira attachment count and re-scores.
-      if (!inPath) { printError('attachments needs --in @<ticket.json> to save the count'); return 2 }
+      if (!inPath && !stateless(env)) { printError('attachments needs --in @<ticket.json> to save the count'); return 2 }
       const n = Number(a._[0])
       if (!Number.isInteger(n) || n < 0) { printError('usage: ticket.mjs attachments --in @<ticket.json> <count>'); return 2 }
       const next = { ...ticket, attachments: n }
-      try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { printError(`attachments: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      if (!keep(inPath, next, 'attachments')) return 2
       const b = buildBrief(config, next)
       printLine(`The ticket has ${plural(n, 'attachment')}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       printLine(tag('FILL', { attachments: n, score: b.score, gate: b.gate }))
@@ -451,11 +465,14 @@ function run(argv, env, cwd) {
       // The text file must sit in the ticket's folder; it's redacted and deleted once read.
       const [kind, from] = a._
       const heading = ATTACHED[kind]
-      if (!inPath || !heading || !from?.startsWith('@') || a._.length > 2) { printError('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
-      const textPath = resolve(root, from.slice(1))
-      if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(cleanRelPath(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+      if (!heading || from === undefined || a._.length > 2 || (!stateless(env) && (!inPath || !from.startsWith('@')))) { printError('usage: ticket.mjs attach --in @<ticket.json> screenshot|page @<ticketsDir>/<KEY>/attached.txt'); return 2 }
       let raw
-      try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { printError(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
+      if (stateless(env)) raw = from.startsWith('@') ? from.slice(1) : from // the shared server: the text itself, no file
+      else {
+        const textPath = resolve(root, from.slice(1))
+        if (!savedPath(ticket.key) || dirname(textPath) !== join(ticketsRoot, ticket.key)) { printError(`attach reads only a file in ${join(cleanRelPath(config.ticketsDir), String(ticket.key ?? '<KEY>'))}/, and deletes it`); return 2 }
+        try { raw = readFileSync(textPath, 'utf8'); unlinkSync(textPath) } catch (e) { printError(`attach: cannot read ${from.slice(1)} (${e.code ?? e.message})`); return 2 }
+      }
       const text = redact(config, raw.trim(), uuidsOf(ticket)).slice(0, DOCX_MAX_CHARS)
       const description = ticket.text?.description ?? ''
       const n = (description.match(new RegExp(`^## ${heading} \\d+$`, 'gm')) ?? []).length + 1
@@ -467,7 +484,7 @@ function run(argv, env, cwd) {
           attachmentsWithText: (Number(ticket.attachmentsWithText) || 0) + (text ? 1 : 0),
         }),
       }
-      try { writeFileSync(inPath, JSON.stringify(next)) } catch (e) { printError(`attach: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      if (!keep(inPath, next, 'attach')) return 2
       const b = buildBrief(config, next)
       printLine(`${text ? `Added ${heading.toLowerCase()} ${n}` : `Nothing to add from this ${kind === 'page' ? 'page' : 'file'}`}: ${b.score} points (needs ${b.threshold})${b.gate === 'pass' ? ': enough to continue.' : `: ${b.threshold - b.score} points short.`}`)
       printLine(tag('ATTACH', { kind, added: Boolean(text), score: b.score, gate: b.gate }))
@@ -483,8 +500,8 @@ function run(argv, env, cwd) {
         return 0
       }
       if (!SIDES.includes(value)) { printError(`side must be one of ${SIDES.join(', ')}, not "${value}"`); return 2 }
-      if (!inPath) { printError('side needs --in @<ticket.json> to save the side'); return 2 }
-      try { writeFileSync(inPath, JSON.stringify({ ...ticket, side: value })) } catch (e) { printError(`side: cannot write ${a.in.slice(1)} (${e.code ?? e.message})`); return 2 }
+      if (!inPath && !stateless(env)) { printError('side needs --in @<ticket.json> to save the side'); return 2 }
+      if (!keep(inPath, { ...ticket, side: value }, 'side')) return 2
       printLine(`ok: ${ticket.key ?? 'the ticket'} gets ${value} tests${ticketSide(config, ticket) && ticketSide(config, ticket) !== value ? ` (its title or labels say ${ticketSide(config, ticket)})` : ''}`)
       return 0
     }

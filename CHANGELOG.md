@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.6] - 2026-11-18
+
+### Changed
+- The shared MCP server keeps no ticket, audit or run file. `ticket.mjs` runs with `QUALITY_CODE_STATELESS=1` there (set only by the server): a command that changes the ticket (`add`, `attachments`, `attach`, `side`, `sanitize`) prints it on a `TICKET_JSON:` line, the chat holds it and passes it back as `--in '<json>'`; `attach` takes its text inline; the audit log and the saved-answers file are not written; `field set` is remembered in the chat. The command instructions tell the model so.
+- The plugin is unchanged: without that variable it writes its files as before.
+
+**What to do:** nothing for the plugin. Server: deploy the new image.
+
 ## [0.89.5] - 2026-11-18
 
 ### Fixed
