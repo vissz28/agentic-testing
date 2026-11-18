@@ -13,15 +13,14 @@ const ORDER = ['core', 'config', 'state', 'stacks', 'ticket', 'pipeline', 'repor
 
 // Known on 16 November. Fixing one means taking it out of here.
 const KNOWN_UP = [
-  'lib/base/clean.mjs -> bin/setup.mjs',
   'lib/config/config.mjs -> lib/ci/ci-source.mjs',
   'lib/config/config.mjs -> lib/pipeline/boundary.mjs',
   'lib/config/config.mjs -> lib/stacks/backends.mjs',
   'lib/config/config.mjs -> lib/stacks/runners.mjs',
   'lib/config/config.mjs -> lib/stacks/conventions.mjs',
+  'lib/config/set.mjs -> lib/base/setup.mjs',
   'lib/config/set.mjs -> lib/stacks/conventions.mjs',
   'lib/config/set.mjs -> lib/stacks/runners.mjs',
-  'lib/config/set.mjs -> bin/setup.mjs',
   'lib/pipeline/card.mjs -> lib/base/rules.mjs',
   'lib/stacks/e2e-folder.mjs -> lib/pipeline/boundary.mjs',
   'lib/stacks/stack.mjs -> lib/pipeline/runners/playwright.mjs',
@@ -31,7 +30,6 @@ const KNOWN_BIN = [
   'bin/ci.mjs -> bin/branch.mjs',
   'bin/ci.mjs -> bin/checks.mjs',
   'bin/ci.mjs -> bin/evals.mjs',
-  'bin/ci.mjs -> bin/setup.mjs',
   'bin/evals.mjs -> bin/xray.mjs',
   'bin/routine.mjs -> bin/ci.mjs',
   'bin/xray-api.mjs -> bin/mcp-launch.mjs',

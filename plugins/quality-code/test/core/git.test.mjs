@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { git, gitOut } from '../../lib/core/git.mjs'
-import { rankRoots } from '../../bin/setup.mjs'
+import { rankRoots } from '../../lib/base/setup.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const repo = files => {

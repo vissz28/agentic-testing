@@ -104,7 +104,7 @@ test('a ticket with no mark takes the configured side; marked tickets keep their
   assert.equal(ticketSide({ frontend: 'playwright', backend: 'vitest' }, { summary: 'No prefix' }), null)
 })
 
-import { colocatedProposal, write as writeSetup } from '../../bin/setup.mjs'
+import { colocatedProposal, write as writeSetup } from '../../lib/base/setup.mjs'
 import { readFileSync } from 'node:fs'
 import { main as ticketMain } from '../../bin/ticket.mjs'
 import { rootsOf } from '../../lib/config/config.mjs'
@@ -133,7 +133,7 @@ test('setup: tests beside the code are proposed, and the write wires the layer a
 })
 
 test('the top of a workspaces monorepo is one project (no workspace as the root), with the workspaces runner', async () => {
-  const { detect } = await import('../../bin/setup.mjs')
+  const { detect } = await import('../../lib/base/setup.mjs')
   const d = tree({ 'package.json': '{"workspaces":["app","be"]}', 'app/package.json': '{"devDependencies":{"vitest":"1"}}', 'be/package.json': '{}' })
   const r = detect(d)
   assert.deepEqual([r.root.proposed, r.root.ask, r.backend], [null, false, 'vitest'])

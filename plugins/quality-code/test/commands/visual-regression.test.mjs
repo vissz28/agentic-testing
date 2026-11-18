@@ -8,7 +8,7 @@ const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const spec = read('commands/spec.md')
 const writing = read('guides/playwright-writing.md')
 const guide = read('guides/visual-regression.md')
-const setup = read('bin/setup.mjs')
+const setup = read('lib/base/setup.mjs')
 
 test('spec.md plan card has the Visual line and points to the guide; baselines are never silent', () => {
   assert.ok(spec.includes('Visual: baseline for <N> screens'))

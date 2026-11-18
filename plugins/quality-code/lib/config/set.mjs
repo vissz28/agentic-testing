@@ -5,7 +5,7 @@ import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, perso
 import { pickPlace, placeDirs, placeOf, placesFor } from './places.mjs'
 import { FLOWS } from '../stacks/conventions.mjs'
 import { RUNNERS } from '../stacks/runners.mjs'
-import { write, writePersonal } from '../../bin/setup.mjs'
+import { write, writePersonal } from '../base/setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
 import { noTrailingSlash } from '../core/paths.mjs'
