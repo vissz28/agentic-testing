@@ -3,8 +3,11 @@ import { escapeRegExp } from '../core/text.mjs'
 
 export const projectKeys = config => [...config.jira.projects, ...(config.jira.trackingProjects ?? [])]
 
-/** Regex source like (?:ABC|TRK)-\d+ */
-export const keySource = config => `(?:${projectKeys(config).map(escapeRegExp).join('|')})-\\d+`
+/** `jira.projects: ["*"]` (the shared server's default, no setup run): any project key counts; the person's own Jira access decides what they can see. */
+export const anyProject = config => config.jira.projects.includes('*')
+
+/** Regex source like (?:ABC|TRK)-\d+ , or any key for `*` */
+export const keySource = config => anyProject(config) ? '[A-Z][A-Z0-9_]*-\\d+' : `(?:${projectKeys(config).map(escapeRegExp).join('|')})-\\d+`
 
 export const isProjectKey = (config, key) => new RegExp(`^${keySource(config)}$`).test(String(key))
 

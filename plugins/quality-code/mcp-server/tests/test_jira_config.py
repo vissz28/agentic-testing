@@ -5,9 +5,14 @@ import pytest
 from quality_code_mcp import jira_config as jc
 
 
-def test_nothing_is_written_without_the_jira_variables(tmp_path):
-    assert jc.write_config(tmp_path, {}) is None
-    assert not (tmp_path / ".claude").exists()
+def test_without_the_jira_variables_the_default_config_is_teamsystem_jira_and_any_project(tmp_path):
+    p = jc.write_config(tmp_path, {})
+    assert json.loads(p.read_text())["jira"] == {"site": "https://teamsystem.atlassian.net", "projects": ["*"]}
+
+
+def test_a_star_means_any_project(tmp_path):
+    p = jc.write_config(tmp_path, {"QUALITY_CODE_JIRA_SITE": "https://example.atlassian.net", "QUALITY_CODE_JIRA_PROJECTS": "*"})
+    assert json.loads(p.read_text())["jira"]["projects"] == ["*"]
 
 
 def test_the_variables_write_the_config_the_scripts_read(tmp_path):

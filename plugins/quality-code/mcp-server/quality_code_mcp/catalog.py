@@ -87,7 +87,7 @@ def server_tool_names(tool_names: Iterable[str]) -> frozenset[str]:
     return frozenset(n for n in tool_names if n in SERVER_TOOL_MAP)
 
 
-def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str] | frozenset[str] = frozenset()) -> str:
+def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str] | frozenset[str] = frozenset(), connectors: str = "") -> str:
     """The command as a prompt for the calling model: the plugin folder and arguments filled in, plus how this server replaces Claude Code's tools."""
     body = cmd.body.replace("${CLAUDE_PLUGIN_ROOT}", str(root)).replace("$ARGUMENTS", arguments)
     body = re.sub(r"\$\{user_config\.([a-z_]+)\}", lambda m: os.environ.get("QUALITY_CODE_" + m.group(1).upper(), ""), body)
@@ -108,4 +108,6 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
         if any(n.startswith("quality_code_jira_") for n in present):
             extra += "getAccessibleAtlassianResources and a cloudId are not needed: the server already knows the site.\n"
         note = note[: -len("---\n\n")] + extra + "\n---\n\n"
+    if connectors:
+        note = note[: -len("---\n\n")] + connectors.rstrip("\n") + "\n\n---\n\n"
     return note + body

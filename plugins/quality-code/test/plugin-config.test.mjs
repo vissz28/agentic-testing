@@ -8,8 +8,8 @@ const mcp = JSON.parse(readFileSync(new URL('../.mcp.json', import.meta.url), 'u
 const plugin = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
 const settings = plugin.userConfig
 
-test('the seven connectors: Jira, Figma, GitLab and Central Context by address, Figma and GitLab by token, Xray by API key', () => {
-  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'central-context', 'figma', 'figma-token', 'gitlab', 'gitlab-token', 'quality-code', 'xray'])
+test('the connectors: Jira, Figma, GitLab, GitHub and Central Context by address, Figma and GitLab by token, Xray by API key', () => {
+  assert.deepEqual(Object.keys(mcp).sort(), ['atlassian-rovo', 'central-context', 'figma', 'figma-token', 'github', 'gitlab', 'gitlab-token', 'quality-code', 'xray'])
   // The hub's MCP surface, for the model to search in chat; TeamSystem's hosted hub unless the person sets another.
   assert.deepEqual(mcp['central-context'], { type: 'http', url: '${user_config.central_context_url}/mcp' })
   // Same address as DEFAULT_HUB in lib/base/rules.mjs: a new hub URL changes both (that file lists every place).
@@ -20,6 +20,10 @@ test('the seven connectors: Jira, Figma, GitLab and Central Context by address, 
   assert.ok(!settings.quality_code_url.sensitive)
   assert.deepEqual(mcp['atlassian-rovo'], { type: 'http', url: 'https://mcp.atlassian.com/v2/mcp' })
   assert.deepEqual(mcp.figma, { type: 'http', url: 'https://mcp.figma.com/mcp' })
+  // TeamSystem's GitHub (teamsystem.ghe.com): browser sign-in, no token; the address is a setting.
+  assert.deepEqual(mcp.github, { type: 'http', url: '${user_config.github_mcp_url}' })
+  assert.equal(settings.github_mcp_url.default, 'https://copilot-api.teamsystem.ghe.com/mcp')
+  assert.ok(!settings.github_mcp_url.sensitive)
 })
 // The token connectors start through bin/mcp-launch.mjs: the real server with a token, a server
 // with no tools without one, so a connector nobody set up is never reported as failed.
@@ -68,15 +72,15 @@ test('no connector runs an unpinned package', () => {
   }
 })
 test('settings: tokens are secret, the rest are not; every setting a connector uses exists', () => {
-  assert.deepEqual(Object.keys(settings).sort(), ['central_context_url', 'figma_api_key', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email', 'quality_code_url', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
+  assert.deepEqual(Object.keys(settings).sort(), ['central_context_url', 'figma_api_key', 'github_mcp_url', 'gitlab_api_url', 'gitlab_token', 'gitlab_username', 'jira_email', 'quality_code_url', 'xray_api_url', 'xray_client_id', 'xray_client_secret'])
   for (const k of ['figma_api_key', 'gitlab_token', 'xray_client_id', 'xray_client_secret']) assert.equal(settings[k].sensitive, true, k)
   assert.notEqual(settings.xray_api_url.sensitive, true)
   assert.equal(settings.xray_api_url.default, 'https://xray.cloud.getxray.app')
   assert.notEqual(settings.gitlab_api_url.sensitive, true)
   assert.notEqual(settings.gitlab_username.sensitive, true)
   assert.notEqual(settings.jira_email.sensitive, true)
-  // A generic default, never one team's GitLab; a self-hosted GitLab is set per user.
-  assert.equal(settings.gitlab_api_url.default, 'https://gitlab.com/api/v4')
+  // TeamSystem's Biosphere is the default, so nobody types it; another GitLab is set per user.
+  assert.equal(settings.gitlab_api_url.default, 'https://biosphere.teamsystem.com/api/v4')
   const used = JSON.stringify(mcp).match(/\$\{user_config\.(\w+)\}/g).map(s => s.slice(14, -1))
   for (const u of used) assert.ok(settings[u], u)
 })

@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { EXIT, result } from '../../lib/pipeline/result.mjs'
-import { keySource, isProjectKey, projectKeys } from '../../lib/config/keys.mjs'
+import { anyProject, keySource, isProjectKey, projectKeys } from '../../lib/config/keys.mjs'
 import { specDiff, changedPaths } from '../../lib/core/git.mjs'
 import { dialectFor } from '../../lib/stacks/dialects/index.mjs'
 import { ungradedTitlesOf } from '../../lib/config/config.mjs'
@@ -26,6 +26,14 @@ test('keys come from projects and tracking projects, regex-escaped', () => {
   assert.equal(isProjectKey(cfg, 'ABC-12'), true)
   assert.equal(isProjectKey(cfg, 'TXK-1'), false)
   assert.equal(isProjectKey(cfg, 'ABC-12 '), false)
+})
+test('projects ["*"] (no setup, shared server): any project key counts', () => {
+  const any = { ...cfg, jira: { ...cfg.jira, projects: ['*'], trackingProjects: [] } }
+  assert.equal(anyProject(any), true)
+  assert.equal(anyProject(cfg), false)
+  assert.equal(isProjectKey(any, 'XYZ-7'), true)
+  assert.equal(isProjectKey(any, 'xyz-7'), false)
+  assert.equal(isProjectKey(any, 'XYZ-'), false)
 })
 test('git: spec diff against HEAD and changed paths with spaces and untracked files', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-git-'))

@@ -19,7 +19,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import agents, github, gitlab, jira_config, web
+from . import agents, connectors, github, gitlab, jira_config, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render, server_tool_names
@@ -129,7 +129,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
 
     def command_tool(cmd: Command):
         def run(arguments: str = "") -> str:
-            body = render(cmd, root, arguments, server_tools=server_tool_names(offered))
+            body = render(cmd, root, arguments, server_tools=server_tool_names(offered), connectors=connectors.block(os.environ, offered) if remote else "")
             return f"{NEEDS_REPO_NOTICE}\n\n{body}" if needs_repo(cmd) else body
 
         run.__name__ = cmd.tool_name
@@ -213,6 +213,13 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         if key not in guides:
             return f"error: no guide {name!r}. Guides: {', '.join(sorted(guides))}"
         return render_guide(root, key)
+
+    if remote:
+        def quality_code_connectors() -> str:
+            """The connectors the person's own Claude needs for Jira, GitLab and GitHub, with the exact addresses. Read-only; nothing is stored."""
+            return connectors.tool_text(dict(os.environ))
+
+        server.add_tool(quality_code_connectors, name="quality_code_connectors", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
 
     server.add_tool(quality_code_guide, name="quality_code_guide", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
 

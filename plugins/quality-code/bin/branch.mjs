@@ -17,7 +17,7 @@ const TEST_NAME = /\.(spec|test|cy)\.[^/]+$/
 export function keyCandidates(texts, projects) {
   if (!projects.length) return []
   // Longest first so MY_PROJ-12 is never read as PROJ-12.
-  const names = [...new Set(projects)].sort((a, b) => b.length - a.length).map(escapeRegExp)
+  const names = projects.includes('*') ? ['[A-Z][A-Z0-9]+'] : [...new Set(projects)].sort((a, b) => b.length - a.length).map(escapeRegExp)
   const re = new RegExp(`(?<![A-Z0-9])(${names.join('|')})[-_](\\d+)(?!\\d)`, 'g')
   const out = []
   for (const t of texts) {

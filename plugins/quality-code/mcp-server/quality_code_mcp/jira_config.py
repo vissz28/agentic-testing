@@ -8,24 +8,26 @@ from pathlib import Path
 SITE = re.compile(r"^https://[^/\s]+$")
 KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
 CONFIG_REL = Path(".claude") / "quality-code.json"
+DEFAULT_SITE = "https://teamsystem.atlassian.net"
+ANY_PROJECT = "*"  # no project list: any key counts, the person's own Jira access decides what they see
 
 
 class JiraConfigError(ValueError):
     pass
 
 
-def settings_from_env(env: dict[str, str]) -> tuple[str, list[str]] | None:
-    """(site, project keys) from QUALITY_CODE_JIRA_SITE and QUALITY_CODE_JIRA_PROJECTS (comma-separated); None when neither is set."""
+def settings_from_env(env: dict[str, str]) -> tuple[str, list[str]]:
+    """(site, project keys) from QUALITY_CODE_JIRA_SITE and QUALITY_CODE_JIRA_PROJECTS (comma-separated, or *); with neither set, TeamSystem's Jira and any project."""
     site = (env.get("QUALITY_CODE_JIRA_SITE") or "").strip().rstrip("/")
     projects = [p.strip() for p in (env.get("QUALITY_CODE_JIRA_PROJECTS") or "").split(",") if p.strip()]
     if not site and not projects:
-        return None
+        return DEFAULT_SITE, [ANY_PROJECT]  # nothing set: no setup run is needed
     if not site or not projects:
         raise JiraConfigError("set both QUALITY_CODE_JIRA_SITE (https://example.atlassian.net) and QUALITY_CODE_JIRA_PROJECTS (ABC,DEF), or neither")
     if not SITE.match(site):
         raise JiraConfigError(f"QUALITY_CODE_JIRA_SITE must be an https address with no path, like https://example.atlassian.net (found {site!r})")
     for p in projects:
-        if not KEY.match(p):
+        if p != ANY_PROJECT and not KEY.match(p):
             raise JiraConfigError(f"QUALITY_CODE_JIRA_PROJECTS: {p!r} must be upper-case letters, digits and _, like ABC")
     return site, projects
 
@@ -45,12 +47,9 @@ def write_person_config(base: Path, oid: str, site: str, projects: list[str]) ->
     return folder
 
 
-def write_config(project: Path, env: dict[str, str]) -> Path | None:
+def write_config(project: Path, env: dict[str, str]) -> Path:
     """Write <project>/.claude/quality-code.json for the Jira-only scripts when the Jira variables are set. The variables win on every start."""
-    s = settings_from_env(env)
-    if not s:
-        return None
-    site, projects = s
+    site, projects = settings_from_env(env)
     path = project / CONFIG_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"version": 2, "frontend": "playwright", "jira": {"site": site, "projects": projects}}, indent=2) + "\n", encoding="utf-8")

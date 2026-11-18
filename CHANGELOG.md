@@ -9,6 +9,22 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.88.0] - 2026-11-18
+
+Quality Code works with no setup run and no tokens on the server: the person's own connectors do the reading, and the shared server tells them what to connect.
+
+### Added
+
+- No-setup mode: `jira.projects: ["*"]` means any project key. The shared server writes it by default (with `https://teamsystem.atlassian.net`) when `QUALITY_CODE_JIRA_SITE` and `QUALITY_CODE_JIRA_PROJECTS` are not set, so the Jira-only commands (`ticket`, `help`, `xray`, `qa`, `transcript-goal`) run with no `/quality-code:setup`. Your own Jira access decides what you can see.
+- A GitHub connector (`github`) for TeamSystem's GitHub, with its address as a setting (`github_mcp_url`, default `https://copilot-api.teamsystem.ghe.com/mcp`, not yet verified).
+- The shared server's commands start with a "Connect what is missing" block and a new `quality_code_connectors` tool: which of Jira, GitLab and GitHub to add in Claude, with the TeamSystem addresses. Nobody pastes a token in the chat.
+
+### Changed
+
+- The GitLab address defaults to TeamSystem's Biosphere (`https://biosphere.teamsystem.com/api/v4`).
+
+What to do: update the plugin. On the server nothing is required: the Atlassian, GitLab and GitHub client variables stay optional.
+
 ## [0.87.1] - 2026-11-17
 
 The shared server no longer needs a fixed Jira project list: with the Atlassian sign-in, the ticket and help scripts run in a folder built for the signed-in person, with their own Jira site and every project they can see.

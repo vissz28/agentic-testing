@@ -26,7 +26,7 @@ def test_remote_offers_every_command_but_only_the_jira_only_ones_run_here(tmp_pa
 
     s = build(ROOT, remote=True, fixed_cwd=tmp_path)
     n = names(s)
-    assert n == {c.tool_name for c in load_commands(ROOT)} | {"quality_code_run_script", "quality_code_guide"}
+    assert n == {c.tool_name for c in load_commands(ROOT)} | {"quality_code_run_script", "quality_code_guide", "quality_code_connectors"}
     assert "quality_code_spec" in n and "quality_code_check" in n and "quality_code_ticket" in n
     tools = {t.name: t for t in asyncio.run(s.list_tools())}
     assert tools["quality_code_spec"].description.startswith("Needs your repo")

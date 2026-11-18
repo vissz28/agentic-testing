@@ -215,6 +215,7 @@ function jiraErrors(c, e) {
   if (!isObject(j)) return e.push('jira: must be an object with site and projects')
   if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
   if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
+  else if (j.projects.length === 1 && j.projects[0] === '*') { /* any project: the shared server's default */ }
   else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
   if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
     e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')

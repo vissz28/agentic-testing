@@ -97,7 +97,7 @@ export function main(argv = process.argv.slice(2), { env = process.env, cwd = pr
     return 0
   }
   const c = cfg.config
-  printLine(`Set up: Jira ${c.jira.site.replace(/^https:\/\//, '')}, project(s) ${c.jira.projects.join(', ')} (${cfg.source === 'repo' ? 'this repo' : 'personal, no repo'}).\n`)
+  printLine(`Set up: Jira ${c.jira.site.replace(/^https:\/\//, '')}, project(s) ${c.jira.projects.includes('*') ? 'any' : c.jira.projects.join(', ')} (${cfg.source === 'repo' ? 'this repo' : 'personal, no repo'}).\n`)
   // Personal config from before setup stored the role: show both.
   const roles = asked ? [asked] : cfg.source === 'repo' ? ['dev'] : c.role ? [c.role] : ['qa', 'po']
   printLine(roles.map(rolePath).join('\n\n'))

@@ -19,7 +19,7 @@ import { BACKEND_ADAPTERS, backendOf } from '../lib/stacks/backends.mjs'
 import { runnerOf } from '../lib/stacks/runners.mjs'
 import { toolScript } from '../lib/pipeline/runners/tool.mjs'
 import { findFields, resolveField, storeField } from '../lib/ticket/fields.mjs'
-import { projectKeys } from '../lib/config/keys.mjs'
+import { anyProject, projectKeys } from '../lib/config/keys.mjs'
 import { ticketsEvalReport } from '../lib/report/build.mjs'
 import { reportLines, saveReport } from '../lib/report/save.mjs'
 import { evalTickets, formatCard, saveTickets } from '../lib/ticket/batch.mjs'
@@ -306,7 +306,7 @@ function run(argv, env, cwd) {
   const project = String(ticket.key ?? '').replace(/-\d+$/, '')
   // Includes tracking-project keys.
   const keys = projectKeys(config)
-  const mismatch = Boolean(ticket.key) && !keys.includes(project)
+  const mismatch = Boolean(ticket.key) && !anyProject(config) && !keys.includes(project)
   // With --json, keep stdout pure JSON.
   if (mismatch) (a.flags.has('--json') ? printError : printLine)(`PROJECT_MISMATCH:${JSON.stringify({ key: ticket.key, projects: keys })}`)
   // An epic holds tickets and is none: no step works on it. sanitize still runs, so the raw copy is cleaned and goes.
