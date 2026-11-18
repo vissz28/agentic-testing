@@ -294,6 +294,7 @@ def parse_form(body: bytes) -> dict[str, str]:
 
 
 def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings) -> dict:
+    pending: dict[str, tuple[float, dict]] = {}  # ref -> (expires, identity so far) of the sign-ins in progress
     """Add /connect/start, /connect/consent and /connect/accept. Returns the hooks web.py calls: `start(tx)` for the Entra redirect, `after_identity(flow, claims)` back from it."""
     from starlette.responses import HTMLResponse, RedirectResponse
     from . import web
@@ -367,7 +368,12 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
             if key not in identity:
                 state = secrets.token_urlsafe(24)
                 resp = RedirectResponse(client.authorize_url(s.upstream_redirect(slug), state), status_code=303)
-                resp.set_cookie(LINK_COOKIE, provider.sign("link_state", {"tx": tx_token, "id": identity, "state": state, "k": key}, CONSENT_TTL), max_age=CONSENT_TTL, httponly=True,
+                ref = secrets.token_urlsafe(16)
+                now = time.time()
+                for r in [r for r, (t, _) in pending.items() if t < now]:
+                    pending.pop(r)  # forget sign-ins nobody finished
+                pending[ref] = (now + CONSENT_TTL, identity)  # the sealed links stay here, not in the cookie: a browser drops a cookie over 4 KB and the chain was lost
+                resp.set_cookie(LINK_COOKIE, provider.sign("link_state", {"tx": tx_token, "ref": ref, "state": state, "k": key}, CONSENT_TTL), max_age=CONSENT_TTL, httponly=True,
                                 secure=s.secure, samesite="lax", path="/")
                 resp.delete_cookie(CONNECT_COOKIE, path="/")
                 return resp
@@ -381,10 +387,12 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
             c = provider.read(request.cookies.get(LINK_COOKIE), "link_state")
             tx = provider.read(c["tx"], "tx") if c else None
             q = request.query_params
-            if c and tx and c.get("k") != key:
+            held = pending.get(c["ref"]) if c else None
+            ident = held[1] if held and held[0] > time.time() else None
+            if c and tx and ident and c.get("k") != key:
                 # A stale tab or a back button: the cookie says another service is next. Do not dead-end, go on with the service that is still missing.
-                return proceed(c["tx"], tx, c["id"])
-            if not (c and tx) or not secrets.compare_digest(q.get("state", ""), c["state"]):
+                return proceed(c["tx"], tx, ident)
+            if not (c and tx and ident) or not secrets.compare_digest(q.get("state", ""), c["state"]):
                 return html(web.login_page(configured=True, error=f"The {slug.title()} sign-in expired. Add the connector in Claude again."), 400)
             if q.get("error") or not q.get("code"):
                 qs = {k: v for k, v in {"error": "access_denied", "error_description": f"{slug.title()} was not connected.", "state": tx.get("st")}.items() if v}
@@ -395,9 +403,8 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
                 link = await asyncio.to_thread(client.link, q["code"], s.upstream_redirect(slug))
             except RuntimeError as e:
                 return html(web.login_page(configured=True, error=f"{e}. Add the connector in Claude again."), 400)
-            # Atlassian's access token is long: carrying it through the next sign-in cookie would pass the 4 KB cookie limit (the GitHub step then lost its state). Keep only the refresh token; the code exchange gets a fresh access token.
-            slim = {k: v for k, v in link.items() if k != "at"} if link.get("rt") else link
-            return proceed(c["tx"], tx, {**c["id"], key: provider.seal_link(c["id"], slim)})
+            pending.pop(c["ref"], None)
+            return proceed(c["tx"], tx, {**ident, key: provider.seal_link(ident, link)})
 
         return callback
 

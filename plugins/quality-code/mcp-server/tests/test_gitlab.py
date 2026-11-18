@@ -97,9 +97,9 @@ def test_the_gitlab_sign_in_ends_with_tokens_that_hold_only_a_sealed_access_toke
     access = jwt.decode(tok["access_token"], SECRET, algorithms=["HS256"], audience=H)
     assert "gl" not in access["id"] and "at1" not in tok["access_token"] and "rt1" not in tok["access_token"]
     link = vault.unseal(KEY, access["gl"], aad="oid-1")
-    assert link["at"] == "at2" and link["base"] == API and "rt" not in link
+    assert link["at"] == "at1" and link["base"] == API and "rt" not in link
     refresh = jwt.decode(tok["refresh_token"], SECRET, algorithms=["HS256"], audience=H)
-    assert vault.unseal(KEY, refresh["id"]["gl"], aad="oid-1")["rt"] == "rt2"
+    assert vault.unseal(KEY, refresh["id"]["gl"], aad="oid-1")["rt"] == "rt1"
     exchange = [b for m, u, h, b in fake.calls if b and b["grant_type"] == "authorization_code"][0]
     assert exchange["code"] == "gcode" and exchange["redirect_uri"] == H + "/connect/gitlab/callback"
     assert tok["expires_in"] <= 7200
@@ -112,8 +112,8 @@ def test_refreshing_the_connector_token_refreshes_gitlab_and_rotates_the_pair(c,
     r = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
     assert r.status_code == 200, r.text
     new = r.json()
-    assert vault.unseal(KEY, jwt.decode(new["access_token"], SECRET, algorithms=["HS256"], audience=H)["gl"], aad="oid-1")["at"] == "at3"
-    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["gl"], aad="oid-1")["rt"] == "rt3"
+    assert vault.unseal(KEY, jwt.decode(new["access_token"], SECRET, algorithms=["HS256"], audience=H)["gl"], aad="oid-1")["at"] == "at2"
+    assert vault.unseal(KEY, jwt.decode(new["refresh_token"], SECRET, algorithms=["HS256"], audience=H)["id"]["gl"], aad="oid-1")["rt"] == "rt2"
     again = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": tok["refresh_token"], "client_id": cid})
     assert again.status_code == 400 and again.json()["error"] == "invalid_grant"
 
@@ -154,7 +154,7 @@ def test_the_chain_goes_microsoft_then_atlassian_then_gitlab_then_the_code(tmp_p
         assert r.headers["location"].startswith(CB)
         code = parse_qs(urlparse(r.headers["location"]).query)["code"][0]
         access = jwt.decode(token(c, cid, verifier, code).json()["access_token"], SECRET, algorithms=["HS256"], audience=H)
-        assert vault.unseal(KEY, access["atl"], aad="oid-1")["at"] == "atl1" and vault.unseal(KEY, access["gl"], aad="oid-1")["at"] == "at2"
+        assert vault.unseal(KEY, access["atl"], aad="oid-1")["at"] == "atl1" and vault.unseal(KEY, access["gl"], aad="oid-1")["at"] == "at1"
 
 
 def run_tool(monkeypatch, cs, fn, claims, **args):

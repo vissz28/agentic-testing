@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.5] - 2026-11-18
+
+### Fixed
+- Atlassian then GitHub sent the person back to Atlassian in a loop. The sign-in cookie still passed the browser's 4 KB limit (Atlassian's tokens are long), so the browser ignored it and kept the old one. The sealed links no longer travel in the cookie: the server holds them for the 15 minutes of the sign-in, and the cookie carries only a short reference.
+
+**What to do:** server: deploy the new image, then remove and add the Quality Code connector again. A sign-in in progress while the server restarts has to be started again.
+
 ## [0.89.4] - 2026-11-18
 
 ### Fixed
