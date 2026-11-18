@@ -176,22 +176,23 @@ test('the opposite assert is called the way the spec can: bare when imported, el
   assert.equal(junit.oppositeIn('import static org.junit.Assert.*;')('assertTrue', 'assertFalse'), 'assertFalse')
 })
 
-test('mutation in place on a Java spec: each mutant in the spec itself, the bytes back after', async () => {
+test('mutation in place on a Java spec: the mutants in the spec itself, one per test per run, the bytes back after', async () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-junit-mut-'))
   const spec = 'src/test/java/demo/pricing/LineTotalTest.java'
   mkdirSync(join(root, dirname(spec)), { recursive: true })
   writeFileSync(join(root, spec), JAVA)
   const seen = []
-  const runTests = async ({ files, testName }) => {
+  const runTests = Object.assign(async ({ files, testName }) => {
     const now = readFileSync(join(root, files[0]), 'utf8')
-    if (testName) seen.push(now.includes('assertNotEquals') || now.includes('isNotEqualTo') || now.includes('assertFalse'))
-    const titles = ['threeItems', 'roundsHalfUp', 'parsesSku', 'quantities', 'zero']
-    return { ran: true, tests: titles.filter(t => !testName || t === testName).map(title => ({ title, path: ['ABC-12 Line totals round to the cent'], file: files[0], status: testName ? 'failed' : 'passed' })) }
-  }
+    if (testName !== undefined) seen.push([[].concat(testName).length, now.includes('assertNotEquals') || now.includes('isNotEqualTo') || now.includes('assertFalse')])
+    const titles = testName === undefined ? ['threeItems', 'roundsHalfUp', 'parsesSku', 'quantities', 'zero'] : [].concat(testName)
+    return { ran: true, tests: titles.map(title => ({ title, path: ['ABC-12 Line totals round to the cent'], file: files[0], status: testName !== undefined ? 'failed' : 'passed' })) }
+  }, { namesFilter: true })
   const r = await mutationRun({ spec, key: 'ABC-12' }, { root, dialect: d, runTests, config: { jira: { projects: ['ABC'] } } })
   assert.equal(r.status, 'pass', r.summary)
   assert.equal(r.data.killed, 5)
-  assert.ok(seen.length === 5 && seen.every(Boolean))
+  // Five tests, one mutant each: a single run holds all five, mutated in the spec.
+  assert.deepEqual(seen, [[5, true]])
   assert.equal(readFileSync(join(root, spec), 'utf8'), JAVA)
 })
 

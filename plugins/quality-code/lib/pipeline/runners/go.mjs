@@ -46,6 +46,11 @@ export function indexSpecs(root, files) {
 /** -run regex: all requested functions, or the one function or literal subtest testName names. */
 export function runPattern(pkgs, testName) {
   const all = pkgs.flatMap(p => [...p.funcs.entries()])
+  // A list (a mutation round): its functions when every name is one; subtests run with their whole package.
+  if (Array.isArray(testName)) {
+    if (testName.every(n => all.some(([f]) => f === n))) return `^(${testName.map(escapeRegExp).join('|')})$`
+    testName = undefined
+  }
   if (testName === undefined) {
     const names = [...new Set(all.map(([n]) => n))]
     return names.length ? `^(${names.map(escapeRegExp).join('|')})$` : null
@@ -228,7 +233,7 @@ function runGo(cwd, cmd, report, timeoutMs, dir) {
 
 export function goRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
-  return async ({ files, testName, timeoutMs }) => {
+  return Object.assign(async ({ files, testName, timeoutMs }) => {
     const idx = indexSpecs(root, files)
     if (idx.error) return { ran: false, tests: [], broken: [], error: idx.error }
     const run = runPattern(idx.pkgs, testName)
@@ -253,6 +258,6 @@ export function goRunner(root, config) {
       }
     }
     return all
-  }
+  }, { namesFilter: true })
 }
 

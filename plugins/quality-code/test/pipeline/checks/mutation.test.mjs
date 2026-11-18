@@ -110,18 +110,20 @@ test('run: runner could not run → not_run; mutants that ran nothing are errors
   assert.equal(e.status, 'not_run')
   assert.equal(e.data.errors, 1)
 })
-test('run: some killed and some that ran no test is not_run, never pass', async () => {
+test('run: some killed and some that ran no test is not_run, never pass; a test missing from its round gets a run of its own', async () => {
   const d = spec()
   let calls = 0
-  const runTests = async ({ files, testName }) => {
+  const runTests = async ({ files }) => {
     calls++
     if (calls === 1) return { ran: true, tests: [{ title: 'adds', file: files[0], status: 'passed' }, { title: 'weak', file: files[0], status: 'passed' }] }
-    if (calls === 2) return { ran: true, tests: [{ title: testName, file: files[0], status: 'failed' }] }
+    // The round of both mutants: only adds ran; weak then runs alone (call 3) and still runs nothing.
+    if (calls === 2) return { ran: true, tests: [{ title: 'adds', file: files[0], status: 'failed' }] }
     return { ran: true, tests: [] }
   }
   const r = await run({ spec: 'test/a.spec.ts' }, { root: d, dialect: V, runTests })
   assert.equal(r.status, 'not_run')
   assert.match(r.summary, /1 of 2 mutants killed; 1 ran no test/)
+  assert.equal(calls, 3)
   assert.equal(r.data.killed, 1)
   assert.equal(r.data.errors, 1)
   assert.deepEqual(r.findings, [])

@@ -225,13 +225,16 @@ const LABEL = { maven: 'Maven', gradle: 'Gradle' }
 const MISSING = { maven: 'Maven is not installed: no mvnw in the project and no mvn on PATH', gradle: 'Gradle is not installed: no gradlew in the project and no gradle on PATH' }
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
 
+/** testName may be a list (a mutation round): one selector per class and method. */
 export function selectorsFor(infos, testName) {
   const out = []
   for (const info of infos) {
     if (testName === undefined) { out.push(...info.tops.map(cls => ({ cls }))); continue }
-    const own = info.tests.filter(t => t.title === testName && t.cls)
-    const classes = own.length ? [...new Set(own.map(t => t.cls))] : info.tops
-    out.push(...classes.map(cls => ({ cls, method: testName })))
+    for (const name of [].concat(testName)) {
+      const own = info.tests.filter(t => t.title === name && t.cls)
+      const classes = own.length ? [...new Set(own.map(t => t.cls))] : info.tops
+      out.push(...classes.map(cls => ({ cls, method: name })))
+    }
   }
   return out
 }
@@ -279,7 +282,7 @@ async function runModule(root, mod, infos, { testName, timeoutMs, template }) {
 export function junitRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const template = commandOf(config)
-  return async ({ files, testName, timeoutMs }) => {
+  return Object.assign(async ({ files, testName, timeoutMs }) => {
     const all = { ran: true, tests: [], broken: [] }
     const groups = new Map()
     for (const f of files) {
@@ -302,5 +305,5 @@ export function junitRunner(root, config) {
       all.broken.push(...r.broken)
     }
     return all
-  }
+  }, { namesFilter: true })
 }

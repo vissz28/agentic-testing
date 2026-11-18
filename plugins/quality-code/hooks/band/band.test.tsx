@@ -46,6 +46,12 @@ test('mutation and Stryker show their own counts', () => {
   expect(view(run({ step: 'stryker', stryker: { total: 58, done: 47, survived: 3 } }), T0 + 5000).detail).toBe('code changes 47/58 · 3 survived · 5s')
 })
 
+test('mutation over several specs counts them, and the specs done move the bar', () => {
+  const m = (done: number) => run({ step: 'mutation', mutants: { total: 300, done: 120, killed: 118, files: { done, total: 40 } } })
+  expect(view(m(10), T0 + 5000).detail).toBe('mutants 120/300 · 118 killed · files 10/40 · 5s')
+  expect(percent(m(10)) < percent(m(30))).toBe(true)
+})
+
 test('a finished run says its verdict, in the person\'s language', () => {
   const done = run({ finishedAt: iso(T0 + 242_000), verdict: 'tests_red' })
   expect(view(done, T0 + 243_000)).toEqual({ headline: '🔴 Quality Code · AGT-212 · tests fail', detail: '30 passed · 1 failed · 4m 02s', pct: 100, tone: 'error' })

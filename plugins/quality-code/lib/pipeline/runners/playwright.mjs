@@ -20,7 +20,8 @@ const LOCAL_BROWSERS = 'node_modules/playwright-core/.local-browsers'
 export const filePattern = file => `(?:^|/)${escapeRegExp(toForwardSlashes(file))}$`
 
 /** -g matches the full title (project, file, describes, title) with tags appended. */
-export const titlePattern = title => `(?:^| )${escapeRegExp(title)}(?: @\\S+)*$`
+/** Several titles (a mutation round) match any of them. */
+export const titlePattern = title => `(?:^| )${Array.isArray(title) ? `(?:${title.map(escapeRegExp).join('|')})` : escapeRegExp(title)}(?: @\\S+)*$`
 
 export function configFor(file, config) {
   for (const c of config.playwright?.configs ?? []) if (matches(c.match, originalOf(file))) return c.config
@@ -185,7 +186,8 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
 export function playwrightRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const projects = config.playwright?.projects ?? []
-  return async ({ files, testName, timeoutMs, live }) => {
+  // testName may be a list (a mutation round): the title filter is a regex.
+  return Object.assign(async ({ files, testName, timeoutMs, live }) => {
     const groups = new Map()
     for (const f of files) {
       const c = configFor(f, config)
@@ -207,5 +209,6 @@ export function playwrightRunner(root, config) {
       all.broken.push(...r.broken.filter(b => want.has(normalize(b.file))))
     }
     return all
-  }
+  }, { namesFilter: true })
+
 }
