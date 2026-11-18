@@ -6,6 +6,7 @@ import * as flaky from './checks/flaky.mjs'
 import * as honesty from './checks/honesty.mjs'
 import * as mutation from './checks/mutation.mjs'
 import { result } from './result.mjs'
+import { testCounts } from './live.mjs'
 import { keyPattern, ownTests } from '../config/keys.mjs'
 import * as suite from './checks/suite-honesty.mjs'
 import { anchorRange } from './checks/suite-honesty.mjs'
@@ -163,7 +164,8 @@ export async function strykerStep(target, tests, ctx, timeoutMs, specs = [], key
   const where = spans.length ? ` in ${spans.map(x => x.name).join(', ')}` : ''
   const note = missing.length ? ` (${missing.join(', ')} not found in ${target}: ${spans.length ? 'left out' : 'the whole file'})` : ''
   const scope = functions.length ? { scope: { functions: spans.map(x => x.name), lines: spans.map(x => `${x.start}-${x.end}`), missing } } : {}
-  const r = await runStryker(ctx.root, { target, specs: own, timeoutMs, vitestConfig, key, ...(mutate ? { mutate } : {}) })
+  const onProgress = ctx.live ? p => ctx.live.count('stryker', p) : null
+  const r = await runStryker(ctx.root, { target, specs: own, timeoutMs, vitestConfig, key, onProgress, ...(mutate ? { mutate } : {}) })
   if (!r.ran && r.error === 'Stryker is not installed') return na('Stryker is not installed')
   if (!r.ran) return result('stryker', 'not_run', `could not run: ${r.error}`, [], { applicable: true, target })
   // Every survivor untested: Stryker found no test to run, so no verdict.
@@ -203,13 +205,16 @@ export async function runPipeline(opts, ctx) {
   for (const [adapter, list] of groups) {
     // Only Vitest has a Stryker step; the expected check runs once across all sides, below.
     const own = { ...opts, specs: list, target: ADAPTERS[adapter]?.stryker ? opts.target : null, ticket: groups.length > 1 ? null : opts.ticket, multi: groups.length > 1 }
-    parts.push({ adapter, runner: runnerOf(ctx.config, adapter), steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length }) })
+    parts.push({ adapter, runner: runnerOf(ctx.config, adapter), steps: await runSide(own, sideCtx(adapter), { boundary: !parts.length, sides: groups.length }) })
   }
   if (groups.length > 1 && (opts.ticket || opts.key)) {
     const dialectOf = p => dialectFor(runnerOf(ctx.config, adapterOfSpec(ctx.config, ctx.root, p)))
     const wholeBranch = ctx.config.ticketAnchor === 'branch' && Boolean(opts.range)
     if (!wholeBranch && lacksAnchor(specs, opts.key, ctx, dialectOf)) parts.push({ adapter: null, steps: [noAnchorStep()] })
-    else if (opts.ticket) parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
+    else if (opts.ticket) {
+      ctx.live?.step('expected')
+      parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
+    }
   }
   return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }
 }
@@ -270,7 +275,7 @@ export function mergeSides(parts) {
   return steps
 }
 
-async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, functions = [], candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true } = {}) {
+async function runSide({ specs, key = null, range = null, flakyRuns = null, ticket = null, target = null, functions = [], candidates = [], mutation: mutate = true, multi = false }, ctx, { boundary: withBoundary = true, sides = 1 } = {}) {
   const adapter = ADAPTERS[ctx.config.adapter]
   if (!adapter) throw new Error(`no pipeline for adapter "${ctx.config.adapter}"`)
   const runner = runnerOf(ctx.config)
@@ -284,33 +289,40 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   if (noAnchor) whole = true
   const timeoutMs = timeoutSecondsOf(ctx.config) * 1000
   const steps = []
+  // The band shows the step running and how many are left on this side.
+  const strykerHere = adapter.stryker && runner === 'vitest'
+  const plan = [...(withBoundary && runActive(ctx.root) ? ['boundary'] : []), 'honesty', 'suite-honesty', 'types', 'tests', ...(ticket && !noAnchor ? ['expected'] : []), ...(mutate ? ['mutation'] : []), ...(flakyRuns ? ['flaky'] : []), ...(strykerHere ? ['stryker'] : [])]
+  ctx.live?.side(RUNNERS[runner]?.label ?? BACKENDS[ctx.config.adapter]?.label ?? runner, plan, sides)
+  const at = (name, fn) => { ctx.live?.step(name); return step(name, fn) }
   // Boundary only means something inside a test-writing run (run marker present).
   if (withBoundary) {
-    steps.push(runActive(ctx.root) ? await step('boundary', () => boundary.run({ range }, c))
+    steps.push(runActive(ctx.root) ? await at('boundary', () => boundary.run({ range }, c))
       : result('boundary', 'pass', 'not applicable: not a test-writing run', [], { applicable: false }))
   }
-  steps.push(await step('honesty', () => honesty.run({ specs, range, key }, c)))
-  steps.push(await step('suite-honesty', () => suite.run({ specs, key, whole }, c)))
-  const types = await step('types', () => typeCheck(specs))
+  steps.push(await at('honesty', () => honesty.run({ specs, range, key }, c)))
+  steps.push(await at('suite-honesty', () => suite.run({ specs, key, whole }, c)))
+  const types = await at('types', () => typeCheck(specs))
   steps.push(types)
   let run = null
   if (types.status === 'fail') steps.push(result('tests', 'not_run', 'skipped: the specs do not compile', [], { ran: false }))
   else if (types.status === 'not_run') steps.push(result('tests', 'not_run', 'skipped: the type-check could not run', [], { ran: false }))
   else {
-    run = await step('tests', () => runTests({ files: specs }))
+    ctx.live?.count('tests', { total: 0, done: 0, passed: 0, failed: 0, skipped: 0 })
+    run = await at('tests', () => runTests({ files: specs, live: ctx.live?.file }))
+    if (run.ran) ctx.live?.count('tests', testCounts(run))
     steps.push(testsStep(run, specs, key))
   }
   const tests = steps.at(-1)
   if (noAnchor) { if (!multi) steps.push(noAnchorStep()) }
-  else if (ticket) steps.push(await step('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
+  else if (ticket) steps.push(await at('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
   // Whole-suite CI runs pass --no-mutation: it's the slow step, kept for changed specs.
   if (!mutate) steps.push(result('mutation', 'pass', 'not applicable: left out of this run (--no-mutation)', [], { applicable: false }))
-  else if (tests.status !== 'not_run') steps.push(await step('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
+  else if (tests.status !== 'not_run') steps.push(await at('mutation', () => mutationStep(specs, key, run, c, timeoutMs, whole)))
   else steps.push(result('mutation', 'not_run', 'skipped: the tests did not run'))
   if (flakyRuns) {
     if (steps.find(s => s.check === 'tests').status === 'not_run') steps.push(result('flaky', 'not_run', 'skipped: the tests did not run'))
     else {
-      const f = await step('flaky', () => flaky.run({ specs, runs: flakyRuns, timeoutMs, key, seed: run }, c))
+      const f = await at('flaky', () => flaky.run({ specs, runs: flakyRuns, timeoutMs, key, seed: run }, c))
       // Failing every run is a red test, not a flaky one.
       steps.push(f.status === 'fail' && !f.findings.some(x => x.kind === 'flaky')
         ? result('flaky', 'pass', `no flaky test; ${f.findings.length} test(s) fail every run (see tests)`, f.findings, f.data) : f)
@@ -318,7 +330,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
   }
   // ponytail: Stryker runs under Vitest only; Jest and Mocha have Stryker runners too, add them when a team asks.
   if (adapter.stryker && runner !== 'vitest') steps.push(result('stryker', 'pass', `not applicable: Stryker runs with Vitest only, not ${RUNNERS[runner]?.label ?? runner}`, [], { applicable: false, target }))
-  else if (adapter.stryker) steps.push(await step('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key, functions)))
+  else if (adapter.stryker) steps.push(await at('stryker', () => strykerStep(target, tests, c, strykerTimeoutSeconds(ctx.config) * 1000, specs, key, functions)))
   // Non-JS backends still show the step, as not applicable.
   else if (BACKENDS[ctx.config.adapter]) steps.push(result('stryker', 'pass', 'not applicable: Stryker is for JavaScript and TypeScript', [], { applicable: false, target }))
   return steps

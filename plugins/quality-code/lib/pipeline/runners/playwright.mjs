@@ -1,5 +1,7 @@
 // Playwright runner via the JSON reporter. Report and artifacts go to a temp dir that is always deleted.
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { LIVE_ENV } from '../live.mjs'
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative, resolve } from 'node:path'
@@ -113,19 +115,22 @@ export function parseReport(json, root, { read } = {}) {
   return out
 }
 
-export function runPlaywright(root, files, { config = null, projects = [], testName, timeoutMs }) {
+const LIVE_REPORTER = fileURLToPath(new URL('./playwright-live-reporter.mjs', import.meta.url))
+
+export function runPlaywright(root, files, { config = null, projects = [], testName, timeoutMs, live = null }) {
   return new Promise(done => {
     const bin = toolScript(root, ['@playwright/test', 'playwright'], 'playwright')
     if (!bin) return done({ ran: false, error: 'Playwright is not installed in this project' })
     const dir = mkdtempSync(join(tmpdir(), 'qc-playwright-'))
     const out = join(dir, 'report.json')
-    const args = ['test', ...files.map(filePattern), '--reporter=json', '--retries=0', '--output', join(dir, 'output')]
+    // live: the progress file the band reads; counts each test as it ends.
+    const args = ['test', ...files.map(filePattern), `--reporter=${live ? `json,${LIVE_REPORTER}` : 'json'}`, '--retries=0', '--output', join(dir, 'output')]
     if (config) args.push('--config', config)
     for (const p of projects) args.push('--project', p)
     if (testName !== undefined) args.push('-g', titlePattern(testName))
     if (process.env.QC_SMOKE_GREP) args.push('--grep', process.env.QC_SMOKE_GREP)
     // Don't touch CI: Playwright configs often use it to decide whether to reuse a dev server.
-    const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out }
+    const env = { ...process.env, NO_COLOR: '1', PLAYWRIGHT_JSON_OUTPUT_NAME: out, ...(live ? { [LIVE_ENV]: live } : {}) }
     delete env.FORCE_COLOR
     // Browsers installed with PLAYWRIGHT_BROWSERS_PATH=0 live in node_modules; only that setting finds them.
     if (env.PLAYWRIGHT_BROWSERS_PATH === undefined && findUp(root, LOCAL_BROWSERS)) env.PLAYWRIGHT_BROWSERS_PATH = '0'
@@ -180,7 +185,7 @@ export function runPlaywright(root, files, { config = null, projects = [], testN
 export function playwrightRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
   const projects = config.playwright?.projects ?? []
-  return async ({ files, testName, timeoutMs }) => {
+  return async ({ files, testName, timeoutMs, live }) => {
     const groups = new Map()
     for (const f of files) {
       const c = configFor(f, config)
@@ -188,7 +193,7 @@ export function playwrightRunner(root, config) {
     }
     const all = { ran: true, tests: [], broken: [] }
     for (const [c, fs] of groups) {
-      const r = await runPlaywright(root, fs, { config: c, projects, testName, timeoutMs: timeoutMs ?? defaultMs })
+      const r = await runPlaywright(root, fs, { config: c, projects, testName, timeoutMs: timeoutMs ?? defaultMs, live })
       if (!r.ran) return { ran: false, tests: [], error: r.error }
       const want = new Set(fs.map(f => normalize(f)))
       // A failed setup project (the sign-in) skips every test that depends on it: say why, not "skipped".

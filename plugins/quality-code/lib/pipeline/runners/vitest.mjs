@@ -3,6 +3,8 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { LIVE_ENV } from '../live.mjs'
 import { matches } from '../boundary.mjs'
 import { originalOf } from '../checks/mutation.mjs'
 import { timeoutSecondsOf } from '../../config/config.mjs'
@@ -13,6 +15,8 @@ import { leavesFolder } from '../../core/paths.mjs'
 
 /** -t matches the full name: describe titles and test title joined by spaces. */
 export const titlePattern = title => `(?:^| )${escapeRegExp(title)}$`
+
+const LIVE_REPORTER = fileURLToPath(new URL('./live-reporter.mjs', import.meta.url))
 
 export function configFor(file, config) {
   for (const c of config.vitest?.configs ?? []) if (matches(c.match, originalOf(file))) return c.config
@@ -41,7 +45,7 @@ export function parseReport(json, root) {
   return { tests, broken }
 }
 
-export function runVitest(root, files, { config = null, testName, timeoutMs }) {
+export function runVitest(root, files, { config = null, testName, timeoutMs, live = null }) {
   return new Promise(done => {
     const bin = toolScript(root, ['vitest'], 'vitest')
     if (!bin) return done({ ran: false, error: 'Vitest is not installed in this project' })
@@ -50,6 +54,8 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
     const args = ['run', ...files, '--reporter=json', `--outputFile=${out}`, '--retry=0']
     if (config) args.push('--config', config)
     if (testName !== undefined) args.push('-t', titlePattern(testName))
+    // live: the progress file the band reads; counts each test as it ends.
+    if (live) args.push(`--reporter=${LIVE_REPORTER}`)
     let stderr = ''
     let timedOut = false
     let settled = false
@@ -64,7 +70,7 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
     }
     let child
     try {
-      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1', ...(live ? { [LIVE_ENV]: live } : {}) }, stdio: ['ignore', 'ignore', 'pipe'] })
       untrack = track(child, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start Vitest: ${e.message}` })
@@ -91,7 +97,7 @@ export function runVitest(root, files, { config = null, testName, timeoutMs }) {
 
 export function vitestRunner(root, config) {
   const defaultMs = timeoutSecondsOf(config) * 1000
-  return async ({ files, testName, timeoutMs }) => {
+  return async ({ files, testName, timeoutMs, live }) => {
     const groups = new Map()
     for (const f of files) {
       const c = configFor(f, config)
@@ -99,7 +105,7 @@ export function vitestRunner(root, config) {
     }
     const all = { ran: true, tests: [], broken: [] }
     for (const [c, fs] of groups) {
-      const r = await runVitest(root, fs, { config: c, testName, timeoutMs: timeoutMs ?? defaultMs })
+      const r = await runVitest(root, fs, { config: c, testName, timeoutMs: timeoutMs ?? defaultMs, live })
       if (!r.ran) return { ran: false, tests: [], error: r.error }
       const want = new Set(fs.map(f => normalize(f)))
       all.tests.push(...r.tests.filter(t => want.has(normalize(t.file))))
