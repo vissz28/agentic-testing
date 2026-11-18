@@ -15,6 +15,10 @@ Update with `/plugin update quality-code@teamsystem`.
 - A whole-suite `/quality-code:check` (`--backend`, `--frontend` or the full suite) mutates only the specs this branch changed or added, committed or not, instead of every spec; the card says how many it left out. `--all-mutants` mutates them all. On warehouse-backend a whole-suite check mutated about 5,400 assertions, well over an hour.
 - The band counts mutation across every spec of the run, with the specs done (`mutants 120/300 · 118 killed · files 10/40`).
 
+### Fixed
+
+- The band often showed nothing in Claude Code Desktop, in `/quality-code:spec` and `/quality-code:check` alike. Desktop starts a session from a spare engine parked in a neutral folder and moves it to the project when you write; the band picked its progress file once, in the parking folder, and never saw the project's run. It now follows the session's folder. A session that got a spare still starting up (a quick first message) or a fresh engine (after a rewind) already worked, which is why the band came and went.
+
 ## [0.86.0] - 2026-11-18
 
 ### Added

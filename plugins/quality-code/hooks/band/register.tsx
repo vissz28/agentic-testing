@@ -9,11 +9,11 @@ import { bar, view, visible } from './view'
 const seen = atom({ plugin: 'quality-code', key: 'live' } as const, null, { shape: 'live-1' })
 
 /** One plugin script through run-node.cmd, which finds node when PATH lacks it (sh, then cmd on Windows). */
-async function script($: EngineInterface, args: string[]): Promise<string | null> {
+async function script($: EngineInterface, args: string[], cwd?: string): Promise<string | null> {
   const wrapper = `${$.plugin.root}/bin/run-node.cmd`
   for (const argv of [['sh', wrapper, ...args], ['cmd', '/c', wrapper.replace(/\//g, '\\'), ...args]]) {
     try {
-      const r = await $.process.run(argv, { timeoutMs: 20_000 })
+      const r = await $.process.run(argv, { timeoutMs: 20_000, ...(cwd ? { cwd } : {}) })
       if (r.exitCode === 0 && r.stdout.trim()) return r.stdout.trim()
     } catch {}
   }
@@ -25,14 +25,26 @@ const languageOf = (out: string | null) => (/"language"\s*:\s*"it"/.test(out ?? 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    // The pipeline and this band agree on the file through the plugin's own code (live.mjs path).
-    const file = await script($, ['live.mjs', 'path'])
-    if (!file) return started
+    let folder = ''
+    let file: string | null = null
     let mtime = 0
     let run = ''
     let lang: Seen['lang'] = 'en'
     let shown = false
     $.clock.every(1000, async () => {
+      // Claude Code Desktop starts a session from a spare engine parked in a neutral folder and moves it to the
+      // project when the person writes: the file follows the session's folder, not the one it started in.
+      const here = await $.session.cwd().catch(() => folder)
+      if (here !== folder) {
+        folder = here
+        // The pipeline and this band agree on the file through the plugin's own code (live.mjs path).
+        file = await script($, ['live.mjs', 'path'], here)
+        mtime = 0
+        run = ''
+        shown = false
+        await update($, seen, () => null)
+      }
+      if (!file) return
       const now = await $.clock.now()
       const stat = await $.fs.stat(file).catch(() => null)
       if (stat && stat.mtimeMs !== mtime) {
@@ -40,7 +52,7 @@ export const register: Register = on => {
         try {
           const live = JSON.parse(await $.fs.read(file))
           // A new run: the person may have switched language since the last one.
-          if (live.startedAt !== run) { run = live.startedAt; lang = languageOf(await script($, ['progress.mjs', 'get', 'session'])) }
+          if (live.startedAt !== run) { run = live.startedAt; lang = languageOf(await script($, ['progress.mjs', 'get', 'session'], folder)) }
           shown = visible(live, now)
           await update($, seen, () => ({ run: live, now, lang }))
         } catch {}
