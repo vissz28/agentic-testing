@@ -105,4 +105,4 @@ def menu(commands: list[Command], maybe: list[Command] | None = None) -> str:
         head += " It could be one of these:\n\n" + "\n".join(line(c) for c in maybe) + "\n\nEverything we offer:"
     else:
         head += " Here is what we offer:"
-    return head + "\n\n" + "\n".join(line(c) for c in commands) + "\n\nSay it after the keyword, for example `Using Quality Code evaluate ticket PFO-123` or `Using Quality Code write tests for PFO-123`."
+    return head + "\n\n" + "\n".join(line(c) for c in commands) + "\n\nShow the likely commands as choice cards with the AskUserQuestion picker, the last option \"Other\", and go on with the one they pick. Say it after the keyword, for example `Using Quality Code evaluate ticket PFO-123` or `Using Quality Code write tests for PFO-123`."

@@ -120,7 +120,10 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
             "When the person answers a card with a number or a word, carry on with the next step of the same command.\n"
             "This server keeps no file: no ticket copy, no audit log, no saved run. Hold them in the chat. A script that changes the ticket prints it on a `TICKET_JSON:` line: "
             "keep that line, and pass its JSON back as `--in '<json>'` wherever the steps say `--in @<ticketsDir>/<KEY>/ticket.json` (and `ticket.mjs sanitize` needs no `--out`; `attach` takes the text itself in place of `@attached.txt`). "
-            "Never write a ticket, raw, attached or audit file.\n\n---\n\n"
+            "Never write a ticket, raw, attached or audit file.\n"
+            "Ask every question to the person as choice cards with the AskUserQuestion picker, never as a plain or numbered text question: one card per question, the real choices first, "
+            "and the last option is always \"Other\" for their own words. When the person's own words name a Jira key or a task, use the most specific tool for it "
+            "(a key: `quality_code_jira_issue`; search words: `quality_code_jira_search`; a command: `quality_code_direct`).\n\n---\n\n"
         )
     present = [n for n in SERVER_TOOL_MAP if n in server_tools]
     if present:

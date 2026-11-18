@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.7] - 2026-11-18
+
+### Changed
+- Shared MCP server only: every command it serves tells the model to ask each question as choice cards (the AskUserQuestion picker) with "Other" as the last option, and to use the most specific tool for what the person asked (a key, search words, a command). When it is not clear which command is meant, the menu is shown as cards too. The plugin's own texts are unchanged.
+
+**What to do:** nothing for the plugin. Server: deploy the new image.
+
 ## [0.89.6] - 2026-11-18
 
 ### Changed
