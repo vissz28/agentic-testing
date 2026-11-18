@@ -208,6 +208,284 @@ function otherBackendErrors(b, name, e) {
   if (b.typeCheck !== undefined && !isLine(b.typeCheck)) e.push(`${name}.typeCheck: must be one line of text, the type-check command, like "mypy {files}"`)
 }
 
+const uses = (c, a) => c.frontend === a || c.backend === a
+
+function jiraErrors(c, e) {
+  const j = c.jira
+  if (!isObject(j)) return e.push('jira: must be an object with site and projects')
+  if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
+  if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
+  else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
+  if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
+    e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
+  if (j.bugTypes !== undefined && (!Array.isArray(j.bugTypes) || !j.bugTypes.length || !j.bugTypes.every(t => typeof t === 'string' && t.trim())))
+    e.push('jira.bugTypes: must be a non-empty list of issue type names, like ["Bug", "Defect"]')
+  if (j.doneStatuses !== undefined && (!Array.isArray(j.doneStatuses) || j.doneStatuses.some(s => typeof s !== 'string' || !s.trim())))
+    e.push('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]')
+  if (j.trackingProjects !== undefined) {
+    if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
+    else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_"`) })
+  }
+}
+
+function featureErrors(c, e) {
+  if (c.features === undefined) return
+  if (!Array.isArray(c.features)) return e.push('features: must be a list (it may be empty)')
+  const seen = new Set()
+  c.features.forEach((f, i) => {
+    if (!f || typeof f.label !== 'string' || !f.label.trim()) e.push(`features[${i}].label: must be a non-empty text`)
+    else if (seen.has(f.label)) e.push(`features[${i}].label "${f.label}" appears twice`)
+    else seen.add(f.label)
+    if (f?.qaPlanSearch !== undefined && (typeof f.qaPlanSearch !== 'string' || !f.qaPlanSearch.trim())) e.push(`features[${i}].qaPlanSearch: must be a non-empty text (the words to search for the QA plan)`)
+    if (f?.approach !== undefined) {
+      if (!FEATURE_APPROACHES.includes(f.approach)) e.push(`features[${i}].approach: must be "e2e", "unit" or "both" (how the team tests this feature)`)
+      else if (f.approach !== 'e2e' && !hasUnitRunner(c)) e.push(`features[${i}].approach "${f.approach}" needs a JavaScript unit test runner (Vitest, Jest, Mocha or node --test): run /quality-code:setup to add one`)
+    }
+    if (f?.guide !== undefined && !(typeof f.guide === 'string' && pathOk(f.guide) && !f.guide.endsWith('/'))) e.push(`features[${i}].guide ${JSON.stringify(f.guide)} must be a file inside the project (the team's own approach to testing this feature, for example docs/testing/orders.md)`)
+    if (f?.route != null) {
+      if (typeof f.route !== 'string') e.push(`features[${i}].route: must be text starting with "/"`)
+      else if (!f.route.startsWith('/')) e.push(`features[${i}].route "${f.route}" must start with "/"`)
+    }
+  })
+}
+
+function gateErrors(c, e) {
+  const g = c.gate
+  if (g === undefined) return
+  if (!isObject(g)) return e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
+  for (const k of Object.keys(g)) if (!['omit', 'contextFromIntro'].includes(k)) e.push(`gate.${k}: unknown field (only "omit" and "contextFromIntro")`)
+  const OMIT = ['attachments', 'links', 'context', 'environment']
+  if (g.omit !== undefined && (!Array.isArray(g.omit) || g.omit.some(k => !OMIT.includes(k)))) e.push(`gate.omit: must be a list of ${orList(quoted(OMIT))}: items that never count against a ticket of this project`)
+  if (g.contextFromIntro !== undefined && typeof g.contextFromIntro !== 'boolean') e.push('gate.contextFromIntro: must be true or false (true: the paragraph before the first heading counts as the Context)')
+}
+
+function expectedErrors(c, e) {
+  const x = c.expected
+  if (x === undefined) return
+  if (!isObject(x)) return e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
+  for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
+  if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(isLine))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
+  if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
+  if (x.aliases !== undefined) {
+    if (!isObject(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
+    else for (const [k, v] of Object.entries(x.aliases)) if (!isLine(k) || !(isLine(v) || (Array.isArray(v) && v.length > 0 && v.every(isLine)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
+  }
+}
+
+function ticketsDirErrors(c, allowAbsoluteTicketsDir, e) {
+  if (c.ticketsDir === undefined) return
+  if (typeof c.ticketsDir !== 'string' || !cleanRelPath(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
+  else if (hasLineBreak(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
+  else {
+    const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !cleanRelPath(c.ticketsDir).split('/').includes('..')
+    if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
+  }
+}
+
+// When origin/HEAD isn't the base (gitflow: develop).
+function gitErrors(c, e) {
+  if (c.git === undefined) return
+  if (!isObject(c.git)) return e.push('git: must be an object with an optional "base"')
+  for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
+  const b = c.git.base
+  if (b !== undefined && (typeof b !== 'string' || !b.trim() || b.startsWith('-') || /[\s~^:?*[\\]/.test(b))) e.push(`git.base ${JSON.stringify(b)} must be a branch name, like "develop"`)
+}
+
+function ticketTemplateErrors(c, e) {
+  if (c.ticketTemplates === undefined) return
+  if (!isObject(c.ticketTemplates)) return e.push('ticketTemplates: must be an object with optional "bug" and "story"')
+  for (const [k, v] of Object.entries(c.ticketTemplates)) {
+    if (k !== 'bug' && k !== 'story') e.push(`ticketTemplates.${k}: unknown field (only "bug" and "story")`)
+    else if (v !== null && typeof v !== 'string') e.push(`ticketTemplates.${k}: must be text or null`)
+  }
+}
+
+function redactErrors(c, e) {
+  if (c.redact === undefined) return
+  if (!isObject(c.redact)) return e.push('redact: must be an object of name to regular expression')
+  for (const [name, src] of Object.entries(c.redact)) {
+    if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
+    let re
+    try { re = new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`); continue }
+    if (re.test('')) e.push(`redact.${name}: must not match empty text (it would insert the mask between every character)`)
+  }
+}
+
+function boundaryErrors(c, e) {
+  if (c.boundaries === undefined) return
+  if (!isObject(c.boundaries)) return e.push('boundaries: must be an object with "forbidden" and/or "allow"')
+  for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
+  const f = c.boundaries.forbidden
+  if (f !== undefined) {
+    if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
+    else f.forEach((r, i) => {
+      if (!isObject(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
+      if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
+      if (r.why !== undefined && !isLine(r.why)) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
+      for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
+    })
+  }
+  const a = c.boundaries.allow
+  if (a !== undefined) {
+    if (!Array.isArray(a)) e.push('boundaries.allow: must be a list of path patterns')
+    else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
+  }
+}
+
+function runnersErrors(c, e) {
+  if (c.runners === undefined) return
+  if (!isObject(c.runners)) return e.push('runners: must be an object with "unit" and/or "e2e"')
+  const backend = c.backend
+  for (const [kind, name] of Object.entries(c.runners)) {
+    const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
+    if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
+    else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
+    // Jest/Mocha are JS: non-JS backends already have their own runner.
+    else if (kind === 'unit' && isBackend(backend) && backend !== 'vitest') e.push(`runners.unit: ${JSON.stringify(name)} runs JavaScript tests, and this project's backend is ${BACKENDS[backend].label}, which runs its own tests: leave runners.unit out (it is only for a Vitest backend)`)
+    else if (!uses(c, kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with ${kind === 'unit' ? '"backend": "vitest"' : '"frontend": "playwright"'}`)
+  }
+}
+
+function vitestErrors(c, e) {
+  if (c.vitest === undefined) return
+  if (!uses(c, 'vitest')) return e.push('vitest: only allowed with "backend": "vitest"')
+  if (!isObject(c.vitest)) return e.push('vitest: must be an object')
+  for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "maxMutants", "layers" and "stryker")`)
+  runnerFields(c.vitest, 'vitest', e)
+  layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
+  const st = c.vitest.stryker
+  if (st === undefined) return
+  if (!isObject(st)) return e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
+  for (const k of Object.keys(st)) if (k !== 'threshold' && k !== 'timeoutSeconds') e.push(`vitest.stryker.${k}: unknown field (only "threshold" and "timeoutSeconds")`)
+  if (st.threshold !== undefined && !(Number.isInteger(st.threshold) && st.threshold >= 0 && st.threshold <= 100)) e.push('vitest.stryker.threshold: must be a whole number from 0 to 100')
+  if (st.timeoutSeconds !== undefined && !(Number.isInteger(st.timeoutSeconds) && st.timeoutSeconds >= 60 && st.timeoutSeconds <= 7200)) e.push('vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200')
+}
+
+function playwrightErrors(c, e) {
+  const p = c.playwright
+  if (p === undefined) return
+  if (!uses(c, 'playwright')) return e.push('playwright: only allowed with "frontend": "playwright"')
+  if (!isObject(p)) return e.push('playwright: must be an object')
+  for (const k of Object.keys(p)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags', 'signIn'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles", "redTags" and "signIn")`)
+  runnerFields(p, 'playwright', e)
+  const u = p.ungradedTitles
+  if (u !== undefined) {
+    let re = null
+    try { re = typeof u === 'string' && u.trim() ? new RegExp(u, 'i') : null } catch {}
+    if (!re || re.test('')) e.push('playwright.ungradedTitles: must be a regular expression that matches the titles of tests that never assert (screenshot captures), like "conformance|capture"')
+  }
+  const rt = p.redTags
+  if (rt !== undefined && rt !== null) {
+    if (!isObject(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
+    else for (const k of Object.keys(rt)) {
+      if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
+      else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
+    }
+  }
+  const si = p.signIn
+  if (si !== undefined) {
+    if (!isObject(si) || !SIGN_IN.includes(si.kind) || !isLine(si.how) || si.how.length > 300 || Object.keys(si).some(k => k !== 'kind' && k !== 'how')) e.push(`playwright.signIn: must be { "kind", "how" }: kind ${orList(quoted(SIGN_IN))}, how one line (at most 300 characters) saying how a tester gets past the sign-in, never a password or a token`)
+  }
+  if (p.folder !== undefined) folderErrors(p.folder, 'playwright.folder', folderRules(c), e)
+  if (p.guide !== undefined && !guideOk(p.guide)) e.push(`playwright.guide ${JSON.stringify(p.guide)} must be a relative path to a .md file inside the project`)
+  const ps = p.projects
+  if (ps === undefined) return
+  if (!Array.isArray(ps) || ps.length < 1 || ps.length > 10) return e.push('playwright.projects: must be a list of 1 to 10 project names')
+  const seen = new Set()
+  ps.forEach((name, i) => {
+    if (!isLine(name) || name.startsWith('-')) e.push(`playwright.projects[${i}] ${JSON.stringify(name)} must be a project name of your Playwright config: one line, not empty, not starting with "-"`)
+    else if (seen.has(name)) e.push(`playwright.projects[${i}] "${name}" appears twice`)
+    else seen.add(name)
+  })
+}
+
+function seedErrors(c, e) {
+  const s = c.seed
+  if (s === undefined) return
+  const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
+  if (!isObject(s)) return e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
+  // Pre-0.31.0 test-data printer fields: ignored so old configs still load.
+  for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
+  if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
+  if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
+  if (s.target !== undefined && !isLine(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
+  if (s.apply !== undefined && !(isLine(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
+  if (s.tenant !== undefined && !(isObject(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
+}
+
+function qaErrors(c, e) {
+  const q = c.qa
+  if (q === undefined) return
+  const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
+  if (!isObject(q)) return e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
+  // Interpolated into JQL in double quotes: one line, no quote, no backslash.
+  const nameOk = v => isLine(v) && !/["\\]/.test(v) && v.length <= 80
+  for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
+  if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
+  if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')
+  if (q.app !== undefined && !(typeof q.app === 'string' && /^https?:\/\/[^\s]+$/.test(q.app))) e.push('qa.app: must be the address of the app to test, starting with http:// or https://')
+  if (q.statuses !== undefined) {
+    if (!isObject(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
+    else for (const [k, v] of Object.entries(q.statuses)) {
+      if (!['ko', 'ready', 'done'].includes(k)) e.push(`qa.statuses.${k}: unknown field (only "ko", "ready" and "done")`)
+      else if (!nameOk(v)) e.push(`qa.statuses.${k}: must be a Jira status name (one line, no double quote), like "TEST KO"`)
+    }
+  }
+  if (q.blockedStop !== undefined && !(Number.isInteger(q.blockedStop) && q.blockedStop >= 0 && q.blockedStop <= 20)) e.push('qa.blockedStop: must be a whole number from 0 to 20 (0 never stops)')
+  if (q.autoPass !== undefined && typeof q.autoPass !== 'boolean') e.push('qa.autoPass: must be true or false')
+}
+
+function xrayErrors(c, e) {
+  const x = c.xray
+  if (x === undefined) return
+  if (!uses(c, 'playwright')) return e.push('xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)')
+  if (!isObject(x)) return e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
+  for (const k of Object.keys(x)) if (!['csv', 'folder', 'headers'].includes(k)) e.push(`xray.${k}: unknown field (only "csv", "folder" and "headers")`)
+  if (!(pathOk(x.csv) && /\.csv$/i.test(x.csv))) e.push(`xray.csv ${JSON.stringify(x.csv)} must be a relative path to a .csv file inside the project`)
+  if (x.folder !== undefined) folderErrors(x.folder, 'xray.folder', folderRules(c), e)
+  if (x.headers === undefined) return
+  if (!isObject(x.headers)) return e.push('xray.headers: must be an object of column to header text')
+  for (const [k, v] of Object.entries(x.headers)) {
+    if (!Object.hasOwn(XRAY_HEADERS, k)) e.push(`xray.headers.${k}: unknown column (only ${Object.keys(XRAY_HEADERS).join(', ')})`)
+    else if (typeof v !== 'string' || !v.trim() || /[\r\n,"]/.test(v)) e.push(`xray.headers.${k}: must be one line of text, without commas or quotes`)
+  }
+  const texts = XRAY_COLUMNS.map(k => x.headers[k] ?? XRAY_HEADERS[k])
+  if (new Set(texts).size !== texts.length) e.push('xray.headers: two columns have the same header')
+}
+
+// Central Context hub for testing rules (lib/base/rules.mjs). "off" reads none.
+function testRulesErrors(c, e) {
+  if (c.testRules === undefined) return
+  if (!isObject(c.testRules)) return e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
+  for (const [side, v] of Object.entries(c.testRules)) {
+    if (side !== 'backend' && side !== 'frontend') e.push(`testRules.${side}: unknown field (only "backend" and "frontend")`)
+    else if (v !== 'own' && v !== 'plugin') e.push(`testRules.${side}: must be "own" (the team's rules and specs win) or "plugin" (the plugin's rules win), found ${JSON.stringify(v)}`)
+  }
+}
+
+function centralContextErrors(c, e) {
+  if (c.centralContext === undefined) return
+  const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
+  if (!isObject(c.centralContext)) return e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
+  for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
+  const h = c.centralContext.hub
+  if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
+  // Team rules, read alongside the hub's.
+  const l = c.centralContext.local
+  if (l !== undefined && !(pathOk(l) && l.endsWith('/'))) e.push(`centralContext.local ${JSON.stringify(l)} must be a folder inside the project, ending with "/" (one rule per .md file, in the Central Context rule format)`)
+}
+
+function sidesErrors(c, e) {
+  if (c.sides === undefined) return
+  if (!(c.frontend && c.backend)) return e.push('sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)')
+  if (!isObject(c.sides)) return e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
+  for (const [k, v] of Object.entries(c.sides)) {
+    if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
+    else if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend", "fullstack" and "default")`)
+    else if (!Array.isArray(v) || v.some(m => typeof m !== 'string' || !m.trim() || /[\[\]\r\n]/.test(m))) e.push(`sides.${k}: must be a list of title prefixes or labels, like ["FE"] (no brackets)`)
+  }
+}
+
 export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) {
   const e = []
   const c = isObject(input) ? input : {}
@@ -220,46 +498,11 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
   if (c.frontend === undefined && c.backend === undefined && !('adapter' in c)) e.push(`frontend, backend: set one or both: "frontend": "playwright" (e2e tests of screens), "backend": ${orList(quoted(BACKEND_ADAPTERS))} (tests of the code)`)
   if (c.frontend !== undefined && c.frontend !== 'playwright') e.push(`frontend: must be "playwright" (found ${JSON.stringify(c.frontend)})`)
   if (c.backend !== undefined && !isBackend(c.backend)) e.push(`backend: must be ${orList(quoted(BACKEND_ADAPTERS))} (found ${JSON.stringify(c.backend)})`)
-  const backend = c.backend
-  const uses = a => c.frontend === a || c.backend === a
   const j = isObject(c.jira) ? c.jira : {}
-  if (!isObject(c.jira)) e.push('jira: must be an object with site and projects')
-  else {
-    if (typeof j.site !== 'string' || !/^https:\/\/[^/\s]+(?:\/\S*)?$/.test(j.site)) e.push('jira.site: must be an https URL like "https://example.atlassian.net"')
-    if (!Array.isArray(j.projects) || j.projects.length === 0) e.push('jira.projects: must be a non-empty list of keys like "ABC"')
-    else j.projects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.projects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_", like "ABC"`) })
-    if ('acceptanceCriteriaField' in j && !(j.acceptanceCriteriaField === null || (typeof j.acceptanceCriteriaField === 'string' && /^customfield_\d+$/.test(j.acceptanceCriteriaField))))
-      e.push('jira.acceptanceCriteriaField: must be null or like "customfield_10001"')
-    if (j.bugTypes !== undefined && (!Array.isArray(j.bugTypes) || !j.bugTypes.length || !j.bugTypes.every(t => typeof t === 'string' && t.trim())))
-      e.push('jira.bugTypes: must be a non-empty list of issue type names, like ["Bug", "Defect"]')
-    if (j.doneStatuses !== undefined && (!Array.isArray(j.doneStatuses) || j.doneStatuses.some(s => typeof s !== 'string' || !s.trim())))
-      e.push('jira.doneStatuses: must be a list of Jira status names, like ["Done", "Closed"]')
-    if (j.trackingProjects !== undefined) {
-      if (!Array.isArray(j.trackingProjects)) e.push('jira.trackingProjects: must be a list of keys')
-      else j.trackingProjects.forEach((p, i) => { if (typeof p !== 'string' || !KEY.test(p)) e.push(`jira.trackingProjects[${i}] ${JSON.stringify(p)} must be upper-case letters, digits and "_"`) })
-    }
-  }
+  jiraErrors(c, e)
   if (c.languages !== undefined && (!Array.isArray(c.languages) || c.languages.length === 0)) e.push('languages: must list at least one of "en", "it"')
   else if (c.languages !== undefined) c.languages.forEach((l, i) => { if (!LANGS.has(l)) e.push(`languages[${i}] "${l}" is not supported (supported: en, it)`) })
-  if (c.features !== undefined && !Array.isArray(c.features)) e.push('features: must be a list (it may be empty)')
-  else if (c.features !== undefined) {
-    const seen = new Set()
-    c.features.forEach((f, i) => {
-      if (!f || typeof f.label !== 'string' || !f.label.trim()) e.push(`features[${i}].label: must be a non-empty text`)
-      else if (seen.has(f.label)) e.push(`features[${i}].label "${f.label}" appears twice`)
-      else seen.add(f.label)
-      if (f?.qaPlanSearch !== undefined && (typeof f.qaPlanSearch !== 'string' || !f.qaPlanSearch.trim())) e.push(`features[${i}].qaPlanSearch: must be a non-empty text (the words to search for the QA plan)`)
-      if (f?.approach !== undefined) {
-        if (!FEATURE_APPROACHES.includes(f.approach)) e.push(`features[${i}].approach: must be "e2e", "unit" or "both" (how the team tests this feature)`)
-        else if (f.approach !== 'e2e' && !hasUnitRunner(c)) e.push(`features[${i}].approach "${f.approach}" needs a JavaScript unit test runner (Vitest, Jest, Mocha or node --test): run /quality-code:setup to add one`)
-      }
-      if (f?.guide !== undefined && !(typeof f.guide === 'string' && pathOk(f.guide) && !f.guide.endsWith('/'))) e.push(`features[${i}].guide ${JSON.stringify(f.guide)} must be a file inside the project (the team's own approach to testing this feature, for example docs/testing/orders.md)`)
-      if (f?.route != null) {
-        if (typeof f.route !== 'string') e.push(`features[${i}].route: must be text starting with "/"`)
-        else if (!f.route.startsWith('/')) e.push(`features[${i}].route "${f.route}" must start with "/"`)
-      }
-    })
-  }
+  featureErrors(c, e)
   if (c.titlePrefixes !== undefined) {
     if (!Array.isArray(c.titlePrefixes)) e.push('titlePrefixes: must be a list of non-empty texts')
     else c.titlePrefixes.forEach((t, i) => { if (typeof t !== 'string' || !t.trim()) e.push(`titlePrefixes[${i}]: must be a non-empty text`) })
@@ -273,259 +516,43 @@ export function validateConfig(input, { allowAbsoluteTicketsDir = false } = {}) 
       if (typeof k !== 'string' || !SPACE_KEY.test(k)) e.push(`confluenceSpaces[${i}] ${JSON.stringify(k)} must be a Confluence space key: letters, digits, "_", "~" or "-", like "ABC"`)
     })
   }
-  if (c.gate !== undefined) {
-    const g = c.gate
-    if (!isObject(g)) e.push('gate: must be an object with "omit" and/or "contextFromIntro"')
-    else {
-      for (const k of Object.keys(g)) if (!['omit', 'contextFromIntro'].includes(k)) e.push(`gate.${k}: unknown field (only "omit" and "contextFromIntro")`)
-      const OMIT = ['attachments', 'links', 'context', 'environment']
-      if (g.omit !== undefined && (!Array.isArray(g.omit) || g.omit.some(k => !OMIT.includes(k)))) e.push(`gate.omit: must be a list of ${orList(quoted(OMIT))}: items that never count against a ticket of this project`)
-      if (g.contextFromIntro !== undefined && typeof g.contextFromIntro !== 'boolean') e.push('gate.contextFromIntro: must be true or false (true: the paragraph before the first heading counts as the Context)')
-    }
-  }
-  if (c.expected !== undefined) {
-    const x = c.expected
-    if (!isObject(x)) e.push('expected: must be an object with "aliases", "ignore" and/or "fields"')
-    else {
-      for (const k of Object.keys(x)) if (!['aliases', 'ignore', 'fields'].includes(k)) e.push(`expected.${k}: unknown field (only "aliases", "ignore" and "fields")`)
-      if (x.ignore !== undefined && (!Array.isArray(x.ignore) || !x.ignore.every(isLine))) e.push('expected.ignore: must be a list of words or field names that another package owns, like ["sts_submission"]')
-      if (x.fields !== undefined && typeof x.fields !== 'boolean') e.push('expected.fields: must be true or false (false: field names in the ticket are not looked for in the tests)')
-      if (x.aliases !== undefined) {
-        if (!isObject(x.aliases)) e.push('expected.aliases: must be an object from a word in the ticket to the text the screen shows, like { "Rectify": "Rettifica" }')
-        else for (const [k, v] of Object.entries(x.aliases)) if (!isLine(k) || !(isLine(v) || (Array.isArray(v) && v.length > 0 && v.every(isLine)))) e.push(`expected.aliases.${k}: must be a text, or a list of texts, the tests assert instead`)
-      }
-    }
-  }
+  gateErrors(c, e)
+  expectedErrors(c, e)
   if (c.assertionHelpers !== undefined && (!Array.isArray(c.assertionHelpers) || !c.assertionHelpers.every(h => typeof h === 'string' && /^[A-Za-z_$][\w$]*$/.test(h)))) e.push('assertionHelpers: must be a list of method-name prefixes that assert for a test (page objects), like ["check", "ensure"]; expect, assert and verify always count')
   if (c.ticketAnchor !== undefined && !['block', 'branch'].includes(c.ticketAnchor)) e.push(`ticketAnchor ${JSON.stringify(c.ticketAnchor)}: must be "block" (a group whose title names the ticket) or "branch" (also a spec changed on the branch)`)
   if (c.roots !== undefined && (!Array.isArray(c.roots) || c.roots.length < 1 || !c.roots.every(pathOk))) e.push('roots: must be a list of folders inside the repository, like ["app", "backend-executor"] (the projects one config serves; ticket.mjs root set picks the active one)')
   if (c.role !== undefined && !['dev', 'qa', 'po'].includes(c.role)) e.push(`role ${JSON.stringify(c.role)}: must be "dev", "qa" or "po"`)
   if (c.testStyle !== undefined && !FLOWS.includes(c.testStyle)) e.push(`testStyle ${JSON.stringify(c.testStyle)}: must be "project" (follow the project's own tests), "quality-code" or "both"`)
-  if (c.ticketsDir !== undefined) {
-    if (typeof c.ticketsDir !== 'string' || !cleanRelPath(c.ticketsDir).trim()) e.push('ticketsDir: must be a non-empty text')
-    else if (hasLineBreak(c.ticketsDir)) e.push('ticketsDir: must be on one line (no line breaks)')
-    else {
-      const absOk = allowAbsoluteTicketsDir && isAbsolute(c.ticketsDir) && !cleanRelPath(c.ticketsDir).split('/').includes('..')
-      if (!absOk && !pathOk(c.ticketsDir)) e.push(`ticketsDir ${JSON.stringify(c.ticketsDir)} ${PATH_RULE}`)
-    }
-  }
-  // When origin/HEAD isn't the base (gitflow: develop).
-  if (c.git !== undefined) {
-    if (!isObject(c.git)) e.push('git: must be an object with an optional "base"')
-    else {
-      for (const k of Object.keys(c.git)) if (k !== 'base') e.push(`git.${k}: unknown field (only "base")`)
-      const b = c.git.base
-      if (b !== undefined && (typeof b !== 'string' || !b.trim() || b.startsWith('-') || /[\s~^:?*[\\]/.test(b))) e.push(`git.base ${JSON.stringify(b)} must be a branch name, like "develop"`)
-    }
-  }
-  if (c.ticketTemplates !== undefined) {
-    if (!isObject(c.ticketTemplates)) e.push('ticketTemplates: must be an object with optional "bug" and "story"')
-    else for (const [k, v] of Object.entries(c.ticketTemplates)) {
-      if (k !== 'bug' && k !== 'story') e.push(`ticketTemplates.${k}: unknown field (only "bug" and "story")`)
-      else if (v !== null && typeof v !== 'string') e.push(`ticketTemplates.${k}: must be text or null`)
-    }
-  }
-  if (c.redact !== undefined) {
-    if (!isObject(c.redact)) e.push('redact: must be an object of name to regular expression')
-    else for (const [name, src] of Object.entries(c.redact)) {
-      if (typeof src !== 'string') { e.push(`redact.${name}: must be a text (a regular expression)`); continue }
-      let re
-      try { re = new RegExp(src) } catch { e.push(`redact.${name}: not a valid regular expression`); continue }
-      if (re.test('')) e.push(`redact.${name}: must not match empty text (it would insert the mask between every character)`)
-    }
-  }
+  ticketsDirErrors(c, allowAbsoluteTicketsDir, e)
+  gitErrors(c, e)
+  ticketTemplateErrors(c, e)
+  redactErrors(c, e)
   if (c.messages !== undefined && !isObject(c.messages)) e.push('messages: must be an object')
   else if (c.messages?.jiraFillMark !== undefined && (typeof c.messages.jiraFillMark !== 'string' || !c.messages.jiraFillMark.trim()))
     e.push('messages.jiraFillMark: must be a non-empty text (the line above what a fill-in adds to Jira)')
-  if (c.boundaries !== undefined) {
-    if (!isObject(c.boundaries)) e.push('boundaries: must be an object with "forbidden" and/or "allow"')
-    else {
-      for (const k of Object.keys(c.boundaries)) if (k !== 'forbidden' && k !== 'allow') e.push(`boundaries.${k}: unknown field (only "forbidden" and "allow")`)
-      const f = c.boundaries.forbidden
-      if (f !== undefined) {
-        if (!Array.isArray(f) || f.length === 0) e.push('boundaries.forbidden: must be a non-empty list of { "path", "why" }')
-        else f.forEach((r, i) => {
-          if (!isObject(r)) { e.push(`boundaries.forbidden[${i}]: must be an object with "path" and an optional "why"`); return }
-          if (!pathOk(r.path)) e.push(`boundaries.forbidden[${i}].path ${JSON.stringify(r.path)} ${PATH_RULE}`)
-          if (r.why !== undefined && !isLine(r.why)) e.push(`boundaries.forbidden[${i}].why: must be one non-empty line`)
-          for (const k of Object.keys(r)) if (k !== 'path' && k !== 'why') e.push(`boundaries.forbidden[${i}].${k}: unknown field (only "path" and "why")`)
-        })
-      }
-      const a = c.boundaries.allow
-      if (a !== undefined) {
-        if (!Array.isArray(a)) e.push('boundaries.allow: must be a list of path patterns')
-        else a.forEach((p, i) => { if (!pathOk(p)) e.push(`boundaries.allow[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
-      }
-    }
-  }
-  if (c.runners !== undefined) {
-    if (!isObject(c.runners)) e.push('runners: must be an object with "unit" and/or "e2e"')
-    else for (const [kind, name] of Object.entries(c.runners)) {
-      const ok = Object.keys(RUNNERS).filter(r => RUNNERS[r].kind === kind)
-      if (!ok.length) e.push(`runners.${kind}: unknown field (only "unit" and "e2e")`)
-      else if (!ok.includes(name)) e.push(`runners.${kind}: must be ${ok.map(r => `"${r}"`).join(', ')} (found ${JSON.stringify(name)})`)
-      // Jest/Mocha are JS: non-JS backends already have their own runner.
-      else if (kind === 'unit' && isBackend(backend) && backend !== 'vitest') e.push(`runners.unit: ${JSON.stringify(name)} runs JavaScript tests, and this project's backend is ${BACKENDS[backend].label}, which runs its own tests: leave runners.unit out (it is only for a Vitest backend)`)
-      else if (!uses(kind === 'unit' ? 'vitest' : 'playwright')) e.push(`runners.${kind}: only allowed with ${kind === 'unit' ? '"backend": "vitest"' : '"frontend": "playwright"'}`)
-    }
-  }
-  if (c.vitest !== undefined) {
-    if (!uses('vitest')) e.push('vitest: only allowed with "backend": "vitest"')
-    else if (!isObject(c.vitest)) e.push('vitest: must be an object')
-    else {
-      for (const k of Object.keys(c.vitest)) if (!['configs', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'layers', 'stryker'].includes(k)) e.push(`vitest.${k}: unknown field (only "configs", "tsconfig", "timeoutSeconds", "maxMutants", "layers" and "stryker")`)
-      runnerFields(c.vitest, 'vitest', e)
-      layerErrors(c.vitest.layers, 'vitest', folderRules(c), e)
-      const st = c.vitest.stryker
-      if (st !== undefined) {
-        if (!isObject(st)) e.push('vitest.stryker: must be an object with an optional "threshold" and "timeoutSeconds"')
-        else {
-          for (const k of Object.keys(st)) if (k !== 'threshold' && k !== 'timeoutSeconds') e.push(`vitest.stryker.${k}: unknown field (only "threshold" and "timeoutSeconds")`)
-          if (st.threshold !== undefined && !(Number.isInteger(st.threshold) && st.threshold >= 0 && st.threshold <= 100)) e.push('vitest.stryker.threshold: must be a whole number from 0 to 100')
-          if (st.timeoutSeconds !== undefined && !(Number.isInteger(st.timeoutSeconds) && st.timeoutSeconds >= 60 && st.timeoutSeconds <= 7200)) e.push('vitest.stryker.timeoutSeconds: must be a whole number from 60 to 7200')
-        }
-      }
-    }
-  }
+  boundaryErrors(c, e)
+  runnersErrors(c, e)
+  vitestErrors(c, e)
   for (const name of OTHER_BACKENDS) {
     if (c[name] === undefined) continue
-    if (!uses(name)) e.push(`${name}: only allowed with "backend": "${name}"`)
+    if (!uses(c, name)) e.push(`${name}: only allowed with "backend": "${name}"`)
     else if (!isObject(c[name])) e.push(`${name}: must be an object`)
     else otherBackendErrors(c[name], name, e)
   }
-  if (c.playwright !== undefined) {
-    if (!uses('playwright')) e.push('playwright: only allowed with "frontend": "playwright"')
-    else if (!isObject(c.playwright)) e.push('playwright: must be an object')
-    else {
-      for (const k of Object.keys(c.playwright)) if (!['configs', 'projects', 'tsconfig', 'timeoutSeconds', 'maxMutants', 'folder', 'guide', 'ungradedTitles', 'redTags', 'signIn'].includes(k)) e.push(`playwright.${k}: unknown field (only "configs", "projects", "tsconfig", "timeoutSeconds", "maxMutants", "folder", "guide", "ungradedTitles", "redTags" and "signIn")`)
-      runnerFields(c.playwright, 'playwright', e)
-      const u = c.playwright.ungradedTitles
-      if (u !== undefined) {
-        let re = null
-        try { re = typeof u === 'string' && u.trim() ? new RegExp(u, 'i') : null } catch {}
-        if (!re || re.test('')) e.push('playwright.ungradedTitles: must be a regular expression that matches the titles of tests that never assert (screenshot captures), like "conformance|capture"')
-      }
-      const rt = c.playwright.redTags
-      if (rt !== undefined && rt !== null) {
-        if (!isObject(rt)) e.push('playwright.redTags: must be null (no tags) or an object with "scenario" and "extra"')
-        else for (const k of Object.keys(rt)) {
-          if (k !== 'scenario' && k !== 'extra') e.push(`playwright.redTags.${k}: unknown field (only "scenario" and "extra")`)
-          else if (typeof rt[k] !== 'string' || !/^@[\w-]+$/.test(rt[k])) e.push(`playwright.redTags.${k}: must be a tag like "@anchor"`)
-        }
-      }
-      const si = c.playwright.signIn
-      if (si !== undefined) {
-        if (!isObject(si) || !SIGN_IN.includes(si.kind) || !isLine(si.how) || si.how.length > 300 || Object.keys(si).some(k => k !== 'kind' && k !== 'how')) e.push(`playwright.signIn: must be { "kind", "how" }: kind ${orList(quoted(SIGN_IN))}, how one line (at most 300 characters) saying how a tester gets past the sign-in, never a password or a token`)
-      }
-      if (c.playwright.folder !== undefined) folderErrors(c.playwright.folder, 'playwright.folder', folderRules(c), e)
-      if (c.playwright.guide !== undefined && !guideOk(c.playwright.guide)) e.push(`playwright.guide ${JSON.stringify(c.playwright.guide)} must be a relative path to a .md file inside the project`)
-      const ps = c.playwright.projects
-      if (ps !== undefined) {
-        if (!Array.isArray(ps) || ps.length < 1 || ps.length > 10) e.push('playwright.projects: must be a list of 1 to 10 project names')
-        else {
-          const seen = new Set()
-          ps.forEach((p, i) => {
-            if (!isLine(p) || p.startsWith('-')) e.push(`playwright.projects[${i}] ${JSON.stringify(p)} must be a project name of your Playwright config: one line, not empty, not starting with "-"`)
-            else if (seen.has(p)) e.push(`playwright.projects[${i}] "${p}" appears twice`)
-            else seen.add(p)
-          })
-        }
-      }
-    }
-  }
+  playwrightErrors(c, e)
   e.push(...ciErrors(c.ci))
-  if (c.seed !== undefined) {
-    const SEED = ['schema', 'target', 'apply', 'tenant', 'guide']
-    if (!isObject(c.seed)) e.push('seed: must be an object with optional "schema", "target", "apply", "tenant" and "guide"')
-    else {
-      const s = c.seed
-      // Pre-0.31.0 test-data printer fields: ignored so old configs still load.
-      for (const k of Object.keys(s)) if (!SEED.includes(k) && !['builders', 'dataset', 'stubsFrom'].includes(k)) e.push(`seed.${k}: unknown field (only ${orList(quoted(SEED))})`)
-      if (s.guide !== undefined && !guideOk(s.guide)) e.push(`seed.guide ${JSON.stringify(s.guide)} must be a relative path to a .md file inside the project`)
-      if (s.schema !== undefined && !pathOk(s.schema)) e.push(`seed.schema ${JSON.stringify(s.schema)} ${PATH_RULE}`)
-      if (s.target !== undefined && !isLine(s.target)) e.push('seed.target: must be one line of text, a command that prints the database it reaches, like "echo localhost:5432/app"')
-      if (s.apply !== undefined && !(isLine(s.apply) && s.apply.includes('{file}'))) e.push('seed.apply: must be one line of text with {file} in it, the command that loads a SQL file into the local database, like "psql -h localhost -d app -f {file}"')
-      if (s.tenant !== undefined && !(isObject(s.tenant) && Object.keys(s.tenant).sort().join() === 'column,id' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(s.tenant.column) && isLine(s.tenant.id) && !s.tenant.id.includes("'"))) e.push('seed.tenant: must be { "column": "<the tenant column, like workspace_id>", "id": "<the tenant id the local app uses>" }')
-    }
-  }
+  seedErrors(c, e)
   // Markdown QA plans, one per feature label: extra rules for writing, never scored.
   if (c.qaPlans !== undefined && !(pathOk(c.qaPlans) && c.qaPlans.endsWith('/'))) e.push(`qaPlans ${JSON.stringify(c.qaPlans)} must be a folder inside the project, ending with "/" (one <feature label>.md per feature)`)
   if (c.externalChecks !== undefined) {
     if (!Array.isArray(c.externalChecks) || !c.externalChecks.length) e.push('externalChecks: must be a non-empty list of files or globs (tests run outside the unit tests, like a pgTAP file), relative to the folder that holds the config')
     else c.externalChecks.forEach((p, i) => { if (!pathOk(p)) e.push(`externalChecks[${i}] ${JSON.stringify(p)} ${PATH_RULE}`) })
   }
-  if (c.qa !== undefined) {
-    const QA = ['executionTypes', 'sprint', 'app', 'statuses', 'blockedStop', 'autoPass']
-    if (!isObject(c.qa)) e.push(`qa: must be an object with optional ${orList(quoted(QA))}`)
-    else {
-      const q = c.qa
-      // Interpolated into JQL in double quotes: one line, no quote, no backslash.
-      const nameOk = v => isLine(v) && !/["\\]/.test(v) && v.length <= 80
-      for (const k of Object.keys(q)) if (!QA.includes(k)) e.push(`qa.${k}: unknown field (only ${orList(quoted(QA))})`)
-      if (q.executionTypes !== undefined && !(Array.isArray(q.executionTypes) && q.executionTypes.length >= 1 && q.executionTypes.length <= 10 && q.executionTypes.every(nameOk))) e.push('qa.executionTypes: must be a list of 1 to 10 Jira issue type names (one line each, no double quote), like ["Test Execution", "Sub Test Execution"]')
-      if (q.sprint !== undefined && !['open', 'any'].includes(q.sprint)) e.push('qa.sprint: must be "open" (only the open sprint) or "any"')
-      if (q.app !== undefined && !(typeof q.app === 'string' && /^https?:\/\/[^\s]+$/.test(q.app))) e.push('qa.app: must be the address of the app to test, starting with http:// or https://')
-      if (q.statuses !== undefined) {
-        if (!isObject(q.statuses)) e.push('qa.statuses: must be an object with optional "ko", "ready" and "done"')
-        else for (const [k, v] of Object.entries(q.statuses)) {
-          if (!['ko', 'ready', 'done'].includes(k)) e.push(`qa.statuses.${k}: unknown field (only "ko", "ready" and "done")`)
-          else if (!nameOk(v)) e.push(`qa.statuses.${k}: must be a Jira status name (one line, no double quote), like "TEST KO"`)
-        }
-      }
-      if (q.blockedStop !== undefined && !(Number.isInteger(q.blockedStop) && q.blockedStop >= 0 && q.blockedStop <= 20)) e.push('qa.blockedStop: must be a whole number from 0 to 20 (0 never stops)')
-      if (q.autoPass !== undefined && typeof q.autoPass !== 'boolean') e.push('qa.autoPass: must be true or false')
-    }
-  }
-  if (c.xray !== undefined) {
-    if (!uses('playwright')) e.push('xray: only allowed with "frontend": "playwright" (Xray test cases are written for Playwright tests)')
-    else if (!isObject(c.xray)) e.push('xray: must be an object with "csv" and optional "folder" and "headers"')
-    else {
-      const x = c.xray
-      for (const k of Object.keys(x)) if (!['csv', 'folder', 'headers'].includes(k)) e.push(`xray.${k}: unknown field (only "csv", "folder" and "headers")`)
-      if (!(pathOk(x.csv) && /\.csv$/i.test(x.csv))) e.push(`xray.csv ${JSON.stringify(x.csv)} must be a relative path to a .csv file inside the project`)
-      if (x.folder !== undefined) folderErrors(x.folder, 'xray.folder', folderRules(c), e)
-      if (x.headers !== undefined) {
-        if (!isObject(x.headers)) e.push('xray.headers: must be an object of column to header text')
-        else {
-          for (const [k, v] of Object.entries(x.headers)) {
-            if (!Object.hasOwn(XRAY_HEADERS, k)) e.push(`xray.headers.${k}: unknown column (only ${Object.keys(XRAY_HEADERS).join(', ')})`)
-            else if (typeof v !== 'string' || !v.trim() || /[\r\n,"]/.test(v)) e.push(`xray.headers.${k}: must be one line of text, without commas or quotes`)
-          }
-          const texts = XRAY_COLUMNS.map(k => x.headers[k] ?? XRAY_HEADERS[k])
-          if (new Set(texts).size !== texts.length) e.push('xray.headers: two columns have the same header')
-        }
-      }
-    }
-  }
-  // Central Context hub for testing rules (lib/base/rules.mjs). "off" reads none.
-  if (c.testRules !== undefined) {
-    if (!isObject(c.testRules)) e.push('testRules: must be an object with "backend" and/or "frontend", each "own" or "plugin"')
-    else for (const [side, v] of Object.entries(c.testRules)) {
-      if (side !== 'backend' && side !== 'frontend') e.push(`testRules.${side}: unknown field (only "backend" and "frontend")`)
-      else if (v !== 'own' && v !== 'plugin') e.push(`testRules.${side}: must be "own" (the team's rules and specs win) or "plugin" (the plugin's rules win), found ${JSON.stringify(v)}`)
-    }
-  }
-  if (c.centralContext !== undefined) {
-    const HUB = /^https?:\/\/[^\s/]+(?:\/\S*)?$/
-    if (!isObject(c.centralContext)) e.push('centralContext: must be an object with "hub", the Central Context hub\'s base URL like "http://localhost:8080", or "off"')
-    else {
-      for (const k of Object.keys(c.centralContext)) if (k !== 'hub' && k !== 'local') e.push(`centralContext.${k}: unknown field (only "hub" and "local")`)
-      const h = c.centralContext.hub
-      if (h !== undefined && !(h === 'off' || (typeof h === 'string' && HUB.test(h.trim())))) e.push('centralContext.hub: must be the hub\'s base URL like "http://localhost:8080" (http or https), or "off"')
-      // Team rules, read alongside the hub's.
-      const l = c.centralContext.local
-      if (l !== undefined && !(pathOk(l) && l.endsWith('/'))) e.push(`centralContext.local ${JSON.stringify(l)} must be a folder inside the project, ending with "/" (one rule per .md file, in the Central Context rule format)`)
-    }
-  }
-  if (c.sides !== undefined) {
-    if (!(c.frontend && c.backend)) e.push('sides: only allowed with both "frontend" and "backend" (it tells frontend, backend and fullstack tickets apart)')
-    else if (!isObject(c.sides)) e.push('sides: must be an object with "frontend", "backend" and "fullstack" lists of title prefixes or labels')
-    else for (const [k, v] of Object.entries(c.sides)) {
-      if (k === 'default') { if (!['frontend', 'backend', 'fullstack'].includes(v)) e.push('sides.default: must be "frontend", "backend" or "fullstack" (the side of a ticket that carries no mark)') }
-      else if (!['frontend', 'backend', 'fullstack'].includes(k)) e.push(`sides.${k}: unknown field (only "frontend", "backend", "fullstack" and "default")`)
-      else if (!Array.isArray(v) || v.some(m => typeof m !== 'string' || !m.trim() || /[\[\]\r\n]/.test(m))) e.push(`sides.${k}: must be a list of title prefixes or labels, like ["FE"] (no brackets)`)
-    }
-  }
+  qaErrors(c, e)
+  xrayErrors(c, e)
+  testRulesErrors(c, e)
+  centralContextErrors(c, e)
+  sidesErrors(c, e)
   if (e.length) return { ok: false, errors: e }
   return {
     ok: true,

@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { main } from '../../bin/clean.mjs'
 import { buildList, runClean, unsafeReason } from '../../lib/base/clean.mjs'
-import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE } from '../../bin/setup.mjs'
+import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE } from '../../lib/base/setup.mjs'
 import { dirOf, short, slug } from '../../lib/state/progress.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 

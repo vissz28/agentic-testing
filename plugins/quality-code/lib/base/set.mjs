@@ -1,11 +1,11 @@
 // `config set <key> <value>` / `config get <key>`. Changes go through validateConfig and setup's writers;
 // nothing is written on error, and secrets are refused first.
 import { existsSync, readFileSync } from 'node:fs'
-import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from './config.mjs'
-import { pickPlace, placeDirs, placeOf, placesFor } from './places.mjs'
+import { configHome, configPath, DEFAULTS, loadConfig, personalConfigPath, personalTicketsDir, projectRoot, validateConfig } from '../config/config.mjs'
+import { pickPlace, placeDirs, placeOf, placesFor } from '../config/places.mjs'
 import { FLOWS } from '../stacks/conventions.mjs'
 import { RUNNERS } from '../stacks/runners.mjs'
-import { write, writePersonal } from '../../bin/setup.mjs'
+import { write, writePersonal } from './setup.mjs'
 import { tag, printLine, printError } from '../core/script-io.mjs'
 import { plural } from '../core/text.mjs'
 import { noTrailingSlash } from '../core/paths.mjs'

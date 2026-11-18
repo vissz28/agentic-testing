@@ -132,7 +132,7 @@ test('a monorepo: the pick and the criteria field are one per repo, not one per 
 // The setup config sits with the tickets and audit files, in the place picked at setup's last step.
 import { configFileOf, configPath } from '../../lib/config/config.mjs'
 import { placeConfigPath } from '../../lib/config/places.mjs'
-import { write } from '../../bin/setup.mjs'
+import { write } from '../../lib/base/setup.mjs'
 
 test('the setup config is in the picked place, beside the tickets folder and the audit log', () => {
   const root = tmp(), claude = tmp(), env = { CLAUDE_CONFIG_DIR: claude, QUALITY_CODE_PLACE: '' }
