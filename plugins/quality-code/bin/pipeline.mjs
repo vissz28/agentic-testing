@@ -15,6 +15,7 @@ import { backendOf, BACKENDS, runnerLabel } from '../lib/stacks/backends.mjs'
 import { projectSpecs } from '../lib/report/quality-program.mjs'
 import { regressionProof } from '../lib/pipeline/regression.mjs'
 import { stopAll } from '../lib/pipeline/runners/tool.mjs'
+import { startLive } from '../lib/pipeline/live.mjs'
 import { checkUrl, smokeEnv, smokeSpecs } from '../lib/pipeline/smoke.mjs'
 import { crashMessage, isMain, printLine, printError } from '../lib/core/script-io.mjs'
 import { readJsonOr } from '../lib/core/files.mjs'
@@ -142,13 +143,17 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const before = { ...process.env }
   const restore = () => { for (const k of Object.keys(smokeVars ?? {})) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k] } }
   if (smokeVars) Object.assign(process.env, smokeVars)
+  // The band above the prompt reads this run's progress.
+  const live = startLive(root, { key: a.key ?? null })
   try {
-    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, ctx)
+    outcome = await runPipeline({ specs: a.specs, key: a.key ?? null, range: a.range ?? null, flakyRuns: a.flaky ? Number(a.flaky) : null, ticket, target, functions: a.function ? a.function.split(',') : [], candidates, mutation: a.mutation }, { ...ctx, live })
   } catch (e) {
+    live.finish('crashed')
     restore()
     printError(crashMessage(e?.step ?? 'pipeline', e))
     return 2
   }
+  live.finish(outcome.verdict)
   restore()
   if (incompleteTicket) outcome = { ...outcome, incompleteTicket }
   const proof = regressionProof(a.regressionBefore, outcome.verdict)

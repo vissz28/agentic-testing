@@ -4,9 +4,15 @@
       {
         "matcher": "Write|Edit|NotebookEdit",
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/run-node.cmd\" checks.mjs boundary --hook" }
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/run-node.cmd\" checks.mjs boundary --hook"
+          }
         ]
       }
     ]
-  }
+  },
+  "modules": [
+    "./band/register.tsx"
+  ]
 }

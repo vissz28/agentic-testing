@@ -103,7 +103,11 @@ export function strykerConfigSource(root, out, { testFiles = [], tempDirName, vi
   return `${load}\nconst fileName = ${JSON.stringify(out)}\nconst run = ${JSON.stringify({ ...(testFiles.length ? { testFiles } : {}), ...(tempDirName ? { tempDirName, cleanTempDir: 'always' } : {}) })}\nexport default { ...base, ...run${extra}, jsonReporter: { ...(base.jsonReporter ?? {}), fileName } }\n`
 }
 
-export function runStryker(root, { target, mutate = [target], specs = [], timeoutMs, vitestConfig = null, key = null }) {
+// Stryker's own progress line, printed every 10 s by its progress-append-only reporter.
+const PROGRESS = /(\d+)\/(\d+) tested \((\d+) survived/
+export const strykerProgress = line => { const m = PROGRESS.exec(line); return m ? { done: Number(m[1]), total: Number(m[2]), survived: Number(m[3]) } : null }
+
+export function runStryker(root, { target, mutate = [target], specs = [], timeoutMs, vitestConfig = null, key = null, onProgress = null }) {
   return new Promise(done => {
     const bin = toolScript(root, ['@stryker-mutator/core'], 'stryker')
     if (!bin) return done({ ran: false, error: 'Stryker is not installed' })
@@ -119,7 +123,7 @@ export function runStryker(root, { target, mutate = [target], specs = [], timeou
     // mut-tmp-* is git-ignored by setup; removed after every run.
     const scoped = ownVitest ? null : `mut-tmp-stryker-${randomBytes(4).toString('hex')}.vitest.config${base ? extname(base) : '.mjs'}`
     const incremental = incrementalFileOf(root, target)
-    const args = ['run', cfg, '--mutate', mutate.join(','), '--testRunner', 'vitest', '--reporters', 'json', '--concurrency', '2', '--incremental', '--incrementalFile', incremental]
+    const args = ['run', cfg, '--mutate', mutate.join(','), '--testRunner', 'vitest', '--reporters', onProgress ? 'json,progress-append-only' : 'json', '--concurrency', '2', '--incremental', '--incrementalFile', incremental]
     let stderr = ''
     let timedOut = false
     let settled = false
@@ -141,12 +145,13 @@ export function runStryker(root, { target, mutate = [target], specs = [], timeou
       mkdirSync(dirname(incremental), { recursive: true })
       if (scoped) writeFileSync(join(root, scoped), vitestConfigSource(base, specs, key))
       writeFileSync(cfg, strykerConfigSource(root, out, { testFiles: scoped ? [] : specs, tempDirName: sandbox, vitestConfig: scoped, ignore: linkedFolders(root) }))
-      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', 'ignore', 'pipe'] })
+      child = spawn(process.execPath, [bin, ...args], { cwd: root, detached: true, windowsHide: true, env: { ...process.env, NO_COLOR: '1', CI: '1' }, stdio: ['ignore', onProgress ? 'pipe' : 'ignore', 'pipe'] })
       untrack = track(child, [dir, join(root, sandbox), ...(scoped ? [join(root, scoped)] : [])])
     } catch (e) {
       return finish({ ran: false, error: `could not start Stryker: ${e.message}` })
     }
     child.stderr.on('data', d => { if (stderr.length < 65536) stderr += d })
+    child.stdout?.on('data', d => { for (const line of String(d).split('\n')) { const p = strykerProgress(line); if (p) onProgress(p) } })
     timer = setTimeout(() => {
       timedOut = true
       kill(child)
