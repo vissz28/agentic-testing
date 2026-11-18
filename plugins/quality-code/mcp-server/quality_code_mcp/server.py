@@ -22,7 +22,8 @@ from urllib.parse import urlparse
 from . import agents, connectors, direct, github, gitlab, jira_config, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
-from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render, server_tool_names
+from . import catalog
+from .catalog import Command, deslash, list_guides, list_scripts, load_commands, plugin_root, render, server_tool_names
 
 TIMEOUT_S = 900
 MAX_OUT = 200_000
@@ -98,6 +99,7 @@ def find_node() -> str | None:
 
 def build(root: Path | None = None, *, entra: EntraSettings | None = None, verifier: EntraTokenVerifier | None = None, fixed_cwd: Path | None = None, remote: bool = False, web_settings: web.WebSettings | None = None, connector: connector_mod.ConnectorSettings | None = None) -> MCPServer:
     """`remote` is the shared profile: Jira-only tools, scripts locked to `fixed_cwd`, MAX_RUNNING cap, open /health."""
+    catalog.NO_SLASH = remote  # the shared server has no slash commands, it speaks "Quality Code <command>"
     root = root or plugin_root()
     commands = load_commands(root)
     scripts = set(list_scripts(root)) & (REMOTE_SCRIPTS if remote else set(list_scripts(root)))
@@ -154,7 +156,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         cmd, rest = direct.route(request, commands)
         if not cmd:
             return direct.menu(commands, direct.candidates(request, commands))
-        return f"Using Quality Code: understood as /quality-code:{cmd.name} {rest}".rstrip() + " (if that is not what the person meant, say so and offer the other commands)\n\n" + runs[cmd.name](rest)
+        return f"Using Quality Code: understood as {deslash(f'/quality-code:{cmd.name}')} {rest}".rstrip() + " (if that is not what the person meant, say so and offer the other commands)\n\n" + runs[cmd.name](rest)
 
     server.add_tool(quality_code_direct, name="quality_code_direct", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
 
@@ -164,7 +166,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         server.add_tool(
             command_tool(cmd),
             name=cmd.tool_name,
-            description=f"{lead}/quality-code:{cmd.name}: {cmd.description}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
+            description=f"{lead}{deslash(f'/quality-code:{cmd.name}')}: {deslash(cmd.description)}{hint}. Returns the instructions to follow; pass the command's arguments as one string.",
             annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
         )
 
@@ -402,7 +404,7 @@ def _health(root: Path, connector: bool):
 
 
 def render_guide(root: Path, key: str) -> str:
-    return (root / "guides" / f"{key}.md").read_text(encoding="utf-8").replace("${CLAUDE_PLUGIN_ROOT}", str(root))
+    return deslash((root / "guides" / f"{key}.md").read_text(encoding="utf-8").replace("${CLAUDE_PLUGIN_ROOT}", str(root)))
 
 
 def _guide_resource(root: Path, key: str):

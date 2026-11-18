@@ -28,3 +28,24 @@ def test_write_preview_only_with_a_write_tool():
 def test_unknown_names_ignored():
     assert server_tool_names(["quality_code_jira_issue", "quality_code_run_script", "x"]) == frozenset({"quality_code_jira_issue"})
     assert render(CMD, ROOT, "", server_tool_names(["x"])) == render(CMD, ROOT)
+
+
+def test_the_shared_server_offers_no_slash_command(tmp_path):
+    import asyncio
+
+    from quality_code_mcp import catalog
+    from quality_code_mcp.server import build, render_guide
+    from test_connector import SECRET, W
+    from test_entra import S
+    from quality_code_mcp import connector
+
+    try:
+        s = build(catalog.plugin_root(), entra=S, remote=True, fixed_cwd=tmp_path, web_settings=W, connector=connector.ConnectorSettings(S, SECRET, "r", "v1"))
+        tools = asyncio.run(s.list_tools())
+        assert not [t.name for t in tools if "/quality-code:" in (t.description or "")]
+        text = asyncio.run(s.call_tool("quality_code_direct", {"request": "Quality Code ticket PFO-1 --eval"}))
+        assert "/quality-code:" not in str(text) and "Quality Code ticket" in str(text)
+        assert "/quality-code:" not in render_guide(catalog.plugin_root(), "ticket-eval")
+    finally:
+        build(catalog.plugin_root())  # back to the plugin's own profile
+    assert "/quality-code:" in render_guide(catalog.plugin_root(), "ticket-eval")

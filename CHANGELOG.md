@@ -9,6 +9,13 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.2] - 2026-11-18
+
+### Changed
+- The shared MCP server no longer offers slash commands. Its tool descriptions, command headings, guides and the "understood as" line say `Quality Code ticket` instead of `/quality-code:ticket`. The plugin's own server keeps the slash form.
+
+**What to do:** nothing for the plugin. Server: deploy the new image (the publish job on `main` builds it).
+
 ## [0.89.1] - 2026-11-18
 
 ### Changed

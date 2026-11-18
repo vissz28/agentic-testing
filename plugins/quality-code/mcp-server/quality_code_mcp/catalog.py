@@ -87,12 +87,25 @@ def server_tool_names(tool_names: Iterable[str]) -> frozenset[str]:
     return frozenset(n for n in tool_names if n in SERVER_TOOL_MAP)
 
 
+SLASH = re.compile(r"/quality-code:([a-z][a-z-]*)")
+
+
+NO_SLASH = False  # the shared (remote) server sets it: it has no slash commands; the plugin's own server keeps them
+
+
+def deslash(text: str) -> str:
+    """On the shared server `/quality-code:ticket` reads `Quality Code ticket` (said after the keyword, in the chat)."""
+    if not NO_SLASH:
+        return text
+    return SLASH.sub(lambda m: f"Quality Code {m.group(1)}", text)
+
+
 def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str] | frozenset[str] = frozenset(), connectors: str = "") -> str:
     """The command as a prompt for the calling model: the plugin folder and arguments filled in, plus how this server replaces Claude Code's tools."""
     body = cmd.body.replace("${CLAUDE_PLUGIN_ROOT}", str(root)).replace("$ARGUMENTS", arguments)
     body = re.sub(r"\$\{user_config\.([a-z_]+)\}", lambda m: os.environ.get("QUALITY_CODE_" + m.group(1).upper(), ""), body)
     note = (
-        f"# /quality-code:{cmd.name}\n\n"
+        f"# {deslash(f'/quality-code:{cmd.name}')}\n\n"
         f"Arguments: {arguments or '(none)'}\n\n"
         "Follow the instructions below. Where they say to run `node \"<plugin>/bin/<script>.mjs\" <args>`, call the tool "
         "`quality_code_run_script` with the script name and each argument as its own list item (no shell). "
@@ -110,4 +123,4 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
         note = note[: -len("---\n\n")] + extra + "\n---\n\n"
     if connectors:
         note = note[: -len("---\n\n")] + connectors.rstrip("\n") + "\n\n---\n\n"
-    return note + body
+    return deslash(note + body)

@@ -65,7 +65,7 @@ def test_the_direct_tool_returns_the_commands_own_instructions(tmp_path):
     s = build(ROOT, remote=True, fixed_cwd=tmp_path)
     out = asyncio.run(s.call_tool("quality_code_direct", {"request": "Using Quality Code ticket PFO-4178"}))
     text = "".join(getattr(b, "text", "") for b in out.content)
-    assert text.startswith("Using Quality Code: understood as /quality-code:ticket PFO-4178") and "Arguments: PFO-4178" in text and "## Steps" in text
+    assert text.startswith("Using Quality Code: understood as Quality Code ticket PFO-4178") and "Arguments: PFO-4178" in text and "## Steps" in text
     menu = asyncio.run(s.call_tool("quality_code_direct", {"request": "Quality Code ???"}))
     assert "not sure" in "".join(getattr(b, "text", "") for b in menu.content)
 
@@ -74,7 +74,7 @@ def test_a_command_that_needs_a_repo_tells_how_to_find_or_add_one(tmp_path):
     s = build(ROOT, remote=True, fixed_cwd=tmp_path)
     out = asyncio.run(s.call_tool("quality_code_direct", {"request": "Using Quality Code write tests for PFO-4178"}))
     text = "".join(getattr(b, "text", "") for b in out.content)
-    assert "understood as /quality-code:spec PFO-4178" in text and "NOTE: this command needs your repo" in text
+    assert "understood as Quality Code spec PFO-4178" in text and "NOTE: this command needs your repo" in text
     assert "find the repo" in text and "git rev-parse --show-toplevel" in text and "specify one and put it in their Claude environment" in text
     ticket = asyncio.run(s.call_tool("quality_code_direct", {"request": "Using Quality Code evaluate ticket PFO-111"}))
     assert "needs your repo" not in "".join(getattr(b, "text", "") for b in ticket.content)
