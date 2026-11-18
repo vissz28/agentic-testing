@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.88.1] - 2026-11-18
+
+### Changed
+
+- Every tool of the shared server starts its description and title with "Quality Code", and the server tells the model to say "Using Quality Code" (and what it is for) whenever it uses one, so the chat shows what ran through Quality Code.
+
+What to do: nothing. The server shows it after its next deploy.
+
 ## [0.88.0] - 2026-11-18
 
 Quality Code works with no setup run and no tokens on the server: the person's own connectors do the reading, and the shared server tells them what to connect.

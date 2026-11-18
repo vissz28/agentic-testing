@@ -29,8 +29,10 @@ def test_remote_offers_every_command_but_only_the_jira_only_ones_run_here(tmp_pa
     assert n == {c.tool_name for c in load_commands(ROOT)} | {"quality_code_run_script", "quality_code_guide", "quality_code_connectors"}
     assert "quality_code_spec" in n and "quality_code_check" in n and "quality_code_ticket" in n
     tools = {t.name: t for t in asyncio.run(s.list_tools())}
-    assert tools["quality_code_spec"].description.startswith("Needs your repo")
-    assert not tools["quality_code_ticket"].description.startswith("Needs your repo")
+    assert tools["quality_code_spec"].description.startswith("Quality Code: Needs your repo")
+    assert not tools["quality_code_ticket"].description.startswith("Quality Code: Needs your repo")
+    # every tool starts with the product name, has a titled name, and tells the model to say "Using Quality Code"
+    assert all(t.description.startswith("Quality Code") and t.title.startswith("Quality Code") and 'say "Using Quality Code"' in t.description for t in tools.values())
     assert "NOTE: this command needs your repo" in text(asyncio.run(s.call_tool("quality_code_spec", {"arguments": "ABC-1"})))
     assert "NOTE: this command needs your repo" not in text(asyncio.run(s.call_tool("quality_code_ticket", {"arguments": "ABC-1"})))
 

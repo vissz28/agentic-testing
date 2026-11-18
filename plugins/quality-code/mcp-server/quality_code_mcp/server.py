@@ -117,7 +117,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         **extra,
         instructions=(
             "Quality Code: from a Jira ticket to tests you can trust. Each quality_code_<command> tool returns that command's "
-            "instructions for you to follow. Scripts do the scoring and checking: run them with quality_code_run_script, never compute a score yourself."
+            "instructions for you to follow. Scripts do the scoring and checking: run them with quality_code_run_script, never compute a score yourself. "
+            f"Whenever you use one of its tools, say \"{SAY}\" and what it is for, so the person sees what ran through Quality Code."
         ),
     )
 
@@ -225,7 +226,21 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
 
     for g in sorted(guides):
         server.add_resource(_guide_resource(root, g))
+    for t in server._tool_manager.list_tools():  # every tool names its source, so it is clear in the chat what ran through Quality Code
+        t.description = brand(t.description or "")
+        t.title = t.title or "Quality Code: " + t.name.removeprefix("quality_code_").replace("_", " ")
     return server
+
+
+BRAND = "Quality Code"
+SAY = "Using Quality Code"
+
+
+def brand(description: str) -> str:
+    """A tool description that starts with the product name; the model is told to say `Using Quality Code` when it uses the tool."""
+    d = description.strip()
+    d = d if d.lower().startswith(BRAND.lower()) else f"{BRAND}: {d}"
+    return f"{d} When you use this tool, say \"{SAY}\" first, with what it is for."
 
 
 def _upstream_tools(provider) -> list:
