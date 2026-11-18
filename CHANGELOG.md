@@ -9,6 +9,24 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.0] - 2026-11-18
+
+The plugin now works as one entry: say "Using Quality Code ..." in the chat and the right command runs, with its own scripts, parameters and suggestions.
+
+### Added
+
+- **Quality Code direct.** A message that starts with "Quality Code", "Quality Code direct" or "Using Quality Code" is routed by the new `quality_code_direct` tool of the server (and by the plugin's new `direct` skill). It names a command (`Using Quality Code ticket PFO-123`), or understands a plain request: "evaluate ticket PFO-111" runs the readiness check with `--eval`, "write tests for PFO-123" runs `spec`, "write test cases" runs `xray`, "check the tests on my branch" runs `check`. A bare key means `ticket`; nothing after the keyword means `help`.
+- When it is not sure which command is meant, it lists the likely ones and everything we offer, with an example each, and does not guess.
+- A command that needs a repo now says how to find one: look for a git working folder or a connected GitHub or GitLab repository in the Claude session, use it for the source code and the connector, and when there is none, tell the person to specify one and put it in their Claude environment.
+
+### Changed
+
+- The plugin's 15 commands no longer show in the `/` menu (`user-invocable: false`); the `direct` skill is the single visible entry. The commands still run, through the MCP server or the plugin.
+- The "Connect what is missing" text and the `quality_code_connectors` tool say "already signed in through Quality Code, nothing to add" for a service the server signs the person in to (GitHub, and Jira or GitLab when set).
+- Removed the plugin's own `github` connector: it could not sign in (the GitHub MCP does not support dynamic client registration). GitHub goes through the Quality Code server's sign-in.
+
+What to do: update the plugin and type `/reload-plugins`. The messages inside the commands still say `/quality-code:<command>`; say it as "Using Quality Code <command>" instead. Deploy the server image to get the routing tool.
+
 ## [0.88.1] - 2026-11-18
 
 ### Changed

@@ -3,6 +3,7 @@ description: Remove what Quality Code created in this project, so it is as befor
 argument-hint: '[--dry-run] | --cache [--all] [--yes]'
 model: sonnet
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+user-invocable: false
 ---
 
 **With `--cache` in `$ARGUMENTS`**, this is the cache only, not the clean below: drop `--cache`, read `${CLAUDE_PLUGIN_ROOT}/guides/clean-cache.md` and follow it instead of this file, with the rest of the arguments (`--all`, `--yes`). The cache is recreatable, so there `--yes` skips its question; everywhere below, the one yes is never skipped.

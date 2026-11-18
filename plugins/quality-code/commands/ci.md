@@ -4,6 +4,7 @@ argument-hint: '[github|gitlab] [--smoke] [--gate-only] [--print | --dry-run]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
 model: haiku
 effort: low
+user-invocable: false
 ---
 
 Writes the plugin's checks into the project's CI, so every pull request (GitHub) or merge request (GitLab) runs them. Two jobs, both fetching the plugin at this version and running `bin/ci.mjs`; no model is involved:

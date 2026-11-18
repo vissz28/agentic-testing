@@ -2,6 +2,7 @@
 description: Take a Jira ticket to checked tests, for developers and QA. The readiness check stops only when the ticket is not workable, you confirm the plan, then Vitest or Playwright tests (or both, on a fullstack project) are written in the team's test folders, checked by the pipeline, and read back. With no key, it takes the ticket of your feature branch.
 argument-hint: '[KEY] [--dry-run] [--ci]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
+user-invocable: false
 ---
 
 Takes a ticket to checked tests. You write the tests; the scripts gate the ticket and grade the tests. A person is asked three times at most: at the gate, only when the ticket is refused; at the plan; and at the read-back after the card. Everything else runs without stopping. Plain words, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.

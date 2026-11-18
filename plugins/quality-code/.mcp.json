@@ -8,7 +8,6 @@
       "args": ["${CLAUDE_PLUGIN_ROOT}/bin/mcp-launch.mjs", "figma-token", "--", "npx", "-y", "figma-developer-mcp@0.13.2", "--stdio"],
       "env": { "FIGMA_API_KEY": "${user_config.figma_api_key}" }
     },
-    "github": { "type": "http", "url": "${user_config.github_mcp_url}" },
     "gitlab": { "type": "http", "url": "${user_config.gitlab_api_url}/mcp" },
     "gitlab-token": {
       "command": "node",

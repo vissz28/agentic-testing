@@ -29,23 +29,44 @@ def addresses(env: dict[str, str]) -> dict[str, str]:
     }
 
 
+def handled(server_tools: Iterable[str]) -> dict[str, str]:
+    """The services this server signs the person in to itself (their tools exist), with the tool to use: nothing to add for them."""
+    names = {str(n) for n in server_tools}
+    out = {}
+    if any(n.startswith("quality_code_jira_") for n in names):
+        out["Jira"] = "quality_code_jira_*"
+    if "quality_code_gitlab_mr" in names:
+        out["GitLab"] = "quality_code_gitlab_mr"
+    if "quality_code_github_pr" in names:
+        out["GitHub"] = "quality_code_github_pr"
+    return out
+
+
 def block(env: dict[str, str], server_tools: Iterable[str] = ()) -> str:
     a = addresses(env)
-    own = any(str(n).startswith("quality_code_jira_") or n in ("quality_code_gitlab_mr", "quality_code_github_pr") for n in server_tools)
+    own = handled(server_tools)
+    lines = {
+        "Jira": f"- Jira: the Atlassian connector, `{a['jira_mcp']}`, for {a['jira_site']}\n",
+        "GitLab": f"- GitLab: GitLab's own MCP server, `{a['gitlab_mcp']}`, for {a['gitlab_host']}\n",
+        "GitHub": f"- GitHub: `{a['github_mcp']}`, for {a['github_host']} (this GitHub address is not verified; if it does not connect, say so)\n",
+    }
+    todo = "".join(v for k, v in lines.items() if k not in own)
+    done = "".join(f"- {k}: already signed in through Quality Code: use `{t}`, nothing to add\n" for k, t in own.items())
     return (
         "## Connect what is missing\n\n"
-        "Jira, GitLab and GitHub are read through the person's own connectors, signed in as themselves. Before a step that needs one, check that its tools exist. "
-        "If they do not, stop that step and tell the person to add the connector in Claude (Settings, Connectors, or `/mcp`):\n\n"
-        f"- Jira: the Atlassian connector, `{a['jira_mcp']}`, for {a['jira_site']}\n"
-        f"- GitLab: GitLab's own MCP server, `{a['gitlab_mcp']}`, for {a['gitlab_host']}\n"
-        f"- GitHub: `{a['github_mcp']}`, for {a['github_host']} (this GitHub address is not verified; if it does not connect, say so)\n\n"
-        "They sign in in the browser. Never ask for a token, key or password in the chat.\n"
-        + ("A tool of this server that replaces a connector can be used instead of adding it.\n" if own else "")
+        "Jira, GitLab and GitHub are read as the signed-in person. Before a step that needs one, check that its tools exist. "
+        + (f"Signed in through Quality Code already:\n\n{done}\n" if done else "")
+        + ("If a tool is missing, stop that step and tell the person to add the connector in Claude (Settings, Connectors, or `/mcp`):\n\n" + todo + "\n" if todo else "")
+        + "They sign in in the browser. Never ask for a token, key or password in the chat.\n"
     )
 
 
-def tool_text(env: dict[str, str]) -> str:
+def tool_text(env: dict[str, str], server_tools: Iterable[str] = ()) -> str:
     a = addresses(env)
+    own = handled(server_tools)
     rows = [("Jira", a["jira_site"], a["jira_mcp"]), ("GitLab", a["gitlab_host"], a["gitlab_mcp"]), ("GitHub", a["github_host"], a["github_mcp"])]
-    lines = ["Service | Instance | Connector to add", "--- | --- | ---", *(" | ".join(r) for r in rows)]
-    return "\n".join(lines) + "\n\nAdd it in Claude (Settings, Connectors, or /mcp) and sign in in the browser. No token is ever pasted in the chat. The GitHub address is not verified."
+    lines = ["Service | Instance | Status", "--- | --- | ---"]
+    for name, inst, mcp in rows:
+        lines.append(f"{name} | {inst} | " + (f"signed in through Quality Code (tool {own[name]}), nothing to add" if name in own else f"add the connector {mcp}"))
+    note = "\n\nAdd a connector in Claude (Settings, Connectors, or /mcp) and sign in in the browser. No token is ever pasted in the chat."
+    return "\n".join(lines) + note + ("" if "GitHub" in own else " The GitHub address is not verified.")

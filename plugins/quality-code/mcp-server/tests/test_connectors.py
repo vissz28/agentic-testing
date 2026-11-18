@@ -31,9 +31,16 @@ def test_a_ghe_com_host_derives_the_copilot_api_address():
     assert connectors.addresses({"QUALITY_CODE_GITHUB_URL": "https://acme.ghe.com"})["github_mcp"] == "https://copilot-api.acme.ghe.com/mcp"
 
 
-def test_a_server_tool_is_offered_as_the_alternative_only_when_present():
-    assert "can be used instead" not in connectors.block({})
-    assert "can be used instead" in connectors.block({}, {"quality_code_jira_issue"})
+def test_a_service_the_server_signs_in_to_needs_no_connector():
+    none = connectors.block({})
+    assert "already signed in" not in none and "copilot-api.teamsystem.ghe.com" in none
+    gh = connectors.block({}, {"quality_code_github_pr"})
+    assert "GitHub: already signed in through Quality Code" in gh and "copilot-api" not in gh
+    assert "atlassian.com" in gh and "biosphere" in gh  # the others still need theirs
+    text = connectors.tool_text({}, {"quality_code_github_pr", "quality_code_jira_issue"})
+    assert "GitHub | https://teamsystem.ghe.com | signed in through Quality Code" in text and "Jira | https://teamsystem.atlassian.net | signed in" in text
+    assert "GitLab | https://biosphere.teamsystem.com | add the connector" in text and "not verified" not in text
+    assert "not verified" in connectors.tool_text({})
 
 
 def test_render_is_unchanged_without_the_block_and_adds_it_with_it():
@@ -51,9 +58,9 @@ def test_the_remote_profile_has_the_tool_and_nothing_asks_for_a_secret(tmp_path)
     assert "quality_code_connectors" not in {t.name for t in asyncio.run(local.list_tools())}
 
 
-def test_the_plugin_manifest_and_mcp_file_carry_the_github_connector():
+def test_the_plugin_has_no_github_connector_and_gitlab_defaults_to_biosphere():
     base = plugin_root()
-    assert json.loads((base / ".mcp.json").read_text())["mcpServers"]["github"]["url"] == "${user_config.github_mcp_url}"
+    assert "github" not in json.loads((base / ".mcp.json").read_text())["mcpServers"]  # GitHub signs in through the server
     uc = json.loads((base / ".claude-plugin" / "plugin.json").read_text())["userConfig"]
-    assert uc["github_mcp_url"]["default"] == "https://copilot-api.teamsystem.ghe.com/mcp"
+    assert "github_mcp_url" not in uc
     assert uc["gitlab_api_url"]["default"] == "https://biosphere.teamsystem.com/api/v4"

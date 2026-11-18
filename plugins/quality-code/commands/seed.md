@@ -2,6 +2,7 @@
 description: Load realistic mock data for a Jira ticket into your LOCAL database, so you can test the ticket by hand in the running app. Resets the rows it fills first. Local databases only, never a shared one.
 argument-hint: <KEY>
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
+user-invocable: false
 ---
 
 Fills the local database with mock data for a ticket: about 25 realistic rows per table the ticket's screen reads, plus the ticket's own case, so QA can open the app and test it by hand. Each run resets those rows first, so it always lands on a clean, known state. Plain words, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.

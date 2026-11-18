@@ -3,6 +3,7 @@ description: Turn a Microsoft Teams sprint planning transcript into a sprint goa
 argument-hint: '[--file <path> | --meeting <title or date>] (or paste the transcript)'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: sonnet
+user-invocable: false
 ---
 
 From `$ARGUMENTS`: take a sprint planning transcript, write down the sprint goal, the decisions, the tasks, the risks and the open questions, ask what is missing, let the person review and change it, then create the tasks in Jira or save them in a file. The scripts parse, redact, check the shape and save; you never invent what the meeting did not say. Plain words, short sentences, common words.

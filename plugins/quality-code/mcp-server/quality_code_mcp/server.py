@@ -19,7 +19,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from urllib.parse import urlparse
 
-from . import agents, connectors, github, gitlab, jira_config, web
+from . import agents, connectors, direct, github, gitlab, jira_config, web
 from .entra import EntraConfigError, EntraSettings, EntraTokenVerifier, settings_from_env
 from . import connector as connector_mod
 from .catalog import Command, list_guides, list_scripts, load_commands, plugin_root, render, server_tool_names
@@ -32,8 +32,18 @@ MAX_RUNNING = 4  # script runs at once on a shared server
 # Anything that needs a checkout (spec, run commands, seed, xray, qa, setup, config, kpi) stays local.
 REMOTE_COMMANDS = {"ticket", "help"}
 REMOTE_SCRIPTS = {"ticket.mjs", "branch.mjs", "help.mjs"}
-NEEDS_REPO_NOTICE = ("NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket, branch and help scripts, in one fixed folder). "
-                     "Use the instructions as a guide, but run the command itself in Claude Code with the Quality Code plugin, or with the local server (quality-code-mcp over stdio). Do not call quality_code_run_script for the other scripts here.")
+NEEDS_REPO_NOTICE = (
+    "NOTE: this command needs your repo and scripts that the shared Quality Code server does not run (it runs only the read-only ticket, branch and help scripts, in one fixed folder). "
+    "Do not call quality_code_run_script for the other scripts here.\n\n"
+    "**First, find the repo.** Look at what Claude has in this session: a working folder that is a git repository (`git rev-parse --show-toplevel` and `git remote get-url origin`), "
+    "or a repository the person connected in Claude (GitHub or GitLab). Then:\n"
+    "- **There is one:** say which (its folder and remote) and use it: read the source code from it, and the merge request or pull request through the GitHub or GitLab connector. "
+    "Run the command's scripts there with the Quality Code plugin or the local server (quality-code-mcp over stdio).\n"
+    "- **There is none:** say so, in plain words, and tell the person to specify one and put it in their Claude environment: open the project folder in Claude Code (or choose it in the Claude app), "
+    "or connect the repository (GitHub or GitLab) to the session. Ask which repo to use. Until then, only what needs no code can run: read the ticket, and read a merge request or pull request "
+    "with the connector.\n"
+    "Use the instructions below as the guide once the repo is known."
+)
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
 
 
@@ -118,7 +128,8 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         instructions=(
             "Quality Code: from a Jira ticket to tests you can trust. Each quality_code_<command> tool returns that command's "
             "instructions for you to follow. Scripts do the scoring and checking: run them with quality_code_run_script, never compute a score yourself. "
-            f"Whenever you use one of its tools, say \"{SAY}\" and what it is for, so the person sees what ran through Quality Code."
+            f"Whenever you use one of its tools, say \"{SAY}\" and what it is for, so the person sees what ran through Quality Code. "
+            "When a message starts with \"Quality Code\", \"Quality Code direct\" or \"Using Quality Code\", call quality_code_direct with the whole message and follow what it returns, including its parameters and suggestions."
         ),
     )
 
@@ -135,6 +146,17 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
 
         run.__name__ = cmd.tool_name
         return run
+
+    runs = {cmd.name: command_tool(cmd) for cmd in commands}
+
+    def quality_code_direct(request: str) -> str:
+        """Quality Code direct: the one entry for every command. Pass the person's whole message when it starts with "Quality Code", "Quality Code direct" or "Using Quality Code"; the command is named right after the keyword (or it is a Jira key) and the rest is its arguments. Returns that command's instructions, parameters and suggestions to follow."""
+        cmd, rest = direct.route(request, commands)
+        if not cmd:
+            return direct.menu(commands, direct.candidates(request, commands))
+        return f"Using Quality Code: understood as /quality-code:{cmd.name} {rest}".rstrip() + " (if that is not what the person meant, say so and offer the other commands)\n\n" + runs[cmd.name](rest)
+
+    server.add_tool(quality_code_direct, name="quality_code_direct", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
 
     for cmd in commands:
         hint = f" Arguments: {cmd.argument_hint}" if cmd.argument_hint else ""
@@ -218,7 +240,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
     if remote:
         def quality_code_connectors() -> str:
             """The connectors the person's own Claude needs for Jira, GitLab and GitHub, with the exact addresses. Read-only; nothing is stored."""
-            return connectors.tool_text(dict(os.environ))
+            return connectors.tool_text(dict(os.environ), offered)
 
         server.add_tool(quality_code_connectors, name="quality_code_connectors", annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
 

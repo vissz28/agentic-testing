@@ -1,7 +1,7 @@
 {
   "name": "quality-code",
   "displayName": "Quality Code",
-"version": "0.88.1",
+"version": "0.89.0",
   "description": "From Jira ticket to tests you can trust. Quality Code checks that a ticket is ready to test, helps its author fill the gaps, writes backend tests (Vitest, pytest, JUnit, Go, .NET) and Playwright tests from its acceptance criteria, and grades them with scripts, never with the model. For frontend, backend and fullstack projects.",
   "homepage": "https://github.com/vissz28/agentic-testing#readme",
   "repository": "https://github.com/vissz28/agentic-testing",
@@ -37,12 +37,6 @@
       "title": "Central Context hub URL",
       "description": "The base address of the TeamSystem Central Context hub the central-context connector searches in chat (its /mcp endpoint): TeamSystem's hosted hub by default, or a local preview such as http://localhost:8080. The rules /quality-code:spec reads come from centralContext.hub in .claude/quality-code.json.",
       "default": "https://centralcontext-dev.teamsystem.cloud"
-    },
-    "github_mcp_url": {
-      "type": "string",
-      "title": "GitHub MCP address",
-      "description": "The GitHub connector's address for TeamSystem's GitHub (teamsystem.ghe.com). Sign in in the browser: no token.",
-      "default": "https://copilot-api.teamsystem.ghe.com/mcp"
     },
     "gitlab_api_url": {
       "type": "string",

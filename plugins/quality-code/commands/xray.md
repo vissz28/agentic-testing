@@ -2,6 +2,7 @@
 description: 'Write Xray test cases for QA from a Jira ticket that passes the readiness check: one CSV with every case, and per ticket a case.csv (and case.xlsx) to import into Xray. No spec, no checks. /quality-code:spec adds the same cases for the tests it writes.'
 argument-hint: <KEY> [--route PATH] [--no-extras] [--run KEY] [--dry-run] [--ci] | --sync [KEY]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__plugin_quality-code_central-context__search_knowledge mcp__plugin_quality-code_central-context__get_knowledge_document
+user-invocable: false
 ---
 
 Writes Xray test cases from a ticket, and nothing else: no spec file, no test run, no check. A case is what a Playwright test of the ticket checks, as steps QA can read (action, data, expected result), named after that test so the two stay linked. `/quality-code:spec` writes the same cases for the tests it writes; this command is for QA when there is no test to write yet. Plain words, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.
