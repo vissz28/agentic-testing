@@ -147,13 +147,15 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
 
     def quality_code_run_script(script: str, args: list[str] | None = None, cwd: str | None = None) -> str:
         """Run one of the plugin's checked scripts (node bin/<script>) in the project folder `cwd`. Each argument is its own list item."""
+        return run_script(script, args, fixed_cwd or (Path(cwd).expanduser() if cwd else Path.cwd()))
+
+    def run_script(script: str, args: list[str] | None, work: Path) -> str:
         name = script if script.endswith(".mjs") else script + ".mjs"
         if name not in scripts:
             return f"error: unknown script {script!r}. Scripts: {', '.join(sorted(scripts))}"
         node = find_node()
         if not node:
             return "error: Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found."
-        work = fixed_cwd or (Path(cwd).expanduser() if cwd else Path.cwd())
         if not work.is_dir():
             return f"error: {work} is not a folder."
         env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
@@ -168,11 +170,27 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
         out = (p.stdout + p.stderr)[:MAX_OUT]
         return f"{out}\n[exit code {p.returncode}]"
 
+    def person_folder() -> Path | None:
+        """With the Atlassian sign-in, the scripts run in a folder whose config is the person's own Jira site and visible projects (nothing fixed on the server); else None (the shared folder)."""
+        from mcp.server.auth.middleware.auth_context import get_access_token
+
+        if not (provider and provider.s.atlassian and fixed_cwd):
+            return None
+        t = get_access_token()
+        who = (t.claims or {}) if t else {}
+        link = provider.open_link({"oid": t.subject}, who.get("atl")) if t and who.get("atl") else None
+        if not link:
+            return None
+        try:
+            return jira_config.write_person_config(fixed_cwd, t.subject, link.get("site") or "", provider.s.atlassian.project_keys(link))
+        except Exception:  # no site, no visible project, Atlassian down: fall back to the shared folder
+            return None
+
     if remote:
         # No `cwd` in the schema: a remote caller never picks the folder.
         def quality_code_run_script_remote(script: str, args: list[str] | None = None) -> str:
             """Run one of the plugin's checked read-only scripts (node bin/<script>). Each argument is its own list item."""
-            return quality_code_run_script(script, args)
+            return run_script(script, args, person_folder() or fixed_cwd)
 
         server.add_tool(quality_code_run_script_remote, name="quality_code_run_script", annotations=ToolAnnotations(readOnlyHint=False, openWorldHint=True))
         server.custom_route("/health", methods=["GET"])(_health(root, provider is not None))

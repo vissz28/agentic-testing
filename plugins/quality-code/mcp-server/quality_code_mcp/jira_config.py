@@ -30,6 +30,21 @@ def settings_from_env(env: dict[str, str]) -> tuple[str, list[str]] | None:
     return site, projects
 
 
+def write_person_config(base: Path, oid: str, site: str, projects: list[str]) -> Path:
+    """The scripts' working folder for one signed-in person: <base>/people/<hash of oid>/ with a config built from THEIR Jira site and visible projects."""
+    import hashlib
+
+    site = site.rstrip("/")
+    projects = [p for p in projects if KEY.match(p)]
+    if not SITE.match(site) or not projects:
+        raise JiraConfigError("this Atlassian account has no Jira site or no visible project")
+    folder = base / "people" / hashlib.sha256(oid.encode()).hexdigest()[:20]
+    path = folder / CONFIG_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"version": 2, "frontend": "playwright", "jira": {"site": site, "projects": projects}}, indent=2) + "\n", encoding="utf-8")
+    return folder
+
+
 def write_config(project: Path, env: dict[str, str]) -> Path | None:
     """Write <project>/.claude/quality-code.json for the Jira-only scripts when the Jira variables are set. The variables win on every start."""
     s = settings_from_env(env)

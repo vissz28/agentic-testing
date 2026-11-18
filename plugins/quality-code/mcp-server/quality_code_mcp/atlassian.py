@@ -105,6 +105,17 @@ class AtlassianSettings:
         r = self._get(link, "project/search", {"query": query, "maxResults": max(1, min(limit, MAX_RESULTS))})
         return [{"key": p.get("key"), "name": p.get("name")} for p in r.get("values", [])]
 
+    def project_keys(self, link: dict, limit: int = 500) -> list[str]:
+        """The keys of every project the person can see (paged), for the scripts' per-person config."""
+        keys: list[str] = []
+        while len(keys) < limit:
+            r = self._get(link, "project/search", {"startAt": len(keys), "maxResults": MAX_RESULTS})
+            page = [p.get("key") for p in r.get("values", []) if p.get("key")]
+            keys += page
+            if r.get("isLast", True) or not page:
+                break
+        return keys[:limit]
+
     def transitions(self, link: dict, key: str) -> list[dict]:
         r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}/transitions")
         return [{"id": t.get("id"), "name": t.get("name"), "to": (t.get("to") or {}).get("name")} for t in r.get("transitions", [])]

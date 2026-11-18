@@ -9,6 +9,15 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.87.1] - 2026-11-17
+
+The shared server no longer needs a fixed Jira project list: with the Atlassian sign-in, the ticket and help scripts run in a folder built for the signed-in person, with their own Jira site and every project they can see.
+
+- `QUALITY_CODE_JIRA_SITE` and `QUALITY_CODE_JIRA_PROJECTS` are now only a fallback for a person without an Atlassian sign-in.
+- Each person gets their own folder (`people/<hash>` in the project folder), so nobody's files or projects mix.
+
+What to do: nothing for the plugin. On the server, the two Jira variables can be removed once everyone has signed in with Atlassian.
+
 ## [0.87.0] - 2026-11-18
 
 ### Changed

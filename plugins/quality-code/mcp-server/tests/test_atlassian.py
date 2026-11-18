@@ -184,3 +184,25 @@ def test_the_jira_write_tools_act_as_the_person_and_bad_input_is_refused(monkeyp
     assert "ABC-123" in run_tool(monkeypatch, cs, "quality_code_jira_comment", {"atl": sealed}, key="../x", text="t")
     assert "JSON object" in run_tool(monkeypatch, cs, "quality_code_jira_edit", {"atl": sealed}, key="AGT-1", fields_json="[1]")
     assert "not connected" in run_tool(monkeypatch, cs, "quality_code_jira_create", {}, project="AGT", issue_type="Story", summary="s")
+
+
+def test_each_person_gets_a_scripts_folder_with_their_own_site_and_projects(tmp_path):
+    from quality_code_mcp import jira_config
+
+    pages = [{"values": [{"key": "AAA"}, {"key": "BBB"}], "isLast": False}, {"values": [{"key": "CCC"}], "isLast": True}]
+    calls = []
+
+    def http(method, url, headers, body):
+        calls.append(url)
+        return pages[len(calls) - 1]
+
+    link = {"at": "a", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
+    keys = atlassian.AtlassianSettings("i", "s", http=http).project_keys(link)
+    assert keys == ["AAA", "BBB", "CCC"] and "startAt=2" in calls[1]
+    a = jira_config.write_person_config(tmp_path, "oid-1", SITE, keys)
+    b = jira_config.write_person_config(tmp_path, "oid-2", SITE, ["ZZZ"])
+    assert a != b and a.parent == tmp_path / "people"
+    assert json.loads((a / ".claude" / "quality-code.json").read_text())["jira"] == {"site": SITE, "projects": ["AAA", "BBB", "CCC"]}
+    assert json.loads((b / ".claude" / "quality-code.json").read_text())["jira"]["projects"] == ["ZZZ"]
+    with pytest.raises(jira_config.JiraConfigError):
+        jira_config.write_person_config(tmp_path, "oid-3", SITE, [])
