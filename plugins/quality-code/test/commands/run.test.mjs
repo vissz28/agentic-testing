@@ -99,3 +99,10 @@ test('--evals runs only the frozen evals script', () => {
   assert.match(doc, /\*\*Evals\.\*\* Only for the `full` suite/)
   assert.ok(doc.includes('run only `node "${CLAUDE_PLUGIN_ROOT}/bin/evals.mjs"`'))
 })
+test('check and spec both write the plain summary next to run.md', () => {
+  const spec = readFileSync(new URL('../../commands/spec.md', import.meta.url), 'utf8')
+  const summary = readFileSync(new URL('../../guides/summary.md', import.meta.url), 'utf8')
+  for (const s of [doc, spec]) assert.ok(s.includes('${CLAUDE_PLUGIN_ROOT}/guides/summary.md'))
+  assert.match(summary, /Only when the card printed a `Full details: <path>\/run\.md` line/)
+  assert.match(summary, /## Does every part of the ticket have a test\?/)
+})
