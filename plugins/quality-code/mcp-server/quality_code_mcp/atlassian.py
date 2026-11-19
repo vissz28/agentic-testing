@@ -17,7 +17,9 @@ SCOPES = "read:jira-work write:jira-work read:jira-user offline_access"
 VIEW = ("at", "exp", "cloud", "site")  # what the access token carries of the link (never the refresh token)
 SKEW = 60  # an access token this close to its end is treated as expired
 MAX_RESULTS = 50
+PROJECT_PAGES = 100  # 5000 projects; more than that and the config says any project, so it stays small enough for the scripts' environment
 
+from .jira_config import ANY_PROJECT
 from .webclient import Http
 
 
@@ -75,7 +77,7 @@ class AtlassianSettings:
     def _call(self, method: str, link: dict, path: str, params: dict | None = None, body: dict | None = None):
         if int(link.get("exp", 0)) - SKEW < time.time():
             raise AtlassianError("The Atlassian access has expired: reconnect the connector")
-        q = f"?{urllib.parse.urlencode(params)}" if params else ""
+        q = f"?{urllib.parse.urlencode(params, doseq=True)}" if params else ""
         return self.http(method, f"{API}/ex/jira/{link['cloud']}/rest/api/3/{path}{q}", {"Authorization": f"Bearer {link['at']}"}, body)
 
     def _get(self, link: dict, path: str, params: dict | None = None):
@@ -113,12 +115,15 @@ class AtlassianSettings:
         text = root["description"] + "\n" + "\n".join(c.get("text") or "" for c in root.get("comments", []))
         mentioned = [k for k in dict.fromkeys(KEY_RE.findall(text)) if k != key]
         related = {"parent": [root["parent"]] if root.get("parent") else [], "subtasks": root.get("subtasks", []),
-                   "linked": [x["key"] for x in root.get("links", []) if x.get("key")], "mentioned": mentioned}
-        ranges = []
-        for proj, a, b in RANGE_RE.findall(root["description"]):
-            lo, hi = sorted((int(a), int(b)))
-            if proj and 0 < hi - lo <= RANGE_MAX:
-                ranges.append(f"(project = {proj} AND key >= {proj}-{lo} AND key <= {proj}-{hi})")
+                   "linked": [x["key"] for x in root.get("links", []) if x.get("key")]}
+        spans = [(proj.upper(), *sorted((int(a), int(b)))) for proj, a, b in RANGE_RE.findall(root["description"])]
+        # `UTF-8` or `SHA-256` look like keys: a key or range in the text counts only when its project is real, or one bad key fails the whole search.
+        known = {project_of(k) for k in [key, *(k for group in related.values() for k in group)]}
+        unsure = sorted(({project_of(k) for k in mentioned} | {p for p, _, _ in spans}) - known)
+        if unsure:
+            known |= self.existing_projects(link, unsure)
+        related["mentioned"] = [k for k in mentioned if project_of(k) in known]
+        ranges = [f"(project = {p} AND key >= {p}-{lo} AND key <= {p}-{hi})" for p, lo, hi in spans if p in known and 0 < hi - lo <= RANGE_MAX]
         keys = list(dict.fromkeys(k for group in related.values() for k in group))
         out: dict[str, Any] = {"issue": {k: root[k] for k in ("key", "summary", "status", "type", "assignee")}, "referenced": {}, "range": [], "epic_children": [], "remote_links": []}
         if keys:
@@ -144,16 +149,27 @@ class AtlassianSettings:
         r = self._get(link, "project/search", {"query": query, "maxResults": max(1, min(limit, MAX_RESULTS))})
         return [{"key": p.get("key"), "name": p.get("name")} for p in r.get("values", [])]
 
-    def project_keys(self, link: dict, limit: int = 500) -> list[str]:
-        """The keys of every project the person can see (paged), for the scripts' per-person config."""
+    def existing_projects(self, link: dict, keys: list[str]) -> set[str]:
+        """Which of these keys are projects the person can see (Jira takes up to 50 at once); none when Jira cannot tell."""
+        found: set[str] = set()
+        for i in range(0, len(keys), MAX_RESULTS):
+            try:
+                r = self._get(link, "project/search", {"keys": keys[i:i + MAX_RESULTS], "maxResults": MAX_RESULTS})
+            except AtlassianError:
+                continue
+            found |= {str(p.get("key")).upper() for p in (r.get("values", []) if isinstance(r, dict) else []) if p.get("key")}
+        return found
+
+    def project_keys(self, link: dict) -> list[str]:
+        """The keys of every project the person can see (every page), for the scripts' per-person config. Past PROJECT_PAGES pages, any project (`*`): never a list cut short."""
         keys: list[str] = []
-        while len(keys) < limit:
+        for _ in range(PROJECT_PAGES):
             r = self._get(link, "project/search", {"startAt": len(keys), "maxResults": MAX_RESULTS})
             page = [p.get("key") for p in r.get("values", []) if p.get("key")]
             keys += page
             if r.get("isLast", True) or not page:
-                break
-        return keys[:limit]
+                return keys
+        return [ANY_PROJECT]
 
     def transitions(self, link: dict, key: str) -> list[dict]:
         r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}/transitions")
@@ -236,6 +252,10 @@ def adf_text(node: Any) -> str:
 KEY_RE = re.compile(r"\b[A-Z][A-Z0-9_]*-\d+\b")
 RANGE_RE = re.compile(r"\b([A-Z][A-Z0-9_]*)-(\d+)(?:\)|/\S*)?\s*(?:to|until|through|-|\u2013|\u2014|\.\.\.?)\s*(?:https?://\S+/browse/)?(?:[A-Z][A-Z0-9_]*-)?(\d+)\b", re.I)
 RANGE_MAX = 200
+
+
+def project_of(key: str) -> str:
+    return key.rsplit("-", 1)[0].upper()
 
 
 def settings_from_env(env: dict[str, str]) -> AtlassianSettings | None:

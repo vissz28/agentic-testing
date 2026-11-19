@@ -243,3 +243,45 @@ def test_the_tree_follows_the_keys_and_ranges_of_the_description_and_the_epic():
     assert [i["key"] for i in out["range"]] == ["PFO-4053"] and out["range"][0]["description"].startswith("Given a user")
     assert [i["key"] for i in out["epic_children"]] == ["PFO-4060"] and out["remote_links"][0]["url"] == "https://wiki/p"
     assert any("key+%3E%3D+PFO-4052" in u or "key >= PFO-4052" in u.replace("%20", " ").replace("+", " ") for u in asked)
+
+
+def test_the_project_keys_page_through_every_project_and_never_cut_the_list_short():
+    calls = []
+
+    def http(method, url, headers, body):
+        start = int(parse_qs(urlparse(url).query)["startAt"][0])
+        calls.append(start)
+        values = [{"key": f"P{i}"} for i in range(start, min(start + 50, 620))]
+        return {"values": values, "isLast": start + 50 >= 620}
+
+    link = {"at": "a", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
+    keys = atlassian.AtlassianSettings("i", "s", http=http).project_keys(link)
+    assert len(keys) == 620 and keys[-1] == "P619" and len(calls) == 13
+    endless = atlassian.AtlassianSettings("i", "s", http=lambda m, u, h, b: {"values": [{"key": "X"}] * 50, "isLast": False})
+    assert endless.project_keys(link) == ["*"]  # too many to list: any project, never a part of them
+
+
+def test_the_tree_does_not_take_utf_8_or_sha_256_for_ticket_keys():
+    desc = {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Files are UTF-8, hashed with SHA-256 (see OPS-7 and AGT-2); sha-1 to 3 is gone."}]}]}
+    jqls, asked = [], []
+
+    def http(method, url, headers, body):
+        asked.append(url)
+        if "/remotelink" in url:
+            return []
+        if "/project/search" in url:
+            wanted = parse_qs(urlparse(url).query)["keys"]
+            return {"values": [{"key": k} for k in wanted if k == "OPS"]}
+        if "/search/jql" in url:
+            jql = parse_qs(urlparse(url).query)["jql"][0]
+            jqls.append(jql)
+            return {"issues": [{"key": k, "fields": {"summary": "S", "status": {"name": "TO DO"}, "issuetype": {"name": "Task"}}} for k in ("AGT-2", "OPS-7")]}
+        return {"key": "AGT-1", "fields": {"summary": "S", "status": {"name": "TO DO"}, "issuetype": {"name": "Story"}, "assignee": None, "labels": [], "description": desc,
+                                           "parent": None, "subtasks": [], "issuelinks": []}}
+
+    link = {"at": "a", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
+    out = atlassian.AtlassianSettings("i", "s", http=http).tree(link, "AGT-1")
+    assert jqls == ["key in (OPS-7,AGT-2)"]  # no UTF-8, no SHA-256, no range of project sha
+    assert [i["key"] for i in out["referenced"]["mentioned"]] == ["OPS-7", "AGT-2"] and out["range"] == []
+    asked_projects = sorted(parse_qs(urlparse(next(u for u in asked if "/project/search" in u)).query)["keys"])
+    assert asked_projects == ["OPS", "SHA", "UTF"]  # AGT is the ticket's own project: never asked
