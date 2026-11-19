@@ -186,3 +186,19 @@ test('--old lists the cached versions that are neither installed nor running, --
   assert.ok(existsSync(join(base, '0.28.0')) && existsSync(join(base, '0.30.0')) && existsSync(join(base, 'junk')) && !existsSync(join(base, '0.27.0')))
   assert.equal((await run('0.28.0', { argv: ['--old', '--json'], env })).code, 2)
 })
+
+test('--all also removes the running version, and keeps only the installed one', async () => {
+  const cfg = mkdtempSync(join(tmpdir(), 'qc-all-'))
+  mkdirSync(join(cfg, 'plugins'), { recursive: true })
+  writeFileSync(join(cfg, 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: { 'quality-code@teamsystem': [{ version: '0.30.0' }] } }))
+  const base = join(cfg, 'plugins', 'cache', 'teamsystem', 'quality-code')
+  for (const v of ['0.28.0', '0.29.0', '0.30.0']) mkdirSync(join(base, v), { recursive: true })
+  const env = { CLAUDE_CONFIG_DIR: cfg }
+  const listed = await run('0.28.0', { argv: ['--old', '--all'], env })
+  assert.match(listed.out, /Old versions \(2 versions\): 0\.28\.0, 0\.29\.0/)
+  assert.match(listed.out, /the installed one only/)
+  await run('0.28.0', { argv: ['--remove-old', '--all'], env })
+  const { existsSync } = await import('node:fs')
+  assert.ok(!existsSync(join(base, '0.28.0')) && !existsSync(join(base, '0.29.0')) && existsSync(join(base, '0.30.0')))
+  assert.equal((await run('0.28.0', { argv: ['--all'], env })).code, 2)
+})

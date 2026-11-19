@@ -10,7 +10,7 @@ import { plural, toForwardSlashes } from '../lib/core/text.mjs'
 import { noTrailingSlash } from '../lib/core/paths.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
-const USAGE = 'usage: update.mjs [--json | --old | --remove-old]'
+const USAGE = 'usage: update.mjs [--json | --old [--all] | --remove-old [--all]]'
 const TIMEOUT_MS = 8000
 const MAX_VERSIONS = 6
 const MAX_LINES = 5
@@ -105,10 +105,12 @@ export function diskVersion(name, env = process.env, cwd = process.cwd()) {
  * Old copies of the plugin in the cache: the version folders under <config>/plugins/cache/<marketplace>/<name>
  * that are neither installed nor running. The running one stays (this session reads its files).
  */
-export function oldVersions(name, running, env = process.env) {
+export function oldVersions(name, running, env = process.env, all = false) {
   const id = pluginId(name, env)
   const dir = join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'plugins', 'cache', id.split('@')[1] ?? 'teamsystem', name)
-  const keep = new Set([running, diskVersion(name, env)])
+  const keep = new Set(all ? [] : [running])
+  const disk = diskVersion(name, env)
+  if (disk) keep.add(disk)
   for (const entries of Object.values(installedPlugins(env))) for (const e of entries) keep.add(e.version)
   let found = []
   try { found = existsSync(dir) ? readdirSync(dir).filter(v => SEMVER.test(v) && !keep.has(v)).sort(compareVersions) : [] } catch {}
@@ -195,21 +197,25 @@ export function formatCard({ id, installed, running = installed, latest, status,
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), fetchImpl = fetch, ls = defaultLs, installedManifest = null } = {}) {
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)
-  const bad = argv.find(a => !['--json', '--old', '--remove-old'].includes(a))
-  if (bad || argv.length > 1) { printError(`unknown option ${bad ?? argv.join(' ')}. ${USAGE}`); return 2 }
+  const bad = argv.find(a => !['--json', '--old', '--remove-old', '--all'].includes(a))
+  const modes = argv.filter(a => a === '--old' || a === '--remove-old')
+  const lone = argv.length === 0 || (argv.length === 1 && argv[0] !== '--all') || (argv.length === 2 && modes.length === 1 && argv.includes('--all'))
+  if (bad || !lone) { printError(`unknown option ${bad ?? argv.join(' ')}. ${USAGE}`); return 2 }
   const json = argv.includes('--json')
   const manifest = installedManifest ?? readInstalled()
   const name = manifest.name ?? 'quality-code'
   const running = manifest.version
-  if (argv[0] === '--old' || argv[0] === '--remove-old') {
-    const { dir, versions } = oldVersions(name, running, env)
+  const mode = argv.find(a => a === '--old' || a === '--remove-old')
+  if (mode) {
+    const all = argv.includes('--all')
+    const { dir, versions } = oldVersions(name, running, env, all)
     const removed = []
-    if (argv[0] === '--remove-old') for (const v of versions) { try { rmSync(join(dir, v), { recursive: true, force: true }); removed.push(v) } catch {} }
-    const list = argv[0] === '--old' ? versions : removed
+    if (mode === '--remove-old') for (const v of versions) { try { rmSync(join(dir, v), { recursive: true, force: true }); removed.push(v) } catch {} }
+    const list = mode === '--old' ? versions : removed
     printLine(list.length
-      ? `${argv[0] === '--old' ? 'Old versions' : 'Removed'} (${plural(list.length, 'version')}): ${list.join(', ')}\nKept: ${running} (running now) and the installed one.`
+      ? `${mode === '--old' ? 'Old versions' : 'Removed'} (${plural(list.length, 'version')}): ${list.join(', ')}\nKept: ${all ? 'the installed one only (the running copy is removed: open a new session)' : `${running} (running now) and the installed one`}.`
       : 'No old versions to remove.')
-    printLine(tag('OLD', { dir, versions: list, removed: argv[0] === '--remove-old' }))
+    printLine(tag('OLD', { dir, versions: list, removed: mode === '--remove-old', all }))
     return 0
   }
   const onDisk = diskVersion(name, env, cwd)
