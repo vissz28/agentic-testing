@@ -19,6 +19,11 @@ test('Italian: "Criteri d\'accettazione" (either apostrophe) is a heading; every
   for (const s of ["## Criteri d'accettazione", '**Criteri d’accettazione:**']) yes(v.acHeading, s)
   for (const s of ['Il filtro deve funzionare correttamente', 'I pulsanti funzionano bene', 'funzioni correttamente']) yes(v.vague, s)
 })
+test('Italian: "Comportamento atteso" is an expected-result heading, as "Risultato atteso" is', () => {
+  yes(new RegExp(`^(?:${v.expectedHeading})$`, 'i'), 'Comportamento atteso')
+  yes(v.sectionEnd, 'Comportamento atteso')
+  assert.deepEqual([...'## Comportamento atteso\nIl file ha 10 righe.'.matchAll(v.expectedSection)].map(m => m[0]), ['## Comportamento atteso'])
+})
 test('section end', () => {
   for (const s of ['## Notes', '**Expected**', 'Expected result', 'Expected result:', 'Steps to reproduce', 'Risultato atteso', 'h2. Notes']) yes(v.sectionEnd, s)
   no(v.sectionEnd, 'The total is 150.')

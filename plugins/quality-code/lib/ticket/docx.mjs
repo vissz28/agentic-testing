@@ -46,6 +46,10 @@ export function docxText(buf, { maxChars = DOCX_MAX_CHARS } = {}) {
   }
   if (!xml) throw new Error('not a .docx (no word/document.xml)')
   const text = xml.toString('utf8')
+    // Tracked changes: the text as accepted. Deleted runs and the old place of moved text go; a self-closing
+    // <w:del/> (a deleted paragraph mark) has no body and is left to the tag strip below.
+    .replace(/<w:(del|moveFrom)\b(?:[^>]*[^/>])?>[\s\S]*?<\/w:\1>/g, '')
+    .replace(/<w:delText\b[^>]*>[\s\S]*?<\/w:delText>/g, '')
     // Mark list paragraphs so the scorer reads them as a list.
     // ponytail: every list item gets "- "; numbering.xml tells bullets from numbers, read it if steps need "1.".
     .replace(/<w:numPr\b/g, '- $&')
