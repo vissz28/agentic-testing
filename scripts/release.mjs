@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // One release, the same way each time (docs/BRANCH_FLOW.md): bump on dev, tag on main. Never commits, never pushes.
-//   node scripts/release.mjs bump X.Y.Z   on dev: the version in the three manifests, Unreleased becomes [X.Y.Z] - today
+//   node scripts/release.mjs bump X.Y.Z   on dev: the version in the three manifests and uv.lock, Unreleased becomes [X.Y.Z] - today
 //   node scripts/release.mjs tag          on main, once the release commit is there: checks, then the tag, locally
-//   node scripts/release.mjs check        the three manifests and the newest changelog section agree
+//   node scripts/release.mjs check        the three manifests, uv.lock and the newest changelog section agree
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,6 +12,14 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PLUGIN = 'plugins/quality-code'
 export const MANIFESTS = [`${PLUGIN}/.claude-plugin/plugin.json`, `${PLUGIN}/.plugin/plugin.json`, `${PLUGIN}/mcp-server/pyproject.toml`]
 const VERSION_IN = { json: /("version"\s*:\s*")([^"]+)(")/, toml: /^(version\s*=\s*")([^"]+)(")/m }
+// The server's own entry in its lock carries the version too: left behind, `uv run` rewrites it and the tree is no longer clean for `tag`.
+export const LOCK = `${PLUGIN}/mcp-server/uv.lock`
+const lockEntry = pyproject => {
+  // uv writes the name normalized (PEP 503).
+  const name = /^name\s*=\s*"([^"]+)"/m.exec(pyproject)?.[1]?.toLowerCase().replace(/[-_.]+/g, '-')
+  return name ? new RegExp(`(\\[\\[package\\]\\]\\nname = "${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\nversion = ")([^"]+)(")`) : null
+}
+const tryRead = p => { try { return readFileSync(p, 'utf8') } catch { return null } }
 const SEMVER = /^\d+\.\d+\.\d+$/
 export const tagOf = v => `quality-code--v${v}`
 
@@ -34,10 +42,13 @@ export function check(root = ROOT) {
   if (distinct.length > 1) errors.push(`the manifests disagree: ${versions.map(([p, v]) => `${p} ${v}`).join(', ')}`)
   const { released } = changelogState(read('CHANGELOG.md'))
   if (distinct.length === 1 && released !== distinct[0]) errors.push(`CHANGELOG.md: the newest section is ${released ?? 'missing'}, the manifests say ${distinct[0]}`)
+  const lock = tryRead(join(root, LOCK))
+  const locked = lock && lockEntry(read(MANIFESTS[2]))?.exec(lock)?.[2]
+  if (lock && distinct.length === 1 && locked !== distinct[0]) errors.push(`${LOCK}: the server is at ${locked ?? 'no version'}, the manifests say ${distinct[0]}`)
   return errors
 }
 
-/** Writes version into the three manifests and turns Unreleased into its section. Returns the errors, [] when done. */
+/** Writes version into the three manifests and uv.lock, and turns Unreleased into its section. Returns the errors, [] when done. */
 export function bump(version, { root = ROOT, today = new Date().toISOString().slice(0, 10), tagExists = () => false } = {}) {
   const read = p => readFileSync(join(root, p), 'utf8')
   if (!SEMVER.test(String(version))) return [`usage: release.mjs bump X.Y.Z (got ${JSON.stringify(version)})`]
@@ -48,10 +59,14 @@ export function bump(version, { root = ROOT, today = new Date().toISOString().sl
   const { unreleased } = changelogState(changelog)
   if (unreleased === null) return ['CHANGELOG.md has no ## [Unreleased] section']
   if (!unreleased) return ['CHANGELOG.md: nothing under ## [Unreleased]; write what changed first']
+  const lock = tryRead(join(root, LOCK))
+  const entry = lockEntry(read(MANIFESTS[2]))
+  if (lock !== null && !entry?.test(lock)) return [`${LOCK}: no entry for the server's own package; run uv lock in ${PLUGIN}/mcp-server first`]
   for (const p of MANIFESTS) {
     const re = VERSION_IN[p.endsWith('.toml') ? 'toml' : 'json']
     writeFileSync(join(root, p), read(p).replace(re, `$1${version}$3`))
   }
+  if (lock !== null) writeFileSync(join(root, LOCK), lock.replace(entry, `$1${version}$3`))
   writeFileSync(join(root, 'CHANGELOG.md'), changelog.replace(/^## \[Unreleased\]\s*\n/m, `## [Unreleased]\n\n## [${version}] - ${today}\n\n`))
   return []
 }
@@ -66,13 +81,13 @@ function main(argv) {
   if (cmd === 'check') {
     const errors = check()
     errors.forEach(e => console.error(e))
-    if (!errors.length) console.log(`ok: ${versionIn(MANIFESTS[0], readFileSync(join(ROOT, MANIFESTS[0]), 'utf8'))} in the three manifests and the changelog`)
+    if (!errors.length) console.log(`ok: ${versionIn(MANIFESTS[0], readFileSync(join(ROOT, MANIFESTS[0]), 'utf8'))} in the three manifests, uv.lock and the changelog`)
     return errors.length ? 1 : 0
   }
   if (cmd === 'bump') {
     const errors = bump(arg, { tagExists: tagExistsFn(ROOT) })
     if (errors.length) { errors.forEach(e => console.error(e)); return 1 }
-    console.log(`ok: ${arg} in ${MANIFESTS.join(', ')} and CHANGELOG.md. Read the diff, then commit it on dev: git commit -am "chore: release ${arg}"`)
+    console.log(`ok: ${arg} in ${[...MANIFESTS, LOCK].join(', ')} and CHANGELOG.md. Read the diff, then commit it on dev: git commit -am "chore: release ${arg}"`)
     return 0
   }
   if (cmd === 'tag') {
