@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson } from '../lib/core/files.mjs'
 import { git } from '../lib/core/git.mjs'
-import { plural } from '../lib/core/text.mjs'
+import { plural, toForwardSlashes } from '../lib/core/text.mjs'
+import { noTrailingSlash } from '../lib/core/paths.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
 const USAGE = 'usage: update.mjs [--json]'
@@ -61,9 +62,29 @@ function installedPlugins(env) {
   } catch { return {} }
 }
 
-// Falls back to the marketplace this repo publishes.
-export function pluginId(name, env = process.env) {
-  return Object.keys(installedPlugins(env)).find(k => k.startsWith(`${name}@`)) ?? `${name}@teamsystem`
+// An entry loads here when it is user-wide or belongs to this folder (or one above it); no scope counts as loading.
+const slashes = p => noTrailingSlash(toForwardSlashes(p))
+const loadsHere = (e, cwd) => {
+  if (!e?.projectPath || e.scope === 'user') return true
+  const here = slashes(cwd), project = slashes(e.projectPath)
+  return here === project || here.startsWith(`${project}/`)
+}
+
+/** This plugin's installs that load in cwd, one per marketplace id, at its highest version, highest first. */
+export function installsHere(name, cwd, env = process.env) {
+  const out = []
+  for (const [id, entries] of Object.entries(installedPlugins(env))) {
+    if (!id.startsWith(`${name}@`) || !Array.isArray(entries)) continue
+    const here = entries.filter(e => loadsHere(e, cwd)).sort((a, b) => compareVersions(b.version, a.version))
+    if (here.length) out.push({ id, version: here[0].version ?? null, scope: here[0].scope ?? null })
+  }
+  // Same version on two marketplaces: keep the one this repo publishes.
+  return out.sort((a, b) => compareVersions(b.version, a.version) || (b.id === `${name}@teamsystem`) - (a.id === `${name}@teamsystem`))
+}
+
+// The newest install here; falls back to the marketplace this repo publishes.
+export function pluginId(name, env = process.env, cwd = process.cwd()) {
+  return installsHere(name, cwd, env)[0]?.id ?? Object.keys(installedPlugins(env)).find(k => k.startsWith(`${name}@`)) ?? `${name}@teamsystem`
 }
 
 // Installed on disk can be ahead of running until /reload-plugins.
@@ -129,11 +150,17 @@ export function statusOf(installed, latest, running = installed) {
   return c === 0 ? 'current' : 'ahead'
 }
 
-export function formatCard({ id, installed, running = installed, latest, status, via, sections, hiddenVersions }) {
+export function formatCard({ id, installed, running = installed, latest, status, via, sections, hiddenVersions, others = [] }) {
   const lines = ['quality-code update check']
   if (status === 'reload') lines.push(`  Running    ${running}`, `  Installed  ${installed}   (on disk, not loaded yet)`)
   else lines.push(`  Installed  ${installed}`)
   lines.push(`  Latest     ${latest}   (from ${via})`)
+  if (others.length) {
+    lines.push('', `${plural(others.length + 1, 'copy', 'copies')} of the plugin are installed from different marketplaces. Claude Code can keep loading the old one, even after an update or a new session.`,
+      `  Keep       ${id}`)
+    for (const o of others) lines.push(`  Old copy   ${o.id} ${o.version ?? '?'}${o.scope ? ` (${o.scope})` : ''}`)
+    lines.push('Turn the old copy off:', ...others.map(o => `  claude plugin disable ${o.id}${o.scope ? ` --scope ${o.scope}` : ''}`))
+  }
   if (status === 'reload') lines.push('', `This session still runs ${running}. ${installed} is installed and is used from the next session, or after you type /reload-plugins here.`, 'If it still shows the old version after /reload-plugins, close this session and open a new one.')
   else if (status === 'current') lines.push('', `You have the latest version.`)
   else if (status === 'ahead') lines.push('', `You are ahead of the published version (a local or development copy).`)
@@ -160,7 +187,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const name = manifest.name ?? 'quality-code'
   const running = manifest.version
   const onDisk = diskVersion(name, env)
-  const id = pluginId(name, env)
+  const installs = installsHere(name, cwd, env)
+  const id = installs[0]?.id ?? pluginId(name, env, cwd)
+  const others = installs.slice(1).map(({ id, version, scope }) => ({ id, version, scope }))
   const installed = onDisk && compareVersions(onDisk, running) > 0 ? onDisk : running
   let latest
   try {
@@ -172,9 +201,9 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const status = statusOf(installed, latest.version, running)
   const all = status === 'update' ? newerSections(latest.changelog, installed, latest.version) : []
   const sections = all.slice(0, MAX_VERSIONS)
-  const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections }
-  const card = formatCard({ id, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length })
-  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\n${tag('CHECK_UPDATE', { id, installed, running, latest: latest.version, status })}\n`)
+  const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections, others }
+  const card = formatCard({ id, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length, others })
+  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\n${tag('CHECK_UPDATE', { id, installed, running, latest: latest.version, status, ...(others.length ? { others } : {}) })}\n`)
   return 0
 }
 

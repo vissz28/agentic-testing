@@ -17,6 +17,7 @@ import { localToForwardSlashes } from '../core/text.mjs'
 import { functionLines as realFunctionLines, runStryker as realRunStryker } from './runners/stryker.mjs'
 import { configFor as playwrightConfigFor, playwrightRunner } from './runners/playwright.mjs'
 import { CONFIG_FILES } from '../stacks/e2e-folder.mjs'
+import { staleBuild } from './stale-build.mjs'
 import { configFor } from './runners/vitest.mjs'
 import * as vitestRunners from './runners/vitest.mjs'
 import * as pytestRunners from './runners/pytest.mjs'
@@ -239,12 +240,21 @@ const step = async (name, fn) => {
   try { return await fn() } catch (e) { const err = new Error(String(e?.message ?? e), { cause: e }); err.step = name; throw err }
 }
 
+/** The Playwright specs' app is an old build (see stale-build.mjs): null when not, or no Playwright spec. */
+function oldBuild(specs, config, root) {
+  if (config.adapter !== 'playwright' || !specs.length) return null
+  const file = playwrightConfigFor(specs[0], config) ?? CONFIG_FILES.find(f => existsSync(join(root, f)))
+  return file ? staleBuild(root, file) : null
+}
+const withBuild = (out, stale) => (stale ? { ...out, staleBuild: stale } : out)
+
 export async function runPipeline(opts, ctx) {
   const specs = [...new Set(opts.specs.map(f => normalizeSpec(ctx.root, f)))]
   if (!isFullstack(ctx.config)) {
     // Name a generic runner on the card so it isn't mistaken for a specialized one.
     const runner = runnerOf(ctx.config)
-    return { ...withVerdict(await runSide({ ...opts, specs }, ctx)), ...(isSpecialized(runner) ? {} : { runners: [runner] }) }
+    const stale = oldBuild(specs, ctx.config, ctx.root)
+    return withBuild({ ...withVerdict(await runSide({ ...opts, specs }, ctx)), ...(isSpecialized(runner) ? {} : { runners: [runner] }) }, stale)
   }
   const groups = specsByAdapter(ctx.config, ctx.root, specs)
   const sideCtx = adapter => ({
@@ -269,7 +279,9 @@ export async function runPipeline(opts, ctx) {
       parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
     }
   }
-  return { ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }
+  const pw = groups.find(([adapter]) => adapter === 'playwright')
+  const stale = pw ? oldBuild(pw[1], asAdapter(ctx.config, 'playwright'), ctx.root) : null
+  return withBuild({ ...withVerdict(mergeSides(parts)), runners: parts.filter(p => p.adapter).map(p => p.runner ?? p.adapter) }, stale)
 }
 
 const NO_ANCHOR = 'no ticket anchor: expected values not compared'
