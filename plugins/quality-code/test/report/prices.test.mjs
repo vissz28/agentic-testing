@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AS_OF, PRICES, SOURCE, baseModel, costOf, loadPrices, priceFor } from '../../lib/report/prices.mjs'
+import { AS_OF, FAST, PRICES, SOURCE, baseModel, costOf, loadPrices, priceFor } from '../../lib/report/prices.mjs'
 
 const t = (input, output, cacheWrite5m = 0, cacheWrite1h = 0, cacheRead = 0) => ({ input, output, cacheWrite5m, cacheWrite1h, cacheRead })
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`)
@@ -35,6 +35,18 @@ test('snapshot dates and [1m] suffixes resolve to the base model; unknown models
   assert.equal(priceFor('claude-opus-5-5[1m]'), PRICES['claude-opus-5-5'])
   assert.equal(priceFor('claude-unknown-9'), null)
   assert.equal(costOf(t(1, 1), null), null)
+})
+test('Mythos 5 bills as Fable 5; a model with no published price (claude-fable-5-2) stays unpriced', () => {
+  assert.deepEqual(priceFor('claude-mythos-5'), PRICES['claude-fable-5'])
+  assert.equal(priceFor('claude-fable-5-2'), null)
+})
+test('fast mode: 2x the standard price where it is offered, no price elsewhere', () => {
+  close(costOf(t(1e6, 1e6), priceFor('claude-opus-5-5', PRICES, true)), 8 + 40)
+  close(costOf(t(1e6, 1e6), priceFor('claude-opus-5-20260101', PRICES, true)), 10 + 50)
+  close(costOf(t(1e6, 1e6), priceFor('claude-opus-4-8', PRICES, true)), 10 + 50)
+  for (const [id, p] of Object.entries(FAST)) close(p.cacheRead, PRICES[id].cacheRead * 2)
+  assert.equal(priceFor('claude-sonnet-5-5', PRICES, true), null)
+  assert.equal(priceFor('claude-opus-4-7', PRICES, true), null)
 })
 test('an override file adds and replaces models', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-prices-'))

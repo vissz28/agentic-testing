@@ -3,9 +3,16 @@
 import { readdirSync, readFileSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { tryReadJson } from '../core/files.mjs'
+import { isTicketKey } from '../core/is.mjs'
 
 const PLUGIN = 'quality-code'
+// `direct` only routes: its run is named after the command it routes to, as the server's direct.py reads the request.
+const COMMANDS = new Set((() => { try { return readdirSync(fileURLToPath(new URL('../../commands/', import.meta.url))) } catch { return [] } })().filter(f => f.endsWith('.md')).map(f => f.slice(0, -3)))
+const DIRECT_PREFIX = /^\s*(?:using\s+quality[\s-]*code(?:\s+direct)?|quality[\s-]*code(?:\s+direct)?)\b[\s:,.\-–—]*/i
+const DIRECT_TOOL = /(?:^|__)quality_code_direct$/
+const UNDERSTOOD = /understood as (?:\/quality-code:|Quality Code )([a-z][a-z0-9-]*)/
 const SYSTEM_TEXT = /^\s*(<(task-notification|system-reminder|local-command-stdout|local-command-stderr|local-command-caveat|user-prompt-submit-hook|bash-stdout|bash-stderr)\b|\[Request interrupted by user)/
 // Replies that keep a run going: numbers, a ticket key, or yes/no-style words.
 const CARD_ANSWER = /^\s*(\d{1,2}([\s,]+\d{1,2})*|[A-Z][A-Z0-9_]+-\d+|yes|y|no|n|none|ok|sì|si|va bene|stop|basta)\s*[.!]?\s*$/i
@@ -116,6 +123,18 @@ function tokensOf(u) {
   }
 }
 
+/** The command a `direct` request names and its arguments; null when it takes a sentence to tell (the next step names it). */
+export function routeDirect(text) {
+  const words = String(text).replace(DIRECT_PREFIX, '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return { name: 'help', args: '' }
+  const first = words[0].replace(/^\/?(?:quality-code:)?/i, '').replace(/[:,.]+$/, '').toLowerCase()
+  const two = `${first}-${String(words[1] ?? '').toLowerCase()}`
+  if (words.length > 1 && COMMANDS.has(two)) return { name: two, args: words.slice(2).join(' ') }
+  if (COMMANDS.has(first)) return { name: first, args: words.slice(1).join(' ') }
+  if (words.length === 1 && isTicketKey(words[0].replace(/[:,.]+$/, '').toUpperCase())) return { name: 'ticket', args: words[0] }
+  return null
+}
+
 const timeOf = (line, fallback) => {
   const t = Date.parse(line?.timestamp)
   return Number.isNaN(t) ? fallback : t
@@ -125,6 +144,11 @@ const timeOf = (line, fallback) => {
 export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
   const keyRe = new RegExp(`(?<![A-Za-z0-9])(${keySource})(?![0-9])`)
   const seen = new Set()
+  const opened = new Map()
+  // Runs opened through `direct`, until the command it routes to starts.
+  const routing = new Set()
+  // quality_code_direct tool calls: their result names the command.
+  const directCalls = new Map()
   const runs = []
   const events = []
 
@@ -146,17 +170,45 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
       }
       events.push({ t: at, model, fast: usage.speed === 'fast', tokens: tokensOf(usage), run, sessionId })
     }
+    // quality_code_direct answers "understood as /quality-code:<command>": that names the run.
+    const named = blocks => {
+      for (const b of blocks) {
+        const run = directCalls.get(b.tool_use_id)
+        const m = run && textOf(typeof b.content === 'string' ? b.content : b.content ?? '').match(UNDERSTOOD)
+        if (m) { run.command = m[1]; routing.delete(run) }
+      }
+    }
     const toolUses = (line, run) => {
       const c = line.message?.content
       if (Array.isArray(c)) for (const b of c) if (b?.type === 'tool_use' && b.id) toolRun.set(b.id, run)
     }
 
-    const open = (command, args, line) => {
-      const name = command.startsWith(`${PLUGIN}:`) ? command.slice(PLUGIN.length + 1) : null
+    // id: what opened it (a typed command's line, a tool call). A resumed session repeats the earlier lines with the same ids: back to that run.
+    const open = (command, args, line, id, typed = false) => {
+      if (id && opened.has(id)) {
+        current = opened.get(id)
+        segments.push({ t, run: current })
+        return
+      }
+      let name = command.startsWith(`${PLUGIN}:`) ? command.slice(PLUGIN.length + 1) : null
+      const viaDirect = name === 'direct'
+      if (viaDirect) ({ name, args } = routeDirect(args) ?? { name, args })
+      // The command a `direct` run routed to is started next by the model: it names that run, never a second one.
+      if (!typed && name && current && routing.has(current)) {
+        if (name !== 'direct') {
+          routing.delete(current)
+          current.command = name
+          current.key ??= args.match(keyRe)?.[1] ?? null
+        }
+        if (id) opened.set(id, current)
+        return
+      }
       current = name && /^[a-z][a-z0-9-]*$/.test(name)
         ? { command: name, key: args.match(keyRe)?.[1] ?? null, start: t, sessionId: line.sessionId || s.id }
         : null
       if (current) runs.push(current)
+      if (current && viaDirect) routing.add(current)
+      if (id) opened.set(id, current)
       segments.push({ t, run: current })
     }
 
@@ -164,16 +216,23 @@ export function attribute(sessions, { keySource = GENERIC_KEY } = {}) {
       t = timeOf(line, t)
       if (line.type === 'user') {
         const c = classifyUser(line)
-        if (c.kind === 'command') { open(c.name, c.args, line); said = '' }
+        if (c.kind === 'tool') named(line.message.content)
+        if (c.kind === 'command') { open(c.name, c.args, line, line.uuid, true); said = '' }
         else if (c.kind === 'prompt' && current && isCard(said) && isShortReply(textOf(line.message?.content))) said = ''
         else if (c.kind === 'prompt') {
           current = null
           segments.push({ t, run: null })
         }
       } else if (line.type === 'assistant') {
-        // A Skill tool call opens a run like a typed command.
-        const skill = Array.isArray(line.message?.content) && line.message.content.find(b => b?.type === 'tool_use' && b.name === 'Skill' && String(b.input?.skill ?? '').startsWith(`${PLUGIN}:`))
-        if (skill) open(skill.input.skill, String(skill.input.args ?? ''), line)
+        // A Skill tool call, or the server's quality_code_direct, opens a run like a typed command.
+        const uses = Array.isArray(line.message?.content) ? line.message.content.filter(b => b?.type === 'tool_use') : []
+        const skill = uses.find(b => b.name === 'Skill' && String(b.input?.skill ?? '').startsWith(`${PLUGIN}:`))
+        const direct = uses.find(b => DIRECT_TOOL.test(String(b.name ?? '')))
+        if (skill) open(skill.input.skill, String(skill.input.args ?? ''), line, skill.id)
+        else if (direct) {
+          open(`${PLUGIN}:direct`, String(direct.input?.request ?? ''), line, direct.id)
+          if (current && direct.id) directCalls.set(direct.id, current)
+        }
         record(line, current, t, line.sessionId || s.id)
         toolUses(line, current)
         const text = textOf(line.message?.content)

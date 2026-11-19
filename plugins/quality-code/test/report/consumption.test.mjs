@@ -64,6 +64,20 @@ test('an unknown model: tokens counted, cost marked unknown, never guessed', () 
   assert.equal(m.costPerRun, null)
 })
 
+test('fast mode is priced at its own rate; a model with no known price is listed, not guessed', () => {
+  const tokens = { input: 1e6, output: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0 }
+  const run = { command: 'spec', key: null, start: NOW - 1000, sessionId: 's' }
+  const events = [
+    { t: NOW - 900, model: 'claude-opus-5-5', fast: true, tokens, run },
+    { t: NOW - 800, model: 'claude-fable-5-2', fast: false, tokens, run },
+    { t: NOW - 700, model: 'claude-sonnet-5-5', fast: true, tokens, run },
+  ]
+  const r = buildReport({ runs: [run], events }, { period: parsePeriod({ since: '7d' }, NOW), prices: PRICES, project: 'demo', priceInfo: {} })
+  close(r.totals.cost, 8)
+  assert.equal(r.totals.costPartial, true)
+  assert.deepEqual(r.unknownModels, ['claude-fable-5-2', 'claude-sonnet-5-5 (fast mode)'])
+})
+
 test('period filter: a run counts on the day it started, with all its usage', () => {
   assert.equal(report({ since: '2026-10-11' }).totals.runs, 2)
   const r = report({ since: '2026-10-10', until: '2026-10-10' })

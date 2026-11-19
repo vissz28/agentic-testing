@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { isObject } from '../core/is.mjs'
 
 export const AS_OF = '2026-10-06'
-export const SOURCE = 'claude-api skill: Current Models table (input, output, cache reads) and shared/prompt-caching.md (cache writes 1.25x input for 5m, 2x for 1h)'
+export const SOURCE = 'claude-api skill: Current Models table (input, output, cache reads), shared/models.md (Mythos 5 as Fable 5), shared/prompt-caching.md (cache writes 1.25x input for 5m, 2x for 1h) and Fast Mode (2x the standard price)'
 
 const row = (input, output, cacheRead) => ({ input, output, cacheWrite5m: input * 1.25, cacheWrite1h: input * 2, cacheRead })
 
@@ -11,6 +11,7 @@ export const PRICES = Object.freeze({
   'claude-fable-5-1': row(10, 50, 0.25),
   'claude-mythos-5-1': row(10, 50, 0.25),
   'claude-fable-5': row(10, 50, 1),
+  'claude-mythos-5': row(10, 50, 1),
   'claude-opus-5-5': row(4, 20, 0.2),
   'claude-opus-5': row(5, 25, 0.5),
   'claude-opus-4-8': row(5, 25, 0.5),
@@ -26,11 +27,17 @@ export const PRICES = Object.freeze({
 
 const FIELDS = ['input', 'output', 'cacheWrite5m', 'cacheWrite1h', 'cacheRead']
 
+// Fast mode (usage.speed "fast") is 2x the standard price, only on these models: $8/$40 on Opus 5.5, $10/$50 on Opus 5 and 4.8.
+export const FAST = Object.freeze(Object.fromEntries(['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8']
+  .map(id => [id, Object.fromEntries(FIELDS.map(f => [f, PRICES[id][f] * 2]))])))
+
 /** Strips [1m] suffixes, Bedrock/Vertex wrapping and -YYYYMMDD snapshot dates. */
 export const baseModel = model => String(model ?? '').replace(/\[[^\]]*\]$/, '').replace(/^(?:[a-z]+\.)?anthropic\./, '').replace(/-v\d+(?::\d+)?$/, '').replace(/@\d{8}$/, '').replace(/-\d{8}$/, '')
 
-export function priceFor(model, prices = PRICES) {
-  return prices[model] ?? prices[baseModel(model)] ?? null
+/** fast: a fast-mode request, priced only where fast mode has a known price. */
+export function priceFor(model, prices = PRICES, fast = false) {
+  const table = fast ? FAST : prices
+  return table[model] ?? table[baseModel(model)] ?? null
 }
 
 export function costOf(t, price) {
