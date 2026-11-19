@@ -1,10 +1,10 @@
 // /quality-code:clean. Deletes only paths from buildList(), re-checked one by one; callers pick groups, never paths.
 // Groups:
-//   setup    older .claude/quality-code.json, the files setup wrote (only while unchanged), its exact .gitignore lines
+//   setup    older .claude/quality-code.json, the files setup wrote (only while unchanged; an edited one is listed as kept), its exact .gitignore lines
 //   output   the tickets folder, .quality-code/, .claude/quality-code/ (audit log, run logs, evals, Jira fields)
 //   cache    this project's folder under <Claude folder>/quality-code/progress/
 //   personal <Claude folder>/quality-code.json (every project reads it: only when picked)
-//   specs    tests written by /quality-code:spec (they carry the ticket tag); kept unless picked
+//   specs    tests written by /quality-code:spec (the ticket tag, and a run log or the project context names them); kept unless picked
 // Every path stays inside the project (no `..`, no link leading out, never .git), except the cache and personal config.
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
@@ -13,6 +13,7 @@ import { CONFIG_REL, DEFAULTS, claudeDir, configFileOf, configHome, layersOf, lo
 import { CONFIG_FILE, prefsPath, savedPlace } from '../config/places.mjs'
 import { git } from '../core/git.mjs'
 import { dirOf, short, slug } from '../state/progress.mjs'
+import { listContext } from '../state/context.mjs'
 import { adaptersOf, asAdapter } from '../stacks/stack.mjs'
 import { DEFAULT_E2E_FOLDER } from '../stacks/e2e-folder.mjs'
 import { projectSpecs } from '../report/quality-program.mjs'
@@ -20,7 +21,7 @@ import { anchorRange, scoreSpec } from '../pipeline/checks/suite-honesty.mjs'
 import { dialectFor } from '../stacks/dialects/index.mjs'
 import { keyPattern } from '../config/keys.mjs'
 import { FIELDS_REL } from '../ticket/fields.mjs'
-import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText } from './setup.mjs'
+import { RUNTIME_GITIGNORE, SMOKE_TEXT, playwrightConfigText, scaffoldTexts } from './setup.mjs'
 import { readJson, tryReadJson } from '../core/files.mjs'
 import { cleanRelPath, leavesFolder } from '../core/paths.mjs'
 
@@ -121,21 +122,30 @@ function setupPlaywright(root) {
 }
 
 function scaffoldFiles(root, config) {
-  const out = []
+  const out = [], edited = []
   const pw = setupPlaywright(root)
   if (pw) out.push(pw.rel)
   for (const ext of ['ts', 'js']) {
     const rel = `${DEFAULT_E2E_FOLDER}smoke.spec.${ext}`
-    if (read(join(root, rel)) === SMOKE_TEXT) out.push(rel)
+    const text = read(join(root, rel))
+    if (text === SMOKE_TEXT) out.push(rel)
+    else if (text?.includes(MARKER)) edited.push(rel)
   }
-  const marked = rel => (read(join(root, rel)) ?? '').slice(0, 600).includes(MARKER)
-  for (const ext of ['ts', 'js']) for (const rel of [`vitest.config.${ext}`, `vitest.integration.config.${ext}`]) if (marked(rel)) out.push(rel)
+  // Marked files go only while they are what setup would write: the person is told to add migrations to them.
+  const expected = scaffoldTexts(root, config)
+  const check = rel => {
+    const text = read(join(root, rel))
+    if (!(text ?? '').slice(0, 600).includes(MARKER)) return
+    if (expected.get(rel)?.has(text)) out.push(rel)
+    else edited.push(rel)
+  }
+  for (const ext of ['ts', 'js']) for (const rel of [`vitest.config.${ext}`, `vitest.integration.config.${ext}`]) check(rel)
   if (config) {
     const folders = new Set()
     for (const a of adaptersOf(config)) { try { for (const l of layersOf(asAdapter(config, a))) if (/integration/i.test(`${l.name} ${l.folder}`)) folders.add(l.folder) } catch {} }
-    for (const f of folders) for (const n of ['global-setup.ts', 'global-setup.js', 'databases.ts', 'databases.js', 'conftest.py', 'TestDatabases.cs']) if (marked(join(f, n))) out.push(localToForwardSlashes(join(f, n)))
+    for (const f of folders) for (const n of ['global-setup.ts', 'global-setup.js', 'databases.ts', 'databases.js', 'conftest.py', 'TestDatabases.cs']) check(localToForwardSlashes(join(f, n)))
   }
-  return { files: [...new Set(out)], playwright: pw }
+  return { files: [...new Set(out)], edited: [...new Set(edited)], playwright: pw }
 }
 
 function templateFiles(root, config) {
@@ -201,25 +211,41 @@ function otherTest(text, runner, keys) {
   return t ? t.title : null
 }
 
-function specItems(root, top, config) {
+// Specs a run of /quality-code:spec named: the Specs line of <ticketsDir>/<KEY>/run.md, or a spec the project context recorded.
+function specsOnRecord(root, config, env) {
+  const seen = new Set(listContext(root, env).files.filter(f => f.role === 'spec').map(f => f.path))
+  return (rel, keys) => seen.has(rel) || keys.some(k => {
+    const log = KEY_DIR.test(k) ? read(resolve(root, config.ticketsDir ?? DEFAULTS.ticketsDir, k, 'run.md')) : null
+    const line = log && /^- \*\*Specs:\*\* (.*)$/m.exec(log)?.[1]
+    return Boolean(line) && [...line.matchAll(/`([^`]+)`/g)].some(m => m[1] === rel)
+  })
+}
+
+function specItems(root, top, config, env) {
   const none = { items: [], kept: [] }
   if (!config) return none
   const tags = Object.values(redTagsOf(config))
   const out = [], kept = []
   let specs = []
   try { specs = projectSpecs(root, config) } catch { return none }
+  const written = specsOnRecord(root, config, env)
+  let unrecorded = 0
   for (const s of specs) {
     const abs = join(root, s.path)
     const text = read(abs)
     if (text === null) continue
     const why = KEY_TAG.exec(text)?.[0] ?? tags.find(t => text.includes(t))
     if (!why) continue
+    const keys = [...new Set([...text.matchAll(new RegExp(KEY_TAG, 'g'))].map(m => m[0].slice(1)))]
+    // A tag alone is not proof: teams tag their own tests with the key too.
+    if (!written(localToForwardSlashes(s.path), keys)) { unrecorded++; continue }
     // Spec added its tests to a file that holds other tests: deleting it would take those too.
     // Read as the checks read it: a test is spec's inside the block of a key tagged in this file, or named with that key.
-    const other = otherTest(text, s.adapter, [...new Set([...text.matchAll(new RegExp(KEY_TAG, 'g'))].map(m => m[0].slice(1)))])
+    const other = otherTest(text, s.adapter, keys)
     if (other !== null) kept.push({ rel: item(top, abs).rel, why: `it also holds tests not written by spec (${other.slice(0, 60)}): take the ${why} tests out by hand` })
     else out.push({ ...item(top, abs), marker: why })
   }
+  if (unrecorded) kept.push({ rel: `${unrecorded} tagged test file${unrecorded === 1 ? '' : 's'}`, why: 'no run of /quality-code:spec names them, so they may be your own: not listed' })
   return { items: out, kept }
 }
 
@@ -247,6 +273,7 @@ export function buildList(rootIn, env = process.env) {
   if (placed) setup.push(inside(placed, top) ? item(top, placed) : { abs: placed, rel: placed, kind: 'file', files: 1, outside: 'config' })
   const scaffold = scaffoldFiles(root, config)
   for (const rel of [...templateFiles(root, config), ...scaffold.files]) if (lstat(join(root, rel))) setup.push(item(top, join(root, rel)))
+  for (const rel of scaffold.edited) kept.push({ rel: localToForwardSlashes(relative(top, join(root, rel))), why: 'setup wrote it and you edited it since: delete it by hand if you no longer need it' })
   const gi = gitignoreItem(root, top, scaffold.playwright ? { signIn: scaffold.playwright.signIn } : false)
   if (gi) setup.push(gi)
 
@@ -274,7 +301,7 @@ export function buildList(rootIn, env = process.env) {
   const plugins = tryReadJson(join(claudeDir(env), 'settings.json'), null)?.pluginConfigs ?? {}
   if (Object.entries(plugins).some(([k, v]) => k.startsWith('quality-code@') && v?.options?.jira_email)) kept.push({ rel: `${join(claudeDir(env), 'settings.json')} (jira_email)`, why: 'your Jira email, used by every project: change it in /quality-code:config' })
 
-  const specs = specItems(root, top, config)
+  const specs = specItems(root, top, config, env)
   kept.push(...specs.kept)
   if (!loaded.ok && !loaded.missing) kept.push({ rel: LABELS.specs, why: `not listed, the config does not load (${loaded.errors[0]}). Run /quality-code:setup, then clean again` })
 

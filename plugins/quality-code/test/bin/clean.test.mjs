@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { main } from '../../bin/clean.mjs'
 import { buildList, runClean, unsafeReason } from '../../lib/base/clean.mjs'
-import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE } from '../../lib/base/setup.mjs'
+import { playwrightConfigText, SMOKE_TEXT, RUNTIME_GITIGNORE, write } from '../../lib/base/setup.mjs'
 import { dirOf, short, slug } from '../../lib/state/progress.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
@@ -16,6 +16,8 @@ const read = p => readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8')
 const CFG = { version: 2, frontend: 'playwright', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
 const put = (root, rel, body = 'x\n') => { mkdirSync(dirname(join(root, rel)), { recursive: true }); writeFileSync(join(root, rel), body) }
 const git = (root, ...a) => execFileSync('git', a, { cwd: root, env: GIT_ENV, stdio: 'ignore' })
+/** The run log /quality-code:spec leaves: its Specs line names the files it checked. */
+const ran = (root, key, ...specs) => put(root, `.quality-code/tickets/${key}/run.md`, `# ${key}: green\n\n- **Checked:** 2026-01-01T00:00:00.000Z\n- **Specs:** ${specs.map(x => `\`${x}\``).join(', ')}\n`)
 
 /** A project that was set up: config, scaffold, .gitignore lines, saved output, cache, personal config, one spec. */
 function project({ extra = {} } = {}) {
@@ -30,6 +32,7 @@ function project({ extra = {} } = {}) {
   put(root, '.claude/quality-code/audit/gate.jsonl', '{}\n')
   put(root, '.claude/quality-code/evals/ABC-1/expected.json', '{}')
   put(root, 'e2e/orders.abc-1.spec.ts', "test.describe('ABC-1 totals', { tag: '@ABC-1' }, () => {})\n")
+  ran(root, 'ABC-1', 'e2e/orders.abc-1.spec.ts')
   put(root, 'e2e/mine.spec.ts', "test('mine', () => {})\n")
   put(root, 'src/app.ts', 'export {}\n')
   const cache = join(dirOf(env), `${slug(root)}-${short(root)}`)
@@ -73,6 +76,28 @@ test('setup files are listed only while they are still what setup wrote', () => 
   // Without the Playwright file, the generic Playwright ignore lines are not setup's to remove.
   assert.ok(!group(l, 'setup').items.find(i => i.kind === 'lines').lines.includes('test-results/'))
 })
+test('a setup file the person edited (a migration added) is kept, named under Kept; an untouched one is listed', () => {
+  const claude = realpathSync(mkdtempSync(join(tmpdir(), 'qc-clean-claude-')))
+  const backends = [
+    ['vitest', { 'package.json': JSON.stringify({ devDependencies: { vitest: '5' }, dependencies: { pg: '8' } }), 'tsconfig.json': '{}' }, ['vitest.config.ts', 'vitest.integration.config.ts', 'test/integration/databases.ts'], 'test/integration/global-setup.ts'],
+    ['pytest', { 'pyproject.toml': '[project]\ndependencies = ["psycopg>=3"]\n[tool.pytest.ini_options]\n' }, [], 'tests/integration/conftest.py'],
+  ]
+  for (const [backend, files, untouched, edited] of backends) {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'qc-clean-root-')))
+    for (const [p, body] of Object.entries(files)) put(root, p, body)
+    const env = { CLAUDE_CONFIG_DIR: claude, CLAUDE_PROJECT_DIR: root, QUALITY_CODE_PLACE: 'repo' }
+    const r = write(root, { ...CFG, frontend: undefined, backend }, { containersScaffold: true, ...(backend === 'vitest' ? { vitestScaffold: true } : {}), format: () => null })
+    assert.equal(r.ok, true, JSON.stringify(r))
+    assert.deepEqual(rels(buildList(root, env), 'setup').filter(x => !x.startsWith('.')).sort(), [...untouched, edited].sort(), `${backend}: all as setup wrote them`)
+    writeFileSync(join(root, edited), readFileSync(join(root, edited), 'utf8').replace('# The schema: run your migrations here', 'subprocess.run(["alembic", "upgrade", "head"])  # The schema').replace('// The schema: run your migrations here', "execSync('npx knex migrate:latest') // The schema"))
+    const l = buildList(root, env)
+    assert.ok(!rels(l, 'setup').includes(edited), `${backend}: the edited file is not on the list`)
+    assert.match(l.kept.find(k => k.rel === edited)?.why ?? '', /you edited it since/, backend)
+    runClean(root, { groups: ['setup'] }, env)
+    assert.ok(existsSync(join(root, edited)), `${backend}: the edit survives`)
+    for (const u of untouched) assert.ok(!existsSync(join(root, u)), u)
+  }
+})
 test('a template is setup-added only when it is exactly the plugin\'s own', () => {
   const { root, env } = project({ extra: { ticketTemplates: { bug: '.github/ISSUE_TEMPLATE/bug.md', story: '.github/ISSUE_TEMPLATE/story.md' } } })
   put(root, '.github/ISSUE_TEMPLATE/bug.md', read('resources/bug-template.md'))
@@ -108,8 +133,14 @@ test('deleting the picked groups only: output, cache and personal config; the re
 test('specs are kept by default and deleted only when picked, only the picked ones', () => {
   const { root, env } = project()
   put(root, 'e2e/other.def-2.spec.ts', "test('x', { tag: '@DEF-2' }, () => {})\n")
-  runClean(root, { groups: ['output', 'cache', 'personal'] }, env)
+  ran(root, 'DEF-2', 'e2e/other.def-2.spec.ts')
+  // Specs and saved output in one run: the run logs that name the specs are saved output.
+  const both = runClean(root, { groups: ['output', 'cache', 'personal', 'specs'], specs: ['e2e/other.def-2.spec.ts'] }, env)
+  assert.ok(both.deleted.some(d => d.rel === 'e2e/other.def-2.spec.ts') && !existsSync(join(root, '.quality-code')))
   assert.ok(existsSync(join(root, 'e2e/orders.abc-1.spec.ts')))
+  ran(root, 'ABC-1', 'e2e/orders.abc-1.spec.ts')
+  put(root, 'e2e/other.def-2.spec.ts', "test('x', { tag: '@DEF-2' }, () => {})\n")
+  ran(root, 'DEF-2', 'e2e/other.def-2.spec.ts')
   assert.equal(runClean(root, { groups: ['specs'], specs: [] }, env).ok, false, 'the spec group needs the paths')
   assert.equal(runClean(root, { groups: ['specs'], specs: ['e2e/mine.spec.ts'] }, env).ok, false, 'a file that is not on the list is refused')
   assert.ok(existsSync(join(root, 'e2e/mine.spec.ts')))
@@ -121,6 +152,7 @@ test('specs are kept by default and deleted only when picked, only the picked on
 test('a spec file that also holds the person\'s own tests is kept, with the reason, never deleted whole', () => {
   const { root, env } = project()
   put(root, 'e2e/cart.spec.ts', "await page.route('**/api/cart/**', r => r.fulfill())\ntest('cart opens', async () => {})\n\ntest.describe('ABC-7 totals', { tag: '@ABC-7' }, () => {})\n")
+  ran(root, 'ABC-7', 'e2e/cart.spec.ts')
   const l = buildList(root, env)
   assert.deepEqual(rels(l, 'specs'), ['e2e/orders.abc-1.spec.ts'])
   assert.match(l.kept.find(k => k.rel === 'e2e/cart.spec.ts')?.why ?? '', /also holds tests not written by spec \(cart opens\).*@ABC-7 tests out by hand/)
@@ -129,10 +161,26 @@ test('backend specs carry the @KEY tag too: a spec-only file is listed, one adde
   const { root, env } = project({ extra: { backend: 'vitest' } })
   put(root, 'test/totals.spec.ts', "describe('ABC-8 totals round @ABC-8', () => {\n  it('rounds up', () => { expect(1).toBe(1) })\n})\n")
   put(root, 'test/stock.spec.ts', "describe('StockRepository', () => {\n  it('reads stock', () => { expect(1).toBe(1) })\n})\n\ndescribe('ABC-9 sums every warehouse @ABC-9', () => {\n  it('sums', () => { expect(2).toBe(2) })\n})\n")
+  ran(root, 'ABC-8', 'test/totals.spec.ts')
+  ran(root, 'ABC-9', 'test/stock.spec.ts')
   const l = buildList(root, env)
   assert.ok(rels(l, 'specs').includes('test/totals.spec.ts'))
   assert.ok(!rels(l, 'specs').includes('test/stock.spec.ts'))
   assert.match(l.kept.find(k => k.rel === 'test/stock.spec.ts')?.why ?? '', /\(reads stock\).*@ABC-9 tests out by hand/)
+})
+test('a tagged test no run of spec names is the person\'s own: not listed, only counted under Kept', () => {
+  const { root, env } = project({ extra: { backend: 'vitest' } })
+  // The team tags its own tests with the key; spec never ran on them.
+  put(root, 'e2e/checkout.spec.ts', "test('checkout', { tag: '@ABC-1' }, async () => {})\n")
+  put(root, 'test/vat.spec.ts', "describe('VAT @ABC-3', () => {\n  it('adds 22%', () => { expect(1).toBe(1) })\n})\n")
+  let l = buildList(root, env)
+  assert.deepEqual(rels(l, 'specs'), ['e2e/orders.abc-1.spec.ts'], 'only the file the ABC-1 run log names')
+  assert.ok(l.kept.some(k => k.rel === '2 tagged test files' && /no run of \/quality-code:spec names them/.test(k.why)), JSON.stringify(l.kept))
+  assert.equal(runClean(root, { groups: ['specs'], specs: ['e2e/checkout.spec.ts'] }, env).ok, false, 'and it cannot be picked')
+  // The project context recording it as a spec counts as a record too.
+  put(dirOf(env), `${slug(root)}-${short(root)}/context.json`, JSON.stringify({ facts: {}, files: { 'test/vat.spec.ts': { hash: 'x', role: 'spec', savedAt: '2026-01-01T00:00:00.000Z' } } }))
+  l = buildList(root, env)
+  assert.deepEqual(rels(l, 'specs'), ['e2e/orders.abc-1.spec.ts', 'test/vat.spec.ts'])
 })
 test('a config that does not load: the spec group says it could not be listed', () => {
   const { root, env } = project()
