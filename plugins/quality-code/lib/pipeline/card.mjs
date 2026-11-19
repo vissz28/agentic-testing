@@ -127,6 +127,10 @@ function testLines(list) {
 export const finishedButRed = (outcome, status, done = DEFAULT_DONE_STATUSES) =>
   outcome.verdict === 'tests_red' && done.some(d => d.trim().toLowerCase() === String(status ?? '').trim().toLowerCase())
 
+/** The app Playwright opened is a build older than the code: a red test may be the old code, a green one proves nothing new. */
+export const staleBuildLine = ({ build, command, changed }) =>
+  `⚠️ Old build: ${command} serves ${build}, built before ${changed} changed, so the tests ran the old code. Build again, then check again.`
+
 /** Banner for a run forced past the readiness gate ("continue anyway"). */
 export function riskLine({ score, bar }, color = false) {
   const text = `🔴 [RISK / NOT RECOMMENDED] Ticket incomplete (${score} points, needs ${bar})`
@@ -138,6 +142,7 @@ export function formatCard(outcome, { specs = [], key = null, color = false, jir
   const sides = outcome.runners?.length ? ` · ${outcome.runners.map(runnerLabel).join(' + ')}` : ''
   const lines = [`quality-code check · ${plural(n, 'spec file')}${sides}${key ? ` · ticket ${key}` : ''}`]
   if (outcome.incompleteTicket) lines.push(riskLine(outcome.incompleteTicket, color))
+  if (outcome.staleBuild) lines.push(staleBuildLine(outcome.staleBuild))
   lines.push('', `Verdict: ${VERDICT[outcome.verdict]}`)
   lines.push(...verdictText(outcome).map(t => `  ${capital(t)}`))
   if (outcome.regression) lines.push(outcome.regression.text)
@@ -171,6 +176,7 @@ export function formatRunLog(outcome, { specs = [], key = null, jiraStatus = nul
   const md = s => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const out = [`# ${key ?? 'Check'}: ${VERDICT[outcome.verdict]}`, '']
   if (outcome.incompleteTicket) out.push(riskLine(outcome.incompleteTicket), '')
+  if (outcome.staleBuild) out.push(staleBuildLine(outcome.staleBuild), '')
   out.push(`- **Checked:** ${date.toISOString()}`, `- **Specs:** ${specs.map(s => `\`${s}\``).join(', ') || 'none'}`)
   if (outcome.runners?.length) out.push(`- **Runners:** ${outcome.runners.map(runnerLabel).join(', ')}`)
   if (jiraStatus) out.push(`- **Jira status:** ${jiraStatus}`)

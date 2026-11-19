@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs'
 
 const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
 
-test('frontmatter: the only tool is its own script, on Haiku', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@\*\)\nmodel: haiku\neffort: low\nuser-invocable: false\n---/)
+test('frontmatter: its own script, update and disable of this plugin only, on Haiku', () => {
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@\*\), Bash\(claude plugin disable quality-code@\*\)\nmodel: haiku\neffort: low\nuser-invocable: false\n---/)
 })
 test('runs the script with no arguments and never --json', () => {
   assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs"`'))
@@ -43,4 +43,11 @@ test('the card is followed by one line that points to the commands guide PDF shi
   const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
   assert.ok(doc.includes('Commands guide (PDF): ${CLAUDE_PLUGIN_ROOT}/resources/commands.pdf'))
   assert.ok(existsSync(new URL('../../resources/commands.pdf', import.meta.url)))
+})
+
+test('two copies: turning off the old one is offered first, runs only after the pick, with the script\'s ids and scopes', () => {
+  assert.match(doc, /When the `CHECK_UPDATE_JSON:` line has `others`[\s\S]*put `Turn off the old copy` first/)
+  assert.ok(doc.includes('run `claude plugin disable <its id> --scope <its scope>`'))
+  assert.match(doc, /after the user picks \*\*Turn off the old copy\*\*/)
+  assert.doesNotMatch(doc, /disable quality-code@(?!\*)/, 'the old id comes from the script, not hard-coded')
 })

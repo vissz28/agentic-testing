@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { SMOKE_TEXT, detect, fromVersion1, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../lib/base/setup.mjs'
+import { SMOKE_TEXT, detect, formatWritten, fromVersion1, ghAccount, playwrightConfigText, projectCandidates, smoke, unitOverlap, vitestConfigText, vitestProblem, write } from '../../lib/base/setup.mjs'
 import { e2eFolder } from '../../lib/stacks/e2e-folder.mjs'
 import { validateConfig } from '../../lib/config/config.mjs'
 import { filesOf } from '../../lib/base/containers.mjs'
@@ -509,6 +509,30 @@ test('write with a sign-in: a setup project every test depends on; its state and
   assert.equal(readFileSync(join(d, 'e2e/smoke.spec.ts'), 'utf8'), SMOKE_TEXT)
   const gi = readFileSync(join(d, '.gitignore'), 'utf8').split('\n')
   assert.ok(gi.includes('playwright/.auth/') && gi.includes('.env.e2e'))
+})
+// A fake formatter package: its bin records the arguments it got, and exits with code.
+const fakeFormatter = (d, pkg, bin, code = 0) => {
+  mkdirSync(join(d, 'node_modules', pkg), { recursive: true })
+  writeFileSync(join(d, 'node_modules', pkg, 'package.json'), JSON.stringify({ name: pkg, bin: { [bin]: 'cli.js' } }))
+  writeFileSync(join(d, 'node_modules', pkg, 'cli.js'), `require('fs').writeFileSync(${JSON.stringify(join(d, 'formatted.json'))}, JSON.stringify(process.argv.slice(2))); process.exit(${code})`)
+}
+test('write formats the code files it wrote with the project\'s own formatter, and says so', () => {
+  const d = repo({})
+  writeFileSync(join(d, 'tsconfig.json'), '{}')
+  writeFileSync(join(d, 'package.json'), JSON.stringify({ devDependencies: { '@biomejs/biome': '1', prettier: '3' } }))
+  fakeFormatter(d, '@biomejs/biome', 'biome')
+  const r = write(d, pwCfg, { scaffold: SCAFFOLD })
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  assert.deepEqual(JSON.parse(readFileSync(join(d, 'formatted.json'), 'utf8')), ['check', '--write', '--no-errors-on-unmatched', 'playwright.config.ts', 'e2e/smoke.spec.ts'], 'Biome wins over Prettier')
+  assert.equal(r.note, 'Formatted playwright.config.ts, e2e/smoke.spec.ts with Biome.')
+})
+test('formatWritten: only a formatter the project declares; a failing one is said, never fatal', () => {
+  const d = mkdtempSync(join(tmpdir(), 'at-fmt-'))
+  fakeFormatter(d, 'prettier', 'prettier', 1)
+  assert.equal(formatWritten(d, ['a.ts']), null, 'installed but not in package.json: left alone')
+  writeFileSync(join(d, 'package.json'), JSON.stringify({ devDependencies: { prettier: '3' } }))
+  assert.deepEqual(formatWritten(d, ['a.ts']), { tool: 'Prettier', ok: false, files: ['a.ts'] })
+  assert.equal(formatWritten(d, []), null)
 })
 test('the generated config and smoke test are valid JavaScript; quotes and backslashes in the command are escaped', () => {
   const d = mkdtempSync(join(tmpdir(), 'at-'))

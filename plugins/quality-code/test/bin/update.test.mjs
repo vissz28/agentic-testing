@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { compareVersions, diskVersion, fetchLatest, githubRepo, main, newerSections, statusOf } from '../../bin/update.mjs'
+import { compareVersions, diskVersion, fetchLatest, githubRepo, installsHere, main, newerSections, statusOf } from '../../bin/update.mjs'
 
 const REPO = 'https://github.com/vissz28/agentic-testing'
 const MANIFEST = version => ({ name: 'quality-code', version, repository: REPO })
@@ -74,6 +74,31 @@ test('updated on disk but not reloaded: the card says so and asks for /reload-pl
   assert.match(r.out, /This session still runs 0\.27\.0\. 0\.28\.1 is installed and is used from the next session, or after you type \/reload-plugins/)
   assert.match(r.out, /"status":"reload"/)
   assert.doesNotMatch(r.out, /A new version is out/)
+})
+test('installsHere: one row per marketplace that loads here, newest first; other projects\' copies do not count', () => {
+  const env = configWith({
+    'quality-code@quality-code': [{ scope: 'user', version: '0.67.0' }, { scope: 'project', projectPath: '/work/other', version: '0.40.0' }],
+    'quality-code@teamsystem': [{ scope: 'project', projectPath: '/work/app', version: '0.81.0' }],
+    'other@x': [{ scope: 'user', version: '9.0.0' }],
+  })
+  assert.deepEqual(installsHere('quality-code', '/work/app/web', env), [
+    { id: 'quality-code@teamsystem', version: '0.81.0', scope: 'project' },
+    { id: 'quality-code@quality-code', version: '0.67.0', scope: 'user' },
+  ])
+  assert.deepEqual(installsHere('quality-code', '/work/apple', env).map(i => i.id), ['quality-code@quality-code'], 'a sibling folder is not inside the project')
+  assert.deepEqual(installsHere('quality-code', 'C:\\work\\app', configWith({ 'quality-code@a': [{ scope: 'local', projectPath: 'C:\\work\\app\\', version: '1.0.0' }] })).map(i => i.id), ['quality-code@a'])
+  const tie = configWith({ 'quality-code@quality-code': [{ scope: 'user', version: '0.81.0' }], 'quality-code@teamsystem': [{ scope: 'user', version: '0.81.0' }] })
+  assert.equal(installsHere('quality-code', '/', tie)[0].id, 'quality-code@teamsystem', 'a tie keeps the published marketplace')
+})
+test('two copies installed: the card names the old one and the command to turn it off; the update targets the newer one', async () => {
+  const env = configWith({ 'quality-code@quality-code': [{ scope: 'user', version: '0.67.0' }], 'quality-code@teamsystem': [{ scope: 'user', version: '0.81.0' }] })
+  const r = await run('0.81.0', { env })
+  assert.match(r.out, /2 copies of the plugin are installed from different marketplaces/)
+  assert.match(r.out, /Keep {7}quality-code@teamsystem\n {2}Old copy {3}quality-code@quality-code 0\.67\.0 \(user\)/)
+  assert.match(r.out, /claude plugin disable quality-code@quality-code --scope user/)
+  assert.match(r.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@teamsystem",.*"others":\[\{"id":"quality-code@quality-code","version":"0\.67\.0","scope":"user"\}\]\}/)
+  const one = await run('0.81.0', { env: configWith({ 'quality-code@teamsystem': [{ scope: 'user', version: '0.81.0' }] }) })
+  assert.doesNotMatch(one.out, /Old copy|others/)
 })
 test('newerSections keeps only versions after the installed one, newest first, plain text', () => {
   const s = newerSections(CHANGELOG, '0.27.0', '0.28.1')

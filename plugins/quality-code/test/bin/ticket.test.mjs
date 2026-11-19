@@ -332,6 +332,13 @@ test('a tracking project key is no mismatch', () => {
   writeFileSync(join(d, 'x.json'), JSON.stringify({ key: 'OPS-1', text: {} }))
   assert.doesNotMatch(run(d, 'score', '--in', '@x.json').stdout, /PROJECT_MISMATCH/)
 })
+test('fill-menu and pick without --in name the flag they need, not the whole usage line', () => {
+  for (const cmd of ['fill-menu', 'pick']) {
+    const r = run(proj(), cmd, '1')
+    assert.equal(r.status, 2)
+    assert.match(r.stderr, new RegExp(`^${cmd} needs --in @<ticketsDir>/<KEY>/ticket\\.json`))
+  }
+})
 test('pick reads unquoted numbers too', () => {
   const d = proj()
   assert.equal(run(d, 'pick', '--in', '@t.json', '1', '2').stdout, run(d, 'pick', '--in', '@t.json', '1 2').stdout)

@@ -306,6 +306,8 @@ function run(argv, env, cwd) {
   const name = cmd === 'config' ? `config ${a._[0]}` : cmd
   const handler = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : null
   if (handler) return handler({ a, root, cfg, config, env, log, savedPath, ticketsRoot })
+  // fill-menu and pick read the saved ticket, like add.
+  if (!a.in && (cmd === 'fill-menu' || cmd === 'pick')) { printError(`${cmd} needs --in @<ticketsDir>/<KEY>/ticket.json, the ticket it scores`); return 2 }
   if (!a.in) {
     printError("usage: ticket.mjs <score|negative-check|story-check|story-save|refuse-comment|risk-comment|fill-menu|pick|add|attachments|attach|jira-update|sanitize|side|tickets-eval> --in '<json>'|@file [--ci] [--json]")
     return 2
