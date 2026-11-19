@@ -75,6 +75,13 @@ test('updated on disk but not reloaded: the card says so and asks for /reload-pl
   assert.match(r.out, /"status":"reload"/)
   assert.doesNotMatch(r.out, /A new version is out/)
 })
+test('a newer copy installed for another project is not "not reloaded": the update is offered', async () => {
+  const env = configWith({ 'quality-code@quality-code': [{ scope: 'user', version: '0.27.0' }, { scope: 'project', projectPath: '/work/other', version: '0.28.1' }] })
+  assert.equal(diskVersion('quality-code', env, '/work/app'), '0.27.0')
+  const r = await run('0.27.0', { env })
+  assert.match(r.out, /"status":"update"/)
+  assert.doesNotMatch(r.out, /reload-plugins here|not loaded yet/)
+})
 test('installsHere: one row per marketplace that loads here, newest first; other projects\' copies do not count', () => {
   const env = configWith({
     'quality-code@quality-code': [{ scope: 'user', version: '0.67.0' }, { scope: 'project', projectPath: '/work/other', version: '0.40.0' }],

@@ -87,13 +87,13 @@ export function pluginId(name, env = process.env, cwd = process.cwd()) {
   return installsHere(name, cwd, env)[0]?.id ?? Object.keys(installedPlugins(env)).find(k => k.startsWith(`${name}@`)) ?? `${name}@teamsystem`
 }
 
-// Installed on disk can be ahead of running until /reload-plugins.
-export function diskVersion(name, env = process.env) {
+// Installed on disk can be ahead of running until /reload-plugins. Another project's copy does not load here.
+export function diskVersion(name, env = process.env, cwd = process.cwd()) {
   try {
     const plugins = installedPlugins(env)
     const versions = Object.entries(plugins)
       .filter(([k]) => k.startsWith(`${name}@`))
-      .flatMap(([, entries]) => entries.map(e => e.version))
+      .flatMap(([, entries]) => entries.filter(e => loadsHere(e, cwd)).map(e => e.version))
       .filter(v => SEMVER.test(v ?? ''))
       .sort(compareVersions)
     return versions.at(-1) ?? null
@@ -186,7 +186,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const manifest = installedManifest ?? readInstalled()
   const name = manifest.name ?? 'quality-code'
   const running = manifest.version
-  const onDisk = diskVersion(name, env)
+  const onDisk = diskVersion(name, env, cwd)
   const installs = installsHere(name, cwd, env)
   const id = installs[0]?.id ?? pluginId(name, env, cwd)
   const others = installs.slice(1).map(({ id, version, scope }) => ({ id, version, scope }))

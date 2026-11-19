@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { detect, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
+import { branchKey, detect, keyCandidates, kindOf, playwrightTestDirs, parseStatusZ, parseNameStatusZ } from '../../bin/branch.mjs'
 import { stripCredentials } from '../../lib/core/git.mjs'
 import { fakeCommand } from '../fake-bin.mjs'
 
@@ -28,6 +28,14 @@ test('keyCandidates finds a key joined with _ or / and ignores a longer prefix',
   assert.deepEqual(keyCandidates(['FEATURE/DEMO-12_EXPORT'], ['DEMO']), ['DEMO-12'])
   assert.deepEqual(keyCandidates(['XDEMO-12'], ['DEMO']), [])
   assert.deepEqual(keyCandidates(['DEMO-123'], ['DEMO']), ['DEMO-123'])
+})
+test('branchKey reads a key with "_" whole and skips encodings that look like keys', () => {
+  assert.equal(branchKey('feature/MY_PROJ-12'), 'MY_PROJ-12', 'not its tail PROJ-12')
+  assert.equal(branchKey('utf-8-fix'), null)
+  assert.equal(branchKey('bugfix/utf-8-export-ABC-123'), 'ABC-123')
+  assert.equal(branchKey('sha-256-iso-8859-ABC-1'), 'ABC-1')
+  assert.equal(branchKey('fix_ABC-12'), 'ABC-12', 'a branch word joined with _ is dropped')
+  assert.equal(branchKey('demo_12_fix'), 'DEMO-12')
 })
 test('kindOf: tests by name, code by extension, the rest other', () => {
   assert.equal(kindOf('src/a.spec.ts', 'vitest'), 'test')
