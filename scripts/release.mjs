@@ -13,6 +13,7 @@ const PLUGIN = 'plugins/quality-code'
 export const MANIFESTS = [`${PLUGIN}/.claude-plugin/plugin.json`, `${PLUGIN}/.plugin/plugin.json`, `${PLUGIN}/mcp-server/pyproject.toml`]
 const VERSION_IN = { json: /("version"\s*:\s*")([^"]+)(")/, toml: /^(version\s*=\s*")([^"]+)(")/m }
 const SEMVER = /^\d+\.\d+\.\d+$/
+
 export const tagOf = v => `quality-code--v${v}`
 
 const versionIn = (path, text) => VERSION_IN[path.endsWith('.toml') ? 'toml' : 'json'].exec(text)?.[2] ?? null
