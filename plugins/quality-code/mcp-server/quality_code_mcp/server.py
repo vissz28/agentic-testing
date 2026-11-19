@@ -46,6 +46,22 @@ NEEDS_REPO_NOTICE = (
     "Use the instructions below as the guide once the repo is known."
 )
 REMOTE_GUIDES = {"connectors", "save-place", "ticket-eval", "tickets-eval"}
+# What a script sees of the shared server's environment: system basics, the network and Node settings, and the variables the scripts read.
+# Never the client secrets, session or token keys (they are QUALITY_CODE_* too, so no prefix passes whole).
+SCRIPT_ENV = {
+    "PATH", "HOME", "USERPROFILE", "TMPDIR", "TMP", "TEMP", "LANG", "LANGUAGE", "TZ",
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "APPDATA", "LOCALAPPDATA",
+    "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR",
+    "NO_COLOR", "FORCE_COLOR", "CLAUDE_CONFIG_DIR", "QUALITY_CODE_PLACE", "QUALITY_CODE_ROOT", "QC_NO_AUDIT", "CC_HUB_URL",
+}
+SCRIPT_ENV_PREFIXES = ("LC_", "NODE_")
+
+
+def script_env(environ, remote: bool) -> dict[str, str]:
+    """The environment a script runs with. The local server is the person's own: everything (the test runners need it). The shared one: the allowlist only."""
+    if not remote:
+        return dict(environ)
+    return {k: v for k, v in environ.items() if k in SCRIPT_ENV or k.startswith(SCRIPT_ENV_PREFIXES)}
 
 
 def _newest_first(dirs) -> list[Path]:
@@ -185,7 +201,7 @@ def build(root: Path | None = None, *, entra: EntraSettings | None = None, verif
             return "error: Node.js 18 or later is needed to run Quality Code's scripts, and `node` was not found."
         if not work.is_dir():
             return f"error: {work} is not a folder."
-        env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
+        env = {**script_env(os.environ, remote), "CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": str(work.resolve())}
         if config:
             env["QUALITY_CODE_CONFIG_JSON"] = config
         if remote:
