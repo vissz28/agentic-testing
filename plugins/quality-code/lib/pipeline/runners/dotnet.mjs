@@ -104,24 +104,26 @@ function trxFiles(dir) {
   return out
 }
 
+/**
+ * What to spawn. dotnet.command: {files} test project, {report} TRX path, {test} filter, run by the shell.
+ * On Windows the line goes to cmd.exe verbatim, wrapped in quotes as `shell: true` does: Node's own quoting
+ * would escape its quotes as \" and cmd.exe would not find the command.
+ */
+export function dotnetSpawn(project, { filter, report, dir, command = null }, win = process.platform === 'win32') {
+  const logger = ['--logger', `trx;LogFileName=${report}`, '--results-directory', dir]
+  if (!command) return { file: 'dotnet', args: ['test', project, '--nologo', ...logger, '--filter', filter], verbatim: false }
+  const q = w => shellQuote(w, win)
+  let line = fillPlaceholders(command, { files: q(project), report: q(report), test: q(filter) })
+  if (!command.includes('{report}')) line += ` ${logger.map(q).join(' ')}`
+  if (!command.includes('{test}')) line += ` --filter ${q(filter)}`
+  return win ? { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', `"${line}"`], verbatim: true } : { file: '/bin/sh', args: ['-c', line], verbatim: false }
+}
+
 export function runDotnet(root, project, { filter, command = null, timeoutMs }) {
   return new Promise(done => {
     const dir = mkdtempSync(join(tmpdir(), 'qc-dotnet-'))
     const report = join(dir, 'report.trx')
-    const logger = ['--logger', `trx;LogFileName=${report}`, '--results-directory', dir]
-    let file
-    let args
-    if (command) {
-      // dotnet.command: {files} test project, {report} TRX path, {test} filter.
-      let line = fillPlaceholders(command, { files: shellQuote(project), report: shellQuote(report), test: shellQuote(filter) })
-      if (!command.includes('{report}')) line += ` ${logger.map(w => shellQuote(w)).join(' ')}`
-      if (!command.includes('{test}')) line += ` --filter ${shellQuote(filter)}`
-      file = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
-      args = process.platform === 'win32' ? ['/d', '/s', '/c', line] : ['-c', line]
-    } else {
-      file = 'dotnet'
-      args = ['test', project, '--nologo', ...logger, '--filter', filter]
-    }
+    const { file, args, verbatim } = dotnetSpawn(project, { filter, report, dir, command })
     let output = ''
     let timedOut = false
     let settled = false
@@ -137,7 +139,7 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
     const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1', MSBUILDDISABLENODEREUSE: '1', NO_COLOR: '1', CI: '1' }
     let ch
     try {
-      ch = spawn(file, args, { cwd: root, detached: true, windowsHide: true, env, stdio: ['ignore', 'pipe', 'pipe'] })
+      ch = spawn(file, args, { cwd: root, detached: true, windowsHide: true, windowsVerbatimArguments: verbatim, env, stdio: ['ignore', 'pipe', 'pipe'] })
       untrack = track(ch, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start dotnet: ${e.message}` })

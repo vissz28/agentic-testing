@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildError, dotnetRunner, filterFor, methodTitle, parseTrx, projectOf, trxAborted } from '../../../lib/pipeline/runners/dotnet.mjs'
+import { buildError, dotnetRunner, dotnetSpawn, filterFor, methodTitle, parseTrx, projectOf, trxAborted } from '../../../lib/pipeline/runners/dotnet.mjs'
 import { runPipeline } from '../../../lib/pipeline/pipeline.mjs'
 import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
@@ -278,6 +278,18 @@ test('dotnet.command: a filter of two classes is quoted, not read by the shell a
   await dotnetRunner(d, { adapter: 'dotnet', dotnet: { command: 'dotnet test {files}' } })({ files: [SPEC] })
   const args = fake.calls()[0].args
   assert.equal(args[args.indexOf('--filter') + 1], 'FullyQualifiedName~Demo.Tests.PricingTests.|FullyQualifiedName~Demo.Tests.OtherTests.')
+})
+
+test('dotnet.command on Windows: cmd.exe gets the line verbatim in one pair of quotes, its words in cmd quotes', () => {
+  const opts = { filter: 'FullyQualifiedName~A.|FullyQualifiedName~B.', report: 'C:\\T\\qc dotnet\\report.trx', dir: 'C:\\T\\qc dotnet', command: 'dotnet test {files} --no-restore' }
+  const win = dotnetSpawn('tests\\Demo Tests\\Demo.Tests.csproj', opts, true)
+  assert.equal(win.verbatim, true, 'Node must not re-quote the line: cmd.exe does not read \\" escapes')
+  assert.deepEqual(win.args.slice(0, 3), ['/d', '/s', '/c'])
+  assert.equal(win.args[3], '"dotnet test "tests\\Demo Tests\\Demo.Tests.csproj" --no-restore "--logger" "trx;LogFileName=C:\\T\\qc dotnet\\report.trx" "--results-directory" "C:\\T\\qc dotnet" --filter "FullyQualifiedName~A.|FullyQualifiedName~B.""')
+  const sh = dotnetSpawn('tests/Demo.Tests.csproj', { ...opts, report: '/t/r.trx', dir: '/t' }, false)
+  assert.deepEqual({ file: sh.file, verbatim: sh.verbatim, flag: sh.args[0] }, { file: '/bin/sh', verbatim: false, flag: '-c' })
+  assert.match(sh.args[1], /^dotnet test 'tests\/Demo\.Tests\.csproj' --no-restore '--logger'/)
+  assert.deepEqual(dotnetSpawn('p.csproj', { ...opts, command: null }, true), { file: 'dotnet', args: ['test', 'p.csproj', '--nologo', '--logger', 'trx;LogFileName=C:\\T\\qc dotnet\\report.trx', '--results-directory', 'C:\\T\\qc dotnet', '--filter', opts.filter], verbatim: false })
 })
 
 test('the pipeline on .NET: green with every mutant killed in place, and the spec comes back byte for byte', async t => {
