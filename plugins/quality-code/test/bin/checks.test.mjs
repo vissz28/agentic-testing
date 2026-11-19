@@ -94,9 +94,22 @@ test('hook: silent allow without a run or without a config; deny JSON and a log 
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /src\/a\.ts is off limits during a test run/)
   const log = readFileSync(join(d, '.claude/quality-code/boundary.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l))
   assert.deepEqual({ ...log[0], ts: 'x' }, { ts: 'x', decision: 'deny', tool: 'Edit', path: 'src/a.ts', session: 's1' })
+  r = cli(d, ['boundary', '--hook'], JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'rm -f .claude/quality-code/run.active' }, session_id: 's1' }))
+  assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, 'deny')
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.permissionDecisionReason, /run\.active is off limits during a test run/)
+  assert.equal(cli(d, ['boundary', '--hook'], JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'npm test' } })).stdout, '')
+})
+test('hook: a hook that cannot read the tool call denies while a run is active and allows otherwise', () => {
+  const d = repo()
+  let r = cli(d, ['boundary', '--hook'], '{not json')
+  assert.equal(r.status, 0)
+  assert.equal(r.stdout, '', 'no run: a broken hook never blocks editing')
+  put(d, '.claude/quality-code/run.active', '')
   r = cli(d, ['boundary', '--hook'], '{not json')
   assert.equal(r.status, 0)
-  assert.equal(r.stdout, '')
+  const out = JSON.parse(r.stdout).hookSpecificOutput
+  assert.equal(out.permissionDecision, 'deny')
+  assert.match(out.permissionDecisionReason, /the hook failed \(it could not read the tool call\) while a test run is active/)
 })
 test('hook: a file in a package with its own config is judged by that package, from a session at the monorepo root', () => {
   const top = mkdtempSync(join(tmpdir(), 'qc-mono-'))

@@ -191,6 +191,24 @@ test('boundary: a backend\'s test files go through a forbidden code folder; Vite
   assert.ok(violation('src/orders.spec.ts', vitest))
 })
 
+test('boundary: app code named like a test stays forbidden; a test name counts only where the stack keeps its tests', () => {
+  const d = mkdtempSync(join(tmpdir(), 'qc-bd-'))
+  const rules = (backend, block) => rulesFor({ backend, ...(block ? { [backend]: block } : {}) }, d)
+  const junit = rules('junit')
+  assert.ok(violation('src/main/java/com/acme/LabTest.java', junit), 'a JUnit-looking name in src/main')
+  for (const p of ['src/test/java/com/acme/OrderTest.java', 'orders/src/test/kotlin/OrderIT.kt', 'src/integrationTest/java/OrderIT.java']) assert.equal(violation(p, junit), null, p)
+  const pytest = rules('pytest')
+  assert.ok(violation('src/app/ab_test.py', pytest), 'a pytest-looking name in app code')
+  assert.ok(violation('src/app/test_mode.py', pytest))
+  for (const p of ['tests/test_orders.py', 'src/app/tests/test_orders.py', 'src/app/test/orders_test.py']) assert.equal(violation(p, pytest), null, p)
+  assert.equal(violation('src/app/ab_test.py', rules('pytest', { layers: [{ name: 'unit', folder: 'src/app/' }] })), null, 'a layer folder is a test home')
+  assert.equal(violation('src/app/ab_test.py', rules('pytest', { layers: [{ name: 'unit', folder: './' }] })), null, 'a "./" layer: tests beside the code')
+  const dotnet = rules('dotnet')
+  assert.ok(violation('src/Shop/AbTests.cs', dotnet), 'a .NET test name in the app project')
+  for (const p of ['tests/Shop.Tests/OrderTests.cs', 'src/Shop.Tests/OrderTests.cs', 'src/Shop.UnitTests/OrderTest.cs']) assert.equal(violation(p, dotnet), null, p)
+  assert.equal(violation('src/orders/deep/total_test.go', rules('go')), null, 'Go tests sit beside the code')
+})
+
 test('the spec listing walks each backend\'s layers by its own test names; Go\'s "./" is the whole repo', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-ps-'))
   put(d, 'orders/total_test.go'); put(d, 'orders/total.go'); put(d, 'total_test.go'); put(d, 'vendor/x/y_test.go'); put(d, 'e2e/orders.spec.ts')
