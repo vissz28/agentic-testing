@@ -36,7 +36,8 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
   const target = parseTarget(lines.at(-1))
   // Don't echo the line: it may be a URL with a password.
   if (!target) { printLine('refused: seed.target must print the database as host[:port]/database or as a URL; it printed something else.'); return 1 }
-  if (!isLocal(target.host)) { printLine(`refused: ${target.shown} is not a local database. Only localhost, 127.x.x.x, ::1 or a container name (one word, like postgres) are written.`); return 1 }
+  // Every host counts: ?host= or ?hostaddr= in a URL overrides the one before the path.
+  if (!target.hosts.every(isLocal)) { printLine(`refused: ${target.shown} is not a local database. Only localhost, 127.x.x.x, ::1, a socket folder or a database container name (postgres, db, mysql, mongo, redis…) are written.`); return 1 }
   printLine(`target: ${target.shown}`)
   if (cmd === 'target') return 0
 

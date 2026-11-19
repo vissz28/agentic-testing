@@ -1,22 +1,31 @@
 // /quality-code:seed safety checks. Mock data only ever goes to a local database, never a shared or remote one.
 
-/** host[:port]/db or a URL; credentials are dropped. */
+/**
+ * host[:port]/db or a URL; credentials are dropped.
+ * hosts: every address the connection may use. libpq lets ?host= and ?hostaddr= override the URL's host, and any of them can be a comma list.
+ */
 export function parseTarget(line) {
   const s = String(line ?? '').trim()
   if (!s || /\s/.test(s)) return null
   let u
   try { u = new URL(s.includes('://') ? s : `db://${s}`) } catch { return null }
-  const host = u.hostname.replace(/^\[|\]$/g, '')
-  if (!host) return null
+  const params = ['host', 'hostaddr'].flatMap(k => u.searchParams.getAll(k))
+  const hosts = [u.hostname, ...params].flatMap(h => h.split(',')).map(h => h.trim().replace(/^\[|\]$/g, '')).filter(Boolean)
+  if (!hosts.length) return null
+  const host = hosts.join(',')
   const database = u.pathname.replace(/^\/+/, '') || null
-  return { host, port: u.port || null, database, shown: `${host.includes(':') ? `[${host}]` : host}${u.port ? `:${u.port}` : ''}${database ? `/${database}` : ''}` }
+  return { host, hosts, port: u.port || null, database, shown: `${hosts.length === 1 && host.includes(':') ? `[${host}]` : host}${u.port ? `:${u.port}` : ''}${database ? `/${database}` : ''}` }
 }
 
+// The usual Compose service names of a database. A one-word name outside these (dbprod01, fileserver) may be a machine on the network.
+const CONTAINERS = ['postgres', 'postgresql', 'pg', 'db', 'database', 'mysql', 'mariadb', 'mongo', 'mongodb', 'redis', 'mssql', 'sqlserver']
+const CONTAINER = new RegExp(`^(?:${CONTAINERS.join('|')})(?:[-_]\\d+)?$`, 'i')
+
 /**
- * Loopback, or a one-word Compose service name. Anything with a dot may be a shared machine.
- * ponytail: a one-word name is trusted as a container, so a LAN host with a one-word name would pass; add an allow-list if one shows up.
+ * Loopback, a socket folder (?host=/var/run/postgresql), or a database's Compose service name, with an optional replica number (db_1).
+ * ponytail: names only, nothing is resolved; a container with another name is reached as localhost:<published port>.
  */
-export const isLocal = host => host === '::1' || /^127(\.\d{1,3}){3}$/.test(host) || /^[a-z][a-z0-9_-]*$/i.test(host)
+export const isLocal = host => /^localhost$/i.test(host) || host === '::1' || /^127(\.\d{1,3}){3}$/.test(host) || host.startsWith('/') || CONTAINER.test(host)
 
 /**
  * Rejects schema changes and, with a tenant, DELETE/UPDATE that can reach other tenants.

@@ -79,7 +79,7 @@ test('step 7: the loader, a refusal stops, a stale dataset can be written again'
 test('setting it up: target, apply with {file}, tenant; never in CI', () => {
   const s = doc.slice(doc.indexOf('## Setting it up'))
   assert.match(s, /"apply": ".*\{file\}"/)
-  assert.match(s, /Only `localhost`, `127\.x\.x\.x`, `::1` or a container name/)
+  assert.match(s, /Only `localhost`, `127\.x\.x\.x`, `::1` or a database container name/)
   assert.match(s, /It never runs in CI/)
 })
 test('examples use neutral keys; no project values', () => {
