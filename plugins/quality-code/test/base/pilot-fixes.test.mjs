@@ -132,6 +132,18 @@ test('setup: tests beside the code are proposed, and the write wires the layer a
   assert.equal(writeSetup(tree({ 'test/a.spec.ts': 'x' }), { version: 2, backend: 'vitest', jira }, { colocated: true }).ok, false)
 })
 
+test('setup: a test folder inside the protected src/ (src/tests/) is proposed too, narrowed to that folder', () => {
+  const d = tree({ 'package.json': '{"devDependencies":{"vitest":"1"}}', 'src/tests/a.test.ts': 'x', 'src/tests/b.test.ts': 'x', 'src/a.ts': 'x' })
+  const p = colocatedProposal(d)
+  assert.deepEqual(p.layer, { name: 'unit', folder: 'src/tests/' })
+  assert.deepEqual(p.allow, ['src/tests/**/*.test.ts'])
+  assert.equal(colocatedProposal(tree({ 'tests/a.test.ts': 'x', 'src/a.ts': 'x' })), null, 'tests/ at the top is not protected')
+  const r = writeSetup(d, { version: 2, backend: 'vitest', jira }, { colocated: true })
+  assert.equal(r.ok, true, JSON.stringify(r.errors))
+  const cfg = JSON.parse(readFileSync(join(d, '.quality-code/config.json'), 'utf8'))
+  assert.deepEqual(cfg.boundaries.allow, ['src/tests/**/*.test.ts'])
+})
+
 test('the top of a workspaces monorepo is one project (no workspace as the root), with the workspaces runner', async () => {
   const { detect } = await import('../../lib/base/setup.mjs')
   const d = tree({ 'package.json': '{"workspaces":["app","be"]}', 'app/package.json': '{"devDependencies":{"vitest":"1"}}', 'be/package.json': '{}' })

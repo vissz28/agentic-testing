@@ -66,7 +66,7 @@ If `$ARGUMENTS` contains `advanced`, go to **Advanced** below.
      ```
 
      `1` gives `"frontend": "playwright", "backend": "<backend>"`, `2` `"frontend": "playwright"` alone, `3` `"backend": "<backend>"` alone.
-   - **Tests next to the code.** `colocated` in the detect result is not null: most of the project's tests sit beside its code (`colocated.pattern`, `colocated.specs` files) and the code folder is protected, so no run could find or write them. Ask nothing: put `"colocated": true` in the proposal, next to `config`: the write finds those tests and lets a run write their names, in one step, keeping what `existing` already has. Show one line on the Confirm card: `Tests     beside the code (<colocated.pattern>): <colocated.specs> files in <colocated.layer.folder>`.
+   - **Tests in the code folder.** `colocated` in the detect result is not null: most of the project's tests sit inside its protected code folder, beside the code or in a test folder there like `src/tests/` (`colocated.pattern`, `colocated.specs` files), so no run could find or write them. Ask nothing: put `"colocated": true` in the proposal, next to `config`: the write finds those tests and lets a run write their names, in one step, keeping what `existing` already has. Show one line on the Confirm card: `Tests     in the code folder (<colocated.pattern>): <colocated.specs> files in <colocated.layer.folder>`.
    - **Test style.** `conventions.specs` in the detect result is above 0: the project already has tests (`conventions.pattern`, in `conventions.folders`). Ask nothing now: propose `testStyle: "project"` (`existing.testStyle` on a rerun) and show it on the Confirm card as `Tests`. To change it from the Confirm card, show this card and end the turn:
 
      ```

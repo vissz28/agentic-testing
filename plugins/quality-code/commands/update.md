@@ -1,7 +1,7 @@
 ---
 description: Check whether a newer version of the quality-code plugin is out and what changed since yours, then update it on your yes (one command), or check the version again.
 argument-hint: (no arguments)
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs":*), Bash(claude plugin update quality-code@*), Bash(claude plugin disable quality-code@*)
 model: haiku
 effort: low
 user-invocable: false
@@ -15,7 +15,7 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
 - **Node.js:** do not check for it yourself (no `Get-Command node`, `where node`, `which node`, `node -v`). Run the script. Only when a script call fails with `node is not recognized`, `command not found: node` or `node: not found`, follow `${CLAUDE_PLUGIN_ROOT}/guides/node-missing.md` (it finds Node installed per user, for all users or with nvm, and runs the script again) before you tell the person anything.
 - **The script decides.** `update.mjs` reads the installed version and the latest one and compares them. Never compare, guess or invent a version or a change yourself.
 - **Language.** Follow `${CLAUDE_PLUGIN_ROOT}/guides/language.md`: keep the person's language, also after a pick or a script's output. Cards and script output are translated as the guide says.
-- **Two commands only.** The script below, and `claude plugin update <id>` (option 1, after the user picks it), where `<id>` is the `id` of the script's `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none). No other tool, and never edit the plugin's folder or its cache. The check sends nothing about the user or the project; it reads two public files of the plugin's GitHub repository (or its git tags).
+- **Three commands only.** The script below, `claude plugin update <id>` (option 1, after the user picks it), where `<id>` is the `id` of the script's `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none), and `claude plugin disable <old id> --scope <scope>` for each entry of that line's `others` (after the user picks **Turn off the old copy**). No other tool, and never edit the plugin's folder or its cache. The check sends nothing about the user or the project; it reads two public files of the plugin's GitHub repository (or its git tags).
 - **`/reload-plugins` is the user's.** It is a command typed in Claude Code; never try to run it.
 - **Never ask for a token**, key or password in the chat.
 
@@ -43,8 +43,11 @@ Checks the plugin's own version and updates it. You relay; the script reads and 
      2. Stop
      ```
 
+   - When the `CHECK_UPDATE_JSON:` line has `others` (the plugin is installed from more than one marketplace), put `Turn off the old copy` first in either card, before the other options. An update does not fix two copies: the old one can keep loading.
+
 3. **Answer.**
    - **Update to the latest version.** Run `claude plugin update <id>` with the `id` of the last `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none), nothing else. Exit 0: say `Updated. Type /reload-plugins (or open a new session) to use the new version.`, then run the script again (step 1) and show its card, which now says the version is installed and waits for the reload; then show the `reload` card above. Not exit 0: show its last lines as they are, say `Update by hand: /plugin update <id>, then /reload-plugins.` with that same id and stop.
+   - **Turn off the old copy.** For each entry of `others` on the last `CHECK_UPDATE_JSON:` line, run `claude plugin disable <its id> --scope <its scope>` (no `--scope` when it has none), one per call, nothing else. All exit 0: say `Old copy turned off. Type /reload-plugins (or open a new session).`, then run the script again (step 1) and show its card and the card that fits it. Not exit 0: show its last lines as they are, say `Turn it off by hand: /plugin, pick <its id>, Disable.` and stop.
    - **Check the version again.** Run the script again (step 1), show its card and the card that fits it.
    - **Stop.** Stop.
 

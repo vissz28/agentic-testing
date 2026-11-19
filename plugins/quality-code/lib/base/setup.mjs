@@ -7,7 +7,7 @@ import { ignoreFolder } from '../core/ignore.mjs'
 import { placeConfigPath, placeOf } from '../config/places.mjs'
 import { CONFIG_FILES, DEFAULT_E2E_FOLDER, e2eFolder, readTestDir } from '../stacks/e2e-folder.mjs'
 import { gitOut, stripCredentials } from '../core/git.mjs'
-import { CI_FILES } from '../pipeline/boundary.mjs'
+import { CI_FILES, rulesFor, violation } from '../pipeline/boundary.mjs'
 import { asAdapter } from '../stacks/stack.mjs'
 import { configFor, runPlaywright } from '../pipeline/runners/playwright.mjs'
 import { toolScript } from '../pipeline/runners/tool.mjs'
@@ -471,16 +471,19 @@ export function rankRoots(top, candidates) {
 }
 
 /**
- * For tests next to the code (src/**\/*.unit.test.jsx): the layer plus an allow rule, since src/ is otherwise
- * protected. Null when tests live apart.
+ * For tests inside the protected code folder, next to the code (src/**\/*.unit.test.jsx) or in a test folder
+ * there (src/tests/): the layer plus an allow rule, since src/ is otherwise protected. Null when tests live apart.
  */
 export function colocatedProposal(root) {
   const c = detectConventions(root)
-  if (!c.beside || !c.specs || !c.pattern) return null
+  if (!c.specs || !c.pattern) return null
   const top = [...new Set(c.folders.map(f => f.split('/')[0]))]
   if (top.length !== 1 || top[0] === '.') return null
-  const folder = `${top[0]}/`
-  return { layer: { name: 'unit', folder }, allow: [`${folder}**/*${c.pattern.replace(/^\*/, '')}`], specs: c.specs, pattern: c.pattern }
+  const name = c.pattern.replace(/^\*/, '')
+  // A test folder apart from the code (test/, e2e/) needs nothing.
+  if (!c.beside && !violation(`${top[0]}/x${name}`, rulesFor({}, root))) return null
+  const folder = !c.beside && c.folders.length === 1 ? c.folders[0] : `${top[0]}/`
+  return { layer: { name: 'unit', folder }, allow: [`${folder}**/*${name}`], specs: c.specs, pattern: c.pattern }
 }
 
 /**
@@ -574,8 +577,27 @@ export function pathProblem(root, label, p) {
   return null
 }
 
+// The project's own formatter, declared in its package.json, so setup's files pass its lint. Biome first, then Prettier.
+const FORMATTERS = [
+  { name: 'Biome', pkg: '@biomejs/biome', bin: 'biome', args: files => ['check', '--write', '--no-errors-on-unmatched', ...files] },
+  { name: 'Prettier', pkg: 'prettier', bin: 'prettier', args: files => ['--write', ...files] },
+]
+
+/** Formats files setup wrote with the project's formatter. Null when it has none; a failure keeps the files as written. */
+export function formatWritten(root, files, { exec = execFileSync } = {}) {
+  if (!files.length) return null
+  const deps = packageDeps(root)
+  const f = FORMATTERS.find(x => x.pkg in deps)
+  const script = f && toolScript(root, [f.pkg], f.bin)
+  if (!script) return null
+  try {
+    exec(process.execPath, [script, ...f.args(files)], { cwd: root, stdio: 'ignore', timeout: 60_000 })
+    return { tool: f.name, ok: true, files }
+  } catch { return { tool: f.name, ok: false, files } }
+}
+
 /** Writes the config plus optional scaffolds (Playwright + smoke test, Vitest config, containers). Never replaces a file. */
-export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated, configFile } = {}) {
+export function write(top, config, { templates, gitignoreLine, scaffold, vitestScaffold, containersScaffold, colocated, configFile, format = formatWritten } = {}) {
   // configFile: an edit to the active config goes back to that file, not the setup location.
   // colocated: tests sit next to the code, so the code folder is the test folder.
   if (colocated !== undefined) {
@@ -669,8 +691,16 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   } catch (err) {
     return { ok: false, errors: [`${step}: ${err.message}`] }
   }
+  // Code files only: the issue templates are Markdown.
+  const code = toWrite.map(([p]) => p).filter(p => /\.[cm]?[jt]sx?$/.test(p))
+  const formatted = format(root, code)
+  const formatNote = !formatted ? null
+    : formatted.ok ? `Formatted ${formatted.files.join(', ')} with ${formatted.tool}.`
+      : `${formatted.tool} could not format ${formatted.files.join(', ')}: run it on them before you commit.`
   const legacy = !configFile && existsSync(join(top, CONFIG_REL)) ? CONFIG_REL : null
-  return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy, note: `${legacy} is still there: on this machine the new config wins, but CI jobs read ${legacy} from the repo. Using /quality-code:ci? Replace it with config.json. If not, delete it.` } : {}) }
+  const legacyNote = legacy ? `${legacy} is still there: on this machine the new config wins, but CI jobs read ${legacy} from the repo. Using /quality-code:ci? Replace it with config.json. If not, delete it.` : null
+  const note = [legacyNote, formatNote].filter(Boolean).join('\n')
+  return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy } : {}), ...(note ? { note } : {}) }
 }
 
 /** Personal config only: no repo files, .gitignore or templates. */
