@@ -16,7 +16,7 @@ import { detect } from './branch.mjs'
 import { checkProject, formatResult } from './checks.mjs'
 import { runEvals } from './evals.mjs'
 import { EXEC, packageManager } from '../lib/base/setup.mjs'
-import { jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
+import { cdLines, jsInstall, smokeJob } from '../lib/ci/smoke-job.mjs'
 import { DEFAULT_PLUGIN_URL, pluginSource } from '../lib/ci/ci-source.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 import { readJson, readJsonOr } from '../lib/core/files.mjs'
@@ -175,7 +175,7 @@ export function template(provider, version, s = JS_STACK, source = { url: DEFAUL
       ...(s.smoke ? smokeJob('github', { fetch, pipeline: 'node /tmp/quality-code/plugins/quality-code/bin/pipeline.mjs', install: jsInstall(install), prefix: s.prefix }) : []),
     ].join('\n')}\n`
   }
-  const cd = s.prefix ? [`    - cd ${s.prefix}`] : []
+  const cd = cdLines(s.prefix)
   return `${[...head,
     'test_quality_gate:',
     '  stage: test',
