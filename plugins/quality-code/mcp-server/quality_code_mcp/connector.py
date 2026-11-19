@@ -4,13 +4,17 @@ Claude registers itself (dynamic client registration), sends the person to /auth
 person reads the TeamSystem rules and confirms a few non-secret details; only then does Claude get a code, and then a token. Nothing about the
 person is stored: client registrations, codes and tokens are signed with QUALITY_CODE_TOKEN_SECRET, and the details ride in the token's claims.
 
-The one thing kept in memory is the set of codes already used (a code works once). A restart inside the 5 minutes a code lives can only make an
-unfinished sign-in start again."""
+Kept in memory, so the sign-in needs one replica (DEPLOY.md): the codes already used (a code works once), and, with Atlassian, GitLab or GitHub
+on, the identity between their sign-ins (too big for a cookie). A restart, or a request that lands on another replica, can only make an unfinished
+sign-in start again; that page says so.
+
+A refresh checks again what it can without Microsoft: the rules version, the required role, and the age of the Microsoft sign-in (SESSION_MAX)."""
 from __future__ import annotations
 
 import asyncio
 import hashlib
 import hmac
+import logging
 import re
 import secrets
 import time
@@ -27,12 +31,14 @@ from mcp.server.auth.provider import (
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
 from . import atlassian as atl_mod, github as gh_mod, gitlab as gl_mod, vault
-from .entra import EntraSettings, EntraTokenVerifier
+from .entra import EntraSettings, EntraTokenVerifier, allowed
 
 CONNECT_COOKIE = "qc_connect"
 LINK_COOKIE = "qc_link"
 STATIC = Path(__file__).parent / "static"
 ACCESS_TTL, REFRESH_TTL, CODE_TTL, TX_TTL, CONSENT_TTL = 3600, 30 * 86400, 300, 600, 900
+SESSION_MAX = 14 * 86400  # refreshes never reach past this from the Microsoft sign-in: a person removed in Entra loses access by then at the latest
+log = logging.getLogger(__name__)
 MIN_SECRET = 32
 # Where Claude may be sent back to. claude.ai today; Anthropic has said the host may become claude.com. Loopback is for Claude Code on a laptop.
 CLAUDE_CALLBACKS = ("https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback")
@@ -107,10 +113,13 @@ def settings_from_env(entra: EntraSettings, env: dict[str, str]) -> ConnectorSet
 
 class ConnectorCode(AuthorizationCode):
     identity: dict[str, Any] = {}
+    role: str | None = None  # the scope or role the sign-in was checked for (QUALITY_CODE_ENTRA_REQUIRED_SCOPE then)
 
 
 class ConnectorRefresh(RefreshToken):
     identity: dict[str, Any] = {}
+    role: str | None = None
+    since: int = 0  # when the chain started: the code was swapped, minutes after the Microsoft sign-in
 
 
 class ConnectorProvider:
@@ -171,14 +180,15 @@ class ConnectorProvider:
         return f"{self.s.url}/connect/start?tx={urllib.parse.quote(tx)}"
 
     def make_code(self, tx: dict, identity: dict) -> str:
-        return self.sign("code", {"cid": tx["cid"], "ru": tx["ru"], "rue": tx["rue"], "cc": tx["cc"], "res": tx.get("res"), "sc": tx.get("sc", []), "id": identity}, CODE_TTL)
+        return self.sign("code", {"cid": tx["cid"], "ru": tx["ru"], "rue": tx["rue"], "cc": tx["cc"], "res": tx.get("res"), "sc": tx.get("sc", []), "id": identity,
+                                  "rl": self.s.entra.required_scope}, CODE_TTL)
 
     async def load_authorization_code(self, client: OAuthClientInformationFull, authorization_code: str) -> ConnectorCode | None:
         c = self.read(authorization_code, "code")
         if not c or c["cid"] != client.client_id or c["jti"] in self._used:
             return None
         return ConnectorCode(code=authorization_code, scopes=c.get("sc", []), expires_at=c["exp"], client_id=c["cid"], code_challenge=c["cc"], redirect_uri=c["ru"],
-                             redirect_uri_provided_explicitly=bool(c["rue"]), resource=c.get("res"), subject=c["id"].get("oid"), identity=c["id"])
+                             redirect_uri_provided_explicitly=bool(c["rue"]), resource=c.get("res"), subject=c["id"].get("oid"), identity=c["id"], role=c.get("rl"))
 
     def seal_link(self, identity: dict, link: dict) -> str:
         return vault.seal(self.s.vault_key, link, aad=str(identity.get("oid")))
@@ -186,7 +196,7 @@ class ConnectorProvider:
     def open_link(self, identity: dict, sealed: str | None) -> dict | None:
         return vault.unseal(self.s.vault_key, sealed, aad=str(identity.get("oid"))) if self.s.vault_key else None
 
-    def _tokens(self, client_id: str, identity: dict, scopes: list[str], resource: str | None) -> OAuthToken:
+    def _tokens(self, client_id: str, identity: dict, scopes: list[str], resource: str | None, since: int, role: str | None) -> OAuthToken:
         ups = {k: m for k, m in ((u[0], u[2]) for u in self.s.upstreams)}
         ident = {k: v for k, v in identity.items() if k not in ups}  # the access token never carries a refresh token
         extra, ttl = {}, ACCESS_TTL
@@ -196,8 +206,11 @@ class ConnectorProvider:
                 mod = {"atl": atl_mod, "gl": gl_mod, "gh": gh_mod}[key]
                 extra[key] = self.seal_link(identity, {k: link.get(k) for k in mod.VIEW})
                 ttl = max(60, min(ttl, int(link["exp"] - time.time()) - atl_mod.SKEW)) if link.get("exp") else ttl
+        left = max(1, since + SESSION_MAX - int(time.time()))  # neither token outlives the chain
+        ttl = min(ttl, max(60, left))
         access = self.sign("access", {"cid": client_id, "sub": identity.get("oid"), "id": ident, "sc": scopes, "res": resource, **extra}, ttl)
-        refresh = self.sign("refresh", {"cid": client_id, "sub": identity.get("oid"), "id": identity, "sc": scopes, "res": resource}, REFRESH_TTL)
+        refresh = self.sign("refresh", {"cid": client_id, "sub": identity.get("oid"), "id": identity, "sc": scopes, "res": resource, "since": since, "rl": role},
+                            min(REFRESH_TTL, left))
         return OAuthToken(access_token=access, expires_in=ttl, scope=" ".join(scopes) or None, refresh_token=refresh)
 
     async def exchange_authorization_code(self, client: OAuthClientInformationFull, authorization_code: ConnectorCode) -> OAuthToken:
@@ -216,16 +229,24 @@ class ConnectorProvider:
                 except RuntimeError:
                     raise TokenError(error="invalid_grant", error_description=f"{slug.title()} access ended: connect the connector again") from None
                 identity = {**identity, key: self.seal_link(identity, link)}
-        return self._tokens(client.client_id, identity, authorization_code.scopes, authorization_code.resource)
+        return self._tokens(client.client_id, identity, authorization_code.scopes, authorization_code.resource, int(now), authorization_code.role)
 
     async def load_refresh_token(self, client: OAuthClientInformationFull, refresh_token: str) -> ConnectorRefresh | None:
         c = self.read(refresh_token, "refresh")
         if not c or c["cid"] != client.client_id:
             return None
-        return ConnectorRefresh(token=refresh_token, client_id=c["cid"], scopes=c.get("sc", []), expires_at=c["exp"], resource=c.get("res"), subject=c.get("sub"), identity=c["id"])
+        return ConnectorRefresh(token=refresh_token, client_id=c["cid"], scopes=c.get("sc", []), expires_at=c["exp"], resource=c.get("res"), subject=c.get("sub"), identity=c["id"],
+                               role=c.get("rl"), since=int(c.get("since") or c["iat"]))  # a token from before `since` starts its chain at its own issue time
 
     async def exchange_refresh_token(self, client: OAuthClientInformationFull, refresh_token: ConnectorRefresh, scopes: list[str]) -> OAuthToken:
-        identity = refresh_token.identity
+        # Microsoft is not asked again (that needs its refresh token): check what changed here, and end every chain SESSION_MAX after the sign-in.
+        identity, need = refresh_token.identity, self.s.entra.required_scope
+        if identity.get("rules") != self.s.rules_version:
+            raise TokenError(error="invalid_grant", error_description="The TeamSystem rules changed: connect the connector again to read and accept them")
+        if need and refresh_token.role != need:
+            raise TokenError(error="invalid_grant", error_description=f"Quality Code now needs the {need} role: connect the connector again")
+        if time.time() - refresh_token.since > SESSION_MAX:
+            raise TokenError(error="invalid_grant", error_description="The Microsoft sign-in is too old: connect the connector again")
         for key, slug, up in self.s.upstreams:
             link = self.open_link(identity, identity.get(key))
             if not link:
@@ -237,7 +258,7 @@ class ConnectorProvider:
             except RuntimeError:
                 raise TokenError(error="invalid_grant", error_description=f"{slug.title()} access ended: connect the connector again") from None
             identity = {**identity, key: self.seal_link(identity, link)}
-        return self._tokens(client.client_id, identity, scopes or refresh_token.scopes, refresh_token.resource)
+        return self._tokens(client.client_id, identity, scopes or refresh_token.scopes, refresh_token.resource, refresh_token.since, refresh_token.role)
 
     # -- the bearer check of /mcp: our tokens first, Entra's own tokens as before
     async def load_access_token(self, token: str) -> AccessToken | None:
@@ -312,6 +333,10 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
         tx = provider.read(flow.get("tx"), "tx")
         if not tx:
             return None
+        if not allowed(s.entra, claims):  # the same check as entra.py, on the ID token: only an app role (roles) shows there, a delegated scope does not
+            resp = html(web.login_page(configured=True, error=f"Your Microsoft account does not have the {s.entra.required_scope} role that Quality Code needs. Ask the owner for it."), 403)
+            resp.delete_cookie(web.FLOW_COOKIE, path="/")
+            return resp
         who = {"oid": claims.get("oid"), "name": claims.get("name"), "email": claims.get("preferred_username") or claims.get("email")}
         resp = RedirectResponse("/connect/consent", status_code=303)
         resp.delete_cookie(web.FLOW_COOKIE, path="/")
@@ -392,6 +417,10 @@ def register_routes(server, provider: ConnectorProvider, w, entra: EntraSettings
             if c and tx and ident and c.get("k") != key:
                 # A stale tab or a back button: the cookie says another service is next. Do not dead-end, go on with the service that is still missing.
                 return proceed(c["tx"], tx, ident)
+            if c and tx and not ident and secrets.compare_digest(q.get("state", ""), c["state"]):
+                # The cookie is good, so this sign-in has not expired: its identity is in another replica's memory, or this one restarted.
+                log.warning("connector sign-in: no pending state for this %s callback; the connector sign-in needs a single replica (DEPLOY.md)", slug)
+                return html(web.login_page(configured=True, error="This sign-in was started on another copy of the server, or the server restarted. Add the connector in Claude again."), 409)
             if not (c and tx and ident) or not secrets.compare_digest(q.get("state", ""), c["state"]):
                 return html(web.login_page(configured=True, error=f"The {slug.title()} sign-in expired. Add the connector in Claude again."), 400)
             if q.get("error") or not q.get("code"):
