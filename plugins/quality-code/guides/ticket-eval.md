@@ -145,6 +145,7 @@ Five options: page them (options 1 to 3 and `More…`, then 4 and 5). Save the p
   What changed: <2 to 4 short bullets: what was cut, reordered or added>
   Still missing: <the open questions and the `Still missing:` line of the script>
   Score: <the `Score:` line of the script, as printed>
+  Hidden values: <the `Hidden values:` line of the script, only when it printed one>
   ```
 
   The score is the script's: never compute or restate one.
@@ -159,7 +160,7 @@ Where does the new story go?
 4. Cancel
 ```
 
-- **1:** nothing is written without the preview and a yes. The card above is the preview. Ask once more in the picker: `Post this story to <KEY>? 1. Yes, update the ticket 2. No`. Only on an explicit yes: the Jira write rules of the end of this file apply (fetch the ticket fresh with `getJiraIssue`, one `editJiraIssue` with `contentFormat` `markdown`): `description` = the draft; when the project has a criteria field (step 1), its text = the draft's `## Acceptance criteria` section, else nothing else is touched. Then `The Jira ticket has been updated.` and run `ticket.mjs jira-posted <KEY> update` (show nothing of it). On failure: `Could not update the Jira ticket.` Never with `--ci`, which never gets here. The old description stays in the ticket's Jira history; say so in the preview.
+- **1:** never post a placeholder. `ticket.json` is redacted, so a draft made from it can hold `user@example.test`, `00000000-0000-4000-8000-…` ids, `[redacted:…]` or `U######` where the real values were, and posting would replace the real ones on Jira with them. When the `STORY_SCORE_JSON:` line's `placeholders` is not empty, do not post yet: list them and ask the person, in one message, for the real value of each (or to drop it). Never take them from the fresh Jira fetch yourself. Write the answers into `story-draft.md`, re-run the `--draft` score and show the card again; post only when `placeholders` is empty. Then: nothing is written without the preview and a yes. The card above is the preview. Ask once more in the picker: `Post this story to <KEY>? 1. Yes, update the ticket 2. No`. Only on an explicit yes: the Jira write rules of the end of this file apply (fetch the ticket fresh with `getJiraIssue`, one `editJiraIssue` with `contentFormat` `markdown`): `description` = the draft; when the project has a criteria field (step 1), its text = the draft's `## Acceptance criteria` section, else nothing else is touched. Then `The Jira ticket has been updated.` and run `ticket.mjs jira-posted <KEY> update` (show nothing of it). On failure: `Could not update the Jira ticket.` Never with `--ci`, which never gets here. The old description stays in the ticket's Jira history; say so in the preview.
 - **2:** run `ticket.mjs story-save --in @<ticketsDir>/<KEY>/ticket.json` (it moves `story-draft.md` to `story.md`, redacted) and show its line. Nothing is sent to Jira.
 - **3:** ask what to change (picker with `Other`), edit the draft, rewrite `story-draft.md`, re-run the `--draft` score and show the card and this picker again.
 - **4:** nothing is saved or posted; delete nothing. Go on.

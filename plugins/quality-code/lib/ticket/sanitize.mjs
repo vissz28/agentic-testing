@@ -55,6 +55,14 @@ export function redact(config, text, uuids = new Map()) {
   return s
 }
 
+// What redact() leaves where a real value was. It cannot be undone (the real value is never kept), so a text bound for Jira must hold none.
+const PLACEHOLDER = /user@example\.test|00000000-0000-4000-8000-\d{12}|\[redacted:[^\]\s]+\]|\bU######/g
+
+/** The redaction placeholders in a text, each once, in order. */
+export function placeholdersIn(text) {
+  return [...new Set(String(text ?? '').match(PLACEHOLDER) ?? [])]
+}
+
 /** Rebuilds the uuid map from a saved ticket's placeholders so later text continues the numbering. */
 export function uuidsOf(ticket) {
   const found = JSON.stringify(ticket ?? '').match(UUID) ?? []

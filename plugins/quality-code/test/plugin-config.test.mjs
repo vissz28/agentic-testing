@@ -116,3 +116,44 @@ test('QUALITY_CODE_STATELESS: the ticket comes back on a TICKET_JSON line, nothi
   assert.ok(run(['add', '--in', t, 'links', '--', 'https://example.com/design']).includes('TICKET_JSON:'))
   assert.deepEqual(readdirSync(dir), [])
 })
+
+test('QUALITY_CODE_STATELESS: no @file is read and nothing is saved, so one person cannot open another one\'s ticket', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const { mkdtempSync, mkdirSync, readdirSync, writeFileSync } = await import('node:fs')
+  const dir = mkdtempSync(join(tmpdir(), 'qc-sl-'))
+  const work = join(dir, 'work'), home = join(dir, 'home')
+  mkdirSync(work); mkdirSync(home)
+  // Another person's ticket, saved on the same server.
+  writeFileSync(join(dir, 'ticket.json'), '{"key":"ABC-9","issuetype":"Story","summary":"secret of another person","text":{"description":"bob@corp.com"}}')
+  writeFileSync(join(dir, 'list.json'), '[{"key":"ABC-9","summary":"secret of another person","text":{"description":"x"}}]')
+  const cfg = '{"version":2,"frontend":"playwright","jira":{"site":"https://x.atlassian.net","projects":["*"]}}'
+  const bin = new URL('../bin/ticket.mjs', import.meta.url).pathname
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: work, QUALITY_CODE_CONFIG_JSON: cfg, QUALITY_CODE_STATELESS: '1', HOME: home, CLAUDE_CONFIG_DIR: home, TMPDIR: home, QUALITY_CODE_PLACE: 'local' }
+  const run = args => spawnSync('node', [bin, ...args], { env, cwd: work, encoding: 'utf8' })
+  const t = '{"key":"ABC-1","issuetype":"Story","summary":"s","text":{"description":"A page that lists the orders.","acField":""}}'
+  const list = '[{"key":"ABC-1","summary":"s","text":{"description":"x"}}]'
+  for (const args of [
+    ['sanitize', '--in', `@${join(dir, 'ticket.json')}`],
+    ['score', '--in', '@../ticket.json'],
+    ['tickets-eval', '--in', '@../list.json'],
+    ['tickets-eval', '--in', list, '--report'],
+    ['tickets-eval', '--in', list, '--save'],
+    ['story-check', '--in', t, '--draft', '@../ticket.json'],
+    ['field', 'find', '@../ticket.json'],
+    ['docx', join(dir, 'ticket.json')],
+    ['saved', 'ABC-9'],
+    ['story-save', '--in', t],
+    ['save', 'set', 'repo'],
+    ['root', 'set', 'web'],
+    ['config', 'set', 'ticketsDir', 'x', '--yes'],
+  ]) {
+    const r = run(args)
+    assert.equal(r.status, 2, `${args.join(' ')}: ${r.stdout}${r.stderr}`)
+    assert.doesNotMatch(r.stdout + r.stderr, /secret of another person|bob@corp/, args.join(' '))
+    assert.match(r.stderr, /reads and writes no file/, args.join(' '))
+  }
+  // Inline data still works, and nothing was written anywhere.
+  assert.equal(run(['tickets-eval', '--in', list, '--json']).status, 0)
+  assert.match(run(['story-check', '--in', t, '--draft', '## Goal\nOrders.']).stdout, /STORY_SCORE_JSON:/)
+  assert.deepEqual([readdirSync(work), readdirSync(home)], [[], []])
+})
