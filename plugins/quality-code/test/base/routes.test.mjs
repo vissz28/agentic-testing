@@ -129,3 +129,12 @@ test('specs: with no app address only the code is checked', async () => {
   assert.match(out, /ok {2}\/orders {2}in the code {2}\[e2e\/a\.spec\.ts\]/)
   assert.match(out, /No app address/)
 })
+
+test('specs with no spec named: the frontend specs of the project config are read', async () => {
+  const cfg = { version: 2, frontend: 'playwright', jira: { site: 'https://x.atlassian.net', projects: ['ABC'] }, playwright: { folder: 'e2e/' } }
+  const d = app({ 'src/App.jsx': `<Route path="/orders" element={<O/>} />`, 'e2e/a.spec.ts': `await page.goto('/orders')`, '.claude/quality-code.json': JSON.stringify(cfg) })
+  let out = ''
+  const code = await main(['specs'], { CLAUDE_PROJECT_DIR: d, CLAUDE_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'qc-routes-cfg-')) }, d, { stdout: s => { out += s }, stderr: () => {} })
+  assert.equal(code, 0, out)
+  assert.match(out, /ok {2}\/orders {2}in the code {2}\[e2e\/a\.spec\.ts\]/)
+})

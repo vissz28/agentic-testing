@@ -34,7 +34,9 @@ export function hubOf(config, env = process.env) {
 const SEVERITY = ['critical', 'high', 'medium', 'low']
 const rank = s => (SEVERITY.includes(s) ? SEVERITY.indexOf(s) : SEVERITY.length)
 
-const pick = d => ({ id: d.id, title: d.title ?? d.id, summary: d.summary ?? '', severity: d.severity ?? null, applies_to: d.applies_to ?? [] })
+// A one-value field (applies_to: all) is a string, not a list.
+const asList = v => (v == null ? null : Array.isArray(v) ? v : [v])
+const pick = d => ({ id: d.id, title: d.title ?? d.id, summary: d.summary ?? '', severity: d.severity ?? null, applies_to: asList(d.applies_to) ?? [] })
 const bySeverity = (a, b) => rank(a.severity) - rank(b.severity) || a.id.localeCompare(b.id)
 
 /** Most severe first. */
@@ -42,8 +44,8 @@ export function testingRules(documents, stacks) {
   const want = new Set(stacks)
   return (documents ?? [])
     .filter(d => d.domain === DOMAIN && d.status === 'active')
-    .filter(d => (d.tags ?? []).some(t => TESTING_TAGS.has(String(t).toLowerCase())))
-    .filter(d => (d.applies_to ?? []).some(a => want.has(a)))
+    .filter(d => (asList(d.tags) ?? []).some(t => TESTING_TAGS.has(String(t).toLowerCase())))
+    .filter(d => (asList(d.applies_to) ?? []).some(a => want.has(a)))
     .map(pick)
     .sort(bySeverity)
 }
@@ -77,7 +79,7 @@ export function localRules(root, dir, stacks) {
   // Skip unreadable files: readRules never throws.
   const docs = files.map(f => { try { return parseRule(readFileSync(join(root, dir, f), 'utf8')) } catch { return null } }).filter(d => d?.id && d.summary)
   // Team drafts count; deprecated and retired rules don't.
-  const rules = docs.filter(d => LOCAL_STATUSES.has(d.status ?? 'active') && (d.applies_to ?? ['all']).some(a => want.has(a)))
+  const rules = docs.filter(d => LOCAL_STATUSES.has(d.status ?? 'active') && (asList(d.applies_to) ?? ['all']).some(a => want.has(a)))
     .map(d => ({ ...pick(d), status: d.status ?? 'active' })).sort(bySeverity)
   return { dir, rules, error: null }
 }
