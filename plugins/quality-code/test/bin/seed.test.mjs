@@ -48,7 +48,7 @@ test('the target: ?host= and ?hostaddr= override the URL host, so every one of t
 })
 test('the SQL check: no schema changes; with a tenant every delete and update keeps to it', () => {
   assert.deepEqual(sqlProblems(GOOD, T), [])
-  assert.deepEqual(sqlProblems('CREATE TEMP TABLE s (n int) ON COMMIT DROP; INSERT INTO x SELECT 1 ON CONFLICT (id) DO UPDATE SET n = 1;', T), [], 'a temp table and an upsert are fine')
+  assert.deepEqual(sqlProblems('CREATE TEMP TABLE s (n int) ON COMMIT DROP; INSERT INTO x SELECT 1 ON CONFLICT (id) DO NOTHING;', T), [], 'a temp table and an insert that skips a clash are fine')
   for (const s of ['TRUNCATE orders;', 'DROP TABLE orders;', 'ALTER TABLE orders ADD c int;', 'drop schema public cascade;']) assert.equal(sqlProblems(s).length, 1, s)
   assert.deepEqual(sqlProblems('-- DROP TABLE x\nSELECT 1;'), [], 'a comment is not a statement')
   assert.deepEqual(sqlProblems("DELETE FROM orders;\nUPDATE orders SET n = 1 WHERE tenant_id = 't-2';", T), [
@@ -63,6 +63,21 @@ test('the SQL check: a "--" in a string, a comment inside a keyword, the tenant 
   assert.equal(sqlProblems("UPDATE orders SET tenant_id = 't-1';", T).length, 1)
   assert.equal(sqlProblems("DELETE FROM orders WHERE tenant_id = 't-1' OR true;", T).length, 1)
   assert.deepEqual(sqlProblems("UPDATE orders SET note = 'a;b--c' WHERE tenant_id = 't-1' AND id = 2;", T), [])
+})
+test('the SQL check: a NOT, a subquery, a writing CTE, an upsert that updates, MERGE or REPLACE do not slip past the tenant', () => {
+  for (const s of [
+    "DELETE FROM orders WHERE NOT tenant_id = 't-1';",
+    "DELETE FROM orders WHERE id > 0 AND NOT tenant_id = 't-1';",
+    "UPDATE orders SET n = 1 WHERE tenant_id = 't-1' IS FALSE;",
+    "DELETE FROM orders WHERE EXISTS (SELECT 1 FROM t WHERE tenant_id = 't-1');",
+    'WITH gone AS (DELETE FROM orders RETURNING id) SELECT count(*) FROM gone;',
+    "INSERT INTO orders (id, tenant_id) VALUES (1, 't-1') ON CONFLICT (id) DO UPDATE SET tenant_id = 't-1';",
+    "INSERT INTO orders (id, tenant_id) VALUES (1, 't-1') ON DUPLICATE KEY UPDATE n = 1;",
+    "REPLACE INTO orders VALUES (1, 't-1');",
+    "MERGE INTO orders USING s ON orders.id = s.id WHEN MATCHED THEN DELETE;",
+  ]) assert.equal(sqlProblems(s, T).length, 1, s)
+  assert.deepEqual(sqlProblems("DELETE FROM orders WHERE id IN (SELECT id FROM x) AND tenant_id = 't-1' AND deleted_at IS NOT NULL;", T), [], 'a subquery beside the tenant term is fine')
+  assert.deepEqual(sqlProblems("UPDATE orders SET updated_at = now() WHERE o.tenant_id = 't-1' RETURNING id;", T), [])
 })
 
 test('no target or apply: a config line with an example, exit 2', () => {

@@ -1,5 +1,7 @@
 // /quality-code:seed safety checks. Mock data only ever goes to a local database, never a shared or remote one.
 
+import { escapeRegExp } from '../core/text.mjs'
+
 /**
  * host[:port]/db or a URL; credentials are dropped.
  * hosts: every address the connection may use. libpq lets ?host= and ?hostaddr= override the URL's host, and any of them can be a comma list.
@@ -38,11 +40,24 @@ export function sqlProblems(sql, tenant = null) {
   const out = []
   if (/\b(?:DROP\s+(?:TABLE|SCHEMA|DATABASE|VIEW|INDEX|TYPE)|TRUNCATE|ALTER\s+(?:TABLE|SCHEMA|DATABASE|TYPE))\b/i.test(text)) out.push('it drops, truncates or alters something: mock data only deletes and inserts rows')
   if (tenant) {
-    // Tenant equality must be in the WHERE, with no OR to widen it.
-    const scoped = new RegExp(`\\b${tenant.column}"?\\s*=\\s*'T'`)
+    // Tenant equality must be a term of the statement's own WHERE (not a subquery's): first or after an AND (so never
+    // after a NOT), followed by nothing that changes it, with no OR to widen the WHERE.
+    const col = escapeRegExp(tenant.column)
+    const scoped = new RegExp(`(?:^|\\bAND)\\s*(?:[\\w"]+\\.)?"?${col}"?\\s*=\\s*'T'\\s*(?:$|\\b(?:AND|RETURNING|LIMIT|ORDER)\\b)`, 'i')
+    const shown = st => `"${st.split(/\s+/).slice(0, 3).join(' ')} …"`
     for (const st of text.split(';').map(x => x.trim())) {
-      const where = /\bWHERE\b([\s\S]*)$/i.exec(st)?.[1]
-      if (/^(?:DELETE\s+FROM|UPDATE)\b/i.test(st) && !(where && scoped.test(where) && !/\bOR\b/i.test(where))) out.push(`"${st.split(/\s+/).slice(0, 3).join(' ')} …" does not keep to ${tenant.column} = '${tenant.id}'`)
+      // Bracketed parts (subqueries, value lists) emptied: only the statement's own clauses count.
+      let top = st
+      while (/\([^()]*\)/.test(top)) top = top.replace(/\([^()]*\)/g, ' _ ')
+      if (/^(?:DELETE\s+FROM|UPDATE)\b/i.test(top)) {
+        const where = /\bWHERE\b([\s\S]*)$/i.exec(top)?.[1]?.trim()
+        if (!(where && scoped.test(where) && !/\bOR\b/i.test(where))) out.push(`${shown(st)} does not keep to ${tenant.column} = '${tenant.id}'`)
+      } else if (/\bON\s+CONFLICT\b[\s\S]*\bDO\s+UPDATE\b|\bON\s+DUPLICATE\s+KEY\s+UPDATE\b/i.test(st)) {
+        out.push(`${shown(st)} updates a row that is already there, which may be another tenant's: delete this tenant's rows first and use ON CONFLICT DO NOTHING`)
+      } else if (/\b(?:DELETE|UPDATE)\b|\b(?:REPLACE|MERGE)\s+INTO\b/i.test(st)) {
+        // ponytail: a CTE that writes (WITH … DELETE), MERGE or REPLACE is refused whole; the generated files never need one.
+        out.push(`${shown(st)} deletes or updates in a shape the check cannot read: write it as DELETE FROM or UPDATE … WHERE ${tenant.column} = '${tenant.id}'`)
+      }
     }
   }
   return out
