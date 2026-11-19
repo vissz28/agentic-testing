@@ -749,7 +749,7 @@ wheels = [
 
 [[package]]
 name = "quality-code-mcp"
-version = "0.68.0"
+version = "0.89.10"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },

@@ -226,14 +226,14 @@ class ConnectorProvider:
 
     async def exchange_refresh_token(self, client: OAuthClientInformationFull, refresh_token: ConnectorRefresh, scopes: list[str]) -> OAuthToken:
         identity = refresh_token.identity
-        for key, slug, client in self.s.upstreams:
+        for key, slug, up in self.s.upstreams:
             link = self.open_link(identity, identity.get(key))
             if not link:
                 raise TokenError(error="invalid_grant", error_description=f"{slug.title()} is not connected: connect the connector again")
             if link.get("exp") and not link.get("rt"):
                 continue  # a service whose access token does not expire (no refresh)
             try:
-                link = await asyncio.to_thread(client.refresh, link)
+                link = await asyncio.to_thread(up.refresh, link)
             except RuntimeError:
                 raise TokenError(error="invalid_grant", error_description=f"{slug.title()} access ended: connect the connector again") from None
             identity = {**identity, key: self.seal_link(identity, link)}
