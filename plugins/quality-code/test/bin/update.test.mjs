@@ -123,7 +123,7 @@ test('a newer version: card with the changes and the two commands, exit 0', asyn
   const other = await run('0.27.0', { env: configWith({ 'quality-code@acme': [{ version: '0.27.0' }] }) })
   assert.match(other.out, /\/plugin update quality-code@acme\n/, 'the marketplace it is installed from')
   assert.match(other.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@acme",/)
-  assert.match(r.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@teamsystem","installed":"0\.27\.0","running":"0\.27\.0","latest":"0\.28\.1","status":"update"\}\n$/)
+  assert.match(r.out, /CHECK_UPDATE_JSON:\{"id":"quality-code@teamsystem","installed":"0\.27\.0","running":"0\.27\.0","latest":"0\.28\.1","status":"update","old":0\}\n$/)
 })
 test('up to date: one line, no commands to type', async () => {
   const r = await run('0.28.1')
@@ -166,4 +166,23 @@ test('unknown option: exit 2', async () => {
   const r = await run('0.27.0', { argv: ['--now'] })
   assert.equal(r.code, 2)
   assert.match(r.err, /unknown option --now/)
+})
+
+test('--old lists the cached versions that are neither installed nor running, --remove-old deletes only those', async () => {
+  const cfg = mkdtempSync(join(tmpdir(), 'qc-old-'))
+  mkdirSync(join(cfg, 'plugins'), { recursive: true })
+  writeFileSync(join(cfg, 'plugins', 'installed_plugins.json'), JSON.stringify({ plugins: { 'quality-code@teamsystem': [{ version: '0.30.0' }] } }))
+  const base = join(cfg, 'plugins', 'cache', 'teamsystem', 'quality-code')
+  for (const v of ['0.27.0', '0.28.0', '0.29.0', '0.30.0', 'junk']) mkdirSync(join(base, v), { recursive: true })
+  const env = { CLAUDE_CONFIG_DIR: cfg }
+  const listed = await run('0.28.0', { argv: ['--old'], env })
+  assert.equal(listed.code, 0)
+  assert.match(listed.out, /Old versions \(2 versions\): 0\.27\.0, 0\.29\.0/)
+  assert.match(listed.out, /Kept: 0\.28\.0 \(running now\)/)
+  const gone = await run('0.28.0', { argv: ['--remove-old'], env })
+  assert.match(gone.out, /Removed \(2 versions\): 0\.27\.0, 0\.29\.0/)
+  assert.equal((await run('0.28.0', { argv: ['--remove-old'], env })).out.split('\n')[0], 'No old versions to remove.')
+  const { existsSync } = await import('node:fs')
+  assert.ok(existsSync(join(base, '0.28.0')) && existsSync(join(base, '0.30.0')) && existsSync(join(base, 'junk')) && !existsSync(join(base, '0.27.0')))
+  assert.equal((await run('0.28.0', { argv: ['--old', '--json'], env })).code, 2)
 })

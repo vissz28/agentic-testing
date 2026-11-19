@@ -1,5 +1,6 @@
 // Compares running/installed plugin versions with the latest on GitHub. Read-only, installs nothing.
 // Exit 0 ok, 2 usage error, 3 latest version unreadable.
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isMain, tag, lineWriter } from '../lib/core/script-io.mjs'
@@ -9,7 +10,7 @@ import { plural, toForwardSlashes } from '../lib/core/text.mjs'
 import { noTrailingSlash } from '../lib/core/paths.mjs'
 
 const PLUGIN_DIR = new URL('..', import.meta.url)
-const USAGE = 'usage: update.mjs [--json]'
+const USAGE = 'usage: update.mjs [--json | --old | --remove-old]'
 const TIMEOUT_MS = 8000
 const MAX_VERSIONS = 6
 const MAX_LINES = 5
@@ -100,6 +101,20 @@ export function diskVersion(name, env = process.env, cwd = process.cwd()) {
   } catch { return null }
 }
 
+/**
+ * Old copies of the plugin in the cache: the version folders under <config>/plugins/cache/<marketplace>/<name>
+ * that are neither installed nor running. The running one stays (this session reads its files).
+ */
+export function oldVersions(name, running, env = process.env) {
+  const id = pluginId(name, env)
+  const dir = join(env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'plugins', 'cache', id.split('@')[1] ?? 'teamsystem', name)
+  const keep = new Set([running, diskVersion(name, env)])
+  for (const entries of Object.values(installedPlugins(env))) for (const e of entries) keep.add(e.version)
+  let found = []
+  try { found = existsSync(dir) ? readdirSync(dir).filter(v => SEMVER.test(v) && !keep.has(v)).sort(compareVersions) : [] } catch {}
+  return { dir, versions: found }
+}
+
 function readInstalled() {
   return readJson(new URL('.claude-plugin/plugin.json', PLUGIN_DIR))
 }
@@ -180,12 +195,23 @@ export function formatCard({ id, installed, running = installed, latest, status,
 
 export async function main(argv = process.argv.slice(2), env = process.env, cwd = process.cwd(), { stdout = s => process.stdout.write(s), stderr = s => process.stderr.write(s), fetchImpl = fetch, ls = defaultLs, installedManifest = null } = {}) {
   const printLine = lineWriter(stdout), printError = lineWriter(stderr)
-  const bad = argv.find(a => a !== '--json')
-  if (bad) { printError(`unknown option ${bad}. ${USAGE}`); return 2 }
+  const bad = argv.find(a => !['--json', '--old', '--remove-old'].includes(a))
+  if (bad || argv.length > 1) { printError(`unknown option ${bad ?? argv.join(' ')}. ${USAGE}`); return 2 }
   const json = argv.includes('--json')
   const manifest = installedManifest ?? readInstalled()
   const name = manifest.name ?? 'quality-code'
   const running = manifest.version
+  if (argv[0] === '--old' || argv[0] === '--remove-old') {
+    const { dir, versions } = oldVersions(name, running, env)
+    const removed = []
+    if (argv[0] === '--remove-old') for (const v of versions) { try { rmSync(join(dir, v), { recursive: true, force: true }); removed.push(v) } catch {} }
+    const list = argv[0] === '--old' ? versions : removed
+    printLine(list.length
+      ? `${argv[0] === '--old' ? 'Old versions' : 'Removed'} (${plural(list.length, 'version')}): ${list.join(', ')}\nKept: ${running} (running now) and the installed one.`
+      : 'No old versions to remove.')
+    printLine(tag('OLD', { dir, versions: list, removed: argv[0] === '--remove-old' }))
+    return 0
+  }
   const onDisk = diskVersion(name, env, cwd)
   const installs = installsHere(name, cwd, env)
   const id = installs[0]?.id ?? pluginId(name, env, cwd)
@@ -201,9 +227,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const status = statusOf(installed, latest.version, running)
   const all = status === 'update' ? newerSections(latest.changelog, installed, latest.version) : []
   const sections = all.slice(0, MAX_VERSIONS)
-  const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections, others }
+  const old = oldVersions(name, running, env).versions.length
+  const report = { name, id, installed, running, latest: latest.version, status, via: latest.via, versions: all.map(s => s.version), sections, others, old }
   const card = formatCard({ id, installed, running, latest: latest.version, status, via: latest.via, sections, hiddenVersions: all.length - sections.length, others })
-  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\n${tag('CHECK_UPDATE', { id, installed, running, latest: latest.version, status, ...(others.length ? { others } : {}) })}\n`)
+  stdout(json ? `${JSON.stringify(report)}\n` : `${card}\n${tag('CHECK_UPDATE', { id, installed, running, latest: latest.version, status, old, ...(others.length ? { others } : {}) })}\n`)
   return 0
 }
 

@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.11] - 2026-11-19
+
+### Added
+
+- **Update: new session and old versions.** After an update, `Quality Code update` says the new version loads only in a new session (`/reload-plugins` does not load the MCP server; the plugin cannot open the session for you). A new option, **Remove the old versions**, lists the cached copies that are neither installed nor running (`update.mjs --old`) and deletes them only after your yes (`update.mjs --remove-old`). The running version and the installed one are kept. The check line now carries `old`, the count.
+
+**What to do:** update, then open a new session. Run `Quality Code update` once more to clear the old copies.
+
 ## [0.89.10] - 2026-11-19
 
 ### Fixed
