@@ -932,3 +932,13 @@ test('a version 1 config comes back from detect with its sides, so a rerun of se
   assert.deepEqual(existing, { version: 2, jira, frontend: 'playwright', backend: 'vitest' })
   assert.equal(validateConfig(existing).ok, true)
 })
+
+test('containersScaffold with a Prisma directUrl: migrations reach the container through it too, never the real database', () => {
+  const d = repo({ devDependencies: { vitest: '5', prisma: '6' }, dependencies: { '@prisma/client': '6' } })
+  mkdirSync(join(d, 'prisma/migrations'), { recursive: true })
+  writeFileSync(join(d, 'prisma/schema.prisma'), 'datasource db {\n  provider  = "postgresql"\n  directUrl = env("DIRECT_URL")\n  url       = env("DATABASE_URL")\n}\n')
+  assert.equal(write(d, cfg, { containersScaffold: true }).ok, true)
+  const setup = readFileSync(join(d, 'test/integration/global-setup.js'), 'utf8')
+  assert.ok(setup.includes("execSync('npx prisma migrate deploy', { env: { ...process.env, DATABASE_URL: postgres.getConnectionUri(), DIRECT_URL: postgres.getConnectionUri() }"), setup)
+  assert.ok(setup.includes('process.env.DATABASE_URL = postgres.getConnectionUri()') && setup.includes('process.env.DIRECT_URL = postgres.getConnectionUri()'), setup)
+})

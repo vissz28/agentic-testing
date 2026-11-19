@@ -80,14 +80,18 @@ function prismaSchema(root) {
   const schema = read(root, 'prisma/schema.prisma')
   const provider = /datasource\s+\w+\s*\{[^}]*\bprovider\s*=\s*"(\w+)"/.exec(schema)?.[1] ?? null
   // Prisma 7 keeps the URL in prisma.config.ts, older versions in the schema.
-  const env = /\benv\(\s*["'](\w+)["']\s*\)/.exec(`${schema}\n${['ts', 'mts', 'js', 'mjs'].map(e => read(root, `prisma.config.${e}`)).join('\n')}`)?.[1] ?? 'DATABASE_URL'
-  return { provider, env, migrations: existsSync(join(root, 'prisma/migrations')) }
+  const text = `${schema}\n${['ts', 'mts', 'js', 'mjs'].map(e => read(root, `prisma.config.${e}`)).join('\n')}`
+  const envOf = key => new RegExp(`\\b${key}\\s*[=:]\\s*env\\(\\s*["'](\\w+)["']\\s*\\)`).exec(text)?.[1] ?? null
+  const env = envOf('url') ?? /\benv\(\s*["'](\w+)["']\s*\)/.exec(text)?.[1] ?? 'DATABASE_URL'
+  // Migrations go through directUrl when there is one (Supabase, Neon): it must reach the container too, never the real database.
+  const direct = envOf('directUrl')
+  return { provider, env, directEnv: direct && direct !== env ? direct : null, migrations: existsSync(join(root, 'prisma/migrations')) }
 }
 
 export function databasesOf(root, backend, deps = {}, found = backendDeps(root, backend, deps)) {
   const prisma = backend === 'vitest' && ('prisma' in deps || '@prisma/client' in deps) ? prismaSchema(root) : null
   return DATABASES.filter(d => d[backend].drivers.some(found.has) || (prisma && d.prisma === prisma.provider))
-    .map(d => ({ ...d, ...d[backend], ...(prisma && d.prisma === prisma.provider ? { prismaEnv: prisma.env, migrations: prisma.migrations } : {}) }))
+    .map(d => ({ ...d, ...d[backend], ...(prisma && d.prisma === prisma.provider ? { prismaEnv: prisma.env, prismaDirectEnv: prisma.directEnv, migrations: prisma.migrations } : {}) }))
 }
 
 const DEFAULT_FOLDERS = { vitest: 'test/integration/', pytest: 'tests/integration/' }
@@ -184,10 +188,10 @@ ${base ? '    ...base.test,\n' : ''}    include: ['${folder}**/*.{test,spec}.?(c
   const started = dbs.map(d => d.name)
   const schema = dbs.filter(d => d.prismaEnv).map(d => {
     const run = `${exec} prisma ${d.migrations ? 'migrate deploy' : 'db push'}`
-    return `  // The schema, as the app has it: ${run} against the test database.
-  execSync('${run}', { env: { ...process.env, ${d.prismaEnv}: ${d.name}.${d.url}() }, stdio: 'inherit' })
-  process.env.${d.prismaEnv} = ${d.name}.${d.url}()
-`
+    const envs = [d.prismaEnv, d.prismaDirectEnv].filter(Boolean)
+    return `  // The schema, as the app has it: ${run} against the test database${envs.length > 1 ? ` (${envs.join(' and ')}: Prisma migrates through the second)` : ''}.
+  execSync('${run}', { env: { ...process.env, ${envs.map(e => `${e}: ${d.name}.${d.url}()`).join(', ')} }, stdio: 'inherit' })
+${envs.map(e => `  process.env.${e} = ${d.name}.${d.url}()\n`).join('')}`
   }).join('')
   const setup = `${schema ? "import { execSync } from 'node:child_process'\n" : ''}${dbs.map(d => `import { ${d.cls} } from '${d.module}'`).join('\n')}
 ${ts ? "import type { TestProject } from 'vitest/node'\n" : ''}
