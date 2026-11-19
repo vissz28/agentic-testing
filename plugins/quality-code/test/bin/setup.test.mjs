@@ -117,6 +117,25 @@ test('write keeps setup out of the repo: no .gitignore, the config and the ticke
     assert.equal(readFileSync(join(d, folder, '.gitignore'), 'utf8'), '*\n', ticketsDir)
   }
 })
+test('an existing folder picked as ticketsDir is not hidden from git; the note says so', () => {
+  const d = repo({})
+  mkdirSync(join(d, 'docs'))
+  writeFileSync(join(d, 'docs/guide.md'), 'the team\'s\n')
+  const r = write(d, { ...cfg, ticketsDir: 'docs' }, {})
+  assert.equal(r.ok, true)
+  assert.equal(existsSync(join(d, 'docs/.gitignore')), false, 'the person\'s folder stays in git')
+  assert.match(r.note, /docs already holds your files, so setup left it in git/)
+  assert.equal(readFileSync(join(d, '.quality-code/.gitignore'), 'utf8'), '*\n', 'the config folder still ignores itself')
+  // An empty folder, or the plugin's own one, is setup's to ignore.
+  const e = repo({})
+  mkdirSync(join(e, 'tix'))
+  assert.equal(write(e, { ...cfg, ticketsDir: 'tix' }, {}).ok, true)
+  assert.equal(readFileSync(join(e, 'tix/.gitignore'), 'utf8'), '*\n')
+  const q = repo({})
+  mkdirSync(join(q, '.quality-code/tickets/ABC-1'), { recursive: true })
+  assert.equal(write(q, cfg, {}).ok, true)
+  assert.equal(readFileSync(join(q, '.quality-code/tickets/.gitignore'), 'utf8'), '*\n')
+})
 test('a newline in ticketsDir is refused before .gitignore is touched', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, ticketsDir: 'tix\n!secret' }, {}).ok, false)

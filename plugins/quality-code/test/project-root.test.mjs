@@ -107,6 +107,28 @@ test('setup proposes the subfolder with a package.json, a test tool first, and w
   assert.match(cli(top, 'setup.mjs', ['--detect', '--root', 'web']).stdout, /^SETUP_JSON:.*"root":\{"proposed":"web"/)
 })
 
+test('setup also proposes a Java, Go or Python backend in a subfolder, one or two folders down', () => {
+  const top = mkdtempSync(join(tmpdir(), 'qc-sub-'))
+  put(top, 'web/package.json', '{}')
+  put(top, 'api/pom.xml', '<project/>')
+  put(top, 'services/orders/go.mod', 'module example.com/orders\n')
+  put(top, 'services/billing/pyproject.toml', '[tool.pytest.ini_options]\n')
+  put(top, 'tools/scripts/requirements.txt', 'requests\n')
+  put(top, 'docs/notes/readme.md')
+  const d = detect(top)
+  assert.deepEqual(d.root.candidates, ['api', 'services/billing', 'services/orders', 'tools/scripts', 'web'], 'the ones that can run tests first')
+  assert.equal(d.root.ask, true)
+  assert.deepEqual([d.root.proposed, d.backend], ['api', 'junit'])
+  assert.equal(detect(top, process.env, 'services/orders').backend, 'go')
+  assert.equal(detect(top, process.env, 'services/billing').backend, 'pytest')
+  assert.equal(write(top, { ...CFG, backend: 'go', root: 'services/orders' }).ok, true)
+  // A Maven build at the top is the project: none of its modules is proposed instead.
+  const mvn = mkdtempSync(join(tmpdir(), 'qc-sub-'))
+  put(mvn, 'pom.xml', '<project/>')
+  put(mvn, 'orders/pom.xml', '<project/>')
+  assert.deepEqual([detect(mvn).root.proposed, detect(mvn).backend], [null, 'junit'])
+})
+
 test('a root outside the repository is refused, and the check names the root field', () => {
   for (const root of ['../other', '/abs', 'a/../../b', '']) {
     const top = sub({ ...CFG, root })
