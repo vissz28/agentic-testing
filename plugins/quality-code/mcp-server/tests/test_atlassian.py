@@ -1,7 +1,9 @@
 """The server reads Jira as the signed-in person: Atlassian sign-in in the connector flow, tokens sealed inside the connector tokens, read-only tools."""
 import asyncio
 import json
+import re
 import time
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import jwt
@@ -285,3 +287,11 @@ def test_the_tree_does_not_take_utf_8_or_sha_256_for_ticket_keys():
     assert [i["key"] for i in out["referenced"]["mentioned"]] == ["OPS-7", "AGT-2"] and out["range"] == []
     asked_projects = sorted(parse_qs(urlparse(next(u for u in asked if "/project/search" in u)).query)["keys"])
     assert asked_projects == ["OPS", "SHA", "UTF"]  # AGT is the ticket's own project: never asked
+
+
+def test_readme_names_the_scopes_the_server_asks_for():
+    # An Atlassian app set up from the README must grant every scope the sign-in requests, or Atlassian refuses it.
+    readme = (Path(__file__).parents[1] / "README.md").read_text()
+    named = re.search(r"and the scopes ((?:`[a-z:_-]+`(?:, )?)+)\)", readme)
+    assert named, "the README lists the Atlassian app's scopes"
+    assert set(re.findall(r"`([a-z:_-]+)`", named.group(1))) == set(atlassian.SCOPES.split())
