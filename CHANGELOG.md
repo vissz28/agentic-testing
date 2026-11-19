@@ -9,6 +9,8 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.89.10] - 2026-11-19
+
 ### Fixed
 
 - `/quality-code:update` finds the plugin installed from two marketplaces (for example an old `quality-code@quality-code` next to `quality-code@teamsystem`): the card names the old copy and offers **Turn off the old copy** (`claude plugin disable`), and the update goes to the newer one. Before, it updated whichever came first, and the old copy kept loading.
@@ -16,6 +18,8 @@ Update with `/plugin update quality-code@teamsystem`.
 - `ticket.mjs fill-menu` and `pick` without `--in` say the flag they need, and the fill-in guide passes it.
 - The `playwright.config` and smoke spec setup writes go through the project's own formatter (Biome, else Prettier, when it is in `package.json`), so they pass its lint.
 - The card warns when Playwright tests a build older than the code (a `webServer` running `vite preview`, `serve` and the like on a `dist/` or `build/` older than `src/`): the tests ran the old code.
+
+**What to do:** update the plugin. Tests kept in `src/tests/`? Run `/quality-code:setup` again.
 
 ## [0.89.9] - 2026-11-18
 
