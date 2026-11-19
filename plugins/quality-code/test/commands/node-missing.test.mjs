@@ -12,13 +12,26 @@ test('the display guide sends every command to the node-missing guide', () => {
   assert.ok(existsSync(join(root, 'guides/node-missing.md')))
 })
 
-test('the Windows finder looks per user, for all users, in version managers and in every profile', () => {
+test('the Windows finder looks per user, for all users and in this user\'s version managers', () => {
   const ps = read('bin/find-node.ps1')
-  for (const part of ["'Machine'", "'User'", 'LOCALAPPDATA', 'ProgramFiles', 'nvm', 'fnm', 'Volta', 'scoop', "C:\\Users"]) {
+  for (const part of ["'Machine'", "'User'", 'LOCALAPPDATA', 'ProgramFiles', 'nvm', 'fnm', 'Volta', 'scoop']) {
     assert.ok(ps.includes(part), part)
   }
   assert.match(ps, /NODE_EXE=/)
   assert.match(read('guides/node-missing.md'), /find-node\.ps1/)
+})
+
+test('the Windows finder never runs a node.exe from a folder another user can write', () => {
+  const ps = read('bin/find-node.ps1')
+  const code = ps.split('\n').filter(l => !l.trimStart().startsWith('#')).join('\n')
+  assert.doesNotMatch(code, /Get-ChildItem\s+'C:\\Users'/, 'no walk over every profile')
+  for (const guess of ["'C:\\nvm'", "'C:\\nvm4w\\nvm'", 'ProgramData']) assert.ok(!code.includes(guess), guess)
+  // Every candidate passes the check: Public and other profiles are out, this user's profile is in.
+  assert.match(code, /function Test-Trusted/)
+  assert.match(code, /if \(-not \(Test-Trusted \$c\)\) \{ continue \}\s*\n\s*\$n = Test-Node \$c/)
+  assert.match(code, /\$env:PUBLIC/)
+  assert.match(code, /\$env:USERPROFILE\)/)
+  assert.doesNotMatch(read('guides/node-missing.md'), /every profile/)
 })
 
 test('every command tells the agent not to check for node itself and to use the node-missing guide', async () => {

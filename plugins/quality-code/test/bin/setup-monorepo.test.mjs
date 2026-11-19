@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { detect, projectCandidates, write } from '../../lib/base/setup.mjs'
+import { workspacePatterns } from '../../lib/base/workspaces.mjs'
 import { ENV as GIT_ENV } from '../git-env.mjs'
 
 const cfg = { version: 2, backend: 'vitest', jira: { site: 'https://e.atlassian.net', projects: ['DEMO'], acceptanceCriteriaField: null }, languages: ['en'], features: [] }
@@ -49,6 +50,15 @@ test('detect: Jest set in a workspace package.json maps to that file; the majori
   assert.deepEqual([r.workspaces.unit, r.root.ask, r.workspaces.unitConfigs], ['vitest', false, []])
   const j = detect(tree({ 'package.json': { workspaces: ['apps/*'] }, 'apps/a/package.json': { jest: {} } }), {})
   assert.deepEqual(j.workspaces.unitConfigs, [{ match: 'apps/a/', config: 'apps/a/package.json' }])
+})
+
+test('detect: a pnpm-workspace.yaml with comments between the items, or a [a, b] flow list, is a workspaces root', () => {
+  const pkgs = { 'package.json': { name: 'root', private: true }, 'apps/web/package.json': { name: 'web' }, 'libs/core/package.json': { name: 'core' }, 'libs/core/test/package.json': { name: 'fixture' } }
+  const commented = "# the workspace\npackages:\n  # the apps\n  - 'apps/*'   # one per app\n\n  - \"libs/**\"\n  - '!**/test'\nonlyBuiltDependencies:\n  - esbuild\n"
+  assert.deepEqual(detect(tree({ ...pkgs, 'pnpm-workspace.yaml': commented }), {}).workspaces.folders, ['apps/web', 'libs/core'])
+  assert.deepEqual(detect(tree({ ...pkgs, 'pnpm-workspace.yaml': "packages: [apps/*, 'libs/*']  # flow\n" }), {}).workspaces.folders, ['apps/web', 'libs/core'])
+  assert.deepEqual(workspacePatterns(tree({ 'pnpm-workspace.yaml': 'packages:\r\n- apps/*\r\n' }), null), ['apps/*'], 'CRLF, items not indented')
+  assert.equal(workspacePatterns(tree({ 'pnpm-workspace.yaml': 'packages: []\n' }), null), null, 'no packages')
 })
 
 test('detect: build copies and git-ignored folders are no boundary, spec folder or project', () => {

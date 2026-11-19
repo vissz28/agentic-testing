@@ -223,7 +223,9 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
       else addSection(h.steps, lines.map((l, i) => `${i + 1}. ${l.replace(/^\d+[.)]\s*/, '')}`).join('\n'))
       break
     case 'expected_defined': {
-      const [expected, actual] = text.split(/\s*\|\s*|\n+/).map(t => t.trim())
+      // Split at the first "|" (else the first line break) only: extra lines stay with their side, never dropped.
+      const cut = text.includes('|') ? text.indexOf('|') : text.search(/\n/)
+      const [expected, actual] = cut < 0 ? [text, ''] : [text.slice(0, cut).trim(), text.slice(cut + 1).trim()]
       if (!expected || !actual) return reject(why.pair)
       if (vague(expected)) return reject(why.vague(vague(expected)))
       addSection(h.expected, `${expected}\n\n## ${h.actual}\n${actual}`)
@@ -241,7 +243,10 @@ export function applyAnswer(config, ticket, key, answer, { drafted = false } = {
         return reject(typeof custom === 'string' && custom ? custom : `Type ${prefixes.length > 1 ? `${prefixes.slice(0, -1).join(', ')} or ${prefixes.at(-1)}` : prefixes[0] ?? 'a prefix'}.`)
       }
       entry.prefix = prefix
-      next.summary = `[${prefix}] ${String(next.summary ?? '').replace(/^\s*\[[^\]]*\]\s*/, '')}`
+      // Only a configured prefix is swapped; any other tag, like [URGENT], is the author's and stays after ours.
+      const old = String(next.summary ?? '').match(/^\s*\[\s*([^\]]*?)\s*\]\s*/)
+      const own = old && prefixes.some(p => p.toLowerCase() === old[1].toLowerCase())
+      next.summary = `[${prefix}] ${String(next.summary ?? '').slice(own ? old[0].length : 0).trim()}`
       break
     }
     case 'feature_label': {

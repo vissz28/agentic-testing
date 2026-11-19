@@ -118,6 +118,18 @@ def test_refreshing_the_connector_token_refreshes_gitlab_and_rotates_the_pair(c,
     assert again.status_code == 400 and again.json()["error"] == "invalid_grant"
 
 
+def test_the_refreshed_pair_names_claudes_client_so_the_next_refresh_works_too(c, fake):
+    cid, verifier, state = flow(c)
+    code = parse_qs(urlparse(c.get(f"/connect/gitlab/callback?code=gcode&state={state}").headers["location"]).query)["code"][0]
+    rt = token(c, cid, verifier, code).json()["refresh_token"]
+    for n in (2, 3):
+        r = c.post("/token", data={"grant_type": "refresh_token", "refresh_token": rt, "client_id": cid})
+        assert r.status_code == 200, r.text
+        rt = r.json()["refresh_token"]
+        assert jwt.decode(rt, SECRET, algorithms=["HS256"], audience=H)["cid"] == cid  # not GitLab's own client id
+        assert vault.unseal(KEY, jwt.decode(rt, SECRET, algorithms=["HS256"], audience=H)["id"]["gl"], aad="oid-1")["rt"] == f"rt{n}"
+
+
 def test_refresh_keeps_the_old_refresh_token_when_gitlab_sends_none_and_needs_one_to_start(gs):
     gs2 = gitlab.GitLabSettings("gid", "gsecret", http=lambda m, u, h, b: {"access_token": "n"})
     new = gs2.refresh({"at": "o", "rt": "keep", "exp": 1, "base": API})

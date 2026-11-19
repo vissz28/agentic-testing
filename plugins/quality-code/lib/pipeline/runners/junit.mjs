@@ -222,6 +222,25 @@ function spawnTool({ cmd, args, cwd, shell = false, timeoutMs, temp = [] }) {
 }
 
 const LABEL = { maven: 'Maven', gradle: 'Gradle' }
+
+// The test JVM died: Surefire and Failsafe, then Gradle. A build that fails for another reason after good tests
+// (a coverage check, a report task) says none of these, and stays green.
+const JVM_DIED = [
+  /The forked VM terminated without (?:properly )?saying goodbye/i,
+  /ExecutionException.*(?:forked VM|forked process)/i,
+  /There was an error in the forked process/i,
+  /Process 'Gradle Test Executor \d+' finished with non-zero exit value/i,
+  /Could not complete execution for Gradle Test Executor/i,
+]
+
+/** The build output's line saying the test JVM died, null if none does. */
+export function jvmDied(output) {
+  for (const re of JVM_DIED) {
+    const line = String(output ?? '').split('\n').find(l => re.test(l))
+    if (line) return line.replace(/^\s*(?:\[ERROR\]\s*)?/, '').trim()
+  }
+  return null
+}
 const MISSING = { maven: 'Maven is not installed: no mvnw in the project and no mvn on PATH', gradle: 'Gradle is not installed: no gradlew in the project and no gradle on PATH' }
 const took = ms => `took longer than ${ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`}`
 
@@ -267,9 +286,15 @@ async function runModule(root, mod, infos, { testName, timeoutMs, template }) {
     }
     const { tests, broken } = collect(cases, infos)
     // Failed build and no results for a file: usually a compile error.
+    // Results but no failure, and the build says the test JVM died: some reports were written before it did, so not green.
     if (r.code !== 0) {
+      const died = tests.some(t => t.status === 'failed') ? null : jvmDied(r.output)
       for (const info of infos) {
-        if (tests.some(t => t.file === info.file) || broken.some(x => x.file === info.file)) continue
+        if (broken.some(x => x.file === info.file)) continue
+        if (tests.some(t => t.file === info.file)) {
+          if (died) broken.push({ file: info.file, message: `the test run did not finish: ${died}` })
+          continue
+        }
         broken.push({ file: info.file, message: compileError(r.output, info.file) || `${LABEL[b.tool]} exited with code ${r.code}` })
       }
     }

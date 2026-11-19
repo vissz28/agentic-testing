@@ -78,9 +78,12 @@ export function changedLines(root, spec, range = null) {
 export function readTsc(out, code, specs, truncated = false, isNew = null) {
   const lines = out.split('\n').map(l => l.trim()).filter(Boolean)
   const errors = lines.filter(l => /error TS\d+/.test(l))
-  const inSpec = errors.filter(l => specs.some(s => l.startsWith(`${s}(`)))
-  const fresh = isNew ? inSpec.filter(l => isNew(l.slice(0, l.indexOf('(')), Number(/\((\d+),/.exec(l)?.[1]))) : inSpec
-  if (fresh.length) return result('types', 'fail', fresh[0], fresh.map(l => ({ file: l.slice(0, l.indexOf('(')), kind: 'compile error', detail: l })), { applicable: true })
+  // The spec the line starts with, not the text before the first '(': a folder can hold one (Next.js app/(auth)/).
+  const specOf = l => specs.filter(s => l.startsWith(`${s}(`)).sort((a, b) => b.length - a.length)[0]
+  const inSpec = errors.filter(specOf)
+  const lineOf = l => Number(/^\((\d+),/.exec(l.slice(specOf(l).length))?.[1])
+  const fresh = isNew ? inSpec.filter(l => isNew(specOf(l), lineOf(l))) : inSpec
+  if (fresh.length) return result('types', 'fail', fresh[0], fresh.map(l => ({ file: specOf(l), kind: 'compile error', detail: l })), { applicable: true })
   if (inSpec.length) return result('types', 'pass', `compiles where this change wrote; ${plural(inSpec.length, 'type error')} already in the specs before it, on lines it did not touch (first: ${inSpec[0]})`, [], { applicable: true, oldErrors: inSpec.length })
   // No file, or a tsconfig error: tsc stopped before checking anything, so not a pass.
   const config = errors.find(l => /^error TS/.test(l) || /^[^(]*\.json\(\d+,\d+\): error TS/.test(l))

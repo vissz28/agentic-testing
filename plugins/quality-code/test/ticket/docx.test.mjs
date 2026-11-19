@@ -52,6 +52,16 @@ test('a list paragraph keeps a marker, so the score reads a list (TS DMS 3.2)', 
   const xml = `<w:document><w:body>${p('Checks', false)}${p('The total shows 108.00', true)}${p('The Export button is disabled', true)}</w:body></w:document>`
   assert.equal(docxText(docx(Buffer.from(xml))).text, 'Checks\n- The total shows 108.00\n- The Export button is disabled')
 })
+test('tracked changes read as accepted: deleted and moved-away text is left out, inserted text kept', () => {
+  const r = t => `<w:r><w:t xml:space="preserve">${t}</w:t></w:r>`
+  const xml = '<w:document><w:body>'
+    + `<w:p>${r('The total is ')}<w:del w:id="1" w:author="QA"><w:r><w:delText>100</w:delText></w:r></w:del><w:ins w:id="2" w:author="QA">${r('108')}</w:ins>${r('.')}</w:p>`
+    + `<w:p><w:pPr><w:rPr><w:del w:id="3" w:author="QA"/></w:rPr></w:pPr>${r('Kept line')}</w:p>`
+    + `<w:p><w:moveFrom w:id="4" w:author="QA">${r('Moved')}</w:moveFrom></w:p>`
+    + `<w:p><w:moveTo w:id="5" w:author="QA">${r('Moved')}</w:moveTo></w:p>`
+    + '</w:body></w:document>'
+  assert.equal(docxText(docx(Buffer.from(xml))).text, 'The total is 108.\nKept line\n\nMoved')
+})
 test('cli: ticket.mjs docx prints the text of a file the user names; a missing file or no path exits 2', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-docx-'))
   mkdirSync(join(d, '.claude'))

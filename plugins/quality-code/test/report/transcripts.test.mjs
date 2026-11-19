@@ -125,6 +125,53 @@ test('a command the model starts with the Skill tool opens a run, its args give 
   assert.equal(r.events.at(-1).run, r.runs[0])
 })
 
+test('direct names its run after the command it routes to, and that command does not open a second run', () => {
+  const usage = { input_tokens: 1, output_tokens: 1 }
+  const at = (sec, line) => ({ timestamp: `2026-10-10T10:00:${String(sec).padStart(2, '0')}Z`, ...line })
+  const said = (sec, id, content) => at(sec, { type: 'assistant', requestId: id, message: { model: 'claude-opus-5-5', usage, content } })
+  const skill = (id, name, args) => [{ type: 'tool_use', id, name: 'Skill', input: { skill: `quality-code:${name}`, args } }]
+  const user = (sec, content) => at(sec, { type: 'user', message: { content } })
+  // The plugin alone: direct, then the Skill it names.
+  const plugin = attribute([{ id: 's', subagents: [], lines: [
+    user(0, 'Quality Code ticket ABC-1'),
+    said(1, 'r1', skill('t1', 'direct', 'ticket ABC-1')),
+    said(2, 'r2', skill('t2', 'ticket', 'ABC-1')),
+    said(3, 'r3', [{ type: 'text', text: 'done' }]),
+    user(4, '<command-name>/quality-code:direct</command-name><command-args>spec ABC-2</command-args>'),
+    said(5, 'r4', skill('t3', 'spec', 'ABC-2')),
+    said(6, 'r5', skill('t4', 'check', '--key ABC-2')),
+  ] }])
+  assert.deepEqual(plugin.runs.map(r => [r.command, r.key]), [['ticket', 'ABC-1'], ['spec', 'ABC-2'], ['check', 'ABC-2']])
+  assert.deepEqual(plugin.events.map(e => e.run.command), ['ticket', 'ticket', 'ticket', 'spec', 'check'])
+  // The connector: a sentence the server routes; its answer names the command.
+  const tool = 'mcp__plugin_quality-code_quality-code__quality_code_direct'
+  const server = attribute([{ id: 's', subagents: [], lines: [
+    user(0, 'Quality Code write the tests for ABC-3'),
+    said(1, 'r1', skill('t1', 'direct', 'write the tests for ABC-3')),
+    said(2, 'r2', [{ type: 'tool_use', id: 't2', name: tool, input: { request: 'Quality Code write the tests for ABC-3' } }]),
+    user(3, [{ type: 'tool_result', tool_use_id: 't2', content: [{ type: 'text', text: 'Using Quality Code: understood as /quality-code:spec ABC-3 (if that is not ...' }] }]),
+    said(4, 'r3', [{ type: 'text', text: 'Plan' }]),
+  ] }])
+  assert.deepEqual(server.runs.map(r => [r.command, r.key]), [['spec', 'ABC-3']])
+  assert.equal(new Set(server.events.map(e => e.run)).size, 1)
+})
+
+test('a resumed session repeats the earlier messages: their runs and requests are counted once', () => {
+  const usage = { input_tokens: 100, output_tokens: 10 }
+  const T = sec => `2026-10-10T10:00:${String(sec).padStart(2, '0')}Z`
+  const orig = [
+    { type: 'user', uuid: 'u1', timestamp: T(0), message: { content: '<command-name>/quality-code:spec</command-name><command-args>ABC-1</command-args>' } },
+    { type: 'assistant', uuid: 'a1', requestId: 'r1', timestamp: T(1), message: { model: 'claude-opus-5-5', usage, content: [{ type: 'tool_use', id: 't1', name: 'Skill', input: { skill: 'quality-code:check', args: '--key ABC-1' } }] } },
+  ]
+  const resumed = [...orig, { type: 'assistant', uuid: 'a2', requestId: 'r2', timestamp: T(30), message: { model: 'claude-opus-5-5', usage, content: [{ type: 'text', text: 'ok' }] } }]
+  for (const sessions of [[orig, resumed], [resumed, orig]]) {
+    const r = attribute(sessions.map((lines, i) => ({ id: `s${i}`, lines, subagents: [] })))
+    assert.deepEqual(r.runs.map(x => x.command), ['spec', 'check'])
+    assert.equal(r.events.length, 2)
+    assert.equal(r.events.find(e => e.t === Date.parse(T(30))).run, r.runs[1], 'the resumed session goes on in the same run')
+  }
+})
+
 test('subagents belong to the run that spawned them: by tool call, else by start time', () => {
   const usage = attribute(load().sessions)
   const [check, start] = usage.runs

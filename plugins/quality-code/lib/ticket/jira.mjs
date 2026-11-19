@@ -119,8 +119,10 @@ export function formatRiskComment(config, brief) {
 }
 
 // Built from `filled` only, so the redacted text on disk never goes back to Jira.
+// Answers already posted (the first `sent`, set by `jira-posted update`) are not sent again.
 export function jiraUpdate(config, input) {
-  const filled = input.filled ?? []
+  const sent = Number.isInteger(input.sent) && input.sent > 0 ? input.sent : 0
+  const filled = (input.filled ?? []).slice(sent)
   const sections = filled.filter(f => f.section).map(f => f.section)
   return {
     append: sections.length ? [jiraFillMark(config), ...sections].join('\n\n') : null,
@@ -136,7 +138,8 @@ export function formatJiraUpdate(update) {
   }
   const out = []
   if (update.append) {
-    out.push('This will be added to the end of the description:', '', ...update.append.split('\n').map(l => (l ? `  ${l}` : '')), '')
+    // The co-author line is written after `append` (guides/ticket-eval.md), so the preview shows it too.
+    out.push('This will be added to the end of the description:', '', ...`${update.append}\n\n${COAUTHOR_LINE}`.split('\n').map(l => (l ? `  ${l}` : '')), '')
   }
   if (update.labelsAdd.length) out.push(`Label added: ${update.labelsAdd.join(', ')}`)
   if (update.titlePrefix) out.push(`Title gets the prefix [${update.titlePrefix}]`)

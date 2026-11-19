@@ -102,9 +102,10 @@ export function diffOp(repo, op, want, got) {
   if (want.exit !== got.exit) out.push(`exit ${want.exit} → ${got.exit}`)
   const isJsonOp = op.includes('--json')
   const w = want.stdout.split('\n').map(l => transform(repo, parseLine(l, isJsonOp)))
-  // The captured scorers know nothing of the co-author line added to the comments we write to Jira; it is checked in test/ticket/jira.test.mjs.
+  // The captured scorers know nothing of the co-author line added to the comments we write to Jira (and shown, indented, in the
+  // jira-update preview); it is checked in test/ticket/jira.test.mjs.
   // Nor of the Scenarios line that no longer says "0 read" when the criteria in the text were scored.
-  const g = got.stdout.replace(/\n\nCo-authored via Quality Code(?=\n|$)/g, '').replaceAll(SCENARIOS_NONE_DRAFTED, 'Scenarios: 0 read from the ticket · 0 with an expected result clear enough to test').split('\n').map(l => parseLine(l, isJsonOp))
+  const g = got.stdout.replace(/\n\n(?: {2})?Co-authored via Quality Code(?=\n|$)/g, '').replaceAll(SCENARIOS_NONE_DRAFTED, 'Scenarios: 0 read from the ticket · 0 with an expected result clear enough to test').split('\n').map(l => parseLine(l, isJsonOp))
   if (w.length !== g.length) out.push(`line count ${w.length} → ${g.length}`)
   for (let i = 0; i < Math.max(w.length, g.length); i++) {
     try { assert.deepStrictEqual(g[i], w[i]) } catch {

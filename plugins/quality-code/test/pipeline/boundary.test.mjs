@@ -130,6 +130,26 @@ test('hook: case-folded names, guarded files outside the project, a run marked a
   assert.equal(hookDecision({ tool_input: { file_path: join(pkg, 'src/a.ts') } }, { root: pkg, config: cfg() }).decision, 'allow')
   assert.equal(hookDecision({ tool_input: { file_path: join(pkg, 'src/a.ts') } }, { root: pkg, config: cfg(), runRoots: [pkg, d] }).decision, 'deny')
 })
+test('hook: a Bash line that removes the run marker or rewrites the rules is denied during a run; other Bash is not', () => {
+  const d = dir()
+  const bash = command => hookDecision({ tool_name: 'Bash', tool_input: { command } }, { root: d, config: cfg() })
+  assert.equal(bash('rm .claude/quality-code/run.active').decision, 'allow', 'no run: Bash is never judged')
+  put(d, RUN_MARKER, '')
+  const denied = [
+    'rm .claude/quality-code/run.active', `rm -f ${join(d, RUN_MARKER)}`, 'cd .claude/quality-code && rm run.active', 'mv .claude/quality-code/run.active /tmp/x',
+    ': > .claude/quality-code/boundary.jsonl', 'rm -rf .claude/quality-code/audit', 'rm -rf .claude/quality-code', 'rm -rf .claude/', 'cd .claude; rm -r quality-code/*',
+    'rm -rf .claude/quality-code/*', 'find . -path "*/.claude" -delete', 'git clean -fdx', 'Remove-Item -Recurse .claude\\quality-code',
+    'echo {} > .claude/quality-code.json', 'cp /tmp/x .quality-code/config.json', 'echo \'{"disableAllHooks":true}\' > .claude/settings.local.json', 'sed -i "" s/a/b/ .claude/settings.json',
+  ]
+  for (const c of denied) {
+    const r = bash(c)
+    assert.equal(r.decision, 'deny', c)
+    assert.match(r.why, /^the boundary's own state: /, c)
+  }
+  for (const c of ['ls', 'npm test', 'git status', 'rm -rf dist', 'cat .claude/quality-code.json', 'node "$P/bin/checks.mjs" run stop', 'node "$P/bin/checks.mjs" run status 2>/dev/null', 'git clean -fd', 'rm test/old.spec.ts', 'ls ~/.claude/plugins']) {
+    assert.equal(bash(c).decision, 'allow', c)
+  }
+})
 test('diff mode: changed and untracked paths, including spaces (review focus 1)', () => {
   const d = dir()
   const g = (...a) => execFileSync('git', a, { cwd: d, env: ENV })

@@ -29,12 +29,17 @@ export function keyCandidates(texts, projects) {
   return out
 }
 
-const NOT_A_PROJECT = new Set(['RELEASE', 'HOTFIX', 'FEATURE', 'BUGFIX', 'FIX', 'V', 'RC', 'SPRINT', 'VERSION'])
+// Branch words, and encodings or standards that look like a key (utf-8, sha-256, iso-8859).
+const NOT_A_PROJECT = new Set(['RELEASE', 'HOTFIX', 'FEATURE', 'BUGFIX', 'FIX', 'V', 'RC', 'SPRINT', 'VERSION', 'UTF', 'SHA', 'ISO', 'MD', 'ES', 'RFC', 'HTTP', 'IPV', 'PHASE'])
 
 /** A key in the branch name even for an unlisted project; trusted more than a commit subject. */
 export function branchKey(branch) {
-  for (const m of String(branch ?? '').toUpperCase().matchAll(/(?<![A-Z0-9])([A-Z][A-Z0-9]{1,9})[-_](\d+)(?!\d)/g)) {
-    if (!NOT_A_PROJECT.has(m[1])) return `${m[1]}-${m[2]}`
+  // A Jira key may hold "_" (MY_PROJ-12): never start inside a word, and drop a branch word joined with "_" (fix_ABC-12).
+  for (const m of String(branch ?? '').toUpperCase().matchAll(/(?<![A-Z0-9_])([A-Z][A-Z0-9_]{1,19})[-_](\d+)(?!\d)/g)) {
+    const parts = m[1].split('_')
+    while (parts.length > 1 && NOT_A_PROJECT.has(parts[0])) parts.shift()
+    const name = parts.join('_')
+    if (/^[A-Z][A-Z0-9_]{1,9}$/.test(name) && !NOT_A_PROJECT.has(name)) return `${name}-${m[2]}`
   }
   return null
 }

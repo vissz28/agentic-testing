@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { MANIFESTS, bump, changelogState, check } from '../../../../scripts/release.mjs'
+import { LOCK, MANIFESTS, bump, changelogState, check } from '../../../../scripts/release.mjs'
 
 const LOG = '# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- A thing.\n\n## [1.2.3] - 2026-11-01\n\n- Old.\n'
 function repo({ versions = ['1.2.3', '1.2.3', '1.2.3'], log = LOG } = {}) {
@@ -39,6 +39,21 @@ test('bump refuses: not X.Y.Z, not newer, a tag that exists, nothing to release'
   const d = repo()
   bump('1.3', { root: d })
   assert.equal(readFileSync(join(d, MANIFESTS[0]), 'utf8').includes('1.2.3'), true, 'a refused bump writes nothing')
+})
+
+test('bump moves the server version in uv.lock too, and nothing else there; check catches a lock left behind', () => {
+  const d = repo()
+  const lock = v => `version = 1\n\n[[package]]\nname = "pytest"\nversion = "1.2.3"\n\n[[package]]\nname = "q"\nversion = "${v}"\nsource = { editable = "." }\n`
+  writeFileSync(join(d, LOCK), lock('1.2.3'))
+  assert.deepEqual(bump('1.3.0', { root: d, today: '2026-11-17' }), [])
+  assert.equal(readFileSync(join(d, LOCK), 'utf8'), lock('1.3.0'))
+  assert.deepEqual(check(d), [])
+  writeFileSync(join(d, LOCK), lock('1.2.3'))
+  assert.match(check(d)[0], /uv\.lock: the server is at 1\.2\.3, the manifests say 1\.3\.0/)
+  const e = repo()
+  writeFileSync(join(e, LOCK), 'version = 1\n')
+  assert.match(bump('1.3.0', { root: e })[0], /no entry for the server's own package/)
+  assert.match(readFileSync(join(e, MANIFESTS[0]), 'utf8'), /1\.2\.3/, 'a refused bump writes nothing')
 })
 
 test('check names manifests that disagree and a changelog that lags', () => {

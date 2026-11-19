@@ -38,6 +38,19 @@ test('jira update sends only filled sections', () => {
   assert.deepEqual(u.labelsAdd, ['Orders'])
   assert.match(formatJiraUpdate(u), /Nothing already on the ticket is changed\./)
 })
+test('jira update skips the answers already posted (sent), labels and prefix included', () => {
+  const posted = [{ key: 'steps', section: '## Steps to reproduce\n1. a' }, { key: 'feature_label', label: 'Orders' }, { key: 'title_prefix', prefix: 'BE' }]
+  const t = { ...bare, filled: [...posted, { key: 'environment', section: '## Environment\nEnv: staging' }], sent: posted.length }
+  const u = jiraUpdate(cfg(), t)
+  assert.equal(u.append, '_Added during the quality-code readiness check._\n\n## Environment\nEnv: staging')
+  assert.deepEqual(u.labelsAdd, [])
+  assert.equal(u.titlePrefix, null)
+  assert.equal(jiraUpdate(cfg(), { ...t, sent: t.filled.length }).append, null, 'all sent: nothing to add')
+})
+test('the jira update preview shows the co-author line that is written after the added text', () => {
+  const u = jiraUpdate(cfg(), { ...bare, filled: [{ key: 'steps', section: '## Steps to reproduce\n1. a' }] })
+  assert.match(formatJiraUpdate(u), new RegExp(`  1\\. a\\n\\n  ${COAUTHOR_LINE}\\n`))
+})
 test('the Jira fill marker comes from messages.jiraFillMark (spec §10 #9)', () => {
   const t = { ...bare, filled: [{ key: 'steps', section: '## Steps to reproduce\n1. a' }] }
   assert.equal(jiraUpdate(cfg({ messages: { jiraFillMark: '_Added by QA._' } }), t).append, '_Added by QA._\n\n## Steps to reproduce\n1. a')

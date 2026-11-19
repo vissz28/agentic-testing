@@ -19,7 +19,7 @@ With `--ci` or `--json`, never show the card: the place stays as it is.
 
 **What each place means.**
 
-- **In the project repo.** The files sit in the project's tickets folder, the config in `.quality-code/config.json`, and the audit log in `.claude/quality-code/audit/`. Each folder ignores itself (a `.gitignore` with `*` inside it): nothing is added to the project's own `.gitignore`.
+- **In the project repo.** The files sit in the project's tickets folder, the config in `.quality-code/config.json`, and the audit log in `.claude/quality-code/audit/`. Each folder ignores itself (a `.gitignore` with `*` inside it): nothing is added to the project's own `.gitignore`. A tickets folder you picked that already holds your files is left in git, and setup says so.
 - **On this machine.** The same files, `config.json` included, in a folder under your Claude folder, one per project, outside the repo. It lasts across sessions.
 - **Only in this session.** The default. The files a run needs between steps, the setup config and the audit log, go to a temp folder outside the repo. `/quality-code:report --kpi` counts what was logged there, until the machine clears the folder.
 

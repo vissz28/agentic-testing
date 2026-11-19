@@ -13,7 +13,7 @@ import { buildBrief, formatReport, sideFor } from '../lib/ticket/score.mjs'
 import { containerRefusal, isContainerType } from '../lib/ticket/messages.mjs'
 import { approachOf, isFullstack, SIDES, ticketSide, unitRunnerOf } from '../lib/stacks/stack.mjs'
 import { formatRefuseComment, formatRiskComment, jiraUpdate, formatJiraUpdate } from '../lib/ticket/jira.mjs'
-import { redact, sanitizeTicket, uuidsOf } from '../lib/ticket/sanitize.mjs'
+import { placeholdersIn, redact, sanitizeTicket, uuidsOf } from '../lib/ticket/sanitize.mjs'
 import { docxText, DOCX_MAX_CHARS, MAX_BYTES } from '../lib/ticket/docx.mjs'
 import { BACKEND_ADAPTERS, backendOf } from '../lib/stacks/backends.mjs'
 import { runnerOf } from '../lib/stacks/runners.mjs'
@@ -37,6 +37,18 @@ import { isTicketKey, isObject } from '../lib/core/is.mjs'
 // QUALITY_CODE_STATELESS=1 is set only by the shared MCP server: nothing is written there. A command that changes the ticket prints it on a TICKET_JSON: line,
 // the chat keeps it, and it comes back as --in '<json>'. The plugin never sets it and keeps writing its files.
 const stateless = env => env.QUALITY_CODE_STATELESS === '1'
+// There, a path could open another person's ticket and a saved file would outlive the chat: every input comes inline, nothing is written.
+function statelessRefusal(cmd, a) {
+  const why = 'the shared server reads and writes no file: the chat holds the data and passes it inline'
+  if (['docx', 'saved', 'story-save'].includes(cmd) || (['save', 'root'].includes(cmd) && a._[0] === 'set')) return `${cmd}${a._[0] === 'set' ? ' set' : ''}: ${why}`
+  if (a.in?.startsWith('@')) return `--in ${a.in}: ${why} (--in '<json>')`
+  if (a.draft?.startsWith('@')) return `--draft ${a.draft}: ${why} (--draft '<the draft text>')`
+  if (a.out !== undefined && cmd !== 'sanitize') return `--out: ${why}`
+  if (cmd === 'field' && a._[0] === 'find' && a._[1]?.startsWith('@')) return `field find ${a._[1]}: ${why} (field find '<the field metadata>')`
+  const saves = ['--save', '--report'].filter(f => a.flags.has(f))
+  if (saves.length) return `${saves.join(' and ')}: ${why}; run without ${saves.length > 1 ? 'them' : 'it'}`
+  return null
+}
 const KNOWN_FLAGS = new Set(['--ci', '--json', '--no-audit', '--next', '--save', '--drafted', '--confirmed', '--runner', '--report'])
 
 // Description headings `attach` uses per kind.
@@ -231,10 +243,10 @@ const COMMANDS = {
       printLine('ok')
       return 0
     }
-    if (sub === 'find' && project?.startsWith('@')) {
-      // Here `project` is @<field metadata file>: find fields named like the criteria heading.
-      let text
-      try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { printError(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
+    if (sub === 'find' && (project?.startsWith('@') || (project && stateless(env)))) {
+      // Here `project` is @<field metadata file> (the shared server: the metadata itself): find fields named like the criteria heading.
+      let text = project
+      if (!stateless(env)) try { text = readFileSync(resolve(root, project.slice(1)), 'utf8') } catch (e) { printError(`field find: cannot read ${project.slice(1)} (${e.code ?? e.message})`); return 2 }
       const r = findFields(config, text)
       if (!r.ok) { printError(r.error); return 2 }
       printLine(tag('FIELD_MATCHES', { matches: r.matches }))
@@ -278,9 +290,11 @@ export function main(argv = process.argv.slice(2), env = process.env, cwd = proc
 function run(argv, env, cwd) {
   const [cmd, ...rest] = argv
   if (cmd === 'config' && rest[0] === 'keys') return configKeys()
+  if (cmd === 'config' && rest[0] === 'set' && stateless(env)) { printError('config set: the shared server reads and writes no file: the chat holds the data and passes it inline'); return 2 }
   if (cmd === 'config' && ['set', 'get'].includes(rest[0])) return configSetGet(rest, env, cwd)
   let a
   try { a = parseArgs(rest) } catch (e) { printError(e.message); return 2 }
+  if (stateless(env)) { const why = statelessRefusal(cmd, a); if (why) { printError(why); return 2 } }
   const root = projectRoot(env, cwd)
   const cfg = loadConfig(root, env)
   if (cmd === 'config' && a._[0] === 'check') {
@@ -375,18 +389,21 @@ function run(argv, env, cwd) {
         else { printLine(formatStoryCheck(check)); printLine(tag('STORY', check)) }
         return 0
       }
-      let draft
-      try { draft = readFileSync(resolve(root, a.draft.replace(/^@/, '')), 'utf8') } catch (e) { printError(`story-check: cannot read the draft (${e.code ?? e.message})`); return 2 }
+      let draft = a.draft // the shared server: the draft text itself
+      if (!stateless(env)) try { draft = readFileSync(resolve(root, a.draft.replace(/^@/, '')), 'utf8') } catch (e) { printError(`story-check: cannot read the draft (${e.code ?? e.message})`); return 2 }
+      // Placeholders copied from the redacted ticket.json would replace the real emails and ids on Jira: listed so the draft is not posted with them.
+      const placeholders = placeholdersIn(draft)
       draft = redact(config, draft, uuidsOf(ticket))
       const drafted = draftTicket(ticket, draft)
       const before = buildBrief(config, ticket)
       const after = buildBrief(config, drafted)
       const shape = storyShape(draft)
-      const r = { key: ticket.key ?? null, before: { score: before.score, gate: before.gate }, after: { score: after.score, gate: after.gate, missing: after.missing.map(m => m.label) }, threshold: after.threshold, shape, check: checkStory(drafted) }
+      const r = { key: ticket.key ?? null, before: { score: before.score, gate: before.gate }, after: { score: after.score, gate: after.gate, missing: after.missing.map(m => m.label) }, threshold: after.threshold, shape, check: checkStory(drafted), placeholders }
       if (a.flags.has('--json')) { printLine(JSON.stringify(r)); return 0 }
       printLine(`Score: ${before.score} before, ${after.score} with the new story (needs ${after.threshold}).`)
       if (shape.missing.length) printLine(`Missing sections: ${shape.missing.join(', ')}.`)
       if (after.missing.length) printLine(`Still missing: ${after.missing.map(m => m.label).join('; ')}.`)
+      if (placeholders.length) printLine(`Hidden values: ${placeholders.join(', ')} stand for real emails or ids that were hidden. Put the real ones back (or drop them) before posting to Jira.`)
       printLine(tag('STORY_SCORE', r))
       return 0
     }

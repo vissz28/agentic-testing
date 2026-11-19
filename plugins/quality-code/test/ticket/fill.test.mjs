@@ -215,6 +215,18 @@ test('vitest: context and title prefix', () => {
   assert.equal(applyAnswer(own, beBare, 'title_prefix', 'api').input.summary, '[API] order filter wrong', 'prefixes come from config')
   assert.ok(!applyAnswer(own, beBare, 'title_prefix', 'BE').ok)
 })
+test('title_prefix keeps a tag of the author\'s, like [URGENT], after ours', () => {
+  const r = applyAnswer(BE, { ...beBare, summary: '[URGENT] order filter wrong' }, 'title_prefix', 'BE')
+  assert.ok(r.ok)
+  assert.equal(r.input.summary, '[BE] [URGENT] order filter wrong')
+})
+test('expected | actual keeps every extra line, on its own side', () => {
+  const r = applyAnswer(BE, beBare, 'expected_defined', 'The export has 10 rows\nwith the header Total\n|\nThe export is empty\nand has no header')
+  assert.ok(r.ok, r.reason)
+  assert.ok(r.input.text.description.includes('## Expected\nThe export has 10 rows\nwith the header Total\n\n## Actual\nThe export is empty\nand has no header'))
+  const lines = applyAnswer(BE, beBare, 'expected_defined', 'The export has 10 rows\nThe export is empty\nand has no header')
+  assert.ok(lines.input.text.description.includes('## Expected\nThe export has 10 rows\n\n## Actual\nThe export is empty\nand has no header'), 'without |, the first line is the expected one')
+})
 test('title_prefix rejection text is overridable from config messages', () => {
   const custom = 'Type BE (backend), FE (frontend) or FS (both).'
   const c = validateConfig({ ...raw('vitest'), messages: { title_prefix: { reject: custom } } }).config

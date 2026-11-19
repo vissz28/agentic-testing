@@ -1,5 +1,6 @@
 """Claude's connector sign-in: registration, Entra, the rules page, the code, the tokens and /mcp."""
 import base64
+import dataclasses
 import hashlib
 import time
 from urllib.parse import parse_qs, quote, urlencode, urlparse
@@ -206,3 +207,79 @@ def test_the_metadata_names_this_server_as_the_authorization_server(c):
 def test_health_says_the_connector_is_on(c):
     h = c.get("/health").json()
     assert h["status"] == "ok" and h["connector"] is True and h["version"]
+
+
+def server(tmp_path, monkeypatch, cs=CS, claims=CLAIMS):
+    monkeypatch.setattr(web, "redeem_code", lambda w, code, verifier: "id-token")
+    monkeypatch.setattr(web, "check_id_token", lambda w, tok, nonce, key: claims)
+    s = build(plugin_root(), entra=cs.entra, remote=True, fixed_cwd=tmp_path, web_settings=dataclasses.replace(W, entra=cs.entra), connector=cs)
+    return TestClient(s.streamable_http_app(host="qc-mcp.example.com"), base_url=H, follow_redirects=False)
+
+
+ROLE = dataclasses.replace(S, required_scope="QualityCode.Use")
+
+
+def test_the_required_role_is_checked_on_the_connector_sign_in(tmp_path, monkeypatch):
+    cs = dataclasses.replace(CS, entra=ROLE)
+    with server(tmp_path, monkeypatch, cs) as t:  # signed in with Microsoft, but without the app role
+        cid = register(t).json()["client_id"]
+        r = t.get(start(t, cid, pkce()[1]).replace(H, ""))
+        state = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+        r = t.get(f"/auth/callback?code=abc&state={state}")
+        assert r.status_code == 403 and "QualityCode.Use" in r.text and "qc_connect=" not in r.headers.get("set-cookie", "")
+        assert t.get("/connect/consent").status_code == 400
+    with server(tmp_path, monkeypatch, cs, {**CLAIMS, "roles": ["QualityCode.Use"]}) as t:
+        cid, verifier, code = full_flow(t)
+        assert token(t, cid, verifier, code).status_code == 200
+
+
+def refresh(c, cid, rt):
+    return c.post("/token", data={"grant_type": "refresh_token", "refresh_token": rt, "client_id": cid})
+
+
+def test_a_refresh_after_the_rules_changed_asks_to_connect_again(tmp_path, monkeypatch):
+    with server(tmp_path, monkeypatch) as t:
+        cid, verifier, code = full_flow(t)
+        rt = token(t, cid, verifier, code).json()["refresh_token"]
+    with server(tmp_path, monkeypatch, dataclasses.replace(CS, rules_version="v2")) as t:
+        r = refresh(t, cid, rt)
+    assert r.status_code == 400 and r.json()["error"] == "invalid_grant" and "rules" in r.json()["error_description"]
+
+
+def test_a_refresh_after_a_role_became_required_asks_to_connect_again(tmp_path, monkeypatch):
+    with server(tmp_path, monkeypatch) as t:
+        cid, verifier, code = full_flow(t)
+        rt = token(t, cid, verifier, code).json()["refresh_token"]
+    with server(tmp_path, monkeypatch, dataclasses.replace(CS, entra=ROLE)) as t:
+        r = refresh(t, cid, rt)
+    assert r.status_code == 400 and r.json()["error"] == "invalid_grant" and "QualityCode.Use" in r.json()["error_description"]
+
+
+def test_the_refresh_chain_ends_a_fixed_time_after_the_microsoft_sign_in(c, monkeypatch):
+    cid, verifier, code = full_flow(c)
+    first = token(c, cid, verifier, code).json()["refresh_token"]
+    since = jwt.decode(first, SECRET, algorithms=["HS256"], audience=H)["since"]
+    real = time.time
+    monkeypatch.setattr(connector.time, "time", lambda: real() + connector.SESSION_MAX - 3600)  # near the end: the chain still works, but not past its end
+    r = refresh(c, cid, first)
+    assert r.status_code == 200, r.text
+    new = jwt.decode(r.json()["refresh_token"], SECRET, algorithms=["HS256"], audience=H, options={"verify_exp": False, "verify_iat": False})
+    assert new["since"] == since and new["exp"] <= since + connector.SESSION_MAX
+    monkeypatch.setattr(connector.time, "time", lambda: real() + connector.SESSION_MAX + 60)
+    r = refresh(c, cid, first)
+    assert r.status_code == 400 and r.json()["error"] == "invalid_grant"
+
+
+def test_an_upstream_callback_on_another_replica_says_so_instead_of_expired(tmp_path, monkeypatch):
+    from test_atlassian import KEY, SITE, FakeAtlassian
+    from quality_code_mcp import atlassian
+
+    cs = dataclasses.replace(CS, vault_key=KEY, atlassian=atlassian.AtlassianSettings("aid", "asecret", site=SITE, http=FakeAtlassian()))
+    with server(tmp_path, monkeypatch, cs) as a, server(tmp_path, monkeypatch, cs) as b:  # two replicas (or one restarted) with the same settings
+        cid = register(a).json()["client_id"]
+        through_entra(a, start(a, cid, pkce()[1]))
+        r = a.post("/connect/accept", data={**FORM, "csrf": csrf_of(a)})
+        state = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+        b.cookies.update(a.cookies)
+        r = b.get(f"/connect/atlassian/callback?code=acode&state={state}")
+    assert r.status_code == 409 and "another copy of the server" in r.text and "expired" not in r.text

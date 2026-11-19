@@ -44,6 +44,28 @@ export function parseTrx(xml) {
   return out
 }
 
+const ENDED_BADLY = new Set(['Aborted', 'Error', 'Failed', 'Timeout'])
+
+/**
+ * Why the run did not finish, from the TRX itself: a RunInfo error (VSTest writes "The active test run was aborted.
+ * Reason: Test host process crashed" there), a result outcome of an aborted run, or the run's own outcome. null when it
+ * finished. The run's outcome is only read when no test failed (see runDotnet): "Failed" is then not a failed test.
+ */
+export function trxAborted(xml) {
+  const doc = parseXml(xml)
+  const run = child(doc, 'TestRun') ?? doc
+  const summary = child(run, 'ResultSummary')
+  const info = descendants(summary ?? run, 'RunInfo').find(r => r.attrs.outcome === 'Error')
+  const text = firstLine(child(info, 'Text')?.text)
+  if (info) return text || 'the test run reported an error'
+  const counters = child(summary, 'Counters')?.attrs ?? {}
+  if (Number(counters.aborted) > 0 || Number(counters.passedButRunAborted) > 0 || descendants(run, 'UnitTestResult').some(r => r.attrs.outcome === 'PassedButRunAborted')) return 'the test run was aborted'
+  const outcome = summary?.attrs.outcome
+  return ENDED_BADLY.has(outcome) ? `the test run ended as ${outcome}` : null
+}
+
+const CRASHED = /The active test run was aborted|Test host process crashed/i
+
 /** First compiler error, e.g. "File.cs(12,5): error CS1002: ; expected", minus the [project] suffix. */
 export function buildError(text) {
   const m = /^.*?\berror (?:CS|FS|BC)\d+:.*$/m.exec(String(text ?? ''))
@@ -82,24 +104,26 @@ function trxFiles(dir) {
   return out
 }
 
+/**
+ * What to spawn. dotnet.command: {files} test project, {report} TRX path, {test} filter, run by the shell.
+ * On Windows the line goes to cmd.exe verbatim, wrapped in quotes as `shell: true` does: Node's own quoting
+ * would escape its quotes as \" and cmd.exe would not find the command.
+ */
+export function dotnetSpawn(project, { filter, report, dir, command = null }, win = process.platform === 'win32') {
+  const logger = ['--logger', `trx;LogFileName=${report}`, '--results-directory', dir]
+  if (!command) return { file: 'dotnet', args: ['test', project, '--nologo', ...logger, '--filter', filter], verbatim: false }
+  const q = w => shellQuote(w, win)
+  let line = fillPlaceholders(command, { files: q(project), report: q(report), test: q(filter) })
+  if (!command.includes('{report}')) line += ` ${logger.map(q).join(' ')}`
+  if (!command.includes('{test}')) line += ` --filter ${q(filter)}`
+  return win ? { file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', `"${line}"`], verbatim: true } : { file: '/bin/sh', args: ['-c', line], verbatim: false }
+}
+
 export function runDotnet(root, project, { filter, command = null, timeoutMs }) {
   return new Promise(done => {
     const dir = mkdtempSync(join(tmpdir(), 'qc-dotnet-'))
     const report = join(dir, 'report.trx')
-    const logger = ['--logger', `trx;LogFileName=${report}`, '--results-directory', dir]
-    let file
-    let args
-    if (command) {
-      // dotnet.command: {files} test project, {report} TRX path, {test} filter.
-      let line = fillPlaceholders(command, { files: shellQuote(project), report: shellQuote(report), test: shellQuote(filter) })
-      if (!command.includes('{report}')) line += ` ${logger.map(w => shellQuote(w)).join(' ')}`
-      if (!command.includes('{test}')) line += ` --filter ${shellQuote(filter)}`
-      file = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
-      args = process.platform === 'win32' ? ['/d', '/s', '/c', line] : ['-c', line]
-    } else {
-      file = 'dotnet'
-      args = ['test', project, '--nologo', ...logger, '--filter', filter]
-    }
+    const { file, args, verbatim } = dotnetSpawn(project, { filter, report, dir, command })
     let output = ''
     let timedOut = false
     let settled = false
@@ -115,7 +139,7 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
     const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1', MSBUILDDISABLENODEREUSE: '1', NO_COLOR: '1', CI: '1' }
     let ch
     try {
-      ch = spawn(file, args, { cwd: root, detached: true, windowsHide: true, env, stdio: ['ignore', 'pipe', 'pipe'] })
+      ch = spawn(file, args, { cwd: root, detached: true, windowsHide: true, windowsVerbatimArguments: verbatim, env, stdio: ['ignore', 'pipe', 'pipe'] })
       untrack = track(ch, [dir])
     } catch (e) {
       return finish({ ran: false, error: `could not start dotnet: ${e.message}` })
@@ -134,6 +158,12 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
       try {
         const reports = existsSync(dir) ? trxFiles(dir) : []
         const results = reports.flatMap(f => parseTrx(readFileSync(f, 'utf8')))
+        // A crashed test host (a stack overflow) still writes the results it had, all passed. The TRX says the run
+        // did not finish; the exit code alone does not (a coverage threshold fails it after a good run).
+        if (reports.length && results.some(t => t.status === 'passed') && !results.some(t => t.status === 'failed')) {
+          const why = reports.map(f => trxAborted(readFileSync(f, 'utf8'))).find(Boolean) ?? (code ? firstLine(output.split('\n').filter(l => CRASHED.test(l)).join('\n')) : null)
+          if (why) return finish({ ran: true, results, aborted: why })
+        }
         if (reports.length) return finish({ ran: true, results })
         // No report: the build failed or the run never started.
         const err = buildError(output)
@@ -168,6 +198,7 @@ export function dotnetRunner(root, config) {
       const r = await runDotnet(root, localToForwardSlashes(relative(root, project)) || project, { filter: filterFor(classes, testName), command, timeoutMs: timeoutMs ?? defaultMs })
       if (!r.ran) return { ran: false, tests: [], broken: [], error: r.error }
       if (r.buildError) { out.broken.push(...specs.map(s => ({ file: s.file, message: `does not compile: ${r.buildError}` }))); continue }
+      if (r.aborted) out.broken.push(...specs.map(s => ({ file: s.file, message: `the test run did not finish: ${r.aborted}` })))
       const byFqn = new Map(classes.map(c => [c.fqn, c]))
       const byName = new Map()
       for (const c of classes) byName.set(c.name, byName.has(c.name) ? null : c)

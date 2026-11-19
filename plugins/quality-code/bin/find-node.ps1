@@ -1,6 +1,7 @@
 # Finds node.exe on Windows when `node` is not on the PATH of the shell an agent started.
 # Looks in this order: the PATH of this shell; the Machine and User PATH from the registry (a shell started by an app can miss the user part);
-# the usual install folders; nvm, fnm, Volta and Scoop; then every profile in C:\Users.
+# Program Files; nvm, fnm, Volta and Scoop of this user. Never another profile, C:\Users\Public or a folder at the top
+# of C:, where any user can put a node.exe for this one to run.
 # Prints, on separate lines: NODE_EXE=<path>, NODE_VERSION=<v>, NODE_DIR=<folder>, NODE_PROFILE=<owner folder or system>, and the line to run to use it.
 # Run it as: powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>\bin\find-node.ps1"
 $ErrorActionPreference = 'SilentlyContinue'
@@ -17,9 +18,16 @@ function Test-Node($exe) {
 function Sort-Versions($dirs) {
   $dirs | Sort-Object -Descending { $n = $_.Name.TrimStart('v'); try { [version]($n -replace '[^\d.].*$', '') } catch { [version]'0.0' } }
 }
-# nvm-windows: its root is NVM_HOME, the "root:" line of settings.txt, or the usual places. The active version is the folder NVM_SYMLINK points to.
+# A variable of this shell, else the registry's (User, then Machine): a shell started by an app can miss them.
+function Get-Var($name) {
+  $v = [Environment]::GetEnvironmentVariable($name)
+  if (-not $v) { $v = [Environment]::GetEnvironmentVariable($name, 'User') }
+  if (-not $v) { $v = [Environment]::GetEnvironmentVariable($name, 'Machine') }
+  return $v
+}
+# nvm-windows: its root is NVM_HOME, the "root:" line of its settings.txt, or %APPDATA%\nvm. The active version is the folder NVM_SYMLINK points to.
 $nvmRoots = New-Object System.Collections.Generic.List[string]
-foreach ($r in @($env:NVM_HOME, "$env:APPDATA\nvm", 'C:\nvm', 'C:\nvm4w\nvm', "$env:ProgramData\nvm")) { if ($r) { $nvmRoots.Add($r) } }
+foreach ($r in @((Get-Var 'NVM_HOME'), "$env:APPDATA\nvm")) { if ($r) { $nvmRoots.Add($r) } }
 foreach ($r in @($nvmRoots)) {
   $st = Join-Path $r 'settings.txt'
   if (Test-Path -LiteralPath $st) { Get-Content -LiteralPath $st | ForEach-Object { if ($_ -match '^\s*root:\s*(.+?)\s*$') { $nvmRoots.Add($Matches[1]) } } }
@@ -40,20 +48,21 @@ foreach ($scope in 'Machine', 'User') {
 }
 # 3. the usual folders and the version managers of this user
 foreach ($d in @("$env:ProgramFiles\nodejs", "${env:ProgramFiles(x86)}\nodejs", "$env:LOCALAPPDATA\Programs\nodejs",
-                 "$env:NVM_SYMLINK", "$env:USERPROFILE\scoop\apps\nodejs\current", "$env:USERPROFILE\scoop\apps\nodejs-lts\current",
+                 "$(Get-Var 'NVM_SYMLINK')", "$env:USERPROFILE\scoop\apps\nodejs\current", "$env:USERPROFILE\scoop\apps\nodejs-lts\current",
                  "$env:LOCALAPPDATA\Volta\bin", "$env:USERPROFILE\.volta\bin")) { if ($d) { & $add (Join-Path $d 'node.exe') } }
 foreach ($root in @($nvmRoots) + @("$env:APPDATA\fnm\node-versions", "$env:LOCALAPPDATA\fnm\node-versions")) {
   if ($root) { Sort-Versions (Get-ChildItem -LiteralPath $root -Directory) | ForEach-Object {
     & $add (Join-Path $_.FullName 'node.exe'); & $add (Join-Path $_.FullName 'installation\node.exe') } }
 }
-# 4. every profile on the machine
-Get-ChildItem 'C:\Users' -Directory | ForEach-Object {
-  $u = $_.FullName
-  & $add "$u\AppData\Local\Programs\nodejs\node.exe"
-  & $add "$u\scoop\apps\nodejs\current\node.exe"
-  & $add "$u\.volta\bin\node.exe"
-  Sort-Versions (Get-ChildItem "$u\AppData\Roaming\nvm" -Directory) | ForEach-Object { & $add (Join-Path $_.FullName 'node.exe') }
-  Sort-Versions (Get-ChildItem "$u\AppData\Roaming\fnm\node-versions" -Directory) | ForEach-Object { & $add (Join-Path $_.FullName 'installation\node.exe') }
+# Only folders an admin or this user controls: inside C:\Users, this user's profile alone (Public and the other
+# profiles can be written by someone else); outside it, anything the PATH, Program Files or a manager names.
+$usersDir = Join-Path $env:SystemDrive 'Users'
+function Test-Trusted($exe) {
+  try { $full = [IO.Path]::GetFullPath($exe) } catch { return $false }
+  $under = { param($dir) $dir -and $full.StartsWith(($dir.TrimEnd('\') + '\'), [StringComparison]::OrdinalIgnoreCase) }
+  if ((& $under $env:PUBLIC) -or (& $under (Join-Path $usersDir 'Public'))) { return $false }
+  if (& $under $usersDir) { return [bool](& $under $env:USERPROFILE) }
+  return $true
 }
 
 $seen = @{}
@@ -62,19 +71,20 @@ foreach ($c in $candidates) {
   $key = $c.ToLowerInvariant()
   if ($seen.ContainsKey($key)) { continue }
   $seen[$key] = $true
+  if (-not (Test-Trusted $c)) { continue }
   $n = Test-Node $c
-  if ($n -and $n.Major -ge $min) { $best = $n; break }   # the first that works and is new enough: this shell, then the system, then this user, then other profiles
+  if ($n -and $n.Major -ge $min) { $best = $n; break }   # the first that works and is new enough: this shell, then the system, then this user
   if ($n -and -not $best) { $old = $n }
 }
 
 if (-not $best) {
   if ($old) { Write-Output "NODE_TOO_OLD=$($old.Exe) $($old.Version): Quality Code needs Node.js $min or later (https://nodejs.org)" }
-  else { Write-Output "NODE_NOT_FOUND: no node.exe in the PATH, the usual folders, nvm, fnm, Volta, Scoop or any profile in C:\Users. Install Node.js $min or later: https://nodejs.org" }
+  else { Write-Output "NODE_NOT_FOUND: no node.exe in the PATH, Program Files or this user's nvm, fnm, Volta or Scoop. Install Node.js $min or later: https://nodejs.org" }
   exit 1
 }
 
 $dir = Split-Path -Parent $best.Exe
-$owner = if ($best.Exe -like 'C:\Users\*') { ($best.Exe -split '\\')[2] } else { 'system' }
+$owner = if ($best.Exe.StartsWith("$usersDir\", [StringComparison]::OrdinalIgnoreCase)) { Split-Path -Leaf $env:USERPROFILE } else { 'system' }
 Write-Output "NODE_EXE=$($best.Exe)"
 Write-Output "NODE_VERSION=$($best.Version)"
 Write-Output "NODE_DIR=$dir"

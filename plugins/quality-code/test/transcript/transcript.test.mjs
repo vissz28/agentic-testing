@@ -52,6 +52,16 @@ test('redaction: customer ids, config patterns, e-mails and ids go; speakers can
   const m = redactTurns(cfg(), turns, { maskSpeakers: true })
   assert.deepEqual(m.map(t => t.speaker), ['Speaker 1', 'Speaker 2', 'Speaker 3'])
 })
+test('masked speakers are masked in the words too: full names and their parts, not longer words', () => {
+  const turns = [
+    { speaker: 'Ana Rossi', time: null, text: 'Marco, can you take it? Ana Rossi will review.' },
+    { speaker: 'Marco Bianchi', time: null, text: 'Yes ana. Ask Bianchi or Verdi; the Anagram stays.' },
+    { speaker: 'Marco Verdi', time: null, text: 'Fine.' },
+  ]
+  const m = redactTurns(cfg(), turns, { maskSpeakers: true }).map(t => t.text)
+  assert.deepEqual(m, ['Speaker, can you take it? Speaker 1 will review.', 'Yes Speaker 1. Ask Speaker 2 or Speaker 3; the Anagram stays.', 'Fine.'])
+  assert.equal(redactTurns(cfg(), turns)[0].text, turns[0].text, 'unmasked, the words keep the names')
+})
 test('shape: a good result passes and is normalised', () => {
   const r = validateResult(good())
   assert.equal(r.ok, true)

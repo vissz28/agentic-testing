@@ -83,6 +83,17 @@ test('the stack shapes the tests job: its toolchain, install lines, Docker for T
   assert.match(template('github', '1.0.0', { ...s, backend: 'vitest', pm: 'npm', lock: true, prisma: true, playwright: false }), /- run: npm ci\n      - run: npx prisma generate\n/)
 })
 
+test('a project folder with a space or a quote: the GitLab cd lines are quoted for the shell and for YAML', () => {
+  const s = { ...JS_PNPM, prefix: "my app/it's/", smoke: true }
+  const gl = template('gitlab', '1.0.0', s)
+  const lines = gl.split('\n').filter(l => l.includes('- "cd '))
+  assert.equal(lines.length, 3, 'gate, tests and smoke jobs')
+  for (const l of lines) assert.equal(l, `    - "cd 'my app/it'\\\\''s/'"`)
+  assert.equal(JSON.parse(lines[0].slice(6)), "cd 'my app/it'\\''s/'", 'a YAML double-quoted scalar is a JSON string')
+  assert.doesNotMatch(gl, /- cd my app/)
+  assert.match(template('gitlab', '1.0.0', { ...JS_PNPM, prefix: 'api/' }), /\n {4}- cd api\/\n/, 'a plain folder stays as it was')
+})
+
 test('stackOf reads the lockfile, Prisma, Testcontainers and the folder from the repo', () => {
   const d = mkdtempSync(join(tmpdir(), 'qc-ci-stack-'))
   put(d, 'web/package.json', JSON.stringify({ dependencies: { '@prisma/client': '6' }, devDependencies: { testcontainers: '10' } }))

@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { buildError, dotnetRunner, filterFor, methodTitle, parseTrx, projectOf } from '../../../lib/pipeline/runners/dotnet.mjs'
+import { buildError, dotnetRunner, dotnetSpawn, filterFor, methodTitle, parseTrx, projectOf, trxAborted } from '../../../lib/pipeline/runners/dotnet.mjs'
 import { runPipeline } from '../../../lib/pipeline/pipeline.mjs'
 import { dialectFor } from '../../../lib/stacks/dialects/index.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
@@ -74,12 +74,13 @@ test('the test project is the nearest .csproj or .fsproj above the spec, never a
 })
 
 // A TRX report of { cls, name, outcome, message } rows, as dotnet test writes it.
-function trx(rows) {
+/** summary: XML put after the results, a <ResultSummary> as dotnet writes it. */
+function trx(rows, summary = '') {
   const id = i => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
   const results = rows.map((r, i) => `    <UnitTestResult executionId="${id(i + 100)}" testId="${id(i)}" testName="${esc(`${r.cls}.${r.name}`)}" computerName="ci" duration="00:00:00.0010000" outcome="${r.outcome}" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d">${r.message ? `<Output><ErrorInfo><Message>${esc(r.message)}</Message><StackTrace>   at ${esc(r.cls)}.${esc(r.name)}()</StackTrace></ErrorInfo></Output>` : ''}</UnitTestResult>`)
   const defs = rows.map((r, i) => `    <UnitTest name="${esc(`${r.cls}.${r.name}`)}" storage="/x/tests.dll" id="${id(i)}"><Execution id="${id(i + 100)}" /><TestMethod codeBase="/x/Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="${esc(r.cls)}" name="${esc(r.name)}" /></UnitTest>`)
-  return `<?xml version="1.0" encoding="utf-8"?>\n<TestRun id="${id(999)}" name="ci" runUser="ci" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">\n  <Results>\n${results.join('\n')}\n  </Results>\n  <TestDefinitions>\n${defs.join('\n')}\n  </TestDefinitions>\n</TestRun>\n`
+  return `<?xml version="1.0" encoding="utf-8"?>\n<TestRun id="${id(999)}" name="ci" runUser="ci" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">\n  <Results>\n${results.join('\n')}\n  </Results>\n  <TestDefinitions>\n${defs.join('\n')}\n  </TestDefinitions>\n${summary}</TestRun>\n`
 }
 
 /**
@@ -183,6 +184,46 @@ test('a build that fails: the specs go to broken with the first compiler error',
   assert.deepEqual(r, { ran: true, tests: [], broken: [{ file: SPEC, message: 'does not compile: /work/tests/Demo.Tests/PricingTests.cs(14,40): error CS1002: ; expected' }] })
 })
 
+const CRASH_SUMMARY = '  <ResultSummary outcome="Failed">\n    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" />\n    <RunInfos>\n      <RunInfo computerName="ci" outcome="Error" timestamp="2026-11-19T10:00:00">\n        <Text>The active test run was aborted. Reason: Test host process crashed : Stack overflow.\n   at Demo.Tests.Recurse()</Text>\n      </RunInfo>\n    </RunInfos>\n  </ResultSummary>\n'
+const GOOD_SUMMARY = '  <ResultSummary outcome="Completed">\n    <Counters total="1" executed="1" passed="1" failed="0" />\n    <RunInfos>\n      <RunInfo computerName="ci" outcome="Warning" timestamp="2026-11-19T10:00:00"><Text>No test matches the given testcase filter</Text></RunInfo>\n    </RunInfos>\n  </ResultSummary>\n'
+
+test('trxAborted: a RunInfo error, an aborted count or result, a run that ended badly; a finished run and a warning are null', () => {
+  const row = [{ cls: 'Demo.Tests.PricingTests', name: 'Rounds_up', outcome: 'Passed' }]
+  assert.equal(trxAborted(trx(row, CRASH_SUMMARY)), 'The active test run was aborted. Reason: Test host process crashed : Stack overflow.')
+  assert.equal(trxAborted(trx(row, '<ResultSummary outcome="Aborted"><Counters total="1" /></ResultSummary>')), 'the test run ended as Aborted')
+  assert.equal(trxAborted(trx(row, '<ResultSummary outcome="Completed"><Counters total="2" passedButRunAborted="1" /></ResultSummary>')), 'the test run was aborted')
+  assert.equal(trxAborted(trx([{ ...row[0], outcome: 'PassedButRunAborted' }])), 'the test run was aborted')
+  assert.equal(trxAborted(trx(row, GOOD_SUMMARY)), null)
+  assert.equal(trxAborted(trx(row)), null)
+  assert.equal(trxAborted(fixture('xunit.trx')), 'the test run ended as Failed', 'read on its own; the runner asks only when no test failed')
+})
+
+test('a crashed test host with a partial TRX of passed tests: the spec is broken, never green', async t => {
+  const d = project()
+  const fake = fakeDotnet(`return { exit: 1, trx: trx([{ cls: 'Demo.Tests.PricingTests', name: 'Rounds_up', outcome: 'Passed' }], ${JSON.stringify(CRASH_SUMMARY)}) }`)
+  t.after(fake.restore)
+  const r = await dotnetRunner(d, { adapter: 'dotnet' })({ files: [SPEC] })
+  assert.deepEqual(r.tests.map(x => x.status), ['passed'])
+  assert.deepEqual(r.broken, [{ file: SPEC, message: 'the test run did not finish: The active test run was aborted. Reason: Test host process crashed : Stack overflow.' }])
+})
+
+test('a crash said only in dotnet\'s output (no RunInfo in the TRX), with a non-zero exit: the spec is broken', async t => {
+  const d = project()
+  const fake = fakeDotnet(`return { exit: 1, output: 'Passed Rounds_up\\nThe active test run was aborted. Reason: Test host process crashed\\n', trx: trx([{ cls: 'Demo.Tests.PricingTests', name: 'Rounds_up', outcome: 'Passed' }]) }`)
+  t.after(fake.restore)
+  const r = await dotnetRunner(d, { adapter: 'dotnet' })({ files: [SPEC] })
+  assert.deepEqual(r.broken, [{ file: SPEC, message: 'the test run did not finish: The active test run was aborted. Reason: Test host process crashed' }])
+})
+
+test('a finished run whose exit is still non-zero (a coverlet coverage threshold) stays green', async t => {
+  const d = project()
+  const fake = fakeDotnet(`return { exit: 1, output: 'Passed!  - Failed: 0, Passed: 1\\nerror : The total line coverage is below the specified 80\\n', trx: trx([{ cls: 'Demo.Tests.PricingTests', name: 'Rounds_up', outcome: 'Passed' }], ${JSON.stringify(GOOD_SUMMARY)}) }`)
+  t.after(fake.restore)
+  const r = await dotnetRunner(d, { adapter: 'dotnet' })({ files: [SPEC] })
+  assert.deepEqual(r.broken, [])
+  assert.deepEqual(r.tests.map(x => x.status), ['passed'])
+})
+
 test('no report and no compiler error: not run, with what dotnet said', async t => {
   const d = project()
   const fake = fakeDotnet(`return { exit: 1, output: 'Restoring...\\nerror NETSDK1045: The current .NET SDK does not support targeting .NET 9.0.\\n' }`)
@@ -237,6 +278,18 @@ test('dotnet.command: a filter of two classes is quoted, not read by the shell a
   await dotnetRunner(d, { adapter: 'dotnet', dotnet: { command: 'dotnet test {files}' } })({ files: [SPEC] })
   const args = fake.calls()[0].args
   assert.equal(args[args.indexOf('--filter') + 1], 'FullyQualifiedName~Demo.Tests.PricingTests.|FullyQualifiedName~Demo.Tests.OtherTests.')
+})
+
+test('dotnet.command on Windows: cmd.exe gets the line verbatim in one pair of quotes, its words in cmd quotes', () => {
+  const opts = { filter: 'FullyQualifiedName~A.|FullyQualifiedName~B.', report: 'C:\\T\\qc dotnet\\report.trx', dir: 'C:\\T\\qc dotnet', command: 'dotnet test {files} --no-restore' }
+  const win = dotnetSpawn('tests\\Demo Tests\\Demo.Tests.csproj', opts, true)
+  assert.equal(win.verbatim, true, 'Node must not re-quote the line: cmd.exe does not read \\" escapes')
+  assert.deepEqual(win.args.slice(0, 3), ['/d', '/s', '/c'])
+  assert.equal(win.args[3], '"dotnet test "tests\\Demo Tests\\Demo.Tests.csproj" --no-restore "--logger" "trx;LogFileName=C:\\T\\qc dotnet\\report.trx" "--results-directory" "C:\\T\\qc dotnet" --filter "FullyQualifiedName~A.|FullyQualifiedName~B.""')
+  const sh = dotnetSpawn('tests/Demo.Tests.csproj', { ...opts, report: '/t/r.trx', dir: '/t' }, false)
+  assert.deepEqual({ file: sh.file, verbatim: sh.verbatim, flag: sh.args[0] }, { file: '/bin/sh', verbatim: false, flag: '-c' })
+  assert.match(sh.args[1], /^dotnet test 'tests\/Demo\.Tests\.csproj' --no-restore '--logger'/)
+  assert.deepEqual(dotnetSpawn('p.csproj', { ...opts, command: null }, true), { file: 'dotnet', args: ['test', 'p.csproj', '--nologo', '--logger', 'trx;LogFileName=C:\\T\\qc dotnet\\report.trx', '--results-directory', 'C:\\T\\qc dotnet', '--filter', opts.filter], verbatim: false })
 })
 
 test('the pipeline on .NET: green with every mutant killed in place, and the spec comes back byte for byte', async t => {

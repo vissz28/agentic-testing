@@ -18,9 +18,13 @@ export function workspacePatterns(root, pkg) {
   const list = Array.isArray(w) ? w : Array.isArray(w?.packages) ? w.packages : null
   if (list) return list.filter(p => typeof p === 'string')
   try {
-    const yaml = readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8')
-    const block = /^packages:[ \t]*\r?\n((?:[ \t]*-[^\n]*\n?)*)/m.exec(yaml)?.[1]
-    if (block) return [...block.matchAll(/^[ \t]*-\s*['"]?([^'"\n#]+?)['"]?\s*(?:#.*)?$/gm)].map(m => m[1].trim())
+    // Comments dropped first, so one between the items doesn't end the list. A "packages: [a, b]" flow list is read too.
+    const yaml = readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8').replace(/(^|[ \t])#[^\n]*/gm, '$1')
+    const unquote = v => v.trim().replace(/^(['"])(.*)\1$/, '$2')
+    const flow = /^packages:[ \t]*\[([^\]]*)\]/m.exec(yaml)?.[1]
+    const block = /^packages:[ \t]*\r?\n((?:[ \t]*(?:-[^\n]*)?\r?(?:\n|$))*)/m.exec(yaml)?.[1]
+    const list = flow != null ? flow.split(',').map(unquote) : block ? [...block.matchAll(/^[ \t]*-[ \t]*(.*?)[ \t\r]*$/gm)].map(m => unquote(m[1])) : []
+    if (list.filter(Boolean).length) return list.filter(Boolean)
   } catch {}
   return null
 }

@@ -749,7 +749,7 @@ wheels = [
 
 [[package]]
 name = "quality-code-mcp"
-version = "0.68.0"
+version = "0.90.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
@@ -761,6 +761,11 @@ test = [
     { name = "pytest" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = ">=2,<3" },
@@ -768,6 +773,9 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
 ]
 provides-extras = ["test"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8" }]
 
 [[package]]
 name = "referencing"

@@ -15,7 +15,7 @@ import { projectSpecs } from '../report/quality-program.mjs'
 import { RUNNERS, runnerLabel, runnerOf } from '../stacks/runners.mjs'
 import { backendOf } from '../stacks/backends.mjs'
 import { detectConventions } from '../stacks/conventions.mjs'
-import { containersScaffold, containersWrite } from './containers.mjs'
+import { CONTAINER_BACKENDS, containersScaffold, containersWrite } from './containers.mjs'
 import { BUILD_COPIES, majorityRunner, workspaceDeps, workspaceDirs, workspacePatterns, workspaceRunners } from './workspaces.mjs'
 import { lines, toForwardSlashes, withoutOrigin } from '../core/text.mjs'
 import { readJson } from '../core/files.mjs'
@@ -437,14 +437,24 @@ function personalState(env) {
 // A subfolder depending on one of these is proposed first as the project root.
 const TEST_DEPS = [...UNIT_RUNNERS, '@playwright/test', 'cypress']
 
-const hasTestTool = (top, n) => { try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false } }
+// A Java, Go or Python project; it may sit one folder deeper than a Node one (services/orders/pom.xml).
+const BUILD_FILES = ['pom.xml', 'build.gradle', 'build.gradle.kts', 'go.mod', 'pyproject.toml', 'requirements.txt']
+const builds = dir => BUILD_FILES.some(f => existsSync(join(dir, f)))
 
-/** Subfolders with a package.json, test-tool ones first: root candidates when the top has none. */
+const hasTestTool = (top, n) => {
+  if (detectBackends(join(top, n)).length) return true
+  try { const pkg = readJson(join(top, n, 'package.json')); return TEST_DEPS.some(d => d in { ...pkg.dependencies, ...pkg.devDependencies }) || runsNodeTest(pkg) } catch { return false }
+}
+
+/** Subfolders with a package.json or a backend build file (two levels down for these), test-tool ones first: root candidates when the top has none. */
 function rootCandidates(top, ignored = new Set()) {
-  let names = []
-  try { names = readdirSync(top, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name) && !ignored.has(e.name)).map(e => e.name).sort() } catch {}
+  const dirs = rel => { try { return readdirSync(join(top, rel), { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name) && !ignored.has(rel ? `${rel}/${e.name}` : e.name)).map(e => rel ? `${rel}/${e.name}` : e.name).sort() } catch { return [] } }
+  const found = []
+  for (const n of dirs('')) {
+    if (existsSync(join(top, n, 'package.json')) || builds(join(top, n))) found.push(n)
+    else found.push(...dirs(n).filter(m => builds(join(top, m))))
+  }
   const tested = n => hasTestTool(top, n)
-  const found = names.filter(n => existsSync(join(top, n, 'package.json')))
   return [...found.filter(tested), ...found.filter(n => !tested(n))]
 }
 
@@ -452,7 +462,8 @@ function rootCandidates(top, ignored = new Set()) {
 export function rankRoots(top, candidates) {
   if (candidates.length < 2) return { ordered: candidates, evidence: {}, decisive: candidates.length === 1 }
   const evidence = Object.fromEntries(candidates.map(c => [c, { changed: 0, specs: 0 }]))
-  const folderOf = path => path.split('/')[0]
+  // The candidate a path is in; a candidate may be two folders deep.
+  const folderOf = path => candidates.find(c => path === c || path.startsWith(`${c}/`))
   for (const f of (gitOut(top, ['ls-files']) ?? '').split('\n')) {
     const c = folderOf(f)
     if (c in evidence && /\.(?:test|spec)\.[^/]+$|(?:^|\/)test_[^/]+\.py$|_test\.(?:go|py)$/.test(f)) evidence[c].specs++
@@ -662,6 +673,9 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
   // A config-set write saves only the previewed keys, not discovered templates.
   if (!configFile && out.ticketTemplates === undefined && (paths.bug || paths.story)) out.ticketTemplates = { bug: paths.bug, story: paths.story }
 
+  // A tickets folder that already holds the person's files is theirs: ignoring it would hide what they add next from git.
+  const ticketsAbs = join(root, cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir))
+  const theirs = !/^\.(?:claude\/)?quality-code(?:\/|$)/.test(cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)) && (() => { try { return readdirSync(ticketsAbs).some(n => n !== '.gitignore') } catch { return false } })()
   let step = ''
   try {
     for (const [p, body] of toWrite) {
@@ -677,7 +691,7 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
     writeFileSync(cfg, `${JSON.stringify(out, null, 2)}\n`)
     if (!configFile && placeOf(top, 'repo') === 'repo') {
       ignoreFolder(dirname(cfg))
-      ignoreFolder(join(root, cleanRelPath(config.ticketsDir ?? DEFAULTS.ticketsDir)))
+      if (!theirs) ignoreFolder(ticketsAbs)
     }
     // Only setup's own project files (Playwright output) get .gitignore lines.
     const playwrightLines = scaffold === undefined ? [] : [...PLAYWRIGHT_GITIGNORE, ...(scaffold.signIn ? SIGN_IN_GITIGNORE : [])]
@@ -699,8 +713,37 @@ export function write(top, config, { templates, gitignoreLine, scaffold, vitestS
       : `${formatted.tool} could not format ${formatted.files.join(', ')}: run it on them before you commit.`
   const legacy = !configFile && existsSync(join(top, CONFIG_REL)) ? CONFIG_REL : null
   const legacyNote = legacy ? `${legacy} is still there: on this machine the new config wins, but CI jobs read ${legacy} from the repo. Using /quality-code:ci? Replace it with config.json. If not, delete it.` : null
-  const note = [legacyNote, formatNote].filter(Boolean).join('\n')
+  const keptNote = theirs && !configFile && placeOf(top, 'repo') === 'repo' && !existsSync(join(ticketsAbs, '.gitignore'))
+    ? `${cleanRelPath(config.ticketsDir)} already holds your files, so setup left it in git: the ticket folders the plugin saves there show in git status, so add them to .gitignore if you want them out.` : null
+  const note = [legacyNote, keptNote, formatNote].filter(Boolean).join('\n')
   return { ok: true, config: placeConfigPath(top), ...(legacy ? { legacy } : {}), ...(note ? { note } : {}) }
+}
+
+/**
+ * What setup writes, by path, for the files it marks (Vitest configs, the Testcontainers helpers), each as setup would
+ * write it in this project now. /clean deletes one only while it still reads so: an edit (a migration added) keeps it.
+ * ponytail: a file the project's formatter reformatted reads as edited, and stays.
+ */
+export function scaffoldTexts(root, config) {
+  const out = new Map()
+  const add = (p, body) => out.set(p, new Set([...(out.get(p) ?? []), body.endsWith('\n') ? body : `${body}\n`]))
+  const ts = existsSync(join(root, 'tsconfig.json'))
+  const ext = ts ? 'ts' : 'js'
+  const backend = config?.backend ?? null
+  const integration = new Set([null])
+  if (CONTAINER_BACKENDS.includes(backend)) {
+    // The base config is the project's own, or the one setup wrote next to it.
+    const own = vitestConfigs(root).filter(n => !n.startsWith('vitest.integration.config.'))
+    const cmd = { ts, exec: EXEC[packageManager(root, packageJson(root)).pm] }
+    for (const base of new Set([own[0] ?? null, `vitest.config.${ext}`, null])) {
+      const c = containersWrite(root, backend, config, { deps: packageDeps(root), base, cmd })
+      if (c.errors) break
+      if (backend === 'vitest') integration.add(c.folder)
+      for (const [p, body] of c.files) add(p, body)
+    }
+  }
+  for (const e2e of [false, true]) for (const folder of integration) for (const x of ['ts', 'js']) add(`vitest.config.${x}`, vitestConfigText({ e2e, integration: folder }))
+  return out
 }
 
 /** Personal config only: no repo files, .gitignore or templates. */

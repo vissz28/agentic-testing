@@ -68,5 +68,7 @@ COMMIT;
 
 - `DROP`, `TRUNCATE` or `ALTER`: mock data deletes and inserts rows, it never changes the schema. The loader
   refuses them.
-- A `DELETE` or `UPDATE` that reaches another tenant's rows.
+- A `DELETE` or `UPDATE` that reaches another tenant's rows. With `seed.tenant` the loader also refuses a `NOT`
+  or a subquery around the tenant term, a `WITH … DELETE`, `MERGE`, `REPLACE`, and an `ON CONFLICT … DO UPDATE`
+  (use `DO NOTHING`: the reset already emptied this tenant's rows).
 - A value that stands for the ticket's case but is not in the ticket.

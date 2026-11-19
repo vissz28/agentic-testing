@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import secrets
 import time
@@ -58,7 +59,11 @@ def settings_from_env(entra: EntraSettings, env: dict[str, str]) -> WebSettings 
     secret = (env.get("QUALITY_CODE_ENTRA_CLIENT_SECRET") or "").strip()
     if not secret:
         return None
-    key = (env.get("QUALITY_CODE_SESSION_SECRET") or "").strip() or secrets.token_urlsafe(32)  # a random key signs users out on restart
+    # The cookie key: QUALITY_CODE_SESSION_SECRET, else derived from QUALITY_CODE_TOKEN_SECRET (the same on every replica and after a restart, so
+    # the Microsoft leg of a connector sign-in works anywhere), else random per start (signs people out on restart, one replica only).
+    token_secret = (env.get("QUALITY_CODE_TOKEN_SECRET") or "").strip()
+    derived = hmac.new(token_secret.encode(), b"quality-code/web-session", hashlib.sha256).hexdigest() if token_secret else ""
+    key = (env.get("QUALITY_CODE_SESSION_SECRET") or "").strip() or derived or secrets.token_urlsafe(32)
     gitlab = (env.get("QUALITY_CODE_GITLAB_MCP_URL") or GITLAB_MCP_URL).strip()
     return WebSettings(entra=entra, client_secret=secret, session_key=key, gitlab_mcp_url="" if gitlab.lower() in ("off", "none") else gitlab)
 
