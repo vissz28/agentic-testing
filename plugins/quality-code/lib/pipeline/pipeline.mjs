@@ -273,7 +273,7 @@ export async function runPipeline(opts, ctx) {
   if (groups.length > 1 && (opts.ticket || opts.key)) {
     const dialectOf = p => dialectFor(runnerOf(ctx.config, adapterOfSpec(ctx.config, ctx.root, p)))
     const wholeBranch = ctx.config.ticketAnchor === 'branch' && Boolean(opts.range)
-    if (!wholeBranch && lacksAnchor(specs, opts.key, ctx, dialectOf)) parts.push({ adapter: null, steps: [noAnchorStep()] })
+    if (!wholeBranch && lacksAnchor(specs, opts.key, ctx, dialectOf)) parts.push({ adapter: null, steps: [noAnchorStep(opts.key, opts.ticket, ctx.root)] })
     else if (opts.ticket) {
       ctx.live?.step('expected')
       parts.push({ adapter: null, steps: [await step('expected', () => expected.run({ specs, key: opts.key ?? null, ticket: opts.ticket, candidates: opts.candidates ?? [], whole: ctx.config.ticketAnchor === 'branch' && Boolean(opts.range) }, { ...ctx, dialectOf }))] })
@@ -298,7 +298,13 @@ function lacksAnchor(specs, key, ctx, dialectOf = () => ctx.dialect) {
     return !keyPattern(key).test(src)
   })
 }
-const noAnchorStep = () => result('expected', 'pass', NO_ANCHOR, [], { applicable: false, noAnchor: true })
+/**
+ * /check on an existing spec: a note. Inside a test-writing run with the ticket, the specs it wrote must name the key,
+ * or dropping it from a title would switch the value check off: not verified.
+ */
+const noAnchorStep = (key, ticket, root) => (ticket && runActive(root)
+  ? result('expected', 'not_run', `no spec names ${key}: the ticket's expected values cannot be compared; keep ${key} in the describe title`, [], { applicable: true, noAnchor: true })
+  : result('expected', 'pass', NO_ANCHOR, [], { applicable: false, noAnchor: true }))
 
 const withVerdict = steps => ({ ...decide(steps), steps })
 const LIST_MAX = 40
@@ -378,7 +384,7 @@ async function runSide({ specs, key = null, range = null, flakyRuns = null, tick
     steps.push(testsStep(run, specs, key))
   }
   const tests = steps.at(-1)
-  if (noAnchor) { if (!multi) steps.push(noAnchorStep()) }
+  if (noAnchor) { if (!multi) steps.push(noAnchorStep(key, ticket, ctx.root)) }
   else if (ticket) steps.push(await at('expected', () => expected.run({ specs, key, ticket, candidates, whole }, c)))
   // Whole-suite CI runs pass --no-mutation: it's the slow step, kept for changed specs.
   if (!mutate) steps.push(result('mutation', 'pass', 'not applicable: left out of this run (--no-mutation)', [], { applicable: false }))

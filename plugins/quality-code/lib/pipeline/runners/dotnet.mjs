@@ -44,6 +44,28 @@ export function parseTrx(xml) {
   return out
 }
 
+const ENDED_BADLY = new Set(['Aborted', 'Error', 'Failed', 'Timeout'])
+
+/**
+ * Why the run did not finish, from the TRX itself: a RunInfo error (VSTest writes "The active test run was aborted.
+ * Reason: Test host process crashed" there), a result outcome of an aborted run, or the run's own outcome. null when it
+ * finished. The run's outcome is only read when no test failed (see runDotnet): "Failed" is then not a failed test.
+ */
+export function trxAborted(xml) {
+  const doc = parseXml(xml)
+  const run = child(doc, 'TestRun') ?? doc
+  const summary = child(run, 'ResultSummary')
+  const info = descendants(summary ?? run, 'RunInfo').find(r => r.attrs.outcome === 'Error')
+  const text = firstLine(child(info, 'Text')?.text)
+  if (info) return text || 'the test run reported an error'
+  const counters = child(summary, 'Counters')?.attrs ?? {}
+  if (Number(counters.aborted) > 0 || Number(counters.passedButRunAborted) > 0 || descendants(run, 'UnitTestResult').some(r => r.attrs.outcome === 'PassedButRunAborted')) return 'the test run was aborted'
+  const outcome = summary?.attrs.outcome
+  return ENDED_BADLY.has(outcome) ? `the test run ended as ${outcome}` : null
+}
+
+const CRASHED = /The active test run was aborted|Test host process crashed/i
+
 /** First compiler error, e.g. "File.cs(12,5): error CS1002: ; expected", minus the [project] suffix. */
 export function buildError(text) {
   const m = /^.*?\berror (?:CS|FS|BC)\d+:.*$/m.exec(String(text ?? ''))
@@ -134,6 +156,12 @@ export function runDotnet(root, project, { filter, command = null, timeoutMs }) 
       try {
         const reports = existsSync(dir) ? trxFiles(dir) : []
         const results = reports.flatMap(f => parseTrx(readFileSync(f, 'utf8')))
+        // A crashed test host (a stack overflow) still writes the results it had, all passed. The TRX says the run
+        // did not finish; the exit code alone does not (a coverage threshold fails it after a good run).
+        if (reports.length && results.some(t => t.status === 'passed') && !results.some(t => t.status === 'failed')) {
+          const why = reports.map(f => trxAborted(readFileSync(f, 'utf8'))).find(Boolean) ?? (code ? firstLine(output.split('\n').filter(l => CRASHED.test(l)).join('\n')) : null)
+          if (why) return finish({ ran: true, results, aborted: why })
+        }
         if (reports.length) return finish({ ran: true, results })
         // No report: the build failed or the run never started.
         const err = buildError(output)
@@ -168,6 +196,7 @@ export function dotnetRunner(root, config) {
       const r = await runDotnet(root, localToForwardSlashes(relative(root, project)) || project, { filter: filterFor(classes, testName), command, timeoutMs: timeoutMs ?? defaultMs })
       if (!r.ran) return { ran: false, tests: [], broken: [], error: r.error }
       if (r.buildError) { out.broken.push(...specs.map(s => ({ file: s.file, message: `does not compile: ${r.buildError}` }))); continue }
+      if (r.aborted) out.broken.push(...specs.map(s => ({ file: s.file, message: `the test run did not finish: ${r.aborted}` })))
       const byFqn = new Map(classes.map(c => [c.fqn, c]))
       const byName = new Map()
       for (const c of classes) byName.set(c.name, byName.has(c.name) ? null : c)
