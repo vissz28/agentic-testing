@@ -23,7 +23,12 @@ test('the card is relayed verbatim without the machine line', () => {
 test('a menu follows the card, and it fits the case: update offers the update, the rest only check or stop', () => {
   assert.match(doc, /End your turn after every card/)
   assert.match(doc, /`update` \(a new version is out\):[\s\S]*1\. Update to the latest version\n\s*2\. Check the version again\n\s*3\. Stop/)
-  assert.match(doc, /`reload`, `current` or `ahead`:[\s\S]*1\. Check the version again\n\s*2\. Stop/)
+  assert.match(doc, /`reload`, `current` or `ahead`:[\s\S]*1\. Remove the old versions[^\n]*\n\s*2\. Check the version again\n\s*3\. Stop/)
+  assert.match(doc, /Leave out option 1 when the `CHECK_UPDATE_JSON:` line has `old` 0/)
+  assert.match(doc, /close this one and open a new one/)
+})
+test('old copies are deleted only after a yes, by the script', () => {
+  assert.match(doc, /Only on yes: run `node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs" --remove-old`/)
 })
 test('the update runs the one pre-approved command, with the id the script reports, only after option 1', () => {
   assert.ok(doc.includes('Run `claude plugin update <id>` with the `id` of the last `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none)'))
