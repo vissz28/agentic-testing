@@ -28,7 +28,7 @@ test('a menu follows the card, and it fits the case: update offers the update, t
   assert.match(doc, /close this one and open a new one/)
 })
 test('old copies are deleted only after a yes, by the script', () => {
-  assert.match(doc, /Only on yes: run `node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs" --remove-old`/)
+  assert.match(doc, /Only on a yes: run `node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs" --remove-old`/)
 })
 test('the update runs the one pre-approved command, with the id the script reports, only after option 1', () => {
   assert.ok(doc.includes('Run `claude plugin update <id>` with the `id` of the last `CHECK_UPDATE_JSON:` line (`quality-code@teamsystem` when it has none)'))

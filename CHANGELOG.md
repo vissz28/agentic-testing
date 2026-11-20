@@ -9,6 +9,20 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-11-20
+
+### Added
+
+- **`/help --version`** shows the installed version of Quality Code.
+
+## [0.90.1] - 2026-11-19
+
+### Added
+
+- **Update: force the cache clean.** `Quality Code update` > **Remove the old versions** has a second yes, `and the one running now too`: it deletes every cached copy except the installed one (`update.mjs --old --all`, `--remove-old --all`). Open a new session after it. A session already running an older version keeps its old command text, so it can't show this: close it, open a new one, or run the script from the installed copy.
+
+**What to do:** update, open a new session, run `Quality Code update` once.
+
 ## [0.90.0] - 2026-11-19
 
 Fixes from a full bug hunt: no more false greens, safer shared server, and commands that no longer touch what is yours.
