@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  buildCommand, collect, compileError, fillCommand, junitRunner, moduleOf, parseJUnitXml, selectorsFor, specInfo, titleOf,
+  buildCommand, collect, compileError, fillCommand, junitRunner, jvmDied, moduleOf, parseJUnitXml, selectorsFor, specInfo, titleOf,
 } from '../../../lib/pipeline/runners/junit.mjs'
 import { inKeyBlock } from '../../../lib/config/keys.mjs'
 import { fakeCommand } from '../../fake-bin.mjs'
@@ -194,6 +194,37 @@ test('Maven run by name: -Dtest=Class#method, and the results of that test', asy
     assert.deepEqual(r.tests.map(t => t.title), ['zero'])
     assert.match(mvn.calls()[0], /-Dtest=demo\.pricing\.LineTotalTest\$WhenEmpty#zero /)
   } finally { mvn.restore() }
+})
+
+test('a build that fails after the test JVM died, every written report passed: the spec is broken, never green', async () => {
+  const d = project({ 'pom.xml': '<project/>', [JSPEC]: JAVA })
+  const say = '[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.2.5:test (default-test) on project demo: \\n[ERROR] ExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?\\n'
+  const mvn = fakeTool('mvn', { into: join(d, 'target/surefire-reports'), exit: 1, say, reports: [{ from: 'surefire-TEST-demo.pricing.LineTotalTest$WhenEmpty.xml', to: 'TEST-demo.pricing.LineTotalTest$WhenEmpty.xml' }] })
+  try {
+    const r = await junitRunner(d, cfg())({ files: [JSPEC] })
+    assert.ok(r.tests.length && r.tests.every(t => t.status !== 'failed'))
+    assert.deepEqual(r.broken, [{ file: JSPEC, message: 'the test run did not finish: ExecutionException The forked VM terminated without properly saying goodbye. VM crash or System.exit called?' }])
+  } finally { mvn.restore() }
+})
+
+test('a build that fails for another reason after good tests (a coverage check): the spec stays green', async () => {
+  const d = project({ 'pom.xml': '<project/>', [JSPEC]: JAVA })
+  const say = '[ERROR] Failed to execute goal org.jacoco:jacoco-maven-plugin:0.8.12:check (check) on project demo: Coverage checks have not been met.\\n'
+  const mvn = fakeTool('mvn', { into: join(d, 'target/surefire-reports'), exit: 1, say, reports: [{ from: 'surefire-TEST-demo.pricing.LineTotalTest$WhenEmpty.xml', to: 'TEST-demo.pricing.LineTotalTest$WhenEmpty.xml' }] })
+  try {
+    const r = await junitRunner(d, cfg())({ files: [JSPEC] })
+    assert.ok(r.tests.length)
+    assert.deepEqual(r.broken, [])
+  } finally { mvn.restore() }
+})
+
+test('jvmDied: Surefire, Failsafe and Gradle crash lines, without the [ERROR] prefix; anything else is null', () => {
+  assert.equal(jvmDied('[INFO] x\n[ERROR] The forked VM terminated without saying goodbye. VM crash or System.exit called?\n'), 'The forked VM terminated without saying goodbye. VM crash or System.exit called?')
+  assert.equal(jvmDied('[ERROR] There was an error in the forked process\n[ERROR] java.lang.OutOfMemoryError'), 'There was an error in the forked process')
+  assert.equal(jvmDied("> Process 'Gradle Test Executor 3' finished with non-zero exit value 134"), "> Process 'Gradle Test Executor 3' finished with non-zero exit value 134")
+  assert.equal(jvmDied('Could not complete execution for Gradle Test Executor 2.'), 'Could not complete execution for Gradle Test Executor 2.')
+  assert.equal(jvmDied('[ERROR] Coverage checks have not been met.'), null)
+  assert.equal(jvmDied(''), null)
 })
 
 test('a compile error: the build fails with no report, the spec is broken with the compiler\'s line', async () => {

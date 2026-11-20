@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { commandInfo, main } from '../../bin/help.mjs'
@@ -53,6 +53,13 @@ test('--all lists every command; a name shows that command; bad input is exit 2'
   assert.equal(run(['nope']).code, 2)
   assert.equal(run(['--bogus']).code, 2)
   assert.equal(run(['--qa', '--po']).code, 2)
+})
+
+test('--version shows the plugin.json version, whatever the setup', () => {
+  const { version } = JSON.parse(readFileSync(new URL('../../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
+  const r = run(['--version'])
+  assert.equal(r.code, 0)
+  assert.equal(r.out, `Quality Code ${version}\n`)
 })
 
 test('every command a role names exists and has examples', () => {

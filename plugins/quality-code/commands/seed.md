@@ -88,7 +88,7 @@ The project names, once, how to reach its local database. The plugin never knows
 }
 ```
 
-- **`target`** prints the database it reaches, as `host[:port]/database` or a URL (a password in it is never shown). Only `localhost`, `127.x.x.x`, `::1` or a container name (one word, like `postgres`) pass. For a database in a container, ask it: `docker exec db psql -U app -Atc "select 'db/' || current_database()"`.
+- **`target`** prints the database it reaches, as `host[:port]/database` or a URL (a password in it is never shown). Only `localhost`, `127.x.x.x`, `::1` or a database container name (`postgres`, `db`, `mysql`, `mongo`, `redis` and the like, optionally with a replica number like `db_1`) pass. A `?host=` in a URL is checked too. For a database in a container, ask it: `docker exec db psql -U app -Atc "select 'db/' || current_database()"`.
 - **`apply`** loads one SQL file, `{file}`, into that database. It may do more after the load, such as empty the app's cache.
 - **`tenant`** keeps every reset and update to one tenant: the one the local app shows. Leave it out when the app has no tenants.
 - It never runs in CI.

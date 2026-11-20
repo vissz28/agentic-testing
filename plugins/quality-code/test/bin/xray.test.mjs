@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFil
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { XRAY_HEADERS, xrayOf } from '../../lib/config/config.mjs'
-import { append, buildRows, caseError, casesIn, headerRow, main, parseCsv, readCases, toLine } from '../../bin/xray.mjs'
+import { append, buildRows, caseError, casesIn, headerRow, main, parseCsv, readCases, sync, toLine } from '../../bin/xray.mjs'
 
 const IT = { ...XRAY_HEADERS, action: 'Azione', expected: 'Risultato atteso', priority: 'Piorità', component: 'Componenti', ticket: 'Ticket collegati', epic: 'Epica', data: 'Dati' }
 const CASE = { key: 'Shows the empty message', summary: 'demo, "x"', description: 'When I filter:\n- nothing matches', feature: 'Giacenza_Prodotti', ticket: 'ABC-1', steps: [{ action: 'Open /stock', expected: 'grid, visible' }, { action: 'Filter', data: 'a, b', expected: 'ok' }] }
@@ -179,4 +179,16 @@ test('a personal config has Xray on without a block: the cases go to xray-cases.
   assert.equal(x.csv, '/home/me/.claude/quality-code/tickets/xray-cases.csv')
   assert.equal(x.folder, '/home/me/.claude/quality-code/tickets/')
   assert.equal(xrayOf({ ticketsDir: '.quality-code/tickets' }, 'repo'), null, 'a repo still needs its xray block')
+})
+
+test('an absolute CSV path (personal tickets folder) is used as is, not nested under the project', async () => {
+  const d = project(null)
+  const home = mkdtempSync(join(tmpdir(), 'qc-xray-home-'))
+  const x = xrayOf({ ticketsDir: home }, 'personal')
+  assert.deepEqual(append(d, x, [CASE]), ['TC 1: Shows the empty message'])
+  assert.ok(existsSync(join(home, 'xray-cases.csv')))
+  assert.equal(existsSync(join(d, home)), false, 'no copy of the personal folder inside the project')
+  assert.deepEqual(readCases(d, x).map(c => c.key), ['Shows the empty message'])
+  assert.deepEqual(await sync(d, x), [`For QA: ${home}/ABC-1/case.csv`, 'No exceljs in this project, so no case.xlsx: Xray imports case.csv as well.'])
+  assert.ok(existsSync(join(home, 'ABC-1/case.csv')))
 })

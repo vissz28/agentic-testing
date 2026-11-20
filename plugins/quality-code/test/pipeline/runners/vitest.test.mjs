@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { configFor, parseReport, titlePattern, vitestRunner } from '../../../lib/pipeline/runners/vitest.mjs'
+import { configFor, parseReport, titlePattern, unhandled, vitestRunner } from '../../../lib/pipeline/runners/vitest.mjs'
+import { testsStep } from '../../../lib/pipeline/pipeline.mjs'
 import { calls, fakeBin } from '../../fake-bin.mjs'
 
 // The describe path each result carries is checked on its own (below); these compare the rest.
@@ -65,6 +66,37 @@ test('runner: a non-zero exit with a report is still read (review focus 2)', asy
   assert.equal(r.ran, true)
   assert.equal(r.tests[0].status, 'failed')
   assert.deepEqual(r.broken, [{ file: 'b.spec.ts', message: 'setup crashed' }])
+})
+test('runner: an unhandled error the errors reporter lists marks the files broken, with its message, never green', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { exit: 1, unhandled: [{ name: 'AssertionError', message: 'expected 150 to be 80' }], report: report(d, [{ file: 'a.spec.ts', tests: [t('ok', 'passed')] }]) })
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
+  assert.equal(r.tests[0].status, 'passed')
+  assert.deepEqual(r.broken, [{ file: 'a.spec.ts', message: 'unhandled error: AssertionError: expected 150 to be 80' }])
+  assert.equal(testsStep(r, ['a.spec.ts']).status, 'not_run')
+  const argv = calls(d, 'vitest')[0]
+  assert.ok(argv.some(a => /^--reporter=.*vitest-errors-reporter\.mjs$/.test(a)))
+  assert.ok(argv.includes('--coverage.enabled=false'))
+})
+test('runner: a non-zero exit with no unhandled error (a coverage threshold, a plugin) stays green', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { exit: 1, unhandled: [], report: report(d, [{ file: 'a.spec.ts', tests: [t('ok', 'passed')] }]) })
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
+  assert.deepEqual(r.broken, [])
+  assert.equal(testsStep(r, ['a.spec.ts']).status, 'pass')
+})
+test('runner: no errors list (a Vitest too old for the reporter\'s hooks): a non-zero exit with every test passed is not green', async () => {
+  const d = proj()
+  fakeBin(d, 'vitest', { exit: 1, report: report(d, [{ file: 'a.spec.ts', tests: [t('ok', 'passed')] }]) })
+  const r = await vitestRunner(d, cfg())({ files: ['a.spec.ts'] })
+  assert.match(r.broken[0].message, /exited with code 1 although no test failed/)
+  assert.equal(testsStep(r, ['a.spec.ts']).status, 'not_run')
+})
+test('unhandled: the first listed error, nothing for an empty list, the exit code only without a list', () => {
+  assert.equal(unhandled([{ name: 'TypeError', message: 'x is undefined' }, { name: 'Error', message: 'later' }], 1), 'unhandled error: TypeError: x is undefined')
+  assert.equal(unhandled([], 1), null)
+  assert.equal(unhandled(null, 0), null)
+  assert.match(unhandled(null, 1), /exited with code 1/)
 })
 test('runner: no report → ran false with the first stderr line; missing binary; timeout', async () => {
   const d = proj()
@@ -204,4 +236,23 @@ test('parseReport: each result keeps its describe titles, outermost first', () =
     { title: 'loose', status: 'passed' },
   ] }] }, '/p')
   assert.deepEqual(r.tests.map(t => t.path), [['ABC-1 Pricing', 'totals'], []])
+})
+test('errors reporter: writes the first line of each unhandled error from either hook, [] when none, nothing without the env', async () => {
+  const { default: Reporter, ERRORS_ENV } = await import('../../../lib/pipeline/runners/vitest-errors-reporter.mjs')
+  const file = join(mkdtempSync(join(tmpdir(), 'qc-vt-errors-')), 'errors.json')
+  const before = process.env[ERRORS_ENV]
+  try {
+    delete process.env[ERRORS_ENV]
+    new Reporter().onTestRunEnd([], [new Error('x')])
+    assert.equal(existsSync(file), false)
+    process.env[ERRORS_ENV] = file
+    new Reporter().onTestRunEnd([], [])
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), [])
+    const e = new TypeError('total is undefined\n    at x')
+    new Reporter().onFinished([], [e])
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), [{ name: 'TypeError', message: 'total is undefined' }])
+  } finally {
+    if (before === undefined) delete process.env[ERRORS_ENV]
+    else process.env[ERRORS_ENV] = before
+  }
 })

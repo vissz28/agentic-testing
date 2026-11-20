@@ -9,6 +9,46 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-11-20
+
+### Added
+
+- **`/help --version`** shows the installed version of Quality Code.
+
+## [0.90.1] - 2026-11-19
+
+### Added
+
+- **Update: force the cache clean.** `Quality Code update` > **Remove the old versions** has a second yes, `and the one running now too`: it deletes every cached copy except the installed one (`update.mjs --old --all`, `--remove-old --all`). Open a new session after it. A session already running an older version keeps its old command text, so it can't show this: close it, open a new one, or run the script from the installed copy.
+
+**What to do:** update, open a new session, run `Quality Code update` once.
+
+## [0.90.0] - 2026-11-19
+
+Fixes from a full bug hunt: no more false greens, safer shared server, and commands that no longer touch what is yours.
+
+### Fixed
+
+- **Grading.** Vitest unhandled errors, a crashed .NET or JUnit run with a partial report, new type errors in a folder with `(` (Next.js `app/(auth)/`) and a spec that dropped the ticket key no longer come out green. Each runner blocks only on its own crash signal, so a coverage threshold failing after good tests stays green.
+- **Boundary during a run.** App code named like a test (`LabTest.java` in `src/main`, `ab_test.py` outside a tests folder) is protected. The hook now also watches Bash: removing `run.active`, rewriting the config or settings, or `git clean -x` is denied while a run is active. A hook that crashes, or finds no node, blocks during a run and lets writes through otherwise.
+- **Shared server.** Connector sign-ins check `QUALITY_CODE_ENTRA_REQUIRED_SCOPE`. A refresh is refused after the rules version or the required role changed, and a sign-in lasts at most 14 days. The second token refresh no longer fails. Remote scripts read no file on the server, save nothing there, and get only an allowlisted environment. The bearer token no longer follows a redirect to another host or to http. `jira_tree` no longer takes `UTF-8` or `SHA-256` for ticket keys, and the Jira project list goes past 500 projects.
+- **`/seed`** refuses a URL whose `?host=` points elsewhere, and a one-word host counts as local only when it is a database container name (`postgres`, `db`, `mysql`...). The tenant guard refuses `NOT`, writing CTEs, upserts that update, `MERGE` and `REPLACE`.
+- **`/clean`** keeps setup files you edited (a migration added to `global-setup.ts` or `conftest.py`) and lists only the tests `/spec` wrote.
+- **Setup.** The Prisma Testcontainers setup points `directUrl` at the container too, so migrations never reach the real database. A Java, Go or Python backend in a subfolder is offered. An existing folder picked as the tickets folder is no longer hidden from git. pnpm workspaces with comments or `[a, b]` lists are detected.
+- **Jira.** `jira-update` no longer re-sends answers already on the ticket, and its preview shows the co-author line. The title prefix keeps a tag like `[URGENT]`. A story rewrite that still holds redacted placeholders is never posted.
+- **Tickets and transcripts.** The branch key reads `MY_PROJ-12` whole and skips `utf-8`. Italian "Comportamento atteso" is an expected-result heading. `--mask-speakers` hides the names in the spoken text too. Word files leave out text deleted with tracked changes. An expected | actual answer keeps its extra lines.
+- **Xray.** The master CSV lands in QA's personal folder; cases are no longer written twice.
+- **Report.** Runs through `direct` and resumed sessions are counted once, so the cost per run is right. Mythos 5 and fast mode have prices.
+- **Windows.** `dotnet.command` runs, a timeout kills the whole process tree, and `find-node.ps1` never runs a `node.exe` from a folder another user can write.
+- **Other.** `/update` no longer says "reload" because another project has a newer copy. `routes.mjs specs` with no arguments finds the specs. `applies_to: all` no longer crashes. The generated GitLab CI quotes a folder with a space. `release.mjs bump` updates `uv.lock`.
+
+### Changed
+
+- The server's sign-in chain needs one replica (see `DEPLOY.md`, Known limits); a callback on another replica now says so instead of "expired".
+- CI runs the server's Python tests, the Harbor image is built only after the whole test workflow passes, and the actions are pinned to commit SHAs.
+
+**What to do:** update the plugin and open a new session. A `/seed` target with a container name other than the usual database names: print `localhost:<port>` instead. Running the server: deploy the new image, keep one replica, and if `QUALITY_CODE_ENTRA_REQUIRED_SCOPE` is set, make sure it names an app role.
+
 ## [0.89.11] - 2026-11-19
 
 ### Added

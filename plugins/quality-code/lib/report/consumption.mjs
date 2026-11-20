@@ -33,7 +33,7 @@ function add(b, e, prices, unknown) {
   b.tokens.output += e.tokens.output
   b.tokens.cacheWrite += e.tokens.cacheWrite5m + e.tokens.cacheWrite1h
   b.tokens.cacheRead += e.tokens.cacheRead
-  const price = e.fast ? null : priceFor(e.model, prices)
+  const price = priceFor(e.model, prices, e.fast)
   const c = costOf(e.tokens, price)
   if (c === null) {
     b.unpriced++

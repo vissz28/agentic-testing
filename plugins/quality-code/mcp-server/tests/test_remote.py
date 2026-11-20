@@ -103,3 +103,37 @@ def test_remote_runs_the_help_script_and_its_command_is_not_marked_as_needing_a_
     tools = {t.name: t for t in asyncio.run(s.list_tools())}
     assert not tools["quality_code_help"].description.startswith("Needs your repo")
     assert "unknown script" not in text(asyncio.run(s.call_tool("quality_code_run_script", {"script": "help"})))
+
+
+def test_remote_scripts_get_an_allowlisted_environment(tmp_path, monkeypatch):
+    import subprocess
+    import quality_code_mcp.server as srv
+
+    for k, v in {"QUALITY_CODE_ENTRA_CLIENT_SECRET": "entra", "QUALITY_CODE_TOKEN_KEY": "key", "AWS_SECRET_ACCESS_KEY": "aws", "NODE_EXTRA_CA_CERTS": "/ca.pem", "PATH": "/usr/bin"}.items():
+        monkeypatch.setenv(k, v)
+    seen: dict = {}
+
+    def fake_run(cmd, **kw):
+        seen.clear()
+        seen.update(kw["env"])
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(srv, "find_node", lambda: "node")
+    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+    asyncio.run(build(ROOT, remote=True, fixed_cwd=tmp_path).call_tool("quality_code_run_script", {"script": "ticket", "args": ["config", "check"]}))
+    assert not {"QUALITY_CODE_ENTRA_CLIENT_SECRET", "QUALITY_CODE_TOKEN_KEY", "AWS_SECRET_ACCESS_KEY"} & seen.keys()
+    assert seen["PATH"] == "/usr/bin" and seen["NODE_EXTRA_CA_CERTS"] == "/ca.pem" and seen["QUALITY_CODE_STATELESS"] == "1" and "QUALITY_CODE_CONFIG_JSON" in seen
+    # the local server is the person's own: the test runners get everything
+    asyncio.run(build(ROOT).call_tool("quality_code_run_script", {"script": "ticket", "args": ["config", "check"], "cwd": str(tmp_path)}))
+    assert seen["AWS_SECRET_ACCESS_KEY"] == "aws"
+
+
+def test_remote_ticket_script_reads_no_file_on_the_server(tmp_path):
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "ticket.json").write_text('{"key":"ABC-9","summary":"another person\'s ticket","text":{"description":"x"}}')
+    work = tmp_path / "work"
+    work.mkdir()
+    s = build(ROOT, remote=True, fixed_cwd=work)
+    r = text(asyncio.run(s.call_tool("quality_code_run_script", {"script": "ticket", "args": ["sanitize", "--in", f"@{other / 'ticket.json'}"]})))
+    assert "another person" not in r and "reads and writes no file" in r and "[exit code 2]" in r

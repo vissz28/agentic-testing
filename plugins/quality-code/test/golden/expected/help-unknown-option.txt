@@ -2,4 +2,4 @@ $ help --nope
 exit 2
 --- stdout
 --- stderr
-unknown option --nope. usage: help.mjs [<command>] [--dev | --qa | --po] [--all]
+unknown option --nope. usage: help.mjs [<command>] [--dev | --qa | --po] [--all] [--version]

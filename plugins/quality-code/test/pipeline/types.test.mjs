@@ -146,3 +146,11 @@ test('an old type error in a spec the tests were added to does not fail the step
   assert.equal(readTsc(`${old}\na.spec.ts(2,7): error TS2322: x`, 2, ['a.spec.ts'], false, isNew).status, 'fail')
   assert.equal(readTsc(old, 2, ['a.spec.ts']).status, 'fail', 'without git, every error in a spec fails as before')
 })
+test('readTsc: a spec in a folder with "(" (Next.js app/(auth)/) is asked about by its own path and line', () => {
+  const asked = []
+  const isNew = (f, l) => { asked.push([f, l]); return true }
+  const r = readTsc('app/(auth)/login.spec.ts(3,7): error TS2322: bad\n', 2, ['app/(auth)/login.spec.ts'], false, isNew)
+  assert.equal(r.status, 'fail')
+  assert.equal(r.findings[0].file, 'app/(auth)/login.spec.ts')
+  assert.deepEqual(asked, [['app/(auth)/login.spec.ts', 3]])
+})

@@ -174,3 +174,12 @@ def test_the_plugin_tab_has_two_buttons_for_claude_code_desktop_and_the_cli(tmp_
         h = c.get("/").text
     assert 'href="claude://code/new?q=' in h and "Open in Claude Code Desktop" in h
     assert 'href="claude-cli://open?q=' in h and "Open in Claude Code CLI" in h
+
+
+def test_the_cookie_key_comes_from_the_token_secret_so_every_replica_and_restart_reads_the_cookies():
+    env = {"QUALITY_CODE_ENTRA_CLIENT_SECRET": "shh", "QUALITY_CODE_TOKEN_SECRET": "t" * 40}
+    a, b = web.settings_from_env(S, env), web.settings_from_env(S, env)
+    assert a.session_key == b.session_key and a.session_key != "t" * 40  # derived, not the token secret itself
+    assert web.settings_from_env(S, {**env, "QUALITY_CODE_SESSION_SECRET": "own"}).session_key == "own"
+    alone = {"QUALITY_CODE_ENTRA_CLIENT_SECRET": "shh"}
+    assert web.settings_from_env(S, alone).session_key != web.settings_from_env(S, alone).session_key  # neither set: random per start, as before

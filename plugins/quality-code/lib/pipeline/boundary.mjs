@@ -9,6 +9,7 @@ import { ignoreFolder } from '../core/ignore.mjs'
 import { readJson } from '../core/files.mjs'
 import { stripDotSlash, leavesFolder } from '../core/paths.mjs'
 import { isObject } from '../core/is.mjs'
+import { escapeRegExp } from '../core/text.mjs'
 
 // Off limits to every run, so it can't disable its own hook or rewrite what judges it.
 // STATE is written by our own scripts mid-run, so only the hook guards it, not the diff check.
@@ -73,10 +74,27 @@ const BASELINE_IMAGE = /(?:^|\/)[^/]+\.(?:spec|test)\.[cm]?[jt]sx?-snapshots\/[^
 
 const norm = stripDotSlash
 
+// Where each backend's tests live, so app code named like a test (src/main/java/LabTest.java, app/ab_test.py) stays forbidden.
+// Go keeps _test.go beside the code: anywhere. The backend's layer folders count too.
+const TEST_HOME = {
+  junit: /(?:^|\/)src\/(?:[^/]*[tT]est[^/]*|it)\//,
+  pytest: /(?:^|\/)tests?\//,
+  dotnet: /(?:^|\/)(?:[^/]*Tests?|tests?)\//,
+}
+
 /** Non-Vitest backends keep tests in the code tree (Maven src/test/java, Go): allow their test files there. Vitest uses `allow`. */
 export function testsAnywhere(config) {
   const b = backendOf(config)
-  return b && b !== 'vitest' ? BACKENDS[b].testFile : null
+  if (!b || b === 'vitest') return null
+  const name = BACKENDS[b].testFile
+  const home = TEST_HOME[b]
+  if (!home) return name
+  // Not layersOf: config.mjs imports this file.
+  const layers = Array.isArray(config[b]?.layers) ? config[b].layers : BACKENDS[b].defaultLayers
+  const folders = layers.map(l => norm(String(l?.folder ?? '')).replace(/^\.$/, '').replace(/\/*$/, '/'))
+  // A "./" layer puts the tests beside the code, like Go.
+  if (folders.includes('/')) return name
+  return { test: p => name.test(p) && (home.test(p) || folders.some(f => matches(f, p))) }
 }
 
 export function rulesFor(config, root) {
@@ -132,13 +150,46 @@ export function onDisk(p) {
 
 const FOLDS = process.platform === 'darwin' || process.platform === 'win32'
 
+// Bash: a shell line can't be parsed safely, so only the boundary's own state is guarded, by name. It stops `rm run.active`
+// and `> .claude/settings.local.json`, not a determined script; the diff check still judges the run at the end.
+const WHY_STATE = 'the boundary\'s own state: a test run never removes its run marker, log or audit, or rewrites the config and settings that set its rules. `checks.mjs run status` shows the run.'
+const STATE_NAME = /run\.active|boundary\.jsonl|quality-code[\\/]+audit(?![\w-])/i
+const RULE_FILE = /(?:\.claude[\\/]+quality-code\.json|\.quality-code[\\/]+config\.json|\.claude[\\/]+settings(?:\.local)?\.json)/i
+const STATE_FOLDER = /(?:^|[\s'"=/\\])(\.claude(?:[\\/]+quality-code)?)[\\/]*\*?(?=$|[\s'";&|)])/i
+const VERB = String.raw`(?:^|[\s;&|(\x60])`
+const WRITES = new RegExp(`${VERB}(?:rm|rmdir|mv|cp|ln|unlink|shred|truncate|tee|dd|install|del|erase|rd|move|copy|Remove-Item|Move-Item|Copy-Item|Set-Content|Add-Content|Out-File)\\b|\\bsed\\b[^;&|]*\\s-[a-zA-Z]*i|\\bperl\\b[^;&|]*\\s-[a-zA-Z]*i`, 'i')
+const DESTROYS = new RegExp(`${VERB}(?:rm|rmdir|mv|unlink|shred|del|erase|rd|move|Remove-Item|Move-Item)\\b|\\bfind\\b[^;&|]*\\s-delete\\b`, 'i')
+const GIT_CLEAN_IGNORED = /\bgit\s+clean\b[^;&|]*\s-[a-zA-Z]*[xX]/
+
+/** The state path a Bash line touches, else null. */
+export function bashTouchesState(command) {
+  const c = String(command ?? '')
+  const name = STATE_NAME.exec(c)
+  if (name) return name[0]
+  const rule = RULE_FILE.exec(c)
+  const into = rule && new RegExp(`>\\s*['"]?[^\\s;&|'"]*${escapeRegExp(rule[0])}`, 'i').test(c)
+  if (rule && (into || WRITES.test(c))) return rule[0]
+  const folder = STATE_FOLDER.exec(c)
+  if (folder && DESTROYS.test(c)) return folder[1]
+  // .claude/quality-code ignores itself, so only an -x/-X clean removes the marker.
+  if (GIT_CLEAN_IGNORED.test(c)) return '.claude/quality-code/'
+  return null
+}
+
 /**
  * home: config folder (above root when config.root names a subfolder). runRoots: folders whose marker counts.
  * guarded: files outside the project a run must not write. A broken config falls back to default rules, so it can't disable the hook.
  */
 export function hookDecision(payload, { root, home = root, config, now = Date.now(), runRoots = [root], guarded = [], fold = FOLDS }) {
+  const command = payload?.tool_name === 'Bash' ? payload?.tool_input?.command : null
+  if (typeof command === 'string') {
+    if (!runRoots.some(r => runActive(r, now))) return { decision: 'allow' }
+    const hit = bashTouchesState(command)
+    return hit ? { decision: 'deny', path: hit, why: WHY_STATE } : { decision: 'allow' }
+  }
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
-  if (!target || !runRoots.some(r => runActive(r, now))) return { decision: 'allow' }
+  // Not a path: the tool itself rejects the call.
+  if (!target || typeof target !== 'string' || !runRoots.some(r => runActive(r, now))) return { decision: 'allow' }
   // Compare real paths: SRC/a.ts, symlinks and /tmp aliases can all reach src/a.ts.
   const file = onDisk(resolve(root, target))
   const same = (a, b) => (fold ? a.toLowerCase() === b.toLowerCase() : a === b)

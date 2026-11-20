@@ -352,7 +352,7 @@ never touched unless you pick them.
 
 ### help
 
-`/quality-code:help [<command>] [--dev | --qa | --po] [--all]`
+`/quality-code:help [<command>] [--dev | --qa | --po] [--all] [--version]`
 
 Checks whether setup is done (if not, it says to run it), then shows the steps for your role with each command's examples. A repo setup is a developer; a personal setup keeps QA or PO from setup's first card.
 
@@ -360,6 +360,7 @@ Checks whether setup is done (if not, it says to run it), then shows the steps f
 |---|---|
 | `--dev`, `--qa`, `--po` | The steps of another role |
 | `--all` | Every command, one line each |
+| `--version` | The installed version of Quality Code |
 | `<command>` | That command's options and examples |
 
 ### update

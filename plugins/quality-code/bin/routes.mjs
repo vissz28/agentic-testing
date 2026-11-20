@@ -62,7 +62,7 @@ async function specs(args, env, cwd, printLine, printError) {
   }
   const root = projectRoot(env, cwd)
   let files = args
-  if (!files.length) { try { files = projectSpecs(root, loadConfig(root, env)).filter(s => s.adapter === 'playwright').map(s => s.path) } catch { files = [] } }
+  if (!files.length) { try { files = projectSpecs(root, loadConfig(root, env).config).filter(s => s.adapter === 'playwright').map(s => s.path) } catch { files = [] } }
   const opened = specRoutes(root, files)
   if (!opened.size) { printLine(`The specs open no route written as a path ('/orders'), so there is nothing to check.\n${tag('ROUTES', { routes: [] })}`); return 3 }
   const found = declaredRoutes(root)

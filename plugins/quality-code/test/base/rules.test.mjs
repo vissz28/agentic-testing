@@ -115,6 +115,16 @@ test('parseRule and localRules: a YAML escape JSON rejects and a quoted list ite
   writeFileSync(join(root, 'rules/a.md'), RULE('team.ok'))
   assert.deepEqual(localRules(root, 'rules/', ['all']).rules.map(r => r.id), ['team.ok'])
 })
+test('localRules and readRules: a one-value applies_to (applies_to: all) is a list of one, not a crash', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'qc-one-value-'))
+  mkdirSync(join(root, 'rules'))
+  writeFileSync(join(root, 'rules/a.md'), RULE('team.all', 'applies_to: all\n'))
+  writeFileSync(join(root, 'rules/b.md'), RULE('team.web', 'applies_to: web\n'))
+  assert.deepEqual(localRules(root, 'rules/', ['all', 'node']).rules.map(r => [r.id, r.applies_to]), [['team.all', ['all']]])
+  const r = await readRules({ side: 'backend', config: { centralContext: { hub: 'off', local: 'rules/' } }, root, builtinRoot: root })
+  assert.deepEqual(r.local.rules.map(x => x.id), ['team.all'])
+  assert.deepEqual(testingRules([doc('one', { applies_to: 'all', tags: 'test' })], ['all']).map(x => x.id), ['quality.one'], 'a hub document with one value')
+})
 test('localRules: active rules for the stacks (status active and applies_to all by default), most severe first; a missing folder says so', () => {
   const root = mkdtempSync(join(tmpdir(), 'qc-local-rules-'))
   mkdirSync(join(root, 'rules'))

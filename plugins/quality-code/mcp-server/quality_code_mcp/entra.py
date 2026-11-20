@@ -58,6 +58,16 @@ def settings_from_env(env: dict[str, str] | None = None) -> EntraSettings:
     return EntraSettings(**got, required_scope=(env.get("QUALITY_CODE_ENTRA_REQUIRED_SCOPE") or "").strip() or None, authority=authority)
 
 
+def granted(claims: dict) -> list[str]:
+    """The delegated scopes (scp) and app roles (roles) a token carries. An ID token has no scp: only an app role shows there."""
+    return str(claims.get("scp", "")).split() + list(claims.get("roles", []))
+
+
+def allowed(settings: EntraSettings, claims: dict) -> bool:
+    """True when no scope or role is required, or the claims carry it. The connector sign-in checks the ID token with it too (connector.py)."""
+    return not settings.required_scope or settings.required_scope in granted(claims)
+
+
 class EntraTokenVerifier:
     """Checks a bearer token: signature (the tenant's published keys), issuer, tenant, audience, expiry, and the required scope or role."""
 
@@ -80,8 +90,8 @@ class EntraTokenVerifier:
             return None
         if claims.get("tid") != self.s.tenant_id:
             return None
-        scopes = str(claims.get("scp", "")).split() + list(claims.get("roles", []))
-        if self.s.required_scope and self.s.required_scope not in scopes:
+        scopes = granted(claims)
+        if not allowed(self.s, claims):
             return None
         aud = claims["aud"]
         aud = aud if isinstance(aud, str) else next(a for a in aud if a in self.s.audiences)

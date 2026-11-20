@@ -449,6 +449,20 @@ test('stryker: survivors no test ran against are no verdict; the key reaches the
   assert.equal(s.summary, 'Stryker ran no test against the 5 code change(s) it made')
 })
 
+test('no ticket anchor inside a test-writing run with the ticket: the value check is not verified, never green', async () => {
+  const d = repo("describe('adder', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n})\n")
+  const tk = join(d, 'ticket.json')
+  writeFileSync(tk, JSON.stringify({ key: 'ABC-9', summary: 's', text: { description: 'Then the total is 80', acField: '' } }))
+  mkdirSync(join(d, '.claude/quality-code'), { recursive: true })
+  writeFileSync(join(d, RUN_MARKER), JSON.stringify({ key: 'ABC-9', startedAt: new Date().toISOString(), base: null }))
+  const runTests = async a => ({ ran: true, broken: [], tests: [{ title: 'adds', path: ['adder'], file: a.files[0], status: 'passed' }] })
+  const r = await runPipeline({ specs: ['test/a.spec.ts'], key: 'ABC-9', ticket: tk, mutation: false }, ctx(d, { runTests }))
+  const e = r.steps.find(s => s.check === 'expected')
+  assert.equal(e.status, 'not_run')
+  assert.match(e.summary, /no spec names ABC-9/)
+  assert.notEqual(r.verdict, 'green')
+})
+
 test('no ticket anchor: a spec that names no ticket is checked whole, expected values are a note, not a block', async () => {
   const d = repo("describe('adder', () => {\n  it('adds', () => { expect(add(1, 1)).toBe(2) })\n})\n")
   const tk = join(d, 'ticket.json')

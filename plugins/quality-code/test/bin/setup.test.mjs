@@ -117,6 +117,25 @@ test('write keeps setup out of the repo: no .gitignore, the config and the ticke
     assert.equal(readFileSync(join(d, folder, '.gitignore'), 'utf8'), '*\n', ticketsDir)
   }
 })
+test('an existing folder picked as ticketsDir is not hidden from git; the note says so', () => {
+  const d = repo({})
+  mkdirSync(join(d, 'docs'))
+  writeFileSync(join(d, 'docs/guide.md'), 'the team\'s\n')
+  const r = write(d, { ...cfg, ticketsDir: 'docs' }, {})
+  assert.equal(r.ok, true)
+  assert.equal(existsSync(join(d, 'docs/.gitignore')), false, 'the person\'s folder stays in git')
+  assert.match(r.note, /docs already holds your files, so setup left it in git/)
+  assert.equal(readFileSync(join(d, '.quality-code/.gitignore'), 'utf8'), '*\n', 'the config folder still ignores itself')
+  // An empty folder, or the plugin's own one, is setup's to ignore.
+  const e = repo({})
+  mkdirSync(join(e, 'tix'))
+  assert.equal(write(e, { ...cfg, ticketsDir: 'tix' }, {}).ok, true)
+  assert.equal(readFileSync(join(e, 'tix/.gitignore'), 'utf8'), '*\n')
+  const q = repo({})
+  mkdirSync(join(q, '.quality-code/tickets/ABC-1'), { recursive: true })
+  assert.equal(write(q, cfg, {}).ok, true)
+  assert.equal(readFileSync(join(q, '.quality-code/tickets/.gitignore'), 'utf8'), '*\n')
+})
 test('a newline in ticketsDir is refused before .gitignore is touched', () => {
   const d = repo({})
   assert.equal(write(d, { ...cfg, ticketsDir: 'tix\n!secret' }, {}).ok, false)
@@ -931,4 +950,14 @@ test('a version 1 config comes back from detect with its sides, so a rerun of se
   const { existing } = detect(d)
   assert.deepEqual(existing, { version: 2, jira, frontend: 'playwright', backend: 'vitest' })
   assert.equal(validateConfig(existing).ok, true)
+})
+
+test('containersScaffold with a Prisma directUrl: migrations reach the container through it too, never the real database', () => {
+  const d = repo({ devDependencies: { vitest: '5', prisma: '6' }, dependencies: { '@prisma/client': '6' } })
+  mkdirSync(join(d, 'prisma/migrations'), { recursive: true })
+  writeFileSync(join(d, 'prisma/schema.prisma'), 'datasource db {\n  provider  = "postgresql"\n  directUrl = env("DIRECT_URL")\n  url       = env("DATABASE_URL")\n}\n')
+  assert.equal(write(d, cfg, { containersScaffold: true }).ok, true)
+  const setup = readFileSync(join(d, 'test/integration/global-setup.js'), 'utf8')
+  assert.ok(setup.includes("execSync('npx prisma migrate deploy', { env: { ...process.env, DATABASE_URL: postgres.getConnectionUri(), DIRECT_URL: postgres.getConnectionUri() }"), setup)
+  assert.ok(setup.includes('process.env.DATABASE_URL = postgres.getConnectionUri()') && setup.includes('process.env.DIRECT_URL = postgres.getConnectionUri()'), setup)
 })

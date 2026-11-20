@@ -110,13 +110,13 @@ export function casesIn(rows) {
 }
 
 export function readCases(root, x) {
-  const p = join(root, x.csv)
+  const p = resolve(root, x.csv)
   return existsSync(p) ? casesIn(readCsv(p, x.headers)) : []
 }
 
 // Skips cases already present (same ticket and test name).
 export function append(root, x, cases) {
-  const p = join(root, x.csv)
+  const p = resolve(root, x.csv)
   if (!existsSync(p) || !readFileSync(p, 'utf8').trim()) {
     mkdirSync(dirname(p), { recursive: true })
     writeFileSync(p, `${toLine(headerRow(x.headers))}\n`)
@@ -180,7 +180,7 @@ async function writeXlsx(ExcelJS, rows, headers, path) {
 }
 
 export async function sync(root, x, only = null) {
-  const p = join(root, x.csv)
+  const p = resolve(root, x.csv)
   if (!existsSync(p)) return [`No Xray test cases yet: ${x.csv} does not exist.`]
   const groups = byTicket(readCsv(p, x.headers))
   const keys = only ? [only] : [...groups.keys()]

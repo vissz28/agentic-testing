@@ -1,10 +1,11 @@
 // /help: setup status and next steps per role. Examples come from each command file so they never drift.
 import { readdirSync, readFileSync } from 'node:fs'
 import { loadConfig, projectRoot } from '../lib/config/config.mjs'
+import { readJson } from '../lib/core/files.mjs'
 import { isMain, lineWriter } from '../lib/core/script-io.mjs'
 
 const COMMANDS = new URL('../commands/', import.meta.url)
-const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all]'
+const USAGE = 'usage: help.mjs [<command>] [--dev | --qa | --po] [--all] [--version]'
 const MAX_EXAMPLES = 3
 
 const ROLES = {
@@ -77,8 +78,9 @@ export function main(argv = process.argv.slice(2), { env = process.env, cwd = pr
   const flags = argv.filter(a => a.startsWith('-'))
   const names = argv.filter(a => !a.startsWith('-'))
   const roleFlags = flags.filter(f => ['--dev', '--qa', '--po'].includes(f))
-  const bad = flags.find(f => !roleFlags.includes(f) && f !== '--all')
+  const bad = flags.find(f => !roleFlags.includes(f) && !['--all', '--version'].includes(f))
   if (bad || names.length > 1 || roleFlags.length > 1) { printError(`${bad ? `unknown option ${bad}. ` : ''}${USAGE}`); return 2 }
+  if (flags.includes('--version')) { printLine(`Quality Code ${readJson(new URL('../.claude-plugin/plugin.json', import.meta.url)).version}`); return 0 }
   if (flags.includes('--all')) { printLine(allCommands()); return 0 }
   if (names.length) {
     const one = oneCommand(names[0].replace(/^\/?(quality-code:)?/, ''))

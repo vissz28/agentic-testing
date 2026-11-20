@@ -114,6 +114,23 @@ test('the draft is redacted before it is scored', () => {
   assert.equal(r.status, 0)
   assert.doesNotMatch(r.stdout, /fake\.person@example\.com/)
 })
+test('story-check --draft: lists the redaction placeholders a draft copied, so it is never posted to Jira with them', () => {
+  const d = proj()
+  writeFileSync(join(d, 'draft.md'), `${DRAFT}\n\nAsk user@example.test about order 00000000-0000-4000-8000-000000000001 of [redacted:vat] (also user@example.test).`)
+  const r = run(d, 'story-check', '--in', '@t.json', '--draft', '@draft.md')
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /^Hidden values: user@example\.test, 00000000-0000-4000-8000-000000000001, \[redacted:vat\] stand for real/m)
+  assert.deepEqual(JSON.parse(r.stdout.match(/^STORY_SCORE_JSON:(.*)$/m)[1]).placeholders, ['user@example.test', '00000000-0000-4000-8000-000000000001', '[redacted:vat]'])
+  // Real values the person typed back are not placeholders (they are still redacted for the score).
+  writeFileSync(join(d, 'draft.md'), `${DRAFT}\n\nAsk anna@shop.it about it.`)
+  const ok = run(d, 'story-check', '--in', '@t.json', '--draft', '@draft.md', '--json')
+  assert.deepEqual(JSON.parse(ok.stdout).placeholders, [])
+  assert.doesNotMatch(ok.stdout, /anna@shop\.it/)
+})
+test('the guide posts a story only when the draft holds no placeholder', () => {
+  const guide = readFileSync(new URL('../../guides/ticket-eval.md', import.meta.url), 'utf8')
+  assert.match(guide, /\*\*1:\*\* never post a placeholder\. .*`placeholders` is not empty, do not post yet/)
+})
 test('story-save: moves the draft to <ticketsDir>/<KEY>/story.md, and sends nothing anywhere', () => {
   const d = proj()
   const dir = resolve(d, loadConfig(d).config.ticketsDir, 'DEMO-1')

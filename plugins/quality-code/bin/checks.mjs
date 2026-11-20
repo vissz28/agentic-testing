@@ -17,6 +17,7 @@ import { EXIT } from '../lib/pipeline/result.mjs'
 import * as suite from '../lib/pipeline/checks/suite-honesty.mjs'
 import { backendOf } from '../lib/stacks/backends.mjs'
 import { crashMessage, isMain, tag, printLine, printError } from '../lib/core/script-io.mjs'
+import { firstLine } from '../lib/core/text.mjs'
 
 const CHECKS = {
   boundary: { run: boundary.run, specs: 'none' },
@@ -52,7 +53,7 @@ function parse(argv) {
 
 async function hook(sessionRoot, stdin) {
   let payload = {}
-  try { payload = JSON.parse(stdin || '{}') } catch { return 0 }
+  try { payload = JSON.parse(stdin || '{}') } catch { return failClosed(sessionRoot, 'it could not read the tool call') }
   // A monorepo package with its own config wins over the session root.
   const target = payload?.tool_input?.file_path ?? payload?.tool_input?.notebook_path
   const root = (typeof target === 'string' && target && findRoot(dirname(resolve(sessionRoot, target)))) || sessionRoot
@@ -63,8 +64,20 @@ async function hook(sessionRoot, stdin) {
   const d = boundary.hookDecision(payload, { root, home, config: c.ok ? c.config : null, runRoots: [root, sessionRoot], guarded })
   if (d.decision !== 'deny') return 0
   boundary.logBlocked(root, { decision: 'deny', tool: payload.tool_name ?? null, path: d.path, session: payload.session_id ?? null })
-  printLine(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: boundary.hookReason(d.path, d.why) } }))
+  return deny(boundary.hookReason(d.path, d.why))
+}
+
+const deny = reason => {
+  printLine(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } }))
   return 0
+}
+
+/** A hook that fails denies while a run is active (a crash must not open the boundary) and allows otherwise (a broken install must not block editing). */
+function failClosed(root, what) {
+  let active
+  try { active = boundary.runActive(root) } catch { active = existsSync(join(root, boundary.RUN_MARKER)) }
+  if (!active) return 0
+  return deny(`Blocked by the quality-code boundary: the hook failed (${what}) while a test run is active, so nothing is written or run until it works again.\n\nTell the user; do not work around it. The user ends the run by deleting ${boundary.RUN_MARKER} by hand.`)
 }
 
 /** run start --key KEY | run stop | run status [--json] */
@@ -128,7 +141,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, cwd 
   const [name, ...rest] = argv
   const root = projectRoot(env, cwd)
   if (name === 'boundary' && rest.includes('--hook')) {
-    try { return await hook(root, stdin ?? await readStdin()) } catch { return 0 }
+    try { return await hook(root, stdin ?? await readStdin()) } catch (e) { return failClosed(root, firstLine(e?.message ?? String(e)) || 'it crashed') }
   }
   if (name === 'run') return runCmd(root, rest, err, env)
   if (!name || (!CHECKS[name] && !NEEDS_RUNNER.has(name))) return err(USAGE)
