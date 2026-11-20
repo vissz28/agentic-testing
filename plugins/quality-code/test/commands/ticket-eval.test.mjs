@@ -131,10 +131,9 @@ test('Figma: the list card gets the draft line only with Figma links and a conne
   assert.match(fig, /acceptance criteria, expected behaviour, steps or user story, and nothing else/)
   assert.match(fig, /never given to `pick` as it is/)
 })
-test('Figma: reads the design with the connector and loads its own skills', () => {
-  assert.match(fig, /`get_metadata`, or `get_design_context`/)
-  assert.match(fig, /screenshot only if the text is not enough/)
-  assert.match(fig, /\/figma-design-to-code/)
+test('Figma: reads the design once, through the shared read rules, read-only', () => {
+  assert.match(fig, /\*\*Read the design\*\* once, before the first item; the next items reuse it/)
+  assert.match(fig, /\*\*Reading a Figma design\*\* of `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/connectors.md`/)
   assert.match(fig, /frames, texts, labels and states/)
   assert.match(fig, /never change the Figma file/)
 })

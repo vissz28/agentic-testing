@@ -9,6 +9,10 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Added
+
+- **Figma reads that fit a View or Collab seat.** Those seats get only a few Figma calls a month, so a design read stopped partway and was dropped. Now each Figma node costs one call, its read-out is saved for 7 days (`bin/figma.mjs`, deleted by `/clean --cache`), and a rate limit is remembered and shown on a card: attach a PNG of the frame to the ticket, paste what it shows, or go on without it. `/ticket --eval` reads the design once for all drafted items, not once per item.
+
 ### Fixed
 
 - **A link is never an expected value.** `/spec` took the digits of a Figma link in the criteria (the `node-id`) as a value the tests had to assert, so the tests failed. The expected-value check and the criteria now skip web addresses, and when a criterion points to a Figma design for its values, `/spec` reads them from the design and shows them on the plan, or writes those tests as to-do.
