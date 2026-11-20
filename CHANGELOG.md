@@ -9,6 +9,10 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A link is never an expected value.** `/spec` took the digits of a Figma link in the criteria (the `node-id`) as a value the tests had to assert, so the tests failed. The expected-value check and the criteria now skip web addresses, and when a criterion points to a Figma design for its values, `/spec` reads them from the design and shows them on the plan, or writes those tests as to-do.
+
 ## [0.91.0] - 2026-11-20
 
 ### Added

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { escapeRegExp, firstLine, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces, lines, escapeHtml, pct } from '../../lib/core/text.mjs'
+import { escapeRegExp, firstLine, localToForwardSlashes, noColour, toForwardSlashes, plural, withoutOrigin, collapseSpaces, stripUrls, lines, escapeHtml, pct } from '../../lib/core/text.mjs'
 import { hasLineBreak, isLine, isTicketKey } from '../../lib/core/is.mjs'
 
 test('noColour: the colour codes of a terminal are removed, the text is kept', () => {
@@ -100,6 +100,15 @@ test('no script or library file checks for a line break or strips origin/ by han
   const walk = p => readdirSync(join(root, p), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(join(p, e.name)) : e.name.endsWith('.mjs') ? [join(p, e.name)] : []))
   const own = [...walk('bin'), ...walk('lib')].filter(f => !f.startsWith(join('lib', 'core')) && /\/\[\\r\\n\]\/\.test\(|\.replace\(\/\^origin\\\//.test(readFileSync(join(root, f), 'utf8')))
   assert.deepEqual(own, [])
+})
+
+test('stripUrls: bare and angle-bracket addresses go, a markdown link keeps its text', () => {
+  const figma = 'https://www.figma.com/design/FHVh/Warehouse?m=auto&node-id=14632-109183&t=t1wD-1'
+  assert.equal(stripUrls(`Quantity logic ${figma} here`), 'Quantity logic   here')
+  assert.equal(stripUrls(`see <${figma}>.`), 'see  .')
+  assert.equal(stripUrls(`[XLS specs](${figma})`), 'XLS specs')
+  assert.equal(stripUrls('Then the total is 108.00'), 'Then the total is 108.00')
+  assert.equal(stripUrls(null), '')
 })
 
 test('collapseSpaces: each run of spaces, tabs and line breaks is one space; the ends are kept', () => {

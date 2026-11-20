@@ -24,6 +24,12 @@ export const withoutOrigin = ref => ref.replace(/^origin\//, '')
 
 export const collapseSpaces = text => String(text).replace(/\s+/g, ' ')
 
+const MARKDOWN_LINK = /\[([^\]\n]*)\]\(\s*https?:\/\/[^)\s]*\)/gi
+const WEB_ADDRESS = /<?https?:\/\/[^\s<>"'`)\]]+>?/gi
+
+/** Web addresses out, link text kept: a Figma node-id or a query parameter is never a result. */
+export const stripUrls = text => String(text ?? '').replace(MARKDOWN_LINK, '$1').replace(WEB_ADDRESS, ' ')
+
 /** Splits on \n, \r\n or a lone \r. */
 export const lines = text => String(text ?? '').split(/\r\n?|\n/)
 

@@ -1,4 +1,5 @@
 import { normalise, stripComments } from './text.mjs'
+import { stripUrls } from '../core/text.mjs'
 
 // Every function takes the vocabulary `v` first so the language is never global.
 // The g-flagged patterns (gherkinStepAll, thenAndLines, expected*, insteadOf) are for match/matchAll only: test/exec leak lastIndex.
@@ -231,6 +232,8 @@ function freeLists(v, text) {
  * an unlisted line needs words or quotes, since a bare number (date, id) isn't a result.
  */
 export function namesObservable(v, item, { listed = true } = {}) {
+  // The digits of a link (a Figma node-id) are not a result.
+  item = stripUrls(item)
   if (QUESTION.test(item)) return false
   const result = v.actionStep.test(item) ? item.match(RESULT_AFTER_ACTION)?.[1] : item
   return !!result && (v.observable.test(result) || (listed && /\d/.test(result)) || QUOTED.test(result))
@@ -240,9 +243,11 @@ export function namesObservable(v, item, { listed = true } = {}) {
 export function extractListCriteria(v, text) {
   const items = []
   for (const b of freeLists(v, text)) {
-    if (b.items.length < 2) continue
-    const checks = b.items.filter(i => namesObservable(v, i, b))
-    if (checks.length && b.items.every(i => checks.includes(i) || hasVaguePhrase(v, i))) items.push(...b.items)
+    // A pointer to a design or a page ("see <link>") is neither a criterion nor a reason to drop the list.
+    const listed = b.items.filter(i => stripUrls(i) === i || namesObservable(v, i, b))
+    if (listed.length < 2) continue
+    const checks = listed.filter(i => namesObservable(v, i, b))
+    if (checks.length && listed.every(i => checks.includes(i) || hasVaguePhrase(v, i))) items.push(...listed)
   }
   return items
 }
