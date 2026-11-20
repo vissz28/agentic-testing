@@ -2,6 +2,7 @@
 name: direct
 description: Quality Code direct, the one entry for the whole plugin. Use when the person's message starts with "Quality Code", "Quality Code direct" or "Using Quality Code", for example "Quality Code ticket PFO-123", "Using Quality Code spec ABC-1" or just "Quality Code" for what to do next. Takes the rest of the message as the command and its arguments.
 argument-hint: <command> [arguments]   e.g. ticket PFO-123, spec ABC-1, qa EXEC-9, help
+user-invocable: false
 ---
 
 Say `Using Quality Code` first, then run the person's request.

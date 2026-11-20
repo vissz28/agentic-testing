@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.92.1] - 2026-11-20
+
+### Changed
+
+- **The commands show in the `/` menu again.** Since 0.89.0 the 15 commands were hidden and only `/quality-code:direct` showed, so people on a new machine thought the others were missing. They are visible again, as before 0.89.0: `/quality-code:setup`, `:spec`, `:check`, `:qa`, `:ticket` and the rest. The `direct` skill stays for a message that starts with "Quality Code" (for example "Quality Code ticket PFO-123"), but it is no longer listed in the menu.
+
+**What to do:** update, then open a new session; type `/quality-code` to see the commands.
+
 ## [0.92.0] - 2026-11-20
 
 ### Added

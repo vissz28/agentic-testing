@@ -3,7 +3,6 @@ description: Schedule a check that runs by itself, at a time you choose, for a p
 argument-hint: '[KEY] [--cron "m h dom mon dow" | --at "<date time>"] [--until YYYY-MM-DD] [--flaky N] [--regression] [--branch REF] | status [KEY] | list | stop <name> | run …'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) mcp__scheduled-tasks__create_scheduled_task mcp__scheduled-tasks__list_scheduled_tasks mcp__scheduled-tasks__update_scheduled_task mcp__scheduled-tasks__delete_scheduled_task CronCreate
 model: sonnet
-user-invocable: false
 ---
 
 Makes a **routine**: a check that Claude runs on its own at the times you pick, so you learn when the tests stop passing after other people push, or when they stop being stable. The script decides every result (`routine.mjs`); you set up the schedule and relay what it prints. Plain words, short sentences, numbered cards. Show every card and output the way `${CLAUDE_PLUGIN_ROOT}/guides/display.md` says: a section per step, tables, colour marks, and the picker for questions. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool. End your turn after every card and wait for the answer.

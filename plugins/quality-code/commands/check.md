@@ -4,7 +4,6 @@ argument-hint: '[spec…] [--branch] [--backend | --frontend] [--key KEY] [--fla
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*)
 model: haiku
 effort: low
-user-invocable: false
 ---
 
 Checks the tests. Pick the suite from `$ARGUMENTS`, drop that flag, then read `${CLAUDE_PLUGIN_ROOT}/guides/run.md` and follow it with the suite and the rest of the arguments. Its rules apply: **Run each plugin script exactly as written**, one call each.

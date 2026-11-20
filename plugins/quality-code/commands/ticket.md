@@ -3,7 +3,6 @@ description: Find a Jira ticket and show it in short, with suggestions for what 
 argument-hint: <KEY | number | words | assignee:me | reporter:<name> | status:<status> | label:<label> | epic:<KEY> | text:<words>> [--eval [--ci]] | <PROJECT> --eval [--user <name>] [--status <status>] [--report]
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/*) Bash(git diff *)
 model: sonnet
-user-invocable: false
 ---
 
 **With `--eval` in `$ARGUMENTS`**, this is the readiness gate, not the lookup below: drop `--eval` and follow one guide instead of this file, with the rest of the arguments.

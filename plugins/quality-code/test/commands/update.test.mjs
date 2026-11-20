@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 const doc = readFileSync(new URL('../../commands/update.md', import.meta.url), 'utf8')
 
 test('frontmatter: its own script, update and disable of this plugin only, on Haiku', () => {
-  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@\*\), Bash\(claude plugin disable quality-code@\*\)\nmodel: haiku\neffort: low\nuser-invocable: false\n---/)
+  assert.match(doc, /^---\ndescription: .+\nargument-hint: .+\nallowed-tools: Bash\(node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/update\.mjs":\*\), Bash\(claude plugin update quality-code@\*\), Bash\(claude plugin disable quality-code@\*\)\nmodel: haiku\neffort: low\n---/)
 })
 test('runs the script with no arguments and never --json', () => {
   assert.ok(doc.includes('node "${CLAUDE_PLUGIN_ROOT}/bin/update.mjs"`'))

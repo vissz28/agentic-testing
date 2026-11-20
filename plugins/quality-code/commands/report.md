@@ -4,7 +4,6 @@ argument-hint: '[--kpi | --cost [--by command|ticket|day|model] [--prices file.j
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/kpi.mjs":*), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/consumption.mjs":*)
 model: haiku
 effort: low
-user-invocable: false
 ---
 
 Drop `--kpi` or `--cost` from `$ARGUMENTS` and follow one guide instead of this file, with the rest of the arguments:

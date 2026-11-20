@@ -4,7 +4,6 @@ argument-hint: '[<command>] [--dev | --qa | --po] [--all] [--version]'
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/help.mjs":*)
 model: haiku
 effort: low
-user-invocable: false
 ---
 
 Shows what this person can do now. You relay; the script reads the config and the command files. **Run each plugin script exactly as written:** one call, nothing added before or after it. It asks nothing. Keep the person's language as `${CLAUDE_PLUGIN_ROOT}/guides/language.md` says. Every question is asked with the AskUserQuestion picker as display.md says, never as a numbered text card; the text card is only for a client without the tool.
