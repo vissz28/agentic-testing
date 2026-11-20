@@ -37,4 +37,6 @@ Besides where a command stopped, the same local store keeps what was learned abo
 
 **See and clear.** `context list` shows everything saved for this project. `context clear` forgets it all, `context clear <fact>` one fact.
 
+**Figma reads.** A design read from Figma is saved in the same store for 7 days, with a rate limit Figma gave, so a rerun spends no Figma call (`bin/figma.mjs`, used as **Reading a Figma design** of `guides/connectors.md` says).
+
 `/quality-code:clean --cache` deletes this cache (this project, or every project with `--all`) through `bin/clean-cache.mjs`, and nothing else.

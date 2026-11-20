@@ -156,3 +156,28 @@ test('ticket files: the v2 download link goes to the plugin script, never to the
   assert.ok(doc.includes('bin/jira-file.mjs" <KEY> \'<downloadUrl>\' \'<filename>\'`'))
   assert.ok(doc.includes('bin/jira-file.mjs" done <KEY>` deletes the saved images'))
 })
+
+const figma = doc.slice(doc.indexOf('**Reading a Figma design.**'))
+test('Figma: the saved read-out first, one call per node, saved after', () => {
+  assert.ok(figma.includes('bin/figma.mjs" get \'<figma link>\'`'))
+  assert.match(figma, /`found`: use its `text` as the design and make no Figma call/)
+  assert.match(figma, /On `figma` \(browser sign-in\): `get_design_context`/)
+  assert.match(figma, /\/figma-design-to-code/)
+  assert.match(figma, /On `figma-token`: `get_figma_data`/)
+  assert.match(figma, /Never a second call for the same node/)
+  assert.ok(figma.includes('bin/figma.mjs" set \'<figma link>\' @<that file>`'))
+  assert.match(figma, /never change the Figma file/)
+})
+test('Figma: a rate limit is remembered, never retried or skipped silently, and offers the PNG way', () => {
+  assert.match(figma, /never retried and never skipped silently/)
+  assert.ok(figma.includes('bin/figma.mjs" limited`'))
+  assert.match(figma, /1\. I attached a PNG of the frame to the ticket: read it/)
+  assert.match(figma, /2\. Paste what the design shows/)
+  assert.match(figma, /3\. Continue without the design/)
+  assert.match(figma, /as \*\*Ticket files\*\* above/)
+})
+for (const [name, file] of [['spec', '../../commands/spec.md'], ['qa', '../../commands/qa.md']]) {
+  test(`${name} reads Figma through the shared read rules`, () => {
+    assert.match(readFileSync(new URL(file, import.meta.url), 'utf8'), /\*\*Reading a Figma design\*\* (of|in) `\$\{CLAUDE_PLUGIN_ROOT\}\/guides\/connectors.md`/)
+  })
+}

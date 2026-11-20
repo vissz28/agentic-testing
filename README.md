@@ -346,7 +346,7 @@ never touched unless you pick them.
 | Option | What it does |
 |---|---|
 | `--dry-run` | Only list what would be removed |
-| `--cache` | Only the plugin's local cache (saved stops, reused facts, language) for this project |
+| `--cache` | Only the plugin's local cache (saved stops, reused facts, language, saved Figma reads) for this project |
 | `--all` | With `--cache`: every project's cache |
 | `--yes` | With `--cache`: skip the question (the full clean always asks) |
 

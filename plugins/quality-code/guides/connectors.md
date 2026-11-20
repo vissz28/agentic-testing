@@ -147,3 +147,21 @@ The script downloads only from Atlassian's media address, and at most 3 images p
 2. **Token.** Nothing to ask in the chat. Say: `Create a Figma personal access token (Figma, Settings, Security, Personal access tokens). Type /plugin, choose quality-code, Configure options, and set `figma_api_key`. Do not paste it here. Then type /reload-plugins, then /mcp and reconnect figma-token.`
 
 Then show `1. Check again / 2. Continue without it` and end the turn. `1` runs the whole check again.
+
+**Reading a Figma design.** View and Collab seats get only a few Figma calls a month, on both connectors, so every read of a design goes through these steps and spends at most one call per node:
+
+1. **Saved first.** Run `node "${CLAUDE_PLUGIN_ROOT}/bin/figma.mjs" get '<figma link>'` and read its `FIGMA_JSON:` line. `found`: use its `text` as the design and make no Figma call. `limited`: Figma's limit was reached earlier; make no call and go to step 4. Exit 2 (not a design link): leave the link.
+2. **One call.** The same file and node read twice in one run is one call. On `figma` (browser sign-in): `get_design_context` with the link's `fileKey` and `nodeId` (from the `FIGMA_JSON:` line), after the connector's own steps its server instructions ask for (`create_session`, the `/figma-design-to-code` skill). On `figma-token`: `get_figma_data` with the same `fileKey` and `nodeId`. Never a second call for the same node to add detail (`get_metadata`, `get_screenshot`, `get_variable_defs`): one exception, a `get_design_context` answer that says the node is too large is followed by one `get_screenshot` of the node, and nothing more. Read-only: never change the Figma file.
+3. **Save it.** Write what the design shows to `<ticketsDir>/<KEY>/figma.txt` (with no project config, `figma.txt` in the current folder): per frame, its name, then its texts, labels, buttons, columns, values and states, one per line, as they appear. No code, no styles, no ids; at most 32 KB. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/figma.mjs" set '<figma link>' @<that file>` (it deletes the file). Exit 2: show its line and go on with the read-out anyway, unsaved.
+4. **Figma's limit.** A call that answers with a rate limit (a 429, `rate limit`, `limit reached`, `tool call limit`, or a request to upgrade to a Dev or Full seat) is never retried and never skipped silently. Run `node "${CLAUDE_PLUGIN_ROOT}/bin/figma.mjs" limited` (with `--hours <N>` when the answer says when it resets), make no other Figma call in this run, and show this card, then end the turn (with `--ci`, one line `Figma limit reached: <KEY>'s design was not read.` and go on without it):
+
+   ```
+   ⚠️ Figma's limit for your seat is reached (View and Collab seats get a few calls a month), so the design was not read.
+   1. I attached a PNG of the frame to the ticket: read it
+   2. Paste what the design shows
+   3. Continue without the design
+   ```
+
+   `1`: read the ticket's `attachment` field again (`getJiraIssue`) and read its newest images (at most 3) as **Ticket files** above. From each, copy only the words it shows (titles, labels, buttons, columns, messages, values), line by line; that is the design. No image on the ticket: say `No image attached to <KEY> yet.` and show the card again. `2`: what they paste is the design. Either way, save it as step 3 says, so the next run reuses it. `3`: go on as the command does without the Figma connector.
+
+A Dev or Full seat lifts the limit; until then, a PNG of the frame attached to the ticket gives the same values with no Figma call.

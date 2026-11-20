@@ -249,3 +249,11 @@ test('stripVagueCriteria drops an AC heading left empty, so the answer is not a 
   assert.equal(C.stripVagueCriteria(v, 'Intro\n\n## Acceptance criteria\n- It works correctly\n\n## Notes\nx'), 'Intro\n\n## Notes\nx')
   assert.equal(C.stripVagueCriteria(v, '## Acceptance criteria\n- It works correctly\n- The total is 150'), '## Acceptance criteria\n- The total is 150')
 })
+
+test('a link is not a result: its digits make no criterion, and a "see <link>" line does not drop the list', () => {
+  const link = 'https://www.figma.com/design/FHVh/Warehouse?node-id=14632-109183'
+  assert.equal(C.namesObservable(v, `For quantity calculations refer to: Quantity logic ${link}`), false)
+  assert.equal(C.namesObservable(v, `The total is 108 ${link}`), true)
+  const items = C.extractListCriteria(v, ['- The grid shows 20 rows', '- The footer shows 3 pages', `- See the design ${link}`].join('\n'))
+  assert.deepEqual(items, ['The grid shows 20 rows', 'The footer shows 3 pages'])
+})

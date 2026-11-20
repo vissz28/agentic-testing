@@ -278,3 +278,23 @@ test('a code with leading zeros is asserted as written: the ticket\'s 000 is not
   assert.equal(asserted(t, "expect(lookup('0000')).toBe(1)"), false)
   assert.equal(asserted({ kind: 'number', token: '120', values: normNum('120') }, 'expect(total).toBe(120.0)'), true, 'a plain number still matches its value')
 })
+
+test('a link in the criteria gives no value: a Figma node-id is not an expected result (FIC-14323)', () => {
+  const figma = 'https://www.figma.com/design/FHVhLMEY5crUlZPU6xzhhC/Warehouse-MVP--Warehouse-?m=auto&node-id=14632-109183&t=t1wDIoQPvJPYSz5s-1'
+  const t = ticket([
+    '# Acceptance criteria',
+    '* add a new kind of report',
+    '* file type: pdf, csv, xlsx',
+    `* For quantity calculations refer to: Quantity logic ${figma}`,
+    `* the page shows "Moved stock" [PDF specs](${figma})`,
+    '* Then the total is 108.00',
+  ].join('\n'))
+  assert.deepEqual(values(tokensFrom(t)).sort(), ['108.00', 'Moved stock'])
+  const spec = "describe('ABC-7 Pricing', () => { it('x', () => { expect(total()).toBe(108); expect(label()).toBe('Moved stock') }) })"
+  const dir = mkdtempSync(join(tmpdir(), 'qc-expected-url-'))
+  writeFileSync(join(dir, 'a.spec.ts'), spec)
+  writeFileSync(join(dir, 'ticket.json'), JSON.stringify(t))
+  const r = run({ specs: ['a.spec.ts'], key: 'ABC-7', ticket: 'ticket.json', candidates: ['14632', 'FHVhLMEY5crUlZPU6xzhhC'] }, { root: dir, dialect: V })
+  assert.equal(r.status, 'pass', r.summary)
+  assert.deepEqual(r.data.ignored, ['14632', 'FHVhLMEY5crUlZPU6xzhhC'], 'a value only a link holds is not grounded')
+})

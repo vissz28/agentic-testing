@@ -8,7 +8,7 @@ import { result } from '../result.mjs'
 import { configHome } from '../../config/config.mjs'
 import { externalChecks } from './external.mjs'
 import { readJson } from '../../core/files.mjs'
-import { escapeRegExp, stripCodeComments } from '../../core/text.mjs'
+import { escapeRegExp, stripCodeComments, stripUrls } from '../../core/text.mjs'
 
 const PAIRS = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’'], ['«', '»'], ['`', '`']]
 const QUOTED = new RegExp(`(?<![\\w\\\\])(?:${PAIRS.map(([o, c]) => `${o}([^${c}\\n]{2,80})${c}`).join('|')})(?![\\w])`, 'g')
@@ -53,9 +53,9 @@ export function normNum(raw) {
 
 const stripQuoted = text => text.replace(QUOTED, m => ' '.repeat(m.length))
 
-const quotedIn = text => [...text.matchAll(QUOTED)].map(m => m.slice(1).find(x => x !== undefined)).filter(x => x.trim().length >= 2)
+const quotedIn = text => [...stripUrls(text).matchAll(QUOTED)].map(m => m.slice(1).find(x => x !== undefined)).filter(x => x.trim().length >= 2)
 
-const numbersIn = text => [...stripQuoted(text).matchAll(NUMBER)].map(m => m[0])
+const numbersIn = text => [...stripQuoted(stripUrls(text)).matchAll(NUMBER)].map(m => m[0])
 
 export function ticketText(ticket) {
   if (typeof ticket === 'string') return ticket
@@ -244,7 +244,7 @@ export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
   const out = new Map()
   for (const chunk of chunks) {
     const from = outcomeOf(chunk, v)
-    for (const w of stripQuoted(from).replace(v.negatedWord, ' ').split(/[^\w-]+/)) {
+    for (const w of stripQuoted(stripUrls(from)).replace(v.negatedWord, ' ').split(/[^\w-]+/)) {
       if (looksLikeField(w) && !out.has(fold(w))) out.set(fold(w), { token: w, kind: 'field', from })
     }
   }
@@ -254,7 +254,7 @@ export function fieldTokensFrom(chunks, v = buildVocabulary(['en', 'it'])) {
 /** Keep model-suggested values only if the ticket text contains them; they can only make the check stricter. */
 export function groundCandidates(candidates, chunks, have = [], ticketFull = '') {
   // Expected lines plus the full text, for values from the Notes.
-  const text = [...chunks, ticketFull].filter(Boolean).join('\n')
+  const text = stripUrls([...chunks, ticketFull].filter(Boolean).join('\n'))
   const nums = new Set(numbersIn(text).flatMap(normNum))
   const known = new Set(have.map(t => (t.kind === 'number' ? numberId(t.token, t.values) : fold(t.token))))
   const kept = []
