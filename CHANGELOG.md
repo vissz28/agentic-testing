@@ -9,6 +9,12 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-11-20
+
+### Added
+
+- **`/help --version`** shows the installed version of Quality Code.
+
 ## [0.90.1] - 2026-11-19
 
 ### Added

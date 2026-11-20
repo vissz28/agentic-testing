@@ -70,6 +70,7 @@ const CASES = [
   ['help-po', 'help', ['--po']],
   ['help-all', 'help', ['--all']],
   ['help-spec', 'help', ['spec']],
+  ['help-version', 'help', ['--version']],
 
   ['ticket-config-check', 'ticket', ['config', 'check']],
   ['ticket-config-keys', 'ticket', ['config', 'keys']],

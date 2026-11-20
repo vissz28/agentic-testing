@@ -2,4 +2,4 @@ $ update --nope
 exit 2
 --- stdout
 --- stderr
-unknown option --nope. usage: update.mjs [--json | --old | --remove-old]
+unknown option --nope. usage: update.mjs [--json | --old [--all] | --remove-old [--all]]
