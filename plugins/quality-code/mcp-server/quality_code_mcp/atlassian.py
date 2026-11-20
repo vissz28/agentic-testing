@@ -17,10 +17,13 @@ SCOPES = "read:jira-work write:jira-work read:jira-user offline_access"
 VIEW = ("at", "exp", "cloud", "site")  # what the access token carries of the link (never the refresh token)
 SKEW = 60  # an access token this close to its end is treated as expired
 MAX_RESULTS = 50
+MAX_FILE = 5 * 1024 * 1024  # an attachment bigger than this is not read
+IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpeg", "image/gif": "gif", "image/webp": "webp"}
+DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 PROJECT_PAGES = 100  # 5000 projects; more than that and the config says any project, so it stays small enough for the scripts' environment
 
 from .jira_config import ANY_PROJECT
-from .webclient import Http
+from .webclient import Fetch, Http
 
 
 class AtlassianError(RuntimeError):
@@ -29,6 +32,12 @@ class AtlassianError(RuntimeError):
 
 class AtlassianConfigError(ValueError):
     pass
+
+
+def real_fetch(url: str, headers: dict) -> tuple[str, bytes]:
+    from .webclient import real_fetch as call
+
+    return call(url, headers, err=AtlassianError, name="Atlassian", limit=MAX_FILE, hosts=("atlassian.com", "atlassian.net"))
 
 
 def real_http(method: str, url: str, headers: dict, body: dict | None):
@@ -43,6 +52,7 @@ class AtlassianSettings:
     client_secret: str
     site: str = ""  # https://example.atlassian.net: which of the person's sites to read; empty = their first one
     http: Http = real_http
+    fetch: Fetch = real_fetch
 
     def authorize_url(self, redirect_uri: str, state: str) -> str:
         q = {"audience": "api.atlassian.com", "client_id": self.client_id, "scope": SCOPES, "redirect_uri": redirect_uri, "state": state, "response_type": "code", "prompt": "consent"}
@@ -99,6 +109,29 @@ class AtlassianSettings:
                         "links": [link_brief(x) for x in f.get("issuelinks") or []],
                         "comments": [{"author": (c.get("author") or {}).get("displayName"), "created": c.get("created"), "text": adf_text(c.get("body"))} for c in (f.get("comment") or {}).get("comments", [])[-20:]]})
         return out
+
+    def attachment(self, link: dict, key: str, which: str) -> dict:
+        """One attachment of an issue, by file name or id: an image as its bytes, a Word file as its text. The download is Jira's own attachment/content call, which
+        answers with a redirect to Atlassian's media host; it is followed here, so the person never meets the redirect or a login page. Read-only."""
+        r = self._get(link, f"issue/{urllib.parse.quote(key, safe='')}", {"fields": "attachment"})
+        files = [a for a in (r.get("fields") or {}).get("attachment") or [] if isinstance(a, dict)]
+        want = which.strip().lower()
+        hit = next((a for a in files if str(a.get("id")) == which.strip() or str(a.get("filename", "")).lower() == want), None)
+        if not hit:
+            raise AtlassianError(f"{key} has no attachment named {which}. It has: {', '.join(str(a.get('filename')) for a in files) or 'none'}")
+        name, kind, size = str(hit.get("filename")), str(hit.get("mimeType") or ""), int(hit.get("size") or 0)
+        word = kind == DOCX_TYPE or name.lower().endswith(".docx")
+        if kind not in IMAGE_TYPES and not word:
+            raise AtlassianError(f"{name}: only images (png, jpeg, gif, webp) and Word (.docx) files are read")
+        if size > MAX_FILE:
+            raise AtlassianError(f"{name}: over {MAX_FILE // (1024 * 1024)} MB, not read")
+        got, data = self.fetch(f"{API}/ex/jira/{link['cloud']}/rest/api/3/attachment/content/{urllib.parse.quote(str(hit['id']), safe='')}", {"Authorization": f"Bearer {link['at']}"})
+        if word:
+            return {"name": name, "text": docx_text(data)}
+        fmt = IMAGE_TYPES.get(got) or (IMAGE_TYPES.get(kind) if got == "application/octet-stream" else None)  # a page (a login) is never taken for the image
+        if not fmt:
+            raise AtlassianError(f"{name}: Jira did not send an image (it sent {got}); sign in to the connector again")
+        return {"name": name, "format": fmt, "data": data}
 
     def search_detail(self, link: dict, jql: str, limit: int, excerpt: int = 400) -> list[dict]:
         r = self._get(link, "search/jql", {"jql": jql, "maxResults": max(1, min(limit, MAX_RESULTS)), "fields": "summary,status,issuetype,assignee,description,parent"})
@@ -265,3 +298,19 @@ def settings_from_env(env: dict[str, str]) -> AtlassianSettings | None:
     if not cid or not secret:
         raise AtlassianConfigError("set both QUALITY_CODE_ATLASSIAN_CLIENT_ID and QUALITY_CODE_ATLASSIAN_CLIENT_SECRET, or neither")
     return AtlassianSettings(client_id=cid, client_secret=secret, site=(env.get("QUALITY_CODE_JIRA_SITE") or "").strip())
+
+
+def docx_text(data: bytes, cap: int = 20000) -> str:
+    """The text of a Word file: its paragraphs, one per line, cut at `cap` characters. Nothing is saved."""
+    import io
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            root = ET.fromstring(z.read("word/document.xml"))
+    except (zipfile.BadZipFile, KeyError, ET.ParseError):
+        raise AtlassianError("That file is not a readable Word document") from None
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    lines = ["".join(t.text or "" for t in p.iter(ns + "t")) for p in root.iter(ns + "p")]
+    return "\n".join(l for l in lines if l.strip())[:cap]

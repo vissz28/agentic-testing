@@ -295,3 +295,103 @@ def test_readme_names_the_scopes_the_server_asks_for():
     named = re.search(r"and the scopes ((?:`[a-z:_-]+`(?:, )?)+)\)", readme)
     assert named, "the README lists the Atlassian app's scopes"
     assert set(re.findall(r"`([a-z:_-]+)`", named.group(1))) == set(atlassian.SCOPES.split())
+
+
+# -- attachments: the screenshots and Word files of a ticket, read through Jira's own download call (which redirects to Atlassian's media host)
+ATT = [{"id": "101", "filename": "Screen.PNG", "mimeType": "image/png", "size": 2048},
+       {"id": "102", "filename": "analysis.docx", "mimeType": atlassian.DOCX_TYPE, "size": 4096},
+       {"id": "103", "filename": "notes.pdf", "mimeType": "application/pdf", "size": 10},
+       {"id": "104", "filename": "huge.png", "mimeType": "image/png", "size": 6 * 1024 * 1024}]
+
+
+def docx_bytes(*paras: str) -> bytes:
+    import io
+    import zipfile
+
+    w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    body = "".join(f"<w:p><w:r><w:t>{p}</w:t></w:r></w:p>" for p in paras)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("word/document.xml", f'<w:document xmlns:w="{w}"><w:body>{body}</w:body></w:document>')
+    return buf.getvalue()
+
+
+def attachment_settings(sent: dict, files: dict | None = None):
+    def http(method, url, headers, body):
+        assert "fields=attachment" in url
+        return {"fields": {"attachment": ATT}}
+
+    def fetch(url, headers):
+        sent["url"], sent["headers"] = url, headers
+        return (files or {"101": ("image/png", b"\x89PNG-bytes"), "102": ("application/octet-stream", docx_bytes("Login rule", "Max 3 tries"))})[url.rsplit("/", 1)[-1]]
+
+    return atlassian.AtlassianSettings("i", "s", http=http, fetch=fetch)
+
+
+LINK = {"at": "tok", "exp": int(time.time()) + 3000, "cloud": "c1", "site": SITE}
+
+
+def test_an_image_attachment_is_read_by_name_through_the_attachment_content_call_as_the_person():
+    sent = {}
+    got = attachment_settings(sent).attachment(LINK, "AGT-1", "screen.png")  # the name is matched without case
+    assert got == {"name": "Screen.PNG", "format": "png", "data": b"\x89PNG-bytes"}
+    assert sent["url"] == "https://api.atlassian.com/ex/jira/c1/rest/api/3/attachment/content/101" and sent["headers"] == {"Authorization": "Bearer tok"}
+
+
+def test_a_word_attachment_comes_back_as_its_text_and_an_id_works_too():
+    got = attachment_settings({}).attachment(LINK, "AGT-1", "102")
+    assert got == {"name": "analysis.docx", "text": "Login rule\nMax 3 tries"}
+
+
+@pytest.mark.parametrize("which,why", [("missing.png", "has no attachment named missing.png. It has: Screen.PNG"), ("notes.pdf", "only images"), ("huge.png", "over 5 MB")])
+def test_an_unknown_unsupported_or_too_big_attachment_is_refused_before_any_download(which, why):
+    sent = {}
+    with pytest.raises(atlassian.AtlassianError, match=why):
+        attachment_settings(sent).attachment(LINK, "AGT-1", which)
+    assert "url" not in sent
+
+
+def test_a_login_page_instead_of_an_image_is_not_passed_on_as_an_image():
+    s = attachment_settings({}, {"101": ("text/html", b"<html>log in</html>")})
+    with pytest.raises(atlassian.AtlassianError, match="did not send an image"):
+        s.attachment(LINK, "AGT-1", "Screen.PNG")
+
+
+def test_the_attachment_tool_returns_an_image_the_model_can_see_and_never_writes(monkeypatch, cs):
+    from mcp.server.mcpserver import Image
+
+    sent = {}
+    cs2 = connector.ConnectorSettings(entra=S, secret=SECRET, rules="Rule.", rules_version="v1", vault_key=KEY, atlassian=atlassian.AtlassianSettings("aid", "asecret", site=SITE, http=attachment_settings(sent).http, fetch=attachment_settings(sent).fetch))
+    sealed = vault.seal(KEY, {"at": "at9", "exp": int(time.time()) + 3000, "cloud": "cloud-1", "site": SITE}, aad="oid-1")
+    out = run_tool(monkeypatch, cs2, "quality_code_jira_attachment", {"atl": sealed}, key="AGT-1", attachment="Screen.PNG")
+    assert isinstance(out, Image) and out.data == b"\x89PNG-bytes" and sent["headers"] == {"Authorization": "Bearer at9"}
+    assert run_tool(monkeypatch, cs2, "quality_code_jira_attachment", {"atl": sealed}, key="../x", attachment="a.png").startswith("error: a Jira key")
+    assert run_tool(monkeypatch, cs2, "quality_code_jira_attachment", {"atl": sealed}, key="AGT-1", attachment="notes.pdf").startswith("error: notes.pdf: only images")
+
+
+def test_a_download_follows_the_media_redirect_but_only_ends_on_an_atlassian_host(monkeypatch):
+    from quality_code_mcp import webclient
+
+    class Resp:
+        def __init__(self, url, ctype="image/png", body=b"img", length=None):
+            self.url, self.body = url, body
+            self.headers = type("H", (), {"get": lambda s, k, d=None: length if k == "Content-Length" else d, "get_content_type": lambda s: ctype})()
+
+        def geturl(self): return self.url
+        def read(self, n): return self.body[:n]
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    api = "https://api.atlassian.com/ex/jira/c1/rest/api/3/attachment/content/1"
+    for end, ok in (("https://api.media.atlassian.com/file/x/binary?token=t", True), ("https://evil.example.com/x", False)):
+        monkeypatch.setattr(webclient, "_opener", type("O", (), {"open": lambda s, req, timeout: Resp(end)})())
+        if ok:
+            assert webclient.real_fetch(api, {}, hosts=("atlassian.com",)) == ("image/png", b"img")
+        else:
+            with pytest.raises(RuntimeError, match="not an Atlassian address"):
+                webclient.real_fetch(api, {}, hosts=("atlassian.com",))
+    monkeypatch.setattr(webclient, "_opener", type("O", (), {"open": lambda s, req, timeout: Resp("https://api.media.atlassian.com/f", body=b"x" * 11)})())
+    with pytest.raises(RuntimeError, match="over 0 MB|over"):
+        webclient.real_fetch(api, {}, limit=10)
+    with pytest.raises(RuntimeError, match="only https"):
+        webclient.real_fetch("http://api.atlassian.com/x", {})

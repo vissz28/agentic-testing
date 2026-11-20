@@ -9,6 +9,14 @@ Update with `/plugin update quality-code@teamsystem`.
 
 ## [Unreleased]
 
+## [0.92.2] - 2026-11-20
+
+### Added
+
+- **Screenshots, photos and Word files on a ticket are read through the Quality Code server.** The new tool `quality_code_jira_attachment` takes the ticket key and a file name (names come from `quality_code_jira_issue` with `full`). A png, jpeg, gif or webp comes back as an image Claude can look at; a `.docx` comes back as its text. Up to 5 MB, nothing is saved. It uses Jira's own attachment download as the signed-in person and follows the redirect to Atlassian's media host itself, so the person never meets the login page or an empty file that appears when a client does not follow that redirect. A file from any other host, or a page where an image should be, is refused. Before this, only the connector's `downloadJiraIssueAttachment` could read them, and older connections could not.
+
+**What to do:** update, then remove and add the Quality Code connector in Claude once, so the new tool appears. The server must be restarted to offer it.
+
 ## [0.92.1] - 2026-11-20
 
 ### Changed

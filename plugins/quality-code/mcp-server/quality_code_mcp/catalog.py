@@ -129,7 +129,9 @@ def render(cmd: Command, root: Path, arguments: str = "", server_tools: set[str]
             "A ticket often points to other tickets (its epic, linked issues, keys or a range such as PFO-4052 to PFO-4093 in its description) where the criteria live. "
             "When `quality_code_jira_tree` is offered, call it with the key (add `query` words from the description, such as a title phrase, to find the epic's matching children), "
             "add each related issue as a `links` entry, and add its useful text to the end of the raw description after a line `## Related <KEY>: <summary>` (as the linked Xray tests are added), "
-            "so the script scores it. Never invent: use only what those issues say, and say which ones you used.\n\n---\n\n"
+            "so the script scores it. Never invent: use only what those issues say, and say which ones you used.\n"
+            "A screenshot, a photo or a Word file on the ticket: when `quality_code_jira_attachment` is offered, call it with the key and the file name (names come from `quality_code_jira_issue` with `full`): "
+            "an image comes back for you to look at, a Word file as text. Up to 3 images per ticket; add what you read to the raw description as for the related issues.\n\n---\n\n"
         )
     present = [n for n in SERVER_TOOL_MAP if n in server_tools]
     if present:

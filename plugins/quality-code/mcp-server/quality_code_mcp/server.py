@@ -12,7 +12,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Image, MCPServer
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.types import Icon
 from mcp.server.transport_security import TransportSecuritySettings
@@ -358,6 +358,20 @@ def _jira_tools(provider) -> list:
         """A Jira issue and what it points to (read-only): its parent or epic, subtasks, linked issues, the issues and ranges its description names (a range like PFO-4052 to PFO-4093 is expanded), the web links, and, with `query`, the children of its epic whose title has those words. Each related issue comes with its type, status, summary and the start of its description."""
         return call(lambda c, l: c.tree(l, key.strip(), query, limit), key)
 
+    def quality_code_jira_attachment(key: str, attachment: str):
+        """One attachment of a Jira issue (read-only), by its file name or id (names come from quality_code_jira_issue with full): a screenshot or photo (png, jpeg, gif, webp) comes back as an image you can look at, a Word file (.docx) as its text. Up to 5 MB. Nothing is saved."""
+        k = key.strip()
+        if not keyed.fullmatch(k):
+            return "error: a Jira key looks like ABC-123"
+        l = link()
+        if isinstance(l, str):
+            return l
+        try:
+            got = provider.s.atlassian.attachment(l, k, attachment)
+        except (atl.AtlassianError, ValueError) as e:
+            return f"error: {e}"
+        return Image(data=got["data"], format=got["format"]) if "data" in got else got["text"]
+
     def quality_code_jira_links(key: str) -> str:
         """The web links (remote links) of a Jira issue, such as merge requests and Figma (read-only)."""
         return call(lambda c, l: c.remote_links(l, key.strip()), key)
@@ -394,7 +408,7 @@ def _jira_tools(provider) -> list:
         """LINKS two Jira issues (for example link type Test, or Defect) as the signed-in person. Call only after the person saw the preview and said yes."""
         return call(lambda c, l: c.link_issues(l, link_type.strip(), inward.strip(), outward.strip()), inward, outward)
 
-    return [quality_code_jira_search, quality_code_jira_issue, quality_code_jira_tree, quality_code_jira_links, quality_code_jira_projects, quality_code_jira_transitions,
+    return [quality_code_jira_search, quality_code_jira_issue, quality_code_jira_tree, quality_code_jira_attachment, quality_code_jira_links, quality_code_jira_projects, quality_code_jira_transitions,
             quality_code_jira_createmeta, quality_code_jira_create, quality_code_jira_comment, quality_code_jira_transition, quality_code_jira_edit,
             quality_code_jira_link_issues]
 

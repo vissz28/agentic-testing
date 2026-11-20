@@ -41,3 +41,29 @@ def real_http(method: str, url: str, headers: dict, body: dict | None, *, err: t
         raise err(f"{name} answered {e.code}") from None
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
         raise err(f"{name} could not be reached: {e}") from None
+
+
+Fetch = Callable[[str, dict], tuple[str, bytes]]  # (url, headers) -> (content type, bytes); raises when over the limit or from a host that is not allowed
+
+
+def real_fetch(url: str, headers: dict, *, err: type[Exception] = RuntimeError, name: str = "The service", limit: int = 5 * 1024 * 1024, hosts: tuple[str, ...] = ()) -> tuple[str, bytes]:
+    """A file download. Jira answers an attachment with a redirect to Atlassian's media host: it is followed (https only, no Authorization header to the other host),
+    and the host it ends on must be one of `hosts`. A file over `limit` bytes is refused, not cut."""
+    if not url.startswith("https://"):
+        raise err(f"{name}: only https addresses are used")
+    req = urllib.request.Request(url, method="GET", headers={"Accept": "*/*", **headers})
+    try:
+        with _opener.open(req, timeout=30) as r:  # noqa: S310 - https only, checked above and on every redirect
+            host = urllib.parse.urlsplit(r.geturl()).hostname or ""
+            if hosts and not any(host == h or host.endswith("." + h) for h in hosts):
+                raise err(f"{name}: the file came from {host}, which is not an Atlassian address")
+            if int(r.headers.get("Content-Length") or 0) > limit:
+                raise err(f"{name}: the file is over {limit // (1024 * 1024)} MB, not read")
+            raw = r.read(limit + 1)
+            if len(raw) > limit:
+                raise err(f"{name}: the file is over {limit // (1024 * 1024)} MB, not read")
+            return (r.headers.get_content_type() or "application/octet-stream"), raw
+    except urllib.error.HTTPError as e:
+        raise err(f"{name} answered {e.code}") from None
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        raise err(f"{name} could not be reached: {e}") from None
